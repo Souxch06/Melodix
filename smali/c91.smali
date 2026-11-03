@@ -1323,6 +1323,15 @@
     .line 376
     move-result-object v2
 
+    # The auth-state classifier must run in the same page world before the
+    # shell and bridge make their first libraryV3 decision.
+    const-string v4, "runtime_state.js"
+    invoke-static {v4}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v4
+    move-object v6, v4
+    const-string v5, "runtime_state.js"
+    invoke-static {v5, v4}, Lcom/melodix/music/NativeCrashGuard;->stageLoadedAsset(Ljava/lang/String;Ljava/lang/String;)V
+
     .line 377
     const-string v3, "spotify_bridge.js"
 
@@ -1345,9 +1354,7 @@
     .line 385
     invoke-direct {v5, v1}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
 
-    .line 386
-    .line 387
-    .line 388
+    invoke-virtual {v5, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     invoke-virtual {v5, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     .line 389
@@ -2511,107 +2518,13 @@
 
     .line 17
     :cond_0
-    invoke-static {v1}, Ldl1;->l(Ljava/lang/String;)Z
-
-    .line 18
-    .line 19
-    .line 20
-    move-result v2
-
-    .line 21
-    if-eqz v2, :cond_3
-
-    .line 22
-    .line 23
-    const-string v2, "/oauth"
-
-    .line 24
-    .line 25
-    invoke-static {v1, v2, v0}, Lda1;->y(Ljava/lang/CharSequence;Ljava/lang/String;Z)Z
-
-    .line 26
-    .line 27
-    .line 28
-    move-result v2
-
-    .line 29
-    if-nez v2, :cond_1
-
-    .line 30
-    .line 31
-    const-string v2, "/v2/auth"
-
-    .line 32
-    .line 33
-    invoke-static {v1, v2, v0}, Lda1;->y(Ljava/lang/CharSequence;Ljava/lang/String;Z)Z
-
-    .line 34
-    .line 35
-    .line 36
-    move-result v2
-
-    .line 37
-    if-nez v2, :cond_1
-
-    .line 38
-    .line 39
-    const-string v2, "/signin"
-
-    .line 40
-    .line 41
-    invoke-static {v1, v2, v0}, Lda1;->y(Ljava/lang/CharSequence;Ljava/lang/String;Z)Z
-
-    .line 42
-    .line 43
-    .line 44
-    move-result v2
-
-    .line 45
-    if-eqz v2, :cond_3
-
-    .line 46
-    .line 47
-    :cond_1
-    # Local https routing: the authority and the standard https port are
-    # checked here, and the runtime state file is served in place. The login
-    # URL is never rewritten anymore.
-    invoke-static {v1}, Landroid/net/Uri;->parse(Ljava/lang/String;)Landroid/net/Uri;
-
-    move-result-object v5
-
-    invoke-virtual {v5}, Landroid/net/Uri;->getScheme()Ljava/lang/String;
-
-    move-result-object p0
-
-    invoke-virtual {v5}, Landroid/net/Uri;->getAuthority()Ljava/lang/String;
-
-    move-result-object p0
-
-    const/16 v5, 0x1bb
-
-    const-string v2, "runtime_state.js"
-
-    move-object p0, v1
-
-    :cond_2
-    const/4 p0, 0x1
-
-    .line 87
-    return p0
-
-    .line 88
     :cond_3
+    # Let Spotify's own same-origin login/signin routes continue in this
+    # WebView. Only SpotifyNavigationPolicy may consume an app hand-off.
     invoke-super {p0, p1, p2}, Landroid/webkit/WebViewClient;->shouldOverrideUrlLoading(Landroid/webkit/WebView;Landroid/webkit/WebResourceRequest;)Z
-
-    .line 89
-    .line 90
-    .line 91
     move-result p0
-
-    .line 92
     return p0
 
-    .line 93
     :spotify_app_link_handled
     const/4 v0, 0x1
 

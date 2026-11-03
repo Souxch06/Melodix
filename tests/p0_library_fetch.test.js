@@ -14,6 +14,7 @@ const vm = require('node:vm');
 
 const repo = path.resolve(__dirname, '..');
 const BRIDGE = path.join(repo, 'scripts/spotify_bridge.source.js');
+const RUNTIME_STATE = path.join(repo, 'assets/runtime_state.js');
 const REQUEST_TIMEOUT_MS = 15000;
 
 function fakeElement() {
@@ -29,12 +30,16 @@ function fakeElement() {
 
 // Loads the real bridge into its own sandbox. `fetchImpl` replaces page fetch
 // captured as oriFetch. Long production deadlines are shortened only in tests.
-function loadBridge({ fetchImpl, profileSignal = false } = {}) {
+function loadBridge({ fetchImpl, profileSignal = true, playerSignal = true, loginSignal = false,
+    pathname = '/', hostname = 'open.spotify.com' } = {}) {
     const listeners = {};
     const dispatchedEvents = [];
     const eventSnapshots = [];
     const diagnostics = [];
     const profile = fakeElement();
+    const playerControl = fakeElement();
+    const loginAction = fakeElement();
+    const authSignals = { profileSignal, playerSignal, loginSignal };
     const win = {
         addEventListener(type, fn) { (listeners[type] = listeners[type] || []).push(fn); },
         removeEventListener() {},
@@ -57,8 +62,8 @@ function loadBridge({ fetchImpl, profileSignal = false } = {}) {
         cancelAnimationFrame() {},
         AbortController,
         location: {
-            hostname: 'open.spotify.com', href: 'https://open.spotify.com/',
-            pathname: '/', origin: 'https://open.spotify.com', search: '',
+            hostname: hostname, href: 'https://' + hostname + pathname,
+            pathname: pathname, origin: 'https://' + hostname, search: '',
             reload() {}, assign() {}, replace() {}
         },
         navigator: { userAgent: 'Mozilla/5.0', languages: ['fr'], language: 'fr' },
@@ -69,8 +74,11 @@ function loadBridge({ fetchImpl, profileSignal = false } = {}) {
             readyState: 'complete', createElement: fakeElement, documentElement: fakeElement(),
             body: fakeElement(), head: fakeElement(),
             querySelector(selector) {
-                return profileSignal && /user-widget-link|main-userWidget-box/.test(String(selector))
-                    ? profile : null;
+                const value = String(selector);
+                if (authSignals.loginSignal && /login-button|href[^,]*login/.test(value)) return loginAction;
+                if (authSignals.profileSignal && /user-widget-link|main-userWidget-box/.test(value)) return profile;
+                if (authSignals.playerSignal && /control-button-playpause|main-playButton-entrancePoint/.test(value)) return playerControl;
+                return null;
             },
             querySelectorAll: () => [], getElementById: () => null,
             title: 'Spotify'
@@ -87,10 +95,25 @@ function loadBridge({ fetchImpl, profileSignal = false } = {}) {
     win.window = win;
     win.document.defaultView = win;
     const context = vm.createContext(win);
+    vm.runInContext(fs.readFileSync(RUNTIME_STATE, 'utf8'), context, { timeout: 20000 });
     vm.runInContext(fs.readFileSync(BRIDGE, 'utf8'), context, { timeout: 20000 });
     win.__testDispatchedEvents = dispatchedEvents;
     win.__testEventSnapshots = eventSnapshots;
     win.__testDiagnostics = diagnostics;
+    win.__testSetAuthSignals = (updates = {}) => {
+        if (Object.prototype.hasOwnProperty.call(updates, 'profileSignal')) authSignals.profileSignal = updates.profileSignal === true;
+        if (Object.prototype.hasOwnProperty.call(updates, 'playerSignal')) authSignals.playerSignal = updates.playerSignal === true;
+        if (Object.prototype.hasOwnProperty.call(updates, 'loginSignal')) authSignals.loginSignal = updates.loginSignal === true;
+        if (Object.prototype.hasOwnProperty.call(updates, 'pathname')) {
+            win.location.pathname = String(updates.pathname || '/');
+            win.location.href = 'https://' + win.location.hostname + win.location.pathname;
+        }
+        if (Object.prototype.hasOwnProperty.call(updates, 'hostname')) {
+            win.location.hostname = String(updates.hostname || 'open.spotify.com');
+            win.location.origin = 'https://' + win.location.hostname;
+            win.location.href = win.location.origin + win.location.pathname;
+        }
+    };
     return win;
 }
 
@@ -163,8 +186,25 @@ test('checkMediaLib transforms a valid library response and sends cookies withou
     assert.deepEqual(Array.from(win.mediaLib.playlists, (item) => item.name),
         ['Fixture Road trip', 'Fixture Focus']);
     assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, 'https://api-partner.spotify.com/pathfinder/v2/query');
+    assert.equal(calls[0].init.method, 'POST');
+    assert.equal(calls[0].init.mode, 'cors');
     assert.equal(calls[0].init.credentials, 'include');
-    assert.ok(!/authorization/i.test(Object.keys(calls[0].init.headers || {}).join(',')));
+    const requestBody = JSON.parse(calls[0].init.body);
+    assert.equal(requestBody.operationName, 'libraryV3');
+    assert.equal(requestBody.variables.limit, 50);
+    assert.equal(requestBody.variables.offset, 0);
+    assert.equal(requestBody.variables.textFilter, '');
+    assert.deepEqual(Array.from(requestBody.variables.features),
+        ['LIKED_SONGS', 'YOUR_EPISODES_V2', 'PRERELEASES', 'EVENTS']);
+    assert.equal(requestBody.extensions.persistedQuery.version, 1);
+    assert.match(requestBody.extensions.persistedQuery.sha256Hash, /^[a-f0-9]{64}$/);
+    const headers = calls[0].init.headers || {};
+    assert.deepEqual(Object.keys(headers).sort(), ['Content-Type', 'app-platform', 'spotify-app-version'].sort());
+    assert.equal(headers['Content-Type'], 'application/json;charset=UTF-8');
+    assert.equal(headers['app-platform'], 'WebPlayer');
+    assert.equal(headers['spotify-app-version'], '1.2.40.0');
+    assert.ok(!/authorization/i.test(Object.keys(headers).join(',')));
     assert.match(finalLibraryDiagnostic(win),
         /^library-fetch phase=settle http=200 mime=json duration=[0-9]+ error=none auth=webview-session refresh=unsupported$/);
     const diagnostic = win.__sfMediaLibLastDiagnostic;
@@ -505,15 +545,71 @@ test('network failure, invalid JSON and HTML response are distinguished', async 
         /phase=response http=200 mime=html duration=[0-9]+ error=non-json/);
 });
 
-test('a profile widget is diagnostic-only and never substitutes for library proof', async () => {
+test('login navigation aborts an in-flight request and rejects its late private response', async () => {
+    for (const pathname of ['/login', '/intl-fr/login']) {
+        let resolveResponse;
+        let requestSignal;
+        let fetchCount = 0;
+        const win = loadBridge({
+            fetchImpl: async (_url, init) => {
+                fetchCount += 1;
+                requestSignal = init.signal;
+                return new Promise((resolve) => { resolveResponse = resolve; });
+            }
+        });
+        const pending = win.checkMediaLib();
+        for (let attempt = 0; attempt < 10 && !resolveResponse; attempt += 1) await Promise.resolve();
+        assert.equal(fetchCount, 1);
+        assert.ok(requestSignal);
+
+        win.__testSetAuthSignals({ pathname });
+        assert.equal(win.__sfGetSpotifyAuthUiState(), 'required', `${pathname}: login state is recognized`);
+        assert.equal(requestSignal.aborted, true, `${pathname}: active library request is cancelled`);
+        assert.equal(await win.checkMediaLib(true), false, `${pathname}: retry is blocked on login`);
+        resolveResponse(libraryPage([libraryItem({ uri: 'spotify:playlist:stale', name: 'Fixture stale response' })]));
+        await pending;
+
+        assert.equal(win.__sfMediaLibStatus, 'pending', `${pathname}: stale result leaves no success state`);
+        assert.equal(win.__sfMediaLibSessionProven, false, `${pathname}: stale result cannot prove a session`);
+        assert.equal(win.mediaLib, undefined, `${pathname}: stale private rows are not restored`);
+        assert.equal(fetchCount, 1, `${pathname}: no second unauthenticated request is issued`);
+        assert.doesNotMatch(win.__testDiagnostics.join('\\n'), /Fixture stale response|spotify:playlist:stale/);
+    }
+});
+
+test('a profile widget alone never authorizes a library request', async () => {
+    let fetchCount = 0;
     const win = loadBridge({
         profileSignal: true,
-        fetchImpl: async () => jsonResponse(401, {})
+        playerSignal: false,
+        fetchImpl: async () => { fetchCount += 1; return jsonResponse(401, {}); }
     });
-    await win.checkMediaLib(true);
+    const result = await win.checkMediaLib(true);
+    assert.equal(result, false);
+    assert.equal(fetchCount, 0);
+    assert.equal(win.__sfSpotifyAuthUiState, 'unknown');
+    assert.equal(win.__sfMediaLibStatus, 'pending');
     assert.equal(win.__sfMediaLibSessionProven, false);
-    assert.match(finalLibraryDiagnostic(win), /^library-fetch phase=response http=401 mime=json duration=[0-9]+ error=http-401 auth=webview-session refresh=unsupported$/);
-    assert.doesNotMatch(finalLibraryDiagnostic(win), /Fixture|cookie|token|Authorization|proof=|page=|received|transformed/i);
+    assert.equal(libraryDiagnostics(win).length, 0, 'no request diagnostic is emitted when the player UI is not confirmed');
+});
+
+test('a confirmed player UI permits one libraryV3 check and records a separate proof epoch', async () => {
+    let fetchCount = 0;
+    const win = loadBridge({
+        profileSignal: true,
+        playerSignal: false,
+        fetchImpl: async () => { fetchCount += 1; return libraryPage([]); }
+    });
+    assert.equal(await win.checkMediaLib(), false);
+    assert.equal(fetchCount, 0);
+    win.__testSetAuthSignals({ playerSignal: true });
+    assert.equal(win.__sfGetSpotifyAuthUiState(), 'connected');
+    await win.checkMediaLib();
+    assert.equal(fetchCount, 1);
+    assert.equal(win.__sfMediaLibStatus, 'ready');
+    assert.equal(win.__sfMediaLibSessionProven, true);
+    assert.equal(win.__sfMediaLibProofAuthEpoch, win.__sfSpotifyAuthEpoch);
+    assert.ok(win.__sfSpotifyAuthEpoch > 0);
 });
 
 test('a valid empty library is distinct from a failed request and proves only the API response', async () => {

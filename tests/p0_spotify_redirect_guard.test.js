@@ -32,6 +32,21 @@ test('both WebView navigation callback signatures run the Spotify policy before 
   assert.match(legacy, /const\/4 v1, 0x1[\s\S]*?SpotifyNavigationPolicy;->handle\(Landroid\/webkit\/WebView;Landroid\/net\/Uri;Z\)Z/);
 });
 
+test('Spotify account and login routes reach WebViewClient fallback instead of being swallowed', () => {
+  const request = method(client, '.method public final shouldOverrideUrlLoading(Landroid/webkit/WebView;Landroid/webkit/WebResourceRequest;)Z');
+  const accountPolicy = method(policy, '.method private static isSpotifyUri(Landroid/net/Uri;)Z');
+  const accountExclusion = accountPolicy.indexOf('const-string v1, "accounts.spotify.com"');
+  const schemeDispatch = accountPolicy.indexOf('Uri;->getScheme()Ljava/lang/String;');
+
+  assert.ok(accountExclusion >= 0 && accountExclusion < schemeDispatch,
+    'accounts.spotify.com is excluded before Spotify app-link interception');
+  assert.match(request, /SpotifyNavigationPolicy;->handle\([\s\S]*?if-nez v2, :spotify_app_link_handled[\s\S]*?WebViewClient;->shouldOverrideUrlLoading/);
+  assert.doesNotMatch(request, /Ldl1;->l\(Ljava\/lang\/String;\)Z|"\/oauth"|"\/v2\/auth"|"\/signin"/,
+    'same-origin authentication paths are not consumed by a stale broad URL predicate');
+  assert.match(request, /:cond_3[\s\S]*?invoke-super \{p0, p1, p2\}/,
+    'normal HTTPS navigation keeps the platform WebView behavior');
+});
+
 test('the Activity boundary consumes Spotify ACTION_VIEW intents before Android can launch an app', () => {
   const interceptor = method(policy, '.method public static interceptActivityIntent(Landroid/webkit/WebView;Landroid/content/Intent;)Z');
   assert.match(interceptor, /android\.intent\.action\.VIEW/);
@@ -137,8 +152,8 @@ test('the native shell loader accepts only canonical Spotify HTTPS URLs and post
 test('the guard does not launch Spotify, rewrite account state, or capture login data', () => {
   assert.doesNotMatch(policy, /invoke-.*->startActivity\(/);
   assert.doesNotMatch(policy, /CookieManager|setCookie|password|credential/i);
-  assert.match(client, /invoke-static \{v1\}, Ldl1;->l\(Ljava\/lang\/String;\)Z/);
-  assert.match(client, /"\/oauth"/);
-  assert.match(client, /"\/v2\/auth"/);
-  assert.match(client, /"\/signin"/);
+  assert.doesNotMatch(client, /"\/oauth"|"\/v2\/auth"|"\/signin"/,
+    'authentication paths are left to Spotify and WebViewClient rather than a broad native override');
+  assert.match(client, /SpotifyNavigationPolicy;->handle/);
+  assert.match(policy, /accounts\.spotify\.com/);
 });

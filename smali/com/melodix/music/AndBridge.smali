@@ -549,6 +549,46 @@
     move-result v1
     if-nez v1, :structured_safe
 
+    const-string v0, "^auth\\.state state=(unknown|in-progress|connected|required)$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const-string v0, "^webview\\.session\\.ready ready=(0|1) source=player-ui$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const-string v0, "^library\\.state state=(inactive|loading|ready|empty|retry-planned|unavailable)$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const-string v0, "^library\\.request\\.started attempt=[0-9]{1,6} request=[0-9]{1,4} source=(shell-update|native-retry|web-home-retry|settings-resync|unspecified)$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const-string v0, "^library\\.request\\.response attempt=[0-9]{1,6} request=[0-9]{1,4} http=(0|[1-5][0-9]{2}) mime=(json|html|other|missing) duration=[0-9]{1,6}$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const-string v0, "^library\\.parse\\.completed attempt=[0-9]{1,6} request=[0-9]{1,4} result=(valid|empty|malformed|partial)$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const-string v0, "^library\\.data\\.ready result=(empty|populated)$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const-string v0, "^library\\.error category=(http-401|http-403|rate-limit|timeout|network|non-json|invalid-json|unexpected-shape|graphql|transform|http-other|other) http=(0|[1-5][0-9]{2})$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
     const-string v0, "^spotify-route route=(home|search|library|playlist|album|artist|track|show|episode|audiobook|login|other)$"
     invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
     move-result v1

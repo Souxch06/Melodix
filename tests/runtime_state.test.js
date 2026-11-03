@@ -44,6 +44,23 @@ test('login and public routes override any ambiguous positive-looking UI', () =>
     );
 });
 
+test('auth and library diagnostic events are allowlisted as bounded metadata only', () => {
+    const nativeBridge = read('smali/com/melodix/music/AndBridge.smali');
+    for (const pattern of [
+        'state=(unknown|in-progress|connected|required)',
+        'ready=(0|1) source=player-ui',
+        'state=(inactive|loading|ready|empty|retry-planned|unavailable)',
+        'attempt=[0-9]{1,6} request=[0-9]{1,4}',
+        'result=(valid|empty|malformed|partial)',
+        'result=(empty|populated)',
+        'category=(http-401|http-403|rate-limit|timeout|network|non-json|invalid-json|unexpected-shape|graphql|transform|http-other|other)'
+    ]) {
+        assert.ok(nativeBridge.includes(pattern), `native bridge must accept bounded event pattern: ${pattern}`);
+    }
+    assert.doesNotMatch(nativeBridge, /getCookie|setCookie|access[_-]token|password|authorization/i,
+        'diagnostic allowlisting does not add credential or response-body access');
+});
+
 test('expired session transitions from confirmed player UI to signed out once', () => {
     const transitions = [];
     const machine = runtime.createAuthStateMachine((state) => transitions.push(state));
@@ -173,11 +190,18 @@ test('auth and WebView code do not capture credentials or proxy Spotify requests
     const bridge = read('scripts/spotify_bridge.source.js');
     const nativeBridge = read('smali/com/melodix/music/AndBridge.smali');
     const webViewClient = read('smali/c91.smali');
+    const navigationPolicy = read('smali/com/melodix/music/SpotifyNavigationPolicy.smali');
     const app = read('smali/com/melodix/music/AppSingleton.smali');
     const appWebView = read('smali/m9.smali');
     const assetLoader = read('smali/c40.smali');
 
-    assert.doesNotMatch(bridge, /spot_auth_token|spot_cli_token|Client-Token|pathfinder\/v2\/query|connect-state|AndBridge\.nativeFetch/);
+    assert.doesNotMatch(bridge, /spot_auth_token|spot_cli_token|Client-Token|connect-state|AndBridge\.nativeFetch/);
+    assert.match(bridge, /operationName:\s*'libraryV3'/,
+        'the existing libraryV3 path stays in the Spotify WebView request context');
+    assert.match(bridge, /credentials:\s*'include'/,
+        'the browser supplies its own WebView session without copying cookies into code');
+    assert.doesNotMatch(bridge, /Authorization\s*:/i,
+        'no bearer token or manually supplied authorization header is introduced');
     assert.doesNotMatch(bridge, /window\.fetch\s*=/);
     assert.doesNotMatch(bridge, /location\.replace\s*\(/);
     assert.doesNotMatch(bridge, /web-player-link[^\n]*\.click\s*\(/);
@@ -188,10 +212,10 @@ test('auth and WebView code do not capture credentials or proxy Spotify requests
     assert.doesNotMatch(webViewClient, /CookieManager;->getCookie|CookieManager;->setCookie|openConnection|Access-Control-Allow-Origin/);
     assert.doesNotMatch(webViewClient, /prompt=select_account/);
     assert.match(webViewClient, /invoke-super \{p0, p1, p2\}, Landroid\/webkit\/WebViewClient;->shouldOverrideUrlLoading/);
-    assert.match(webViewClient, /Uri;->getScheme\(\)Ljava\/lang\/String;/);
-    assert.match(webViewClient, /Uri;->getPort\(\)I/);
-    assert.match(webViewClient, /Uri;->getAuthority\(\)Ljava\/lang\/String;/);
-    assert.match(webViewClient, /const\/16 v5, 0x1bb/);
+    assert.match(webViewClient, /WebResourceRequest;->getUrl\(\)Landroid\/net\/Uri;/);
+    assert.match(webViewClient, /SpotifyNavigationPolicy;->handle\(Landroid\/webkit\/WebView;Landroid\/net\/Uri;Z\)Z/);
+    assert.match(navigationPolicy, /accounts\.spotify\.com[\s\S]*?if-nez v2, :no/,
+        'official account-host navigation is excluded from custom app-link handling');
     // These pre-existing page helpers stay scoped to their own login/consent
     // routes; their presence is not evidence of authenticated Home rendering.
     assert.match(webViewClient, /invoke-static \{v1\}, Ldl1;->l\(Ljava\/lang\/String;\)Z[\s\S]*?if-eqz v2, :cond_8[\s\S]*?const-string v2, "google_spoof\.js"[\s\S]*?evaluateJavascript/);
@@ -207,7 +231,15 @@ test('auth and WebView code do not capture credentials or proxy Spotify requests
     assert.doesNotMatch(read('assets/desktop_spoof.js'), /navigator\.userAgentData|can_be_player|serviceWorker\.register|connect-state/);
     assert.match(appWebView, /DOCUMENT_START_SCRIPT/);
     assert.match(appWebView, /spotify_sw_compat\.js/);
-    assert.match(webViewClient, /const-string v2, "runtime_state\.js"/);
+    assert.match(webViewClient, /const-string v[0-9]+, "runtime_state\.js"/);
+    const pageFinished = webViewClient.match(/\.method public final onPageFinished\(Landroid\/webkit\/WebView;Ljava\/lang\/String;\)V([\s\S]*?)\.end method/);
+    assert.ok(pageFinished, 'page-finished startup method exists');
+    const runtimeAt = pageFinished[1].indexOf('const-string v4, "runtime_state.js"');
+    const runtimeAppendAt = pageFinished[1].indexOf('invoke-virtual {v5, v6}, Ljava/lang/StringBuilder;->append');
+    const desktopAppendAt = pageFinished[1].indexOf('invoke-virtual {v5, v2}, Ljava/lang/StringBuilder;->append');
+    assert.ok(runtimeAt >= 0 && runtimeAppendAt >= 0 && runtimeAppendAt < desktopAppendAt,
+        'the auth classifier is executed before page UI scripts and before the bridge runner');
+    assert.match(pageFinished[1], /append\(Ljava\/lang\/String;\)Ljava\/lang\/StringBuilder;[\s\S]*?move-result-object v1[\s\S]*?evaluateJavascript/);
     assert.match(assetLoader, /const-string v7, "runtime_state\.js"/);
 });
 

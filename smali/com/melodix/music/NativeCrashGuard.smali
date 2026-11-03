@@ -964,8 +964,16 @@
     const-string v0, "spotify_bridge.js"
     invoke-virtual {v0, p0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
-    if-eqz v1, :asset_stage_home
+    if-eqz v1, :asset_stage_runtime
     const-string v0, "bridge-asset-loaded"
+    goto :asset_stage_record
+
+    :asset_stage_runtime
+    const-string v0, "runtime_state.js"
+    invoke-virtual {v0, p0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :asset_stage_home
+    const-string v0, "runtime-state-asset-loaded"
     goto :asset_stage_record
 
     :asset_stage_home

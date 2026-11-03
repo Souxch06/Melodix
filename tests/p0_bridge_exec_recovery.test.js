@@ -15,7 +15,7 @@ const runnerSource = shell.slice(snippetStart, snippetEnd) +
   '\nwindow.__testLoadBundledBridge = loadBundledBridge;' +
   '\nwindow.__testInstallBridgeRecovery = installBridgeRecovery;';
 
-function makeHarness({ nativeStartDelay = null, blobAllowed = true } = {}) {
+function makeHarness({ nativeStartDelay = null, blobAllowed = true, evalAllowed = false } = {}) {
   let now = 0;
   let nextTimerId = 0;
   const timers = [];
@@ -105,9 +105,15 @@ function makeHarness({ nativeStartDelay = null, blobAllowed = true } = {}) {
   };
 
   function blockedEval() {
+    for (const listener of cspListeners) {
+      listener({ effectiveDirective: 'script-src', blockedURI: 'eval' });
+    }
     const error = new Error('blocked by CSP');
     error.name = 'EvalError';
     throw error;
+  }
+  function allowedEval(source) {
+    return vm.runInContext(String(source), context, { filename: 'bridge-from-eval.js' });
   }
   function blockedFunction() {
     const error = new Error('blocked by CSP');
@@ -120,7 +126,7 @@ function makeHarness({ nativeStartDelay = null, blobAllowed = true } = {}) {
     document,
     URL,
     Blob: FakeBlob,
-    eval: blockedEval,
+    eval: evalAllowed ? allowedEval : blockedEval,
     Function: blockedFunction,
     diagTrace() {}
   });
@@ -217,6 +223,25 @@ test('a native request that returns without starting the bridge falls back and r
     step.stage === 'native-inject' && step.status === 'failed-no-start'));
   assert.ok(harness.window.__sfBridgeExecSteps.some((step) =>
     step.stage === 'blob' && step.status === 'started'));
+});
+
+test('CSP telemetry distinguishes inline script rejection from eval rejection', () => {
+  const inlineHarness = makeHarness({ blobAllowed: true, evalAllowed: true });
+  inlineHarness.installRecovery();
+  assert.equal(inlineHarness.run(), true);
+  assert.equal(inlineHarness.window.__sfBridgeExecMode, 'eval');
+  assert.equal(inlineHarness.window.__sfBridgeCspViolation, 'script-src-elem:inline');
+
+  const evalHarness = makeHarness({ blobAllowed: true, evalAllowed: false });
+  evalHarness.installRecovery();
+  evalHarness.run();
+  evalHarness.runTimers();
+  assert.equal(evalHarness.window.__sfBridgeExecMode, 'blob-started');
+  assert.equal(evalHarness.window.__sfBridgeCspViolation, 'script-src:eval');
+  assert.ok(evalHarness.window.__sfBridgeExecSteps.some((step) =>
+    step.stage === 'csp' && step.status === 'inline'));
+  assert.ok(evalHarness.window.__sfBridgeExecSteps.some((step) =>
+    step.stage === 'csp' && step.status === 'eval'));
 });
 
 test('CSP telemetry keeps only the directive and blocked URI category', () => {

@@ -2892,6 +2892,29 @@
     ];
     let mediaLibraryAttemptSequence = 0;
 
+    function spotifyAuthUiState() {
+        try {
+            const getter = window.__sfGetSpotifyAuthUiState;
+            const state = typeof getter === 'function' ? String(getter() || '') : '';
+            return ['unknown', 'in-progress', 'connected', 'required'].includes(state) ? state : 'unknown';
+        } catch (_) {
+            return 'unknown';
+        }
+    }
+
+    function mediaLibraryAuthReady() {
+        return spotifyAuthUiState() === 'connected';
+    }
+
+    function traceLibraryEvent(line) {
+        try {
+            if (typeof window.__sfBridgeTrace === 'function') window.__sfBridgeTrace(line);
+            else if (window.AndBridge && typeof window.AndBridge.logDiagEvent === 'function') {
+                window.AndBridge.logDiagEvent(line);
+            }
+        } catch (_) {}
+    }
+
     function pickOptimalArtwork(sources, fallbackImages) {
         const list = (Array.isArray(sources) && sources.length) ? sources : (Array.isArray(fallbackImages) ? fallbackImages : []);
         if (!list.length) return null;
@@ -2915,6 +2938,8 @@
     // A single-flight promise prevents a forced/manual retry from racing an
     // already-running libraryV3 request and overwriting newer session state.
     let mediaLibraryCheckPromise = null;
+    let mediaLibraryRequestGeneration = 0;
+    const activeMediaLibraryControllers = new Set();
     const MEDIA_LIBRARY_REQUEST_TIMEOUT_MS = 15000;
 
     // Diagnostic values are deliberately limited to enums and bounded counts.
@@ -3092,11 +3117,38 @@
         );
     }
 
+    function mediaLibraryUiState() {
+        const status = String(window.__sfMediaLibStatus || 'pending');
+        if (status === 'loading') return 'loading';
+        if (status === 'ready') {
+            return mediaLibraryTransformedCount(window.mediaLib) === 0 ? 'empty' : 'ready';
+        }
+        if (status === 'error') {
+            const error = String(window.__sfMediaLibError || '');
+            const retryAt = Number(window.__sfMediaLibRetryAt || 0);
+            if (error !== 'http-401' && error !== 'http-403' && retryAt > Date.now()) {
+                return 'retry-planned';
+            }
+            return 'unavailable';
+        }
+        return 'inactive';
+    }
+
+    function syncMediaLibraryUiState() {
+        const state = mediaLibraryUiState();
+        if (window.__sfMediaLibUiState !== state) {
+            window.__sfMediaLibUiState = state;
+            traceLibraryEvent('library.state state=' + state);
+        }
+        return state;
+    }
+
     // P0 sync fix: the first home scrape can finish before mediaLib arrives.
     // Notify both the native shell and the Web Home renderer when collection
     // state changes; the Web renderer does not depend on unrelated DOM churn.
     // No token, account content, resource IDs, or error text is sent by this event.
     function notifyMediaLibUiChange() {
+        syncMediaLibraryUiState();
         try {
             window.dispatchEvent(new window.Event('sf-media-library-state-changed'));
         } catch (_) {}
@@ -3114,12 +3166,25 @@
         window.__sfMediaLibSessionProven;
     window.__sfMediaLibRawItemCount = Number.isFinite(Number(window.__sfMediaLibRawItemCount))
         ? Math.max(0, Math.min(1000, Math.floor(Number(window.__sfMediaLibRawItemCount)))) : 0;
+    window.__sfMediaLibUpdatedAt = Number.isFinite(Number(window.__sfMediaLibUpdatedAt))
+        ? Math.max(0, Number(window.__sfMediaLibUpdatedAt)) : 0;
+    window.__sfMediaLibProofAuthEpoch = Number.isFinite(Number(window.__sfMediaLibProofAuthEpoch))
+        ? Math.max(0, Math.floor(Number(window.__sfMediaLibProofAuthEpoch))) : 0;
 
     function checkMediaLib(force = false, source = 'unspecified') {
+        // Fail closed until the same WebView has positive player/profile UI
+        // evidence. A previous native marker or cached library is not enough.
+        if (!mediaLibraryAuthReady()) {
+            syncMediaLibraryUiState();
+            return Promise.resolve(false);
+        }
         if (mediaLibraryCheckPromise) return mediaLibraryCheckPromise;
 
         const diagnostic = createMediaLibraryDiagnostic(source);
-        const pending = Promise.resolve().then(() => runMediaLibraryCheck(diagnostic));
+        const requestGeneration = mediaLibraryRequestGeneration;
+        const authEpoch = boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999);
+        window.__sfMediaLibLastAuthAttemptEpoch = authEpoch;
+        const pending = Promise.resolve().then(() => runMediaLibraryCheck(diagnostic, requestGeneration, authEpoch));
         // Install the lock before notifying observers; a synchronous UI callback
         // or forced retry now joins this request rather than starting another.
         mediaLibraryCheckPromise = pending;
@@ -3139,12 +3204,14 @@
         return pending;
     }
 
-    async function runMediaLibraryCheck(diagnostic) {
+    async function runMediaLibraryCheck(diagnostic, requestGeneration, authEpoch) {
         // Cookies/session are supplied only by this WebView's credentialed
         // request. No OAuth token is read and no refresh is available here.
         let allItems = [];
         try {
-            allItems = await fetchAllLibrary(diagnostic);
+            allItems = await fetchAllLibrary(diagnostic, requestGeneration, authEpoch);
+            if (requestGeneration !== mediaLibraryRequestGeneration ||
+                authEpoch !== boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999)) return;
             diagnostic.received = Array.isArray(allItems) ? allItems.length : 0;
             window.__sfMediaLibRawItemCount = boundedMediaLibraryCount(diagnostic.received, 1000);
             let failed = Boolean(window.__sfMediaLibError);
@@ -3156,6 +3223,8 @@
                 // old or partial private rows after either refusal.
                 window.mediaLib = null;
                 window.__sfMediaLibRawItemCount = 0;
+                window.__sfMediaLibUpdatedAt = 0;
+                window.__sfMediaLibProofAuthEpoch = 0;
                 diagnostic.received = 0;
                 window.__sfMediaLibStatus = 'error';
             } else if (!failed || usable) {
@@ -3167,6 +3236,12 @@
                 try {
                     const parsed = parseLibrary(allItems);
                     diagnostic.transformed = mediaLibraryTransformedCount(parsed);
+                    const parseResult = failed ? 'partial' : !usable ? 'empty' :
+                        diagnostic.transformed > 0 ? 'valid' : 'malformed';
+                    traceLibraryEvent('library.parse.completed attempt=' +
+                        boundedMediaLibraryCount(diagnostic.attempt, 999999) +
+                        ' request=' + boundedMediaLibraryCount(diagnostic.requests, 1000) +
+                        ' result=' + parseResult);
                     if (usable && diagnostic.transformed === 0) {
                         if (!failed) {
                             window.__sfMediaLibError = 'transform-error';
@@ -3176,6 +3251,7 @@
                     } else {
                         window.mediaLib = parsed;
                         window.__sfMediaLibStatus = failed ? 'error' : 'ready';
+                        if (!failed) window.__sfMediaLibUpdatedAt = Date.now();
                     }
                 } catch (_) {
                     window.__sfMediaLibStatus = 'error';
@@ -3206,12 +3282,20 @@
             }
             notifyMediaLibSettled(window.__sfMediaLibStatus);
         } catch (_) {
+            if (requestGeneration !== mediaLibraryRequestGeneration ||
+                authEpoch !== boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999)) return;
             window.__sfMediaLibStatus = 'error';
             window.__sfMediaLibError = 'transform-error';
             diagnostic.phase = 'transform';
             diagnostic.error = 'transform';
             notifyMediaLibSettled('transform-error');
         } finally {
+            if (requestGeneration !== mediaLibraryRequestGeneration ||
+                authEpoch !== boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999)) {
+                diagnostic.phase = 'settle';
+                diagnostic.error = 'none';
+                return;
+            }
             if (diagnostic.error === 'none' && window.__sfMediaLibError) {
                 diagnostic.error = mediaLibraryDiagnosticError(window.__sfMediaLibError);
             }
@@ -3220,6 +3304,26 @@
             }
             if (diagnostic.phase === 'transform' &&
                 (diagnostic.error === 'none' || diagnostic.error === 'empty')) diagnostic.phase = 'settle';
+            if (window.__sfMediaLibStatus === 'ready') {
+                traceLibraryEvent('library.data.ready result=' +
+                    (mediaLibraryTransformedCount(window.mediaLib) === 0 ? 'empty' : 'populated'));
+            } else if (diagnostic.error !== 'none' && diagnostic.error !== 'empty') {
+                const rawError = String(window.__sfMediaLibError || '');
+                const errorCategory = rawError === 'http-401' ? 'http-401' :
+                    rawError === 'http-403' ? 'http-403' :
+                        rawError === 'http-429' ? 'rate-limit' :
+                            rawError === 'timeout' ? 'timeout' :
+                                rawError === 'network-error' || rawError === 'http-unknown' ? 'network' :
+                                    rawError === 'non-json' ? 'non-json' :
+                                        rawError === 'invalid-json' ? 'invalid-json' :
+                                            rawError === 'unexpected-shape' ? 'unexpected-shape' :
+                                                rawError === 'graphql-error' ? 'graphql' :
+                                                    rawError === 'transform-error' ? 'transform' :
+                                                        /^http-[0-9]{3}$/.test(rawError) ? 'http-other' : 'other';
+                traceLibraryEvent('library.error category=' + errorCategory +
+                    ' http=' + boundedMediaLibraryCount(diagnostic.http, 599));
+            }
+            syncMediaLibraryUiState();
             emitMediaLibraryDiagnostic(diagnostic, diagnostic.phase || 'settle');
             if (window.__sfMediaLibStatus === 'ready') {
                 window.__sfMediaLibRetryAt = 0;
@@ -3232,19 +3336,23 @@
     // Do not read, store, or forward credentials. Each page request uses only
     // the browser's included cookies and has a bounded deadline for both the
     // response and its JSON body.
-    async function fetchAllLibrary(diagnostic) {
+    async function fetchAllLibrary(diagnostic, requestGeneration = mediaLibraryRequestGeneration,
+        authEpoch = boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999)) {
         const trace = diagnostic || createMediaLibraryDiagnostic();
         const limit = 50;
         let offset = 0;
         let allItems = [];
         let hasMore = true;
 
-        while (hasMore && offset < 1000) {
+        while (hasMore && offset < 1000 && requestGeneration === mediaLibraryRequestGeneration &&
+            authEpoch === boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999)) {
             const activeHash = getGqlHash('libraryV3', '0082bf82412db50128add72dbdb73e2961d59100b9cbf41fb25c568bd8bc358b');
             const endpoint = 'https://api-partner.spotify.com/' + 'pathfinder' + '/v2/' + 'query';
             const controller = typeof window.AbortController === 'function' ? new window.AbortController() : null;
+            if (controller) activeMediaLibraryControllers.add(controller);
             let timerId = null;
             let timedOut = false;
+            let requestStartedAt = 0;
             let rejectTimeout;
             const timeout = new Promise((resolve, reject) => { rejectTimeout = reject; });
             timerId = window.setTimeout(() => {
@@ -3292,17 +3400,33 @@
                 let resp;
                 try {
                     trace.requests = boundedMediaLibraryCount(Number(trace.requests || 0) + 1, 1000);
+                    requestStartedAt = mediaLibraryNow();
+                    traceLibraryEvent('library.request.started attempt=' +
+                        boundedMediaLibraryCount(trace.attempt, 999999) +
+                        ' request=' + trace.requests +
+                        ' source=' + safeMediaLibraryCheckSource(trace.source));
                     resp = await Promise.race([oriFetch(endpoint, init), timeout]);
+                    if (requestGeneration !== mediaLibraryRequestGeneration ||
+                        authEpoch !== boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999)) break;
                 } catch (_) {
+                    if (requestGeneration !== mediaLibraryRequestGeneration ||
+                        authEpoch !== boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999)) break;
                     trace.phase = 'request';
                     trace.error = timedOut ? 'timeout' : 'network';
                     window.__sfMediaLibError = timedOut ? 'timeout' : 'network-error';
                     break;
                 }
 
+                if (requestGeneration !== mediaLibraryRequestGeneration ||
+                    authEpoch !== boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999)) break;
                 trace.http = mediaLibraryHttpStatus(resp);
                 trace.mime = mediaLibraryResponseMime(resp);
                 trace.phase = 'response';
+                traceLibraryEvent('library.request.response attempt=' +
+                    boundedMediaLibraryCount(trace.attempt, 999999) +
+                    ' request=' + boundedMediaLibraryCount(trace.requests, 1000) +
+                    ' http=' + trace.http + ' mime=' + trace.mime +
+                    ' duration=' + boundedMediaLibraryCount(mediaLibraryNow() - requestStartedAt, 999999));
                 if (trace.http === 401 || trace.http === 403) {
                     // A 401/403 invalidates this library proof and all previously
                     // accepted private rows. A 403 may mean insufficient scope,
@@ -3313,6 +3437,8 @@
                     window.__sfMediaLibError = refusal;
                     window.mediaLib = null;
                     window.__sfMediaLibRawItemCount = 0;
+                    window.__sfMediaLibUpdatedAt = 0;
+                    window.__sfMediaLibProofAuthEpoch = 0;
                     allItems = [];
                     trace.received = 0;
                     trace.error = refusal;
@@ -3341,20 +3467,38 @@
                         Promise.resolve().then(() => resp.json()), timeout
                     ]);
                 } catch (parseError) {
+                    if (requestGeneration !== mediaLibraryRequestGeneration ||
+                        authEpoch !== boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999)) break;
                     const bodyReadFailed = !timedOut && parseError && parseError.name === 'TypeError';
                     window.__sfMediaLibError = timedOut ? 'timeout' : bodyReadFailed ? 'network-error' : 'invalid-json';
                     trace.error = timedOut ? 'timeout' : bodyReadFailed ? 'network' : 'invalid-json';
+                    if (!bodyReadFailed && !timedOut) {
+                        traceLibraryEvent('library.parse.completed attempt=' +
+                            boundedMediaLibraryCount(trace.attempt, 999999) +
+                            ' request=' + boundedMediaLibraryCount(trace.requests, 1000) +
+                            ' result=malformed');
+                    }
                     break;
                 }
+                if (requestGeneration !== mediaLibraryRequestGeneration ||
+                    authEpoch !== boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999)) break;
 
                 const hasGraphQlErrors = Boolean(Array.isArray(data && data.errors) && data.errors.length > 0);
                 const libraryPage = data && data.data && data.data.me && data.data.me.libraryV3;
                 const items = libraryPage && libraryPage.items;
                 if (!Array.isArray(items)) {
+                    traceLibraryEvent('library.parse.completed attempt=' +
+                        boundedMediaLibraryCount(trace.attempt, 999999) +
+                        ' request=' + boundedMediaLibraryCount(trace.requests, 1000) +
+                        ' result=malformed');
                     window.__sfMediaLibError = hasGraphQlErrors ? 'graphql-error' : 'unexpected-shape';
                     trace.error = hasGraphQlErrors ? 'graphql' : 'unexpected-shape';
                     break;
                 }
+                traceLibraryEvent('library.parse.completed attempt=' +
+                    boundedMediaLibraryCount(trace.attempt, 999999) +
+                    ' request=' + boundedMediaLibraryCount(trace.requests, 1000) +
+                    ' result=' + (hasGraphQlErrors ? 'partial' : 'valid'));
                 if (hasGraphQlErrors) {
                     // A partial GraphQL body may contain data but is not a clean
                     // authentication proof. Keep it only for explicit diagnostics/retry.
@@ -3363,6 +3507,7 @@
                 } else {
                     window.__sfMediaLibSessionProofKnown = true;
                     window.__sfMediaLibSessionProven = true;
+                    window.__sfMediaLibProofAuthEpoch = boundedMediaLibraryCount(authEpoch, 999999);
                 }
                 allItems = allItems.concat(items);
                 trace.received = allItems.length;
@@ -3374,6 +3519,7 @@
                 }
             } finally {
                 if (timerId !== null) window.clearTimeout(timerId);
+                if (controller) activeMediaLibraryControllers.delete(controller);
             }
         }
         trace.received = allItems.length;
@@ -3383,32 +3529,38 @@
 
     function parseLibrary(items) {
         const res = { playlists: [], albums: [], artists: [], podcasts: [] };
+        const seen = {
+            playlists: new Set(), albums: new Set(), artists: new Set(), podcasts: new Set()
+        };
         if (!Array.isArray(items)) return res;
 
-        items.forEach((elem) => {
+        items.slice(0, 1000).forEach((elem) => {
             const data = elem?.item?.data || elem?.data || elem?.item || elem;
             if (!data) return;
-            const typename = data.__typename || data.type || '';
-            const uri = data.uri || data._uri || (data.id ? 'spotify:' + typename.toLowerCase() + ':' + data.id : '') || '';
-            const name = data.name || data.title || data.profile?.name || 'Unknown';
-            const image = data.images?.items?.[0]?.sources?.[0]?.url || data.images?.[0]?.url || data.coverArt?.sources?.[0]?.url || data.visuals?.avatarImage?.sources?.[0]?.url || null;
+            const typename = String(data.__typename || data.type || '');
+            const uri = String(data.uri || data._uri ||
+                (data.id ? 'spotify:' + typename.toLowerCase() + ':' + data.id : '') || '').trim().slice(0, 256);
+            const name = String(data.name || data.title || data.profile?.name || 'Unknown')
+                .replace(/\s+/g, ' ').trim().slice(0, 120);
+            const image = data.images?.items?.[0]?.sources?.[0]?.url || data.images?.[0]?.url ||
+                data.coverArt?.sources?.[0]?.url || data.visuals?.avatarImage?.sources?.[0]?.url || null;
 
             if (!uri) return;
 
             if (typename.includes('Playlist') || uri.includes(':playlist:')) {
                 const isLiked = name === 'Liked Songs' || uri.includes('collection');
-                if (isLiked) {
-                    if (res.playlists.some(p => p.name === 'Liked Songs' || p.id.includes('collection'))) return;
-                } else if (res.playlists.some(p => p.id === uri)) {
-                    return;
-                }
+                const playlistId = isLiked ? 'spotify:collection:tracks' : uri;
+                if (seen.playlists.has(playlistId)) return;
+                seen.playlists.add(playlistId);
                 res.playlists.push({
-                    id: isLiked ? 'spotify:collection:tracks' : uri,
+                    id: playlistId,
                     name: name,
                     image: isLiked ? 'https://misc.scdn.co/liked-songs/liked-songs-640.png' : image,
                     browsable: true
                 });
             } else if (typename.includes('Album') || uri.includes(':album:')) {
+                if (seen.albums.has(uri)) return;
+                seen.albums.add(uri);
                 res.albums.push({
                     id: uri,
                     name: name,
@@ -3417,6 +3569,8 @@
                     browsable: true
                 });
             } else if (typename.includes('Artist') || uri.includes(':artist:')) {
+                if (seen.artists.has(uri)) return;
+                seen.artists.add(uri);
                 res.artists.push({
                     id: uri,
                     name: name,
@@ -3424,6 +3578,8 @@
                     browsable: true
                 });
             } else if (typename.includes('Podcast') || typename.includes('Show') || uri.includes(':show:')) {
+                if (seen.podcasts.has(uri)) return;
+                seen.podcasts.add(uri);
                 res.podcasts.push({
                     id: uri,
                     name: name,
@@ -3433,7 +3589,6 @@
                 });
             }
         });
-        console.log(`[Spotifuck] parseLibrary parsed ${res.playlists.length} playlists, ${res.albums.length} albums, ${res.artists.length} artists, ${res.podcasts.length} podcasts`);
         return res;
     }
     window.parseLibrary = parseLibrary;
@@ -3541,20 +3696,114 @@
 
     function collectAuthSignals() {
         const route = String(window.location.href || '');
+        let host = String(window.location.hostname || '').toLowerCase();
+        let pathname = String(window.location.pathname || '/');
+        try {
+            const parsed = new URL(route);
+            host = parsed.hostname.toLowerCase();
+            pathname = parsed.pathname || '/';
+        } catch (_) {}
+        const normalizedPath = pathname.replace(/^\/intl-[a-z]{2}(?:-[a-z]{2})?(?=\/|$)/i, '') || '/';
         return {
-            accountsPage: /accounts\.spotify\.com/.test(route),
-            loginRoute: /\/(login|auth)([/?#]|$)/.test(route),
+            accountsPage: host === 'accounts.spotify.com',
+            loginRoute: host === 'open.spotify.com' &&
+                /^\/(?:login|signin|oauth|auth|v2\/auth)(?:\/|$)/i.test(normalizedPath),
             loginAction: !!document.querySelector('a[href*="login"], [data-testid="login-button"]'),
             profileControl: !!document.querySelector('[data-testid="user-widget-link"], .main-userWidget-box'),
             playerControls: !!document.querySelector('[data-testid="control-button-playpause"], .main-playButton-entrancePoint')
         };
     }
 
-    function renderUnconfirmedNotice() {
+    function invalidateLibraryProofForAuthChange(reason) {
+        const hadProof = window.__sfMediaLibSessionProven === true || Boolean(window.mediaLib);
+        const hadRequest = Boolean(mediaLibraryCheckPromise || activeMediaLibraryControllers.size);
+        if (hadRequest) {
+            mediaLibraryRequestGeneration += 1;
+            activeMediaLibraryControllers.forEach((controller) => {
+                try { controller.abort(); } catch (_) {}
+            });
+            activeMediaLibraryControllers.clear();
+            mediaLibraryCheckPromise = null;
+        }
+        if (!hadProof && !hadRequest) return false;
+        if (hadProof) {
+            window.__sfMediaLibSessionProofKnown = true;
+            window.__sfMediaLibSessionProven = false;
+            window.mediaLib = null;
+            window.__sfMediaLibRawItemCount = 0;
+            window.__sfMediaLibUpdatedAt = 0;
+            window.__sfMediaLibProofAuthEpoch = 0;
+        }
+        window.__sfMediaLibStatus = 'pending';
+        window.__sfMediaLibError = '';
+        window.__sfMediaLibRetryAt = 0;
+        window.__sfMediaLibRetryDelayMs = 5000;
+        notifyMediaLibSettled(reason || 'auth-change');
+        return true;
+    }
+
+    function clearLibraryProofForLoginRoute() {
+        return invalidateLibraryProofForAuthChange('login-route');
+    }
+
+    function observeSpotifyAuthState() {
         const runtime = window.MelodixRuntime;
-        if (!runtime || typeof runtime.shouldShowUnconfirmedNotice !== 'function') return;
-        const machine = window._sfAuthMachine || (window._sfAuthMachine = runtime.createAuthStateMachine());
-        machine.observe(collectAuthSignals());
+        const hasMachine = runtime && typeof runtime.createAuthStateMachine === 'function';
+        const signals = collectAuthSignals();
+        let machine = null;
+        let observed = null;
+        let state = 'unknown';
+        let previous;
+
+        if (hasMachine) {
+            machine = window._sfAuthMachine;
+            if (!machine || typeof machine.observe !== 'function') {
+                machine = runtime.createAuthStateMachine(function(next) {
+                    if (next === runtime.AUTH_STATE.SIGNED_IN) {
+                        const currentEpoch = Number(window.__sfSpotifyAuthEpoch || 0);
+                        window.__sfSpotifyAuthEpoch = Math.min(999999,
+                            Math.max(0, Number.isFinite(currentEpoch) ? Math.floor(currentEpoch) : 0) + 1);
+                    }
+                });
+                window._sfAuthMachine = machine;
+            }
+            observed = machine.observe(signals);
+            if (observed === runtime.AUTH_STATE.SIGNED_IN) state = 'connected';
+            else if (observed === runtime.AUTH_STATE.SIGNED_OUT) state = 'required';
+            else state = document.readyState === 'loading' ? 'in-progress' : 'unknown';
+        } else {
+            state = document.readyState === 'loading' ? 'in-progress' : 'unknown';
+        }
+
+        previous = String(window.__sfSpotifyAuthUiState || 'unknown');
+        window.__sfSpotifyAuthUiState = state;
+        if (signals.accountsPage || signals.loginRoute) clearLibraryProofForLoginRoute();
+        else if (state === 'required') invalidateLibraryProofForAuthChange('auth-required');
+        if (!window.__sfAuthUiTraceInitialized || previous !== state) {
+            window.__sfAuthUiTraceInitialized = true;
+            traceLibraryEvent('auth.state state=' + state);
+            traceLibraryEvent('webview.session.ready ready=' + (state === 'connected' ? '1' : '0') +
+                ' source=player-ui');
+            try {
+                window.dispatchEvent(new window.Event('sf-spotify-auth-state-changed'));
+            } catch (_) {}
+        }
+        syncMediaLibraryUiState();
+        return { runtime: hasMachine ? runtime : null, machine: machine, state: state };
+    }
+
+    window.__sfSpotifyAuthUiState = 'unknown';
+    window.__sfSpotifyAuthEpoch = Number.isFinite(Number(window.__sfSpotifyAuthEpoch))
+        ? Math.max(0, Math.floor(Number(window.__sfSpotifyAuthEpoch))) : 0;
+    window.__sfGetSpotifyAuthUiState = function() {
+        return observeSpotifyAuthState().state;
+    };
+
+    function renderUnconfirmedNotice() {
+        const observed = observeSpotifyAuthState();
+        const runtime = observed.runtime;
+        const machine = observed.machine;
+        if (!runtime || typeof runtime.shouldShowUnconfirmedNotice !== 'function' || !machine) return;
         const mainView = document.querySelector('#main-view');
         if (!mainView) return;
         const show = runtime.shouldShowUnconfirmedNotice(machine.getState());
@@ -3580,6 +3829,13 @@
 
     function start() {
         renderUnconfirmedNotice();
+        syncMediaLibraryUiState();
+        if (!window.__sfAuthUiStartupSignalSent) {
+            window.__sfAuthUiStartupSignalSent = true;
+            try {
+                window.dispatchEvent(new window.Event('sf-spotify-auth-state-changed'));
+            } catch (_) {}
+        }
         if (typeof window.__sfEnsureMobileShell === 'function') {
             try { window.__sfEnsureMobileShell(); } catch (_) {}
         }

@@ -8,7 +8,8 @@ const vm = require('node:vm');
 const test = require('node:test');
 
 const root = path.resolve(__dirname, '..');
-const historicalSuccessfulPayloadBytes = 108867; // pre-change native_ui_shell.js
+const historicalSuccessfulPayloadBytes = 108867; // pre-change native_ui_shell.js single-evaluation size
+const maxRangedBridgeBytes = 3 * 48 * 1024; // the bridge loader reads at most three full ranges for this asset
 
 function verifyGeneratedAsset(name) {
   const source = fs.readFileSync(path.join(root, 'scripts', `${name}.source.js`), 'utf8');
@@ -19,8 +20,11 @@ function verifyGeneratedAsset(name) {
   assert.ok(header, `${name}.js carries the pinned generator and source hash`);
   const actualHash = crypto.createHash('sha256').update(source).digest('hex');
   assert.equal(header[1], actualHash, `${name}.js must be regenerated after source changes`);
-  assert.ok(Buffer.byteLength(runtime, 'utf8') < historicalSuccessfulPayloadBytes,
-    `${name}.js must remain smaller than the 108867-byte shell already executed on-device`);
+  const maxBytes = name === 'spotify_bridge' ? maxRangedBridgeBytes : historicalSuccessfulPayloadBytes;
+  assert.ok(Buffer.byteLength(runtime, 'utf8') < maxBytes,
+    name === 'spotify_bridge'
+      ? `${name}.js must remain below three 48 KiB native asset ranges`
+      : `${name}.js must remain smaller than the 108867-byte shell already executed on-device`);
   assert.doesNotThrow(() => new vm.Script(runtime, { filename: `assets/${name}.js` }));
   assert.doesNotThrow(() => new vm.Script(source, { filename: `scripts/${name}.source.js` }));
   return { source, runtime };

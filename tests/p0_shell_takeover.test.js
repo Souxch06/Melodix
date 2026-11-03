@@ -110,7 +110,7 @@ function cardPage({
 }
 
 // Boots the real shell against a fake page and records every bridge call.
-function loadShell({ withCards = true, mediaLib = null, mediaLibSessionProofKnown = true, mediaLibSessionProven = true, rawItemCount = 0, libraryError = '', libraryDiagnostic = null, locationPath = '/', searchMediaItemsImpl = null, noUserWidget = false, profileWidgetMode = 'testid', resourceHref = '/playlist/37i9dQZF1DXcBWIGoYBM5M', resourceTitle = 'Road trip', bridgeMode = 'complete', rootMode = 'legacy', throwOnWindowEvent = '' } = {}) {
+function loadShell({ withCards = true, mediaLib = null, mediaLibSessionProofKnown = true, mediaLibSessionProven = true, rawItemCount = 0, libraryError = '', libraryDiagnostic = null, locationPath = '/', hostname = 'open.spotify.com', searchMediaItemsImpl = null, noUserWidget = false, authUiState = 'connected', authEpoch = 1, lastAuthAttemptEpoch = null, profileWidgetMode = 'testid', resourceHref = '/playlist/37i9dQZF1DXcBWIGoYBM5M', resourceTitle = 'Road trip', bridgeMode = 'complete', rootMode = 'legacy', throwOnWindowEvent = '' } = {}) {
     const timers = [];
     const navigations = [];
     const webLoads = [];
@@ -181,9 +181,9 @@ function loadShell({ withCards = true, mediaLib = null, mediaLibSessionProofKnow
         setInterval: () => 0, clearInterval() {},
         requestAnimationFrame: () => 0, cancelAnimationFrame() {},
         location: {
-            hostname: 'open.spotify.com',
-            href: 'https://open.spotify.com' + locationPath,
-            pathname: locationPath, origin: 'https://open.spotify.com', search: '',
+            hostname,
+            href: 'https://' + hostname + locationPath,
+            pathname: locationPath, origin: 'https://' + hostname, search: '',
             assign(target) { navigations.push(target); },
             replace(target) { navigations.push(target); },
             reload() {}
@@ -221,6 +221,13 @@ function loadShell({ withCards = true, mediaLib = null, mediaLibSessionProofKnow
     win.__sfMediaLibSessionProofKnown = mediaLibSessionProofKnown;
     win.__sfMediaLibSessionProven = mediaLibSessionProven;
     win.__sfMediaLibRawItemCount = rawItemCount;
+    // Player UI authentication is a distinct test signal from libraryV3 proof.
+    win.__sfSpotifyAuthUiState = authUiState;
+    win.__sfSpotifyAuthEpoch = authEpoch;
+    win.__sfMediaLibProofAuthEpoch = mediaLibSessionProven ? authEpoch : 0;
+    win.__sfMediaLibLastAuthAttemptEpoch = lastAuthAttemptEpoch === null
+        ? (libraryError === 'http-401' || libraryError === 'http-403' ? authEpoch : 0)
+        : lastAuthAttemptEpoch;
     if (libraryDiagnostic) win.__sfMediaLibLastDiagnostic = libraryDiagnostic;
     win.checkMediaLib = (...args) => {
         calls.mediaLibChecks += 1;
@@ -432,6 +439,39 @@ test('an empty Home without session evidence stays informational while proof is 
     assert.equal(home.rows[0].secondaryUri, '');
     assert.doesNotMatch(JSON.stringify(home.rows), /spotify:playlist|Road trip/,
         'no fake playlist or account content is sent');
+});
+
+test('Spotify login paths stay with the WebView and never activate native Home', () => {
+    for (const locationPath of ['/login', '/signin', '/oauth/authorize', '/v2/auth/callback', '/intl-fr/login']) {
+        const { calls } = loadShell({
+            locationPath,
+            authUiState: 'required',
+            mediaLibSessionProofKnown: false,
+            mediaLibSessionProven: false,
+            withCards: false
+        });
+        assert.deepEqual(calls.routes, [], `${locationPath}: no native screen route is emitted`);
+        assert.deepEqual(calls.data, [], `${locationPath}: no Home status or private rows overlay the login page`);
+        assert.equal(calls.ready, 0, `${locationPath}: the login page does not transfer ownership to native Home`);
+        assert.ok(calls.traces.some((line) => line.includes('spotify-route route=login')),
+            `${locationPath}: the safe route category is traced without logging the path`);
+    }
+});
+
+test('accounts.spotify.com stays visible in the WebView without a native Spotify overlay', () => {
+    const { calls } = loadShell({
+        hostname: 'accounts.spotify.com',
+        locationPath: '/en/login',
+        authUiState: 'required',
+        mediaLibSessionProofKnown: false,
+        mediaLibSessionProven: false,
+        withCards: false
+    });
+    assert.deepEqual(calls.routes, []);
+    assert.deepEqual(calls.data, []);
+    assert.equal(calls.ready, 0);
+    assert.ok(calls.traces.some((line) => line.includes('host=accounts') && line.includes('route=login')),
+        'diagnostics record only the bounded login category, not the account URL');
 });
 
 test('foreground returns refresh the native projection without looping a 401 and a post-login page retries proof', () => {
@@ -912,6 +952,8 @@ test('the manual retry behind the state row restarts the library fetch', () => {
         source = checkSource;
         if (force !== true) throw new Error('must force');
     };
+    win.__sfMediaLibStatus = 'error';
+    win.__sfMediaLibError = 'network-error';
     assert.equal(typeof win.__sfNativeRetryLibrary, 'function', 'the hook exists for the native row');
     win.__sfNativeRetryLibrary();
     assert.equal(calls, 1, 'the library fetch is forced exactly once');

@@ -136,6 +136,7 @@
         if (host === 'accounts.spotify.com') return 'login';
         if (host !== 'open.spotify.com') return 'other';
         var path = spotifyRoutePath();
+        if (/^\/(?:login|signin|oauth|auth|v2\/auth)(?:\/|$)/i.test(path)) return 'login';
         if (HOME_PATHS.indexOf(path) >= 0) return 'home';
         var firstSegment = path.split('/').filter(Boolean)[0] || '';
         if (firstSegment === 'search') return 'search';
@@ -717,31 +718,47 @@
     // opens. Home collectors also call this helper, but detail/search/library
     // routes must not wait until the user visits Home before session proof can
     // arrive. Only the existing libraryV3 response can authorize native data.
-    function requestMediaLibraryProof(source) {
+    function requestMediaLibraryProof(source, force) {
         var now;
         var delay;
+        var authState = currentSpotifyAuthUiState();
+        var authEpoch = Number(window.__sfSpotifyAuthEpoch || 0);
+        var lastAttemptEpoch = Number(window.__sfMediaLibLastAuthAttemptEpoch || 0);
+        var proofEpoch = Number(window.__sfMediaLibProofAuthEpoch || 0);
         var previousError = String(window.__sfMediaLibError || '');
-        if (libraryProvesSession() && window.__sfMediaLibStatus === 'ready') {
+        var explicitRetry = force === true;
+        if (authState !== 'connected') return false;
+        if (typeof window.checkMediaLib !== 'function' || window.__sfMediaLibStatus === 'loading') return false;
+        if (libraryProvesSession() && window.__sfMediaLibStatus === 'ready' &&
+            !explicitRetry && proofEpoch >= authEpoch) {
             window.__sfMediaLibRetryAt = 0;
             window.__sfMediaLibRetryDelayMs = 5000;
             return false;
         }
-        if (typeof window.checkMediaLib !== 'function' || window.__sfMediaLibStatus === 'loading' ||
-            previousError === 'http-401' || previousError === 'http-403' ||
-            (previousError && !libraryErrorIsTransient(previousError))) {
-            // Authorization refusals and non-transient failures wait for an
-            // explicit retry/login instead of looping against Spotify.
+        if ((previousError === 'http-401' || previousError === 'http-403') && !explicitRetry) {
+            if (!Number.isFinite(authEpoch) || authEpoch <= 0 || authEpoch <= lastAttemptEpoch) {
+                // Do not repeat an authorization refusal in the same confirmed
+                // player-UI epoch. A new sign-in epoch permits exactly one retry.
+                return false;
+            }
+            window.__sfMediaLibRetryAt = 0;
+        } else if (previousError && !libraryErrorIsTransient(previousError) && !explicitRetry) {
             return false;
         }
         now = Date.now();
-        if (window.__sfMediaLibRetryAt && now < window.__sfMediaLibRetryAt) return false;
+        if (previousError === 'http-429' && window.__sfMediaLibRetryAt && now < window.__sfMediaLibRetryAt) {
+            return false;
+        }
+        if (explicitRetry && previousError !== 'http-429') window.__sfMediaLibRetryAt = 0;
+        if (!explicitRetry && window.__sfMediaLibRetryAt && now < window.__sfMediaLibRetryAt) return false;
         delay = Number(window.__sfMediaLibRetryDelayMs);
         if (!Number.isFinite(delay) || delay < 5000) delay = 5000;
         delay = Math.max(5000, Math.min(60000, Math.floor(delay)));
         window.__sfMediaLibRetryAt = now + delay;
-        window.__sfMediaLibRetryDelayMs = Math.min(60000, delay * 2);
+        if (!explicitRetry) window.__sfMediaLibRetryDelayMs = Math.min(60000, delay * 2);
+        window.__sfMediaLibLastAuthAttemptEpoch = authEpoch;
         try {
-            window.checkMediaLib(false, source || 'shell-update');
+            window.checkMediaLib(explicitRetry, source || 'shell-update');
             return true;
         } catch (_) {
             return false;
@@ -779,7 +796,7 @@
 
         // Public Home cards, a profile widget, and stale mediaLib arrays are
         // never promoted to Spotify-session proof or passed to the native shelf.
-        requestMediaLibraryProof();
+        requestMediaLibraryProof('shell-update');
 
         if (library) {
             groups.forEach(function(group) {
@@ -820,6 +837,12 @@
 
     function scheduleHomeRetry() {
         var libraryError = String(window.__sfMediaLibError || '');
+        if (currentSpotifyAuthUiState() !== 'connected') {
+            if (homeRetryTimer) window.clearTimeout(homeRetryTimer);
+            homeRetryTimer = null;
+            homeRetries = 0;
+            return;
+        }
         if (libraryError === 'http-401' || libraryError === 'http-403') {
             // Repeated auth refusals do not refresh a session or improve proof.
             // Stop background requests; the status card exposes explicit actions.
@@ -832,7 +855,7 @@
         homeRetries += 1;
         homeRetryTimer = window.setTimeout(function() {
             homeRetryTimer = null;
-            if (isSpotifyHome()) runUpdate();
+            if (currentSpotifyAuthUiState() === 'connected' && isSpotifyHome()) runUpdate();
         }, 500);
     }
 
@@ -970,18 +993,20 @@
     // WebView session. It deliberately carries no Spotify rows and marks only
     // the UI state; it never changes the independent privacy/session proof.
     function unprovenHomeStateRow() {
-        var proofKnown = window.__sfMediaLibSessionProofKnown === true;
         var status = safeMediaLibStatus();
+        var authState = currentSpotifyAuthUiState();
         var err = String(window.__sfMediaLibError || '');
         var confirmed401 = status === 'error' && err === 'http-401' && confirmedLibraryHttpStatus(401);
         var confirmed403 = status === 'error' && err === 'http-403' && confirmedLibraryHttpStatus(403);
         var confirmed429 = status === 'error' && err === 'http-429' && confirmedLibraryHttpStatus(429);
-        var state = status === 'loading' || status === 'pending'
-            ? 'loading' : proofKnown || status === 'error' ? 'error' : 'loading';
+        var state = status === 'error' || authState === 'required' ? 'error' : 'loading';
         var title = confirmed401 ? 'Connexion Spotify à vérifier' :
             confirmed403 ? 'Accès à la bibliothèque refusé' :
                 confirmed429 ? 'Limite de requêtes Spotify' :
-                    state === 'loading' ? 'Connexion Spotify en cours' : 'Connexion Spotify non confirmée';
+                    authState === 'required' ? 'Connexion Spotify requise' :
+                        authState === 'connected' ? 'Vérification de la bibliothèque en cours' :
+                            authState === 'in-progress' ? 'Connexion Spotify en cours' :
+                                'Connexion Spotify non confirmée';
         var detail = status === 'error' ? homeLibraryErrorText() : '';
         var subtitle;
         var primaryUri;
@@ -1006,6 +1031,11 @@
                 ' Vos playlists restent masquées jusqu’à validation.';
             primaryUri = 'melodix:action:retry-library';
             secondaryUri = '';
+        } else if (authState === 'required') {
+            subtitle = 'Connectez-vous dans le lecteur Spotify pour vérifier votre bibliothèque. ' +
+                'Vos playlists restent masquées jusqu’à validation.';
+            primaryUri = 'melodix:action:open-login';
+            secondaryUri = '';
         } else if (status === 'error') {
             subtitle = detail || 'La connexion à Spotify n’a pas pu être vérifiée.';
             subtitle = subtitle.replace(/\s*[—–]\s*(?:nouvel essai automatique en cours\.\s*)?Touchez pour réessayer(?: maintenant)?\.?$/i, '');
@@ -1025,9 +1055,13 @@
                 secondaryUri = 'melodix:action:retry-library';
             }
         } else {
-            subtitle = 'Vérification de la bibliothèque en cours. Vos playlists restent masquées jusqu’à validation.';
-            // A login action is offered only after a settled failure. While the
-            // initial request is pending, the loading panel is informational.
+            subtitle = authState === 'connected'
+                ? 'La bibliothèque est en cours de vérification. Vos playlists restent masquées jusqu’à une réponse valide.'
+                : authState === 'in-progress'
+                    ? 'La connexion du lecteur est en cours. Vos playlists restent masquées jusqu’à validation.'
+                    : 'L’état de connexion du lecteur n’est pas encore confirmé. Vos playlists restent masquées.';
+            // A login action is offered only after the player UI reports that
+            // authentication is required; loading and unknown remain informational.
             primaryUri = '';
         }
         return {
@@ -1061,6 +1095,10 @@
     window.__sfNativeRetryLibrary = function __sfNativeRetryLibrary() {
         var previousError = String(window.__sfMediaLibError || '');
         var retryAt = Number(window.__sfMediaLibRetryAt || 0);
+        if (currentSpotifyAuthUiState() !== 'connected') {
+            try { runUpdate(); } catch (_) {}
+            return false;
+        }
         if (previousError === 'http-429' && Number.isFinite(retryAt) && retryAt > Date.now()) {
             // Even a user-tapped retry respects Spotify's Retry-After/backoff.
             // Re-render the countdown, but do not issue an early request.
@@ -1076,7 +1114,7 @@
             homeRetries = 0;
             window.__sfMediaLibRetryAt = 0;
             if (previousError !== 'http-429') window.__sfMediaLibRetryDelayMs = 5000;
-            if (typeof window.checkMediaLib === 'function') window.checkMediaLib(true, 'native-retry');
+            requestMediaLibraryProof('native-retry', true);
         } catch (_) {}
         try {
             runUpdate();
@@ -1309,6 +1347,19 @@
     // Only a correctly shaped private libraryV3 response is proof for this
     // WebView. Resource arrays and profile controls are UI signals, not auth.
     // A known negative result overrides every stale positive flag or array.
+    function currentSpotifyAuthUiState() {
+        var state = 'unknown';
+        try {
+            var getter = window.__sfGetSpotifyAuthUiState;
+            state = typeof getter === 'function'
+                ? String(getter() || '') : String(window.__sfSpotifyAuthUiState || 'unknown');
+        } catch (_) {
+            state = 'unknown';
+        }
+        return ['unknown', 'in-progress', 'connected', 'required'].indexOf(state) >= 0
+            ? state : 'unknown';
+    }
+
     function libraryProvesSession() {
         return window.__sfMediaLibSessionProofKnown === true &&
             window.__sfMediaLibSessionProven === true;
@@ -2375,10 +2426,18 @@
         var routeSignature;
         if (window.location.hostname !== 'open.spotify.com') return;
         try {
-            route = nativeScreenForPath();
             routeCategory = spotifyRouteCategory();
+            if (routeCategory === 'login') {
+                routeSignature = 'login|' + currentSpotifyAuthUiState();
+                if (window.__sfSpotifyRouteTraceSignature !== routeSignature) {
+                    window.__sfSpotifyRouteTraceSignature = routeSignature;
+                    diagTrace('spotify-route route=login');
+                }
+                return false;
+            }
+            route = nativeScreenForPath();
             sessionBit = pageHasSessionEvidence() ? '1' : '0';
-            requestMediaLibraryProof();
+            requestMediaLibraryProof('shell-update');
             routeSignature = routeCategory + '|' + sessionBit;
             if (window.__sfSpotifyRouteTraceSignature !== routeSignature) {
                 window.__sfSpotifyRouteTraceSignature = routeSignature;
@@ -2786,7 +2845,7 @@
             }
             lastHomeSignature = null;
             try {
-                if (typeof window.checkMediaLib === 'function') window.checkMediaLib(false, 'settings-resync');
+                requestMediaLibraryProof('settings-resync', true);
             } catch (_) {}
             overrideStatus.sync_status = 'Bibliothèque Spotify synchronisée ✓';
         } else if (key === 'logout') {
@@ -3076,8 +3135,8 @@
 
     // ---- Bundled bridge loader ---------------------------------------------
     // spotify_bridge.js carries playback guards, the Melodix home and mobile
-    // shell. The readable source is packaged as a compact generated runtime
-    // asset (< the 108867-byte shell previously observed running on-device).
+    // shell. Its generated runtime stays below three 48 KiB native asset ranges;
+    // the separately injected shell remains below the historical single-payload size.
     // The source transfer is still verified by its expected UTF-16 length and
     // the native asynchronous path is not accepted until the bridge sets its
     // own __sfMelodixBridgeStarted marker.
@@ -3400,6 +3459,7 @@
 
         window.addEventListener('popstate', scheduleUpdate);
         window.addEventListener('hashchange', scheduleUpdate);
+        window.addEventListener('sf-spotify-auth-state-changed', scheduleUpdate);
         window.addEventListener('load', scheduleUpdate, { once: true });
         window.addEventListener('pageshow', refreshWhenVisible);
         window.addEventListener('focus', refreshWhenVisible);

@@ -508,3 +508,24 @@ test('the authenticated DOM probe exports only safe routes, HTTP metadata, count
     dom.window.close();
   }
 });
+
+test('[P0] the shell waits for confirmed player UI, retries once per auth epoch, and never loops on 401/403', () => {
+  const shell = read('scripts/native_ui_shell.source.js');
+  const at = shell.indexOf('function requestMediaLibraryProof(source, force)');
+  assert.ok(at >= 0, 'requestMediaLibraryProof exists');
+  const end = shell.indexOf('\n    function ', at + 10);
+  const gate = shell.slice(at, end);
+  assert.match(gate, /var authState = currentSpotifyAuthUiState\(\)/);
+  assert.match(gate, /if \(authState !== 'connected'\) return false/,
+    'libraryV3 is not requested before the player UI reports a connected state');
+  assert.match(gate, /window\.__sfMediaLibStatus === 'loading'/, 'single-flight state blocks concurrent requests');
+  assert.match(gate, /previousError === 'http-401' \|\| previousError === 'http-403'/);
+  assert.match(gate, /authEpoch <= lastAttemptEpoch/,
+    'a 401/403 is not retried in the same authentication epoch');
+  assert.match(gate, /previousError === 'http-429'[\s\S]*?now < window\.__sfMediaLibRetryAt/,
+    'Retry-After/backoff remains authoritative even for explicit retries');
+  assert.match(shell, /addEventListener\('sf-spotify-auth-state-changed', scheduleUpdate\)/,
+    'a rendered sign-in transition triggers one new state derivation without timer polling');
+  assert.match(shell, /requestMediaLibraryProof\('settings-resync', true\)/,
+    'settings resync uses the same gated request path');
+});

@@ -76,6 +76,15 @@ function runShell(opts = {}) {
   // tests for missing/unverified sessions explicitly pass false.
   window.__sfMediaLibSessionProofKnown = opts.mediaLibSessionProofKnown !== false;
   window.__sfMediaLibSessionProven = opts.mediaLibSessionProven !== false;
+  // The test's player UI state is a separate fixture from library proof. Most
+  // tests model a confirmed player; auth-gating cases opt into unknown/required.
+  window.__sfSpotifyAuthUiState = opts.authUiState || 'connected';
+  window.__sfSpotifyAuthEpoch = Number.isFinite(Number(opts.authEpoch)) ? Number(opts.authEpoch) : 1;
+  window.__sfMediaLibProofAuthEpoch = window.__sfMediaLibSessionProven
+    ? window.__sfSpotifyAuthEpoch : 0;
+  window.__sfMediaLibLastAuthAttemptEpoch = opts.lastAuthAttemptEpoch !== undefined
+    ? Number(opts.lastAuthAttemptEpoch)
+    : (opts.libError === 'http-401' || opts.libError === 'http-403' ? window.__sfSpotifyAuthEpoch : 0);
   if (opts.libStatus !== undefined) window.__sfMediaLibStatus = opts.libStatus;
   if (opts.libError !== undefined) window.__sfMediaLibError = opts.libError;
   if (opts.withCheckMediaLib) {
@@ -334,7 +343,7 @@ test('a transient error only promises a retry while the retry loop is alive', ()
     assert.match(shell, /touchez pour réessayer/);
     // The manual retry is exposed for the native row and restarts the loop.
     assert.match(shell, /window\.__sfNativeRetryLibrary = function/);
-    assert.match(shell, /__sfNativeRetryLibrary[\s\S]{0,1000}checkMediaLib\(true, 'native-retry'\)/,
+    assert.match(shell, /__sfNativeRetryLibrary[\s\S]{0,1000}requestMediaLibraryProof\('native-retry', true\)/,
         'the manual retry is explicitly tagged without sending credentials or private data');
 });
 
