@@ -621,8 +621,8 @@ test("the emulator workflow validates same-run instrumentation and exact release
     "when the emulator exposes no usable Allow control, only the declared BLUETOOTH_CONNECT permission is granted explicitly and reported truthfully");
   assert.equal(
     (launchBlock.match(/adb shell am start -W -n com\.melodix\.music\.preview\/com\.melodix\.music\.MainActivity/g) || []).length,
-    2,
-    "the permission observation and cold launch use deterministic explicit Activity starts instead of random monkey input",
+    1,
+    "the permission observation and nonce-correlated P0 diagnostic share one deterministic cold Activity start",
   );
   assert.match(emulatorWorkflow, /read_bluetooth_permission_state\(\)[\s\S]*?dumpsys package com\.melodix\.music\.preview[\s\S]*?BLUETOOTH_CONNECT:[\s\S]*?granted=true/,
     "the test verifies the observed runtime permission through package-manager state rather than an unsupported shell command");
@@ -966,4 +966,34 @@ test("the authenticated-home observer preserves the primary WebView, observes ca
     "the emulator self-test checks lifecycle cleanup, callback restoration, and crash/ANR absence");
   assert.match(emulatorWorkflow, /authenticated-home-observer-ci\.txt/,
     "the bounded observer status transcript is retained with the Android diagnostics");
+});
+
+test("Android 16 VerifyError capture is nonce-correlated, fail-closed, private-cleared, and uploaded for one day only", () => {
+  const emulatorWorkflow = fs.readFileSync(
+    path.resolve(__dirname, "..", ".github/workflows/test-preview-emulator.yml"),
+    "utf8",
+  );
+  const sanitizer = fs.readFileSync(
+    path.resolve(__dirname, "..", "scripts/sanitize_verify_diagnostic.py"),
+    "utf8",
+  );
+  assert.match(emulatorWorkflow, /verify_run_id="\$\(python3 -c 'import secrets; print\(secrets\.token_hex\(8\)\)'\)"/);
+  assert.match(emulatorWorkflow, /adb install "\$APK_PATH"[\s\S]*?adb shell pm clear com\.melodix\.music\.preview[\s\S]*?last_verify_state\">arm-pending[\s\S]*?adb exec-in run-as com\.melodix\.music\.preview[\s\S]*?adb logcat -c[\s\S]*?am start -W -n com\.melodix\.music\.preview\/com\.melodix\.music\.MainActivity/,
+    "install, clear app data, seed only a one-shot nonce before Application startup, clear logcat, and explicitly start MainActivity");
+  assert.match(emulatorWorkflow, /scripts\/sanitize_verify_diagnostic\.py[\s\S]*?--run-id "\$VERIFY_RUN_ID"[\s\S]*?--output "\$report"/);
+  assert.match(emulatorWorkflow, /set\(data\) != allowed[\s\S]*?field_allowlist_failed[\s\S]*?privacy_scan_failed/,
+    "the public report is deleted unless it matches the exact field allowlist and privacy scan");
+  assert.match(emulatorWorkflow, /name: Melodix-VerifyError-Redacted-\$\{\{ github\.run_id \}\}[\s\S]*?verify-diagnostic-redacted\.json[\s\S]*?retention-days: 1/,
+    "only the redacted JSON is uploaded under a run-scoped name for one day");
+  assert.match(emulatorWorkflow, /adb shell pm clear com\.melodix\.music\.preview >\/dev\/null[\s\S]*?adb logcat -c[\s\S]*?Raw diagnostic preferences and device logs cleared/,
+    "private device capture and logcat are removed immediately after sanitization");
+  assert.match(emulatorWorkflow, /android16_launch_acceptance=passed[\s\S]*?verify_error_detected=false[\s\S]*?main_activity_resumed=true/,
+    "the run must correlate to the current Android 16 launch and fail on VerifyError or a non-resumed activity");
+  assert.match(emulatorWorkflow, /if: always\(\) && steps\.apk\.outcome == 'success' && steps\.release-candidate\.outcome == 'success'/,
+    "the exact non-debuggable candidate is smoke-tested even if the debuggable launch fails");
+  assert.match(sanitizer, /"current_launch_correlated"[\s\S]*?"verify_error_detected"[\s\S]*?"technical_message"[\s\S]*?"message_status"/);
+  assert.match(sanitizer, /SENSITIVE_MARKER_RE[\s\S]*?URL_RE[\s\S]*?PRIVATE_PATH_RE[\s\S]*?EMAIL_RE[\s\S]*?LONG_VALUE_RE/,
+    "the sanitizer is fail-closed for credential markers, private routes/paths, personal email, and opaque long values");
+  assert.match(sanitizer, /recorded_log[\s\S]*?pref_run_id_matches[\s\S]*?current_launch_correlated/,
+    "a prefs-only VerifyError without this launch's logcat nonce is not considered correlated");
 });

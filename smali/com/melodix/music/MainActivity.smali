@@ -2695,7 +2695,8 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
     invoke-direct {v2, v3}, Ljava/lang/IllegalStateException;-><init>(Ljava/lang/String;)V
 
-    invoke-static/range {v2 .. v2}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
+    const-string v3, "signature-check"
+    invoke-static {v2, v3}, Lcom/melodix/music/NativeCrashGuard;->recordWithSource(Ljava/lang/Throwable;Ljava/lang/String;)V
 
     # Only a preview shows the expected fingerprint. Production keeps its
     # original silent stop, so the value is never exposed there.
@@ -2872,7 +2873,8 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
     # A broken layout must not kill the launch: show the trace on the screen the
     # user is already looking at instead of a blank crash.
-    invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
+    const-string v3, "main-content-view"
+    invoke-static {v2, v3}, Lcom/melodix/music/NativeCrashGuard;->recordWithSource(Ljava/lang/Throwable;Ljava/lang/String;)V
 
     invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->excerpt(Ljava/lang/Throwable;)Ljava/lang/String;
     move-result-object v4

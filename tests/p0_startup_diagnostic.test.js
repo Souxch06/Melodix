@@ -67,40 +67,69 @@ test('diagnostic stage chains never persist Spotify routes or login URLs', () =>
     'a route never becomes the persisted last stage');
 });
 
-test('crash diagnostics retain exception classes and only persist parsed VerifyError identifiers', () => {
+test('VerifyError text is captured only for a nonce-armed debuggable Preview and never reaches UI/logs', () => {
   const guard = GUARD();
   const record = methodBody(guard, '.method public static record(Ljava/lang/Throwable;)V');
-  const verifyTarget = methodBody(guard, '.method private static recordVerifyTarget(Ljava/lang/Throwable;)V');
-  const storeVerifyTarget = methodBody(guard, '.method private static storeVerifyTarget(Ljava/lang/String;Ljava/lang/String;)V');
+  const recordWithSource = methodBody(guard,
+    '.method public static recordWithSource(Ljava/lang/Throwable;Ljava/lang/String;)V');
+  const verifyTarget = methodBody(guard,
+    '.method private static recordVerifyTarget(Ljava/lang/Throwable;Ljava/lang/String;)V');
+  const pendingCapture = methodBody(guard,
+    '.method private static takePendingVerifyCapture(Landroid/content/Context;)Ljava/lang/String;');
+  const install = methodBody(guard, '.method public static install(Landroid/content/Context;)V');
+  const storeDiagnostic = methodBody(guard,
+    '.method private static storeVerifyDiagnostic(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V');
+  const storeVerifyTarget = methodBody(guard,
+    '.method private static storeVerifyTarget(Ljava/lang/String;Ljava/lang/String;)V');
   const excerpt = methodBody(guard, '.method public static excerpt(Ljava/lang/Throwable;)Ljava/lang/String;');
   const uncaught = methodBody(guard, '.method public uncaughtException(Ljava/lang/Thread;Ljava/lang/Throwable;)V');
   const lastReport = methodBody(guard, '.method public static lastReport()Ljava/lang/String;');
   const sanitize = methodBody(guard, '.method private static sanitizeStoredReport(Ljava/lang/String;)Ljava/lang/String;');
-  for (const body of [record, excerpt]) {
-    assert.match(body, /Object;->getClass\(\)Ljava\/lang\/Class;/);
-    assert.match(body, /Class;->getSimpleName\(\)Ljava\/lang\/String;/);
-    assert.doesNotMatch(body, /getStackTraceString|getMessage|printStackTrace/);
-  }
+  const clearTrail = methodBody(guard, '.method private static clearDiagnosticTrail()V');
+  const clearReport = methodBody(guard, '.method private static clearReport()V');
+
+  assert.match(record, /if-eqz p0, :done[\s\S]*?recordWithSource\(Ljava\/lang\/Throwable;Ljava\/lang\/String;\)V/);
+  assert.match(recordWithSource, /Object;->getClass\(\)Ljava\/lang\/Class;[\s\S]*?write\(Ljava\/lang\/String;\)V[\s\S]*?recordVerifyTarget\(Ljava\/lang\/Throwable;Ljava\/lang\/String;\)V/);
+  assert.doesNotMatch(recordWithSource, /getStackTraceString|getMessage|printStackTrace/);
+  assert.match(excerpt, /Class;->getSimpleName\(\)Ljava\/lang\/String;/);
+  assert.doesNotMatch(excerpt, /getStackTraceString|getMessage|printStackTrace/);
+
+  assert.match(pendingCapture, /getPackageName\(\)Ljava\/lang\/String;[\s\S]*?com\.melodix\.music\.preview[\s\S]*?getApplicationInfo\(\)Landroid\/content\/pm\/ApplicationInfo;[\s\S]*?ApplicationInfo;->flags:I[\s\S]*?arm-pending[\s\S]*?last_verify_run_id[\s\S]*?\[0-9a-f\]\{16\}/,
+    'capture requires the exact Preview package, debuggable flag, pending state, and short nonce');
+  assert.doesNotMatch(pendingCapture, /getMessage|Intent;|Activity;/,
+    'the application-level arm works before MainActivity is loaded and never reads exception text');
+  assert.match(install, /takePendingVerifyCapture[\s\S]*?clearDiagnosticTrail[\s\S]*?verifyCaptureRunId[\s\S]*?writeVerifyCaptureArmed/,
+    'Application startup consumes the one-shot nonce before clearing and recording a VerifyError');
+
   assert.match(verifyTarget, /instance-of v0, p0, Ljava\/lang\/VerifyError;/,
-    'only VerifyError may expose a transient message to the structured parser');
+    'only VerifyError is eligible for structured message capture');
   assert.match(verifyTarget, /Throwable;->getMessage\(\)Ljava\/lang\/String;[\s\S]*?Pattern;->compile\(Ljava\/lang\/String;\)Ljava\/util\/regex\/Pattern;[\s\S]*?Matcher;->group\(I\)Ljava\/lang\/String;/,
-    'the transient message is reduced to one package-qualified class and method');
-  assert.doesNotMatch(verifyTarget, /NativeCrashGuard;->write\(Ljava\/lang\/String;\)V|Log;->|appendDiagnosticLine|showLastReport/,
-    'the exception message is never logged, displayed or written as a report');
-  assert.match(storeVerifyTarget, /"last_verify_class"[\s\S]*?putString[\s\S]*?"last_verify_method"[\s\S]*?putString/,
-    'persistence is restricted to the two identifier fields');
-  assert.match(uncaught, /NativeCrashGuard;->record\(Ljava\/lang\/Throwable;\)V/,
-    'the uncaught-exception path delegates to the bounded crash recorder');
-  assert.doesNotMatch(uncaught, /getStackTraceString/,
-    'the uncaught-exception path does not persist a raw stack trace');
-  assert.match(lastReport, /NativeCrashGuard;->sanitizeStoredReport\(Ljava\/lang\/String;\)Ljava\/lang\/String;/,
-    'old persisted diagnostics are sanitized before they reach UI or bridge callers');
-  assert.match(sanitize, /0x1000[\s\S]*?STARTUP STUCK[\s\S]*?CONTENT STUCK/,
-    'stored reports are length-bounded and only watchdog reports use the multiline path');
-  assert.match(sanitize, /Exception\|Error\|Throwable/,
-    'legacy one-line crash values must match exception-class names, not arbitrary tokens');
-  assert.match(sanitize, /"\/"[\s\S]*?"\?"[\s\S]*?"%"[\s\S]*?"#"[\s\S]*?"&"[\s\S]*?spotify\.com[\s\S]*?access_token[\s\S]*?refresh_token[\s\S]*?Bearer /,
-    'legacy watchdog reports containing routes or credential markers are redacted');
+    'the transient message is parsed for app class/method identifiers');
+  assert.match(verifyTarget, /sget-object v4, Lcom\/melodix\/music\/NativeCrashGuard;->verifyCaptureRunId:Ljava\/lang\/String;[\s\S]*?storeVerifyDiagnostic\(Ljava\/lang\/String;Ljava\/lang\/String;Ljava\/lang\/String;\)V/,
+    'the raw message is persisted only when the in-memory nonce is armed');
+  assert.doesNotMatch(verifyTarget, /NativeCrashGuard;->write\(Ljava\/lang\/String;\)V|Log;->|showLastReport|appendDiagnosticLine/,
+    'the exception message is never logged, displayed or placed in the crash report');
+
+  assert.match(storeVerifyTarget, /"last_verify_class"[\s\S]*?putString[\s\S]*?"last_verify_method"[\s\S]*?putString/);
+  assert.match(storeDiagnostic, /"last_verify_message"[\s\S]*?putString[\s\S]*?"last_verify_elapsed_ms"[\s\S]*?putLong/);
+  assert.match(storeDiagnostic, /const\/16 v3, 0x1000[\s\S]*?String;->substring\(II\)Ljava\/lang\/String;/,
+    'the private temporary message is length-bounded');
+  assert.match(storeDiagnostic, /"MDXVERIFY"[\s\S]*?Log;->i\(Ljava\/lang\/String;Ljava\/lang\/String;\)I/);
+  assert.doesNotMatch(storeDiagnostic, /Log;->i[\s\S]*?p0/,
+    'logcat contains only run ID and fixed source metadata, never the raw message');
+
+  for (const body of [clearTrail, clearReport]) {
+    for (const key of ['last_verify_message', 'last_verify_run_id', 'last_verify_source', 'last_verify_state']) {
+      assert.ok(body.includes(`"${key}"`), `${key} is cleared before a new capture or report dismissal`);
+    }
+  }
+  assert.doesNotMatch(lastReport + excerpt + sanitize, /last_verify_message/,
+    'the raw capture key is never read by an app-visible report path');
+  assert.match(uncaught, /const-string v1, "uncaught-exception"[\s\S]*?recordWithSource\(Ljava\/lang\/Throwable;Ljava\/lang\/String;\)V/);
+  assert.doesNotMatch(uncaught, /getStackTraceString/);
+  assert.match(lastReport, /NativeCrashGuard;->sanitizeStoredReport\(Ljava\/lang\/String;\)Ljava\/lang\/String;/);
+  assert.match(sanitize, /0x1000[\s\S]*?STARTUP STUCK[\s\S]*?CONTENT STUCK/);
+  assert.match(sanitize, /Exception\|Error\|Throwable/);
   assert.match(sanitize, /Previous diagnostic details redacted/);
 });
 

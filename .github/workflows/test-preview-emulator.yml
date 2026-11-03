@@ -443,6 +443,9 @@ jobs:
           SOURCE_REF: ${{ inputs.source_ref || github.sha }}
         run: |
           set -euo pipefail
+          verify_run_id="$(python3 -c 'import secrets; print(secrets.token_hex(8))')"
+          [[ "$verify_run_id" =~ ^[0-9a-f]{16}$ ]] || { echo "::error::Could not generate a bounded diagnostic run ID."; exit 1; }
+          echo "verify_run_id=$verify_run_id" >> "$GITHUB_OUTPUT"
           launch_failure_diagnostics() {
             local exit_code=$?
             (( exit_code != 0 )) || return 0
@@ -521,8 +524,15 @@ jobs:
           # guarantees there are no carried-over Spotify cookies or app prefs.
           adb install "$APK_PATH"
           adb shell pm clear com.melodix.music.preview >/dev/null
+          # Seed the one-run capture before the first Activity launch: a
+          # VerifyError may occur before MainActivity.onCreate or its UI prompt.
+          adb shell run-as com.melodix.music.preview mkdir -p shared_prefs
+          printf '<map><string name="last_verify_run_id">%s</string><string name="last_verify_state">arm-pending</string></map>\n' \
+            "$verify_run_id" | adb exec-in run-as com.melodix.music.preview sh -c 'cat > shared_prefs/melodix_native.xml'
+          adb logcat -c
           # Observe the first-run Android permission surface before granting it,
           # but retain only redacted hierarchy metadata (never its raw text/XML).
+          # This is also the exact cold Activity launch correlated by the nonce.
           adb shell am start -W -n com.melodix.music.preview/com.melodix.music.MainActivity >/dev/null
           sleep 8
           permission_xml="$state_dir/permission-before-grant.xml"
@@ -652,8 +662,8 @@ jobs:
           path.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
           PY
           echo "::notice title=Android permission setup::fresh app data retained; BLUETOOTH_CONNECT=$permission_status; action=$permission_action; only the declared Bluetooth permission granted; no Spotify session or cookies supplied"
-          adb shell am force-stop com.melodix.music.preview >/dev/null 2>&1 || true
-          adb shell am start -W -n com.melodix.music.preview/com.melodix.music.MainActivity >/dev/null
+          # After dismissing/granting the observed system prompt, keep this same
+          # launch alive and correlated for the bounded foreground observation.
           sleep 60
 
           app_pid="$(adb shell pidof -s com.melodix.music.preview 2>/dev/null | tr -d '\r' || true)"
@@ -676,10 +686,115 @@ jobs:
           resumed_now="$(adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity|ResumedActivity' | grep -F 'com.melodix.music.preview/com.melodix.music.MainActivity' | head -n 1 || true)"
           main_activity_resumed=false
           if [[ -n "$resumed_now" ]]; then main_activity_resumed=true; fi
+          [[ "$main_activity_resumed" == "true" ]] || {
+            echo "::error title=MainActivity not resumed::The explicit diagnostic launch did not leave MainActivity resumed."
+            exit 1
+          }
+          fatal_or_anr_count="$(adb logcat -d -t 4000 -b main -b system -b crash | grep -cE 'FATAL EXCEPTION|ANR in com\.melodix\.music\.preview' || true)"
+          [[ "$fatal_or_anr_count" == "0" ]] || {
+            echo "::error title=Preview crash or ANR::fatal_or_anr_lines=$fatal_or_anr_count"
+            exit 1
+          }
           focus_window="$(adb shell dumpsys window | grep -E 'mCurrentFocus|mFocusedApp' | head -n 1 | tr -cd 'A-Za-z0-9_.:/@ -' | cut -c1-300 || true)"
-          echo "The Preview process stayed alive and MainActivity remained present after the cold launch."
+          echo "The Preview process stayed alive and MainActivity remained resumed after the explicit fresh launch."
           echo "No Spotify credentials or account content were supplied; this is an unauthenticated launch check."
           echo "::notice title=Android cold-launch foreground::source=$SOURCE_REF; process_alive=true; main_activity_present=true; main_activity_resumed=$main_activity_resumed; focus=${focus_window:-none}; authenticated_content_not_tested=true"
+
+      - name: Capture and redact the current-launch VerifyError diagnostic
+        id: verify-diagnostic
+        if: always() && steps.launch.outputs.verify_run_id != ''
+        shell: bash
+        env:
+          VERIFY_RUN_ID: ${{ steps.launch.outputs.verify_run_id }}
+          SOURCE_REF: ${{ inputs.source_ref || github.sha }}
+        run: |
+          set -euo pipefail
+          report_dir="$RUNNER_TEMP/melodix-verify-diagnostic"
+          report="$report_dir/verify-diagnostic-redacted.json"
+          mkdir -p "$report_dir"
+          cleanup_complete=false
+          cleanup_device_diagnostics() {
+            local failed=0
+            adb shell pm clear com.melodix.music.preview >/dev/null 2>&1 || failed=1
+            adb shell pm grant com.melodix.music.preview android.permission.BLUETOOTH_CONNECT >/dev/null 2>&1 || failed=1
+            adb logcat -c >/dev/null 2>&1 || failed=1
+            return "$failed"
+          }
+          cleanup_raw_capture_on_exit() {
+            local exit_code=$?
+            if [[ "$cleanup_complete" != "true" ]]; then
+              cleanup_device_diagnostics || true
+              rm -f "$report"
+            fi
+            return "$exit_code"
+          }
+          trap cleanup_raw_capture_on_exit EXIT
+          python3 scripts/sanitize_verify_diagnostic.py \
+            --run-id "$VERIFY_RUN_ID" \
+            --source-ref "$SOURCE_REF" \
+            --source-root "$GITHUB_WORKSPACE" \
+            --output "$report"
+          python3 - "$report" <<'PY'
+          import json
+          import pathlib
+          import re
+          import sys
+
+          report_path = pathlib.Path(sys.argv[1])
+          allowed = {
+              "schema_version", "source_commit", "run_id", "android_api",
+              "capture_armed_log_seen", "verify_record_log_seen",
+              "preference_run_id_matches", "current_launch_correlated",
+              "verify_error_detected", "verify_exception_class", "record_source",
+              "target_class", "target_method", "target_method_signature",
+              "method_references", "instruction_offset", "failure_kind", "register",
+              "actual_type", "expected_type", "technical_message", "message_status",
+              "diagnostic_state", "verify_elapsed_realtime_ms", "process_alive",
+              "resumed_component", "focused_component", "main_activity_resumed", "last_stage",
+          }
+          try:
+              data = json.loads(report_path.read_text(encoding="utf-8"))
+          except (OSError, json.JSONDecodeError):
+              report_path.unlink(missing_ok=True)
+              raise SystemExit("sanitized_verify_report=invalid_json")
+          if not isinstance(data, dict) or set(data) != allowed:
+              report_path.unlink(missing_ok=True)
+              raise SystemExit("sanitized_verify_report=field_allowlist_failed")
+          encoded = json.dumps(data, ensure_ascii=True, sort_keys=True)
+          forbidden = {
+              "credential_marker": r"(?i)access[_-]?token|refresh[_-]?token|authorization|set-cookie|cookie|bearer|client[_-]?secret",
+              "uri": r"(?i)(?:https?|wss?)://|\bspotify:",
+              "private_path": r"/(?:data/(?:app|user|data)|storage/emulated)/",
+              "private_query": r"[?&][^\s)>,]+",
+              "opaque_value": r"(?<![A-Za-z0-9])[A-Za-z0-9_+/=-]{48,}(?![A-Za-z0-9])",
+              "email": r"(?i)\b[A-Z0-9._%+-]{1,64}@[A-Z0-9.-]{1,190}\.[A-Z]{2,24}\b",
+          }
+          hits = [name for name, pattern in forbidden.items() if re.search(pattern, encoded)]
+          if hits:
+              report_path.unlink(missing_ok=True)
+              raise SystemExit("sanitized_verify_report=privacy_scan_failed categories=" + ",".join(hits))
+          print("sanitized_verify_report=field_allowlist_passed; privacy_scan=passed")
+          PY
+          # Remove the one-run raw preference and all device diagnostics before
+          # marking the sanitized report uploadable. The trap retries cleanup
+          # and deletes the report if any earlier validation/cleanup fails.
+          if ! cleanup_device_diagnostics; then
+            rm -f "$report"
+            echo "::error::Raw diagnostic cleanup could not be verified; the report will not be uploaded."
+            exit 1
+          fi
+          cleanup_complete=true
+          echo "Raw diagnostic preferences and device logs cleared after redaction."
+          echo "report_created=true" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the one-day redacted VerifyError diagnostic
+        if: always() && steps.verify-diagnostic.outputs.report_created == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Melodix-VerifyError-Redacted-${{ github.run_id }}
+          path: ${{ runner.temp }}/melodix-verify-diagnostic/verify-diagnostic-redacted.json
+          retention-days: 1
+          if-no-files-found: error
 
       - name: Build signed Android UI integration instrumentation APK
         shell: bash
@@ -1644,7 +1759,7 @@ jobs:
 
       - name: Install and cold-launch the exact non-debuggable release candidate
         id: release-candidate-smoke
-        if: steps.launch.outcome == 'success' && steps.integration.outcome == 'success' && steps.post-instrumentation.outcome == 'success' && steps.cold-launch-inspection.outcome == 'success' && steps.release-candidate.outcome == 'success'
+        if: always() && steps.apk.outcome == 'success' && steps.release-candidate.outcome == 'success'
         shell: bash
         env:
           RELEASE_APK: ${{ steps.release-candidate.outputs.apk }}
@@ -1671,6 +1786,7 @@ jobs:
           }
           trap release_smoke_failure_diagnostics EXIT
           state_dir="$RUNNER_TEMP/melodix-preview-emulator-state"
+          mkdir -p "$state_dir"
           adb shell am force-stop com.melodix.music.preview >/dev/null 2>&1 || true
           adb uninstall com.melodix.music.preview >/dev/null 2>&1 || true
           adb install "$RELEASE_APK"
@@ -1684,6 +1800,8 @@ jobs:
           [[ -n "$app_pid" ]] || { echo "::error title=Release candidate process not alive::The exact non-debuggable APK exited after launch."; exit 1; }
           resumed="$(adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity|ResumedActivity' | grep -F 'com.melodix.music.preview/com.melodix.music.MainActivity' | head -n 1 || true)"
           [[ -n "$resumed" ]] || { echo "::error title=Release candidate not resumed::The exact non-debuggable APK did not leave MainActivity resumed."; exit 1; }
+          fatal_or_anr_count="$(adb logcat -d -t 3000 -b main -b system -b crash | grep -cE 'FATAL EXCEPTION|ANR in com\\.melodix\\.music\\.preview' || true)"
+          [[ "$fatal_or_anr_count" == "0" ]] || { echo "::error title=Non-debuggable candidate crash or ANR::fatal_or_anr_lines=$fatal_or_anr_count"; exit 1; }
           adb shell uiautomator dump --compressed /sdcard/melodix-release-candidate.xml >/dev/null 2>&1
           adb exec-out cat /sdcard/melodix-release-candidate.xml > "$state_dir/release-candidate-window.xml"
           adb exec-out screencap -p > "$state_dir/release-candidate-screen.png"
@@ -1694,6 +1812,38 @@ jobs:
           echo "apk_sha256=${{ steps.release-candidate.outputs.apk_sha256 }}" >> "$GITHUB_OUTPUT"
           echo "activity_resumed=true" >> "$GITHUB_OUTPUT"
           echo "::notice title=Exact release candidate installed and launched::source=$SOURCE_REF; debuggable=false; process_alive=true; activity_resumed=true; authenticated_home_not_tested=true"
+
+      - name: Enforce fresh Android 16 VerifyError and foreground acceptance
+        if: always() && steps.verify-diagnostic.outputs.report_created == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          report="$RUNNER_TEMP/melodix-verify-diagnostic/verify-diagnostic-redacted.json"
+          python3 - "$report" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          try:
+              report = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+          except (OSError, json.JSONDecodeError):
+              raise SystemExit("android16_launch_acceptance=failed; reason=redacted_report_unavailable")
+          failures = []
+          if report.get("android_api") != 36:
+              failures.append("wrong_android_api")
+          if report.get("capture_armed_log_seen") is not True or report.get("current_launch_correlated") is not True:
+              failures.append("launch_not_correlated")
+          if report.get("verify_error_detected") is True:
+              failures.append("verify_error_present")
+          if report.get("process_alive") is not True:
+              failures.append("process_not_alive")
+          if report.get("main_activity_resumed") is not True:
+              failures.append("main_activity_not_resumed")
+          if failures:
+              print("android16_launch_acceptance=failed; reasons=" + ",".join(failures))
+              raise SystemExit(1)
+          print("android16_launch_acceptance=passed; api=36; current_launch_correlated=true; verify_error_detected=false; process_alive=true; main_activity_resumed=true")
+          PY
 
       - name: Add verified run details to the summary
         if: always()

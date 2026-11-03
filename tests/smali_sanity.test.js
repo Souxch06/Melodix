@@ -579,7 +579,7 @@ test('an inflation failure shows the trace instead of killing the launch', () =>
     );
 
     assert.ok(guarded, 'setContentView must be guarded by a try/catch');
-    assert.match(guarded[1], /NativeCrashGuard;->record\(Ljava\/lang\/Throwable;\)V/);
+    assert.match(guarded[1], /NativeCrashGuard;->recordWithSource\(Ljava\/lang\/Throwable;Ljava\/lang\/String;\)V/);
     assert.match(guarded[1], /NativeCrashGuard;->excerpt\(Ljava\/lang\/Throwable;\)Ljava\/lang\/String;/);
     assert.match(guarded[1], /TextView;->setText\(Ljava\/lang\/CharSequence;\)V[\s\S]*?Landroid\/app\/Activity;->setContentView\(Landroid\/view\/View;\)V[\s\S]*?return-void/);
 });
@@ -710,7 +710,7 @@ test('a toast window race is recorded but never kills the process', () => {
     const swallow = body.indexOf('return-void', body.indexOf('instance-of'));
     const forward = body.indexOf('dispatch(Ljava/lang/Thread;Ljava/lang/Throwable;)V', body.indexOf('instance-of'));
     assert.ok(swallow > -1 && forward > swallow, 'the race returns without dispatching');
-    const safeRecord = body.indexOf('NativeCrashGuard;->record(Ljava/lang/Throwable;)V');
+    const safeRecord = body.indexOf('NativeCrashGuard;->recordWithSource(Ljava/lang/Throwable;Ljava/lang/String;)V');
     const firstDecision = body.indexOf('instance-of v0, p2, Landroid/view/WindowManager$BadTokenException;');
     assert.ok(safeRecord > -1 && safeRecord < firstDecision,
         'the class-only report is persisted before any decision');

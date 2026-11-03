@@ -22,6 +22,10 @@
 # Ephemeral per-process correlation id for bounded diagnostic traces only.
 .field private static diagnosticSessionId:Ljava/lang/String;
 
+# Set only by an explicitly tagged debuggable Preview launch. A raw VerifyError
+# message is captured to app-private prefs only while this short-lived ID exists.
+.field private static verifyCaptureRunId:Ljava/lang/String;
+
 
 # direct methods
 .method public constructor <init>()V
@@ -75,6 +79,30 @@
 
     invoke-interface {v0, v1}, Landroid/content/SharedPreferences$Editor;->remove(Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
 
+    move-result-object v0
+
+    const-string v1, "last_verify_exception"
+    invoke-interface {v0, v1}, Landroid/content/SharedPreferences$Editor;->remove(Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
+    move-result-object v0
+
+    const-string v1, "last_verify_run_id"
+    invoke-interface {v0, v1}, Landroid/content/SharedPreferences$Editor;->remove(Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
+    move-result-object v0
+
+    const-string v1, "last_verify_state"
+    invoke-interface {v0, v1}, Landroid/content/SharedPreferences$Editor;->remove(Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
+    move-result-object v0
+
+    const-string v1, "last_verify_source"
+    invoke-interface {v0, v1}, Landroid/content/SharedPreferences$Editor;->remove(Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
+    move-result-object v0
+
+    const-string v1, "last_verify_message"
+    invoke-interface {v0, v1}, Landroid/content/SharedPreferences$Editor;->remove(Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
+    move-result-object v0
+
+    const-string v1, "last_verify_elapsed_ms"
+    invoke-interface {v0, v1}, Landroid/content/SharedPreferences$Editor;->remove(Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
     move-result-object v0
 
     invoke-interface {v0}, Landroid/content/SharedPreferences$Editor;->commit()Z
@@ -173,9 +201,16 @@
     :store
     sput-object v0, Lcom/melodix/music/NativeCrashGuard;->context:Landroid/content/Context;
 
-    # Keep the next phone-side report specific to this process. This removes
-    # only last_diag; crash reports and all Spotify/session preferences remain.
+    # Consume an explicitly pre-seeded nonce before clearing the prior run's
+    # diagnostics. This executes in Application.attachBaseContext, before ART
+    # attempts to verify/instantiate MainActivity.
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->takePendingVerifyCapture(Landroid/content/Context;)Ljava/lang/String;
+    move-result-object v2
     invoke-static {}, Lcom/melodix/music/NativeCrashGuard;->clearDiagnosticTrail()V
+    if-eqz v2, :capture_nonce_ready
+    sput-object v2, Lcom/melodix/music/NativeCrashGuard;->verifyCaptureRunId:Ljava/lang/String;
+    invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->writeVerifyCaptureArmed(Ljava/lang/String;)V
+    :capture_nonce_ready
 
     const-string v1, "native-launch fresh"
 
@@ -501,22 +536,27 @@
     .locals 1
 
     if-eqz p0, :done
+    const-string v0, "direct-record"
+    invoke-static {p0, v0}, Lcom/melodix/music/NativeCrashGuard;->recordWithSource(Ljava/lang/Throwable;Ljava/lang/String;)V
+
+    :done
+    return-void
+.end method
+
+# The source label is a fixed call-site enum. Throwable text remains transient
+# unless a debuggable Preview launch supplied an explicit one-run capture ID.
+.method public static recordWithSource(Ljava/lang/Throwable;Ljava/lang/String;)V
+    .locals 1
+
+    if-eqz p0, :done
 
     :try_start_0
     invoke-virtual {p0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
-
     move-result-object v0
-
     invoke-virtual {v0}, Ljava/lang/Class;->getSimpleName()Ljava/lang/String;
-
     move-result-object v0
-
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->write(Ljava/lang/String;)V
-
-    # Only VerifyError diagnostics are inspected, and only class/method
-    # identifiers from the exception are retained. The message is never
-    # persisted, logged, displayed or sent through a bridge.
-    invoke-static {p0}, Lcom/melodix/music/NativeCrashGuard;->recordVerifyTarget(Ljava/lang/Throwable;)V
+    invoke-static {p0, p1}, Lcom/melodix/music/NativeCrashGuard;->recordVerifyTarget(Ljava/lang/Throwable;Ljava/lang/String;)V
     :try_end_0
     .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
 
@@ -529,21 +569,25 @@
     return-void
 .end method
 
-# For a VerifyError only, parse the framework message in memory with strict
-# package/method patterns. Persist two identifiers; never retain the message.
-.method private static recordVerifyTarget(Ljava/lang/Throwable;)V
+# For VerifyError only, retain class/method identifiers as before. The original
+# message is copied to private prefs only when install() consumed a valid one-run
+# nonce for a debuggable Preview; it is never logged or shown in the app.
+.method private static recordVerifyTarget(Ljava/lang/Throwable;Ljava/lang/String;)V
     .locals 5
 
     const/4 v0, 0x0
     invoke-static {v0, v0}, Lcom/melodix/music/NativeCrashGuard;->storeVerifyTarget(Ljava/lang/String;Ljava/lang/String;)V
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->storeVerifyException(Ljava/lang/String;)V
 
     instance-of v0, p0, Ljava/lang/VerifyError;
     if-eqz v0, :done
+    const-string v0, "VerifyError"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->storeVerifyException(Ljava/lang/String;)V
 
     :try_start_0
     invoke-virtual {p0}, Ljava/lang/Throwable;->getMessage()Ljava/lang/String;
     move-result-object v0
-    if-eqz v0, :done
+    if-eqz v0, :verify_target_message_missing
 
     const-string v1, "(com\\.melodix\\.music(?:\\.[A-Za-z0-9_$]+)+)\\.([A-Za-z0-9_$<>]+)\\("
     invoke-static {v1}, Ljava/util/regex/Pattern;->compile(Ljava/lang/String;)Ljava/util/regex/Pattern;
@@ -577,13 +621,234 @@
     move-result-object v2
     const/4 v3, 0x0
     invoke-static {v2, v3}, Lcom/melodix/music/NativeCrashGuard;->storeVerifyTarget(Ljava/lang/String;Ljava/lang/String;)V
+
     :verify_target_done
+    sget-object v4, Lcom/melodix/music/NativeCrashGuard;->verifyCaptureRunId:Ljava/lang/String;
+    if-eqz v4, :try_end_0
+    invoke-static {v0, p1, v4}, Lcom/melodix/music/NativeCrashGuard;->storeVerifyDiagnostic(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    goto :try_end_0
+
+    :verify_target_message_missing
+    const-string v0, "__VERIFY_ERROR_MESSAGE_UNAVAILABLE__"
+    sget-object v4, Lcom/melodix/music/NativeCrashGuard;->verifyCaptureRunId:Ljava/lang/String;
+    if-eqz v4, :try_end_0
+    invoke-static {v0, p1, v4}, Lcom/melodix/music/NativeCrashGuard;->storeVerifyDiagnostic(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
     :try_end_0
     .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :verify_target_catch
 
     goto :done
 
     :verify_target_catch
+    move-exception v0
+
+    :done
+    return-void
+.end method
+
+# Arms diagnostic capture only for a debuggable Preview launch carrying a
+# one-run lowercase-hex nonce in app-private prefs. Production and ordinary
+# Preview launches never persist or log an exception message. Accept a one-run nonce seeded in app-private prefs by the
+# debuggable-only CI launcher. Validate package, debuggable flag, state, and
+# nonce before install() clears old diagnostics and arms the capture.
+.method private static takePendingVerifyCapture(Landroid/content/Context;)Ljava/lang/String;
+    .locals 6
+
+    if-eqz p0, :capture_nonce_none
+    :try_start_0
+    invoke-virtual {p0}, Landroid/content/Context;->getPackageName()Ljava/lang/String;
+    move-result-object v0
+    const-string v1, "com.melodix.music.preview"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-eqz v0, :capture_nonce_none
+
+    invoke-virtual {p0}, Landroid/content/Context;->getApplicationInfo()Landroid/content/pm/ApplicationInfo;
+    move-result-object v0
+    iget v0, v0, Landroid/content/pm/ApplicationInfo;->flags:I
+    and-int/lit8 v0, v0, 0x2
+    if-eqz v0, :capture_nonce_none
+
+    const-string v0, "melodix_native"
+    const/4 v1, 0x0
+    invoke-virtual {p0, v0, v1}, Landroid/content/Context;->getSharedPreferences(Ljava/lang/String;I)Landroid/content/SharedPreferences;
+    move-result-object v0
+    const-string v1, "last_verify_state"
+    const-string v2, ""
+    invoke-interface {v0, v1, v2}, Landroid/content/SharedPreferences;->getString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v3
+    const-string v1, "arm-pending"
+    invoke-virtual {v1, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :capture_nonce_none
+
+    const-string v1, "last_verify_run_id"
+    const/4 v2, 0x0
+    invoke-interface {v0, v1, v2}, Landroid/content/SharedPreferences;->getString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v4
+    if-eqz v4, :capture_nonce_none
+    const-string v1, "[0-9a-f]{16}"
+    invoke-virtual {v4, v1}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-eqz v1, :capture_nonce_none
+    :try_end_0
+    .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :capture_nonce_catch
+
+    move-object v0, v4
+    return-object v0
+
+    :capture_nonce_catch
+    move-exception v0
+
+    :capture_nonce_none
+    const/4 v0, 0x0
+    return-object v0
+.end method
+
+.method private static writeVerifyCaptureArmed(Ljava/lang/String;)V
+    .locals 4
+
+    sget-object v0, Lcom/melodix/music/NativeCrashGuard;->context:Landroid/content/Context;
+    if-eqz v0, :done
+
+    :try_start_0
+    const-string v1, "melodix_native"
+    const/4 v2, 0x0
+    invoke-virtual {v0, v1, v2}, Landroid/content/Context;->getSharedPreferences(Ljava/lang/String;I)Landroid/content/SharedPreferences;
+    move-result-object v0
+    invoke-interface {v0}, Landroid/content/SharedPreferences;->edit()Landroid/content/SharedPreferences$Editor;
+    move-result-object v0
+    const-string v1, "last_verify_run_id"
+    invoke-interface {v0, v1, p0}, Landroid/content/SharedPreferences$Editor;->putString(Ljava/lang/String;Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
+    move-result-object v0
+    const-string v1, "last_verify_state"
+    const-string v2, "armed"
+    invoke-interface {v0, v1, v2}, Landroid/content/SharedPreferences$Editor;->putString(Ljava/lang/String;Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
+    move-result-object v0
+    invoke-interface {v0}, Landroid/content/SharedPreferences$Editor;->commit()Z
+    move-result v0
+
+    const-string v0, "verify-capture state=armed run_id="
+    invoke-virtual {v0, p0}, Ljava/lang/String;->concat(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v0
+    const-string v1, "MDXVERIFY"
+    invoke-static {v1, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+    move-result v0
+    :try_end_0
+    .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :capture_armed_catch
+
+    goto :done
+
+    :capture_armed_catch
+    move-exception v0
+
+    :done
+    return-void
+.end method
+
+.method private static storeVerifyException(Ljava/lang/String;)V
+    .locals 3
+
+    sget-object v0, Lcom/melodix/music/NativeCrashGuard;->context:Landroid/content/Context;
+    if-eqz v0, :done
+
+    :try_start_0
+    const-string v1, "melodix_native"
+    const/4 v2, 0x0
+    invoke-virtual {v0, v1, v2}, Landroid/content/Context;->getSharedPreferences(Ljava/lang/String;I)Landroid/content/SharedPreferences;
+    move-result-object v0
+    invoke-interface {v0}, Landroid/content/SharedPreferences;->edit()Landroid/content/SharedPreferences$Editor;
+    move-result-object v0
+    if-eqz p0, :verify_exception_remove
+    const-string v1, "last_verify_exception"
+    invoke-interface {v0, v1, p0}, Landroid/content/SharedPreferences$Editor;->putString(Ljava/lang/String;Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
+    move-result-object v0
+    goto :verify_exception_commit
+
+    :verify_exception_remove
+    const-string v1, "last_verify_exception"
+    invoke-interface {v0, v1}, Landroid/content/SharedPreferences$Editor;->remove(Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
+    move-result-object v0
+
+    :verify_exception_commit
+    invoke-interface {v0}, Landroid/content/SharedPreferences$Editor;->commit()Z
+    move-result v0
+    :try_end_0
+    .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :verify_exception_catch
+
+    goto :done
+
+    :verify_exception_catch
+    move-exception v0
+
+    :done
+    return-void
+.end method
+
+# This raw message is app-private and exists only in a nonce-armed debuggable
+# Preview run. CI immediately redacts it in memory; no app UI or log receives it.
+.method private static storeVerifyDiagnostic(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    .locals 7
+
+    sget-object v0, Lcom/melodix/music/NativeCrashGuard;->context:Landroid/content/Context;
+    if-eqz v0, :done
+
+    :try_start_0
+    const-string v1, "melodix_native"
+    const/4 v2, 0x0
+    invoke-virtual {v0, v1, v2}, Landroid/content/Context;->getSharedPreferences(Ljava/lang/String;I)Landroid/content/SharedPreferences;
+    move-result-object v0
+    invoke-interface {v0}, Landroid/content/SharedPreferences;->edit()Landroid/content/SharedPreferences$Editor;
+    move-result-object v0
+
+    const-string v1, "last_verify_run_id"
+    invoke-interface {v0, v1, p2}, Landroid/content/SharedPreferences$Editor;->putString(Ljava/lang/String;Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
+    move-result-object v0
+    const-string v1, "last_verify_state"
+    const-string v2, "recorded"
+    invoke-interface {v0, v1, v2}, Landroid/content/SharedPreferences$Editor;->putString(Ljava/lang/String;Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
+    move-result-object v0
+    const-string v1, "last_verify_source"
+    invoke-interface {v0, v1, p1}, Landroid/content/SharedPreferences$Editor;->putString(Ljava/lang/String;Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
+    move-result-object v0
+
+    move-object v1, p0
+    if-eqz p0, :verify_message_bounded
+    invoke-virtual {p0}, Ljava/lang/String;->length()I
+    move-result v2
+    const/16 v3, 0x1000
+    if-le v2, v3, :verify_message_bounded
+    const/4 v2, 0x0
+    invoke-virtual {p0, v2, v3}, Ljava/lang/String;->substring(II)Ljava/lang/String;
+    move-result-object v1
+    :verify_message_bounded
+    const-string v2, "last_verify_message"
+    invoke-interface {v0, v2, v1}, Landroid/content/SharedPreferences$Editor;->putString(Ljava/lang/String;Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
+    move-result-object v0
+    const-string v1, "last_verify_elapsed_ms"
+    invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
+    move-result-wide v2
+    invoke-interface {v0, v1, v2, v3}, Landroid/content/SharedPreferences$Editor;->putLong(Ljava/lang/String;J)Landroid/content/SharedPreferences$Editor;
+    move-result-object v0
+    invoke-interface {v0}, Landroid/content/SharedPreferences$Editor;->commit()Z
+    move-result v0
+
+    const-string v0, "verify-capture state=recorded run_id="
+    invoke-virtual {v0, p2}, Ljava/lang/String;->concat(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v0
+    const-string v1, " source="
+    invoke-virtual {v0, v1}, Ljava/lang/String;->concat(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v0
+    invoke-virtual {v0, p1}, Ljava/lang/String;->concat(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v0
+    const-string v1, "MDXVERIFY"
+    invoke-static {v1, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+    move-result v0
+    :try_end_0
+    .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :verify_diagnostic_catch
+
+    goto :done
+
+    :verify_diagnostic_catch
     move-exception v0
 
     :done
@@ -1137,6 +1402,9 @@
 .method private static clearDiagnosticTrail()V
     .locals 3
 
+    const/4 v0, 0x0
+    sput-object v0, Lcom/melodix/music/NativeCrashGuard;->verifyCaptureRunId:Ljava/lang/String;
+
     sget-object v0, Lcom/melodix/music/NativeCrashGuard;->context:Landroid/content/Context;
 
     if-eqz v0, :done
@@ -1182,6 +1450,30 @@
 
     invoke-interface {v0, v1}, Landroid/content/SharedPreferences$Editor;->remove(Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
 
+    move-result-object v0
+
+    const-string v1, "last_verify_exception"
+    invoke-interface {v0, v1}, Landroid/content/SharedPreferences$Editor;->remove(Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
+    move-result-object v0
+
+    const-string v1, "last_verify_run_id"
+    invoke-interface {v0, v1}, Landroid/content/SharedPreferences$Editor;->remove(Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
+    move-result-object v0
+
+    const-string v1, "last_verify_state"
+    invoke-interface {v0, v1}, Landroid/content/SharedPreferences$Editor;->remove(Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
+    move-result-object v0
+
+    const-string v1, "last_verify_source"
+    invoke-interface {v0, v1}, Landroid/content/SharedPreferences$Editor;->remove(Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
+    move-result-object v0
+
+    const-string v1, "last_verify_message"
+    invoke-interface {v0, v1}, Landroid/content/SharedPreferences$Editor;->remove(Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
+    move-result-object v0
+
+    const-string v1, "last_verify_elapsed_ms"
+    invoke-interface {v0, v1}, Landroid/content/SharedPreferences$Editor;->remove(Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
     move-result-object v0
 
     invoke-interface {v0}, Landroid/content/SharedPreferences$Editor;->commit()Z
@@ -1430,9 +1722,10 @@
     .locals 2
 
     :try_start_0
-    # Persist only the exception class through record(); raw stack traces and
-    # messages may contain Spotify routes or request details.
-    invoke-static {p2}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
+    # Record a fixed source enum; raw exception messages are captured only in
+    # an explicitly armed debuggable Preview diagnostic run.
+    const-string v1, "uncaught-exception"
+    invoke-static {p2, v1}, Lcom/melodix/music/NativeCrashGuard;->recordWithSource(Ljava/lang/Throwable;Ljava/lang/String;)V
     :try_end_0
     .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
 
