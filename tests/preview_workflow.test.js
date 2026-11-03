@@ -33,6 +33,18 @@ test("Preview workflow requires an explicit full source SHA instead of defaultin
   );
 });
 
+test("APK build enforces the ranged bridge budget separately from single-evaluation assets", () => {
+  assert.ok(workflow.includes(
+    'max_runtime_bytes = 3 * 48 * 1024 if name == "spotify_bridge" else 108867',
+  ), "the generated bridge may span three native ranges while the shell and Home keep their prior ceiling");
+  assert.ok(workflow.includes(
+    'spotify_bridge.js) max_payload=$((3 * 48 * 1024)); max_label="three 48 KiB native ranges" ;;',
+  ), "the packaged bridge is checked against the same three-range byte limit");
+  assert.ok(workflow.includes(
+    'native_ui_shell.js|melodix_home.js) max_payload=108867; max_label="108867-byte single-evaluation limit" ;;',
+  ), "only the bridge receives the larger ranged-read budget");
+});
+
 test("build-only Preview runs can build separate instrumentation and release-candidate APKs without publishing", () => {
   assert.match(workflow, /build_only:[\s\S]*?default: false[\s\S]*?type: boolean/,
     "reusable build callers must explicitly select build-only behavior");
