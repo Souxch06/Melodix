@@ -536,10 +536,14 @@ test("the emulator workflow validates same-run instrumentation and exact release
   assert.doesNotMatch(emulatorWorkflow, /existing_ref=.*gh api/,
     'a GitHub 404 JSON body must never be mistaken for an existing tag');
   assert.match(emulatorWorkflow, /inputs\.publish_preview == true/);
+  const standardFlow = emulatorWorkflow.slice(
+    emulatorWorkflow.indexOf("  install-and-launch:"),
+    emulatorWorkflow.indexOf("  p0-verify-replay:"),
+  );
   assert.doesNotMatch(
-    emulatorWorkflow,
+    standardFlow,
     /gh run list|run-id: \$\{\{ steps\.build/,
-    "the test must not fetch a separate build run",
+    "the standard validation path must continue to use only its same-run build artifacts",
   );
   assert.doesNotMatch(
     workflow.match(
@@ -1044,4 +1048,35 @@ test("AndroidRuntime VerifyError snapshots are redacted immediately and the hist
   assert.match(sanitizer, /ANDROID_DECLARATION_PATH_RE[\s\S]*?_androidruntime_verify_message[\s\S]*?_merge_early_androidruntime_report/);
   assert.match(sanitizer, /EARLY_ANDROIDRUNTIME_KEYS[\s\S]*?source_ref=source_ref/,
     "runner snapshots are run- and source-scoped before they can supplement app-private capture");
+});
+
+test("targeted P0 replay uses only the verified historical ec6 APK and preserves two isolated redacted launch reports", () => {
+  const workflowPath = path.resolve(__dirname, "..", ".github/workflows/test-preview-emulator.yml");
+  const emulatorWorkflow = fs.readFileSync(workflowPath, "utf8");
+  const aggregator = fs.readFileSync(path.resolve(__dirname, "..", "scripts/aggregate_p0_verify_replay.py"), "utf8");
+  const jobStart = emulatorWorkflow.indexOf("  p0-verify-replay:");
+  assert.ok(jobStart >= 0, "the dedicated P0 replay job must exist");
+  const p0Replay = emulatorWorkflow.slice(jobStart);
+  assert.match(emulatorWorkflow, /build-preview:\n    if: github\.event_name != 'workflow_dispatch' \|\| inputs\.replay_original_launch_path != true/);
+  assert.match(emulatorWorkflow, /build-release-candidate:\n    if: github\.event_name != 'workflow_dispatch' \|\| inputs\.replay_original_launch_path != true/);
+  assert.match(emulatorWorkflow, /install-and-launch:\n    if: github\.event_name != 'workflow_dispatch' \|\| inputs\.replay_original_launch_path != true/);
+  assert.match(p0Replay, /if: github\.event_name == 'workflow_dispatch' && inputs\.replay_original_launch_path == true/);
+  assert.match(p0Replay, /PUBLISH_PREVIEW: \$\{\{ inputs\.publish_preview \}\}[\s\S]*?\[\[ "\$\{PUBLISH_PREVIEW,,\}" == "false" \]\]/);
+  assert.match(p0Replay, /EXPECTED_SOURCE_REF: ec6ef63f9d6638a70bb8e7877d7b798598c250a2/);
+  assert.match(p0Replay, /HISTORICAL_RUN_ID: "41653545783"/);
+  assert.match(p0Replay, /HISTORICAL_APK_NAME: Melodix-Preview-v1\.2\.2-test96-instrumentation\.apk/);
+  assert.match(p0Replay, /HISTORICAL_APK_SHA256: ce756a4beead4d0bb3128b339034d70fafab620ac89a189e5042d484f8348375/);
+  assert.match(p0Replay, /path: tooling[\s\S]*?path: source-under-test/);
+  assert.match(p0Replay, /--source-root "\$SOURCE_ROOT"[\s\S]*?--output "\$output_path"/);
+  assert.match(p0Replay, /run-id: "41653545783"[\s\S]*?github-token: \$\{\{ github\.token \}\}/);
+  assert.match(p0Replay, /APK build from 829fccd excluded/);
+  assert.match(p0Replay, /initial_report="\$state_dir\/initial-launch-androidruntime-redacted\.json"[\s\S]*?relaunch_report="\$state_dir\/post-permission-relaunch-androidruntime-redacted\.json"/);
+  assert.match(p0Replay, /adb logcat -c[\s\S]*?am start -W -n com\.melodix\.music\.preview\/com\.melodix\.music\.MainActivity[\s\S]*?capture_androidruntime_verify "\$initial_report"/);
+  assert.match(p0Replay, /pm grant com\.melodix\.music\.preview android\.permission\.BLUETOOTH_CONNECT[\s\S]*?am force-stop com\.melodix\.music\.preview[\s\S]*?adb logcat -c[\s\S]*?am start -W -n com\.melodix\.music\.preview\/com\.melodix\.music\.MainActivity[\s\S]*?capture_androidruntime_verify "\$relaunch_report"/);
+  assert.match(p0Replay, /aggregate_p0_verify_replay\.py[\s\S]*?--initial-report "\$initial_report"[\s\S]*?--relaunch-report "\$relaunch_report"/);
+  assert.match(p0Replay, /name: Melodix-P0-VerifyError-Replay-Redacted-\$\{\{ github\.run_id \}\}[\s\S]*?verify-replay-redacted\.json[\s\S]*?retention-days: 1/);
+  assert.doesNotMatch(p0Replay, /gh release create|gh release upload|actions\/upload-pages-artifact/);
+  assert.match(aggregator, /set\(report\) != EARLY_REPORT_KEYS[\s\S]*?privacy scan/);
+  assert.match(aggregator, /"initial"[\s\S]*?"post_permission_force_stop_relaunch"/);
+  assert.ok(aggregator.includes('"authenticated_spotify_test": "not_performed"'));
 });

@@ -22,7 +22,7 @@ on:
         type: boolean
         default: false
       replay_original_launch_path:
-        description: Repeat the historical permission then force-stop/relaunch path for a source-ref investigation only
+        description: Run the isolated P0 replay against the verified historical ec6ef63 APK after the Bluetooth permission grant
         required: false
         type: boolean
         default: false
@@ -33,6 +33,7 @@ permissions:
 
 jobs:
   build-preview:
+    if: github.event_name != 'workflow_dispatch' || inputs.replay_original_launch_path != true
     name: Build debuggable APK for UI instrumentation
     uses: ./.github/workflows/preview-apk.yml
     with:
@@ -44,6 +45,7 @@ jobs:
     secrets: inherit
 
   build-release-candidate:
+    if: github.event_name != 'workflow_dispatch' || inputs.replay_original_launch_path != true
     name: Build exact non-debuggable Preview release candidate
     uses: ./.github/workflows/preview-apk.yml
     with:
@@ -57,6 +59,7 @@ jobs:
     secrets: inherit
 
   install-and-launch:
+    if: github.event_name != 'workflow_dispatch' || inputs.replay_original_launch_path != true
     name: Install and test the exact Preview artifacts built by this run
     needs: [build-preview, build-release-candidate]
     runs-on: ubuntu-24.04
@@ -2832,3 +2835,451 @@ jobs:
             --prerelease
           echo "::notice title=Exact Preview APK published::tag=$RELEASE_TAG; source=$SOURCE_REF; debuggable=false; versionCode=$RELEASE_VERSION_CODE; sha256=$RELEASE_APK_SHA256"
           echo "Public Preview: https://github.com/Souxch06/Melodix/releases/tag/$RELEASE_TAG" >> "$GITHUB_STEP_SUMMARY"
+
+  p0-verify-replay:
+    if: github.event_name == 'workflow_dispatch' && inputs.replay_original_launch_path == true
+    name: Replay Android 16 launch on the historical ec6ef63 instrumentation APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Validate the exact historical P0 replay request
+        shell: bash
+        env:
+          SOURCE_REF: ${{ inputs.source_ref }}
+          PUBLISH_PREVIEW: ${{ inputs.publish_preview }}
+          TOOLING_REF: ${{ github.sha }}
+          EXPECTED_SOURCE_REF: ec6ef63f9d6638a70bb8e7877d7b798598c250a2
+          HISTORICAL_RUN_ID: "41653545783"
+          HISTORICAL_APK_NAME: Melodix-Preview-v1.2.2-test96-instrumentation.apk
+          HISTORICAL_APK_SHA256: ce756a4beead4d0bb3128b339034d70fafab620ac89a189e5042d484f8348375
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_REF" =~ ^[0-9a-fA-F]{40}$ ]] || { echo "::error::P0 replay requires a full source_ref SHA."; exit 1; }
+          [[ "${SOURCE_REF,,}" == "$EXPECTED_SOURCE_REF" ]] || { echo "::error::P0 replay is restricted to the verified historical source ec6ef63."; exit 1; }
+          [[ "${PUBLISH_PREVIEW,,}" == "false" ]] || { echo "::error::P0 replay must use publish_preview=false; no release or publication is permitted."; exit 1; }
+          [[ "$TOOLING_REF" =~ ^[0-9a-fA-F]{40}$ ]] || { echo "::error::Current diagnostic tooling ref is not a full commit SHA."; exit 1; }
+          echo "::notice title=Targeted historical replay request::source=$EXPECTED_SOURCE_REF; historical_run=$HISTORICAL_RUN_ID; publish_preview=false; current source build disabled"
+
+      - name: Check out current diagnostic tooling separately
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          path: tooling
+
+      - name: Check out the exact APK source under test separately
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.source_ref }}
+          path: source-under-test
+
+      - name: Verify both isolated checkout identities
+        shell: bash
+        env:
+          SOURCE_REF: ${{ inputs.source_ref }}
+          TOOLING_REF: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          source_actual="$(git -C "$GITHUB_WORKSPACE/source-under-test" rev-parse HEAD | tr '[:upper:]' '[:lower:]')"
+          tooling_actual="$(git -C "$GITHUB_WORKSPACE/tooling" rev-parse HEAD | tr '[:upper:]' '[:lower:]')"
+          [[ "$source_actual" == "${SOURCE_REF,,}" ]] || { echo "::error::Source-under-test checkout mismatch."; exit 1; }
+          [[ "$tooling_actual" == "${TOOLING_REF,,}" ]] || { echo "::error::Diagnostic tooling checkout mismatch."; exit 1; }
+          [[ -s "$GITHUB_WORKSPACE/tooling/scripts/sanitize_verify_diagnostic.py" ]] || { echo "::error::Current sanitizer is unavailable in the tooling checkout."; exit 1; }
+          [[ -s "$GITHUB_WORKSPACE/source-under-test/smali/com/melodix/music/MainActivity.smali" ]] || { echo "::error::Historical Apktool source is incomplete."; exit 1; }
+          echo "Diagnostic tools use $tooling_actual; APK/source verification uses $source_actual."
+
+      - name: Confirm the historical run and APK artifact still exist
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HISTORICAL_RUN_ID: "41653545783"
+          HISTORICAL_SOURCE_REF: ec6ef63f9d6638a70bb8e7877d7b798598c250a2
+          HISTORICAL_APK_NAME: Melodix-Preview-v1.2.2-test96-instrumentation.apk
+        run: |
+          set -euo pipefail
+          run_json="$(gh api "repos/Souxch06/Melodix/actions/runs/$HISTORICAL_RUN_ID")"
+          run_source="$(jq -r '.head_sha | ascii_downcase' <<< "$run_json")"
+          run_number="$(jq -r '.run_number' <<< "$run_json")"
+          run_conclusion="$(jq -r '.conclusion // "unknown"' <<< "$run_json")"
+          [[ "$run_source" == "$HISTORICAL_SOURCE_REF" ]] || { echo "::error::Historical run does not point to the requested source SHA."; exit 1; }
+          artifacts_json="$(gh api "repos/Souxch06/Melodix/actions/runs/$HISTORICAL_RUN_ID/artifacts")"
+          exact_artifact_count="$(jq --arg name "$HISTORICAL_APK_NAME" '[.artifacts[] | select(.name == $name and .expired == false)] | length' <<< "$artifacts_json")"
+          [[ "$exact_artifact_count" == "1" ]] || { echo "::error::The exact historical instrumentation artifact is missing or expired."; exit 1; }
+          echo "::notice title=Historical APK provenance confirmed::run=$HISTORICAL_RUN_ID; run_number=$run_number; source=$run_source; run_conclusion=$run_conclusion; artifact=$HISTORICAL_APK_NAME; artifact_expired=false"
+
+      - name: Download the instrumentation APK from the historical failure run
+        uses: actions/download-artifact@v4.3.0
+        with:
+          name: Melodix-Preview-v1.2.2-test96-instrumentation.apk
+          path: ${{ runner.temp }}/melodix-p0-historical-apk
+          repository: ${{ github.repository }}
+          run-id: "41653545783"
+          github-token: ${{ github.token }}
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4.0.4
+
+      - name: Set up Java
+        uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android 16 emulator and APK inspection tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(uname -m)" == "x86_64" ]] || { echo "::error::Expected an x86_64 Linux emulator host."; exit 1; }
+          system_image="system-images;android-36;google_apis;x86_64"
+          sdkmanager --install "platform-tools" "emulator" "build-tools;35.0.0" "platforms;android-36" "$system_image"
+          [[ -s "$ANDROID_HOME/platform-tools/adb" && -s "$ANDROID_HOME/build-tools/35.0.0/aapt" && -s "$ANDROID_HOME/build-tools/35.0.0/apksigner" ]] || {
+            echo "::error::Required Android 16 emulator and APK inspection tools were not installed."
+            exit 1
+          }
+          [[ -e /dev/kvm ]] || { echo "::error::KVM is unavailable on this runner."; exit 1; }
+          sudo chmod 666 /dev/kvm
+          printf 'no\n' | avdmanager create avd --force --name MelodixP0Api36 --package "$system_image" --device pixel_2
+          avd_config="$HOME/.android/avd/MelodixP0Api36.avd/config.ini"
+          [[ -s "$avd_config" ]] || { echo "::error::Android 16 P0 replay AVD config was not created."; exit 1; }
+          if grep -q '^disk.dataPartition.size=' "$avd_config"; then
+            sed -i 's/^disk\.dataPartition\.size=.*/disk.dataPartition.size=4G/' "$avd_config"
+          else
+            printf '\ndisk.dataPartition.size=4G\n' >> "$avd_config"
+          fi
+          grep -qx 'disk.dataPartition.size=4G' "$avd_config"
+
+      - name: Verify the historical APK hash, signing, source, and packaged assets
+        id: apk
+        shell: bash
+        env:
+          SOURCE_REF: ${{ inputs.source_ref }}
+          APK_ARTIFACT_NAME: Melodix-Preview-v1.2.2-test96-instrumentation.apk
+          EXPECTED_APK_SHA256: ce756a4beead4d0bb3128b339034d70fafab620ac89a189e5042d484f8348375
+          EXPECTED_VERSION_CODE: "1021015"
+          EXPECTED_VERSION_NAME: 1.2.2-ec6ef63
+        run: |
+          set -euo pipefail
+          apk_dir="$RUNNER_TEMP/melodix-p0-historical-apk"
+          apk="$apk_dir/$APK_ARTIFACT_NAME"
+          [[ -s "$apk" && -s "$apk_dir/$APK_ARTIFACT_NAME.sha256" && -s "$apk_dir/assets-manifest.json" ]] || {
+            echo "::error::Historical APK, checksum, or packaged-assets manifest is missing."
+            exit 1
+          }
+          (cd "$apk_dir" && sha256sum -c "$APK_ARTIFACT_NAME.sha256")
+          apk_sha256="$(sha256sum "$apk" | awk '{print $1}')"
+          [[ "$apk_sha256" == "$EXPECTED_APK_SHA256" ]] || { echo "::error::Downloaded APK is not byte-identical to the instrumentation APK verified in run 41653545783."; exit 1; }
+
+          build_tools="$ANDROID_HOME/build-tools/35.0.0"
+          "$build_tools/apksigner" verify --verbose --min-sdk-version 24 "$apk"
+          "$build_tools/aapt" dump badging "$apk" > "$RUNNER_TEMP/melodix-p0-historical-badging.txt"
+          package_id="$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" "$RUNNER_TEMP/melodix-p0-historical-badging.txt")"
+          version_code="$(sed -n "s/^package:.*versionCode='\([^']*\)'.*/\1/p" "$RUNNER_TEMP/melodix-p0-historical-badging.txt")"
+          version_name="$(sed -n "s/^package:.*versionName='\([^']*\)'.*/\1/p" "$RUNNER_TEMP/melodix-p0-historical-badging.txt")"
+          [[ "$package_id" == "com.melodix.music.preview" && "$version_code" == "$EXPECTED_VERSION_CODE" && "$version_name" == "$EXPECTED_VERSION_NAME" ]] || {
+            echo "::error::Historical APK package/version metadata does not match run 41653545783."
+            exit 1
+          }
+          "$build_tools/aapt" dump xmltree "$apk" AndroidManifest.xml > "$RUNNER_TEMP/melodix-p0-historical-manifest.txt"
+          target_debuggable="$(python3 - "$RUNNER_TEMP/melodix-p0-historical-manifest.txt" <<'PY'
+          import pathlib
+          import re
+          import sys
+          text = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
+          line = next((item for item in text.splitlines() if re.search(r"\bandroid:debuggable(?:\(|=)", item)), None)
+          if line is None:
+              print("false")
+              raise SystemExit(0)
+          match = re.search(r"android:debuggable(?:\([^)]*\))?=\s*(?:\([^)]*\))?([^\s]+)", line)
+          if not match:
+              raise SystemExit("Unable to parse android:debuggable from the historical APK manifest")
+          value = match.group(1).lower()
+          if value in ("true", "false"):
+              print(value)
+          elif re.fullmatch(r"(?:0x[0-9a-f]+|[0-9]+)", value):
+              print(str(int(value, 0) != 0).lower())
+          else:
+              raise SystemExit("Unrecognized android:debuggable value in historical APK manifest")
+          PY
+          )"
+          [[ "$target_debuggable" == "true" ]] || {
+            echo "::error::Historical instrumentation APK is not debuggable."
+            exit 1
+          }
+          "$build_tools/aapt" dump --values resources "$apk" > "$RUNNER_TEMP/melodix-p0-historical-resources.txt"
+          grep -Fq "$SOURCE_REF" "$RUNNER_TEMP/melodix-p0-historical-resources.txt" || {
+            echo "::error::Historical APK does not embed the requested ec6ef63 source SHA."
+            exit 1
+          }
+          "$build_tools/apksigner" verify --print-certs "$apk" > "$RUNNER_TEMP/melodix-p0-historical-signer.txt"
+          signer_sha256="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/melodix-p0-historical-signer.txt" | head -n 1 | tr '[:upper:]' '[:lower:]')"
+          [[ "$signer_sha256" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::Could not verify the historical APK signer fingerprint."; exit 1; }
+          grep -Fq "$signer_sha256" "$RUNNER_TEMP/melodix-p0-historical-resources.txt" || {
+            echo "::error::Historical APK signer does not match its embedded expected signature."
+            exit 1
+          }
+
+          python3 - "$apk" "$apk_dir/assets-manifest.json" "$GITHUB_WORKSPACE/source-under-test" "$SOURCE_REF" <<'PY'
+          import hashlib
+          import json
+          import pathlib
+          import sys
+          import zipfile
+
+          apk_path, manifest_path, source_root, source_ref = sys.argv[1:]
+          root = pathlib.Path(source_root)
+          manifest = json.loads(pathlib.Path(manifest_path).read_text(encoding="utf-8"))
+          if manifest.get("source_commit") != source_ref:
+              raise SystemExit("Historical artifact asset manifest source SHA mismatch")
+          entries = manifest.get("assets", [])
+          if not entries:
+              raise SystemExit("Historical artifact asset manifest is empty")
+          packaged_names = set()
+          with zipfile.ZipFile(apk_path) as apk_file:
+              for entry in entries:
+                  name = entry["name"]
+                  source_name = entry.get("source")
+                  for relative in (name, source_name):
+                      if relative is not None:
+                          relative_path = pathlib.PurePosixPath(relative)
+                          if relative_path.is_absolute() or ".." in relative_path.parts:
+                              raise SystemExit("Historical asset manifest contains an unsafe path")
+                  packaged_names.add(name)
+                  runtime = (root / name).read_bytes()
+                  packaged = apk_file.read(name)
+                  digest = hashlib.sha256(runtime).hexdigest()
+                  if digest != entry["asset_sha256"] or packaged != runtime or len(packaged) != entry["bytes"]:
+                      raise SystemExit(f"Historical APK packaged-asset mismatch: {name}")
+                  if source_name:
+                      source_digest = hashlib.sha256((root / source_name).read_bytes()).hexdigest()
+                      if source_digest != entry.get("source_sha256"):
+                          raise SystemExit(f"Historical APK readable-source mismatch: {source_name}")
+          for required in ("assets/native_home_fallback.js", "assets/runtime_diagnostic.js", "assets/spotify_bridge.js", "assets/native_ui_shell.js", "assets/melodix_home.js"):
+              if required not in packaged_names:
+                  raise SystemExit(f"Historical APK asset manifest omits {required}")
+          PY
+
+          echo "apk=$apk" >> "$GITHUB_OUTPUT"
+          echo "apk_sha256=$apk_sha256" >> "$GITHUB_OUTPUT"
+          echo "version_code=$version_code" >> "$GITHUB_OUTPUT"
+          echo "version_name=$version_name" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Historical P0 APK verified::run=41653545783; artifact=$APK_ARTIFACT_NAME; source=$SOURCE_REF; versionCode=$version_code; versionName=$version_name; debuggable=true; sha256=$apk_sha256; APK build from 829fccd excluded"
+          {
+            echo "### Historical APK provenance"
+            echo
+            echo "- Installed APK: historical artifact from run `41653545783`"
+            echo "- Source SHA: `$SOURCE_REF`"
+            echo "- versionCode/versionName: `$version_code` / `$version_name`"
+            echo "- APK SHA-256: `$apk_sha256` (matches the redacted verification annotation from the historical run)"
+            echo "- New APK build during this targeted replay: **none**; `829fccd` APK is not used"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Boot a clean Android 16 emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$ANDROID_HOME/emulator/emulator" \
+            -avd MelodixP0Api36 \
+            -no-window \
+            -no-audio \
+            -no-boot-anim \
+            -no-snapshot \
+            -gpu swiftshader_indirect \
+            -accel on \
+            > "$RUNNER_TEMP/melodix-p0-emulator.log" 2>&1 &
+          emulator_pid=$!
+          adb start-server
+          device_id=""
+          for _ in $(seq 1 120); do
+            device_id="$(adb devices | awk '$1 ~ /^emulator-/ && $2 == "device" {print $1; exit}')"
+            [[ -n "$device_id" ]] && break
+            sleep 5
+          done
+          [[ -n "$device_id" ]] || { echo "::error::Android 16 P0 emulator did not appear in adb devices."; exit 1; }
+          booted=0
+          for _ in $(seq 1 120); do
+            if [[ "$(adb -s "$device_id" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; then
+              booted=1
+              break
+            fi
+            sleep 5
+          done
+          [[ "$booted" == "1" ]] || { echo "::error::Android 16 P0 emulator did not finish booting."; exit 1; }
+          adb shell settings put global window_animation_scale 0
+          adb shell settings put global transition_animation_scale 0
+          adb shell settings put global animator_duration_scale 0
+          echo "Android 16 emulator ready; this is an unauthenticated diagnostic launch."
+
+      - name: Capture separate redacted AndroidRuntime reports for both launches
+        id: replay
+        shell: bash
+        env:
+          APK_PATH: ${{ steps.apk.outputs.apk }}
+          SOURCE_REF: ${{ inputs.source_ref }}
+          TOOLING_ROOT: ${{ github.workspace }}/tooling
+          SOURCE_ROOT: ${{ github.workspace }}/source-under-test
+        run: |
+          set -euo pipefail
+          state_dir="$RUNNER_TEMP/melodix-p0-verify-replay"
+          mkdir -p "$state_dir"
+          initial_report="$state_dir/initial-launch-androidruntime-redacted.json"
+          relaunch_report="$state_dir/post-permission-relaunch-androidruntime-redacted.json"
+          verify_run_id="$(python3 -c 'import secrets; print(secrets.token_hex(8))')"
+          [[ "$verify_run_id" =~ ^[0-9a-f]{16}$ ]] || { echo "::error::Could not generate a bounded diagnostic run ID."; exit 1; }
+          echo "run_id=$verify_run_id" >> "$GITHUB_OUTPUT"
+          cleanup_replay() {
+            local exit_code=$?
+            trap - EXIT
+            set +e
+            adb shell pm clear com.melodix.music.preview >/dev/null 2>&1
+            adb logcat -c >/dev/null 2>&1
+            if (( exit_code != 0 )); then
+              rm -f "$initial_report" "$relaunch_report" "$state_dir/verify-replay-redacted.json"
+            fi
+            exit "$exit_code"
+          }
+          trap cleanup_replay EXIT
+          adb install "$APK_PATH" >/dev/null
+          adb shell pm clear com.melodix.music.preview >/dev/null
+          capture_androidruntime_verify() {
+            local output_path="$1"
+            # AndroidRuntime output is piped directly into the current sanitizer;
+            # only its strict allowlisted JSON report is written to disk.
+            adb logcat -d -t 2000 -b main -b crash -v message -s AndroidRuntime:E 2>/dev/null \
+              | python3 "$TOOLING_ROOT/scripts/sanitize_verify_diagnostic.py" \
+                  --androidruntime-stdin \
+                  --run-id "$verify_run_id" \
+                  --source-ref "$SOURCE_REF" \
+                  --source-root "$SOURCE_ROOT" \
+                  --output "$output_path"
+          }
+          adb logcat -c
+          initial_start_status=0
+          adb shell am start -W -n com.melodix.music.preview/com.melodix.music.MainActivity >/dev/null 2>&1 || initial_start_status=$?
+          capture_androidruntime_verify "$initial_report"
+          echo "initial_start_status=$initial_start_status" >> "$GITHUB_OUTPUT"
+          echo "Initial launch captured immediately; raw AndroidRuntime text was not retained."
+
+          sleep 8
+          adb shell pm grant com.melodix.music.preview android.permission.BLUETOOTH_CONNECT >/dev/null
+          if adb shell dumpsys package com.melodix.music.preview \
+              | grep -F 'android.permission.BLUETOOTH_CONNECT:' \
+              | grep -Fq 'granted=true'; then
+            permission_status="granted"
+          else
+            permission_status="denied"
+          fi
+          [[ "$permission_status" == "granted" ]] || { echo "::error title=Android permission setup::Only BLUETOOTH_CONNECT was granted, but Android did not report it granted."; exit 1; }
+          adb shell am force-stop com.melodix.music.preview >/dev/null 2>&1 || true
+          # Isolate the second observation from the initial launch and permission UI.
+          adb logcat -c
+          relaunch_start_status=0
+          adb shell am start -W -n com.melodix.music.preview/com.melodix.music.MainActivity >/dev/null 2>&1 || relaunch_start_status=$?
+          capture_androidruntime_verify "$relaunch_report"
+          echo "relaunch_start_status=$relaunch_start_status" >> "$GITHUB_OUTPUT"
+          echo "bluetooth_connect_granted=true" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Historical launch path replayed::permission=BLUETOOTH_CONNECT only; force_stop=true; second_launch=true; source=$SOURCE_REF; authenticated_spotify_test=not_performed"
+
+      - name: Validate and combine the two redacted launch observations
+        id: report
+        if: always() && steps.replay.outputs.run_id != ''
+        shell: bash
+        env:
+          SOURCE_REF: ${{ inputs.source_ref }}
+          VERIFY_RUN_ID: ${{ steps.replay.outputs.run_id }}
+          APK_SHA256: ${{ steps.apk.outputs.apk_sha256 }}
+          INITIAL_START_STATUS: ${{ steps.replay.outputs.initial_start_status }}
+          RELAUNCH_START_STATUS: ${{ steps.replay.outputs.relaunch_start_status }}
+          BLUETOOTH_CONNECT_GRANTED: ${{ steps.replay.outputs.bluetooth_connect_granted }}
+          TOOLING_ROOT: ${{ github.workspace }}/tooling
+        run: |
+          set -euo pipefail
+          state_dir="$RUNNER_TEMP/melodix-p0-verify-replay"
+          initial_report="$state_dir/initial-launch-androidruntime-redacted.json"
+          relaunch_report="$state_dir/post-permission-relaunch-androidruntime-redacted.json"
+          report="$state_dir/verify-replay-redacted.json"
+          [[ "$INITIAL_START_STATUS" =~ ^[0-9]+$ && "$RELAUNCH_START_STATUS" =~ ^[0-9]+$ ]] || {
+            echo "::error::Both launch status codes are required to aggregate the redacted reports."
+            exit 1
+          }
+          python3 "$TOOLING_ROOT/scripts/aggregate_p0_verify_replay.py" \
+            --source-ref "$SOURCE_REF" \
+            --run-id "$VERIFY_RUN_ID" \
+            --artifact-run-id 41653545783 \
+            --artifact-name Melodix-Preview-v1.2.2-test96-instrumentation.apk \
+            --apk-sha256 "$APK_SHA256" \
+            --initial-report "$initial_report" \
+            --relaunch-report "$relaunch_report" \
+            --initial-start-status "$INITIAL_START_STATUS" \
+            --relaunch-start-status "$RELAUNCH_START_STATUS" \
+            --bluetooth-connect-granted "$BLUETOOTH_CONNECT_GRANTED" \
+            --output "$report"
+          python3 - "$report" <<'PY'
+          import json
+          import pathlib
+          import re
+          import sys
+
+          data = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+          launches = data["launches"]
+          errors = []
+          for phase in ("initial", "post_permission_force_stop_relaunch"):
+              observation = launches[phase]["androidruntime"]
+              seen = observation["androidruntime_verify_error_seen"]
+              target_class = observation.get("target_class") or "none"
+              target_method = observation.get("target_method") or "none"
+              signature = observation.get("target_method_signature") or "none"
+              offset = observation.get("instruction_offset")
+              offset = "none" if offset is None else "0x%x" % offset
+              register = observation.get("register") or "none"
+              actual_type = observation.get("actual_type") or "unknown"
+              expected_type = observation.get("expected_type") or "unknown"
+              fields = [
+                  "phase=" + phase,
+                  "verify_error_detected=" + str(seen).lower(),
+                  "class=" + target_class,
+                  "method=" + target_method,
+                  "signature=" + signature,
+                  "art_offset=" + offset,
+                  "register=" + register,
+                  "actual_type=" + actual_type,
+                  "expected_type=" + expected_type,
+              ]
+              print("::notice title=Redacted AndroidRuntime replay report::" + "; ".join(fields))
+              errors.append(seen)
+          summary = pathlib.Path(__import__("os").environ["GITHUB_STEP_SUMMARY"])
+          with summary.open("a", encoding="utf-8") as output:
+              output.write("\n### Redacted VerifyError replay observations\n\n")
+              output.write("- Initial launch: VerifyError captured = `%s`\n" % str(errors[0]).lower())
+              output.write("- After `BLUETOOTH_CONNECT` grant, force-stop and relaunch: VerifyError captured = `%s`\n" % str(errors[1]).lower())
+              output.write("- Authenticated Spotify test: **not performed**; no account data supplied.\n")
+          print("verify_error_detected=" + str(any(errors)).lower())
+          PY
+          verify_error_detected="$(python3 - "$report" <<'PY'
+          import json
+          import pathlib
+          import sys
+          data = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+          print(str(any(data["launches"][phase]["androidruntime"]["verify_error_detected"] for phase in ("initial", "post_permission_force_stop_relaunch"))).lower())
+          PY
+          )"
+          rm -f "$initial_report" "$relaunch_report"
+          echo "verify_error_detected=$verify_error_detected" >> "$GITHUB_OUTPUT"
+          echo "report_created=true" >> "$GITHUB_OUTPUT"
+
+      - name: Upload only the combined redacted P0 replay report
+        if: always() && steps.report.outputs.report_created == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Melodix-P0-VerifyError-Replay-Redacted-${{ github.run_id }}
+          path: ${{ runner.temp }}/melodix-p0-verify-replay/verify-replay-redacted.json
+          retention-days: 1
+          if-no-files-found: error
+
+      - name: Mark a reproduced VerifyError as a P0 finding
+        if: always() && steps.report.outputs.report_created == 'true' && steps.report.outputs.verify_error_detected == 'true'
+        shell: bash
+        run: |
+          echo "::error title=Android 16 VerifyError reproduced::The phase-isolated redacted report is uploaded; inspect its class, method, ART offset, register types, and source instruction before attributing a method."
+          exit 1
