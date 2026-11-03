@@ -4459,7 +4459,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         runOnMainSync(new Runnable() {
             @Override public void run() {
                 try {
-                    View mainRoot = requiredView(activity, "main");
+                    ViewGroup mainRoot = (ViewGroup) requiredView(activity, "main");
                     View nativeRoot = requiredView(activity, "nativeRoot");
                     View splash = requiredView(activity, "splashOverlay");
                     View webContainer = requiredView(activity, "webViewContainer");
