@@ -876,3 +876,12 @@ test('the probe reset never joins mixed register types at :probe_collect', () =>
   assert.ok(after.indexOf('const/4 v1, 0x0') > -1 && after.indexOf('const-string v0') > -1,
     'v0/v1 are reassigned before use, so the join is never read');
 });
+
+test('markNativeSettingsPayloadApplied uses StringBuilder.append(String) for its comma literal', () => {
+  const body = methodBody(MI(), '.method private final markNativeSettingsPayloadApplied(Ljava/lang/String;)V');
+  assert.match(body,
+    /const-string v3, ","\s+invoke-virtual \{v2, v3\}, Ljava\/lang\/StringBuilder;->append\(Ljava\/lang\/String;\)Ljava\/lang\/StringBuilder;/,
+    'v3 is a String literal, so the invoked append prototype must accept String');
+  assert.doesNotMatch(body, /append\(Ljava\/lang\/StringBuilder;\)/,
+    'the method must not invoke a nonexistent StringBuilder.append(StringBuilder) overload');
+});
