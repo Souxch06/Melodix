@@ -1364,6 +1364,11 @@
     .line 618
     if-nez p0, :cond_e
 
+    # No connectivity at all: record the safe diagnostic source.
+    const-string p0, "Source: Android ConnectivityManager check returned false"
+
+    invoke-static {p0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+
     .line 619
     .line 620
     invoke-virtual {v6, v2}, Lcom/melodix/music/MainActivity;->D(Z)V

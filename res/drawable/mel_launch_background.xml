@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launch background: painted by the system before Application.onCreate runs,
+     so the first pixels a user sees are already Melodix instead of a plain
+     black rectangle. On a slow start (cold WebView, large dex) that window can
+     last several seconds, and a flat black screen is indistinguishable from a
+     crash. The centred logo hands over to the splash overlay without a visible
+     jump: same background colour, same logo, same place. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/mel_background" />
+        </shape>
+    </item>
+    <item
+        android:width="120dp"
+        android:height="120dp"
+        android:gravity="center">
+        <bitmap
+            android:src="@drawable/melodix_launcher_foreground"
+            android:gravity="center" />
+    </item>
+</layer-list>
