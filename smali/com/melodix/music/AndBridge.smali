@@ -629,7 +629,32 @@
     move-result v1
     if-nez v1, :structured_safe
 
+    const-string v0, "^home-data stage=android-render-start result=started$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const-string v0, "^home-data stage=android-parsed result=(valid|empty|invalid)$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const-string v0, "^home-data stage=android-model result=(cards|status|empty|invalid|unavailable)$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
     const-string v0, "^home-data stage=android-rendered result=(rendered|status|failed)$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const-string v0, "^home-data stage=android-visible result=(cards|status)$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const-string v0, "^js-error script=(native-ui-shell|spotify-bridge|melodix-home|runtime-diagnostic|external|inline|unknown) source=(window-js|resource-script|resource-link|resource-image|resource-iframe|resource-other|run-update|install|callback|promise) phase=(uncaught|resource-load|run-update|install|bridge-callback|unhandled-rejection) type=(Error|TypeError|ReferenceError|SyntaxError|RangeError|URIError|EvalError|SecurityError|NetworkError|AbortError|InvalidStateError|NotSupportedError|QuotaExceededError|unknown) callback=(none|unknown|promise|runUpdate|install|onNativeUiData|onNativeUiRoute|onNativeUiReady) line=(na|[0-9]{1,7}) column=(na|[0-9]{1,7}) route=(home|search|library|detail|settings|other) cycle=(na|[0-9]{1,6}) repeats=[1-9][0-9]{0,3}$"
     invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
     move-result v1
     if-nez v1, :structured_safe

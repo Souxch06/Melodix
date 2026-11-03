@@ -44,6 +44,7 @@ function executeSetNativeScreen(
         nativeHomeStatusAttached: Boolean(previousHomeState.nativeHomeStatusAttached),
         nativeHomeSessionUnprovenStatusAttached: Boolean(previousHomeState.nativeHomeSessionUnprovenStatusAttached),
         nativeHomeContentReady: Boolean(previousHomeState.nativeHomeContentReady),
+        nativeHomeVisibilityDiagnosticReported: Boolean(previousHomeState.nativeHomeVisibilityDiagnosticReported),
         nativeHomeFirstCard: previousHomeState.nativeHomeFirstCard || null,
         nativeHomeStatusView: previousHomeState.nativeHomeStatusView || null,
         contentSentinel
@@ -124,7 +125,7 @@ function executeSetNativeScreen(
             fadeValueAtStore = state.nativeFadeNextScreen;
             continue;
         }
-        if ((match = /^iput-boolean (\w+), p0, .*->(nativeHomeCardsAttached|nativeHomeStatusAttached|nativeHomeSessionUnprovenStatusAttached|nativeHomeContentReady):Z$/.exec(instruction))) {
+        if ((match = /^iput-boolean (\w+), p0, .*->(nativeHomeCardsAttached|nativeHomeStatusAttached|nativeHomeSessionUnprovenStatusAttached|nativeHomeContentReady|nativeHomeVisibilityDiagnosticReported):Z$/.exec(instruction))) {
             state[match[2]] = Boolean(registers[match[1]]);
             continue;
         }
@@ -159,6 +160,7 @@ test('D2 — repeated Home destination is idempotent and preserves existing cont
         nativeHomeCardsAttached: true,
         nativeHomeStatusAttached: false,
         nativeHomeContentReady: true,
+        nativeHomeVisibilityDiagnosticReported: true,
         nativeHomeFirstCard: cardSentinel
     };
     const result = executeSetNativeScreen('home', 'home', true, contentSentinel, previousHomeState);
@@ -167,6 +169,8 @@ test('D2 — repeated Home destination is idempotent and preserves existing cont
     assert.equal(result.state.nativeFadeNextScreen, false);
     assert.equal(result.state.nativeHomeCardsAttached, true, 'repeated Home retains attached rows');
     assert.equal(result.state.nativeHomeContentReady, true, 'repeated Home retains verified readiness');
+    assert.equal(result.state.nativeHomeVisibilityDiagnosticReported, true,
+        'an idempotent Home route does not reset a completed visibility report');
     assert.strictEqual(result.state.nativeHomeFirstCard, cardSentinel);
     assert.strictEqual(result.state.contentSentinel, contentSentinel, 'repeated feed updates retain rendered content');
 });
@@ -198,6 +202,7 @@ test('D3 — a genuine Home to Search change stores the route and schedules a fa
         nativeHomeStatusAttached: true,
         nativeHomeSessionUnprovenStatusAttached: true,
         nativeHomeContentReady: true,
+        nativeHomeVisibilityDiagnosticReported: true,
         nativeHomeFirstCard: { attached: true },
         nativeHomeStatusView: { attached: true }
     };
@@ -210,6 +215,8 @@ test('D3 — a genuine Home to Search change stores the route and schedules a fa
     assert.equal(result.state.nativeHomeSessionUnprovenStatusAttached, false,
         'leaving Home clears the status-only state so it cannot leak into Search or Library');
     assert.equal(result.state.nativeHomeContentReady, false, 'leaving Home invalidates visibility readiness');
+    assert.equal(result.state.nativeHomeVisibilityDiagnosticReported, false,
+        'a later Home visit gets a fresh one-shot measured-visibility diagnostic');
     assert.equal(result.state.nativeHomeFirstCard, null, 'leaving Home drops the stale card reference');
     assert.equal(result.state.nativeHomeStatusView, null, 'leaving Home drops the stale status reference');
 });
@@ -316,7 +323,8 @@ function executeNativeRouteActivation(activity, destination) {
                 nativeHomeCardsAttached: result.state.nativeHomeCardsAttached,
                 nativeHomeStatusAttached: result.state.nativeHomeStatusAttached,
                 nativeHomeSessionUnprovenStatusAttached: result.state.nativeHomeSessionUnprovenStatusAttached,
-                nativeHomeContentReady: result.state.nativeHomeContentReady
+                nativeHomeContentReady: result.state.nativeHomeContentReady,
+                nativeHomeVisibilityDiagnosticReported: result.state.nativeHomeVisibilityDiagnosticReported
             });
             continue;
         }

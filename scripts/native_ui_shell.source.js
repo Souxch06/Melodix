@@ -8,8 +8,22 @@
 
     var NATIVE_UI_SHELL_ERROR_SOURCES = [
         'window-js', 'resource-script', 'resource-link', 'resource-image',
-        'resource-iframe', 'resource-other', 'run-update', 'install'
+        'resource-iframe', 'resource-other', 'run-update', 'install', 'callback', 'promise'
     ];
+    var NATIVE_UI_SHELL_ERROR_SCRIPTS = [
+        'native-ui-shell', 'spotify-bridge', 'melodix-home', 'runtime-diagnostic',
+        'external', 'inline', 'unknown'
+    ];
+    var NATIVE_UI_SHELL_ERROR_PHASES = [
+        'uncaught', 'resource-load', 'run-update', 'install', 'bridge-callback', 'unhandled-rejection'
+    ];
+    var NATIVE_UI_SHELL_ERROR_CALLBACKS = [
+        'none', 'unknown', 'promise', 'runUpdate', 'install',
+        'onNativeUiData', 'onNativeUiRoute', 'onNativeUiReady'
+    ];
+    var nativeUiShellErrorKeys = [];
+    var homeRenderCycle = 0;
+    window.__sfNativeUiHomeRenderCycle = 0;
     window.__sfNativeUiShellErrorSources = {};
     NATIVE_UI_SHELL_ERROR_SOURCES.forEach(function(source) {
         window.__sfNativeUiShellErrorSources[source] = 0;
@@ -34,18 +48,99 @@
     }
 
     function safeShellErrorCoordinate(value) {
-        var number = Number(value);
+        var number;
+        try { number = Number(value); } catch (_) { return null; }
         return Number.isInteger(number) && number >= 1 && number <= 1000000 ? number : null;
     }
 
-    // Preserve the total for compatibility, but retain only an allow-listed
-    // source, error class and numeric location. Never keep a message, URL, or stack.
-    function recordNativeUiShellError(source, name, ev) {
+    function safeShellErrorPosition(ev, primary, alternate) {
+        var value;
+        try {
+            value = ev && ev[primary];
+            if (value === null || typeof value === 'undefined') value = ev && ev[alternate];
+        } catch (_) {
+            return null;
+        }
+        return safeShellErrorCoordinate(value);
+    }
+
+    function safeShellErrorScript(ev, source, requested) {
+        var rawFile = '';
+        var file;
+        var baseName;
+        if (NATIVE_UI_SHELL_ERROR_SCRIPTS.indexOf(requested) >= 0) return requested;
+        if (source === 'run-update' || source === 'install' || source === 'callback') return 'native-ui-shell';
+        try {
+            rawFile = String(ev && (ev.filename || ev.sourceURL || ev.fileName) || '');
+            if (!rawFile && ev && ev.target) rawFile = String(ev.target.src || ev.target.href || '');
+        } catch (_) {
+            rawFile = '';
+        }
+        file = rawFile.replace(/\\/g, '/').split(/[?#]/, 1)[0];
+        baseName = file.slice(file.lastIndexOf('/') + 1).toLowerCase();
+        if (baseName === 'native_ui_shell.js' || baseName === 'native_ui_shell.source.js') return 'native-ui-shell';
+        if (baseName === 'spotify_bridge.js' || baseName === 'spotify_bridge.source.js') return 'spotify-bridge';
+        if (baseName === 'melodix_home.js' || baseName === 'melodix_home.source.js') return 'melodix-home';
+        if (baseName === 'runtime_diagnostic.js') return 'runtime-diagnostic';
+        if (!rawFile) return source === 'window-js' ? 'inline' : 'unknown';
+        return 'external';
+    }
+
+    function safeShellErrorRoute(value) {
+        try {
+            return safeDiagnosticScreen(value || window.__sfNativeUiRoute || nativeScreenForPath());
+        } catch (_) {
+            return 'other';
+        }
+    }
+
+    function safeShellErrorCycle(value) {
+        var number;
+        if (value === null || typeof value === 'undefined') return null;
+        try { number = Number(value); } catch (_) { return null; }
+        return Number.isInteger(number) && number >= 0 && number <= 999999 ? number : null;
+    }
+
+    function traceNativeUiShellError(detail) {
+        var line = detail.line === null ? 'na' : String(detail.line);
+        var column = detail.column === null ? 'na' : String(detail.column);
+        var cycle = detail.renderCycle === null ? 'na' : String(detail.renderCycle);
+        diagTrace('js-error script=' + detail.script + ' source=' + detail.source +
+            ' phase=' + detail.phase + ' type=' + detail.type + ' callback=' + detail.callback +
+            ' line=' + line + ' column=' + column + ' route=' + detail.route +
+            ' cycle=' + cycle + ' repeats=' + detail.repeatCount);
+    }
+
+    // Keep only bounded enums and numeric locations. The dedupe key excludes the
+    // render cycle so a persistent fault cannot flood diagnostics on each retry.
+    // No exception message, stack, source URL, query, cookie, token, or response data is retained.
+    function recordNativeUiShellError(source, name, ev, context) {
+        var options = context && typeof context === 'object' ? context : {};
         var safeSource = NATIVE_UI_SHELL_ERROR_SOURCES.indexOf(source) >= 0
             ? source : 'resource-other';
         var safeName = safeErrorClass(name);
+        var safeScript = safeShellErrorScript(ev, safeSource, options.script);
+        var safePhase = NATIVE_UI_SHELL_ERROR_PHASES.indexOf(options.phase) >= 0
+            ? options.phase
+            : safeSource === 'resource-script' || safeSource === 'resource-link' ||
+                safeSource === 'resource-image' || safeSource === 'resource-iframe' || safeSource === 'resource-other'
+                ? 'resource-load' : safeSource === 'run-update' ? 'run-update'
+                    : safeSource === 'install' ? 'install'
+                        : safeSource === 'callback' ? 'bridge-callback'
+                            : safeSource === 'promise' ? 'unhandled-rejection' : 'uncaught';
+        var safeCallback = NATIVE_UI_SHELL_ERROR_CALLBACKS.indexOf(options.callback) >= 0
+            ? options.callback : 'unknown';
+        var safeRoute = safeShellErrorRoute(options.route);
+        var line = safeShellErrorPosition(ev, 'lineno', 'lineNumber');
+        var column = safeShellErrorPosition(ev, 'colno', 'columnNumber');
+        var cycle = safeShellErrorCycle(typeof options.renderCycle === 'undefined'
+            ? window.__sfNativeUiHomeRenderCycle : options.renderCycle);
+        var key = [safeScript, safeSource, safePhase, safeName, safeCallback, safeRoute,
+            line === null ? 'na' : line, column === null ? 'na' : column].join('|');
         var counts = window.__sfNativeUiShellErrorSources;
         var details = window.__sfNativeUiShellErrorDetails;
+        var index;
+        var entry;
         var count;
         if (!counts || typeof counts !== 'object') counts = {};
         count = Number(counts[safeSource]);
@@ -55,26 +150,64 @@
         window.__sfNativeUiShellErrors = Math.min(9999, Math.max(0,
             Number.isFinite(count) ? Math.floor(count) : 0) + 1);
         if (!Array.isArray(details)) details = [];
-        details.push({
+        index = nativeUiShellErrorKeys.indexOf(key);
+        if (index >= 0 && details[index]) {
+            entry = details[index];
+            entry.repeatCount = Math.min(9999, Math.max(1, Number(entry.repeatCount) || 1) + 1);
+            entry.lastRenderCycle = cycle;
+            window.__sfNativeUiShellErrorDetails = details;
+            return { detail: entry, isNew: false };
+        }
+        entry = {
+            script: safeScript,
             source: safeSource,
+            phase: safePhase,
+            type: safeName,
             name: safeName,
-            line: safeShellErrorCoordinate(ev && ev.lineno),
-            column: safeShellErrorCoordinate(ev && ev.colno)
-        });
-        if (details.length > 8) details.splice(0, details.length - 8);
+            callback: safeCallback,
+            line: line,
+            column: column,
+            route: safeRoute,
+            renderCycle: cycle,
+            lastRenderCycle: cycle,
+            repeatCount: 1
+        };
+        nativeUiShellErrorKeys.push(key);
+        details.push(entry);
+        if (details.length > 8) {
+            nativeUiShellErrorKeys.splice(0, details.length - 8);
+            details.splice(0, details.length - 8);
+        }
         window.__sfNativeUiShellErrorDetails = details;
+        return { detail: entry, isNew: true };
     }
 
-    // P0 diagnostic: uncaught JS errors must never kill the startup chain
-    // silently. Keep only a bounded, allow-listed source/class and numeric location.
+    // Uncaught page/resource errors and rejected promises are separate phases.
+    // Events are de-duplicated before they reach the native allowlist sink.
     window.addEventListener('error', function(ev) {
         var source = nativeUiShellErrorSource(ev);
         var name = safeErrorClass(ev && ev.error && ev.error.name);
-        recordNativeUiShellError(source, name, ev);
-        try {
-            diagTrace('js-error name=' + name + ' source=' + source);
-        } catch (_) {}
+        var result = recordNativeUiShellError(source, name, ev, {
+            phase: source === 'window-js' ? 'uncaught' : 'resource-load',
+            callback: 'unknown'
+        });
+        if (result.isNew) {
+            try { traceNativeUiShellError(result.detail); } catch (_) {}
+        }
     }, true);
+    window.addEventListener('unhandledrejection', function(ev) {
+        var reason;
+        var name;
+        var result;
+        try { reason = ev && ev.reason; } catch (_) { reason = null; }
+        name = safeErrorClass(reason && reason.name);
+        result = recordNativeUiShellError('promise', name, reason, {
+            phase: 'unhandled-rejection', callback: 'promise'
+        });
+        if (result.isNew) {
+            try { traceNativeUiShellError(result.detail); } catch (_) {}
+        }
+    });
     diagTrace('js-shell begin');
 
     // /app is a player-entry URL used by the native recovery probe. Keep the
@@ -225,7 +358,7 @@
 
     function safeDiagnosticScreen(value) {
         var screen = String(value || '');
-        return ['home', 'search', 'library', 'detail'].indexOf(screen) >= 0 ? screen : 'other';
+        return ['home', 'search', 'library', 'detail', 'settings'].indexOf(screen) >= 0 ? screen : 'other';
     }
 
     function diagnosticScreen() {
@@ -256,7 +389,9 @@
     function diagTrace(event) {
         var id = diagnosticId();
         var rawMessage = String(event || '').replace(/\s+/g, ' ');
-        var message = rawMessage.slice(0, rawMessage.indexOf('webview-state ') === 0 ? 160 : 120);
+        var messageLimit = rawMessage.indexOf('webview-state ') === 0 ? 160
+            : rawMessage.indexOf('js-error script=') === 0 ? 220 : 120;
+        var message = rawMessage.slice(0, messageLimit);
         var line = (id ? 'sid=' + id + ' ' : '') + message;
         window.__sfDiagTraceLast = line.slice(0, 160);
         window.__sfDiagTraceCount = (window.__sfDiagTraceCount || 0) + 1;
@@ -343,7 +478,13 @@
             bridge.onNativeUiData(screen, JSON.stringify(rows));
             if (screen === 'home') diagTrace('home-data stage=web-to-android result=sent');
             return true;
-        } catch (_) {
+        } catch (err) {
+            var callbackError = recordNativeUiShellError('callback', err && err.name, err, {
+                phase: 'bridge-callback', callback: 'onNativeUiData', route: screen
+            });
+            if (callbackError.isNew) {
+                try { traceNativeUiShellError(callbackError.detail); } catch (_) {}
+            }
             if (screen === 'home') diagTrace('home-data stage=web-to-android result=failed');
             return false;
         }
@@ -372,7 +513,13 @@
             window.__sfNativeUiRoute = route;
             diagTrace('native-route queued screen=' + safeDiagnosticScreen(route));
             return true;
-        } catch (_) {
+        } catch (err) {
+            var callbackError = recordNativeUiShellError('callback', err && err.name, err, {
+                phase: 'bridge-callback', callback: 'onNativeUiRoute', route: route
+            });
+            if (callbackError.isNew) {
+                try { traceNativeUiShellError(callbackError.detail); } catch (_) {}
+            }
             diagTrace('native-route failed screen=' + safeDiagnosticScreen(route));
             return false;
         }
@@ -1145,6 +1292,8 @@
         var signature;
         var statePayload;
         var stateSignature;
+        homeRenderCycle = Math.min(999999, homeRenderCycle + 1);
+        window.__sfNativeUiHomeRenderCycle = homeRenderCycle;
         actualHomeRoute = window.location.hostname === 'open.spotify.com' && isSpotifyHome();
         sessionProven = libraryProvesSession();
         // When libraryV3 has not proved this WebView, use native Home as a safe
@@ -1470,7 +1619,13 @@
             if (readyRetryTimer) window.clearTimeout(readyRetryTimer);
             readyRetryTimer = null;
             diagTrace('native-ui-ready screen=' + safeDiagnosticScreen(initialScreen));
-        } catch (_) {
+        } catch (err) {
+            var callbackError = recordNativeUiShellError('callback', err && err.name, err, {
+                phase: 'bridge-callback', callback: 'onNativeUiReady', route: initialScreen
+            });
+            if (callbackError.isNew) {
+                try { traceNativeUiShellError(callbackError.detail); } catch (_) {}
+            }
             return false;
         }
 
@@ -2470,7 +2625,10 @@
             }
             notifyNativeUiReady(mainView);
         } catch (err) {
-            recordNativeUiShellError('run-update', err && err.name);
+            var recordedError = recordNativeUiShellError('run-update', err && err.name, err, {
+                phase: 'run-update', callback: 'runUpdate'
+            });
+            if (recordedError.isNew) traceNativeUiShellError(recordedError.detail);
             diagTrace('runUpdate error name=' + safeErrorClass(err && err.name) + ' source=run-update');
         }
         if (!window.__sfNativeUiReadyNotified) scheduleReadinessRetry();
@@ -3483,7 +3641,10 @@
         window.__sfNativeUiShellCompleted = true;
         diagTrace('js-shell end ok screen=' + diagnosticScreen());
     } catch (err) {
-        recordNativeUiShellError('install', err && err.name);
+        var installError = recordNativeUiShellError('install', err && err.name, err, {
+            phase: 'install', callback: 'install'
+        });
+        if (installError.isNew) traceNativeUiShellError(installError.detail);
         window.__sfNativeUiShellCompleted = false;
         diagTrace('js-shell end threw name=' + safeErrorClass(err && err.name) + ' source=install');
     }

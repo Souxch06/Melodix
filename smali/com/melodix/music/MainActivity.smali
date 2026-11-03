@@ -84,6 +84,7 @@
 .field private nativeHomeStatusAttached:Z
 .field private nativeHomeSessionUnprovenStatusAttached:Z
 .field private nativeHomeContentReady:Z
+.field private nativeHomeVisibilityDiagnosticReported:Z
 .field private nativeHomeFirstCard:Landroid/view/View;
 .field private nativeHomeStatusView:Landroid/view/View;
 
@@ -7884,7 +7885,17 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 .end method
 
 .method public final postNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
-    .locals 2
+    .locals 3
+
+    # This is the raw WebView-to-Activity receipt boundary. Record a fixed stage
+    # before queueing the payload, without copying its length or content to logs.
+    const-string v0, "home"
+    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :native_home_payload_received_done
+    const-string v0, "home-data stage=android-received result=received"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    :native_home_payload_received_done
 
     new-instance v0, Lcom/melodix/music/NativeUiUpdateRunnable;
     const/4 v1, 0x1
@@ -7903,6 +7914,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeStatusAttached:Z
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeSessionUnprovenStatusAttached:Z
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeContentReady:Z
+    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeVisibilityDiagnosticReported:Z
     const/4 v1, 0x0
     iput-object v1, p0, Lcom/melodix/music/MainActivity;->nativeHomeFirstCard:Landroid/view/View;
     iput-object v1, p0, Lcom/melodix/music/MainActivity;->nativeHomeStatusView:Landroid/view/View;
@@ -8084,6 +8096,21 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
     const/4 v0, 0x1
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeContentReady:Z
+    # This signal follows both measured global-visible-rect checks, including
+    # the second check after splash removal. It is distinct from Web Home state.
+    iget-boolean v1, p0, Lcom/melodix/music/MainActivity;->nativeHomeVisibilityDiagnosticReported:Z
+    if-nez v1, :native_home_visibility_diagnostic_done
+    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeVisibilityDiagnosticReported:Z
+    iget-boolean v1, p0, Lcom/melodix/music/MainActivity;->nativeHomeCardsAttached:Z
+    if-eqz v1, :native_home_visibility_status_diagnostic
+    const-string v1, "home-data stage=android-visible result=cards"
+    goto :native_home_visibility_diagnostic_emit
+    :native_home_visibility_status_diagnostic
+    const-string v1, "home-data stage=android-visible result=status"
+    :native_home_visibility_diagnostic_emit
+    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v1}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
+    :native_home_visibility_diagnostic_done
     const-string v1, "home-rendered"
     invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
     iget-boolean v1, p0, Lcom/melodix/music/MainActivity;->nativeHomeCardsAttached:Z
@@ -8449,6 +8476,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     iput-boolean v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeStatusAttached:Z
     iput-boolean v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeSessionUnprovenStatusAttached:Z
     iput-boolean v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeContentReady:Z
+    iput-boolean v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeVisibilityDiagnosticReported:Z
     iput-object v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeFirstCard:Landroid/view/View;
     iput-object v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeStatusView:Landroid/view/View;
     :native_fade_flag

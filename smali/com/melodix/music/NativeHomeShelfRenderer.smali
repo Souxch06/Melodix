@@ -14,7 +14,10 @@
     # API so the renderer never issues illegal cross-class private-field writes.
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->beginNativeHomeRender()V
 
-    # The bridge delivered home JSON: timestamped proof for the freeze report.
+    # Renderer entry follows the Activity bridge receipt; content remains private.
+    const-string v0, "home-data stage=android-render-start result=started"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     const-string v0, "home-json"
 
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
@@ -49,7 +52,7 @@
     invoke-virtual {v0}, Lorg/json/JSONArray;->length()I
 
     move-result v1
-    invoke-static {v1}, Lcom/melodix/music/NativeHomeShelfRenderer;->traceHomeReceipt(I)V
+    invoke-static {v1}, Lcom/melodix/music/NativeHomeShelfRenderer;->traceHomeParsed(I)V
 
     if-lez v1, :shelf_no_cards
 
@@ -74,6 +77,7 @@
     move-result v3
     if-eqz v3, :shelf_no_cards
     const-string v4, "status"
+    invoke-static {v4}, Lcom/melodix/music/NativeHomeShelfRenderer;->traceHomeModel(Ljava/lang/String;)V
     invoke-static {v1, p1, v4}, Lcom/melodix/music/NativeHomeShelfRenderer;->traceHomeRendered(IILjava/lang/String;)V
     const-string v1, "native-home-status-attached"
     invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
@@ -470,6 +474,8 @@
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->hasNativeHomeCardsAttached()Z
     move-result v5
     if-eqz v5, :shelf_no_cards
+    const-string v5, "cards"
+    invoke-static {v5}, Lcom/melodix/music/NativeHomeShelfRenderer;->traceHomeModel(Ljava/lang/String;)V
 
     new-instance v5, Landroid/widget/LinearLayout$LayoutParams;
 
@@ -491,6 +497,13 @@
     goto :shelf_done
 
     :shelf_no_cards
+    if-lez v1, :shelf_model_empty
+    const-string v0, "invalid"
+    goto :shelf_model_result_ready
+    :shelf_model_empty
+    const-string v0, "empty"
+    :shelf_model_result_ready
+    invoke-static {v0}, Lcom/melodix/music/NativeHomeShelfRenderer;->traceHomeModel(Ljava/lang/String;)V
     const-string v0, "failed"
     invoke-static {v1, p1, v0}, Lcom/melodix/music/NativeHomeShelfRenderer;->traceHomeRendered(IILjava/lang/String;)V
     # Empty payloads, diagnostic rows and malformed cards do not make playable
@@ -531,6 +544,8 @@
     return-void
 
     :shelf_container_missing
+    const-string v0, "unavailable"
+    invoke-static {v0}, Lcom/melodix/music/NativeHomeShelfRenderer;->traceHomeModel(Ljava/lang/String;)V
     const-string v0, "MDXTRACE"
     const-string v1, "home-render failed reason=native-content-missing"
     invoke-static {v0, v1}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
@@ -546,6 +561,11 @@
 
     :catch_0
     move-exception v0
+    const-string v1, "home-data stage=android-parsed result=invalid"
+    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v1}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
+    const-string v1, "invalid"
+    invoke-static {v1}, Lcom/melodix/music/NativeHomeShelfRenderer;->traceHomeModel(Ljava/lang/String;)V
     const-string v1, "native-render-failed step=home-render exception=JSONException reason=invalid-json"
     invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
     invoke-static {v1}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
@@ -1324,10 +1344,30 @@
     return v2
 .end method
 
-.method private static traceHomeReceipt(I)V
+.method private static traceHomeParsed(I)V
     .locals 1
 
-    const-string v0, "home-data stage=android-received result=received"
+    if-lez p0, :home_parsed_empty
+    const-string v0, "home-data stage=android-parsed result=valid"
+    goto :home_parsed_emit
+    :home_parsed_empty
+    const-string v0, "home-data stage=android-parsed result=empty"
+    :home_parsed_emit
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
+    return-void
+.end method
+
+.method private static traceHomeModel(Ljava/lang/String;)V
+    .locals 3
+
+    new-instance v0, Ljava/lang/StringBuilder;
+    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v1, "home-data stage=android-model result="
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v0
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
     invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     return-void

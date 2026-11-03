@@ -9,12 +9,15 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.graphics.Insets;
 import android.graphics.Rect;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.SystemClock;
+import android.util.DisplayMetrics;
 import android.util.Log;
+import android.view.Display;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.KeyEvent;
@@ -347,13 +350,22 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             "var versionAfter=function(source,marker){var start=source.indexOf(marker);if(start<0)return '';start+=marker.length;var end=start;while(end<source.length){var c=source.charCodeAt(end);if((c>=48&&c<=57)||c===46)end++;else break;}return source.slice(start,end);};" +
             "var majorOf=function(value){return String(value||'').split('.')[0];};" +
             "var errorType=function(error){var name=String(error&&error.name||'Error');return /^[A-Za-z0-9_$]+$/.test(name)?name.slice(0,48):'Error';};" +
+            "var metric=function(value,max){if(value===null||typeof value==='undefined')return null;value=Number(value);return Number.isFinite(value)?Math.max(0,Math.min(max,Math.round(value*100)/100)):null;};" +
+            "var screen=window.screen||{};var visual=window.visualViewport||null;var root=document.documentElement||null;" +
+            "var orientation=screen.orientation&&['portrait-primary','portrait-secondary','landscape-primary','landscape-secondary'].indexOf(screen.orientation.type)>=0?screen.orientation.type:'unknown';" +
+            "var viewport={innerWidth:metric(window.innerWidth,10000),innerHeight:metric(window.innerHeight,10000)," +
+            "screenWidth:metric(screen.width,10000),screenHeight:metric(screen.height,10000)," +
+            "documentClientWidth:metric(root&&root.clientWidth,10000),documentClientHeight:metric(root&&root.clientHeight,10000)," +
+            "devicePixelRatio:metric(window.devicePixelRatio,16),orientation:orientation," +
+            "visualWidth:visual?metric(visual.width,10000):null,visualHeight:visual?metric(visual.height,10000):null," +
+            "visualScale:visual?metric(visual.scale,16):null};" +
             "var data=navigator.userAgentData||null;var brand='';var brandVersion='';" +
             "if(data&&Array.isArray(data.brands)){for(var i=0;i<data.brands.length;i++){var item=data.brands[i]||{};if(item.brand==='Chromium'||item.brand==='Google Chrome'){brand=String(item.brand);brandVersion=String(item.version||'');if(item.brand==='Google Chrome')break;}}}" +
             "var uaChrome=versionAfter(ua,'Chrome/');var major=majorOf(uaChrome);" +
             "var coherent=!!uaChrome;if(data&&data.brands){coherent=!!(coherent&&brand&&majorOf(brandVersion)===major);}" +
             "var platform=String(data&&data.platform||'');if(['Android','Windows','macOS','Linux','Chrome OS'].indexOf(platform)<0)platform=platform?'other':'unavailable';" +
             "var result={probe_error:false,user_agent_chrome_version:uaChrome,user_agent_android_version:versionAfter(ua,'Android ')," +
-            "client_hints_available:!!data,client_hints_platform:platform,client_hints_mobile:data?!!data.mobile:null," +
+            "viewport:viewport,client_hints_available:!!data,client_hints_platform:platform,client_hints_mobile:data?!!data.mobile:null," +
             "client_hints_brand:brand,client_hints_brand_version:brandVersion,client_hints_full_version:''," +
             "client_hints_full_brand_version:'',client_hints_platform_version:''," +
             "client_hints_high_entropy_supported:!!(data&&typeof data.getHighEntropyValues==='function')," +
@@ -765,6 +777,11 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             notePhase(failurePhase);
             homeStatusActionState = exerciseHomeStatusActions(activity, webView, originalWebViewUrl);
             sendStatus(1, homeStatusActionState);
+
+            failurePhase = "native_home_render_tree_fixture";
+            notePhase(failurePhase);
+            Bundle nativeRenderTreeState = exerciseNativeHomeRenderTree(activity, webView, originalWebViewUrl);
+            sendStatus(1, nativeRenderTreeState);
 
             // Reset the Home fixture, then explicitly request the login surface.
             // Empty or absent Home content is never allowed to reveal Spotify Web.
@@ -1924,6 +1941,46 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         state.putString("configured_ua_chrome_version", configuredVersion == null ? "unavailable" : configuredVersion);
         state.putString("configured_ua_android_version", userAgentVersion(configuredUserAgent, "Android "));
         state.putBoolean("configured_ua_chrome_major_matches_runtime", matches);
+
+        // Read-only scale diagnosis: keep physical display pixels, app-window
+        // pixels, WebView frame pixels, CSS viewport (reported by the JS probe),
+        // density and WebView zoom separate. No viewport or zoom is forced.
+        DisplayMetrics appMetrics = activity.getResources().getDisplayMetrics();
+        state.putInt("android_resource_display_metrics_width_px", Math.max(0, Math.min(10000, appMetrics.widthPixels)));
+        state.putInt("android_resource_display_metrics_height_px", Math.max(0, Math.min(10000, appMetrics.heightPixels)));
+        View windowDecor = activity.getWindow().getDecorView();
+        state.putInt("android_app_window_decor_width_px", Math.max(0, Math.min(10000, windowDecor.getWidth())));
+        state.putInt("android_app_window_decor_height_px", Math.max(0, Math.min(10000, windowDecor.getHeight())));
+        int[] windowDecorLocation = new int[2];
+        windowDecor.getLocationOnScreen(windowDecorLocation);
+        state.putInt("android_app_window_decor_left_px", Math.max(-10000, Math.min(10000, windowDecorLocation[0])));
+        state.putInt("android_app_window_decor_top_px", Math.max(-10000, Math.min(10000, windowDecorLocation[1])));
+        state.putInt("android_display_density_dpi", Math.max(0, Math.min(2000, appMetrics.densityDpi)));
+        state.putDouble("android_display_density_scale", !Float.isNaN(appMetrics.density) && !Float.isInfinite(appMetrics.density)
+                ? Math.max(0.0, Math.min(16.0, appMetrics.density)) : 0.0);
+        state.putDouble("android_display_scaled_density", !Float.isNaN(appMetrics.scaledDensity) && !Float.isInfinite(appMetrics.scaledDensity)
+                ? Math.max(0.0, Math.min(16.0, appMetrics.scaledDensity)) : 0.0);
+        state.putBoolean("android_physical_display_metrics_available", false);
+        try {
+            if (Build.VERSION.SDK_INT >= 17) {
+                Display display = activity.getWindowManager().getDefaultDisplay();
+                DisplayMetrics physicalMetrics = new DisplayMetrics();
+                display.getRealMetrics(physicalMetrics);
+                state.putBoolean("android_physical_display_metrics_available", true);
+                state.putInt("android_physical_display_width_px", Math.max(0, Math.min(10000, physicalMetrics.widthPixels)));
+                state.putInt("android_physical_display_height_px", Math.max(0, Math.min(10000, physicalMetrics.heightPixels)));
+            }
+        } catch (Throwable ignored) {}
+        WebSettings webSettings = webView.getSettings();
+        state.putInt("android_webview_frame_width_px", Math.max(0, Math.min(10000, webView.getWidth())));
+        state.putInt("android_webview_frame_height_px", Math.max(0, Math.min(10000, webView.getHeight())));
+        float webViewScale = webView.getScale();
+        state.putDouble("android_webview_page_scale", !Float.isNaN(webViewScale) && !Float.isInfinite(webViewScale)
+                ? Math.max(0.0, Math.min(16.0, webViewScale)) : 0.0);
+        state.putInt("android_webview_text_zoom_percent", Math.max(0, Math.min(500, webSettings.getTextZoom())));
+        state.putBoolean("android_webview_use_wide_viewport", webSettings.getUseWideViewPort());
+        state.putBoolean("android_webview_load_with_overview_mode", webSettings.getLoadWithOverviewMode());
+
         String webViewPackage = "unavailable";
         String webViewPackageVersion = "unavailable";
         if (Build.VERSION.SDK_INT >= 26) {
@@ -1985,6 +2042,19 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         boolean coherent = !resultProbeError && !resultParseError && probe.optBoolean("coherent") && versionMatches;
         Bundle state = new Bundle();
         state.putString("phase", "javascript_webview_profile");
+        JSONObject cssViewport = probe.optJSONObject("viewport");
+        state.putBoolean("webview_css_viewport_metrics_available", cssViewport != null);
+        putProbeNumber(state, "webview_css_inner_width_px", cssViewport, "innerWidth");
+        putProbeNumber(state, "webview_css_inner_height_px", cssViewport, "innerHeight");
+        putProbeNumber(state, "webview_css_document_client_width_px", cssViewport, "documentClientWidth");
+        putProbeNumber(state, "webview_css_document_client_height_px", cssViewport, "documentClientHeight");
+        putProbeNumber(state, "webview_css_screen_width_px", cssViewport, "screenWidth");
+        putProbeNumber(state, "webview_css_screen_height_px", cssViewport, "screenHeight");
+        putProbeNumber(state, "webview_css_device_pixel_ratio", cssViewport, "devicePixelRatio");
+        putProbeNumber(state, "webview_css_visual_width_px", cssViewport, "visualWidth");
+        putProbeNumber(state, "webview_css_visual_height_px", cssViewport, "visualHeight");
+        putProbeNumber(state, "webview_css_visual_scale", cssViewport, "visualScale");
+        state.putString("webview_css_orientation", safeProbeCategory(cssViewport, "orientation"));
         state.putString("javascript_user_agent_chrome_version",
                 javascriptVersion.isEmpty() ? "unavailable" : javascriptVersion);
         state.putString("javascript_user_agent_android_version",
@@ -4118,6 +4188,459 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         putBounds(state, "native_root_visible", rootBounds);
         putBounds(state, "webview_mounted", webBounds);
         return state;
+    }
+
+    private Bundle exerciseNativeHomeRenderTree(
+            final Activity activity, final WebView webView, final String originalWebViewUrl) throws Exception {
+        requireUnauthenticatedSession(activity);
+
+        Bundle result = new Bundle();
+        int[] payloadLengths = new int[]{128, 272, 296};
+        String[] payloads = new String[payloadLengths.length];
+        try {
+            clearLoginOwnerForNativeFixture(activity);
+            for (int i = 0; i < payloadLengths.length; i++) {
+                final int expectedLength = payloadLengths[i];
+                final String payload = buildNativeHomeCardFixturePayload(expectedLength);
+                if (payload.length() != expectedLength) {
+                    throw new AssertionError("Synthetic native Home fixture has an unexpected UTF-8 byte length");
+                }
+                payloads[i] = payload;
+                dispatchNativeHomePayloadThroughAndBridge(activity, payload);
+                awaitNativeHomeCardsReady(activity);
+                Bundle observation = inspectNativeHomeCardRenderFixture(activity, webView, originalWebViewUrl);
+                if (expectedLength == 296) result.putAll(observation);
+                result.putInt("synthetic_home_payload_" + expectedLength + "_bytes", payload.length());
+                result.putBoolean("synthetic_home_payload_" + expectedLength + "_rendered", true);
+            }
+
+            // A repeated identical callback must replace the previous native tree,
+            // not append another copy of its section/card.
+            final View[] firstCardBefore = new View[1];
+            final int[] childCountBefore = new int[1];
+            final Throwable[] beforeFailure = new Throwable[1];
+            runOnMainSync(new Runnable() {
+                @Override public void run() {
+                    try {
+                        firstCardBefore[0] = readViewField(activity, "nativeHomeFirstCard");
+                        childCountBefore[0] = ((ViewGroup) requiredView(activity, "nativeContent")).getChildCount();
+                    } catch (Throwable error) {
+                        beforeFailure[0] = error;
+                    }
+                }
+            });
+            throwCapturedFailure(beforeFailure[0]);
+            dispatchNativeHomeDataThroughAndBridge(activity, payloads[payloads.length - 1]);
+            awaitNativeHomeCardsReady(activity);
+            final View[] firstCardAfter = new View[1];
+            final int[] childCountAfter = new int[1];
+            final Throwable[] afterFailure = new Throwable[1];
+            runOnMainSync(new Runnable() {
+                @Override public void run() {
+                    try {
+                        firstCardAfter[0] = readViewField(activity, "nativeHomeFirstCard");
+                        childCountAfter[0] = ((ViewGroup) requiredView(activity, "nativeContent")).getChildCount();
+                    } catch (Throwable error) {
+                        afterFailure[0] = error;
+                    }
+                }
+            });
+            throwCapturedFailure(afterFailure[0]);
+            if (firstCardBefore[0] == null || firstCardAfter[0] == null
+                    || firstCardBefore[0] == firstCardAfter[0]
+                    || childCountBefore[0] != childCountAfter[0]) {
+                throw new AssertionError("Repeated native Home data appended duplicate cards instead of replacing the tree");
+            }
+            result.putBoolean("repeated_native_home_payload_replaced_tree", true);
+
+            // Empty and malformed payloads are exercised separately from valid
+            // synthetic cards and must leave a visible retry state, not stale data.
+            dispatchEmptyHomeThroughAndBridgeOnMain(activity);
+            awaitNativeHomeErrorReady(activity);
+            inspectNativeHomeErrorFixture(activity, webView, originalWebViewUrl);
+            result.putBoolean("empty_native_home_payload_shows_retry_state", true);
+
+            dispatchNativeHomeDataThroughAndBridge(activity, "{invalid-json");
+            awaitNativeHomeErrorReady(activity);
+            inspectNativeHomeErrorFixture(activity, webView, originalWebViewUrl);
+            result.putBoolean("invalid_native_home_payload_shows_retry_state", true);
+
+            boolean latePayloadDropped = false;
+            String[] nonHomeRoutes = new String[]{"search", "library", "settings"};
+            Bundle finalHomeObservation = null;
+            for (int cycle = 0; cycle < 2; cycle++) {
+                for (String route : nonHomeRoutes) {
+                    dispatchNativeRouteThroughAndBridge(activity, route);
+                    waitForIdleSync();
+                    awaitNativeRouteOwner(activity, webView, originalWebViewUrl, route, 5000L);
+                    if ("search".equals(route)) {
+                        // A delayed Home response is validly shaped but must not
+                        // overwrite Search after the native route has changed.
+                        dispatchNativeHomeDataThroughAndBridge(activity, payloads[payloads.length - 1]);
+                        waitForIdleSync();
+                        final boolean[] stayedOnSearch = new boolean[1];
+                        final Throwable[] staleCheckFailure = new Throwable[1];
+                        runOnMainSync(new Runnable() {
+                            @Override public void run() {
+                                try {
+                                    stayedOnSearch[0] = "search".equals(readStringField(activity, "nativeCurrentScreen"))
+                                            && !readBooleanField(activity, "nativeHomeCardsAttached")
+                                            && readViewField(activity, "nativeHomeFirstCard") == null;
+                                } catch (Throwable error) {
+                                    staleCheckFailure[0] = error;
+                                }
+                            }
+                        });
+                        throwCapturedFailure(staleCheckFailure[0]);
+                        if (!stayedOnSearch[0]) {
+                            throw new AssertionError("A late Home payload replaced the native Search route");
+                        }
+                        latePayloadDropped = true;
+                    }
+                }
+                dispatchNativeHomePayloadThroughAndBridge(activity, payloads[payloads.length - 1]);
+                awaitNativeHomeCardsReady(activity);
+                finalHomeObservation = inspectNativeHomeCardRenderFixture(activity, webView, originalWebViewUrl);
+                result.putBoolean("native_home_tree_restored_after_navigation_cycle_" + (cycle + 1), true);
+            }
+            if (!latePayloadDropped || finalHomeObservation == null) {
+                throw new AssertionError("Native Home navigation-cycle fixtures did not complete");
+            }
+            result.putAll(finalHomeObservation);
+            result.putBoolean("late_native_home_payload_dropped_off_home", true);
+            result.putInt("repeated_search_library_settings_navigation_cycles", 2);
+
+            final Rect[] titleBounds = new Rect[1];
+            final Throwable[] titleBoundsFailure = new Throwable[1];
+            runOnMainSync(new Runnable() {
+                @Override public void run() {
+                    try {
+                        View card = readViewField(activity, "nativeHomeFirstCard");
+                        TextView title = findTextViewContaining(card, "TEST ONLY - Home card");
+                        titleBounds[0] = visibleBounds(title);
+                    } catch (Throwable error) {
+                        titleBoundsFailure[0] = error;
+                    }
+                }
+            });
+            throwCapturedFailure(titleBoundsFailure[0]);
+            if (titleBounds[0] == null) {
+                throw new AssertionError("The synthetic native Home card title has no visible screen bounds");
+            }
+            Bitmap screenshot = getUiAutomation().takeScreenshot();
+            boolean titlePixelsVisible = screenshot != null && screenshotHasVisibleTextPixels(screenshot, titleBounds[0]);
+            if (screenshot != null) screenshot.recycle();
+            if (!titlePixelsVisible) {
+                throw new AssertionError("Native Home card text is attached but no corresponding screen pixels were measured");
+            }
+            result.putBoolean("native_home_card_text_pixels_visible", true);
+            result.putBoolean("synthetic_fixture_only", true);
+            result.putBoolean("no_spotify_authentication_automated", true);
+            result.putBoolean("no_account_content_supplied", true);
+            result.putBoolean("real_account_home_test_performed", false);
+        } finally {
+            final Throwable[] restoreFailure = new Throwable[1];
+            runOnMainSync(new Runnable() {
+                @Override public void run() {
+                    try {
+                        requestExplicitLoginWebUi(activity);
+                    } catch (Throwable error) {
+                        restoreFailure[0] = error;
+                    }
+                }
+            });
+            throwCapturedFailure(restoreFailure[0]);
+        }
+
+        waitForIdleSync();
+        Thread.sleep(100L);
+        if (!awaitLoginUiVisible(webView)) {
+            throw new AssertionError("The primary WebView login surface was not restored after the native Home fixture");
+        }
+        requireUnauthenticatedSession(activity);
+        result.putBoolean("primary_webview_login_surface_restored", true);
+        return result;
+    }
+
+    private String buildNativeHomeCardFixturePayload(int targetLength) {
+        String prefix = "[{\"title\":\"TEST ONLY - Home card\",\"subtitle\":\"";
+        String suffix = "\",\"section\":\"TEST ONLY\",\"uri\":\"spotify:fixture:home-card-1\",\"image\":\"\"}]";
+        int paddingLength = targetLength - prefix.length() - suffix.length();
+        if (paddingLength < 0) throw new IllegalArgumentException("Synthetic payload target is too short");
+        StringBuilder payload = new StringBuilder(targetLength);
+        payload.append(prefix);
+        for (int i = 0; i < paddingLength; i++) payload.append('x');
+        payload.append(suffix);
+        return payload.toString();
+    }
+
+    private void dispatchNativeHomePayloadThroughAndBridge(
+            final Activity activity, final String payload) throws Exception {
+        dispatchNativeUiCallbackForFixture(activity, new FixtureBridgeAction() {
+            @Override public void invoke(Object bridge, Method routeCallback, Method dataCallback) throws Exception {
+                routeCallback.invoke(bridge, "home");
+                dataCallback.invoke(bridge, "home", payload);
+            }
+        });
+    }
+
+    private void dispatchNativeHomeDataThroughAndBridge(
+            final Activity activity, final String payload) throws Exception {
+        dispatchNativeUiCallbackForFixture(activity, new FixtureBridgeAction() {
+            @Override public void invoke(Object bridge, Method routeCallback, Method dataCallback) throws Exception {
+                dataCallback.invoke(bridge, "home", payload);
+            }
+        });
+    }
+
+    private void dispatchNativeRouteThroughAndBridge(final Activity activity, final String route) throws Exception {
+        dispatchNativeUiCallbackForFixture(activity, new FixtureBridgeAction() {
+            @Override public void invoke(Object bridge, Method routeCallback, Method dataCallback) throws Exception {
+                routeCallback.invoke(bridge, route);
+            }
+        });
+    }
+
+    private interface FixtureBridgeAction {
+        void invoke(Object bridge, Method routeCallback, Method dataCallback) throws Exception;
+    }
+
+    private void dispatchNativeUiCallbackForFixture(
+            final Activity activity, final FixtureBridgeAction action) throws Exception {
+        final Throwable[] failure = new Throwable[1];
+        runOnMainSync(new Runnable() {
+            @Override public void run() {
+                try {
+                    Class<?> bridgeClass = activity.getClassLoader().loadClass("com.melodix.music.AndBridge");
+                    Object bridge = bridgeClass.getConstructor(Context.class).newInstance(activity);
+                    Method routeCallback = bridgeClass.getMethod("onNativeUiRoute", String.class);
+                    Method dataCallback = bridgeClass.getMethod("onNativeUiData", String.class, String.class);
+                    action.invoke(bridge, routeCallback, dataCallback);
+                } catch (Throwable error) {
+                    failure[0] = error;
+                }
+            }
+        });
+        throwCapturedFailure(failure[0]);
+    }
+
+    private void awaitNativeHomeCardsReady(Activity activity) throws Exception {
+        long deadline = SystemClock.elapsedRealtime() + 10000L;
+        while (SystemClock.elapsedRealtime() < deadline) {
+            final boolean[] ready = new boolean[1];
+            final Throwable[] checkFailure = new Throwable[1];
+            runOnMainSync(new Runnable() {
+                @Override public void run() {
+                    try {
+                        View root = requiredView(activity, "nativeRoot");
+                        View card = readViewField(activity, "nativeHomeFirstCard");
+                        ready[0] = "home".equals(readStringField(activity, "nativeCurrentScreen"))
+                                && readBooleanField(activity, "nativeHomeCardsAttached")
+                                && readBooleanField(activity, "nativeHomeContentReady")
+                                && !readBooleanField(activity, "nativeHomeStatusAttached")
+                                && root.isShown() && visibleBounds(card) != null;
+                    } catch (Throwable error) {
+                        checkFailure[0] = error;
+                    }
+                }
+            });
+            throwCapturedFailure(checkFailure[0]);
+            if (ready[0]) return;
+            waitForIdleSync();
+            Thread.sleep(100L);
+        }
+        throw new AssertionError("Native Home did not reach an attached, measured card state");
+    }
+
+    private Bundle inspectNativeHomeCardRenderFixture(
+            final Activity activity, final WebView webView, final String originalWebViewUrl) throws Exception {
+        final Bundle[] result = new Bundle[1];
+        final Throwable[] failure = new Throwable[1];
+        runOnMainSync(new Runnable() {
+            @Override public void run() {
+                try {
+                    View mainRoot = requiredView(activity, "main");
+                    View nativeRoot = requiredView(activity, "nativeRoot");
+                    View splash = requiredView(activity, "splashOverlay");
+                    View webContainer = requiredView(activity, "webViewContainer");
+                    View homeTab = requiredView(activity, "nativeHomeTab");
+                    ViewGroup nativeContent = (ViewGroup) requiredView(activity, "nativeContent");
+                    View card = readViewField(activity, "nativeHomeFirstCard");
+                    TextView title = findTextViewContaining(card, "TEST ONLY - Home card");
+                    Rect webBounds = visibleBounds(webView);
+                    Rect rootBounds = visibleBounds(nativeRoot);
+                    Rect cardBounds = visibleBounds(card);
+                    Rect titleBounds = visibleBounds(title);
+                    Rect homeTabBounds = visibleBounds(homeTab);
+                    boolean cardsAttached = readBooleanField(activity, "nativeHomeCardsAttached");
+                    boolean statusAttached = readBooleanField(activity, "nativeHomeStatusAttached");
+                    boolean contentReady = readBooleanField(activity, "nativeHomeContentReady");
+                    boolean cardIsChild = isDescendantOf(card, nativeContent);
+                    boolean webContainerMounted = webContainer.getVisibility() == View.VISIBLE
+                            && webView != null && webView.getParent() == webContainer;
+                    boolean sameWebViewUrl = equalsNullable(originalWebViewUrl, webView.getUrl());
+                    boolean splashHidden = splash.getVisibility() == View.GONE;
+                    boolean homeTabVisible = homeTabBounds != null;
+                    int[] mainLocation = new int[2];
+                    mainRoot.getLocationOnScreen(mainLocation);
+                    int centerX = mainLocation[0] + (mainRoot.getWidth() / 2);
+                    int centerY = mainLocation[1] + (mainRoot.getHeight() / 2);
+                    boolean rootCoversCenter = rootBounds != null && rootBounds.contains(centerX, centerY);
+                    boolean rootCoversHomeTab = rootBounds != null && homeTabBounds != null
+                            && rootBounds.contains(homeTabBounds);
+                    String frontmost = frontmostFullscreenSurface(
+                            requiredView(activity, "hScrollView"), nativeRoot, splash, mainRoot,
+                            mainRoot.getWidth(), mainRoot.getHeight());
+                    requireUnauthenticatedSession(activity);
+                    if (!"home".equals(readStringField(activity, "nativeCurrentScreen"))
+                            || webBounds == null || rootBounds == null || cardBounds == null || titleBounds == null
+                            || !cardsAttached || statusAttached || !contentReady || !cardIsChild
+                            || nativeContent.getChildCount() == 0 || !webContainerMounted || !sameWebViewUrl
+                            || !splashHidden || !homeTabVisible || !rootCoversCenter || !rootCoversHomeTab
+                            || !"native_root".equals(frontmost)) {
+                        throw new AssertionError("Native Home card tree was not mounted and visibly above the preserved WebView");
+                    }
+                    Bundle state = new Bundle();
+                    state.putString("phase", "native_home_card_render_tree_fixture");
+                    state.putString("final_screen_owner", "native-home");
+                    state.putBoolean("synthetic_fixture_only", true);
+                    state.putBoolean("synthetic_card_attached", true);
+                    state.putBoolean("native_home_cards_attached", true);
+                    state.putBoolean("native_home_status_attached", false);
+                    state.putBoolean("native_home_content_ready", true);
+                    state.putBoolean("native_home_card_title_visible", true);
+                    state.putBoolean("native_root_covers_screen_center", true);
+                    state.putBoolean("native_root_covers_home_navigation", true);
+                    state.putBoolean("native_root_frontmost", true);
+                    state.putBoolean("primary_webview_mounted_behind_native_home", true);
+                    state.putBoolean("original_webview_url_preserved", true);
+                    state.putBoolean("unauthenticated_fixture_only", true);
+                    state.putInt("native_home_native_content_child_count", nativeContent.getChildCount());
+                    putBounds(state, "webview_rect_px", webBounds);
+                    putBounds(state, "native_root_rect_px", rootBounds);
+                    putBounds(state, "native_home_card_rect_px", cardBounds);
+                    putBounds(state, "native_home_card_title_rect_px", titleBounds);
+                    result[0] = state;
+                } catch (Throwable error) {
+                    failure[0] = error;
+                }
+            }
+        });
+        throwCapturedFailure(failure[0]);
+        return result[0];
+    }
+
+    private Bundle inspectNativeHomeErrorFixture(
+            final Activity activity, final WebView webView, final String originalWebViewUrl) throws Exception {
+        final Bundle[] result = new Bundle[1];
+        final Throwable[] failure = new Throwable[1];
+        runOnMainSync(new Runnable() {
+            @Override public void run() {
+                try {
+                    View mainRoot = requiredView(activity, "main");
+                    View nativeRoot = requiredView(activity, "nativeRoot");
+                    View splash = requiredView(activity, "splashOverlay");
+                    View webContainer = requiredView(activity, "webViewContainer");
+                    View homeTab = requiredView(activity, "nativeHomeTab");
+                    ViewGroup nativeContent = (ViewGroup) requiredView(activity, "nativeContent");
+                    View status = readViewField(activity, "nativeHomeStatusView");
+                    Rect rootBounds = visibleBounds(nativeRoot);
+                    Rect statusBounds = visibleBounds(status);
+                    Rect homeTabBounds = visibleBounds(homeTab);
+                    boolean attached = readBooleanField(activity, "nativeHomeStatusAttached");
+                    boolean cards = readBooleanField(activity, "nativeHomeCardsAttached");
+                    boolean contentReady = readBooleanField(activity, "nativeHomeContentReady");
+                    boolean errorTitle = containsText(status, "Votre accueil n’a pas pu être chargé");
+                    boolean retryMessage = containsText(status, "Touchez pour réessayer");
+                    boolean retryClickable = containsClickableText(status, "Réessayer");
+                    boolean statusIsChild = status != null && status.getParent() == nativeContent;
+                    boolean webContainerMounted = webContainer.getVisibility() == View.VISIBLE
+                            && webView != null && webView.getParent() == webContainer;
+                    boolean sameWebViewUrl = equalsNullable(originalWebViewUrl, webView.getUrl());
+                    requireUnauthenticatedSession(activity);
+                    if (!"home".equals(readStringField(activity, "nativeCurrentScreen"))
+                            || rootBounds == null || statusBounds == null || homeTabBounds == null
+                            || !attached || cards || !contentReady || !errorTitle || !retryMessage || !retryClickable
+                            || !statusIsChild || !webContainerMounted || !sameWebViewUrl
+                            || splash.getVisibility() != View.GONE || nativeContent.getChildCount() != 1) {
+                        throw new AssertionError("Invalid or empty native Home payload did not leave the safe retry view tree");
+                    }
+                    Bundle state = new Bundle();
+                    state.putString("phase", "invalid_empty_native_home_retry_fixture");
+                    state.putBoolean("synthetic_fixture_only", true);
+                    state.putBoolean("native_home_status_attached", true);
+                    state.putBoolean("native_home_cards_attached", false);
+                    state.putBoolean("native_home_error_title_visible", true);
+                    state.putBoolean("native_home_retry_message_visible", true);
+                    state.putBoolean("native_home_retry_action_clickable", true);
+                    state.putBoolean("primary_webview_mounted", true);
+                    state.putBoolean("original_webview_url_preserved", true);
+                    state.putInt("native_home_content_child_count", nativeContent.getChildCount());
+                    putBounds(state, "native_home_status_rect_px", statusBounds);
+                    result[0] = state;
+                } catch (Throwable error) {
+                    failure[0] = error;
+                }
+            }
+        });
+        throwCapturedFailure(failure[0]);
+        return result[0];
+    }
+
+    private boolean isDescendantOf(View child, ViewGroup ancestor) {
+        if (child == null || ancestor == null) return false;
+        android.view.ViewParent parent = child.getParent();
+        while (parent != null) {
+            if (parent == ancestor) return true;
+            if (!(parent instanceof android.view.View)) return false;
+            parent = ((android.view.View) parent).getParent();
+        }
+        return false;
+    }
+
+    private TextView findTextViewContaining(View root, String text) {
+        if (root == null) return null;
+        if (root instanceof TextView) {
+            CharSequence value = ((TextView) root).getText();
+            if (value != null && value.toString().contains(text)) return (TextView) root;
+        }
+        if (root instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) root;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                TextView result = findTextViewContaining(group.getChildAt(i), text);
+                if (result != null) return result;
+            }
+        }
+        return null;
+    }
+
+    private boolean screenshotHasVisibleTextPixels(Bitmap screenshot, Rect textBounds) {
+        if (screenshot == null || textBounds == null) return false;
+        Rect bounds = new Rect(textBounds);
+        if (!bounds.intersect(0, 0, screenshot.getWidth(), screenshot.getHeight())) return false;
+        int brightPixels = 0;
+        for (int y = bounds.top; y < bounds.bottom; y++) {
+            for (int x = bounds.left; x < bounds.right; x++) {
+                int pixel = screenshot.getPixel(x, y);
+                int red = Color.red(pixel);
+                int green = Color.green(pixel);
+                int blue = Color.blue(pixel);
+                boolean brightTextPixel = red + green + blue >= 360;
+                boolean melodixAccentPixel = green >= 48 && green >= red + 20 && green >= blue + 20;
+                if (brightTextPixel || melodixAccentPixel) {
+                    brightPixels++;
+                    if (brightPixels >= 3) return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private void throwCapturedFailure(Throwable failure) throws Exception {
+        if (failure == null) return;
+        if (failure instanceof Exception) throw (Exception) failure;
+        if (failure instanceof Error) throw (Error) failure;
+        throw new AssertionError("Android Home fixture failed", failure);
     }
 
     private Bundle exerciseHomeStatusActions(

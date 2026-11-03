@@ -471,9 +471,12 @@ test('Preview diagnostic returns four timed samples with the existing report fie
             'resource-iframe': 0,
             'resource-other': 0,
             'run-update': 0,
-            install: 0
+            install: 0,
+            callback: 0,
+            promise: 0
         },
         nativeUiShellErrorDetails: [],
+        nativeUiShellHomeRenderCycle: null,
         nativeUiReadyNotified: true,
         nativeUiShowMethodCalled: true,
         nativeUiRootFound: true,
@@ -537,30 +540,61 @@ test('runtime samples repeat the last library result and retain its request-atte
         'three later samples of the same diagnostic are not three observed HTTP requests');
 });
 
-test('shell error diagnostics retain only safe source classes, error names, and numeric positions', () => {
+test('shell error diagnostics preserve only allowlisted attribution, bounded coordinates and repeat counts', () => {
     const run = executeDiagnostic();
+    run.window.__sfNativeUiHomeRenderCycle = 10000000;
     run.window.__sfNativeUiShellErrorSources = {
         'window-js': 2,
         'run-update': 1,
+        callback: 3,
+        promise: 2,
         'https://private.invalid/path': 7
     };
     run.window.__sfNativeUiShellErrorDetails = [
-        { source: 'window-js', name: 'TypeError', line: 12, column: 34, message: 'private message' },
-        { source: 'run-update', name: 'RangeError', line: 0, column: 10000001, stack: 'private stack' },
-        { source: 'https://private.invalid/path', name: 'Bearer private-token', line: 1, column: 2 }
+        {
+            script: 'spotify-bridge', source: 'window-js', phase: 'unhandled-rejection',
+            type: 'TypeError', callback: 'onNativeUiRoute', line: 12, column: 34,
+            route: 'settings', renderCycle: 4, lastRenderCycle: 5, repeatCount: 10000000,
+            message: 'private message'
+        },
+        {
+            script: 'Bearer private-token', source: 'run-update', phase: 'secret',
+            name: 'RangeError', callback: 'secret-callback', line: 0, column: 10000001,
+            route: 'spotify:playlist:private', renderCycle: -1, lastRenderCycle: 10000000, repeatCount: 0,
+            stack: 'private stack'
+        },
+        {
+            source: 'https://private.invalid/path', name: 'Bearer private-token', line: 1, column: 2,
+            renderCycle: null, lastRenderCycle: null
+        }
     ];
     run.runScheduledSamples();
     const ui = run.samples[0].ui;
     assert.equal(ui.nativeUiShellErrorSources['window-js'], 2);
     assert.equal(ui.nativeUiShellErrorSources['run-update'], 1);
+    assert.equal(ui.nativeUiShellErrorSources.callback, 3);
+    assert.equal(ui.nativeUiShellErrorSources.promise, 2);
     assert.equal(Object.prototype.hasOwnProperty.call(ui.nativeUiShellErrorSources, 'https://private.invalid/path'), false);
+    assert.equal(ui.nativeUiShellHomeRenderCycle, 999999);
     assert.deepEqual(ui.nativeUiShellErrorDetails, [
-        { source: 'window-js', name: 'TypeError', line: 12, column: 34 },
-        { source: 'run-update', name: 'RangeError', line: null, column: null },
-        { source: 'resource-other', name: 'unknown', line: 1, column: 2 }
+        {
+            script: 'spotify-bridge', source: 'window-js', phase: 'unhandled-rejection',
+            type: 'TypeError', name: 'TypeError', callback: 'onNativeUiRoute',
+            line: 12, column: 34, route: 'settings', renderCycle: 4, lastRenderCycle: 5, repeatCount: 9999
+        },
+        {
+            script: 'unknown', source: 'run-update', phase: 'uncaught',
+            type: 'RangeError', name: 'RangeError', callback: 'unknown',
+            line: null, column: null, route: 'other', renderCycle: null, lastRenderCycle: null, repeatCount: 1
+        },
+        {
+            script: 'unknown', source: 'resource-other', phase: 'uncaught',
+            type: 'unknown', name: 'unknown', callback: 'unknown',
+            line: 1, column: 2, route: 'other', renderCycle: null, lastRenderCycle: null, repeatCount: 1
+        }
     ]);
     assert.doesNotMatch(JSON.stringify(ui.nativeUiShellErrorDetails),
-        /private message|private stack|private-token|private\.invalid/i);
+        /private message|private stack|private-token|private\.invalid|spotify:playlist/);
 });
 
 test('runtime library telemetry sanitizes HTTP claims and exports only the response metadata allowlist', () => {
@@ -639,6 +673,18 @@ test('runtime geometry records viewport, zoom, safe-area, surface bounds, overfl
         reachable: true
     });
     assert.equal(geometry.hitTargets.firstHomeCard.reachable, true);
+});
+
+test('missing runtime geometry metrics stay null instead of becoming zero', () => {
+    const run = executeDiagnostic();
+    installGeometryFixture(run);
+    run.window.screen.width = null;
+    run.window.visualViewport.scale = null;
+    run.runScheduledSamples();
+
+    const viewport = run.samples[0].layoutGeometry.viewport;
+    assert.equal(viewport.screenWidth, null);
+    assert.equal(viewport.visualViewport.scale, null);
 });
 
 test('runtime diagnostic exposes dock/player occlusion in a synthetic library-open hit-test', () => {

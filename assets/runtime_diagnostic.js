@@ -127,7 +127,9 @@
   };
 
   const finiteMetric = (value, minimum = -10000, maximum = 10000) => {
-    const number = Number(value);
+    if (value === null || typeof value === 'undefined') return null;
+    let number;
+    try { number = Number(value); } catch (_) { return null; }
     if (!Number.isFinite(number)) return null;
     return Math.max(minimum, Math.min(maximum, Math.round(number * 100) / 100));
   };
@@ -462,8 +464,20 @@
 
   const SHELL_ERROR_SOURCES = Object.freeze([
     'window-js', 'resource-script', 'resource-link', 'resource-image',
-    'resource-iframe', 'resource-other', 'run-update', 'install'
+    'resource-iframe', 'resource-other', 'run-update', 'install', 'callback', 'promise'
   ]);
+  const SHELL_ERROR_SCRIPTS = Object.freeze([
+    'native-ui-shell', 'spotify-bridge', 'melodix-home', 'runtime-diagnostic',
+    'external', 'inline', 'unknown'
+  ]);
+  const SHELL_ERROR_PHASES = Object.freeze([
+    'uncaught', 'resource-load', 'run-update', 'install', 'bridge-callback', 'unhandled-rejection'
+  ]);
+  const SHELL_ERROR_CALLBACKS = Object.freeze([
+    'none', 'unknown', 'promise', 'runUpdate', 'install',
+    'onNativeUiData', 'onNativeUiRoute', 'onNativeUiReady'
+  ]);
+  const SHELL_ERROR_ROUTES = Object.freeze(['home', 'search', 'library', 'detail', 'settings', 'other']);
   const SHELL_ERROR_CLASSES = Object.freeze([
     'Error', 'TypeError', 'ReferenceError', 'SyntaxError', 'RangeError', 'URIError',
     'EvalError', 'SecurityError', 'NetworkError', 'AbortError', 'InvalidStateError',
@@ -492,16 +506,35 @@
     } catch (_) {}
     return raw.map((entry) => {
       const source = entry && SHELL_ERROR_SOURCES.includes(entry.source) ? entry.source : 'resource-other';
-      const name = entry && SHELL_ERROR_CLASSES.includes(entry.name) ? entry.name : 'unknown';
+      const script = entry && SHELL_ERROR_SCRIPTS.includes(entry.script) ? entry.script : 'unknown';
+      const phase = entry && SHELL_ERROR_PHASES.includes(entry.phase) ? entry.phase : 'uncaught';
+      const rawType = entry && (entry.type || entry.name);
+      const type = SHELL_ERROR_CLASSES.includes(rawType) ? rawType : 'unknown';
+      const callback = entry && SHELL_ERROR_CALLBACKS.includes(entry.callback) ? entry.callback : 'unknown';
+      const route = entry && SHELL_ERROR_ROUTES.includes(entry.route) ? entry.route : 'other';
       const coordinate = (value) => {
         const number = Number(value);
         return Number.isInteger(number) && number >= 1 && number <= 1000000 ? number : null;
       };
+      const cycle = (value) => {
+        if (value === null || typeof value === 'undefined') return null;
+        const number = Number(value);
+        return Number.isInteger(number) && number >= 0 && number <= 999999 ? number : null;
+      };
+      const repeatCount = Number(entry && entry.repeatCount);
       return {
+        script,
         source,
-        name,
+        phase,
+        type,
+        name: type,
+        callback,
         line: coordinate(entry && entry.line),
-        column: coordinate(entry && entry.column)
+        column: coordinate(entry && entry.column),
+        route,
+        renderCycle: cycle(entry && entry.renderCycle),
+        lastRenderCycle: cycle(entry && entry.lastRenderCycle),
+        repeatCount: Number.isInteger(repeatCount) ? Math.max(1, Math.min(9999, repeatCount)) : 1
       };
     });
   };
@@ -708,6 +741,9 @@
           : null,
         nativeUiShellErrorSources: safeNativeUiShellErrorSources(),
         nativeUiShellErrorDetails: safeNativeUiShellErrorDetails(),
+        nativeUiShellHomeRenderCycle: Number.isInteger(window.__sfNativeUiHomeRenderCycle)
+          ? Math.max(0, Math.min(999999, window.__sfNativeUiHomeRenderCycle))
+          : null,
         nativeUiReadyNotified: window.__sfNativeUiReadyNotified === true,
         nativeUiShowMethodCalled: window.__sfNativeUiShowMethodCalled === true,
         nativeUiRootFound: typeof window.__sfNativeUiRootFound === 'boolean'

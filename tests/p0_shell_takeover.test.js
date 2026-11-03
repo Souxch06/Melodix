@@ -290,7 +290,7 @@ function loadShell({ withCards = true, mediaLib = null, mediaLibSessionProofKnow
     };
 }
 
-test('global JavaScript and resource errors retain only a safe source, class, and numeric position', () => {
+test('global JavaScript and resource errors retain only bounded attribution and numeric positions', () => {
     const { win, calls, dispatchWindow } = loadShell();
     const privateUrl = 'https://private.invalid/script.js?token=fixture';
     const privateMessage = 'private error text';
@@ -313,11 +313,76 @@ test('global JavaScript and resource errors retain only a safe source, class, an
         script: win.__sfNativeUiShellErrorSources['resource-script']
     }, { window: 1, script: 1 });
     assert.deepEqual(JSON.parse(JSON.stringify(win.__sfNativeUiShellErrorDetails)), [
-        { source: 'window-js', name: 'TypeError', line: 17, column: 8 },
-        { source: 'resource-script', name: 'unknown', line: null, column: null }
+        {
+            script: 'external', source: 'window-js', phase: 'uncaught', type: 'TypeError', name: 'TypeError',
+            callback: 'unknown', line: 17, column: 8, route: 'home', renderCycle: 1, lastRenderCycle: 1, repeatCount: 1
+        },
+        {
+            script: 'external', source: 'resource-script', phase: 'resource-load', type: 'unknown', name: 'unknown',
+            callback: 'unknown', line: null, column: null, route: 'home', renderCycle: 1, lastRenderCycle: 1, repeatCount: 1
+        }
     ]);
+    assert.match(calls.traces.join('\n'), /js-error script=external source=window-js phase=uncaught type=TypeError callback=unknown line=17 column=8 route=home cycle=1 repeats=1/);
     assert.doesNotMatch(calls.traces.join('\n'), /private\.invalid|token=fixture|private error text/i,
         'diagnostic traces never retain a resource URL or exception message');
+});
+
+test('unavailable render-cycle metadata stays null instead of becoming cycle zero', () => {
+    const { win, dispatchWindow } = loadShell();
+    win.__sfNativeUiHomeRenderCycle = null;
+    dispatchWindow('error', { error: { name: 'TypeError' }, lineno: Symbol('private location'), colno: null });
+
+    const details = JSON.parse(JSON.stringify(win.__sfNativeUiShellErrorDetails));
+    assert.equal(details.length, 1);
+    assert.equal(details[0].script, 'inline');
+    assert.equal(details[0].line, null);
+    assert.equal(details[0].column, null);
+    assert.equal(details[0].renderCycle, null);
+    assert.equal(details[0].lastRenderCycle, null);
+});
+
+test('known bundled script attribution strips local paths and query secrets', () => {
+    const { win, calls, dispatchWindow } = loadShell();
+    dispatchWindow('error', {
+        error: { name: 'TypeError', message: 'private message' },
+        filename: 'C:\\private\\native_ui_shell.js?token=fixture',
+        lineno: 9,
+        colno: 4
+    });
+
+    const details = JSON.parse(JSON.stringify(win.__sfNativeUiShellErrorDetails));
+    assert.equal(details.length, 1);
+    assert.equal(details[0].script, 'native-ui-shell');
+    assert.equal(details[0].source, 'window-js');
+    assert.match(calls.traces.join(' '), /js-error script=native-ui-shell source=window-js/);
+    assert.doesNotMatch(JSON.stringify(details) + calls.traces.join(' '), /private|token=fixture/i);
+});
+
+test('unhandled rejections are phase-attributed, bounded, and de-duplicated across render cycles', () => {
+    const { win, calls, dispatchWindow } = loadShell();
+    win.__sfNativeUiHomeRenderCycle = 17;
+    const rejected = {
+        name: 'SecurityError',
+        message: 'private response body and token=private-fixture',
+        stack: 'private stack with https://private.invalid',
+        fileName: 'https://private.invalid/assets/spotify_bridge.js?token=fixture',
+        lineNumber: 33,
+        columnNumber: 12
+    };
+    dispatchWindow('unhandledrejection', { reason: rejected });
+    win.__sfNativeUiHomeRenderCycle = 18;
+    dispatchWindow('unhandledrejection', { reason: rejected });
+
+    assert.equal(win.__sfNativeUiShellErrors, 2, 'both errors are counted, even when one diagnostic is coalesced');
+    assert.equal(win.__sfNativeUiShellErrorSources.promise, 2);
+    assert.deepEqual(JSON.parse(JSON.stringify(win.__sfNativeUiShellErrorDetails)), [{
+        script: 'spotify-bridge', source: 'promise', phase: 'unhandled-rejection',
+        type: 'SecurityError', name: 'SecurityError', callback: 'promise',
+        line: 33, column: 12, route: 'home', renderCycle: 17, lastRenderCycle: 18, repeatCount: 2
+    }]);
+    assert.equal(calls.traces.filter((line) => line.includes('js-error script=spotify-bridge source=promise')).length, 1);
+    assert.doesNotMatch(JSON.stringify(win.__sfNativeUiShellErrorDetails) + calls.traces.join('\\n'),
+        /private response body|private-fixture|private stack|private\.invalid/i);
 });
 
 test('runUpdate and shell-install failures are separated in the shell error attribution', () => {
@@ -329,7 +394,9 @@ test('runUpdate and shell-install failures are separated in the shell error attr
     update.win.__sfNativeUiRefresh();
     assert.equal(update.win.__sfNativeUiShellErrorSources['run-update'], 1);
     assert.deepEqual(JSON.parse(JSON.stringify(update.win.__sfNativeUiShellErrorDetails.at(-1))), {
-        source: 'run-update', name: 'ReferenceError', line: null, column: null
+        script: 'native-ui-shell', source: 'run-update', phase: 'run-update',
+        type: 'ReferenceError', name: 'ReferenceError', callback: 'runUpdate',
+        line: null, column: null, route: 'home', renderCycle: 1, lastRenderCycle: 1, repeatCount: 1
     });
     assert.doesNotMatch(update.calls.traces.join('\\n'), /private update text/);
 
@@ -337,7 +404,11 @@ test('runUpdate and shell-install failures are separated in the shell error attr
     assert.equal(install.win.__sfNativeUiShellCompleted, false);
     assert.equal(install.win.__sfNativeUiShellErrorSources.install, 1);
     assert.deepEqual(JSON.parse(JSON.stringify(install.win.__sfNativeUiShellErrorDetails)), [
-        { source: 'install', name: 'TypeError', line: null, column: null }
+        {
+            script: 'native-ui-shell', source: 'install', phase: 'install',
+            type: 'TypeError', name: 'TypeError', callback: 'install',
+            line: null, column: null, route: 'home', renderCycle: 0, lastRenderCycle: 0, repeatCount: 1
+        }
     ]);
 });
 
@@ -768,6 +839,19 @@ test('absent, incomplete, or throwing bridge callbacks never claim native readin
                 `${bridgeMode}: diagnostic names the pending handoff`);
         } else {
             assert.equal(win.AndBridge, undefined, 'the absent native bridge itself prevents any takeover');
+        }
+        if (bridgeMode === 'throw-data') {
+            const callbackError = JSON.parse(JSON.stringify(win.__sfNativeUiShellErrorDetails))
+                .find((detail) => detail.source === 'callback');
+            assert.ok(callbackError, 'the failed native callback is retained as a bounded diagnostic');
+            assert.equal(callbackError.script, 'native-ui-shell');
+            assert.equal(callbackError.phase, 'bridge-callback');
+            assert.equal(callbackError.callback, 'onNativeUiData');
+            assert.ok(calls.traces.some((line) => line.includes(
+                'js-error script=native-ui-shell source=callback phase=bridge-callback type=Error callback=onNativeUiData')),
+            'callback errors reach the same strict native diagnostic channel');
+            assert.doesNotMatch(JSON.stringify(callbackError) + calls.traces.join(' '),
+                /native callback failed|private|token/i);
         }
     }
 });

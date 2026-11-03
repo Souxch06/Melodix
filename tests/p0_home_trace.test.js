@@ -78,7 +78,10 @@ test('Android accepts structured JS diagnostics only through a strict bounded gr
     'webview-state ready=', 'library-fetch phase=', 'spotify-route route=', 'home-guard guard=', 'home-css marker=',
     'home-node exists=', 'home-web decision=', 'home-data stage=web-to-android',
     'home-data stage=web-rendered', 'home-data stage=android-received',
-    'home-data stage=android-rendered', 'home-state sent', 'home-final owner=', 'bridge-load phase='
+    'home-data stage=android-render-start', 'home-data stage=android-parsed',
+    'home-data stage=android-model', 'home-data stage=android-rendered',
+    'home-data stage=android-visible', 'js-error script=',
+    'home-state sent', 'home-final owner=', 'bridge-load phase='
   ]) assert.ok(structured.includes(event), `missing strict grammar for ${event}`);
   assert.match(structured,
     /library-fetch phase=response http=401 mime=\(json\|html\|other\|missing\) duration=\[0-9\]\{1,6\} error=http-401 auth=webview-session refresh=unsupported/,
@@ -95,12 +98,23 @@ test('Android accepts structured JS diagnostics only through a strict bounded gr
   assert.doesNotMatch(structured, /playlist-name|account-id|cookie|access_token|refresh_token|selector|spotifyRoutePath/i);
 });
 
-test('Android native renderer records stage outcomes without logging playlist/card counts', () => {
+test('Android Home traces separate raw receipt, parsing, model attachment and measured visibility', () => {
+  const activity = read('smali/com/melodix/music/MainActivity.smali');
   const renderer = read('smali/com/melodix/music/NativeHomeShelfRenderer.smali');
-  assert.match(renderer, /traceHomeReceipt\(I\)V/);
-  assert.match(renderer, /traceHomeRendered\(IILjava\/lang\/String;\)V/);
-  assert.match(renderer, /home-data stage=android-received result=received/);
+  const receiveAt = activity.indexOf('.method public final postNativeUiData(');
+  const receive = activity.slice(receiveAt, activity.indexOf('.end method', receiveAt));
+  const visibilityAt = activity.indexOf('.method public final completeNativeUiVisibility(');
+  const visibility = activity.slice(visibilityAt, activity.indexOf('.end method', visibilityAt));
+  assert.match(receive, /home-data stage=android-received result=received/);
+  assert.match(renderer, /traceHomeParsed\(I\)V/);
+  assert.match(renderer, /traceHomeModel\(Ljava\/lang\/String;\)V/);
+  assert.match(renderer, /home-data stage=android-render-start result=started/);
+  assert.match(renderer, /home-data stage=android-parsed result=invalid/);
   assert.match(renderer, /home-data stage=android-rendered result=/);
+  assert.match(visibility, /nativeHomeVisibilityDiagnosticReported:Z[\s\S]*?home-data stage=android-visible result=cards/);
+  assert.match(activity, /nativeHomeVisibilityDiagnosticReported:Z/);
+  assert.match(read('smali/com/melodix/music/AndBridge.smali'),
+    /\^js-error script=\(native-ui-shell\|spotify-bridge\|melodix-home\|runtime-diagnostic/);
   assert.match(renderer, /add-int\/lit8 p1, p1, 0x1/,
     'rendered card count is still internal to view construction');
   assert.match(renderer, /NativeCrashGuard;->diagLine\(Ljava\/lang\/String;\)V/);
@@ -108,6 +122,48 @@ test('Android native renderer records stage outcomes without logging playlist/ca
     'native diagnostics contain only stage outcomes, not account counts or proof flags');
   assert.doesNotMatch(renderer, /diagLine\([^\n]*(?:title|subtitle|uri|image)/i,
     'native diagnostics never contain playlist metadata or URIs');
+});
+
+test('Android Home diagnostics distinguish physical pixels, app window, WebView zoom and CSS viewport without forcing scale', () => {
+  const harness = read('tests/android/HomeRenderInstrumentation.java');
+  const runtimeProfileStart = harness.indexOf('private Bundle inspectRuntimeUserAgent(');
+  const runtimeProfile = harness.slice(runtimeProfileStart, harness.indexOf('private Bundle inspectJavascriptUserAgentProfile(', runtimeProfileStart));
+  const javascriptProbeStart = harness.indexOf('private static final String JAVASCRIPT_UA_DIAGNOSTIC_PROBE =');
+  const javascriptProbe = harness.slice(javascriptProbeStart,
+    harness.indexOf('private static final String JAVASCRIPT_UA_RESULT_PROBE', javascriptProbeStart));
+  for (const metric of [
+    'getRealMetrics', 'android_physical_display_width_px', 'android_resource_display_metrics_width_px',
+    'android_app_window_decor_width_px', 'android_display_density_dpi',
+    'android_webview_frame_width_px', 'getScale()', 'getTextZoom()',
+    'getUseWideViewPort()', 'getLoadWithOverviewMode()', 'webview_css_inner_width_px',
+    'webview_css_document_client_width_px', 'webview_css_screen_width_px',
+    'webview_css_device_pixel_ratio', 'webview_css_visual_scale'
+  ]) assert.ok(harness.includes(metric), `Android viewport diagnosis includes ${metric}`);
+  assert.match(javascriptProbe, /var metric=function\(value,max\)\{if\(value===null\|\|typeof value==='undefined'\)return null;/,
+    'missing DOM metrics remain absent rather than becoming zero through Number(null)');
+  assert.match(javascriptProbe, /innerWidth:metric\(window\.innerWidth/);
+  assert.match(javascriptProbe, /documentClientWidth:metric\(root&&root\.clientWidth/);
+  assert.match(javascriptProbe, /visualScale:visual\?metric\(visual\.scale/);
+  assert.doesNotMatch(runtimeProfile, /setInitialScale|setTextZoom\(|setUseWideViewPort\(|setLoadWithOverviewMode\(/,
+    'the diagnostic reports effective settings and never forces an arbitrary viewport or zoom');
+});
+
+test('Android harness covers bounded synthetic native Home payloads, errors, dedupe, navigation and actual pixels', () => {
+  const harness = read('tests/android/HomeRenderInstrumentation.java');
+  const fixtureStart = harness.indexOf('private Bundle exerciseNativeHomeRenderTree(');
+  const fixture = harness.slice(fixtureStart, harness.indexOf('private String buildNativeHomeCardFixturePayload(', fixtureStart));
+  for (const coverage of [
+    'new int[]{128, 272, 296}', 'empty_native_home_payload_shows_retry_state',
+    'invalid_native_home_payload_shows_retry_state', 'repeated_native_home_payload_replaced_tree',
+    'late_native_home_payload_dropped_off_home', 'repeated_search_library_settings_navigation_cycles',
+    'native_home_card_text_pixels_visible', 'native_home_tree_restored_after_navigation_cycle_'
+  ]) assert.ok(fixture.includes(coverage), `Android Home fixture covers ${coverage}`);
+  assert.match(fixture, /dispatchNativeHomePayloadThroughAndBridge\(activity, payload\)/);
+  assert.match(fixture, /dispatchNativeHomeDataThroughAndBridge\(activity, "\{invalid-json"\)/);
+  assert.match(fixture, /getUiAutomation\(\)\.takeScreenshot\(\)/);
+  assert.match(fixture, /clearLoginOwnerForNativeFixture\(activity\)[\s\S]*?finally[\s\S]*?requestExplicitLoginWebUi\(activity\)/,
+    'the synthetic native-only exercise restores the original WebView login owner in a finally block');
+  assert.match(fixture, /no_account_content_supplied", true[\s\S]*?real_account_home_test_performed", false/);
 });
 
 test('nativeRoot/WebView/host dimensions and stacking are correlated by the NativeCrashGuard SID', () => {
