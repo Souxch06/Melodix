@@ -978,9 +978,19 @@ test("Android 16 VerifyError capture is nonce-correlated, fail-closed, private-c
     "utf8",
   );
   assert.match(emulatorWorkflow, /verify_run_id="\$\(python3 -c 'import secrets; print\(secrets\.token_hex\(8\)\)'\)"/);
+  assert.match(emulatorWorkflow, /echo "verify_run_id=\$verify_run_id" >> "\$GITHUB_OUTPUT"/,
+    "the generated launch ID is exported from the launch step");
+  assert.match(emulatorWorkflow, /last_verify_state\">arm-pending[\s\S]*?"\$verify_run_id" \| adb exec-in run-as com\.melodix\.music\.preview/,
+    "the same generated launch ID is seeded in app-private preferences before startup");
+  assert.match(emulatorWorkflow, /VERIFY_RUN_ID: \$\{\{ steps\.launch\.outputs\.verify_run_id \}\}[\s\S]*?--run-id "\$VERIFY_RUN_ID"/,
+    "the sanitizer compares preferences against the nonce exported by that exact launch step");
   assert.match(emulatorWorkflow, /adb install "\$APK_PATH"[\s\S]*?adb shell pm clear com\.melodix\.music\.preview[\s\S]*?last_verify_state\">arm-pending[\s\S]*?adb exec-in run-as com\.melodix\.music\.preview[\s\S]*?adb logcat -c[\s\S]*?am start -W -n com\.melodix\.music\.preview\/com\.melodix\.music\.MainActivity/,
     "install, clear app data, seed only a one-shot nonce before Application startup, clear logcat, and explicitly start MainActivity");
-  assert.match(emulatorWorkflow, /scripts\/sanitize_verify_diagnostic\.py[\s\S]*?--run-id "\$VERIFY_RUN_ID"[\s\S]*?--output "\$report"/);
+  assert.match(emulatorWorkflow, /am start -W -n com\.melodix\.music\.preview\/com\.melodix\.music\.MainActivity[\s\S]*?adb logcat -d -s MDXVERIFY:I[\s\S]*?arm_log_seen_at_launch[\s\S]*?sleep 8/,
+    "the arm-log marker is observed immediately after the cold launch, before the long startup wait");
+  assert.match(emulatorWorkflow, /ARM_LOG_SEEN_AT_LAUNCH: \$\{\{ steps\.launch\.outputs\.arm_log_seen_at_launch \}\}[\s\S]*?--arm-log-seen-at-launch "\$\{ARM_LOG_SEEN_AT_LAUNCH:-unknown\}"/,
+    "the early log observation reaches the sanitizer only as a bounded boolean");
+  assert.match(emulatorWorkflow, /scripts\/sanitize_verify_diagnostic\.py[\s\S]*?--run-id "\$VERIFY_RUN_ID"[\s\S]*?--arm-log-seen-at-launch[\s\S]*?--output "\$report"/);
   assert.match(emulatorWorkflow, /set\(data\) != allowed[\s\S]*?field_allowlist_failed[\s\S]*?privacy_scan_failed/,
     "the public report is deleted unless it matches the exact field allowlist and privacy scan");
   assert.match(emulatorWorkflow, /name: Melodix-VerifyError-Redacted-\$\{\{ github\.run_id \}\}[\s\S]*?verify-diagnostic-redacted\.json[\s\S]*?retention-days: 1/,
@@ -994,6 +1004,14 @@ test("Android 16 VerifyError capture is nonce-correlated, fail-closed, private-c
   assert.match(sanitizer, /"current_launch_correlated"[\s\S]*?"verify_error_detected"[\s\S]*?"technical_message"[\s\S]*?"message_status"/);
   assert.match(sanitizer, /SENSITIVE_MARKER_RE[\s\S]*?URL_RE[\s\S]*?PRIVATE_PATH_RE[\s\S]*?EMAIL_RE[\s\S]*?LONG_VALUE_RE/,
     "the sanitizer is fail-closed for credential markers, private routes/paths, personal email, and opaque long values");
-  assert.match(sanitizer, /recorded_log[\s\S]*?pref_run_id_matches[\s\S]*?current_launch_correlated/,
-    "a prefs-only VerifyError without this launch's logcat nonce is not considered correlated");
+  assert.match(sanitizer, /correlation_state = "recorded" if is_verify_error else "armed"[\s\S]*?current_launch_correlated = pref_run_id_matches and state == correlation_state/,
+    "matching app-private nonce plus the state transition is authoritative; logcat markers are corroborating telemetry");
+  assert.match(sanitizer, /arm_log_seen_at_launch = True if arm_log_at_launch == "true"[\s\S]*?"arm_log_seen_at_launch"/,
+    "the early marker observation is retained only as a boolean diagnostic field");
+  const acceptanceStart = emulatorWorkflow.indexOf("- name: Enforce fresh Android 16 VerifyError and foreground acceptance");
+  const acceptanceEnd = emulatorWorkflow.indexOf("- name: Add verified run details to the summary", acceptanceStart);
+  const acceptance = emulatorWorkflow.slice(acceptanceStart, acceptanceEnd);
+  assert.match(acceptance, /current_launch_correlated/);
+  assert.doesNotMatch(acceptance, /capture_armed_log_seen/,
+    "the acceptance gate must not reject a nonce-matched launch only because a transient log line is absent");
 });

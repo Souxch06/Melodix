@@ -34,7 +34,7 @@ function prefsXml(overrides = {}) {
     }).join('')}</map>`;
 }
 
-function runSanitizer({ prefs = prefsXml(), logcat, runId = RUN_ID, activityDump, windowDump } = {}) {
+function runSanitizer({ prefs = prefsXml(), logcat, runId = RUN_ID, armLogSeenAtLaunch = 'unknown', activityDump, windowDump } = {}) {
     const input = {
         prefs_xml: prefs,
         logcat: logcat ?? `I/MDXVERIFY: verify-capture state=armed run_id=${RUN_ID}\nI/MDXVERIFY: verify-capture state=recorded run_id=${RUN_ID} source=main-content-view`,
@@ -43,7 +43,7 @@ function runSanitizer({ prefs = prefsXml(), logcat, runId = RUN_ID, activityDump
         pid: '4321',
         sdk: '36'
     };
-    const result = spawnSync('python3', [SCRIPT, '--stdin-json', '--run-id', runId, '--source-ref', SOURCE_REF, '--source-root', ROOT], {
+    const result = spawnSync('python3', [SCRIPT, '--stdin-json', '--run-id', runId, '--source-ref', SOURCE_REF, '--source-root', ROOT, '--arm-log-seen-at-launch', armLogSeenAtLaunch], {
         cwd: ROOT,
         encoding: 'utf8',
         input: JSON.stringify(input),
@@ -53,9 +53,13 @@ function runSanitizer({ prefs = prefsXml(), logcat, runId = RUN_ID, activityDump
     return JSON.parse(result.stdout);
 }
 
-test('VerifyError report correlates prefs and a fresh logcat marker and resolves the source signature', () => {
+test('VerifyError report correlates by matching nonce and recorded state; logcat markers remain telemetry', () => {
     const report = runSanitizer();
     assert.equal(report.verify_error_detected, true);
+    assert.equal(report.preference_run_id_matches, true);
+    assert.equal(report.capture_armed_log_seen, true);
+    assert.equal(report.verify_record_log_seen, true);
+    assert.equal(report.arm_log_seen_at_launch, null);
     assert.equal(report.current_launch_correlated, true);
     assert.equal(report.record_source, 'main-content-view');
     assert.equal(report.target_class, 'com.melodix.music.MainActivity');
@@ -73,6 +77,34 @@ test('VerifyError report correlates prefs and a fresh logcat marker and resolves
     assert.equal(report.android_api, 36);
     assert.equal(report.main_activity_resumed, true);
     assert.match(report.technical_message, /register v5 has actual type Reference: java\.lang\.String but expected type Integer/);
+});
+
+test('armed nonce and state correlate this launch even when the arm log marker is absent', () => {
+    const report = runSanitizer({
+        prefs: `<map><string name="last_verify_run_id">${RUN_ID}</string><string name="last_verify_state">armed</string><string name="last_stage">home-rendered</string></map>`,
+        logcat: '',
+        armLogSeenAtLaunch: 'false'
+    });
+    assert.equal(report.verify_error_detected, false);
+    assert.equal(report.preference_run_id_matches, true);
+    assert.equal(report.capture_armed_log_seen, false);
+    assert.equal(report.arm_log_seen_at_launch, false);
+    assert.equal(report.current_launch_correlated, true);
+    assert.equal(report.diagnostic_state, 'armed-current-launch');
+    assert.equal(report.last_stage, 'home-rendered');
+    assert.equal(report.process_alive, true);
+    assert.equal(report.main_activity_resumed, true);
+});
+
+test('recorded VerifyError nonce remains correlated if its log marker has left the ring buffer', () => {
+    const report = runSanitizer({ prefs: prefsXml(), logcat: '', armLogSeenAtLaunch: 'true' });
+    assert.equal(report.verify_error_detected, true);
+    assert.equal(report.preference_run_id_matches, true);
+    assert.equal(report.capture_armed_log_seen, false);
+    assert.equal(report.verify_record_log_seen, false);
+    assert.equal(report.arm_log_seen_at_launch, true);
+    assert.equal(report.current_launch_correlated, true);
+    assert.equal(report.diagnostic_state, 'recorded-current-launch');
 });
 
 test('unmatched launch IDs cannot be reported as a current-run VerifyError', () => {

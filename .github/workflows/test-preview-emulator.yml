@@ -534,6 +534,17 @@ jobs:
           # but retain only redacted hierarchy metadata (never its raw text/XML).
           # This is also the exact cold Activity launch correlated by the nonce.
           adb shell am start -W -n com.melodix.music.preview/com.melodix.music.MainActivity >/dev/null
+          # Snapshot only the exact run-scoped arm marker immediately after
+          # Application.attachBaseContext; emit a boolean, never raw log text.
+          arm_log_seen_at_launch="$(
+            adb logcat -d -s MDXVERIFY:I 2>/dev/null \
+              | python3 -c 'import sys; marker="verify-capture state=armed run_id=" + sys.argv[1]; print("true" if marker in sys.stdin.read() else "false")' "$verify_run_id"
+          )" || arm_log_seen_at_launch="unknown"
+          if [[ "$arm_log_seen_at_launch" != "true" && "$arm_log_seen_at_launch" != "false" ]]; then
+            arm_log_seen_at_launch="unknown"
+          fi
+          echo "arm_log_seen_at_launch=$arm_log_seen_at_launch" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Android diagnostic arm marker at cold launch::arm_log_seen_at_launch=$arm_log_seen_at_launch"
           sleep 8
           permission_xml="$state_dir/permission-before-grant.xml"
           if adb shell uiautomator dump --compressed /sdcard/melodix-preview-permission.xml >/dev/null 2>&1 && \
@@ -706,6 +717,7 @@ jobs:
         shell: bash
         env:
           VERIFY_RUN_ID: ${{ steps.launch.outputs.verify_run_id }}
+          ARM_LOG_SEEN_AT_LAUNCH: ${{ steps.launch.outputs.arm_log_seen_at_launch }}
           SOURCE_REF: ${{ inputs.source_ref || github.sha }}
         run: |
           set -euo pipefail
@@ -733,6 +745,7 @@ jobs:
             --run-id "$VERIFY_RUN_ID" \
             --source-ref "$SOURCE_REF" \
             --source-root "$GITHUB_WORKSPACE" \
+            --arm-log-seen-at-launch "${ARM_LOG_SEEN_AT_LAUNCH:-unknown}" \
             --output "$report"
           python3 - "$report" <<'PY'
           import json
@@ -743,7 +756,7 @@ jobs:
           report_path = pathlib.Path(sys.argv[1])
           allowed = {
               "schema_version", "source_commit", "run_id", "android_api",
-              "capture_armed_log_seen", "verify_record_log_seen",
+              "capture_armed_log_seen", "arm_log_seen_at_launch", "verify_record_log_seen",
               "preference_run_id_matches", "current_launch_correlated",
               "verify_error_detected", "verify_exception_class", "record_source",
               "target_class", "target_method", "target_method_signature",
@@ -785,6 +798,57 @@ jobs:
           fi
           cleanup_complete=true
           echo "Raw diagnostic preferences and device logs cleared after redaction."
+          # Surface only allowlisted, already-redacted scalar fields as a
+          # GitHub annotation; the report artifact remains the sole JSON export.
+          python3 - "$report" <<'PY'
+          import json
+          import pathlib
+          import re
+          import sys
+
+          data = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+          def flag(name):
+              value = data.get(name)
+              if value is True:
+                  return "true"
+              if value is False:
+                  return "false"
+              return "unknown"
+          target = "none"
+          class_name, method = data.get("target_class"), data.get("target_method")
+          if (isinstance(class_name, str) and isinstance(method, str)
+                  and re.fullmatch(r"com\.melodix\.music(?:\.[A-Za-z0-9_$]+)+", class_name)
+                  and re.fullmatch(r"[A-Za-z0-9_$<>]{1,80}", method)):
+              target = class_name.rsplit(".", 1)[-1] + "." + method
+          register = data.get("register")
+          if not isinstance(register, str) or not re.fullmatch(r"v[0-9]{1,5}", register):
+              register = "none"
+          states = {"armed-current-launch", "armed-uncorrelated", "recorded-current-launch",
+                    "recorded-uncorrelated", "pending-not-consumed", "verify-error-not-recorded",
+                    "capture-not-recorded"}
+          kinds = {"none", "register-type-mismatch", "verifier-register-error", "unparsed-verify-error"}
+          state_value, kind_value = data.get("diagnostic_state"), data.get("failure_kind")
+          state = state_value if isinstance(state_value, str) and state_value in states else "unknown"
+          kind = kind_value if isinstance(kind_value, str) and kind_value in kinds else "unknown"
+          stage = data.get("last_stage")
+          if not isinstance(stage, str) or not re.fullmatch(r"[A-Za-z0-9_.-]{1,64}", stage):
+              stage = "unknown"
+          fields = [
+              "verify_error_detected=" + flag("verify_error_detected"),
+              "preference_run_id_matches=" + flag("preference_run_id_matches"),
+              "arm_log_seen_at_launch=" + flag("arm_log_seen_at_launch"),
+              "capture_armed_log_seen=" + flag("capture_armed_log_seen"),
+              "current_launch_correlated=" + flag("current_launch_correlated"),
+              "diagnostic_state=" + state,
+              "failure_kind=" + kind,
+              "target=" + target,
+              "register=" + register,
+              "process_alive=" + flag("process_alive"),
+              "main_activity_resumed=" + flag("main_activity_resumed"),
+              "last_stage=" + stage,
+          ]
+          print("::notice title=Android 16 redacted VerifyError diagnostic::" + "; ".join(fields))
+          PY
           echo "report_created=true" >> "$GITHUB_OUTPUT"
 
       - name: Upload the one-day redacted VerifyError diagnostic
@@ -1831,7 +1895,7 @@ jobs:
           failures = []
           if report.get("android_api") != 36:
               failures.append("wrong_android_api")
-          if report.get("capture_armed_log_seen") is not True or report.get("current_launch_correlated") is not True:
+          if report.get("current_launch_correlated") is not True:
               failures.append("launch_not_correlated")
           if report.get("verify_error_detected") is True:
               failures.append("verify_error_present")

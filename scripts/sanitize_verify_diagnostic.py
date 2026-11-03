@@ -308,9 +308,14 @@ def build_report(
     logcat = captures.get("logcat", "")
     armed_log = bool(valid_run and re.search(rf"verify-capture state=armed run_id={re.escape(run_id)}(?:\s|$)", logcat))
     recorded_log = bool(valid_run and re.search(rf"verify-capture state=recorded run_id={re.escape(run_id)}(?:\s|$)", logcat))
-    current_launch_correlated = pref_run_id_matches and (
-        (state == "recorded" and recorded_log) if is_verify_error else (state == "armed" and armed_log)
-    )
+    # The exact nonce and state in app-private SharedPreferences are durable
+    # evidence from this launch. Logcat is only corroborating telemetry: the
+    # sanitizer reads it after a long foreground observation, so the ring
+    # buffer may no longer contain the early arm line.
+    correlation_state = "recorded" if is_verify_error else "armed"
+    current_launch_correlated = pref_run_id_matches and state == correlation_state
+    arm_log_at_launch = captures.get("arm_log_seen_at_launch", "unknown")
+    arm_log_seen_at_launch = True if arm_log_at_launch == "true" else False if arm_log_at_launch == "false" else None
 
     raw_message = values.get("last_verify_message")
     contains_sensitive_marker = bool(raw_message and (
@@ -371,6 +376,7 @@ def build_report(
         "run_id": run_id if valid_run else "invalid-run-id",
         "android_api": int(sdk) if sdk is not None else None,
         "capture_armed_log_seen": armed_log,
+        "arm_log_seen_at_launch": arm_log_seen_at_launch,
         "verify_record_log_seen": recorded_log,
         "preference_run_id_matches": pref_run_id_matches,
         "current_launch_correlated": current_launch_correlated,
@@ -413,11 +419,23 @@ def _safe_summary(report: dict[str, Any]) -> str:
     target = "none"
     if report.get("target_class") and report.get("target_method"):
         target = f"{report['target_class'].rsplit('.', 1)[-1]}.{report['target_method']}"
+
+    def flag(name: str) -> str:
+        value = report.get(name)
+        return "unknown" if value is None else str(value).lower()
+
     return (
-        f"verify_error_detected={str(report.get('verify_error_detected')).lower()}; "
-        f"current_launch_correlated={str(report.get('current_launch_correlated')).lower()}; "
-        f"target={target}; register={report.get('register') or 'none'}; "
-        f"main_activity_resumed={str(report.get('main_activity_resumed')).lower()}"
+        f"verify_error_detected={flag('verify_error_detected')}; "
+        f"preference_run_id_matches={flag('preference_run_id_matches')}; "
+        f"arm_log_seen_at_launch={flag('arm_log_seen_at_launch')}; "
+        f"capture_armed_log_seen={flag('capture_armed_log_seen')}; "
+        f"current_launch_correlated={flag('current_launch_correlated')}; "
+        f"diagnostic_state={report.get('diagnostic_state') or 'unknown'}; "
+        f"failure_kind={report.get('failure_kind') or 'unknown'}; target={target}; "
+        f"register={report.get('register') or 'none'}; "
+        f"process_alive={flag('process_alive')}; "
+        f"main_activity_resumed={flag('main_activity_resumed')}; "
+        f"last_stage={report.get('last_stage') or 'unknown'}"
     )
 
 
@@ -427,9 +445,16 @@ def main() -> int:
     parser.add_argument("--source-ref", required=True)
     parser.add_argument("--source-root", type=pathlib.Path, default=pathlib.Path(__file__).resolve().parents[1])
     parser.add_argument("--output", type=pathlib.Path)
+    parser.add_argument(
+        "--arm-log-seen-at-launch",
+        choices=("true", "false", "unknown"),
+        default="unknown",
+        help="Safe boolean captured immediately after the explicit cold launch.",
+    )
     parser.add_argument("--stdin-json", action="store_true", help="Read synthetic captures JSON from stdin (tests only).")
     args = parser.parse_args()
     captures = _stdin_captures() if args.stdin_json else _capture_adb()
+    captures["arm_log_seen_at_launch"] = args.arm_log_seen_at_launch
     report = build_report(
         run_id=args.run_id,
         source_ref=args.source_ref,
