@@ -5,6 +5,16 @@ name: P0 display ownership phone/tablet comparison
 # same APK on phone and tablet Android 16 profiles, and aggregates only strict
 # redacted sidecars with scripts/aggregate_p0_display_ownership.py.
 on:
+  # TEMPORARY registration bootstrap. GitHub only exposes a workflow to
+  # workflow_dispatch once the file is on the default branch OR the workflow has
+  # at least one prior run (cli/cli#9781). This push trigger is scoped to this
+  # file on the session branch and exists only to create that first run. Every
+  # job below is guarded by github.event_name == 'workflow_dispatch', so a push
+  # run skips all five jobs and executes nothing. It is removed in the next
+  # commit, restoring the manual-only contract.
+  push:
+    branches: [arena/6b935c3e-melodix]
+    paths: ['.github/workflows/p0-display-ownership.yml']
   workflow_dispatch:
     inputs:
       enabled:
