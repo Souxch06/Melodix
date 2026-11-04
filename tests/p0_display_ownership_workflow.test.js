@@ -305,8 +305,20 @@ test('the instrumentation mode is launch-relative, read-only, and emits only the
   const end = harness.indexOf('private JSONObject inspectDisplayOwnershipCheckpoint', start);
   assert.ok(start >= 0 && end > start);
   const mode = harness.slice(start, end);
-  assert.match(mode, /final long launchStart = SystemClock\.elapsedRealtime\(\);\s*Activity activity = launchTarget\(\);/);
-  assert.match(mode, /requireUnauthenticatedSession\(activity\)/);
+  // Run 41880564012 booted both real AVDs and failed both profiles because the
+  // origin was recorded before launchTarget(), whose startActivitySync() blocks
+  // until the activity is idle: the 200 ms checkpoint was unreachable by
+  // construction. The corrected contract is a non-blocking dispatch with the
+  // origin recorded immediately before it and never re-based afterwards.
+  assert.match(mode, /final long launchStart = SystemClock\.elapsedRealtime\(\);\s*dispatchDisplayOwnershipLaunch\(\);/);
+  assert.doesNotMatch(mode, /=\s*launchTarget\(\)/);
+  assert.equal((mode.match(/launchStart\s*=(?!=)/g) || []).length, 1);
+  assert.match(mode, /displayOwnershipActivityWaitBudget\(launchStart, target,/);
+  // The session assertion must not consume the launch-relative timeline.
+  assert.match(mode, /requireUnauthenticatedSession\(settledActivity\)/);
+  assert.ok(mode.indexOf('requireUnauthenticatedSession(')
+    > mode.indexOf('for (int index = 0; index < DISPLAY_OWNERSHIP_CHECKPOINTS_MS.length'));
+  assert.match(mode, /\}\s*finally\s*\{\s*unregisterActivityLifecycleObservation\(\);/);
   assert.match(mode, /"phone"\.equals\(profile\) && smallest >= 600/);
   assert.match(mode, /"tablet"\.equals\(profile\) && smallest < 600/);
   assert.match(mode, /openFileOutput\(DISPLAY_OWNERSHIP_REPORT_FILE, Context\.MODE_PRIVATE\)/);

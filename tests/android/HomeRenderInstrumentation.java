@@ -144,6 +144,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
     // Bounded DOM classification budget. The launch checkpoint gets a shorter
     // budget so a not-yet-ready WebView cannot push the 200 ms sample out of its
     // launch-relative window; a timeout yields "unavailable", never "no takeover".
+    private static final long DISPLAY_OWNERSHIP_ACTIVITY_WAIT_TOLERANCE_MS = 1200L;
     private static final long DISPLAY_OWNERSHIP_LAUNCH_PROBE_TIMEOUT_MS = 400L;
     private static final long DISPLAY_OWNERSHIP_PROBE_TIMEOUT_MS = 1200L;
     private Application observedApplication;
@@ -151,6 +152,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
     private volatile boolean backKeyObserverInstalled;
     private volatile boolean backKeyObserverActive;
     private volatile WeakReference<Activity> resumedTargetActivity = new WeakReference<>(null);
+    private volatile String displayOwnershipFailurePhase;
     private volatile boolean targetActivityResumed;
     private volatile boolean targetActivityStoppedObserved;
     private volatile boolean targetActivityResumedAfterBackground;
@@ -1369,6 +1371,11 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                     && candidateFailurePhase.matches("native_home_render_tree_fixture_[a-z0-9_]{1,30}")) {
                 reportedFailurePhase = candidateFailurePhase;
             }
+            String displayPhase = displayOwnershipFailurePhase;
+            if ("display_ownership_launch".equals(failurePhase) && displayPhase != null
+                    && displayPhase.matches("display_ownership_[a-z0-9_]{1,40}")) {
+                reportedFailurePhase = displayPhase;
+            }
             if (diagnostics != null) {
                 try { diagnostics.setFailure(failure, reportedFailurePhase); } catch (Throwable ignored) {}
             }
@@ -1425,6 +1432,45 @@ public final class HomeRenderInstrumentation extends Instrumentation {
     // Manual-only observation mode: bring the existing primary Activity forward
     // without clearing its task, then passively observe it. It never navigates,
     // logs in, changes page storage, or creates a secondary WebView.
+    // Pure checkpoint scheduling rule, deliberately free of Android types so it
+    // can be compiled and executed on a plain JVM. The observation may lag the
+    // target while the activity resumes, but it must never be pushed past the
+    // documented launch-relative tolerance, and the target itself is never
+    // re-based. This is the invariant whose absence made both profiles fail:
+    // the origin used to be taken before a blocking startActivitySync().
+    static long displayOwnershipActivityWaitBudget(long launchStart, long target, long now,
+            long tolerance) {
+        if (tolerance < 0L || tolerance >= 1500L) return -1L;
+        long deadline = launchStart + target + tolerance;
+        long remaining = deadline - now;
+        return remaining <= 0L ? 0L : remaining;
+    }
+
+    private void noteDisplayOwnershipPhase(String stage) {
+        String safe = stage == null || !stage.matches("[a-z0-9_]{1,40}") ? "invalid_stage" : stage;
+        displayOwnershipFailurePhase = "display_ownership_" + safe;
+        notePhase(displayOwnershipFailurePhase);
+    }
+
+    // Dispatch the cold launch WITHOUT waiting for the activity to go idle.
+    // startActivitySync() blocks until then, which on a cold emulator takes
+    // seconds; taking the launch-relative origin before that call made the
+    // 200 ms checkpoint unreachable by construction and both profiles failed
+    // with "missed its bounded launch-relative window". The resumed activity is
+    // read from the lifecycle observer instead, so the timeline still starts at
+    // the real launch instant and is never re-based afterwards.
+    private void dispatchDisplayOwnershipLaunch() {
+        final Intent launch = getTargetContext().getPackageManager()
+                .getLaunchIntentForPackage(TARGET_PACKAGE);
+        if (launch == null) throw new AssertionError("Preview launcher activity missing");
+        launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        runOnMainSync(new Runnable() {
+            @Override public void run() {
+                getTargetContext().startActivity(launch);
+            }
+        });
+    }
+
     private Activity launchTargetPreservingTask() {
         Intent launch = getTargetContext().getPackageManager()
                 .getLaunchIntentForPackage(TARGET_PACKAGE);
@@ -6242,18 +6288,39 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             throw new AssertionError("Display ownership mode requires a lowercase APK SHA-256");
         }
 
-        final long launchStart = SystemClock.elapsedRealtime();
-        Activity activity = launchTarget();
-        requireUnauthenticatedSession(activity);
-
+        registerActivityLifecycleObservation();
+        Activity activity = null;
         JSONObject checkpoints = new JSONObject();
         JSONArray transitions = new JSONArray();
+        try {
+        noteDisplayOwnershipPhase("launch_dispatch");
+        final long launchStart = SystemClock.elapsedRealtime();
+        dispatchDisplayOwnershipLaunch();
+
         String previousOwner = null;
         String previousRoute = null;
         for (int index = 0; index < DISPLAY_OWNERSHIP_CHECKPOINTS_MS.length; index++) {
             final long target = DISPLAY_OWNERSHIP_CHECKPOINTS_MS[index];
+            noteDisplayOwnershipPhase("checkpoint_" + DISPLAY_OWNERSHIP_CHECKPOINT_LABELS[index]);
             long waitMillis = launchStart + target - SystemClock.elapsedRealtime();
             if (waitMillis > 0L) Thread.sleep(waitMillis);
+            // Stay inside the documented 1500 ms observation tolerance: wait for
+            // the activity to resume, but never past the checkpoint window, and
+            // record the real elapsed time rather than moving the deadline.
+            Activity resumed = resumedActivityOr(null);
+            long waitBudget = displayOwnershipActivityWaitBudget(launchStart, target,
+                    SystemClock.elapsedRealtime(), DISPLAY_OWNERSHIP_ACTIVITY_WAIT_TOLERANCE_MS);
+            if (waitBudget < 0L) throw new AssertionError("Display ownership activity wait tolerance is out of contract");
+            long activityDeadline = SystemClock.elapsedRealtime() + waitBudget;
+            while (resumed == null && SystemClock.elapsedRealtime() < activityDeadline) {
+                Thread.sleep(20L);
+                resumed = resumedActivityOr(null);
+            }
+            if (resumed == null) {
+                throw new AssertionError("Display ownership checkpoint had no resumed target activity in its window");
+            }
+            activity = resumed;
+            final Activity sampleActivity = resumed;
             final JSONObject[] sample = new JSONObject[1];
             final WebView[] sampleWebView = new WebView[1];
             final Throwable[] failure = new Throwable[1];
@@ -6261,8 +6328,8 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 @Override
                 public void run() {
                     try {
-                        sampleWebView[0] = findWebView(activity);
-                        sample[0] = inspectDisplayOwnershipCheckpoint(activity, target, launchStart);
+                        sampleWebView[0] = findWebView(sampleActivity);
+                        sample[0] = inspectDisplayOwnershipCheckpoint(sampleActivity, target, launchStart);
                     } catch (Throwable error) {
                         failure[0] = error;
                     }
@@ -6300,11 +6367,16 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             previousRoute = route;
         }
 
+        noteDisplayOwnershipPhase("session_state");
+        final Activity settledActivity = activity;
+        requireUnauthenticatedSession(settledActivity);
+
+        noteDisplayOwnershipPhase("web_probe");
         final WebView[] webView = new WebView[1];
         runOnMainSync(new Runnable() {
             @Override
             public void run() {
-                webView[0] = findWebView(activity);
+                webView[0] = findWebView(settledActivity);
             }
         });
         if (webView[0] == null) throw new AssertionError("Display ownership comparison could not find the primary WebView");
@@ -6322,7 +6394,8 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             safeViewport.put(sidecarViewportKeys[index], value);
         }
 
-        JSONObject device = displayOwnershipDeviceMetrics(activity);
+        noteDisplayOwnershipPhase("device_metrics");
+        JSONObject device = displayOwnershipDeviceMetrics(settledActivity);
         int smallest = device.getInt("smallest_screen_width_dp");
         if ("phone".equals(profile) && smallest >= 600) {
             throw new AssertionError("Phone profile measured smallestScreenWidthDp >= 600");
@@ -6331,6 +6404,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             throw new AssertionError("Tablet profile measured smallestScreenWidthDp < 600");
         }
 
+        noteDisplayOwnershipPhase("sidecar");
         JSONObject sidecar = new JSONObject();
         sidecar.put("schema_version", 2);
         sidecar.put("profile", profile);
@@ -6352,6 +6426,9 @@ public final class HomeRenderInstrumentation extends Instrumentation {
 
         try (FileOutputStream output = getTargetContext().openFileOutput(DISPLAY_OWNERSHIP_REPORT_FILE, Context.MODE_PRIVATE)) {
             output.write(sidecar.toString().getBytes("UTF-8"));
+        }
+        } finally {
+            unregisterActivityLifecycleObservation();
         }
         Bundle result = new Bundle();
         result.putString("overall", "passed");
