@@ -3161,22 +3161,31 @@ jobs:
             local capture_status=0
             local logcat_data=""
             local attempt
+            local buffer_mode="main+crash"
+            local stderr_head=""
             # Read AndroidRuntime into memory only (never to disk), then pipe it
             # into the current sanitizer; only its strict allowlisted JSON report
-            # is written. adb logcat can exit non-zero on a transient buffer read
-            # error (common right after the app crashes into the crash buffer)
-            # while still emitting the AndroidRuntime lines, so retry briefly and
-            # then process whatever was captured instead of dropping the finding.
+            # is written. adb logcat can exit non-zero on a buffer read error
+            # right after the app crashes, so retry briefly. If the combined
+            # main+crash read stays unreadable, fall back to the main buffer,
+            # where AndroidRuntime also logs the FATAL EXCEPTION.
             for attempt in 1 2 3; do
               logcat_status=0
-              logcat_data="$(adb logcat -d -t 2000 -b main -b crash -v message -s AndroidRuntime:E 2>/dev/null)" || logcat_status=$?
+              logcat_data="$(adb logcat -d -t 2000 -b main -b crash -v message -s AndroidRuntime:E 2>"$state_dir/logcat-stderr-$phase")" || logcat_status=$?
               if (( logcat_status == 0 )) || [[ -n "$logcat_data" ]]; then
                 break
               fi
               sleep 2
             done
             if (( logcat_status != 0 )) && [[ -z "$logcat_data" ]]; then
-              echo "::error title=P0 replay capture::phase=$phase; adb_logcat_exit=$logcat_status; captured_bytes=0; AndroidRuntime buffer unreadable"
+              buffer_mode="main-only"
+              logcat_status=0
+              logcat_data="$(adb logcat -d -t 2000 -b main -v message -s AndroidRuntime:E 2>"$state_dir/logcat-stderr-$phase")" || logcat_status=$?
+            fi
+            stderr_head="$(head -c 160 "$state_dir/logcat-stderr-$phase" 2>/dev/null | tr -cd 'A-Za-z0-9 _:.=/-' || true)"
+            rm -f "$state_dir/logcat-stderr-$phase"
+            if (( logcat_status != 0 )) && [[ -z "$logcat_data" ]]; then
+              echo "::error title=P0 replay capture::phase=$phase; buffer=$buffer_mode; adb_logcat_exit=$logcat_status; captured_bytes=0; stderr=${stderr_head:-none}"
               return "$logcat_status"
             fi
             printf '%s' "$logcat_data" | python3 "$TOOLING_ROOT/scripts/sanitize_verify_diagnostic.py" \
@@ -3190,9 +3199,9 @@ jobs:
               return "$capture_status"
             fi
             if (( logcat_status != 0 )); then
-              echo "::warning title=P0 replay capture::phase=$phase; adb_logcat_exit=$logcat_status; captured_bytes=${#logcat_data}; output still sanitized"
+              echo "::warning title=P0 replay capture::phase=$phase; buffer=$buffer_mode; adb_logcat_exit=$logcat_status; captured_bytes=${#logcat_data}; output still sanitized"
             fi
-            echo "::notice title=P0 replay capture::phase=$phase; adb_logcat_exit=$logcat_status; sanitizer_exit=0"
+            echo "::notice title=P0 replay capture::phase=$phase; buffer=$buffer_mode; adb_logcat_exit=$logcat_status; sanitizer_exit=0"
           }
           adb logcat -c
           initial_start_status=0
