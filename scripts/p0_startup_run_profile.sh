@@ -83,7 +83,7 @@ allowed = {
     "st_oncreate_top": histogram,
     "st_all_top": histogram,
 }
-for key in ("st_oncreate", "st_created", "st_resumed", "st_draw", "st_native", "st_views"):
+for key in ("st_oncreate", "st_created", "st_resumed", "st_draw", "st_native", "st_views", "st_sampler_ms", "st_samples"):
     allowed[key] = integer
 for label in ("200ms", "1s", "3s", "8s", "20s"):
     allowed["st_" + label] = re.compile(
@@ -175,6 +175,8 @@ show("launch_to_resumed_ms", "st_resumed")
 show("launch_to_first_draw_ms", "st_draw")
 show("launch_to_native_visible_ms", "st_native")
 show("view_count", "st_views")
+show("sampler_suspend_ms", "st_sampler_ms")
+show("sample_count", "st_samples")
 show("login_form", "st_form")
 print(f"::notice title=P0 startup attribution::{p} oncreate_samples={s.get('st_oncreate_top', 'not_measured')}")
 print(f"::notice title=P0 startup attribution::{p} all_samples={s.get('st_all_top', 'not_measured')}")
@@ -255,7 +257,8 @@ DURATIONS = {
     "launch_to_native_visible_ms",
 }
 TOP = {"schema_version", "profile", "source_commit", "run_id", "apk_sha256", "timeline_origin",
-       "session_state", "sample_interval_ms", "view_count_at_first_observation",
+       "session_state", "sample_interval_ms", "settled_sample_interval_ms", "sample_count",
+       "sampler_suspend_ms", "view_count_at_first_observation",
        "login_form_probe", "events", "durations", "main_thread_samples",
        "oncreate_main_thread_samples", "checkpoints"}
 CHECKPOINT_KEYS = {"target_elapsed_ms", "observed_elapsed_ms", "display_owner",
@@ -285,6 +288,11 @@ if report["login_form_probe"] not in {"built", "not_observed", "unavailable"}:
     fail("login_form_probe is outside its vocabulary")
 if not isinstance(report["sample_interval_ms"], int) or not 1 <= report["sample_interval_ms"] <= 1000:
     fail("sample interval is out of range")
+if not isinstance(report["settled_sample_interval_ms"], int) or not 1 <= report["settled_sample_interval_ms"] <= 5000:
+    fail("settled sample interval is out of range")
+for key in ("sample_count", "sampler_suspend_ms"):
+    if not isinstance(report[key], int) or not 0 <= report[key] <= 600000:
+        fail(f"{key} is out of range")
 if not isinstance(report["view_count_at_first_observation"], int) or not -1 <= report["view_count_at_first_observation"] <= 100000:
     fail("view count is out of range")
 

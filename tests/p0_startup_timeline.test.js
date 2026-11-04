@@ -196,7 +196,7 @@ test('the startup mode observes the lifecycle passively and never rebases its or
   // Same origin contract as the validated ownership comparison.
   assert.match(mode, /final long origin = dispatchDisplayOwnershipLaunch\(\);/);
   assert.equal((mode.match(/origin\s*=(?!=)/g) || []).length, 1);
-  assert.match(mode, /noteStartupEvent\("launch_command", origin\);/);
+  // launch_command is asserted below to be written as the literal origin.
 
   // The five original checkpoints are preserved, and an unmeasurable one keeps
   // an explicit reason instead of being turned into a fake observation.
@@ -219,6 +219,18 @@ test('the startup mode observes the lifecycle passively and never rebases its or
 
   // Nothing in this mode may mutate the app under measurement.
   assert.doesNotMatch(mode, /setVisibility\(|loadUrl\(|evaluateJavascript\(|CookieManager|clearData|startActivitySync/);
+
+  // Sampling suspends the main thread, so the observer effect must be measured
+  // and bounded, not hidden. The coarse settled interval and the onCreate cap
+  // keep the perturbation small, and the cost is exported.
+  assert.match(source, /STARTUP_SAMPLE_INTERVAL_MS = 50L;/);
+  assert.match(source, /STARTUP_SETTLED_SAMPLE_INTERVAL_MS = 250L;/);
+  assert.match(source, /STARTUP_MAX_ONCREATE_SAMPLES = 120;/);
+  assert.match(mode, /startupSamplerCostMs \+= SystemClock\.elapsedRealtime\(\) - before;/);
+  assert.match(mode, /sidecar\.put\("sampler_suspend_ms", startupSamplerCostMs\);/);
+  assert.match(mode, /alreadyCounted/);
+  // The launch command is the origin by definition, not a measured offset.
+  assert.match(mode, /startupEvents\.put\("launch_command", Long\.valueOf\(0L\)\);/);
 });
 
 test('the startup status filter accepts measurements and rejects every privacy canary', () => {
@@ -309,7 +321,10 @@ function startupSidecar(overrides = {}) {
     apk_sha256: 'b'.repeat(64),
     timeline_origin: 'app_launch',
     session_state: 'unauthenticated',
-    sample_interval_ms: 10,
+    sample_interval_ms: 50,
+    settled_sample_interval_ms: 250,
+    sample_count: 240,
+    sampler_suspend_ms: 410,
     view_count_at_first_observation: 412,
     login_form_probe: 'built',
     events: {
@@ -405,4 +420,66 @@ test('the workflow really executes the suite on a JDK and captures both startup 
   // The startup capture must not weaken the validated ownership capture.
   assert.match(workflow, /scripts\/p0_display_run_profile\.sh/);
   assert.match(workflow, /aggregate-display-comparison:/);
+});
+
+test('the authenticated runner waits for a real manual sign-in and can never capture a credential', () => {
+  const script = read(path.join(ROOT, 'scripts/p0_authenticated_session.sh'));
+  const syntax = spawnSync('bash', ['-n', path.join(ROOT, 'scripts/p0_authenticated_session.sh')], { encoding: 'utf8' });
+  assert.equal(syntax.status, 0, syntax.stderr);
+
+  // It drives the existing passive observer; it never automates the sign-in.
+  assert.match(script, /-e mode authenticated-home/);
+  // Match real commands, not the prose that promises not to use them.
+  assert.doesNotMatch(script, /adb[^\n]*\b(input |logcat|screencap|uiautomator)/);
+  assert.doesNotMatch(script, /am broadcast[^\n]*login/);
+  // It must not destroy an existing session or inject any authentication state.
+  assert.doesNotMatch(script, /adb[^\n]*pm clear|CookieManager|setCookie|localStorage/);
+  assert.match(script, /does not clear your app data/);
+  assert.match(script, /NEVER type your password/);
+  // Exactly one device, never a guess.
+  assert.match(script, /exactly one connected device is required/);
+  // Both APKs must share a signer when the tool is available.
+  assert.match(script, /not signed by the same certificate/);
+
+  // The filter is the real export surface: execute it against canaries.
+  const filter = extractHeredoc(script, 'cat >"$tmp/filter.py" <<\'FILTER\'\n');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'melodix-auth-filter-'));
+  try {
+    const filterPath = path.join(tmp, 'filter.py');
+    fs.writeFileSync(filterPath, filter);
+    const out = path.join(tmp, 'out.json');
+    const raw = [
+      'INSTRUMENTATION_STATUS: phase=authenticated_home_wait',
+      'INSTRUMENTATION_STATUS: authenticated_home_test_performed=true',
+      'INSTRUMENTATION_STATUS: real_library_playlist_observed=true',
+      'INSTRUMENTATION_STATUS: last_route_category=home',
+      'INSTRUMENTATION_STATUS: target_activity_resume_count=3',
+      'INSTRUMENTATION_STATUS: password=SECRET_PASSWORD',
+      'INSTRUMENTATION_STATUS: cookie=SECRET_COOKIE',
+      'INSTRUMENTATION_STATUS: access_token=SECRET_TOKEN',
+      'INSTRUMENTATION_STATUS: url=https://accounts.spotify.com/?t=SECRET',
+      'INSTRUMENTATION_STATUS: last_route_category=https://private.invalid/SECRET',
+      'INSTRUMENTATION_STATUS: playlist_name=My SECRET playlist',
+      'INSTRUMENTATION_CODE: -1',
+    ].join('\n');
+    const proc = spawnSync('python3', [filterPath, out], { encoding: 'utf8', input: `${raw}\n` });
+    assert.equal(proc.status, 0, proc.stderr);
+    const text = fs.readFileSync(out, 'utf8');
+    assert.equal(text.includes('SECRET'), false, 'no credential, cookie, token or playlist name may be retained');
+    assert.equal(text.includes('https://'), false);
+    const parsed = JSON.parse(text).statuses;
+    assert.equal(parsed.authenticated_home_test_performed, 'true');
+    assert.equal(parsed.real_library_playlist_observed, 'true');
+    assert.equal(parsed.last_route_category, 'home');
+    assert.equal(Object.prototype.hasOwnProperty.call(parsed, 'playlist_name'), false);
+    assert.match(proc.stdout, /a REAL authenticated home was observed/);
+    assert.match(proc.stdout, /a REAL library playlist was observed/);
+
+    // A run that never reached the observer's success code fails closed.
+    const failing = spawnSync('python3', [filterPath, path.join(tmp, 'f.json')],
+      { encoding: 'utf8', input: 'INSTRUMENTATION_STATUS: phase=authenticated_home_wait\nINSTRUMENTATION_CODE: 0\n' });
+    assert.notEqual(failing.status, 0);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
 });

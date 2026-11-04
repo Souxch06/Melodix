@@ -6941,7 +6941,14 @@ public final class HomeRenderInstrumentation extends Instrumentation {
     // =====================================================================
 
     private static final String STARTUP_REPORT_FILE = "melodix-preview-startup-timeline.json";
-    private static final long STARTUP_SAMPLE_INTERVAL_MS = 10L;
+    // Sampling suspends the main thread, so it perturbs what it measures. The
+    // interval is coarse and the cost is measured and exported, so the report
+    // can state the observer effect instead of hiding it. The unperturbed
+    // checkpoint timings come from the display-ownership mode, which has no
+    // sampler at all.
+    private static final long STARTUP_SAMPLE_INTERVAL_MS = 50L;
+    private static final long STARTUP_SETTLED_SAMPLE_INTERVAL_MS = 250L;
+    private static final int STARTUP_MAX_ONCREATE_SAMPLES = 120;
     private static final long STARTUP_TOTAL_MS = 20000L;
     private static final long STARTUP_WINDOW_TOLERANCE_MS = 1200L;
 
@@ -6954,6 +6961,9 @@ public final class HomeRenderInstrumentation extends Instrumentation {
     private volatile boolean startupSampling = false;
     private volatile int startupViewCount = -1;
     private volatile int startupLoginFormProbe = -1;
+    private volatile long startupSamplerCostMs = 0L;
+    private volatile int startupSampleCount = 0;
+    private volatile int startupOnCreateSampleCount = 0;
     private Application startupApplication;
     private android.view.ViewTreeObserver.OnGlobalLayoutListener startupLayoutListener;
     private android.view.ViewTreeObserver.OnDrawListener startupDrawListener;
@@ -7250,7 +7260,9 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             // inside the posted task, exactly as in the ownership comparison.
             final long origin = dispatchDisplayOwnershipLaunch();
             startupOrigin = origin;
-            noteStartupEvent("launch_command", origin);
+            synchronized (startupEvents) {
+                startupEvents.put("launch_command", Long.valueOf(0L));
+            }
             if (processStart > 0L && processStart <= origin) {
                 synchronized (startupEvents) {
                     startupEvents.put("process_start", Long.valueOf(processStart - origin));
@@ -7263,7 +7275,23 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                     while (startupSampling) {
                         long now = SystemClock.elapsedRealtime();
                         if (now - origin > STARTUP_TOTAL_MS + 2000L) break;
+                        long enter = startupOnCreateEnter;
+                        long exit = startupOnCreateExit;
+                        boolean inOnCreate = enter > 0L && exit < 0L;
+                        boolean alreadyCounted = startupOnCreateSampleCount >= STARTUP_MAX_ONCREATE_SAMPLES;
+                        if (inOnCreate && alreadyCounted) {
+                            // Stop suspending the main thread once the attribution
+                            // window has enough samples; the rest of the startup
+                            // must not be slowed down further.
+                            try {
+                                Thread.sleep(STARTUP_SETTLED_SAMPLE_INTERVAL_MS);
+                            } catch (InterruptedException stopped) {
+                                return;
+                            }
+                            continue;
+                        }
                         String[] frames;
+                        long before = SystemClock.elapsedRealtime();
                         try {
                             StackTraceElement[] raw = mainThread.getStackTrace();
                             frames = new String[raw.length];
@@ -7273,15 +7301,17 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                         } catch (Throwable ignored) {
                             frames = null;
                         }
+                        startupSamplerCostMs += SystemClock.elapsedRealtime() - before;
+                        startupSampleCount += 1;
                         String bucket = classifyStartupFrame(frames);
                         countStartupBucket(startupBuckets, bucket);
-                        long enter = startupOnCreateEnter;
-                        long exit = startupOnCreateExit;
                         if (enter > 0L && (exit < 0L || now <= exit) && now >= enter) {
                             countStartupBucket(startupOnCreateBuckets, bucket);
+                            startupOnCreateSampleCount += 1;
                         }
                         try {
-                            Thread.sleep(STARTUP_SAMPLE_INTERVAL_MS);
+                            Thread.sleep(inOnCreate ? STARTUP_SAMPLE_INTERVAL_MS
+                                    : STARTUP_SETTLED_SAMPLE_INTERVAL_MS);
                         } catch (InterruptedException stopped) {
                             return;
                         }
@@ -7392,6 +7422,9 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         sidecar.put("timeline_origin", "app_launch");
         sidecar.put("session_state", "unauthenticated");
         sidecar.put("sample_interval_ms", STARTUP_SAMPLE_INTERVAL_MS);
+        sidecar.put("settled_sample_interval_ms", STARTUP_SETTLED_SAMPLE_INTERVAL_MS);
+        sidecar.put("sample_count", startupSampleCount);
+        sidecar.put("sampler_suspend_ms", startupSamplerCostMs);
         sidecar.put("view_count_at_first_observation", startupViewCount);
         sidecar.put("login_form_probe", startupLoginFormProbe == 1 ? "built"
                 : startupLoginFormProbe == 0 ? "not_observed" : "unavailable");
@@ -7415,6 +7448,8 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         result.putString("st_draw", String.valueOf(durations.getLong("launch_to_first_draw_ms")));
         result.putString("st_native", String.valueOf(durations.getLong("launch_to_native_visible_ms")));
         result.putString("st_views", String.valueOf(startupViewCount));
+        result.putString("st_sampler_ms", String.valueOf(startupSamplerCostMs));
+        result.putString("st_samples", String.valueOf(startupSampleCount));
         result.putString("st_form", startupLoginFormProbe == 1 ? "built"
                 : startupLoginFormProbe == 0 ? "not_observed" : "unavailable");
         result.putString("st_oncreate_top", startupHistogram(startupOnCreateBuckets, 4));
