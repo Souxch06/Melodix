@@ -3159,14 +3159,24 @@ jobs:
             local phase="$2"
             local logcat_status=0
             local capture_status=0
-            local logcat_data
+            local logcat_data=""
+            local attempt
             # Read AndroidRuntime into memory only (never to disk), then pipe it
             # into the current sanitizer; only its strict allowlisted JSON report
-            # is written. Separate the adb and sanitizer exit codes so a failure
-            # is attributed to the exact command.
-            logcat_data="$(adb logcat -d -t 2000 -b main -b crash -v message -s AndroidRuntime:E 2>/dev/null)" || logcat_status=$?
-            if (( logcat_status != 0 )); then
-              echo "::error title=P0 replay capture::phase=$phase; adb_logcat_exit=$logcat_status"
+            # is written. adb logcat can exit non-zero on a transient buffer read
+            # error (common right after the app crashes into the crash buffer)
+            # while still emitting the AndroidRuntime lines, so retry briefly and
+            # then process whatever was captured instead of dropping the finding.
+            for attempt in 1 2 3; do
+              logcat_status=0
+              logcat_data="$(adb logcat -d -t 2000 -b main -b crash -v message -s AndroidRuntime:E 2>/dev/null)" || logcat_status=$?
+              if (( logcat_status == 0 )) || [[ -n "$logcat_data" ]]; then
+                break
+              fi
+              sleep 2
+            done
+            if (( logcat_status != 0 )) && [[ -z "$logcat_data" ]]; then
+              echo "::error title=P0 replay capture::phase=$phase; adb_logcat_exit=$logcat_status; captured_bytes=0; AndroidRuntime buffer unreadable"
               return "$logcat_status"
             fi
             printf '%s' "$logcat_data" | python3 "$TOOLING_ROOT/scripts/sanitize_verify_diagnostic.py" \
@@ -3179,7 +3189,10 @@ jobs:
               echo "::error title=P0 replay capture::phase=$phase; sanitizer_exit=$capture_status"
               return "$capture_status"
             fi
-            echo "::notice title=P0 replay capture::phase=$phase; adb_logcat_exit=0; sanitizer_exit=0"
+            if (( logcat_status != 0 )); then
+              echo "::warning title=P0 replay capture::phase=$phase; adb_logcat_exit=$logcat_status; captured_bytes=${#logcat_data}; output still sanitized"
+            fi
+            echo "::notice title=P0 replay capture::phase=$phase; adb_logcat_exit=$logcat_status; sanitizer_exit=0"
           }
           adb logcat -c
           initial_start_status=0
