@@ -250,6 +250,53 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
+  # The behavioural JVM tests (dock occlusion, checkpoint scheduling, startup
+  # frame classification) only really run when a Java compiler is present. This
+  # job executes the whole suite on a JDK so a sandbox skip can never be
+  # presented as a pass.
+  verify-tooling-tests:
+    if: github.event_name == 'workflow_dispatch' && inputs.enabled == true
+    name: Execute the full tooling test suite on a real JDK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Validate the explicit opt-in request
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "${{ inputs.enabled }}" == "true" ]] || { echo "opt-in required" >&2; exit 1; }
+
+      - name: Check out the diagnostic tooling under test
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies and execute every test
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v javac >/dev/null 2>&1 || { echo "javac is required" >&2; exit 1; }
+          npm ci
+          npm test 2>&1 | tee "$RUNNER_TEMP/tooling-tests.tap"
+          grep -E '^# (tests|pass|fail|skipped|todo)' "$RUNNER_TEMP/tooling-tests.tap"
+          grep -qE '^# fail 0$' "$RUNNER_TEMP/tooling-tests.tap"
+          grep -qE '^# skipped 0$' "$RUNNER_TEMP/tooling-tests.tap"
+          grep -qE '^# todo 0$' "$RUNNER_TEMP/tooling-tests.tap"
+          echo "::notice title=P0 tooling tests::full suite executed on a real JDK with zero skips"
+
   capture-display-profile:
     if: github.event_name == 'workflow_dispatch' && inputs.enabled == true
     name: Capture ${{ matrix.profile }} display ownership at launch-relative checkpoints
@@ -400,6 +447,172 @@ jobs:
           name: melodix-display-boot-diagnostic-${{ matrix.profile }}-${{ github.run_id }}
           path: ${{ runner.temp }}/melodix-display-avd-${{ matrix.profile }}/boot-diagnostic.json
           retention-days: 1
+          if-no-files-found: ignore
+
+      # Targeted stop: only this profile's recorded serial and PID, never a
+      # blanket pkill. On runner cancellation or job timeout GitHub reaps the
+      # process tree itself and this step may not complete; correctness relies
+      # on the runner being ephemeral, not on this cleanup being guaranteed.
+      - name: Stop only this profile's emulator
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          bash "$GITHUB_WORKSPACE/tooling/scripts/p0_display_stop_avd.sh" \
+            "$RUNNER_TEMP/melodix-display-avd-$PROFILE" || true
+        env:
+          PROFILE: ${{ matrix.profile }}
+
+  capture-startup-profile:
+    if: github.event_name == 'workflow_dispatch' && inputs.enabled == true
+    name: Capture ${{ matrix.profile }} startup lifecycle timeline
+    needs: [build-display-apk, prepare-display-comparison, verify-tooling-tests]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [phone, tablet]
+    steps:
+      - name: Validate the explicit opt-in request
+        shell: bash
+        env:
+          ENABLED: ${{ inputs.enabled }}
+          SOURCE_REF: ${{ inputs.source_ref }}
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          [[ "${ENABLED,,}" == "true" ]] || { echo "::error::P0 display comparison is disabled unless enabled=true."; exit 1; }
+          [[ "$SOURCE_REF" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::source_ref must be a full lowercase commit SHA."; exit 1; }
+          [[ "$PROFILE" == "phone" || "$PROFILE" == "tablet" ]] || { echo "::error::unexpected profile."; exit 1; }
+
+      - name: Check out current diagnostic tooling
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          path: tooling
+
+      - name: Check out the exact APK source under test
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.source_ref }}
+          path: source-under-test
+
+      - name: Set up Java
+        uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK and emulator
+        uses: android-actions/setup-android@v4.0.4
+
+      - name: Install Android 16 emulator and inspection tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(uname -m)" == "x86_64" ]] || { echo "::error::Expected an x86_64 emulator host."; exit 1; }
+          system_image="system-images;android-36;google_apis;x86_64"
+          sdkmanager --install "platform-tools" "emulator" "build-tools;35.0.0" "platforms;android-36" "$system_image"
+          [[ -x "$ANDROID_HOME/platform-tools/adb" && -x "$ANDROID_HOME/emulator/emulator" && -x "$ANDROID_HOME/build-tools/35.0.0/aapt" ]] || {
+            echo "::error::Required Android emulator tools were not installed."
+            exit 1
+          }
+
+      - name: Download the same-run display APK artifact
+        uses: actions/download-artifact@v4.3.0
+        with:
+          name: ${{ needs.build-display-apk.outputs.apk_name }}
+          path: ${{ runner.temp }}/melodix-display-apk
+
+      - name: Download the verified harness and provenance
+        uses: actions/download-artifact@v4.3.0
+        with:
+          name: melodix-display-tooling-${{ github.run_id }}
+          path: ${{ runner.temp }}/melodix-display-tooling
+
+      - name: Re-verify the exact APK and harness before installing anything
+        shell: bash
+        env:
+          SOURCE_REF: ${{ inputs.source_ref }}
+          APK_NAME: ${{ needs.build-display-apk.outputs.apk_name }}
+          EXPECTED_APK_SHA256: ${{ needs.prepare-display-comparison.outputs.apk_sha256 }}
+          EXPECTED_SIGNER_SHA256: ${{ needs.prepare-display-comparison.outputs.signer_sha256 }}
+          EXPECTED_VERSION_CODE: ${{ needs.prepare-display-comparison.outputs.version_code }}
+          EXPECTED_VERSION_NAME: ${{ needs.prepare-display-comparison.outputs.version_name }}
+          EXPECTED_HARNESS_SHA256: ${{ needs.prepare-display-comparison.outputs.harness_sha256 }}
+          SOURCE_ROOT: ${{ github.workspace }}/source-under-test
+        run: |
+          set -euo pipefail
+          bash "$GITHUB_WORKSPACE/tooling/scripts/p0_display_verify_apk.sh" \
+            "$RUNNER_TEMP/melodix-display-apk" \
+            "$APK_NAME" \
+            "$SOURCE_REF" \
+            "$EXPECTED_VERSION_CODE" \
+            "$EXPECTED_VERSION_NAME" \
+            "$RUNNER_TEMP/melodix-display-profile-provenance.json"
+          python3 - "$RUNNER_TEMP/melodix-display-profile-provenance.json" "$RUNNER_TEMP/melodix-display-tooling/provenance.json" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          left = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+          right = json.loads(pathlib.Path(sys.argv[2]).read_text(encoding="utf-8"))
+          if left != right:
+              raise SystemExit("profile APK provenance does not match the prepared provenance")
+          PY
+          actual_harness_sha256="$(sha256sum "$RUNNER_TEMP/melodix-display-tooling/melodix-display-harness.apk" | awk '{print $1}')"
+          [[ "$actual_harness_sha256" == "$EXPECTED_HARNESS_SHA256" ]] || { echo "::error::harness SHA-256 mismatch."; exit 1; }
+          [[ "${{ needs.prepare-display-comparison.outputs.apk_sha256 }}" == "$EXPECTED_APK_SHA256" ]] || { echo "::error::prepared APK SHA-256 mismatch."; exit 1; }
+          [[ "${{ needs.prepare-display-comparison.outputs.signer_sha256 }}" == "$EXPECTED_SIGNER_SHA256" ]] || { echo "::error::prepared signer mismatch."; exit 1; }
+
+      - name: Boot the clean profile AVD and capture only the redacted startup timeline
+        shell: bash
+        env:
+          PROFILE: ${{ matrix.profile }}
+          SOURCE_REF: ${{ inputs.source_ref }}
+          APK_NAME: ${{ needs.build-display-apk.outputs.apk_name }}
+          APK_SHA256: ${{ needs.prepare-display-comparison.outputs.apk_sha256 }}
+        run: |
+          set -euo pipefail
+          if [[ "$PROFILE" == "phone" ]]; then avd_name="MelodixDisplayPhone"; else avd_name="MelodixDisplayTablet"; fi
+          avd_state="$RUNNER_TEMP/melodix-display-avd-$PROFILE"
+          # Keep the emulator and instrumentation in the same runner step so the
+          # background emulator cannot be reaped between steps before capture.
+          # The boot script persists PID/serial/deadlines in $avd_state, which the
+          # instrumentation script reads to check liveness before/during/after.
+          bash "$GITHUB_WORKSPACE/tooling/scripts/p0_display_boot_avd.sh" \
+            "$PROFILE" "$avd_name" "system-images;android-36;google_apis;x86_64" "$avd_state"
+          P0_DISPLAY_AVD_STATE_DIR="$avd_state" \
+          bash "$GITHUB_WORKSPACE/tooling/scripts/p0_startup_run_profile.sh" \
+            "$PROFILE" \
+            "$RUNNER_TEMP/melodix-display-apk/$APK_NAME" \
+            "$RUNNER_TEMP/melodix-display-tooling/melodix-display-harness.apk" \
+            "$SOURCE_REF" \
+            "${{ github.run_id }}" \
+            "$APK_SHA256" \
+            "$RUNNER_TEMP/melodix-display-state-$PROFILE"
+
+      - name: Upload only the redacted startup timeline
+        uses: actions/upload-artifact@v4
+        with:
+          name: melodix-startup-timeline-${{ matrix.profile }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/melodix-display-state-${{ matrix.profile }}/startup-timeline-${{ matrix.profile }}.json
+          retention-days: 7
+          if-no-files-found: error
+
+      # Sanitized boot diagnostic only: categories, marker names and counts.
+      # Never the raw emulator log, never logcat, never UI or account data.
+      - name: Upload the sanitized boot diagnostic on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: melodix-startup-boot-diagnostic-${{ matrix.profile }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/melodix-display-avd-${{ matrix.profile }}/boot-diagnostic.json
+          retention-days: 7
           if-no-files-found: ignore
 
       # Targeted stop: only this profile's recorded serial and PID, never a

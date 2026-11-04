@@ -866,6 +866,12 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         try {
             super.onStart();
             Log.i(HARNESS_TAG, "instrumentation_onStart_super_returned");
+            if ("startup-timeline".equals(runnerArguments.getString("mode"))) {
+                failurePhase = "startup_timeline_launch";
+                notePhase(failurePhase);
+                runStartupTimeline(runnerArguments);
+                return;
+            }
             if ("display-ownership".equals(runnerArguments.getString("mode"))) {
                 failurePhase = "display_ownership_launch";
                 notePhase(failurePhase);
@@ -6915,4 +6921,523 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         Object value = field.get(activity);
         return value == null ? "" : String.valueOf(value);
     }
+    // =====================================================================
+    // Startup timeline mode
+    //
+    // The display-ownership comparison proved that the native shell owns the
+    // centre at 20 s on both form factors, but the first three checkpoints stay
+    // undetermined because the cold start exceeds four seconds. This mode
+    // answers WHY, without touching production code:
+    //
+    //   * Application.ActivityLifecycleCallbacks pre/post pairs (API 29+) give
+    //     the real duration of onCreate, onStart and onResume.
+    //   * Passive ViewTreeObserver listeners give first layout, first draw and
+    //     first window focus.
+    //   * A main-thread stack sampler attributes the busy time to a closed set
+    //     of categories, which is what tests the "programmatic login form built
+    //     in onCreate then immediately GONE" hypothesis.
+    //
+    // Everything exported is a closed vocabulary token or a bounded integer.
+    // =====================================================================
+
+    private static final String STARTUP_REPORT_FILE = "melodix-preview-startup-timeline.json";
+    private static final long STARTUP_SAMPLE_INTERVAL_MS = 10L;
+    private static final long STARTUP_TOTAL_MS = 20000L;
+    private static final long STARTUP_WINDOW_TOLERANCE_MS = 1200L;
+
+    private final java.util.LinkedHashMap<String, Long> startupEvents = new java.util.LinkedHashMap<String, Long>();
+    private final java.util.LinkedHashMap<String, Integer> startupBuckets = new java.util.LinkedHashMap<String, Integer>();
+    private final java.util.LinkedHashMap<String, Integer> startupOnCreateBuckets = new java.util.LinkedHashMap<String, Integer>();
+    private volatile long startupOrigin = -1L;
+    private volatile long startupOnCreateEnter = -1L;
+    private volatile long startupOnCreateExit = -1L;
+    private volatile boolean startupSampling = false;
+    private volatile int startupViewCount = -1;
+    private volatile int startupLoginFormProbe = -1;
+    private Application startupApplication;
+    private android.view.ViewTreeObserver.OnGlobalLayoutListener startupLayoutListener;
+    private android.view.ViewTreeObserver.OnDrawListener startupDrawListener;
+    private android.view.ViewTreeObserver.OnWindowFocusChangeListener startupFocusListener;
+    private View startupObservedDecor;
+
+    // Closed vocabulary. Order is the classification priority.
+    private static final String[] STARTUP_BUCKET_NAMES = {
+        "webview_provider_init", "webview_ctor", "xml_inflate", "form_widgets_in_oncreate",
+        "melodix_oncreate_other", "melodix_other", "resources_assets", "graphics_render",
+        "binder_ipc", "main_idle", "other"
+    };
+
+    // Pure classification rule, free of Android types so it can be compiled and
+    // executed on a plain JVM. `stack` is ordered from the innermost frame out.
+    static String classifyStartupFrame(String[] stack) {
+        if (stack == null || stack.length == 0) return "other";
+        boolean inOnCreate = false;
+        boolean inMelodix = false;
+        boolean inflating = false;
+        boolean widgetCtor = false;
+        boolean webViewCtor = false;
+        boolean providerInit = false;
+        boolean resources = false;
+        boolean graphics = false;
+        boolean binder = false;
+        for (int i = 0; i < stack.length; i++) {
+            String frame = stack[i];
+            if (frame == null) continue;
+            if (frame.startsWith("org.chromium.") || frame.indexOf("WebViewChromium") >= 0
+                    || frame.indexOf("android.webkit.WebViewFactory") >= 0
+                    || frame.indexOf("WebViewDelegate") >= 0) {
+                providerInit = true;
+            }
+            if (frame.startsWith("android.webkit.WebView.<init>")) webViewCtor = true;
+            if (frame.indexOf("android.view.LayoutInflater.inflate") >= 0) inflating = true;
+            if ((frame.startsWith("android.widget.") || frame.startsWith("android.view.View."))
+                    && frame.indexOf(".<init>") >= 0) {
+                widgetCtor = true;
+            }
+            if (frame.startsWith("com.melodix.music.MainActivity.onCreate")) inOnCreate = true;
+            if (frame.startsWith("com.melodix.music.")) inMelodix = true;
+            if (frame.startsWith("android.content.res.") || frame.startsWith("android.content.AssetManager")
+                    || frame.indexOf("AssetManager") >= 0) resources = true;
+            if (frame.startsWith("android.graphics.") || frame.indexOf("HardwareRenderer") >= 0
+                    || frame.indexOf("RenderNode") >= 0 || frame.indexOf("ThreadedRenderer") >= 0) graphics = true;
+            if (frame.indexOf("BinderProxy.transact") >= 0 || frame.indexOf("Binder.transact") >= 0) binder = true;
+        }
+        // The discriminating case: widget constructors reached from onCreate
+        // WITHOUT an XML inflation on the stack are the programmatic login form.
+        if (providerInit) return "webview_provider_init";
+        if (webViewCtor) return "webview_ctor";
+        if (inflating) return "xml_inflate";
+        if (inOnCreate && widgetCtor) return "form_widgets_in_oncreate";
+        if (inOnCreate) return "melodix_oncreate_other";
+        if (inMelodix) return "melodix_other";
+        if (resources) return "resources_assets";
+        if (graphics) return "graphics_render";
+        if (binder) return "binder_ipc";
+        if (stack[0] != null && stack[0].indexOf("MessageQueue.nativePollOnce") >= 0) return "main_idle";
+        return "other";
+    }
+
+    private void noteStartupEvent(String name, long origin) {
+        if (origin < 0L || name == null || !name.matches("[a-z0-9_]{1,40}")) return;
+        if (startupEvents.containsKey(name)) return;
+        long elapsed = SystemClock.elapsedRealtime() - origin;
+        if (elapsed < 0L || elapsed > 600000L) return;
+        synchronized (startupEvents) {
+            if (!startupEvents.containsKey(name)) startupEvents.put(name, Long.valueOf(elapsed));
+        }
+    }
+
+    private void countStartupBucket(java.util.LinkedHashMap<String, Integer> target, String bucket) {
+        synchronized (target) {
+            Integer previous = target.get(bucket);
+            target.put(bucket, Integer.valueOf(previous == null ? 1 : previous.intValue() + 1));
+        }
+    }
+
+    // Serialise a bucket histogram as "name:count" pairs, highest first, using
+    // only the closed vocabulary. Never emits a raw frame.
+    private String startupHistogram(java.util.LinkedHashMap<String, Integer> source, int limit) {
+        java.util.List<String> parts = new java.util.ArrayList<String>();
+        synchronized (source) {
+            for (int n = 0; n < STARTUP_BUCKET_NAMES.length; n++) {
+                String name = STARTUP_BUCKET_NAMES[n];
+                Integer count = source.get(name);
+                if (count != null && count.intValue() > 0) {
+                    parts.add(name + ":" + count.intValue());
+                }
+            }
+        }
+        java.util.Collections.sort(parts, new java.util.Comparator<String>() {
+            @Override public int compare(String left, String right) {
+                int a = Integer.parseInt(left.substring(left.indexOf(':') + 1));
+                int b = Integer.parseInt(right.substring(right.indexOf(':') + 1));
+                return b == a ? left.compareTo(right) : (b < a ? -1 : 1);
+            }
+        });
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < parts.size() && i < limit; i++) {
+            if (i > 0) out.append(',');
+            out.append(parts.get(i));
+        }
+        return out.length() == 0 ? "none" : out.toString();
+    }
+
+    private final Application.ActivityLifecycleCallbacks startupLifecycleObserver =
+            new Application.ActivityLifecycleCallbacks() {
+        private boolean applies(Activity activity) {
+            return isTargetActivity(activity);
+        }
+        @Override public void onActivityPreCreated(Activity activity, Bundle state) {
+            if (!applies(activity)) return;
+            long origin = startupOrigin;
+            startupOnCreateEnter = SystemClock.elapsedRealtime();
+            noteStartupEvent("activity_pre_created", origin);
+        }
+        @Override public void onActivityCreated(Activity activity, Bundle state) {}
+        @Override public void onActivityPostCreated(Activity activity, Bundle state) {
+            if (!applies(activity)) return;
+            long origin = startupOrigin;
+            startupOnCreateExit = SystemClock.elapsedRealtime();
+            noteStartupEvent("activity_post_created", origin);
+            attachStartupViewObservers(activity);
+            observeStartupViews(activity, origin);
+        }
+        @Override public void onActivityPreStarted(Activity activity) {
+            if (applies(activity)) noteStartupEvent("activity_pre_started", startupOrigin);
+        }
+        @Override public void onActivityStarted(Activity activity) {}
+        @Override public void onActivityPostStarted(Activity activity) {
+            if (applies(activity)) noteStartupEvent("activity_post_started", startupOrigin);
+        }
+        @Override public void onActivityPreResumed(Activity activity) {
+            if (applies(activity)) noteStartupEvent("activity_pre_resumed", startupOrigin);
+        }
+        @Override public void onActivityResumed(Activity activity) {}
+        @Override public void onActivityPostResumed(Activity activity) {
+            if (!applies(activity)) return;
+            noteStartupEvent("activity_post_resumed", startupOrigin);
+            observeStartupViews(activity, startupOrigin);
+        }
+        @Override public void onActivityPaused(Activity activity) {}
+        @Override public void onActivityStopped(Activity activity) {}
+        @Override public void onActivitySaveInstanceState(Activity activity, Bundle state) {}
+        @Override public void onActivityDestroyed(Activity activity) {}
+    };
+
+    private void attachStartupViewObservers(final Activity activity) {
+        try {
+            if (startupObservedDecor != null) return;
+            if (activity.getWindow() == null) return;
+            final View decor = activity.getWindow().getDecorView();
+            if (decor == null) return;
+            startupObservedDecor = decor;
+            startupLayoutListener = new android.view.ViewTreeObserver.OnGlobalLayoutListener() {
+                @Override public void onGlobalLayout() {
+                    noteStartupEvent("first_layout", startupOrigin);
+                    observeStartupViews(activity, startupOrigin);
+                }
+            };
+            startupDrawListener = new android.view.ViewTreeObserver.OnDrawListener() {
+                @Override public void onDraw() {
+                    noteStartupEvent("first_draw", startupOrigin);
+                }
+            };
+            startupFocusListener = new android.view.ViewTreeObserver.OnWindowFocusChangeListener() {
+                @Override public void onWindowFocusChanged(boolean hasFocus) {
+                    if (hasFocus) noteStartupEvent("window_focused", startupOrigin);
+                }
+            };
+            decor.getViewTreeObserver().addOnGlobalLayoutListener(startupLayoutListener);
+            decor.getViewTreeObserver().addOnDrawListener(startupDrawListener);
+            decor.getViewTreeObserver().addOnWindowFocusChangeListener(startupFocusListener);
+        } catch (Throwable ignored) {
+            // Observation must never destabilise the app under measurement.
+        }
+    }
+
+    private void detachStartupViewObservers() {
+        try {
+            if (startupObservedDecor == null) return;
+            android.view.ViewTreeObserver observer = startupObservedDecor.getViewTreeObserver();
+            if (startupLayoutListener != null) observer.removeOnGlobalLayoutListener(startupLayoutListener);
+            if (startupDrawListener != null) observer.removeOnDrawListener(startupDrawListener);
+            if (startupFocusListener != null) observer.removeOnWindowFocusChangeListener(startupFocusListener);
+        } catch (Throwable ignored) {
+        } finally {
+            startupObservedDecor = null;
+            startupLayoutListener = null;
+            startupDrawListener = null;
+            startupFocusListener = null;
+        }
+    }
+
+    // Read-only presence/visibility snapshot. Runs on the main thread only.
+    private void observeStartupViews(Activity activity, long origin) {
+        if (activity == null || origin < 0L) return;
+        try {
+            View root = activity.findViewById(
+                    activity.getResources().getIdentifier("nativeRoot", "id", TARGET_PACKAGE));
+            View splash = activity.findViewById(
+                    activity.getResources().getIdentifier("splashOverlay", "id", TARGET_PACKAGE));
+            View container = activity.findViewById(
+                    activity.getResources().getIdentifier("webViewContainer", "id", TARGET_PACKAGE));
+            if (root != null) {
+                noteStartupEvent("native_root_present", origin);
+                if (root.getVisibility() == View.VISIBLE) noteStartupEvent("native_root_visible", origin);
+            }
+            if (splash != null) {
+                noteStartupEvent("splash_present", origin);
+                if (splash.getVisibility() != View.VISIBLE) noteStartupEvent("splash_hidden", origin);
+            }
+            if (container != null && container.getVisibility() == View.VISIBLE) {
+                noteStartupEvent("web_container_visible", origin);
+            }
+            if (findWebView(activity) != null) noteStartupEvent("webview_present", origin);
+            if (startupViewCount < 0 && activity.getWindow() != null
+                    && activity.getWindow().getDecorView() instanceof ViewGroup) {
+                startupViewCount = countViews((ViewGroup) activity.getWindow().getDecorView(), 0);
+            }
+            if (startupLoginFormProbe < 0) {
+                startupLoginFormProbe = probeLoginForm() ? 1 : 0;
+                if (startupLoginFormProbe == 1) noteStartupEvent("login_form_built", origin);
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private int countViews(ViewGroup group, int depth) {
+        if (group == null || depth > 24) return 0;
+        int total = 1;
+        for (int i = 0; i < group.getChildCount(); i++) {
+            View child = group.getChildAt(i);
+            total += child instanceof ViewGroup ? countViews((ViewGroup) child, depth + 1) : 1;
+            if (total > 20000) return total;
+        }
+        return total;
+    }
+
+    // The programmatic login form is stored in a static field by MainActivity.
+    // Reading it is passive; a missing field is reported as "unavailable", never
+    // silently treated as "not built".
+    private boolean probeLoginForm() {
+        try {
+            Class<?> holder = Class.forName("ml");
+            Field field = holder.getDeclaredField("g");
+            field.setAccessible(true);
+            return field.get(null) instanceof ViewGroup;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private void runStartupTimeline(Bundle arguments) throws Exception {
+        String profile = arguments == null ? null : arguments.getString("profile");
+        String sourceRef = arguments == null ? null : arguments.getString("source_ref");
+        String runId = arguments == null ? null : arguments.getString("run_id");
+        String apkSha256 = arguments == null ? null : arguments.getString("apk_sha256");
+        if (!"phone".equals(profile) && !"tablet".equals(profile)) {
+            throw new AssertionError("Startup timeline mode requires profile phone or tablet");
+        }
+        if (sourceRef == null || !sourceRef.matches("[0-9a-f]{40}")) {
+            throw new AssertionError("Startup timeline mode requires a full lowercase source SHA");
+        }
+        if (runId == null || !runId.matches("[0-9]{1,20}")) {
+            throw new AssertionError("Startup timeline mode requires a numeric CI run id");
+        }
+        if (apkSha256 == null || !apkSha256.matches("[0-9a-f]{64}")) {
+            throw new AssertionError("Startup timeline mode requires a lowercase APK SHA-256");
+        }
+
+        Context applicationContext = getTargetContext().getApplicationContext();
+        if (!(applicationContext instanceof Application)) {
+            throw new AssertionError("Target Application is unavailable for startup observation");
+        }
+        startupApplication = (Application) applicationContext;
+
+        long processStart = -1L;
+        try {
+            processStart = android.os.Process.getStartElapsedRealtime();
+        } catch (Throwable ignored) {
+        }
+
+        final Thread mainThread = android.os.Looper.getMainLooper().getThread();
+        startupApplication.registerActivityLifecycleCallbacks(startupLifecycleObserver);
+        registerActivityLifecycleObservation();
+
+        JSONObject checkpoints = new JSONObject();
+        try {
+            // The origin is the instant startActivity really runs, recorded
+            // inside the posted task, exactly as in the ownership comparison.
+            final long origin = dispatchDisplayOwnershipLaunch();
+            startupOrigin = origin;
+            noteStartupEvent("launch_command", origin);
+            if (processStart > 0L && processStart <= origin) {
+                synchronized (startupEvents) {
+                    startupEvents.put("process_start", Long.valueOf(processStart - origin));
+                }
+            }
+
+            startupSampling = true;
+            Thread sampler = new Thread(new Runnable() {
+                @Override public void run() {
+                    while (startupSampling) {
+                        long now = SystemClock.elapsedRealtime();
+                        if (now - origin > STARTUP_TOTAL_MS + 2000L) break;
+                        String[] frames;
+                        try {
+                            StackTraceElement[] raw = mainThread.getStackTrace();
+                            frames = new String[raw.length];
+                            for (int i = 0; i < raw.length; i++) {
+                                frames[i] = raw[i].getClassName() + "." + raw[i].getMethodName();
+                            }
+                        } catch (Throwable ignored) {
+                            frames = null;
+                        }
+                        String bucket = classifyStartupFrame(frames);
+                        countStartupBucket(startupBuckets, bucket);
+                        long enter = startupOnCreateEnter;
+                        long exit = startupOnCreateExit;
+                        if (enter > 0L && (exit < 0L || now <= exit) && now >= enter) {
+                            countStartupBucket(startupOnCreateBuckets, bucket);
+                        }
+                        try {
+                            Thread.sleep(STARTUP_SAMPLE_INTERVAL_MS);
+                        } catch (InterruptedException stopped) {
+                            return;
+                        }
+                    }
+                }
+            }, "melodix-startup-sampler");
+            sampler.setDaemon(true);
+            sampler.start();
+
+            for (int index = 0; index < DISPLAY_OWNERSHIP_CHECKPOINTS_MS.length; index++) {
+                final long target = DISPLAY_OWNERSHIP_CHECKPOINTS_MS[index];
+                final String label = DISPLAY_OWNERSHIP_CHECKPOINT_LABELS[index];
+                long waitMillis = origin + target - SystemClock.elapsedRealtime();
+                if (waitMillis > 0L) Thread.sleep(waitMillis);
+
+                final long deadline = origin + target + STARTUP_WINDOW_TOLERANCE_MS;
+                Activity resumed = resumedActivityOr(null);
+                long budget = displayOwnershipActivityWaitBudget(origin, target,
+                        SystemClock.elapsedRealtime(), STARTUP_WINDOW_TOLERANCE_MS);
+                long activityDeadline = SystemClock.elapsedRealtime() + Math.max(0L, budget);
+                while (resumed == null && SystemClock.elapsedRealtime() < activityDeadline) {
+                    Thread.sleep(20L);
+                    resumed = resumedActivityOr(null);
+                }
+
+                JSONObject checkpoint = new JSONObject();
+                checkpoint.put("target_elapsed_ms", target);
+                String reason;
+                if (resumed == null) {
+                    reason = "no_activity";
+                    checkpoint.put("observed_elapsed_ms", SystemClock.elapsedRealtime() - origin);
+                    checkpoint.put("display_owner", "unknown");
+                    checkpoint.put("center_surface_owner", "unknown");
+                    checkpoint.put("native_root_visible", false);
+                    checkpoint.put("webview_container_visible", false);
+                    checkpoint.put("native_owner_verified", false);
+                } else {
+                    final Activity sampleActivity = resumed;
+                    final JSONObject[] sample = new JSONObject[1];
+                    boolean sampled = postOnMainWithDeadline(new Runnable() {
+                        @Override public void run() {
+                            try {
+                                observeStartupViews(sampleActivity, startupOrigin);
+                                sample[0] = inspectDisplayOwnershipCheckpoint(sampleActivity, target, startupOrigin);
+                            } catch (Throwable ignored) {
+                            }
+                        }
+                    }, deadline - SystemClock.elapsedRealtime());
+                    if (!sampled || sample[0] == null) {
+                        reason = "main_busy";
+                        checkpoint.put("observed_elapsed_ms", SystemClock.elapsedRealtime() - origin);
+                        checkpoint.put("display_owner", "unknown");
+                        checkpoint.put("center_surface_owner", "unknown");
+                        checkpoint.put("native_root_visible", false);
+                        checkpoint.put("webview_container_visible", false);
+                        checkpoint.put("native_owner_verified", false);
+                    } else {
+                        reason = "measured";
+                        checkpoint.put("observed_elapsed_ms", sample[0].getLong("observed_elapsed_ms"));
+                        checkpoint.put("display_owner", sample[0].getString("display_owner"));
+                        checkpoint.put("center_surface_owner", sample[0].getString("center_surface_owner"));
+                        checkpoint.put("native_root_visible", sample[0].getBoolean("native_root_visible"));
+                        checkpoint.put("webview_container_visible", sample[0].getBoolean("webview_container_visible"));
+                        checkpoint.put("native_owner_verified", sample[0].getBoolean("native_owner_verified"));
+                    }
+                }
+                checkpoint.put("undetermined_reason", reason);
+                checkpoints.put(label, checkpoint);
+            }
+
+            startupSampling = false;
+            try {
+                sampler.join(2000L);
+            } catch (InterruptedException ignored) {
+            }
+        } finally {
+            startupSampling = false;
+            detachStartupViewObservers();
+            try {
+                startupApplication.unregisterActivityLifecycleCallbacks(startupLifecycleObserver);
+            } catch (Throwable ignored) {
+            }
+            unregisterActivityLifecycleObservation();
+        }
+
+        JSONObject events = new JSONObject();
+        synchronized (startupEvents) {
+            for (java.util.Map.Entry<String, Long> entry : startupEvents.entrySet()) {
+                events.put(entry.getKey(), entry.getValue().longValue());
+            }
+        }
+        JSONObject durations = new JSONObject();
+        durations.put("oncreate_ms", startupDuration("activity_pre_created", "activity_post_created"));
+        durations.put("onstart_ms", startupDuration("activity_pre_started", "activity_post_started"));
+        durations.put("onresume_ms", startupDuration("activity_pre_resumed", "activity_post_resumed"));
+        durations.put("launch_to_created_ms", startupDuration("launch_command", "activity_post_created"));
+        durations.put("launch_to_resumed_ms", startupDuration("launch_command", "activity_post_resumed"));
+        durations.put("launch_to_first_draw_ms", startupDuration("launch_command", "first_draw"));
+        durations.put("launch_to_first_focus_ms", startupDuration("launch_command", "window_focused"));
+        durations.put("launch_to_native_visible_ms", startupDuration("launch_command", "native_root_visible"));
+
+        JSONObject sidecar = new JSONObject();
+        sidecar.put("schema_version", 1);
+        sidecar.put("profile", profile);
+        sidecar.put("source_commit", sourceRef);
+        sidecar.put("run_id", runId);
+        sidecar.put("apk_sha256", apkSha256);
+        sidecar.put("timeline_origin", "app_launch");
+        sidecar.put("session_state", "unauthenticated");
+        sidecar.put("sample_interval_ms", STARTUP_SAMPLE_INTERVAL_MS);
+        sidecar.put("view_count_at_first_observation", startupViewCount);
+        sidecar.put("login_form_probe", startupLoginFormProbe == 1 ? "built"
+                : startupLoginFormProbe == 0 ? "not_observed" : "unavailable");
+        sidecar.put("events", events);
+        sidecar.put("durations", durations);
+        sidecar.put("main_thread_samples", startupHistogram(startupBuckets, 11));
+        sidecar.put("oncreate_main_thread_samples", startupHistogram(startupOnCreateBuckets, 11));
+        sidecar.put("checkpoints", checkpoints);
+
+        try (FileOutputStream output = getTargetContext().openFileOutput(STARTUP_REPORT_FILE, Context.MODE_PRIVATE)) {
+            output.write(sidecar.toString().getBytes("UTF-8"));
+        }
+
+        Bundle result = new Bundle();
+        result.putString("overall", "passed");
+        result.putString("profile", profile);
+        result.putBoolean("startup_timeline_report_saved", true);
+        result.putString("st_oncreate", String.valueOf(durations.getLong("oncreate_ms")));
+        result.putString("st_created", String.valueOf(durations.getLong("launch_to_created_ms")));
+        result.putString("st_resumed", String.valueOf(durations.getLong("launch_to_resumed_ms")));
+        result.putString("st_draw", String.valueOf(durations.getLong("launch_to_first_draw_ms")));
+        result.putString("st_native", String.valueOf(durations.getLong("launch_to_native_visible_ms")));
+        result.putString("st_views", String.valueOf(startupViewCount));
+        result.putString("st_form", startupLoginFormProbe == 1 ? "built"
+                : startupLoginFormProbe == 0 ? "not_observed" : "unavailable");
+        result.putString("st_oncreate_top", startupHistogram(startupOnCreateBuckets, 4));
+        result.putString("st_all_top", startupHistogram(startupBuckets, 4));
+        for (int index = 0; index < DISPLAY_OWNERSHIP_CHECKPOINT_LABELS.length; index++) {
+            String label = DISPLAY_OWNERSHIP_CHECKPOINT_LABELS[index];
+            JSONObject checkpoint = checkpoints.getJSONObject(label);
+            result.putString("st_" + label, checkpoint.getString("display_owner")
+                    + ";" + checkpoint.getString("center_surface_owner")
+                    + ";" + checkpoint.getString("undetermined_reason")
+                    + ";" + checkpoint.getLong("observed_elapsed_ms"));
+        }
+        sendStatus(1, result);
+        finish(Activity.RESULT_OK, result);
+    }
+
+    private long startupDuration(String from, String to) {
+        synchronized (startupEvents) {
+            Long start = startupEvents.get(from);
+            Long end = startupEvents.get(to);
+            if (start == null || end == null || end.longValue() < start.longValue()) return -1L;
+            return end.longValue() - start.longValue();
+        }
+    }
+
 }

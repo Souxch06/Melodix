@@ -818,7 +818,35 @@ test("login-surface reflection failures expose only the bounded target exception
     "sensitive exception text is stored only in the sanitized private report, never logcat");
   assert.doesNotMatch(harness, /status\.putString\([^\n]*(?:message|stack_trace)/i,
     "exception message and stack are not copied to instrumentation status output");
-  assert.equal(harness.includes(".getStackTrace("), false, "the report uses printStackTrace on the original Throwable");
+  // Stack capture stays forbidden everywhere except the startup sampler, whose
+  // frames are consumed by a closed-vocabulary classifier and never exported.
+  // The exception below is narrow and carries stronger compensating assertions
+  // rather than relaxing the original protection.
+  const samplerStart = harness.indexOf("Thread sampler = new Thread(");
+  const samplerEnd = harness.indexOf("sampler.setDaemon(true);", samplerStart);
+  assert.ok(samplerStart >= 0 && samplerEnd > samplerStart, "the startup sampler must exist");
+  const sampler = harness.slice(samplerStart, samplerEnd);
+  const outsideSampler = harness.slice(0, samplerStart) + harness.slice(samplerEnd);
+  assert.equal(outsideSampler.includes(".getStackTrace("), false,
+    "stack capture is forbidden outside the startup sampler");
+  assert.equal((sampler.match(/\.getStackTrace\(/g) || []).length, 1,
+    "the sampler captures the main thread stack exactly once per iteration");
+  assert.match(sampler, /mainThread\.getStackTrace\(\)/);
+  assert.match(sampler, /classifyStartupFrame\(frames\)/);
+  // Nothing the sampler holds may reach a log, a status bundle or a file.
+  assert.doesNotMatch(sampler, /Log\.|sendStatus|putString|openFileOutput|printStackTrace|System\.out/);
+  assert.doesNotMatch(sampler, /frames\[i\]\s*\+|raw\[i\]\.toString\(\)/,
+    "frames may only be reduced to class.method for classification, never concatenated into output");
+  // The classifier can only return a name from the closed vocabulary.
+  const classifier = harness.slice(harness.indexOf("static String classifyStartupFrame("));
+  const classifierBody = classifier.slice(0, classifier.indexOf("\n    }\n"));
+  const returns = classifierBody.match(/return "[a-z_]+";/g) || [];
+  assert.ok(returns.length >= 10, "the classifier returns only fixed tokens");
+  for (const token of returns) {
+    const name = token.slice(8, -2);
+    assert.ok(harness.includes(`"${name}"`), "every returned bucket is declared");
+  }
+  assert.match(harness, /private static final String\[\] STARTUP_BUCKET_NAMES/);
 });
 
 test("the authenticated-home bundle contains the exact debuggable target, matching signed runner, command, manifest, and long retention", () => {
