@@ -3146,10 +3146,18 @@ jobs:
             exit "$exit_code"
           }
           trap cleanup_replay EXIT
-          adb install "$APK_PATH" >/dev/null
+          install_status=0
+          adb install "$APK_PATH" >/dev/null 2>&1 || install_status=$?
+          if (( install_status != 0 )); then
+            echo "::error title=P0 replay install::adb_install_exit=$install_status; apk=$APK_PATH"
+            exit "$install_status"
+          fi
+          echo "::notice title=P0 replay install::adb_install_exit=0"
           adb shell pm clear com.melodix.music.preview >/dev/null
           capture_androidruntime_verify() {
             local output_path="$1"
+            local phase="$2"
+            local capture_status=0
             # AndroidRuntime output is piped directly into the current sanitizer;
             # only its strict allowlisted JSON report is written to disk.
             adb logcat -d -t 2000 -b main -b crash -v message -s AndroidRuntime:E 2>/dev/null \
@@ -3158,17 +3166,28 @@ jobs:
                   --run-id "$verify_run_id" \
                   --source-ref "$SOURCE_REF" \
                   --source-root "$SOURCE_ROOT" \
-                  --output "$output_path"
+                  --output "$output_path" || capture_status=$?
+            if (( capture_status != 0 )); then
+              echo "::error title=P0 replay capture::phase=$phase; sanitizer_exit=$capture_status"
+              return "$capture_status"
+            fi
+            echo "::notice title=P0 replay capture::phase=$phase; sanitizer_exit=0"
           }
           adb logcat -c
           initial_start_status=0
           adb shell am start -W -n com.melodix.music.preview/com.melodix.music.MainActivity >/dev/null 2>&1 || initial_start_status=$?
-          capture_androidruntime_verify "$initial_report"
+          capture_androidruntime_verify "$initial_report" initial
           echo "initial_start_status=$initial_start_status" >> "$GITHUB_OUTPUT"
+          echo "::notice title=P0 replay initial launch::start_status=$initial_start_status"
           echo "Initial launch captured immediately; raw AndroidRuntime text was not retained."
 
           sleep 8
-          adb shell pm grant com.melodix.music.preview android.permission.BLUETOOTH_CONNECT >/dev/null
+          grant_status=0
+          adb shell pm grant com.melodix.music.preview android.permission.BLUETOOTH_CONNECT >/dev/null 2>&1 || grant_status=$?
+          if (( grant_status != 0 )); then
+            echo "::error title=P0 replay permission::pm_grant_exit=$grant_status"
+            exit "$grant_status"
+          fi
           if adb shell dumpsys package com.melodix.music.preview \
               | grep -F 'android.permission.BLUETOOTH_CONNECT:' \
               | grep -Fq 'granted=true'; then
@@ -3182,8 +3201,9 @@ jobs:
           adb logcat -c
           relaunch_start_status=0
           adb shell am start -W -n com.melodix.music.preview/com.melodix.music.MainActivity >/dev/null 2>&1 || relaunch_start_status=$?
-          capture_androidruntime_verify "$relaunch_report"
+          capture_androidruntime_verify "$relaunch_report" relaunch
           echo "relaunch_start_status=$relaunch_start_status" >> "$GITHUB_OUTPUT"
+          echo "::notice title=P0 replay relaunch::start_status=$relaunch_start_status"
           echo "bluetooth_connect_granted=true" >> "$GITHUB_OUTPUT"
           echo "::notice title=Historical launch path replayed::permission=BLUETOOTH_CONNECT only; force_stop=true; second_launch=true; source=$SOURCE_REF; authenticated_spotify_test=not_performed"
 
