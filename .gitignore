@@ -17,3 +17,7 @@ local.properties
 .idea/
 .DS_Store
 Thumbs.db
+
+# Python bytecode from running the diagnostic scripts locally.
+__pycache__/
+*.pyc
