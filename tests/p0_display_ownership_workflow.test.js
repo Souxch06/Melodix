@@ -1356,3 +1356,82 @@ test('the stop script refuses a zombie and validates the recorded identity befor
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });
+
+// ---------------------------------------------------------------------------
+// Regression: the tooling artifact must publish the exact flat names the
+// capture job reads. upload-artifact@v4 roots an artifact at the LEAST COMMON
+// ANCESTOR of its search paths, so uploading the harness and the provenance
+// from two different build directories silently published them under
+// melodix-display-harness/ and melodix-display-provenance/. Both capture jobs
+// then failed at "Re-verify the exact APK and harness before installing
+// anything" because melodix-display-tooling/provenance.json did not exist.
+// This test computes the published layout instead of matching a string.
+// ---------------------------------------------------------------------------
+function toolingUploadPaths(workflow) {
+  const prepare = jobBlock(workflow, 'prepare-display-comparison');
+  const step = prepare.slice(prepare.indexOf('- name: Upload the verified harness and provenance'));
+  const block = step.slice(0, step.indexOf('\n      - name:') >= 0 ? step.indexOf('\n      - name:') : undefined);
+  assert.match(block, /uses: actions\/upload-artifact@/);
+  assert.match(block, /name: melodix-display-tooling-/);
+  const multi = block.match(/\n\s+path: \|\n([\s\S]*?)\n\s+[a-z-]+:/);
+  if (multi) {
+    return multi[1].split('\n').map((l) => l.trim()).filter(Boolean);
+  }
+  const single = block.match(/\n\s+path: (.+)/);
+  assert.ok(single, 'the tooling upload must declare a path');
+  return [single[1].trim()];
+}
+
+// Model upload-artifact@v4: one directory input publishes its contents at the
+// artifact root; several inputs are rooted at their least common ancestor.
+function publishedNames(paths, stagedFiles) {
+  const norm = paths.map((p) => p.replace(/\$\{\{\s*runner\.temp\s*\}\}/g, '/runner-temp'));
+  const isDirectory = (p) => !path.posix.basename(p).includes('.');
+  if (norm.length === 1 && isDirectory(norm[0])) {
+    return stagedFiles.slice().sort();
+  }
+  const parents = norm.map((p) => (isDirectory(p) ? p : path.posix.dirname(p)));
+  const split = parents.map((p) => p.split('/').filter(Boolean));
+  const common = [];
+  for (let i = 0; i < split[0].length; i += 1) {
+    const part = split[0][i];
+    if (split.every((s) => s[i] === part)) common.push(part);
+    else break;
+  }
+  const root = `/${common.join('/')}`;
+  return norm.map((p) => path.posix.relative(root, p)).sort();
+}
+
+test('the tooling artifact publishes the flat names every capture consumer reads', () => {
+  const workflow = read('.github/workflows/p0-display-ownership.yml');
+  const prepare = jobBlock(workflow, 'prepare-display-comparison');
+  const capture = jobBlock(workflow, 'capture-display-profile');
+
+  // What the prepare job actually stages into the uploaded directory.
+  const staged = [...prepare.matchAll(/\$stage\/([A-Za-z0-9._-]+)"/g)].map((m) => m[1]);
+  const stagedFiles = [...new Set(staged)].filter((n) => n.includes('.'));
+  assert.ok(stagedFiles.length >= 2, 'prepare must stage both the harness and the provenance');
+
+  // What the capture job actually reads out of the download directory.
+  const consumed = [...new Set(
+    [...capture.matchAll(/melodix-display-tooling\/([A-Za-z0-9._-]+)/g)].map((m) => m[1]),
+  )];
+  assert.ok(consumed.includes('provenance.json'), 'capture must read the prepared provenance');
+  assert.ok(consumed.includes('melodix-display-harness.apk'), 'capture must read the prepared harness');
+
+  const published = publishedNames(toolingUploadPaths(workflow), stagedFiles);
+  for (const name of consumed) {
+    assert.ok(published.includes(name),
+      `capture reads melodix-display-tooling/${name} but the artifact publishes [${published.join(', ')}]`);
+  }
+
+  // Discriminance: the historical two-directory layout must NOT satisfy the
+  // same consumers. Without this the assertion above could pass vacuously.
+  const broken = publishedNames([
+    '${{ runner.temp }}/melodix-display-harness/melodix-display-harness.apk',
+    '${{ runner.temp }}/melodix-display-provenance/provenance.json',
+  ], stagedFiles);
+  assert.ok(!broken.includes('provenance.json'),
+    'the two-directory layout must be recognised as broken by this model');
+  assert.ok(broken.includes('melodix-display-provenance/provenance.json'));
+});

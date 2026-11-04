@@ -227,13 +227,26 @@ jobs:
           harness_sha256="$(sha256sum "$RUNNER_TEMP/melodix-display-harness/melodix-display-harness.apk" | awk '{print $1}')"
           echo "harness_sha256=$harness_sha256" >> "$GITHUB_OUTPUT"
 
+          # upload-artifact@v4 roots the artifact at the LEAST COMMON ANCESTOR of
+          # the listed paths. Uploading the harness and the provenance from their
+          # two separate build directories therefore published them as
+          # melodix-display-harness/... and melodix-display-provenance/..., while
+          # every consumer reads them flat from the download directory. Stage
+          # both files in ONE directory so the artifact root is that directory
+          # and the published names are exactly the names the capture job reads.
+          stage="$RUNNER_TEMP/melodix-display-tooling-stage"
+          mkdir -p "$stage"
+          cp "$RUNNER_TEMP/melodix-display-harness/melodix-display-harness.apk" "$stage/melodix-display-harness.apk"
+          cp "$RUNNER_TEMP/melodix-display-provenance/provenance.json" "$stage/provenance.json"
+          staged_harness_sha256="$(sha256sum "$stage/melodix-display-harness.apk" | awk '{print $1}')"
+          [[ "$staged_harness_sha256" == "$harness_sha256" ]] || { echo "::error::staged harness SHA-256 mismatch."; exit 1; }
+          cmp "$RUNNER_TEMP/melodix-display-provenance/provenance.json" "$stage/provenance.json"
+
       - name: Upload the verified harness and provenance for both profiles
         uses: actions/upload-artifact@v4
         with:
           name: melodix-display-tooling-${{ github.run_id }}
-          path: |
-            ${{ runner.temp }}/melodix-display-harness/melodix-display-harness.apk
-            ${{ runner.temp }}/melodix-display-provenance/provenance.json
+          path: ${{ runner.temp }}/melodix-display-tooling-stage
           retention-days: 1
           if-no-files-found: error
 
