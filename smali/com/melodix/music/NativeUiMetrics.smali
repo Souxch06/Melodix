@@ -831,3 +831,101 @@
 
     return v0
 .end method
+
+.method public static shelfSubtitleGap(Landroid/content/Context;)I
+    .locals 2
+
+    const-string v0, "mel_shelf_subtitle_gap"
+
+    const/16 v1, 0x8
+
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+
+    move-result v0
+
+    return v0
+.end method
+
+.method public static shelfTitleGap(Landroid/content/Context;)I
+    .locals 2
+
+    const-string v0, "mel_shelf_title_gap"
+
+    const/4 v1, 0x2
+
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+
+    move-result v0
+
+    return v0
+.end method
+
+.method public static shelfSpacer(Landroid/content/Context;)I
+    .locals 2
+
+    const-string v0, "mel_shelf_spacer"
+
+    const/16 v1, 0x10
+
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+
+    move-result v0
+
+    return v0
+.end method
+
+.method public static statusRadius(Landroid/content/Context;)I
+    .locals 2
+
+    const-string v0, "mel_status_radius"
+
+    const/16 v1, 0x14
+
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+
+    move-result v0
+
+    return v0
+.end method
+
+.method public static statusStroke(Landroid/content/Context;)I
+    .locals 2
+
+    const-string v0, "mel_status_stroke"
+
+    const/4 v1, 0x1
+
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+
+    move-result v0
+
+    return v0
+.end method
+
+.method public static statusWidthInset(Landroid/content/Context;)I
+    .locals 2
+
+    const-string v0, "mel_status_width_inset"
+
+    const/16 v1, 0x20
+
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+
+    move-result v0
+
+    return v0
+.end method
+
+.method public static statusMaxWidth(Landroid/content/Context;)I
+    .locals 2
+
+    const-string v0, "mel_status_max_width"
+
+    const/16 v1, 0x230
+
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+
+    move-result v0
+
+    return v0
+.end method

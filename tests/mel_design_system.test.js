@@ -201,7 +201,8 @@ test('the renderers resolve their metrics instead of hardcoding them again', () 
   for (const acc of ['statusPadH', 'statusPadV', 'statusMarginV', 'statusIcon', 'statusIconPad',
     'statusIconGap', 'statusLabelGap', 'statusSublabelGap', 'statusActionHeight',
     'statusActionPadH', 'statusActionPadV', 'statusActionGap', 'statusActionsGap',
-    'quickArt', 'quickRadius', 'quickGap']) {
+    'quickArt', 'quickRadius', 'quickGap', 'shelfSubtitleGap', 'shelfTitleGap',
+    'shelfSpacer', 'statusRadius', 'statusStroke', 'statusWidthInset', 'statusMaxWidth']) {
     assert.ok(shelf.includes(`NativeUiMetrics;->${acc}(Landroid/content/Context;)I`),
       `the home status renderer must resolve ${acc}`);
   }
@@ -222,11 +223,11 @@ test('the renderers resolve their metrics instead of hardcoding them again', () 
 });
 
 test('no tokenised renderer keeps a raw dp conversion for a tokenised role', () => {
-  // A leftover dp() call is not automatically wrong - plenty of incidental
-  // metrics remain - but the tokenised roles above must not silently regress to
-  // a literal. Guard the count so a revert has to be deliberate.
+  // The shelf and settings renderers are now fully tokenised: zero raw dp()
+  // conversions may come back. The row factory keeps three (two incidental
+  // margins and the shared fallback inside metric() itself).
   const counts = {
-    'smali/com/melodix/music/NativeHomeShelfRenderer.smali': 8,
+    'smali/com/melodix/music/NativeHomeShelfRenderer.smali': 0,
     'smali/com/melodix/music/NativeUiRowFactory.smali': 3,
     'smali/com/melodix/music/NativeSettingsRowFactory.smali': 0,
   };

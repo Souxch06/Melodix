@@ -91,8 +91,17 @@ test('[P0v30] raw empty or invalid Home becomes a native retry state; explicit s
   assert.match(status, /secondaryUri[\s\S]*?addHomeStatusActions/);
   const cardWidth = method(renderer, '.method private static homeStatusCardWidth(');
   assert.match(status, /homeStatusCardWidth\(Landroid\/content\/Context;Landroid\/view\/View;\)I/);
-  assert.match(cardWidth, /View;->getWidth\(\)I[\s\S]*?if-lez v1, :home_status_width_fallback[\s\S]*?widthPixels:I[\s\S]*?0x230/,
+  // The cap is a design token now, so assert the accessor is consulted and
+  // that it still carries the historical 560dp cap, with a wider tablet value.
+  assert.match(cardWidth, /View;->getWidth\(\)I[\s\S]*?if-lez v1, :home_status_width_fallback[\s\S]*?widthPixels:I[\s\S]*?NativeUiMetrics;->statusMaxWidth\(Landroid\/content\/Context;\)I/,
     'the status card prefers measured safe content width, falls back before layout, and caps tablet width');
+  const metrics = read('smali/com/melodix/music/NativeUiMetrics.smali');
+  assert.match(metrics, /statusMaxWidth[\s\S]*?const-string v0, "mel_status_max_width"[\s\S]*?const\/16 v1, 0x230/,
+    'the width cap keeps 560dp as its fallback');
+  const { loadDimens, resolveSize, PHONE, TABLET } = require('./helpers/mel_dimens');
+  assert.equal(resolveSize('@dimen/mel_status_max_width', loadDimens(PHONE)), 560);
+  assert.ok(resolveSize('@dimen/mel_status_max_width', loadDimens(TABLET)) > 560,
+    'the tablet status card is allowed to be wider than the phone cap');
   assert.match(statusButton, /setMinimumHeight\(I\)V[\s\S]*?setClickable\(Z\)V[\s\S]*?setFocusable\(Z\)V/,
     'each child action has a touch-sized, focusable hit target');
   const activity = read('smali/com/melodix/music/MainActivity.smali');

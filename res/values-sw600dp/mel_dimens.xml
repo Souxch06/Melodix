@@ -107,6 +107,13 @@
     <dimen name="mel_quick_radius">10.0dip</dimen>
     <dimen name="mel_quick_gap">12.0dip</dimen>
 
+    <dimen name="mel_shelf_subtitle_gap">10.0dip</dimen>
+    <dimen name="mel_shelf_title_gap">3.0dip</dimen>
+    <dimen name="mel_shelf_spacer">20.0dip</dimen>
+    <dimen name="mel_status_radius">24.0dip</dimen>
+    <dimen name="mel_status_width_inset">64.0dip</dimen>
+    <dimen name="mel_status_max_width">720.0dip</dimen>
+
     <!-- ===== full player ===== -->
     <dimen name="mel_player_pad_top">18.0dip</dimen>
     <dimen name="mel_player_pad_bottom">28.0dip</dimen>

@@ -352,9 +352,7 @@
 
     invoke-direct {v11, v12, v6}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
 
-    const/16 v12, 0x8
-
-    invoke-static {p0, v12}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->shelfSubtitleGap(Landroid/content/Context;)I
 
     move-result v12
 
@@ -408,9 +406,7 @@
 
     iput v6, v12, Landroid/view/ViewGroup$LayoutParams;->width:I
 
-    const/4 v6, 0x2
-
-    invoke-static {p0, v6}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->shelfTitleGap(Landroid/content/Context;)I
 
     move-result v6
 
@@ -471,9 +467,7 @@
 
     const/4 v6, -0x1
 
-    const/16 v7, 0x10
-
-    invoke-static {p0, v7}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->shelfSpacer(Landroid/content/Context;)I
 
     move-result v7
 
@@ -745,13 +739,13 @@
     sget-object v1, Landroid/graphics/drawable/GradientDrawable$Orientation;->TOP_BOTTOM:Landroid/graphics/drawable/GradientDrawable$Orientation;
     new-instance v2, Landroid/graphics/drawable/GradientDrawable;
     invoke-direct {v2, v1, v0}, Landroid/graphics/drawable/GradientDrawable;-><init>(Landroid/graphics/drawable/GradientDrawable$Orientation;[I)V
-    const/16 v3, 0x14
-    invoke-static {p0, v3}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->statusRadius(Landroid/content/Context;)I
+
     move-result v3
     int-to-float v3, v3
     invoke-virtual {v2, v3}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
-    const/4 v3, 0x1
-    invoke-static {p0, v3}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->statusStroke(Landroid/content/Context;)I
+
     move-result v3
     sget v4, Lcom/melodix/music/MelColors;->strokeAccent:I
     invoke-virtual {v2, v3, v4}, Landroid/graphics/drawable/GradientDrawable;->setStroke(II)V
@@ -967,14 +961,14 @@
     invoke-virtual {v0}, Landroid/content/res/Resources;->getDisplayMetrics()Landroid/util/DisplayMetrics;
     move-result-object v0
     iget v1, v0, Landroid/util/DisplayMetrics;->widthPixels:I
-    const/16 v2, 0x20
-    invoke-static {p0, v2}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->statusWidthInset(Landroid/content/Context;)I
+
     move-result v2
     sub-int/2addr v1, v2
 
     :home_status_width_cap
-    const/16 v2, 0x230
-    invoke-static {p0, v2}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->statusMaxWidth(Landroid/content/Context;)I
+
     move-result v2
     if-le v1, v2, :home_status_width_ready
     move v1, v2
@@ -1074,9 +1068,7 @@
 
     if-nez v5, :quick_tile_title
 
-    const/16 v5, 0x38
-
-    invoke-static {p0, v5}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->quickArt(Landroid/content/Context;)I
 
     move-result v5
 
