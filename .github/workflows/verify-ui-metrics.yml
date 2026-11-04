@@ -187,9 +187,14 @@ jobs:
 
           deadline=$(( $(date +%s) + 180 ))
           ready=0
+          attempt=0
           while [[ "$(date +%s)" -lt "$deadline" ]]; do
-            if adb -s "$device" shell uiautomator dump /sdcard/melodix-ui.xml >/dev/null 2>&1 \
-              && adb -s "$device" shell cat /sdcard/melodix-ui.xml > "$out/dump.xml" 2>/dev/null \
+            attempt=$((attempt + 1))
+            # Keep uiautomator's own status: "could not get idle state" is a
+            # different failure from "the shell is not on screen yet".
+            status="$(adb -s "$device" shell uiautomator dump /sdcard/melodix-ui.xml 2>&1 | tr -d '\r' | tail -1)"
+            printf '%s\n' "$status" >> "$out/uiautomator-attempts.txt"
+            if adb -s "$device" shell cat /sdcard/melodix-ui.xml > "$out/dump.xml" 2>/dev/null \
               && grep -q 'com.melodix.music:id/nativeRoot' "$out/dump.xml"; then
               ready=1
               break
@@ -199,8 +204,17 @@ jobs:
 
           adb -s "$device" exec-out screencap -p > "$out/home-$PROFILE.png" || true
           if [[ "$ready" != "1" ]]; then
-            echo "::error title=UI metrics $PROFILE::the native shell never appeared within 180s; no metric is claimed"
-            adb -s "$device" shell cat /sdcard/melodix-ui.xml > "$out/dump.xml" 2>/dev/null || true
+            echo "::error title=UI metrics $PROFILE::the native shell was not measured within 180s; no metric is claimed"
+            python3 scripts/ui_metrics_diagnose.py "$PROFILE" "$out/dump.xml" || true
+            pid="$(adb -s "$device" shell pidof com.melodix.music 2>/dev/null | tr -d '\r')"
+            focus="$(adb -s "$device" shell dumpsys window 2>/dev/null | grep -m1 mCurrentFocus | tr -d '\r' | sed 's/.*mCurrentFocus=//')"
+            echo "::notice title=UI runtime $PROFILE::pid=${pid:-none}; focus=${focus:-unknown}; attempts=$attempt; last_dump_status=$(tail -1 "$out/uiautomator-attempts.txt" 2>/dev/null)"
+            adb -s "$device" logcat -d -v brief > "$out/logcat.txt" 2>/dev/null || true
+            # Class names and counts only - never log messages, which can carry
+            # account data or tokens.
+            fatal="$(grep -cE 'FATAL EXCEPTION' "$out/logcat.txt" 2>/dev/null || true)"
+            classes="$(grep -oE '[A-Za-z.]*(Exception|Error)' "$out/logcat.txt" 2>/dev/null | sort -u | head -8 | tr '\n' ',' || true)"
+            echo "::notice title=UI logcat $PROFILE::fatal_exceptions=${fatal:-0}; classes=${classes:-none}"
             exit 1
           fi
 

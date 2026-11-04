@@ -212,3 +212,61 @@ test('the UI metrics workflow stays build-only and measures both profiles', () =
     'a path-scoped push trigger drives the run from the working branch');
   assert.match(yaml, /paths:/, 'the emulator jobs must not run on unrelated pushes');
 });
+
+// ---------------------------------------------------------------------------
+// The diagnosis must distinguish "the UI was never readable" from "the shell
+// had not taken over". They need different fixes, and conflating them would
+// send the next attempt down the wrong path.
+// ---------------------------------------------------------------------------
+
+const diagnoseScript = path.join(root, 'scripts', 'ui_metrics_diagnose.py');
+
+function diagnose(content) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mel-ui-diag-'));
+  const file = path.join(dir, 'dump.xml');
+  if (content !== null) fs.writeFileSync(file, content);
+  let out = '';
+  try {
+    out = execFileSync('python3', [diagnoseScript, 'tablet', file], { encoding: 'utf8' });
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+  return out;
+}
+
+test('an absent dump is reported as never read, not as a missing shell', () => {
+  const out = diagnose(null);
+  assert.match(out, /dump=absent/);
+  assert.match(out, /idle state/);
+  assert.doesNotMatch(out, /nativeRoot=false/);
+});
+
+test('an unparseable dump is reported as never read', () => {
+  const out = diagnose('ERROR: could not get idle state.');
+  assert.match(out, /dump=unparseable/);
+  assert.match(out, /uiautomator_error=true/);
+});
+
+test('a readable dump without the shell says so explicitly', () => {
+  const out = diagnose(dump({ webViewContainer: [0, 0, 100, 100], splashOverlay: [0, 0, 100, 100] }));
+  assert.match(out, /dump=ok/);
+  assert.match(out, /nativeRoot=false/);
+  assert.match(out, /ids=splashOverlay,webViewContainer/);
+});
+
+test('a readable dump with the shell is recognised', () => {
+  const out = diagnose(dump(tabletViews()));
+  assert.match(out, /nativeRoot=true/);
+  assert.match(out, /nodes=6/);
+});
+
+test('the diagnosis never echoes screen text', () => {
+  const xml = '<?xml version="1.0" encoding="UTF-8"?>\n<hierarchy>'
+    + '<node resource-id="com.melodix.music:id/nativeRoot" text="secret@example.com" '
+    + 'content-desc="Bearer abc123" bounds="[0,0][10,10]" package="com.melodix.music" />'
+    + '</hierarchy>';
+  const out = diagnose(xml);
+  assert.doesNotMatch(out, /secret@example\.com/);
+  assert.doesNotMatch(out, /Bearer abc123/);
+  assert.match(out, /nativeRoot=true/);
+});
