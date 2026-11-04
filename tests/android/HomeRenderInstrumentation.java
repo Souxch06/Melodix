@@ -153,6 +153,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
     private volatile boolean backKeyObserverActive;
     private volatile WeakReference<Activity> resumedTargetActivity = new WeakReference<>(null);
     private volatile String displayOwnershipFailurePhase;
+    private volatile long displayOwnershipLaunchStart = -1L;
     // Per-checkpoint measurement summary. Fixed vocabulary plus bounded integers
     // only, so it can be surfaced as a CI annotation without any possibility of
     // carrying a URL, DOM text, account state or identifier.
@@ -1520,23 +1521,50 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         notePhase(displayOwnershipFailurePhase);
     }
 
-    // Dispatch the cold launch WITHOUT waiting for the activity to go idle.
-    // startActivitySync() blocks until then, which on a cold emulator takes
-    // seconds; taking the launch-relative origin before that call made the
-    // 200 ms checkpoint unreachable by construction and both profiles failed
-    // with "missed its bounded launch-relative window". The resumed activity is
-    // read from the lifecycle observer instead, so the timeline still starts at
-    // the real launch instant and is never re-based afterwards.
-    private void dispatchDisplayOwnershipLaunch() {
+    // Dispatch the cold launch and return the instant startActivity actually
+    // ran on the main thread.
+    //
+    // Two earlier defects are fixed here. startActivitySync() blocks until the
+    // activity goes idle, which made the 200 ms checkpoint unreachable. Simply
+    // wrapping startActivity() in runOnMainSync() was not enough either: that
+    // call still waits for a busy main thread, so the origin was recorded
+    // seconds before the launch really happened. Run 41890081437 measured the
+    // consequence, with a 200 ms checkpoint observed at 3572 ms and the
+    // aggregator correctly rejecting the sidecar as out of tolerance.
+    //
+    // The origin is therefore taken INSIDE the posted task, immediately before
+    // startActivity, so the timeline starts at the real launch instant and is
+    // never re-based afterwards.
+    private long dispatchDisplayOwnershipLaunch() throws InterruptedException {
         final Intent launch = getTargetContext().getPackageManager()
                 .getLaunchIntentForPackage(TARGET_PACKAGE);
         if (launch == null) throw new AssertionError("Preview launcher activity missing");
         launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        runOnMainSync(new Runnable() {
+        final CountDownLatch dispatched = new CountDownLatch(1);
+        final Throwable[] error = new Throwable[1];
+        new android.os.Handler(android.os.Looper.getMainLooper()).post(new Runnable() {
             @Override public void run() {
-                getTargetContext().startActivity(launch);
+                displayOwnershipLaunchStart = SystemClock.elapsedRealtime();
+                try {
+                    getTargetContext().startActivity(launch);
+                } catch (Throwable failure) {
+                    error[0] = failure;
+                } finally {
+                    dispatched.countDown();
+                }
             }
         });
+        // Waiting for the dispatch is safe: the origin is the moment the task
+        // really ran, not the moment it was posted.
+        if (!dispatched.await(60L, TimeUnit.SECONDS)) {
+            throw new AssertionError("Display ownership launch was never dispatched on the main thread");
+        }
+        if (error[0] instanceof RuntimeException) throw (RuntimeException) error[0];
+        if (error[0] instanceof Error) throw (Error) error[0];
+        if (error[0] != null) throw new AssertionError("Display ownership launch dispatch failed");
+        long origin = displayOwnershipLaunchStart;
+        if (origin < 0L) throw new AssertionError("Display ownership launch origin was not recorded");
+        return origin;
     }
 
     private Activity launchTargetPreservingTask() {
@@ -6362,8 +6390,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         JSONArray transitions = new JSONArray();
         try {
         noteDisplayOwnershipPhase("launch_dispatch");
-        final long launchStart = SystemClock.elapsedRealtime();
-        dispatchDisplayOwnershipLaunch();
+        final long launchStart = dispatchDisplayOwnershipLaunch();
 
         String previousOwner = null;
         String previousRoute = null;

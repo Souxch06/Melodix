@@ -310,9 +310,14 @@ test('the instrumentation mode is launch-relative, read-only, and emits only the
   // until the activity is idle: the 200 ms checkpoint was unreachable by
   // construction. The corrected contract is a non-blocking dispatch with the
   // origin recorded immediately before it and never re-based afterwards.
-  assert.match(mode, /final long launchStart = SystemClock\.elapsedRealtime\(\);\s*dispatchDisplayOwnershipLaunch\(\);/);
+  assert.match(mode, /final long launchStart = dispatchDisplayOwnershipLaunch\(\);/);
   assert.doesNotMatch(mode, /=\s*launchTarget\(\)/);
   assert.equal((mode.match(/launchStart\s*=(?!=)/g) || []).length, 1);
+  // The origin must be the instant startActivity really ran, not the instant a
+  // task was posted: run 41890081437 observed the 200 ms checkpoint at 3572 ms
+  // because the dispatch still waited for a busy main thread.
+  const dispatcher = harness.slice(harness.indexOf('private long dispatchDisplayOwnershipLaunch('));
+  assert.match(dispatcher, /displayOwnershipLaunchStart = SystemClock\.elapsedRealtime\(\);\s*\n\s*try \{\s*\n\s*getTargetContext\(\)\.startActivity\(launch\);/);
   assert.match(mode, /displayOwnershipActivityWaitBudget\(launchStart, target,/);
   // The session assertion must not consume the launch-relative timeline.
   assert.match(mode, /requireUnauthenticatedSession\(settledActivity\)/);

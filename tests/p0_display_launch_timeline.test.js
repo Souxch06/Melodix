@@ -133,27 +133,33 @@ test('the launch-relative checkpoint rule is executed and never re-bases the tim
   assert.doesNotMatch(method, /android\./, 'the pure rule must not depend on Android types');
 
   // The launch must be dispatched without waiting for the activity to go idle.
-  const dispatch = extractMethod(source, '    private void dispatchDisplayOwnershipLaunch(');
+  const dispatch = extractMethod(source, '    private long dispatchDisplayOwnershipLaunch(');
   assert.match(dispatch, /getTargetContext\(\)\.startActivity\(launch\)/);
   assert.doesNotMatch(dispatch, /startActivitySync/,
     'the display-ownership launch must not block until the activity is idle');
+  assert.doesNotMatch(dispatch, /runOnMainSync\(/,
+    'the dispatch must not wait for a busy main thread before recording the origin');
   assert.doesNotMatch(comparison, /=\s*launchTarget\(\)/,
     'the comparison must not use the blocking launcher');
-  assert.match(comparison, /dispatchDisplayOwnershipLaunch\(\);/);
 
-  // The origin is taken once, immediately before the dispatch, and never again.
-  const originAssignments = comparison.match(/final long launchStart = SystemClock\.elapsedRealtime\(\);/g) || [];
-  assert.equal(originAssignments.length, 1, 'the launch origin must be recorded exactly once');
-  assert.match(comparison,
-    /final long launchStart = SystemClock\.elapsedRealtime\(\);\s*\n\s*dispatchDisplayOwnershipLaunch\(\);/,
-    'the origin must be recorded immediately before the launch is dispatched');
+  // Run 41890081437 observed the 200 ms checkpoint at 3572 ms because the origin
+  // was taken before a dispatch that still waited for the main thread. The
+  // origin must be recorded inside the posted task, immediately before
+  // startActivity, and returned as the timeline origin.
+  assert.match(dispatch,
+    /displayOwnershipLaunchStart = SystemClock\.elapsedRealtime\(\);\s*\n\s*try \{\s*\n\s*getTargetContext\(\)\.startActivity\(launch\);/);
+  assert.match(dispatch, /new android\.os\.Handler\(android\.os\.Looper\.getMainLooper\(\)\)\.post/);
+  assert.match(dispatch, /return origin;/);
+  assert.match(comparison, /final long launchStart = dispatchDisplayOwnershipLaunch\(\);/);
+  assert.doesNotMatch(comparison, /final long launchStart = SystemClock\.elapsedRealtime\(\);/,
+    'the origin must come from the real dispatch, not from the posting thread');
   const originWrites = comparison.match(/launchStart\s*=(?!=)/g) || [];
   assert.equal(originWrites.length, 1,
     'the launch origin must be written exactly once and never re-based after the launch');
 
   // The observer must be registered before the dispatch and always released.
   assert.ok(comparison.indexOf('registerActivityLifecycleObservation();')
-    < comparison.indexOf('dispatchDisplayOwnershipLaunch();'),
+    < comparison.indexOf('dispatchDisplayOwnershipLaunch()'),
   'the lifecycle observer must be registered before the launch');
   assert.match(comparison, /\}\s*finally\s*\{\s*unregisterActivityLifecycleObservation\(\);/);
 
