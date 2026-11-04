@@ -3015,7 +3015,13 @@ jobs:
           "$build_tools/apksigner" verify --print-certs "$apk" > "$RUNNER_TEMP/melodix-p0-historical-signer.txt"
           signer_sha256="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/melodix-p0-historical-signer.txt" | head -n 1 | tr '[:upper:]' '[:lower:]')"
           [[ "$signer_sha256" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::Could not verify the historical APK signer fingerprint."; exit 1; }
-          grep -Fq "$signer_sha256" "$RUNNER_TEMP/melodix-p0-historical-resources.txt" || {
+          # resources.arsc stores expected_signature_sha256 as uppercase
+          # colon-separated bytes (preview-apk.yml folds the hex with ':'),
+          # not as the raw lowercase apksigner digest. Compare in that exact
+          # embedded format; the plain hex form never appears in the table.
+          signer_fingerprint="$(printf '%s' "$signer_sha256" | tr '[:lower:]' '[:upper:]' | fold -w 2 | paste -sd ':' -)"
+          [[ "$signer_fingerprint" =~ ^([A-F0-9]{2}:){31}[A-F0-9]{2}$ ]] || { echo "::error::Could not format the historical APK signer fingerprint."; exit 1; }
+          grep -Fq "$signer_fingerprint" "$RUNNER_TEMP/melodix-p0-historical-resources.txt" || {
             echo "::error::Historical APK signer does not match its embedded expected signature."
             exit 1
           }

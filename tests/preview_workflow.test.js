@@ -1070,6 +1070,13 @@ test("targeted P0 replay uses only the verified historical ec6 APK and preserves
   assert.match(p0Replay, /--source-root "\$SOURCE_ROOT"[\s\S]*?--output "\$output_path"/);
   assert.match(p0Replay, /run-id: "41653545783"[\s\S]*?github-token: \$\{\{ github\.token \}\}/);
   assert.match(p0Replay, /APK build from 829fccd excluded/);
+  // Regression: resources.arsc embeds expected_signature_sha256 as uppercase
+  // colon-separated bytes, so the replay must reformat the raw apksigner digest
+  // before grepping the resource table. The plain lowercase hex never matches.
+  assert.match(p0Replay, /signer_fingerprint="\$\(printf '%s' "\$signer_sha256" \| tr '\[:lower:\]' '\[:upper:\]' \| fold -w 2 \| paste -sd ':' -\)"/);
+  assert.match(p0Replay, /\[\[ "\$signer_fingerprint" =~ \^\(\[A-F0-9\]\{2\}:\)\{31\}\[A-F0-9\]\{2\}\$ \]\]/);
+  assert.match(p0Replay, /grep -Fq "\$signer_fingerprint" "\$RUNNER_TEMP\/melodix-p0-historical-resources\.txt"/);
+  assert.doesNotMatch(p0Replay, /grep -Fq "\$signer_sha256" "\$RUNNER_TEMP\/melodix-p0-historical-resources\.txt"/);
   assert.match(p0Replay, /initial_report="\$state_dir\/initial-launch-androidruntime-redacted\.json"[\s\S]*?relaunch_report="\$state_dir\/post-permission-relaunch-androidruntime-redacted\.json"/);
   assert.match(p0Replay, /adb logcat -c[\s\S]*?am start -W -n com\.melodix\.music\.preview\/com\.melodix\.music\.MainActivity[\s\S]*?capture_androidruntime_verify "\$initial_report"/);
   assert.match(p0Replay, /pm grant com\.melodix\.music\.preview android\.permission\.BLUETOOTH_CONNECT[\s\S]*?am force-stop com\.melodix\.music\.preview[\s\S]*?adb logcat -c[\s\S]*?am start -W -n com\.melodix\.music\.preview\/com\.melodix\.music\.MainActivity[\s\S]*?capture_androidruntime_verify "\$relaunch_report"/);
