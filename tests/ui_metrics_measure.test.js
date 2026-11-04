@@ -206,4 +206,9 @@ test('the UI metrics workflow stays build-only and measures both profiles', () =
   assert.doesNotMatch(yaml, /softprops\/action-gh-release|gh release create/,
     'this workflow must never publish a release');
   assert.match(yaml, /throwaway debug key/, 'the APK is signed with a disposable build-only key');
+  // workflow_dispatch alone cannot run from a feature branch: GitHub only
+  // registers it from the default branch, which this work must not touch.
+  assert.match(yaml, /push:\n    branches:\n      - arena\/6b935c3e-melodix/,
+    'a path-scoped push trigger drives the run from the working branch');
+  assert.match(yaml, /paths:/, 'the emulator jobs must not run on unrelated pushes');
 });

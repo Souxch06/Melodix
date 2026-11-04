@@ -13,8 +13,22 @@ name: Verify UI metrics on phone and tablet
 # shows. No account is used, nothing is injected and no playback is faked, so
 # the player, the content shelves and the collection banner are reported as NOT
 # MEASURED rather than guessed.
+# GitHub only registers a workflow_dispatch entry point once the file exists on
+# the DEFAULT branch. This branch must not touch main, so the run is driven by a
+# path-scoped push trigger instead, which GitHub does honour from a feature
+# branch. workflow_dispatch is kept for when this reaches the default branch.
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - arena/6b935c3e-melodix
+    paths:
+      - "res/**"
+      - "smali/com/melodix/music/Native**"
+      - "assets/css_hacks.css"
+      - "scripts/ui_metrics_measure.py"
+      - "scripts/ui_view_center.py"
+      - ".github/workflows/verify-ui-metrics.yml"
 
 permissions:
   contents: read
