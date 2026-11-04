@@ -70,6 +70,15 @@ allowed = {
     "failure_phase": re.compile(r"[a-z0-9_]{1,64}\Z"),
     "failure_type": re.compile(r"[A-Za-z0-9_$]{1,80}\Z"),
 }
+# Per-checkpoint measurements. The vocabulary is closed and the only free field
+# is a bounded integer, so a URL, DOM string, token or identifier can never match
+# and therefore can never reach an annotation. Format:
+#   owner;center_surface;takeover_state;observed_elapsed_ms;root_visible;web_visible
+for _label in ("200ms", "1s", "3s", "8s", "20s"):
+    allowed["m" + _label] = re.compile(
+        r"(?:native|web|login|unknown);(?:native_shell|splash|web|unknown);"
+        r"(?:observed|not_observed|undetermined);[0-9]{1,7};[01];[01]\Z"
+    )
 statuses = {}
 status_codes = []
 result_code = None
@@ -142,6 +151,31 @@ trap 'kill "$watchdog_pid" 2>/dev/null || true; rm -rf "$tmp"' EXIT
 # Only allowlisted failure_phase/failure_type are surfaced; the raw stream is
 # still discarded. This keeps a failed run diagnosable without retaining UI or
 # account data.
+# Surface the allowlisted per-checkpoint measurements whether the capture passed
+# or failed, so a failed run still yields the measured timeline.
+report_measurements() {
+  [[ -s "$tmp/safe-status.json" ]] || return 0
+  python3 - "$tmp/safe-status.json" "$1" <<'MEAS' || true
+import json
+import pathlib
+import sys
+
+safe = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+statuses = safe.get("statuses", {})
+for label in ("200ms", "1s", "3s", "8s", "20s"):
+    value = statuses.get("m" + label)
+    if value is None:
+        print(f"::notice title=P0 display measurement::{sys.argv[2]} {label}=not_measured")
+        continue
+    owner, center, takeover, observed, root, web = value.split(";")
+    print(
+        f"::notice title=P0 display measurement::{sys.argv[2]} {label}"
+        f" owner={owner}; center={center}; takeover={takeover};"
+        f" observed_ms={observed}; native_root_visible={root}; webview_visible={web}"
+    )
+MEAS
+}
+
 report_failure() {
   local message="$1"
   if [[ -s "$tmp/safe-status.json" ]]; then
@@ -174,6 +208,7 @@ timeout --signal=TERM --kill-after=10s "${instrument_budget}s" \
 pipe_status=("${PIPESTATUS[@]}")
 set -e
 kill "$watchdog_pid" 2>/dev/null || true
+report_measurements "$profile"
 [[ ! -e "$tmp/emulator-died" ]] || report_failure "the emulator process died during instrumentation"
 [[ "${pipe_status[0]}" -eq 0 ]] || report_failure "instrumentation command failed or timed out"
 [[ "${pipe_status[1]}" -eq 0 ]] || report_failure "instrumentation did not emit the required allowlisted success statuses"

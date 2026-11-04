@@ -153,6 +153,11 @@ public final class HomeRenderInstrumentation extends Instrumentation {
     private volatile boolean backKeyObserverActive;
     private volatile WeakReference<Activity> resumedTargetActivity = new WeakReference<>(null);
     private volatile String displayOwnershipFailurePhase;
+    // Per-checkpoint measurement summary. Fixed vocabulary plus bounded integers
+    // only, so it can be surfaced as a CI annotation without any possibility of
+    // carrying a URL, DOM text, account state or identifier.
+    private final java.util.LinkedHashMap<String, String> displayOwnershipMeasurements =
+            new java.util.LinkedHashMap<String, String>();
     private volatile boolean targetActivityResumed;
     private volatile boolean targetActivityStoppedObserved;
     private volatile boolean targetActivityResumedAfterBackground;
@@ -1384,6 +1389,9 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             status.putString("overall", "failed");
             status.putString("failure_phase", reportedFailurePhase);
             status.putString("failure_type", failure.getClass().getSimpleName());
+            for (java.util.Map.Entry<String, String> entry : displayOwnershipMeasurements.entrySet()) {
+                status.putString(entry.getKey(), entry.getValue());
+            }
             if (diagnostics != null) {
                 try { status.putAll(diagnostics.statusBundle()); } catch (Throwable ignored) {}
             }
@@ -1444,6 +1452,44 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         long deadline = launchStart + target + tolerance;
         long remaining = deadline - now;
         return remaining <= 0L ? 0L : remaining;
+    }
+
+    // An honest checkpoint for the case where the target activity has not
+    // resumed inside the bounded window. Nothing is known about the display at
+    // that instant, so every field says so. The aggregator fails closed on an
+    // undetermined centre, which is the required behaviour: this records the
+    // absence of an observation instead of aborting the whole timeline and
+    // losing the four settled measurements that actually answer the P0.
+    private JSONObject unresumedDisplayOwnershipCheckpoint(long target, long launchStart) throws Exception {
+        JSONObject checkpoint = new JSONObject();
+        checkpoint.put("target_elapsed_ms", target);
+        checkpoint.put("observed_elapsed_ms", SystemClock.elapsedRealtime() - launchStart);
+        checkpoint.put("native_root_visible", false);
+        checkpoint.put("webview_container_visible", false);
+        checkpoint.put("native_root_bounds_px", JSONObject.NULL);
+        checkpoint.put("webview_container_bounds_px", JSONObject.NULL);
+        checkpoint.put("display_owner", "unknown");
+        checkpoint.put("route_category", "unknown");
+        checkpoint.put("native_owner_verified", false);
+        checkpoint.put("webview_mounted_under_native_root", false);
+        checkpoint.put("center_surface_owner", "unknown");
+        checkpoint.put("splash_transient", false);
+        return checkpoint;
+    }
+
+    private void recordDisplayOwnershipMeasurement(String label, JSONObject checkpoint) throws Exception {
+        String value = checkpoint.getString("display_owner")
+                + ";" + checkpoint.getString("center_surface_owner")
+                + ";" + checkpoint.getString("web_center_takeover_state")
+                + ";" + checkpoint.getLong("observed_elapsed_ms")
+                + ";" + (checkpoint.getBoolean("native_root_visible") ? "1" : "0")
+                + ";" + (checkpoint.getBoolean("webview_container_visible") ? "1" : "0");
+        // Refuse to emit anything outside the closed vocabulary rather than
+        // widening the export surface if a future edit changes a value.
+        if (value.matches("(?:native|web|login|unknown);(?:native_shell|splash|web|unknown);"
+                + "(?:observed|not_observed|undetermined);[0-9]{1,7};[01];[01]")) {
+            displayOwnershipMeasurements.put("m" + label, value);
+        }
     }
 
     private void noteDisplayOwnershipPhase(String stage) {
@@ -6317,7 +6363,18 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 resumed = resumedActivityOr(null);
             }
             if (resumed == null) {
-                throw new AssertionError("Display ownership checkpoint had no resumed target activity in its window");
+                // No activity resumed inside the window: record the absence of
+                // an observation and keep the remaining checkpoints measurable.
+                noteDisplayOwnershipPhase("checkpoint_" + DISPLAY_OWNERSHIP_CHECKPOINT_LABELS[index]
+                        + "_no_activity");
+                JSONObject absent = unresumedDisplayOwnershipCheckpoint(target, launchStart);
+                completeDisplayOwnershipWebCenter(absent, null, launchStart,
+                        DISPLAY_OWNERSHIP_LAUNCH_PROBE_TIMEOUT_MS);
+                recordDisplayOwnershipMeasurement(DISPLAY_OWNERSHIP_CHECKPOINT_LABELS[index], absent);
+                checkpoints.put(DISPLAY_OWNERSHIP_CHECKPOINT_LABELS[index], absent);
+                previousOwner = absent.getString("display_owner");
+                previousRoute = absent.getString("route_category");
+                continue;
             }
             activity = resumed;
             final Activity sampleActivity = resumed;
@@ -6335,6 +6392,10 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                     }
                 }
             });
+            if (failure[0] != null || sample[0] == null) {
+                noteDisplayOwnershipPhase("checkpoint_" + DISPLAY_OWNERSHIP_CHECKPOINT_LABELS[index]
+                        + "_inspect");
+            }
             if (failure[0] instanceof Exception) throw (Exception) failure[0];
             if (failure[0] instanceof Error) throw (Error) failure[0];
             if (failure[0] != null || sample[0] == null) {
@@ -6344,14 +6405,19 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             // The DOM classification must run on the runner thread:
             // evaluateJavascript* internally calls runOnMainSync and would
             // deadlock if invoked from inside the block above.
+            noteDisplayOwnershipPhase("checkpoint_" + DISPLAY_OWNERSHIP_CHECKPOINT_LABELS[index]
+                    + "_probe");
             completeDisplayOwnershipWebCenter(checkpoint, sampleWebView[0], launchStart,
                     index == 0 ? DISPLAY_OWNERSHIP_LAUNCH_PROBE_TIMEOUT_MS : DISPLAY_OWNERSHIP_PROBE_TIMEOUT_MS);
             long observed = checkpoint.getLong("observed_elapsed_ms");
             long probeElapsed = checkpoint.getLong("web_center_probe_elapsed_ms");
             if (observed < target || observed - target > 1500L || probeElapsed - target > 1500L) {
+                noteDisplayOwnershipPhase("checkpoint_" + DISPLAY_OWNERSHIP_CHECKPOINT_LABELS[index]
+                        + "_window");
                 throw new AssertionError("Display ownership checkpoint missed its bounded launch-relative window");
             }
             String label = DISPLAY_OWNERSHIP_CHECKPOINT_LABELS[index];
+            recordDisplayOwnershipMeasurement(label, checkpoint);
             checkpoints.put(label, checkpoint);
             String owner = checkpoint.getString("display_owner");
             String route = checkpoint.getString("route_category");
@@ -6367,6 +6433,10 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             previousRoute = route;
         }
 
+        if (activity == null) {
+            noteDisplayOwnershipPhase("no_activity_ever");
+            throw new AssertionError("Display ownership comparison never observed a resumed target activity");
+        }
         noteDisplayOwnershipPhase("session_state");
         final Activity settledActivity = activity;
         requireUnauthenticatedSession(settledActivity);
@@ -6435,6 +6505,9 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         result.putString("profile", profile);
         result.putBoolean("display_ownership_report_saved", true);
         result.putBoolean("authenticated_home_test_performed", false);
+        for (java.util.Map.Entry<String, String> entry : displayOwnershipMeasurements.entrySet()) {
+            result.putString(entry.getKey(), entry.getValue());
+        }
         sendStatus(1, result);
         finish(Activity.RESULT_OK, result);
     }

@@ -1447,3 +1447,149 @@ test('the tooling artifact publishes the flat names every capture consumer reads
     'the two-directory layout must be recognised as broken by this model');
   assert.ok(broken.includes('melodix-display-provenance/provenance.json'));
 });
+
+// The measurement channel is the only readable export when artifacts cannot be
+// downloaded. It must stay a closed vocabulary: these canaries prove a URL, a
+// token, an over-long integer or an out-of-range bit can never be surfaced.
+test('the per-checkpoint measurement channel accepts measurements and rejects every privacy canary', () => {
+  const runner = read('scripts/p0_display_run_profile.sh');
+  const marker = 'cat >"$tmp/status-filter.py" <<\'PY\'\n';
+  const start = runner.indexOf(marker);
+  const end = runner.indexOf('\nPY\n', start);
+  assert.ok(start >= 0 && end > start);
+  const filter = runner.slice(start + marker.length, end);
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'melodix-display-measure-'));
+  try {
+    const filterPath = path.join(tmp, 'filter.py');
+    fs.writeFileSync(filterPath, filter);
+    const base = [
+      'INSTRUMENTATION_STATUS: overall=passed',
+      'INSTRUMENTATION_STATUS: profile=phone',
+      'INSTRUMENTATION_STATUS: display_ownership_report_saved=true',
+      'INSTRUMENTATION_STATUS: authenticated_home_test_performed=false',
+      'INSTRUMENTATION_STATUS_CODE: 1',
+      'INSTRUMENTATION_CODE: -1',
+    ];
+    const run = (extra) => {
+      const out = path.join(tmp, `out-${Math.random().toString(36).slice(2)}.json`);
+      const proc = spawnSync('python3', [filterPath, out, 'phone'],
+        { encoding: 'utf8', input: `${base.concat(extra).join('\n')}\n` });
+      assert.equal(proc.status, 0, proc.stderr);
+      return { text: fs.readFileSync(out, 'utf8'), statuses: JSON.parse(fs.readFileSync(out, 'utf8')).statuses };
+    };
+
+    const valid = run(['INSTRUMENTATION_STATUS: m200ms=native;native_shell;not_observed;214;1;1']);
+    assert.equal(valid.statuses.m200ms, 'native;native_shell;not_observed;214;1;1');
+
+    const canaries = [
+      'INSTRUMENTATION_STATUS: m200ms=native;native_shell;not_observed;214;1;1;token=SECRET_TOKEN',
+      'INSTRUMENTATION_STATUS: m200ms=https://private.invalid/?t=SECRET;web;observed;1;1;1',
+      'INSTRUMENTATION_STATUS: m200ms=native;native_shell;not_observed;99999999;1;1',
+      'INSTRUMENTATION_STATUS: m200ms=SECRET;native_shell;not_observed;214;1;1',
+      'INSTRUMENTATION_STATUS: m200ms=native;native_shell;SECRET_STATE;214;1;1',
+      'INSTRUMENTATION_STATUS: m1s=native;native_shell;not_observed;214;1;2',
+      'INSTRUMENTATION_STATUS: m1s=native;native_shell;not_observed;-5;1;1',
+    ];
+    for (const canary of canaries) {
+      const result = run([canary]);
+      const key = canary.slice('INSTRUMENTATION_STATUS: '.length).split('=')[0];
+      assert.equal(result.text.includes('SECRET'), false, `a canary must never be retained: ${canary}`);
+      assert.equal(result.text.includes('https://'), false);
+      assert.equal(Object.prototype.hasOwnProperty.call(result.statuses, key), false,
+        `an out-of-vocabulary measurement must be discarded: ${canary}`);
+    }
+
+    // The publisher must read only the allowlisted statuses, and must run even
+    // when the capture failed, otherwise a failed run yields no timeline.
+    assert.match(runner, /report_measurements\(\) \{/);
+    assert.match(runner, /report_measurements "\$profile"\n\[\[ ! -e "\$tmp\/emulator-died" \]\]/);
+    assert.match(runner, /title=P0 display measurement::/);
+    assert.match(runner, /=not_measured/);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+// Recording an honest "nothing was observable" checkpoint instead of aborting
+// must not buy a pass. This executes the real aggregator on the exact field
+// values the harness writes for an unresumed activity.
+test('an unresumed launch checkpoint is recorded honestly and still fails the aggregator closed', () => {
+  const harness = read('tests/android/HomeRenderInstrumentation.java');
+  const start = harness.indexOf('private JSONObject unresumedDisplayOwnershipCheckpoint(');
+  assert.ok(start >= 0, 'the harness must define the unresumed checkpoint builder');
+  const end = harness.indexOf('\n    }\n', start);
+  const body = harness.slice(start, end);
+
+  // Build the checkpoint from the harness source itself so the fixture cannot
+  // drift away from what the instrumentation actually writes.
+  const target = 200;
+  const checkpoint = {};
+  const puts = body.matchAll(/checkpoint\.put\("([a-z_]+)", ([^;]+)\);/g);
+  for (const [, key, raw] of puts) {
+    const value = raw.trim();
+    if (value === 'false') checkpoint[key] = false;
+    else if (value === 'true') checkpoint[key] = true;
+    else if (value === 'JSONObject.NULL') checkpoint[key] = null;
+    else if (value === 'target') checkpoint[key] = target;
+    else if (value === 'SystemClock.elapsedRealtime() - launchStart') checkpoint[key] = target + 1200;
+    else if (/^"[a-z_]+"$/.test(value)) checkpoint[key] = value.slice(1, -1);
+    else throw new Error(`unexpected unresumed checkpoint value: ${key}=${value}`);
+  }
+  // Fields added by completeDisplayOwnershipWebCenter for an unknown centre.
+  checkpoint.web_center_category = 'unavailable';
+  checkpoint.web_center_takeover_state = 'undetermined';
+  checkpoint.web_center_probe_elapsed_ms = target + 1200;
+  assert.equal(checkpoint.display_owner, 'unknown');
+  assert.equal(checkpoint.center_surface_owner, 'unknown');
+  assert.equal(checkpoint.native_owner_verified, false);
+
+  const sourceRef = 'a'.repeat(40);
+  const runId = '41883130651';
+  const apkSha256 = 'b'.repeat(64);
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'melodix-display-unresumed-'));
+  try {
+    const aggregate = (mutate) => {
+      const paths = {};
+      for (const profile of ['phone', 'tablet']) {
+        const sidecar = sidecarFor(profile, sourceRef, runId, apkSha256);
+        if (mutate) {
+          sidecar.checkpoints['200ms'] = { ...checkpoint };
+          // The 200 ms sample consumed its 1200 ms wait, so the 1 s checkpoint
+          // is necessarily observed after it. Observations stay monotonic.
+          sidecar.checkpoints['1s'].observed_elapsed_ms = 1450;
+          sidecar.checkpoints['1s'].web_center_probe_elapsed_ms = 1460;
+        }
+        const file = path.join(tmp, `${profile}-${mutate ? 'unresumed' : 'native'}.json`);
+        fs.writeFileSync(file, JSON.stringify(sidecar));
+        paths[profile] = file;
+      }
+      const output = path.join(tmp, `report-${mutate ? 'unresumed' : 'native'}.json`);
+      const proc = spawnSync('python3', [
+        path.join(ROOT, 'scripts/aggregate_p0_display_ownership.py'),
+        '--source-ref', sourceRef, '--run-id', runId, '--apk-sha256', apkSha256,
+        '--phone-report', paths.phone, '--tablet-report', paths.tablet, '--output', output,
+      ], { encoding: 'utf8' });
+      assert.equal(proc.status, 0, `the aggregator must run: ${proc.stderr}`);
+      return JSON.parse(fs.readFileSync(output, 'utf8')).comparison;
+    };
+
+    // Control: a fully native timeline satisfies the gate, so the test can fail.
+    const control = aggregate(false);
+    assert.equal(control.p0_display_ownership_satisfied, true);
+
+    const unresumed = aggregate(true);
+    assert.equal(unresumed.p0_display_ownership_satisfied, false,
+      'an unobservable launch checkpoint must never satisfy the P0 gate');
+    assert.equal(unresumed.p0_resolution_claimed, false);
+    for (const profile of ['phone', 'tablet']) {
+      assert.deepEqual(unresumed[profile].undetermined_checkpoints, ['200ms']);
+      assert.equal(unresumed[profile].all_checkpoints_determinate, false);
+      assert.equal(unresumed[profile].launch_checkpoint_web_center_takeover_state, 'undetermined');
+      // The four settled measurements are preserved: that is the whole point of
+      // recording the absence instead of aborting the timeline.
+      assert.equal(unresumed[profile].native_owner_observed_at_all_checkpoints, true);
+    }
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
