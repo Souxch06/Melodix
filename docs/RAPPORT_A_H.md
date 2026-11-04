@@ -10,6 +10,15 @@ PR #7 intacts).
 > et [`melodix-native-webview-navigation-2026-10-31.md`](audits/melodix-native-webview-navigation-2026-10-31.md).
 > La seule release publiée est [`v1.2.2-test.91-preview`](https://github.com/Souxch06/Melodix/releases/tag/v1.2.2-test.91-preview), issue de `702cdd9`; la CI est verte, mais aucun essai sur appareil n’a confirmé que l’interface apparaît.
 
+> **Complément du 04/11/2026 — replay du VerifyError :** la reprise du dernier commit
+> `44902d9` sur `arena/6b935c3e-melodix` a déclenché pour la première fois le job isolé
+> `p0-verify-replay` et **reproduit le VerifyError historique** (`MainActivity.markNativeSettingsPayloadApplied`,
+> registre `v3` `String` au lieu de `StringBuilder`) sur l’APK exact `ec6ef63`, aux deux
+> lancements, sur émulateur Android 16 (run `41796437131`). Le source courant contient déjà
+> le correctif. Détail, correctifs du job et limites :
+> [`melodix-p0-verifyerror-replay-2026-11-04.md`](audits/melodix-p0-verifyerror-replay-2026-11-04.md).
+> Ceci ne valide ni l’interface sur téléphone, ni le P0 « UI absente » téléphone/tablette.
+
 Ce rapport sépare systématiquement quatre niveaux de preuve :
 
 | Niveau | Signification |
