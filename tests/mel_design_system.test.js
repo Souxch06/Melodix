@@ -255,3 +255,36 @@ test('token resolution keeps a working fallback path', () => {
   assert.match(text, /const\/4 v1, 0x0\n\n    invoke-virtual \{p0, v1, v0\}, Landroid\/widget\/TextView;->setTextSize\(IF\)V/,
     'COMPLEX_UNIT_PX avoids applying the sp font scale twice');
 });
+
+// ---------------------------------------------------------------------------
+// Cross-layer coherence: the WebView and the native shell are two renderers for
+// one product. Their backdrops must agree, or switching between login (WebView)
+// and Home (native) flashes a different dark.
+// ---------------------------------------------------------------------------
+
+function cssRootTokens() {
+  const css = read('assets/css_hacks.css');
+  const out = new Map();
+  for (const m of css.matchAll(/(--mel-[a-z0-9-]+)\s*:\s*([^;]+);/g)) {
+    if (!out.has(m[1])) out.set(m[1], m[2].trim());
+  }
+  return out;
+}
+
+function androidColour(name) {
+  const xml = read('res/values/colors.xml');
+  const m = xml.match(new RegExp(`<color name="${name}">#([0-9a-fA-F]{6,8})</color>`));
+  assert.ok(m, `${name} must be defined`);
+  const hex = m[1].length === 8 ? m[1].slice(2) : m[1];
+  return `#${hex.toLowerCase()}`;
+}
+
+test('the WebView backdrops match the native shell palette', () => {
+  const tokens = cssRootTokens();
+  assert.equal(tokens.get('--mel-bg'), androidColour('mel_background'),
+    'the WebView page background must equal the native shell background');
+  assert.equal(tokens.get('--mel-bg-2'), androidColour('mel_surface'),
+    'the WebView surface must equal the native shell surface');
+  assert.equal(tokens.get('--mel-accent'), androidColour('mel_accent'),
+    'both layers share one accent');
+});

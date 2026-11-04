@@ -15,8 +15,11 @@
     --mel-accent-wash-09: rgba(30, 215, 96, 0.09);
     --mel-accent-wash-11: rgba(30, 215, 96, 0.11);
     --mel-accent-wash-14: rgba(30, 215, 96, 0.14);
-    --mel-bg: #121212;
-    --mel-bg-2: #101311;
+    /* Backdrops mirror the native shell (res/values/colors.xml mel_background
+       and mel_surface) so moving between the WebView - login, fallback home -
+       and the native shell never flashes a different dark. */
+    --mel-bg: #060809;
+    --mel-bg-2: #10151a;
     --mel-bg-3: #07110a;
     --mel-grad-a: #ff9efc;
     --mel-grad-a-strong: rgba(255, 158, 252, 0.85);
