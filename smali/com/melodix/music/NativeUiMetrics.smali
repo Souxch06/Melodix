@@ -121,3 +121,111 @@
 
     return-void
 .end method
+
+.method public static rowPadH(Landroid/content/Context;)I
+    .locals 2
+
+    const-string v0, "mel_row_pad_h"
+
+    const/16 v1, 0xc
+
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+
+    move-result v0
+
+    return v0
+.end method
+
+.method public static rowPadV(Landroid/content/Context;)I
+    .locals 2
+
+    const-string v0, "mel_row_pad_v"
+
+    const/4 v1, 0x6
+
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+
+    move-result v0
+
+    return v0
+.end method
+
+.method public static rowHeight(Landroid/content/Context;)I
+    .locals 2
+
+    const-string v0, "mel_row_height"
+
+    const/16 v1, 0x3c
+
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+
+    move-result v0
+
+    return v0
+.end method
+
+.method public static rowRadius(Landroid/content/Context;)I
+    .locals 2
+
+    const-string v0, "mel_row_radius"
+
+    const/4 v1, 0x4
+
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+
+    move-result v0
+
+    return v0
+.end method
+
+.method public static rowArt(Landroid/content/Context;)I
+    .locals 2
+
+    const-string v0, "mel_row_art"
+
+    const/16 v1, 0x30
+
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+
+    move-result v0
+
+    return v0
+.end method
+
+.method public static rowArtGap(Landroid/content/Context;)I
+    .locals 2
+
+    const-string v0, "mel_row_art_gap"
+
+    const/16 v1, 0xc
+
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+
+    move-result v0
+
+    return v0
+.end method
+
+.method public static applyRowTitle(Landroid/widget/TextView;Landroid/content/Context;)V
+    .locals 2
+
+    const-string v0, "mel_row_title"
+
+    const/high16 v1, 0x41700000
+
+    invoke-static {p0, p1, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->applyTextSize(Landroid/widget/TextView;Landroid/content/Context;Ljava/lang/String;F)V
+
+    return-void
+.end method
+
+.method public static applyRowSubtitle(Landroid/widget/TextView;Landroid/content/Context;)V
+    .locals 2
+
+    const-string v0, "mel_row_subtitle"
+
+    const/high16 v1, 0x41500000
+
+    invoke-static {p0, p1, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->applyTextSize(Landroid/widget/TextView;Landroid/content/Context;Ljava/lang/String;F)V
+
+    return-void
+.end method
