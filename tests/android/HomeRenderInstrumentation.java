@@ -8,6 +8,7 @@ import android.app.UiAutomation;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
+import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Insets;
@@ -137,6 +138,14 @@ public final class HomeRenderInstrumentation extends Instrumentation {
     private static final long AUTHENTICATED_OBSERVATION_POLL_MS = 500L;
     private static final int MAX_OBSERVED_ROUTES = 16;
     private static final int[] MOBILE_VIEWPORT_MATRIX_WIDTHS = {360, 384, 393, 412};
+    private static final String DISPLAY_OWNERSHIP_REPORT_FILE = "melodix-preview-display-ownership.json";
+    private static final long[] DISPLAY_OWNERSHIP_CHECKPOINTS_MS = {200L, 1000L, 3000L, 8000L, 20000L};
+    private static final String[] DISPLAY_OWNERSHIP_CHECKPOINT_LABELS = {"200ms", "1s", "3s", "8s", "20s"};
+    // Bounded DOM classification budget. The launch checkpoint gets a shorter
+    // budget so a not-yet-ready WebView cannot push the 200 ms sample out of its
+    // launch-relative window; a timeout yields "unavailable", never "no takeover".
+    private static final long DISPLAY_OWNERSHIP_LAUNCH_PROBE_TIMEOUT_MS = 400L;
+    private static final long DISPLAY_OWNERSHIP_PROBE_TIMEOUT_MS = 1200L;
     private Application observedApplication;
     private volatile boolean activityLifecycleObserverRegistered;
     private volatile boolean backKeyObserverInstalled;
@@ -473,6 +482,30 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             "var playerLogin=visible(document.querySelector('[data-testid=\"web-player-link\"]'));" +
             "return !!(words||(accountHost&&(password||identity))||(playerLogin&&body));" +
             "}catch(e){return false;}})()";
+    // Shared read-only ancestor classifier for the WebView center hit-test.
+    private static final String WEB_CENTER_CLASSIFIER_JS =
+            "var classify=function(e){for(var c=e;c;c=c.parentElement){if(c.id==='sf-fs-player')return'fullscreen-player';" +
+            "if(c.id==='sf-mobile-nav')return'mobile-navigation';if(c.id==='Desktop_LeftSidebar_Id')return'desktop-sidebar';" +
+            "if(c.id==='sf-melodix-home')return'melodix-home';if(c.id==='main-view')return'spotify-main';" +
+            "if(c.getAttribute&&c.getAttribute('data-testid')==='now-playing-bar')return'now-playing-bar';" +
+            "if(c.id==='global-nav-bar')return'spotify-global-navigation';}return e?'other':'none';};";
+    // Read-only launch/profile probe. It never mutates classes, styles, storage,
+    // navigation, or account state, and returns only bounded numeric/categories.
+    private static final String DISPLAY_OWNERSHIP_PROBE =
+            "(function(){try{" +
+            "var n=function(v){v=Number(v);return Number.isFinite(v)?Math.max(-10000,Math.min(10000,Math.round(v*100)/100)):null;};" +
+            WEB_CENTER_CLASSIFIER_JS +
+            "var innerWidth=n(window.innerWidth),innerHeight=n(window.innerHeight);" +
+            "var centerOwner='unavailable';try{centerOwner=classify(document.elementFromPoint(innerWidth/2,innerHeight/2));}catch(_){}" +
+            "var screen=window.screen||{};" +
+            "var guiMode=String(window.SF_CONFIG&&window.SF_CONFIG.guiMode||'unknown');" +
+            "if(['csshack','bigwindow'].indexOf(guiMode)<0)guiMode='other';" +
+            "var body=document.body;" +
+            "var melodix=!!(body&&body.classList&&body.classList.contains('sf-melodix-home-active'));" +
+            "var mobile=!!(body&&body.classList&&body.classList.contains('sf-mobile-shell'));" +
+            "return{probe_error:false,viewport:{innerWidth:innerWidth,innerHeight:innerHeight,screenWidth:n(screen.width),screenHeight:n(screen.height),devicePixelRatio:n(window.devicePixelRatio)}," +
+            "centerOwner:centerOwner,guiMode:guiMode,bodyMelodix:melodix,bodyMobile:mobile};" +
+            "}catch(e){return{probe_error:true};}})()";
     private static final String AUTHENTICATED_HOME_PROBE =
             "(function(){try{" +
             "var hostname=String(location.hostname||'').toLowerCase();" +
@@ -558,11 +591,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             "var visible=function(e){if(!e)return false;var s=style(e),r=rect(e);return !!(s&&r&&s.display!=='none'&&s.visibility==='visible'&&s.opacity>0&&r.width>0&&r.height>0);};" +
             "var surface=function(e){var r=rect(e),s=style(e);return{present:!!e,visible:visible(e),rect:r,style:s," +
             "clientWidth:e?n(e.clientWidth):null,clientHeight:e?n(e.clientHeight):null,scrollWidth:e?n(e.scrollWidth):null,scrollHeight:e?n(e.scrollHeight):null};};" +
-            "var classify=function(e){for(var c=e;c;c=c.parentElement){if(c.id==='sf-fs-player')return'fullscreen-player';" +
-            "if(c.id==='sf-mobile-nav')return'mobile-navigation';if(c.id==='Desktop_LeftSidebar_Id')return'desktop-sidebar';" +
-            "if(c.id==='sf-melodix-home')return'melodix-home';if(c.id==='main-view')return'spotify-main';" +
-            "if(c.getAttribute&&c.getAttribute('data-testid')==='now-playing-bar')return'now-playing-bar';" +
-            "if(c.id==='global-nav-bar')return'spotify-global-navigation';}return e?'other':'none';};" +
+            WEB_CENTER_CLASSIFIER_JS +
             "var ownerAt=function(e){var r=rect(e);if(!r||r.width<=0||r.height<=0)return'unavailable';" +
             "try{return classify(document.elementFromPoint(r.left+r.width/2,r.top+r.height/2));}catch(_){return'unavailable';}};" +
             "var state=function(name){var nav=document.getElementById('sf-mobile-nav');" +
@@ -829,6 +858,12 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         try {
             super.onStart();
             Log.i(HARNESS_TAG, "instrumentation_onStart_super_returned");
+            if ("display-ownership".equals(runnerArguments.getString("mode"))) {
+                failurePhase = "display_ownership_launch";
+                notePhase(failurePhase);
+                runDisplayOwnershipComparison(runnerArguments);
+                return;
+            }
             if ("authenticated-home".equals(runnerArguments.getString("mode"))) {
                 failurePhase = "authenticated_home_launch";
                 notePhase(failurePhase);
@@ -2257,6 +2292,11 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         state.putString("configured_ua_chrome_version", configuredVersion == null ? "unavailable" : configuredVersion);
         state.putString("configured_ua_android_version", userAgentVersion(configuredUserAgent, "Android "));
         state.putBoolean("configured_ua_chrome_major_matches_runtime", matches);
+        Configuration configuration = activity.getResources().getConfiguration();
+        state.putInt("android_smallest_screen_width_dp", configuration.smallestScreenWidthDp);
+        state.putInt("android_screen_width_dp", configuration.screenWidthDp);
+        state.putInt("android_screen_height_dp", configuration.screenHeightDp);
+        state.putString("android_orientation", configuration.orientation == Configuration.ORIENTATION_LANDSCAPE ? "landscape" : "portrait");
 
         // Read-only scale diagnosis: keep physical display pixels, app-window
         // pixels, WebView frame pixels, CSS viewport (reported by the JS probe),
@@ -2865,7 +2905,8 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         int centerX = location[0] + width / 2;
         int centerY = location[1] + height / 2;
         boolean rootCoversCenter = rootBounds != null && rootBounds.contains(centerX, centerY);
-        boolean rootCoversDock = rootBounds != null && dockBounds != null && rootBounds.contains(dockBounds);
+        boolean rootCoversDock = rootBounds != null
+                && nativeDockActuallyVisible(dockBounds, mainRoot, nativeRoot, hScroll, splash);
         String frontmost = frontmostFullscreenSurface(hScroll, nativeRoot, splash, mainRoot, width, height);
         String currentScreen = readStringField(activity, "nativeCurrentScreen");
         requireUnauthenticatedSession(activity);
@@ -6181,6 +6222,412 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         putBounds(state, "native_root_visible", rootBounds);
         putBounds(state, "webview_mounted", webBounds);
         return state;
+    }
+
+    private void runDisplayOwnershipComparison(Bundle arguments) throws Exception {
+        String profile = arguments == null ? null : arguments.getString("profile");
+        String sourceRef = arguments == null ? null : arguments.getString("source_ref");
+        String runId = arguments == null ? null : arguments.getString("run_id");
+        String apkSha256 = arguments == null ? null : arguments.getString("apk_sha256");
+        if (!"phone".equals(profile) && !"tablet".equals(profile)) {
+            throw new AssertionError("Display ownership mode requires profile phone or tablet");
+        }
+        if (sourceRef == null || !sourceRef.matches("[0-9a-f]{40}")) {
+            throw new AssertionError("Display ownership mode requires a full lowercase source SHA");
+        }
+        if (runId == null || !runId.matches("[0-9]{1,20}")) {
+            throw new AssertionError("Display ownership mode requires a numeric CI run id");
+        }
+        if (apkSha256 == null || !apkSha256.matches("[0-9a-f]{64}")) {
+            throw new AssertionError("Display ownership mode requires a lowercase APK SHA-256");
+        }
+
+        final long launchStart = SystemClock.elapsedRealtime();
+        Activity activity = launchTarget();
+        requireUnauthenticatedSession(activity);
+
+        JSONObject checkpoints = new JSONObject();
+        JSONArray transitions = new JSONArray();
+        String previousOwner = null;
+        String previousRoute = null;
+        for (int index = 0; index < DISPLAY_OWNERSHIP_CHECKPOINTS_MS.length; index++) {
+            final long target = DISPLAY_OWNERSHIP_CHECKPOINTS_MS[index];
+            long waitMillis = launchStart + target - SystemClock.elapsedRealtime();
+            if (waitMillis > 0L) Thread.sleep(waitMillis);
+            final JSONObject[] sample = new JSONObject[1];
+            final WebView[] sampleWebView = new WebView[1];
+            final Throwable[] failure = new Throwable[1];
+            runOnMainSync(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        sampleWebView[0] = findWebView(activity);
+                        sample[0] = inspectDisplayOwnershipCheckpoint(activity, target, launchStart);
+                    } catch (Throwable error) {
+                        failure[0] = error;
+                    }
+                }
+            });
+            if (failure[0] instanceof Exception) throw (Exception) failure[0];
+            if (failure[0] instanceof Error) throw (Error) failure[0];
+            if (failure[0] != null || sample[0] == null) {
+                throw new AssertionError("Display ownership checkpoint inspection failed");
+            }
+            JSONObject checkpoint = sample[0];
+            // The DOM classification must run on the runner thread:
+            // evaluateJavascript* internally calls runOnMainSync and would
+            // deadlock if invoked from inside the block above.
+            completeDisplayOwnershipWebCenter(checkpoint, sampleWebView[0], launchStart,
+                    index == 0 ? DISPLAY_OWNERSHIP_LAUNCH_PROBE_TIMEOUT_MS : DISPLAY_OWNERSHIP_PROBE_TIMEOUT_MS);
+            long observed = checkpoint.getLong("observed_elapsed_ms");
+            long probeElapsed = checkpoint.getLong("web_center_probe_elapsed_ms");
+            if (observed < target || observed - target > 1500L || probeElapsed - target > 1500L) {
+                throw new AssertionError("Display ownership checkpoint missed its bounded launch-relative window");
+            }
+            String label = DISPLAY_OWNERSHIP_CHECKPOINT_LABELS[index];
+            checkpoints.put(label, checkpoint);
+            String owner = checkpoint.getString("display_owner");
+            String route = checkpoint.getString("route_category");
+            if (previousOwner != null && (!owner.equals(previousOwner) || !route.equals(previousRoute))) {
+                JSONObject transition = new JSONObject();
+                transition.put("elapsed_ms", observed);
+                transition.put("from_owner", previousOwner);
+                transition.put("to_owner", owner);
+                transition.put("route_category", route);
+                transitions.put(transition);
+            }
+            previousOwner = owner;
+            previousRoute = route;
+        }
+
+        final WebView[] webView = new WebView[1];
+        runOnMainSync(new Runnable() {
+            @Override
+            public void run() {
+                webView[0] = findWebView(activity);
+            }
+        });
+        if (webView[0] == null) throw new AssertionError("Display ownership comparison could not find the primary WebView");
+        JSONObject probe = new JSONObject(evaluateJavascriptAndWait(webView[0], DISPLAY_OWNERSHIP_PROBE));
+        if (probe.optBoolean("probe_error", true)) {
+            throw new AssertionError("Display ownership WebView probe failed");
+        }
+        JSONObject viewport = probe.getJSONObject("viewport");
+        JSONObject safeViewport = new JSONObject();
+        String[] viewportKeys = {"innerWidth", "innerHeight", "screenWidth", "screenHeight", "devicePixelRatio"};
+        String[] sidecarViewportKeys = {"inner_width_css_px", "inner_height_css_px", "screen_width_css_px", "screen_height_css_px", "device_pixel_ratio"};
+        for (int index = 0; index < viewportKeys.length; index++) {
+            double value = boundedNumber(viewport, viewportKeys[index], -1);
+            if (value <= 0 || value > 10000) throw new AssertionError("Display ownership viewport metric is unavailable");
+            safeViewport.put(sidecarViewportKeys[index], value);
+        }
+
+        JSONObject device = displayOwnershipDeviceMetrics(activity);
+        int smallest = device.getInt("smallest_screen_width_dp");
+        if ("phone".equals(profile) && smallest >= 600) {
+            throw new AssertionError("Phone profile measured smallestScreenWidthDp >= 600");
+        }
+        if ("tablet".equals(profile) && smallest < 600) {
+            throw new AssertionError("Tablet profile measured smallestScreenWidthDp < 600");
+        }
+
+        JSONObject sidecar = new JSONObject();
+        sidecar.put("schema_version", 2);
+        sidecar.put("profile", profile);
+        sidecar.put("source_commit", sourceRef);
+        sidecar.put("run_id", runId);
+        sidecar.put("apk_sha256", apkSha256);
+        sidecar.put("authenticated_spotify_test", "not_performed");
+        sidecar.put("session_state", "unauthenticated");
+        sidecar.put("timeline_origin", "app_launch");
+        sidecar.put("device", device);
+        sidecar.put("webview_viewport", safeViewport);
+        sidecar.put("sf_config_gui_mode", probe.getString("guiMode"));
+        JSONObject bodyFlags = new JSONObject();
+        bodyFlags.put("melodix", probe.getBoolean("bodyMelodix"));
+        bodyFlags.put("mobile", probe.getBoolean("bodyMobile"));
+        sidecar.put("body_class_flags", bodyFlags);
+        sidecar.put("checkpoints", checkpoints);
+        sidecar.put("owner_transitions", transitions);
+
+        try (FileOutputStream output = getTargetContext().openFileOutput(DISPLAY_OWNERSHIP_REPORT_FILE, Context.MODE_PRIVATE)) {
+            output.write(sidecar.toString().getBytes("UTF-8"));
+        }
+        Bundle result = new Bundle();
+        result.putString("overall", "passed");
+        result.putString("profile", profile);
+        result.putBoolean("display_ownership_report_saved", true);
+        result.putBoolean("authenticated_home_test_performed", false);
+        sendStatus(1, result);
+        finish(Activity.RESULT_OK, result);
+    }
+
+    private JSONObject inspectDisplayOwnershipCheckpoint(Activity activity, long target, long launchStart) throws Exception {
+        View mainRootView = optionalView(activity, "main");
+        ViewGroup mainRoot = mainRootView instanceof ViewGroup ? (ViewGroup) mainRootView : null;
+        View hScroll = optionalView(activity, "hScrollView");
+        View nativeRoot = optionalView(activity, "nativeRoot");
+        View splash = optionalView(activity, "splashOverlay");
+        View webContainer = optionalView(activity, "webViewContainer");
+        View nativeHomeTab = optionalView(activity, "nativeHomeTab");
+        WebView webView = findWebView(activity);
+
+        Rect rootBounds = visibleBounds(nativeRoot);
+        Rect webBounds = visibleBounds(webContainer);
+        Rect dockBounds = visibleBounds(nativeHomeTab);
+        boolean rootVisible = rootBounds != null;
+        boolean webContainerVisible = isActuallyVisible(webContainer);
+        boolean splashHidden = splash == null || splash.getVisibility() == View.GONE;
+        int width = mainRoot == null ? 0 : mainRoot.getWidth();
+        int height = mainRoot == null ? 0 : mainRoot.getHeight();
+        int[] location = new int[2];
+        if (mainRoot != null) mainRoot.getLocationOnScreen(location);
+        int centerX = location[0] + width / 2;
+        int centerY = location[1] + height / 2;
+        boolean rootCoversCenter = rootBounds != null && rootBounds.contains(centerX, centerY);
+        boolean rootCoversDock = rootBounds != null
+                && nativeDockActuallyVisible(dockBounds, mainRoot, nativeRoot, hScroll, splash);
+        String frontmost = frontmostFullscreenSurface(hScroll, nativeRoot, splash, mainRoot, width, height);
+        // Which surface actually owns the centre of the display. Derived purely
+        // from the native view hierarchy, so it is measurable at 200 ms even when
+        // no WebView exists yet. This is what lets the launch checkpoint tell a
+        // normal splash transition apart from a WebView appropriation instead of
+        // demanding a fully verified native owner during boot.
+        boolean webCoversCenter = webBounds != null && webBounds.contains(centerX, centerY);
+        String centerSurface;
+        if ("native_root".equals(frontmost) && rootCoversCenter) {
+            centerSurface = "native_shell";
+        } else if ("splash_overlay".equals(frontmost)) {
+            centerSurface = "splash";
+        } else if ("hscroll".equals(frontmost) && webCoversCenter) {
+            centerSurface = "web";
+        } else {
+            centerSurface = "unknown";
+        }
+
+        boolean loginPath = false;
+        try {
+            Method pathProbe = activity.getClass().getMethod("isLoginWebPath");
+            loginPath = Boolean.TRUE.equals(pathProbe.invoke(activity));
+        } catch (Throwable ignored) {}
+        String route;
+        if (loginPath) {
+            route = "login";
+        } else {
+            String screen = safeNativeRoute(readStringField(activity, "nativeCurrentScreen"));
+            route = "home".equals(screen) || "search".equals(screen) || "library".equals(screen)
+                    || "detail".equals(screen) || "player".equals(screen) ? screen : "unknown";
+        }
+        String owner;
+        if ("native_root".equals(frontmost) && rootCoversCenter) {
+            owner = "native";
+        } else if ("hscroll".equals(frontmost)) {
+            owner = loginPath ? "login" : "web";
+        } else {
+            owner = "unknown";
+        }
+        boolean webViewMounted = webView != null && webContainer != null && webView.getParent() == webContainer;
+        boolean nativeVerified = "native".equals(owner) && rootVisible && rootCoversCenter && rootCoversDock && splashHidden
+                && webContainerVisible && webViewMounted && dockBounds != null;
+
+        JSONObject checkpoint = new JSONObject();
+        checkpoint.put("target_elapsed_ms", target);
+        checkpoint.put("observed_elapsed_ms", SystemClock.elapsedRealtime() - launchStart);
+        checkpoint.put("native_root_visible", rootVisible);
+        checkpoint.put("webview_container_visible", webContainerVisible);
+        checkpoint.put("native_root_bounds_px", jsonBounds(rootBounds));
+        checkpoint.put("webview_container_bounds_px", jsonBounds(webBounds));
+        checkpoint.put("display_owner", owner);
+        checkpoint.put("route_category", route);
+        checkpoint.put("native_owner_verified", nativeVerified);
+        checkpoint.put("webview_mounted_under_native_root", webViewMounted);
+        checkpoint.put("center_surface_owner", centerSurface);
+        checkpoint.put("splash_transient", "splash".equals(centerSurface));
+        return checkpoint;
+    }
+
+    // Adds the WebView-side answer to "did Spotify Web take the centre?".
+    // When the native hierarchy already proves the centre belongs to the native
+    // shell or to the splash, "not_observed" is a positive measurement and no DOM
+    // probe is needed. When the WebView owns the centre, the DOM must classify
+    // it; an unavailable classification stays "undetermined" and fails closed.
+    private void completeDisplayOwnershipWebCenter(JSONObject checkpoint, WebView webView,
+            long launchStart, long timeoutMillis) throws Exception {
+        String centerSurface = checkpoint.getString("center_surface_owner");
+        boolean loginRoute = "login".equals(checkpoint.getString("route_category"));
+        String category = "unavailable";
+        if ("web".equals(centerSurface) && webView != null) {
+            String raw = evaluateJavascriptWithDeadline(webView, DISPLAY_OWNERSHIP_PROBE, timeoutMillis);
+            category = displayOwnershipWebCenterCategory(raw, loginRoute);
+        }
+        String state;
+        if ("native_shell".equals(centerSurface) || "splash".equals(centerSurface)) {
+            state = "not_observed";
+        } else if ("web".equals(centerSurface)) {
+            if ("spotify_web".equals(category)) {
+                state = "observed";
+            } else if ("melodix_web".equals(category) || "login_web".equals(category)) {
+                state = "not_observed";
+            } else {
+                state = "undetermined";
+            }
+        } else {
+            state = "undetermined";
+        }
+        checkpoint.put("web_center_category", category);
+        checkpoint.put("web_center_takeover_state", state);
+        checkpoint.put("web_center_probe_elapsed_ms", SystemClock.elapsedRealtime() - launchStart);
+    }
+
+    private String displayOwnershipWebCenterCategory(String raw, boolean loginRoute) {
+        if (raw == null) return "unavailable";
+        try {
+            JSONObject probe = new JSONObject(raw);
+            if (probe.optBoolean("probe_error", true)) return "unavailable";
+            if (loginRoute) return "login_web";
+            String owner = probe.optString("centerOwner", "unavailable");
+            if ("melodix-home".equals(owner)) return "melodix_web";
+            if ("spotify-main".equals(owner) || "desktop-sidebar".equals(owner)
+                    || "now-playing-bar".equals(owner) || "spotify-global-navigation".equals(owner)
+                    || "fullscreen-player".equals(owner) || "mobile-navigation".equals(owner)) {
+                return "spotify_web";
+            }
+            return "other_web";
+        } catch (Throwable error) {
+            return "unavailable";
+        }
+    }
+
+    // Bounded variant of evaluateJavascriptAndWait: a WebView that is not ready
+    // yet must not block the launch-relative timeline, and a timeout must be
+    // reported as "no answer" rather than as a successful measurement.
+    private String evaluateJavascriptWithDeadline(final WebView webView, final String script, long timeoutMillis)
+            throws InterruptedException {
+        final CountDownLatch received = new CountDownLatch(1);
+        final String[] result = new String[1];
+        runOnMainSync(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    webView.evaluateJavascript(script, new ValueCallback<String>() {
+                        @Override
+                        public void onReceiveValue(String value) {
+                            result[0] = value;
+                            received.countDown();
+                        }
+                    });
+                } catch (Throwable ignored) {
+                    received.countDown();
+                }
+            }
+        });
+        if (!received.await(timeoutMillis, TimeUnit.MILLISECONDS)) return null;
+        return result[0];
+    }
+
+    private Object jsonBounds(Rect bounds) {
+        if (bounds == null) return JSONObject.NULL;
+        JSONArray array = new JSONArray();
+        array.put(bounds.left);
+        array.put(bounds.top);
+        array.put(bounds.right);
+        array.put(bounds.bottom);
+        return array;
+    }
+
+    private JSONObject displayOwnershipDeviceMetrics(Activity activity) throws Exception {
+        Configuration configuration = activity.getResources().getConfiguration();
+        DisplayMetrics appMetrics = activity.getResources().getDisplayMetrics();
+        DisplayMetrics physicalMetrics = new DisplayMetrics();
+        if (Build.VERSION.SDK_INT >= 17) {
+            Display display = activity.getWindowManager().getDefaultDisplay();
+            display.getRealMetrics(physicalMetrics);
+        } else {
+            physicalMetrics = appMetrics;
+        }
+        JSONObject device = new JSONObject();
+        device.put("physical_width_px", physicalMetrics.widthPixels);
+        device.put("physical_height_px", physicalMetrics.heightPixels);
+        device.put("density_dpi", appMetrics.densityDpi);
+        device.put("width_dp", configuration.screenWidthDp);
+        device.put("height_dp", configuration.screenHeightDp);
+        device.put("smallest_screen_width_dp", configuration.smallestScreenWidthDp);
+        device.put("orientation", configuration.orientation == Configuration.ORIENTATION_LANDSCAPE ? "landscape" : "portrait");
+        return device;
+    }
+
+    // Pure dock-visibility geometry, deliberately free of Android types so it can
+    // be compiled and executed on a plain JVM.
+    //
+    // Why this exists: getGlobalVisibleRect() clips a view to its ANCESTORS, never
+    // to its siblings. nativeHomeTab is a descendant of nativeRoot
+    // (main > nativeRoot > nativeTabBar > nativeHomeTab), so the previous
+    // rootBounds.contains(dockBounds) was true by construction whenever both rects
+    // existed. It proved the dock was laid out, not that the user could see it, and
+    // it could not fail when the WebView was drawn over the dock. The two checks
+    // that can actually fail are window containment and sibling occlusion.
+    //
+    // Bounds are {left, top, right, bottom} in screen coordinates.
+    static boolean dockUnoccluded(int[] dock, int[] window, float nativeZ, int nativeIndex,
+            float[] occluderZ, int[] occluderIndex, int[][] occluderBounds, boolean[] occluderShown) {
+        if (dock == null || window == null || dock.length != 4 || window.length != 4) return false;
+        int left = dock[0];
+        int top = dock[1];
+        int right = dock[2];
+        int bottom = dock[3];
+        if (right <= left || bottom <= top) return false;
+        if (left < window[0] || top < window[1] || right > window[2] || bottom > window[3]) return false;
+        int dockX = left + (right - left) / 2;
+        int dockY = top + (bottom - top) / 2;
+        if (occluderBounds == null) return true;
+        for (int index = 0; index < occluderBounds.length; index++) {
+            if (occluderShown == null || index >= occluderShown.length || !occluderShown[index]) continue;
+            int[] bounds = occluderBounds[index];
+            if (bounds == null || bounds.length != 4) continue;
+            int drawingIndex = occluderIndex == null || index >= occluderIndex.length
+                    ? -1 : occluderIndex[index];
+            if (drawingIndex < 0) continue;
+            float z = occluderZ == null || index >= occluderZ.length ? 0f : occluderZ[index];
+            boolean aboveNative = z > nativeZ || (z == nativeZ && drawingIndex > nativeIndex);
+            if (!aboveNative) continue;
+            if (dockX >= bounds[0] && dockX < bounds[2] && dockY >= bounds[1] && dockY < bounds[3]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Read-only adapter from the live view hierarchy to the pure geometry above.
+    // The only surfaces that can be drawn above the native shell are its siblings
+    // in main: hScrollView (which hosts webViewContainer) and splashOverlay. A
+    // child of hScrollView cannot escape its parent's draw order, so testing
+    // hScrollView is sufficient and has no false negatives.
+    private boolean nativeDockActuallyVisible(Rect dockBounds, ViewGroup mainRoot, View nativeRoot,
+            View hScroll, View splash) {
+        if (dockBounds == null || mainRoot == null || nativeRoot == null) return false;
+        int[] location = new int[2];
+        mainRoot.getLocationOnScreen(location);
+        int[] window = new int[] { location[0], location[1],
+                location[0] + mainRoot.getWidth(), location[1] + mainRoot.getHeight() };
+        int[] dock = new int[] { dockBounds.left, dockBounds.top, dockBounds.right, dockBounds.bottom };
+        View[] candidates = new View[] { hScroll, splash };
+        float[] zs = new float[candidates.length];
+        int[] indices = new int[candidates.length];
+        int[][] bounds = new int[candidates.length][];
+        boolean[] shown = new boolean[candidates.length];
+        for (int index = 0; index < candidates.length; index++) {
+            View candidate = candidates[index];
+            if (candidate == null || candidate == nativeRoot) continue;
+            shown[index] = isActuallyVisible(candidate) && candidate.getAlpha() > 0.01f;
+            zs[index] = candidate.getZ();
+            indices[index] = mainRoot.indexOfChild(candidate);
+            Rect rect = new Rect();
+            if (candidate.getGlobalVisibleRect(rect)) {
+                bounds[index] = new int[] { rect.left, rect.top, rect.right, rect.bottom };
+            }
+        }
+        return dockUnoccluded(dock, window, nativeRoot.getZ(), mainRoot.indexOfChild(nativeRoot),
+                zs, indices, bounds, shown);
     }
 
     private Rect visibleBounds(View view) {
