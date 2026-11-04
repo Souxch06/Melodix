@@ -247,7 +247,7 @@ Aucun appareil physique n'est accessible depuis cet environnement (`adb` absent,
 | Sauvegarde `/home/user/melodix-preservation-2026-11-04/` | 37 fichiers, 36 empreintes vérifiées, conservée |
 | Branche `main` | **81ef774 inchangée** |
 | Releases | dernière `v1.2.2-test.95-preview`, publiée 2026-11-01 — **aucune publication** |
-| Fichiers touchés par la mission 5 | **19**, tous workflows/scripts/tests/docs — **0 code production** |
+| Fichiers touchés par la mission 5 | **20** (dont ce rapport), tous workflows/scripts/tests/docs — **0 code production** |
 | Binaires du dépôt | `classes.dex`, `1.apk`, `SpotiDuck-…zip` **préexistants et identiques depuis 44902d9** |
 | Git | fast-forward uniquement ; aucun push forcé, aucun `reset --hard`, aucun `clean -fd`, aucune réécriture d'historique |
 | Mutations | exclusivement dans `/tmp` |
