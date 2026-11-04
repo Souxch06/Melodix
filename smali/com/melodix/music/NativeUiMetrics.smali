@@ -607,3 +607,227 @@
 
     return-void
 .end method
+
+.method public static statusPadH(Landroid/content/Context;)I
+    .locals 2
+
+    const-string v0, "mel_status_pad_h"
+
+    const/16 v1, 0x14
+
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+
+    move-result v0
+
+    return v0
+.end method
+
+.method public static statusPadV(Landroid/content/Context;)I
+    .locals 2
+
+    const-string v0, "mel_status_pad_v"
+
+    const/16 v1, 0x12
+
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+
+    move-result v0
+
+    return v0
+.end method
+
+.method public static statusMarginV(Landroid/content/Context;)I
+    .locals 2
+
+    const-string v0, "mel_status_margin_v"
+
+    const/16 v1, 0x10
+
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+
+    move-result v0
+
+    return v0
+.end method
+
+.method public static statusIcon(Landroid/content/Context;)I
+    .locals 2
+
+    const-string v0, "mel_status_icon"
+
+    const/16 v1, 0x2c
+
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+
+    move-result v0
+
+    return v0
+.end method
+
+.method public static statusIconPad(Landroid/content/Context;)I
+    .locals 2
+
+    const-string v0, "mel_status_icon_pad"
+
+    const/16 v1, 0xa
+
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+
+    move-result v0
+
+    return v0
+.end method
+
+.method public static statusIconGap(Landroid/content/Context;)I
+    .locals 2
+
+    const-string v0, "mel_status_icon_gap"
+
+    const/16 v1, 0xc
+
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+
+    move-result v0
+
+    return v0
+.end method
+
+.method public static statusLabelGap(Landroid/content/Context;)I
+    .locals 2
+
+    const-string v0, "mel_status_label_gap"
+
+    const/4 v1, 0x4
+
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+
+    move-result v0
+
+    return v0
+.end method
+
+.method public static statusSublabelGap(Landroid/content/Context;)I
+    .locals 2
+
+    const-string v0, "mel_status_sublabel_gap"
+
+    const/16 v1, 0xe
+
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+
+    move-result v0
+
+    return v0
+.end method
+
+.method public static statusActionHeight(Landroid/content/Context;)I
+    .locals 2
+
+    const-string v0, "mel_status_action_height"
+
+    const/16 v1, 0x30
+
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+
+    move-result v0
+
+    return v0
+.end method
+
+.method public static statusActionPadH(Landroid/content/Context;)I
+    .locals 2
+
+    const-string v0, "mel_status_action_pad_h"
+
+    const/16 v1, 0xc
+
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+
+    move-result v0
+
+    return v0
+.end method
+
+.method public static statusActionPadV(Landroid/content/Context;)I
+    .locals 2
+
+    const-string v0, "mel_status_action_pad_v"
+
+    const/16 v1, 0xa
+
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+
+    move-result v0
+
+    return v0
+.end method
+
+.method public static statusActionGap(Landroid/content/Context;)I
+    .locals 2
+
+    const-string v0, "mel_status_action_gap"
+
+    const/16 v1, 0x8
+
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+
+    move-result v0
+
+    return v0
+.end method
+
+.method public static statusActionsGap(Landroid/content/Context;)I
+    .locals 2
+
+    const-string v0, "mel_status_actions_gap"
+
+    const/16 v1, 0x10
+
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+
+    move-result v0
+
+    return v0
+.end method
+
+.method public static quickArt(Landroid/content/Context;)I
+    .locals 2
+
+    const-string v0, "mel_quick_art"
+
+    const/16 v1, 0x38
+
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+
+    move-result v0
+
+    return v0
+.end method
+
+.method public static quickRadius(Landroid/content/Context;)I
+    .locals 2
+
+    const-string v0, "mel_quick_radius"
+
+    const/16 v1, 0x8
+
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+
+    move-result v0
+
+    return v0
+.end method
+
+.method public static quickGap(Landroid/content/Context;)I
+    .locals 2
+
+    const-string v0, "mel_quick_gap"
+
+    const/16 v1, 0x8
+
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+
+    move-result v0
+
+    return v0
+.end method

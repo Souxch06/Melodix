@@ -613,11 +613,9 @@
     move-result-object v4
     invoke-virtual {v3, v4}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
 
-    const/16 v4, 0x14
-    invoke-static {p0, v4}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->statusPadH(Landroid/content/Context;)I
     move-result v4
-    const/16 v5, 0x12
-    invoke-static {p0, v5}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->statusPadV(Landroid/content/Context;)I
     move-result v5
     invoke-virtual {v3, v4, v5, v4, v5}, Landroid/view/View;->setPadding(IIII)V
 
@@ -628,8 +626,7 @@
     invoke-direct {v5, v4, v6}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
     const/4 v6, 0x1
     iput v6, v5, Landroid/widget/LinearLayout$LayoutParams;->gravity:I
-    const/16 v6, 0x10
-    invoke-static {p0, v6}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->statusMarginV(Landroid/content/Context;)I
     move-result v6
     iput v6, v5, Landroid/view/ViewGroup$MarginLayoutParams;->topMargin:I
     iput v6, v5, Landroid/view/ViewGroup$MarginLayoutParams;->bottomMargin:I
@@ -644,13 +641,11 @@
     invoke-virtual {v5, v6}, Landroid/widget/LinearLayout;->setGravity(I)V
     invoke-static {p0}, Lcom/melodix/music/NativeHomeShelfRenderer;->createHomeStatusIcon(Landroid/content/Context;)Landroid/widget/ImageView;
     move-result-object v6
-    const/16 v7, 0x2c
-    invoke-static {p0, v7}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->statusIcon(Landroid/content/Context;)I
     move-result v7
     new-instance v8, Landroid/widget/LinearLayout$LayoutParams;
     invoke-direct {v8, v7, v7}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-    const/16 v7, 0xc
-    invoke-static {p0, v7}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->statusIconGap(Landroid/content/Context;)I
     move-result v7
     iput v7, v8, Landroid/view/ViewGroup$MarginLayoutParams;->rightMargin:I
     invoke-virtual {v5, v6, v8}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
@@ -682,8 +677,7 @@
     const/4 v8, -0x1
     const/4 v9, -0x2
     invoke-direct {v7, v8, v9}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-    const/4 v8, 0x4
-    invoke-static {p0, v8}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->statusLabelGap(Landroid/content/Context;)I
     move-result v8
     iput v8, v7, Landroid/view/ViewGroup$MarginLayoutParams;->topMargin:I
     invoke-virtual {v4, v6, v7}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
@@ -710,8 +704,7 @@
     const/4 v8, -0x1
     const/4 v9, -0x2
     invoke-direct {v7, v8, v9}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-    const/16 v8, 0xe
-    invoke-static {p0, v8}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->statusSublabelGap(Landroid/content/Context;)I
     move-result v8
     iput v8, v7, Landroid/view/ViewGroup$MarginLayoutParams;->topMargin:I
     invoke-virtual {v3, v6, v7}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
@@ -779,8 +772,7 @@
     sget v2, Lcom/melodix/music/MelColors;->glow:I
     invoke-virtual {v1, v2}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
     invoke-virtual {v0, v1}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
-    const/16 v2, 0xa
-    invoke-static {p0, v2}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->statusIconPad(Landroid/content/Context;)I
     move-result v2
     invoke-virtual {v0, v2, v2, v2, v2}, Landroid/view/View;->setPadding(IIII)V
     const-string v2, "native_cover_placeholder"
@@ -837,8 +829,7 @@
     if-eqz v2, :home_status_no_actions
 
     const/4 v4, 0x0
-    const/16 v5, 0x30
-    invoke-static {p0, v5}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->statusActionHeight(Landroid/content/Context;)I
     move-result v5
     const/high16 v6, 0x3f800000
     new-instance v7, Landroid/widget/LinearLayout$LayoutParams;
@@ -847,8 +838,7 @@
     invoke-virtual {p3}, Ljava/lang/String;->isEmpty()Z
     move-result v8
     if-nez v8, :home_status_add_primary
-    const/16 v8, 0x8
-    invoke-static {p0, v8}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->statusActionGap(Landroid/content/Context;)I
     move-result v8
     iput v8, v7, Landroid/view/ViewGroup$MarginLayoutParams;->rightMargin:I
 
@@ -867,8 +857,7 @@
     move-result-object v3
     if-eqz v3, :home_status_action_row_attach
     const/4 v4, 0x0
-    const/16 v5, 0x30
-    invoke-static {p0, v5}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->statusActionHeight(Landroid/content/Context;)I
     move-result v5
     const/high16 v6, 0x3f800000
     new-instance v7, Landroid/widget/LinearLayout$LayoutParams;
@@ -880,8 +869,7 @@
     const/4 v4, -0x1
     const/4 v5, -0x2
     invoke-direct {v9, v4, v5}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-    const/16 v4, 0x10
-    invoke-static {p0, v4}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->statusActionsGap(Landroid/content/Context;)I
     move-result v4
     iput v4, v9, Landroid/view/ViewGroup$MarginLayoutParams;->topMargin:I
     invoke-virtual {p1, v0, v9}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
@@ -945,15 +933,12 @@
     invoke-virtual {v0, v3}, Landroid/widget/TextView;->setMaxLines(I)V
     sget-object v3, Landroid/text/TextUtils$TruncateAt;->END:Landroid/text/TextUtils$TruncateAt;
     invoke-virtual {v0, v3}, Landroid/widget/TextView;->setEllipsize(Landroid/text/TextUtils$TruncateAt;)V
-    const/16 v3, 0x30
-    invoke-static {p0, v3}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->statusActionHeight(Landroid/content/Context;)I
     move-result v3
     invoke-virtual {v0, v3}, Landroid/widget/TextView;->setMinimumHeight(I)V
-    const/16 v3, 0xc
-    invoke-static {p0, v3}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->statusActionPadH(Landroid/content/Context;)I
     move-result v3
-    const/16 v4, 0xa
-    invoke-static {p0, v4}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->statusActionPadV(Landroid/content/Context;)I
     move-result v4
     invoke-virtual {v0, v3, v4, v3, v4}, Landroid/view/View;->setPadding(IIII)V
     invoke-static {p0, v0, v2}, Lcom/melodix/music/NativeUiRowFactory;->applyDrawableBackground(Landroid/content/Context;Landroid/view/View;Ljava/lang/String;)V
@@ -1076,10 +1061,7 @@
 
     new-instance v5, Landroid/widget/LinearLayout$LayoutParams;
 
-    const/16 v6, 0x38
-
-    invoke-static {p0, v6}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
-
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->quickArt(Landroid/content/Context;)I
     move-result v6
 
     invoke-direct {v5, v6, v6}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
@@ -1129,10 +1111,7 @@
 
     invoke-virtual {v5, v6}, Landroid/widget/TextView;->setEllipsize(Landroid/text/TextUtils$TruncateAt;)V
 
-    const/16 v6, 0x8
-
-    invoke-static {p0, v6}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
-
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->quickRadius(Landroid/content/Context;)I
     move-result v6
 
     const/4 v7, 0x0
@@ -1205,10 +1184,7 @@
 
     invoke-direct {v3, v4, v5}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
 
-    const/16 v4, 0x8
-
-    invoke-static {p0, v4}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
-
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->quickGap(Landroid/content/Context;)I
     move-result v4
 
     iput v4, v3, Landroid/view/ViewGroup$MarginLayoutParams;->bottomMargin:I
@@ -1216,10 +1192,7 @@
     invoke-virtual {v2, v3}, Landroid/view/View;->setLayoutParams(Landroid/view/ViewGroup$LayoutParams;)V
 
     # Same 16 dp side gutters as the editorial shelves.
-    const/16 v3, 0x10
-
-    invoke-static {p0, v3}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
-
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->gutter(Landroid/content/Context;)I
     move-result v3
 
     const/4 v4, 0x0
@@ -1257,10 +1230,7 @@
 
     if-nez v3, :quick_grid_tile_add
 
-    const/16 v4, 0x8
-
-    invoke-static {p0, v4}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
-
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->quickGap(Landroid/content/Context;)I
     move-result v4
 
     iput v4, v6, Landroid/view/ViewGroup$MarginLayoutParams;->rightMargin:I

@@ -89,6 +89,24 @@
     <dimen name="mel_banner_action_pad_v">14.0dip</dimen>
     <dimen name="mel_banner_action_gap">20.0dip</dimen>
 
+    <!-- ===== home status card (connection / loading) and quick tiles ===== -->
+    <dimen name="mel_status_pad_h">28.0dip</dimen>
+    <dimen name="mel_status_pad_v">24.0dip</dimen>
+    <dimen name="mel_status_margin_v">20.0dip</dimen>
+    <dimen name="mel_status_icon">52.0dip</dimen>
+    <dimen name="mel_status_icon_pad">12.0dip</dimen>
+    <dimen name="mel_status_icon_gap">16.0dip</dimen>
+    <dimen name="mel_status_label_gap">6.0dip</dimen>
+    <dimen name="mel_status_sublabel_gap">18.0dip</dimen>
+    <dimen name="mel_status_action_height">54.0dip</dimen>
+    <dimen name="mel_status_action_pad_h">16.0dip</dimen>
+    <dimen name="mel_status_action_pad_v">12.0dip</dimen>
+    <dimen name="mel_status_action_gap">10.0dip</dimen>
+    <dimen name="mel_status_actions_gap">20.0dip</dimen>
+    <dimen name="mel_quick_art">72.0dip</dimen>
+    <dimen name="mel_quick_radius">10.0dip</dimen>
+    <dimen name="mel_quick_gap">12.0dip</dimen>
+
     <!-- ===== full player ===== -->
     <dimen name="mel_player_pad_top">18.0dip</dimen>
     <dimen name="mel_player_pad_bottom">28.0dip</dimen>

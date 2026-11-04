@@ -197,6 +197,15 @@ test('the renderers resolve their metrics instead of hardcoding them again', () 
       `the collection banner must resolve ${acc}`);
   }
 
+  // Home status card (connection / loading) and quick tiles.
+  for (const acc of ['statusPadH', 'statusPadV', 'statusMarginV', 'statusIcon', 'statusIconPad',
+    'statusIconGap', 'statusLabelGap', 'statusSublabelGap', 'statusActionHeight',
+    'statusActionPadH', 'statusActionPadV', 'statusActionGap', 'statusActionsGap',
+    'quickArt', 'quickRadius', 'quickGap']) {
+    assert.ok(shelf.includes(`NativeUiMetrics;->${acc}(Landroid/content/Context;)I`),
+      `the home status renderer must resolve ${acc}`);
+  }
+
   // Settings and profile.
   const settings = read('smali/com/melodix/music/NativeSettingsRowFactory.smali');
   for (const acc of ['settingsPadH', 'settingsPadV', 'settingsStroke', 'settingsRowHeight',
@@ -217,7 +226,7 @@ test('no tokenised renderer keeps a raw dp conversion for a tokenised role', () 
   // metrics remain - but the tokenised roles above must not silently regress to
   // a literal. Guard the count so a revert has to be deliberate.
   const counts = {
-    'smali/com/melodix/music/NativeHomeShelfRenderer.smali': 28,
+    'smali/com/melodix/music/NativeHomeShelfRenderer.smali': 8,
     'smali/com/melodix/music/NativeUiRowFactory.smali': 3,
     'smali/com/melodix/music/NativeSettingsRowFactory.smali': 0,
   };
