@@ -243,4 +243,29 @@ PY
 
 emulator_alive || die "the recorded emulator process died after instrumentation"
 mv "$tmp/sidecar.json" "$state_dir/display-ownership-$profile.json"
+
+# One consolidated notice describing the web configuration actually measured.
+# Read from the already-validated sidecar, so it can only contain bounded
+# numbers and closed-vocabulary tokens. This is what makes the phone/tablet
+# comparison possible: MainActivity forces the WebView width to 1600 px above
+# 600 dp and leaves it MATCH_PARENT below, so the two profiles can be served
+# different responsive layouts by the same APK.
+python3 - "$state_dir/display-ownership-$profile.json" "$profile" <<'WEBCFG' || true
+import json
+import pathlib
+import sys
+
+report = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+v = report.get("webview_viewport", {})
+b = report.get("body_class_flags", {})
+print(
+    f"::notice title=P0 display web config::{sys.argv[2]}"
+    f" inner_css={v.get('inner_width_css_px')}x{v.get('inner_height_css_px')}"
+    f" screen_css={v.get('screen_width_css_px')}x{v.get('screen_height_css_px')}"
+    f" dpr={v.get('device_pixel_ratio')}"
+    f" gui_mode={report.get('sf_config_gui_mode')}"
+    f" body_melodix={b.get('melodix')} body_mobile={b.get('mobile')}"
+)
+WEBCFG
+
 echo "::notice title=P0 display profile captured::profile=$profile; source=$source_ref; run_id=$run_id; apk_sha256=$apk_sha256; emulator_pid=$emulator_pid; emulator_alive_before_during_after=true; instrument_budget_s=$instrument_budget; raw_ui_or_account_data_retained=false"

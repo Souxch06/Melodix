@@ -1598,3 +1598,30 @@ test('an unresumed launch checkpoint is recorded honestly and still fails the ag
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });
+
+// GitHub keeps only ten annotations per step. Run 41903375677 proved the limit
+// by silently dropping the startup attribution and checkpoints. The display
+// publisher must stay inside that budget and must expose the web configuration
+// that makes the phone/tablet comparison meaningful.
+test('the display publisher stays inside the annotation budget and exposes the measured web configuration', () => {
+  const runner = read('scripts/p0_display_run_profile.sh');
+  const publisher = runner.slice(runner.indexOf('report_measurements() {'), runner.indexOf('report_failure() {'));
+  // One notice per checkpoint, measured or not: five at runtime.
+  const loopNotices = publisher.match(/::notice title=/g) || [];
+  assert.equal(loopNotices.length, 2, 'the measurement loop has a measured and a not_measured branch');
+  assert.match(publisher, /for label in \("200ms", "1s", "3s", "8s", "20s"\)/);
+
+  const staticNotices = (runner.match(/::notice title=/g) || []).length - loopNotices.length;
+  // 5 loop notices + the static ones must stay strictly under the GitHub cap.
+  assert.ok(5 + staticNotices < 10,
+    `the display step would emit ${5 + staticNotices} notices and lose data at the GitHub cap of 10`);
+
+  assert.match(runner, /::notice title=P0 display web config::/);
+  assert.match(runner, /inner_css=/);
+  assert.match(runner, /gui_mode=/);
+  assert.match(runner, /body_mobile=/);
+  // The notice is derived from the validated sidecar, never from raw output.
+  const webCfg = runner.slice(runner.indexOf("<<'WEBCFG'"), runner.indexOf('\nWEBCFG\n'));
+  assert.match(webCfg, /json\.loads\(pathlib\.Path\(sys\.argv\[1\]\)\.read_text/);
+  assert.doesNotMatch(webCfg, /adb|logcat|INSTRUMENTATION/);
+});

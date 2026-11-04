@@ -170,7 +170,10 @@ test('the launch-relative checkpoint rule is executed and never re-bases the tim
 
   // The harness must use the executed rule, not a private inline deadline.
   assert.match(comparison, /displayOwnershipActivityWaitBudget\(launchStart, target,/);
-  assert.match(source, /DISPLAY_OWNERSHIP_ACTIVITY_WAIT_TOLERANCE_MS = 1200L;/);
+  assert.match(source, /DISPLAY_OWNERSHIP_ACTIVITY_WAIT_TOLERANCE_MS = 1000L;/);
+  // The wait must never request a sleep longer than the remaining budget, so a
+  // loaded emulator cannot push the recorded observation out of its window.
+  assert.match(comparison, /long left = activityDeadline - SystemClock\.elapsedRealtime\(\);\s*\n\s*if \(left <= 0L\) break;\s*\n\s*Thread\.sleep\(Math\.min\(20L, left\)\);/);
 
   // Run 41887640414 measured the consequence of an unbounded sample: the
   // activity had not resumed at 1406 ms / 2203 ms and the 3 s checkpoint failed

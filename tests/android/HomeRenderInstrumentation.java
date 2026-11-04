@@ -144,7 +144,12 @@ public final class HomeRenderInstrumentation extends Instrumentation {
     // Bounded DOM classification budget. The launch checkpoint gets a shorter
     // budget so a not-yet-ready WebView cannot push the 200 ms sample out of its
     // launch-relative window; a timeout yields "unavailable", never "no takeover".
-    private static final long DISPLAY_OWNERSHIP_ACTIVITY_WAIT_TOLERANCE_MS = 1200L;
+    // 1000 ms of waiting leaves 500 ms of scheduling slack under the documented
+    // 1500 ms observation tolerance. Run 41904677419 lost a tablet sidecar
+    // because a 20 ms sleep overshot under emulator load and the recorded
+    // observation fell outside the window. The margin is scheduling headroom,
+    // never a licence to move a deadline or invent a timestamp.
+    private static final long DISPLAY_OWNERSHIP_ACTIVITY_WAIT_TOLERANCE_MS = 1000L;
     private static final long DISPLAY_OWNERSHIP_LAUNCH_PROBE_TIMEOUT_MS = 400L;
     private static final long DISPLAY_OWNERSHIP_PROBE_TIMEOUT_MS = 1200L;
     private Application observedApplication;
@@ -6414,7 +6419,9 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             if (waitBudget < 0L) throw new AssertionError("Display ownership activity wait tolerance is out of contract");
             long activityDeadline = SystemClock.elapsedRealtime() + waitBudget;
             while (resumed == null && SystemClock.elapsedRealtime() < activityDeadline) {
-                Thread.sleep(20L);
+                long left = activityDeadline - SystemClock.elapsedRealtime();
+                if (left <= 0L) break;
+                Thread.sleep(Math.min(20L, left));
                 resumed = resumedActivityOr(null);
             }
             if (resumed == null) {
@@ -6950,7 +6957,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
     private static final long STARTUP_SETTLED_SAMPLE_INTERVAL_MS = 250L;
     private static final int STARTUP_MAX_ONCREATE_SAMPLES = 120;
     private static final long STARTUP_TOTAL_MS = 20000L;
-    private static final long STARTUP_WINDOW_TOLERANCE_MS = 1200L;
+    private static final long STARTUP_WINDOW_TOLERANCE_MS = 1000L;
 
     private final java.util.LinkedHashMap<String, Long> startupEvents = new java.util.LinkedHashMap<String, Long>();
     private final java.util.LinkedHashMap<String, Integer> startupBuckets = new java.util.LinkedHashMap<String, Integer>();
@@ -7333,7 +7340,9 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                         SystemClock.elapsedRealtime(), STARTUP_WINDOW_TOLERANCE_MS);
                 long activityDeadline = SystemClock.elapsedRealtime() + Math.max(0L, budget);
                 while (resumed == null && SystemClock.elapsedRealtime() < activityDeadline) {
-                    Thread.sleep(20L);
+                    long left = activityDeadline - SystemClock.elapsedRealtime();
+                    if (left <= 0L) break;
+                    Thread.sleep(Math.min(20L, left));
                     resumed = resumedActivityOr(null);
                 }
 
