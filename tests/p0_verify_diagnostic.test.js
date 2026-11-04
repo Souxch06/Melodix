@@ -260,6 +260,50 @@ test('AndroidRuntime capture ignores unrelated processes and suppresses secret-l
     assert.doesNotMatch(JSON.stringify(report), /authorization/i);
 });
 
+test('AndroidRuntime capture fails closed with a privacy-safe report if parsing raises', () => {
+    // The runner must never crash on an unexpected verifier message: the
+    // --androidruntime-stdin path wraps parsing and falls back to a detection-
+    // only report. Guard the wiring statically, then exercise the fallback.
+    const source = fs.readFileSync(SCRIPT, 'utf8');
+    assert.match(source, /except Exception as exc:[\s\S]*?sanitize_verify_diagnostic_parse_error=\{type\(exc\)\.__name__\}[\s\S]*?_fail_closed_early_report\(/);
+
+    const raw = [
+        'FATAL EXCEPTION: main',
+        'Process: com.melodix.music.preview, PID: 4321',
+        'java.lang.VerifyError: Verifier rejected class Lcom/melodix/music/MainActivity; register v3 has type String but expected StringBuilder'
+    ].join(String.fromCharCode(10));
+    const script = [
+        'import importlib.util, json, sys',
+        `spec = importlib.util.spec_from_file_location('svd', ${JSON.stringify(SCRIPT)})`,
+        'm = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)',
+        `rep = m._fail_closed_early_report(logcat=${JSON.stringify(raw)}, run_id=${JSON.stringify(RUN_ID)}, source_ref=${JSON.stringify(SOURCE_REF)})`,
+        'print(json.dumps(rep))'
+    ].join('\n');
+    const result = spawnSync('python3', ['-c', script], { cwd: ROOT, encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.verify_error_detected, true);
+    assert.equal(report.androidruntime_verify_error_seen, true);
+    assert.equal(report.failure_kind, 'unparsed-verify-error');
+    assert.equal(report.message_status, 'message-present-unparsed-omitted');
+    // No free-form verifier text, class, method, register, or type leaks.
+    assert.equal(report.target_class, null);
+    assert.equal(report.target_method, null);
+    assert.equal(report.register, null);
+    assert.equal(report.technical_message, null);
+    assert.deepEqual(report.method_references, []);
+    assert.doesNotMatch(JSON.stringify(report), /Verifier rejected|StringBuilder|MainActivity/);
+
+    // The same fallback with no VerifyError present must report a clean launch.
+    const cleanScript = script.replace(JSON.stringify(raw), JSON.stringify('FATAL EXCEPTION: main\nProcess: com.other.player, PID: 7\njava.lang.VerifyError: unrelated'));
+    const cleanResult = spawnSync('python3', ['-c', cleanScript], { cwd: ROOT, encoding: 'utf8' });
+    assert.equal(cleanResult.status, 0, cleanResult.stderr);
+    const cleanReport = JSON.parse(cleanResult.stdout);
+    assert.equal(cleanReport.verify_error_detected, false);
+    assert.equal(cleanReport.failure_kind, 'none');
+    assert.equal(cleanReport.message_status, 'not-applicable');
+});
+
 test('early runner capture supplements legacy app prefs but does not claim app nonce correlation', () => {
     const raw = [
         'FATAL EXCEPTION: main',

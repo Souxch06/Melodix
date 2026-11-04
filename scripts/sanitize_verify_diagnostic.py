@@ -569,6 +569,42 @@ def _early_androidruntime_report(
     return empty
 
 
+def _fail_closed_early_report(
+    *,
+    logcat: str,
+    run_id: str,
+    source_ref: str,
+) -> dict[str, Any]:
+    """Fallback when a verifier finding cannot be parsed into allowlisted fields.
+
+    Keeps only the detection boolean and a generic failure kind. No raw text,
+    class, method, type, register, or message detail is retained, so the report
+    stays privacy-safe even when parsing raised unexpectedly.
+    """
+    message = _androidruntime_verify_message(logcat)
+    seen = message is not None
+    valid_run = bool(SAFE_RUN_RE.fullmatch(run_id.lower()))
+    valid_source = bool(SAFE_SOURCE_REF_RE.fullmatch(source_ref.lower()))
+    return {
+        "schema_version": 1,
+        "source_commit": source_ref.lower() if valid_source else "invalid-source-ref",
+        "run_id": run_id.lower() if valid_run else "invalid-run-id",
+        "androidruntime_verify_error_seen": seen,
+        "verify_error_detected": seen,
+        "target_class": None,
+        "target_method": None,
+        "target_method_signature": None,
+        "method_references": [],
+        "instruction_offset": None,
+        "failure_kind": "unparsed-verify-error" if seen else "none",
+        "register": None,
+        "actual_type": None,
+        "expected_type": None,
+        "technical_message": None,
+        "message_status": "message-present-unparsed-omitted" if seen else "not-applicable",
+    }
+
+
 def _valid_early_androidruntime_report(
     value: Any,
     *,
@@ -720,12 +756,25 @@ def main() -> int:
     if args.androidruntime_stdin:
         if args.output is None:
             parser.error("--output is required with --androidruntime-stdin")
-        early = _early_androidruntime_report(
-            logcat=sys.stdin.read(),
-            run_id=args.run_id,
-            source_ref=args.source_ref,
-            source_root=args.source_root,
-        )
+        logcat_input = sys.stdin.read()
+        try:
+            early = _early_androidruntime_report(
+                logcat=logcat_input,
+                run_id=args.run_id,
+                source_ref=args.source_ref,
+                source_root=args.source_root,
+            )
+        except Exception as exc:  # noqa: BLE001 - fail closed on any parse error
+            # A verifier finding may be present but could not be parsed into
+            # allowlisted fields. Report only the exception class for runner
+            # diagnostics (never the raw message or any sensitive content) and
+            # keep a privacy-safe detection report instead of crashing.
+            print(f"sanitize_verify_diagnostic_parse_error={type(exc).__name__}", file=sys.stderr)
+            early = _fail_closed_early_report(
+                logcat=logcat_input,
+                run_id=args.run_id,
+                source_ref=args.source_ref,
+            )
         encoded = json.dumps(early, ensure_ascii=True, sort_keys=True, indent=2) + "\n"
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(encoded, encoding="utf-8")
