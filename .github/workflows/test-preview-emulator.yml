@@ -533,7 +533,7 @@ jobs:
           capture_androidruntime_verify() {
             # Raw AndroidRuntime lines flow directly from adb into the sanitizer;
             # only its allowlisted JSON sidecar and safe scalar summary persist.
-            adb logcat -d -t 2000 -b main -b crash -v message -s AndroidRuntime:E 2>/dev/null \
+            adb logcat -d -t 2000 -b main -b crash -v brief -s AndroidRuntime:E 2>/dev/null \
               | python3 scripts/sanitize_verify_diagnostic.py \
                   --androidruntime-stdin \
                   --run-id "$verify_run_id" \
@@ -3171,7 +3171,7 @@ jobs:
             # where AndroidRuntime also logs the FATAL EXCEPTION.
             for attempt in 1 2 3; do
               logcat_status=0
-              logcat_data="$(adb logcat -d -t 2000 -b main -b crash -v message -s AndroidRuntime:E 2>"$state_dir/logcat-stderr-$phase")" || logcat_status=$?
+              logcat_data="$(adb logcat -d -t 2000 -b main -b crash -v brief -s AndroidRuntime:E 2>"$state_dir/logcat-stderr-$phase")" || logcat_status=$?
               if (( logcat_status == 0 )) || [[ -n "$logcat_data" ]]; then
                 break
               fi
@@ -3180,7 +3180,7 @@ jobs:
             if (( logcat_status != 0 )) && [[ -z "$logcat_data" ]]; then
               buffer_mode="main-only"
               logcat_status=0
-              logcat_data="$(adb logcat -d -t 2000 -b main -v message -s AndroidRuntime:E 2>"$state_dir/logcat-stderr-$phase")" || logcat_status=$?
+              logcat_data="$(adb logcat -d -t 2000 -b main -v brief -s AndroidRuntime:E 2>"$state_dir/logcat-stderr-$phase")" || logcat_status=$?
             fi
             stderr_head="$(head -c 160 "$state_dir/logcat-stderr-$phase" 2>/dev/null | tr -cd 'A-Za-z0-9 _:.=/-' || true)"
             rm -f "$state_dir/logcat-stderr-$phase"

@@ -1032,8 +1032,13 @@ test("AndroidRuntime VerifyError snapshots are redacted immediately and the hist
     "utf8",
   );
   assert.match(emulatorWorkflow, /replay_original_launch_path:[\s\S]*?type: boolean[\s\S]*?default: false/);
-  assert.match(emulatorWorkflow, /adb logcat -d -t 2000 -b main -b crash -v message -s AndroidRuntime:E[\s\S]*?\| python3 scripts\/sanitize_verify_diagnostic\.py[\s\S]*?--androidruntime-stdin/,
+  assert.match(emulatorWorkflow, /adb logcat -d -t 2000 -b main -b crash -v brief -s AndroidRuntime:E[\s\S]*?\| python3 scripts\/sanitize_verify_diagnostic\.py[\s\S]*?--androidruntime-stdin/,
     "raw AndroidRuntime output must flow directly into the sanitizer, never into a file or workflow annotation");
+  // Regression: `-v message` is not a valid Android logcat format; Android 16
+  // rejects it ("logcat: Invalid -v message.") and the capture reads nothing.
+  // The sanitizer parses the brief format, so every AndroidRuntime read must
+  // use `-v brief` (or another real format), never `-v message`.
+  assert.doesNotMatch(emulatorWorkflow, /-v message\b/);
   const stepStart = emulatorWorkflow.indexOf("name: Install and launch the verified Preview APK");
   const launchAt = emulatorWorkflow.indexOf("adb shell am start -W -n com.melodix.music.preview/com.melodix.music.MainActivity >/dev/null || launch_status=$?", stepStart);
   const immediateCaptureAt = emulatorWorkflow.indexOf("capture_androidruntime_verify" + String.fromCharCode(10) + "          if (( launch_status != 0 ))", launchAt);
