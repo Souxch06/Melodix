@@ -167,26 +167,32 @@ import sys
 safe = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
 s = safe.get("statuses", {})
 p = sys.argv[2]
-def show(label, key):
-    print(f"::notice title=P0 startup timing::{p} {label}={s.get(key, 'not_measured')}")
-show("oncreate_ms", "st_oncreate")
-show("launch_to_created_ms", "st_created")
-show("launch_to_resumed_ms", "st_resumed")
-show("launch_to_first_draw_ms", "st_draw")
-show("launch_to_native_visible_ms", "st_native")
-show("view_count", "st_views")
-show("sampler_suspend_ms", "st_sampler_ms")
-show("sample_count", "st_samples")
-show("login_form", "st_form")
-print(f"::notice title=P0 startup attribution::{p} oncreate_samples={s.get('st_oncreate_top', 'not_measured')}")
-print(f"::notice title=P0 startup attribution::{p} all_samples={s.get('st_all_top', 'not_measured')}")
+
+# GitHub keeps only ten annotations per step. Emitting one notice per metric
+# silently truncated the attribution and the checkpoints in run 41903375677, so
+# the whole measurement is consolidated into three lines instead.
+timing = "; ".join(
+    f"{label}={s.get(key, 'not_measured')}"
+    for label, key in (
+        ("oncreate_ms", "st_oncreate"), ("created_ms", "st_created"),
+        ("resumed_ms", "st_resumed"), ("first_draw_ms", "st_draw"),
+        ("native_visible_ms", "st_native"), ("views", "st_views"),
+        ("login_form", "st_form"), ("sampler_suspend_ms", "st_sampler_ms"),
+        ("samples", "st_samples"),
+    )
+)
+print(f"::notice title=P0 startup timing::{p} {timing}")
+print(f"::notice title=P0 startup attribution::{p} oncreate={s.get('st_oncreate_top', 'not_measured')}"
+      f" all={s.get('st_all_top', 'not_measured')}")
+parts = []
 for label in ("200ms", "1s", "3s", "8s", "20s"):
     value = s.get("st_" + label)
     if value is None:
-        print(f"::notice title=P0 startup checkpoint::{p} {label}=not_measured")
+        parts.append(f"{label}=not_measured")
         continue
     owner, center, reason, observed = value.split(";")
-    print(f"::notice title=P0 startup checkpoint::{p} {label} owner={owner}; center={center}; reason={reason}; observed_ms={observed}")
+    parts.append(f"{label}={owner}/{center}/{reason}/{observed}ms")
+print(f"::notice title=P0 startup checkpoints::{p} " + "; ".join(parts))
 MEAS
 }
 

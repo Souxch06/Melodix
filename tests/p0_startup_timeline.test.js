@@ -420,6 +420,17 @@ test('the workflow really executes the suite on a JDK and captures both startup 
   // The startup capture must not weaken the validated ownership capture.
   assert.match(workflow, /scripts\/p0_display_run_profile\.sh/);
   assert.match(workflow, /aggregate-display-comparison:/);
+
+  // GitHub keeps only ten annotations per step. Run 41903375677 emitted one
+  // notice per metric and silently lost the attribution and the checkpoints,
+  // so the publisher must consolidate them.
+  const runner = read(RUNNER);
+  const publisher = runner.slice(runner.indexOf('report_measurements() {'), runner.indexOf('report_failure() {'));
+  const notices = publisher.match(/::notice title=/g) || [];
+  assert.equal(notices.length, 3, 'the startup publisher must emit exactly three consolidated notices');
+  assert.match(publisher, /P0 startup timing::/);
+  assert.match(publisher, /P0 startup attribution::/);
+  assert.match(publisher, /P0 startup checkpoints::/);
 });
 
 test('the authenticated runner waits for a real manual sign-in and can never capture a credential', () => {
