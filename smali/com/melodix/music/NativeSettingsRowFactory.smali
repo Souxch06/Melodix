@@ -31,11 +31,9 @@
     const/16 v0, 0x10
     invoke-virtual {v2, v0}, Landroid/widget/LinearLayout;->setGravity(I)V
 
-    const/16 v0, 0xe
-    invoke-static {p0, v0}, Lcom/melodix/music/NativeSettingsRowFactory;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->settingsPadH(Landroid/content/Context;)I
     move-result v0
-    const/16 v1, 0xb
-    invoke-static {p0, v1}, Lcom/melodix/music/NativeSettingsRowFactory;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->settingsPadV(Landroid/content/Context;)I
     move-result v1
     invoke-virtual {v2, v0, v1, v0, v1}, Landroid/view/View;->setPadding(IIII)V
 
@@ -45,14 +43,12 @@
     invoke-virtual {v3, v0}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
     const/high16 v0, 0x41600000
     invoke-virtual {v3, v0}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
-    const/4 v0, 0x1
-    invoke-static {p0, v0}, Lcom/melodix/music/NativeSettingsRowFactory;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->settingsStroke(Landroid/content/Context;)I
     move-result v0
     const v1, -0xd5d5d6
     invoke-virtual {v3, v0, v1}, Landroid/graphics/drawable/GradientDrawable;->setStroke(II)V
     invoke-virtual {v2, v3}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
-    const/16 v0, 0x40
-    invoke-static {p0, v0}, Lcom/melodix/music/NativeSettingsRowFactory;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->settingsRowHeight(Landroid/content/Context;)I
     move-result v0
     invoke-virtual {v2, v0}, Landroid/view/View;->setMinimumHeight(I)V
 
@@ -77,12 +73,10 @@
     const/4 v3, 0x1
     invoke-virtual {v0, v3}, Landroid/view/View;->setClipToOutline(Z)V
     new-instance v1, Landroid/widget/LinearLayout$LayoutParams;
-    const/16 v3, 0x2c
-    invoke-static {p0, v3}, Lcom/melodix/music/NativeSettingsRowFactory;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->settingsIcon(Landroid/content/Context;)I
     move-result v3
     invoke-direct {v1, v3, v3}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-    const/16 v3, 0xc
-    invoke-static {p0, v3}, Lcom/melodix/music/NativeSettingsRowFactory;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->settingsIconGap(Landroid/content/Context;)I
     move-result v3
     iput v3, v1, Landroid/view/ViewGroup$MarginLayoutParams;->rightMargin:I
     invoke-virtual {v2, v0, v1}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
@@ -98,8 +92,7 @@
     new-instance v9, Landroid/widget/TextView;
     invoke-direct {v9, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
     invoke-virtual {v9, v4}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-    const/high16 v0, 0x41780000
-    invoke-virtual {v9, v0}, Landroid/widget/TextView;->setTextSize(F)V
+    invoke-static {v9, p0}, Lcom/melodix/music/NativeUiMetrics;->applySettingsTitle(Landroid/widget/TextView;Landroid/content/Context;)V
     const/4 v0, 0x0
     const/4 v1, 0x1
     invoke-virtual {v9, v0, v1}, Landroid/widget/TextView;->setTypeface(Landroid/graphics/Typeface;I)V
@@ -118,16 +111,14 @@
     new-instance v10, Landroid/widget/TextView;
     invoke-direct {v10, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
     invoke-virtual {v10, v5}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-    const/high16 v0, 0x41400000
-    invoke-virtual {v10, v0}, Landroid/widget/TextView;->setTextSize(F)V
+    invoke-static {v10, p0}, Lcom/melodix/music/NativeUiMetrics;->applySettingsSubtitle(Landroid/widget/TextView;Landroid/content/Context;)V
     sget v0, Lcom/melodix/music/MelColors;->textSecondary:I
     invoke-virtual {v10, v0}, Landroid/widget/TextView;->setTextColor(I)V
     const/4 v0, 0x2
     invoke-virtual {v10, v0}, Landroid/widget/TextView;->setMaxLines(I)V
     sget-object v0, Landroid/text/TextUtils$TruncateAt;->END:Landroid/text/TextUtils$TruncateAt;
     invoke-virtual {v10, v0}, Landroid/widget/TextView;->setEllipsize(Landroid/text/TextUtils$TruncateAt;)V
-    const/4 v0, 0x3
-    invoke-static {p0, v0}, Lcom/melodix/music/NativeSettingsRowFactory;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->settingsSubtitlePad(Landroid/content/Context;)I
     move-result v0
     const/4 v1, 0x0
     invoke-virtual {v10, v1, v0, v1, v1}, Landroid/view/View;->setPadding(IIII)V
@@ -144,8 +135,7 @@
     new-instance v11, Landroid/widget/TextView;
     invoke-direct {v11, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
     invoke-virtual {v11, v6}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-    const/high16 v0, 0x41400000
-    invoke-virtual {v11, v0}, Landroid/widget/TextView;->setTextSize(F)V
+    invoke-static {v11, p0}, Lcom/melodix/music/NativeUiMetrics;->applySettingsValue(Landroid/widget/TextView;Landroid/content/Context;)V
     const/4 v0, 0x0
     const/4 v1, 0x1
     invoke-virtual {v11, v0, v1}, Landroid/widget/TextView;->setTypeface(Landroid/graphics/Typeface;I)V
@@ -153,11 +143,9 @@
     invoke-virtual {v11, v0}, Landroid/widget/TextView;->setGravity(I)V
     const/4 v0, 0x1
     invoke-virtual {v11, v0}, Landroid/widget/TextView;->setMaxLines(I)V
-    const/16 v0, 0xd
-    invoke-static {p0, v0}, Lcom/melodix/music/NativeSettingsRowFactory;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->settingsValuePadH(Landroid/content/Context;)I
     move-result v0
-    const/4 v1, 0x5
-    invoke-static {p0, v1}, Lcom/melodix/music/NativeSettingsRowFactory;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->settingsValuePadV(Landroid/content/Context;)I
     move-result v1
     invoke-virtual {v11, v0, v1, v0, v1}, Landroid/view/View;->setPadding(IIII)V
 
@@ -199,8 +187,7 @@
     new-instance v0, Landroid/widget/LinearLayout$LayoutParams;
     const/4 v1, -0x2
     invoke-direct {v0, v1, v1}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-    const/16 v3, 0xa
-    invoke-static {p0, v3}, Lcom/melodix/music/NativeSettingsRowFactory;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->settingsValueGap(Landroid/content/Context;)I
     move-result v3
     iput v3, v0, Landroid/view/ViewGroup$MarginLayoutParams;->leftMargin:I
     invoke-virtual {v2, v11, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
@@ -209,8 +196,7 @@
     const/4 v1, -0x1
     const/4 v3, -0x2
     invoke-direct {v0, v1, v3}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-    const/16 v1, 0x8
-    invoke-static {p0, v1}, Lcom/melodix/music/NativeSettingsRowFactory;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->settingsRowGap(Landroid/content/Context;)I
     move-result v1
     iput v1, v0, Landroid/view/ViewGroup$MarginLayoutParams;->bottomMargin:I
     invoke-virtual {v2, v0}, Landroid/view/View;->setLayoutParams(Landroid/view/ViewGroup$LayoutParams;)V
@@ -243,18 +229,15 @@
     new-instance v0, Landroid/widget/TextView;
     invoke-direct {v0, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
     invoke-virtual {v0, p1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-    const/high16 v1, 0x41800000
-    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextSize(F)V
+    invoke-static {v0, p0}, Lcom/melodix/music/NativeUiMetrics;->applySettingsSectionTitle(Landroid/widget/TextView;Landroid/content/Context;)V
     const v1, -0x1
     invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextColor(I)V
     const/4 v1, 0x0
     const/4 v2, 0x1
     invoke-virtual {v0, v1, v2}, Landroid/widget/TextView;->setTypeface(Landroid/graphics/Typeface;I)V
-    const/16 v2, 0x10
-    invoke-static {p0, v2}, Lcom/melodix/music/NativeSettingsRowFactory;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->gutter(Landroid/content/Context;)I
     move-result v2
-    const/16 v3, 0x6
-    invoke-static {p0, v3}, Lcom/melodix/music/NativeSettingsRowFactory;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->settingsSectionPadV(Landroid/content/Context;)I
     move-result v3
     invoke-virtual {v0, v1, v3, v2, v3}, Landroid/view/View;->setPadding(IIII)V
     return-object v0

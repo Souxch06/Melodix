@@ -87,6 +87,20 @@
     <dimen name="mel_row_pad_v">6.0dip</dimen>
     <dimen name="mel_row_art_gap">12.0dip</dimen>
 
+    <!-- ===== playlist / album / artist banner ===== -->
+    <dimen name="mel_banner_pad_top">12.0dip</dimen>
+    <dimen name="mel_banner_pad_bottom">16.0dip</dimen>
+    <dimen name="mel_banner_art">200.0dip</dimen>
+    <dimen name="mel_banner_art_gap">14.0dip</dimen>
+    <dimen name="mel_banner_title">26.0sp</dimen>
+    <dimen name="mel_banner_title_gap">14.0dip</dimen>
+    <dimen name="mel_banner_subtitle">13.5sp</dimen>
+    <dimen name="mel_banner_subtitle_pad">8.0dip</dimen>
+    <dimen name="mel_banner_action_text">14.0sp</dimen>
+    <dimen name="mel_banner_action_pad_h">26.0dip</dimen>
+    <dimen name="mel_banner_action_pad_v">12.0dip</dimen>
+    <dimen name="mel_banner_action_gap">16.0dip</dimen>
+
     <!-- ===== full player ===== -->
     <dimen name="mel_player_pad_top">10.0dip</dimen>
     <dimen name="mel_player_pad_bottom">18.0dip</dimen>
@@ -133,6 +147,24 @@
     <dimen name="mel_tab_pad_v">3.0dip</dimen>
     <dimen name="mel_tab_drawable_pad">2.0dip</dimen>
     <dimen name="mel_tab_divider">1.0dip</dimen>
+    <!-- ===== settings and profile rows ===== -->
+    <dimen name="mel_settings_pad_h">14.0dip</dimen>
+    <dimen name="mel_settings_pad_v">11.0dip</dimen>
+    <dimen name="mel_settings_stroke">1.0dip</dimen>
+    <dimen name="mel_settings_row_height">64.0dip</dimen>
+    <dimen name="mel_settings_icon">44.0dip</dimen>
+    <dimen name="mel_settings_icon_gap">12.0dip</dimen>
+    <dimen name="mel_settings_title">15.5sp</dimen>
+    <dimen name="mel_settings_subtitle">12.0sp</dimen>
+    <dimen name="mel_settings_subtitle_pad">3.0dip</dimen>
+    <dimen name="mel_settings_value_text">12.0sp</dimen>
+    <dimen name="mel_settings_value_pad_h">13.0dip</dimen>
+    <dimen name="mel_settings_value_pad_v">5.0dip</dimen>
+    <dimen name="mel_settings_value_gap">10.0dip</dimen>
+    <dimen name="mel_settings_row_gap">8.0dip</dimen>
+    <dimen name="mel_settings_section_title">16.0sp</dimen>
+    <dimen name="mel_settings_section_pad_v">6.0dip</dimen>
+
     <!-- ===== splash and loading ===== -->
     <dimen name="mel_splash_logo">140.0dip</dimen>
     <dimen name="mel_splash_logo_radius">70.0dip</dimen>

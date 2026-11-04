@@ -184,6 +184,49 @@ test('the renderers resolve their metrics instead of hardcoding them again', () 
   }
   assert.ok(rows.includes('NativeUiMetrics;->applySectionTitle('),
     'section headers must resolve their title size');
+
+  // Playlist / album / artist banner.
+  for (const acc of ['bannerPadTop', 'bannerPadBottom', 'bannerArt', 'bannerArtGap',
+    'bannerTitleGap', 'bannerSubtitlePad', 'bannerActionPadH', 'bannerActionPadV',
+    'bannerActionGap']) {
+    assert.ok(rows.includes(`NativeUiMetrics;->${acc}(Landroid/content/Context;)I`),
+      `the collection banner must resolve ${acc}`);
+  }
+  for (const acc of ['applyBannerTitle', 'applyBannerSubtitle', 'applyBannerAction']) {
+    assert.ok(rows.includes(`NativeUiMetrics;->${acc}(Landroid/widget/TextView;Landroid/content/Context;)V`),
+      `the collection banner must resolve ${acc}`);
+  }
+
+  // Settings and profile.
+  const settings = read('smali/com/melodix/music/NativeSettingsRowFactory.smali');
+  for (const acc of ['settingsPadH', 'settingsPadV', 'settingsStroke', 'settingsRowHeight',
+    'settingsIcon', 'settingsIconGap', 'settingsSubtitlePad', 'settingsValuePadH',
+    'settingsValuePadV', 'settingsValueGap', 'settingsRowGap', 'settingsSectionPadV']) {
+    assert.ok(settings.includes(`NativeUiMetrics;->${acc}(Landroid/content/Context;)I`),
+      `the settings renderer must resolve ${acc}`);
+  }
+  for (const acc of ['applySettingsTitle', 'applySettingsSubtitle', 'applySettingsValue',
+    'applySettingsSectionTitle']) {
+    assert.ok(settings.includes(`NativeUiMetrics;->${acc}(Landroid/widget/TextView;Landroid/content/Context;)V`),
+      `the settings renderer must resolve ${acc}`);
+  }
+});
+
+test('no tokenised renderer keeps a raw dp conversion for a tokenised role', () => {
+  // A leftover dp() call is not automatically wrong - plenty of incidental
+  // metrics remain - but the tokenised roles above must not silently regress to
+  // a literal. Guard the count so a revert has to be deliberate.
+  const counts = {
+    'smali/com/melodix/music/NativeHomeShelfRenderer.smali': 28,
+    'smali/com/melodix/music/NativeUiRowFactory.smali': 3,
+    'smali/com/melodix/music/NativeSettingsRowFactory.smali': 0,
+  };
+  for (const [file, max] of Object.entries(counts)) {
+    const body = read(file);
+    const calls = (body.match(/;->dp\(Landroid\/content\/Context;I\)I/g) || []).length;
+    assert.ok(calls <= max,
+      `${file} has ${calls} raw dp() conversions, expected at most ${max}: a tokenised role was reverted`);
+  }
 });
 
 test('token resolution keeps a working fallback path', () => {
