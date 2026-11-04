@@ -66,13 +66,13 @@
         android:orientation="vertical"
         android:background="@drawable/native_shell_background"
         android:paddingLeft="0.0dip"
-        android:paddingTop="8.0dip"
+        android:paddingTop="@dimen/mel_shell_pad_top"
         android:paddingRight="0.0dip"
-        android:paddingBottom="6.0dip"
+        android:paddingBottom="@dimen/mel_shell_pad_bottom"
         android:fitsSystemWindows="true"
         android:focusable="true"
         android:clickable="true"
-        android:elevation="15.0dip"
+        android:elevation="@dimen/mel_shell_elevation"
         android:visibility="gone"
         android:layout_width="0.0dip"
         android:layout_height="0.0dip"
@@ -84,31 +84,31 @@
         <LinearLayout
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:paddingLeft="16.0dip"
-            android:paddingTop="4.0dip"
-            android:paddingRight="16.0dip"
-            android:paddingBottom="6.0dip"
+            android:paddingLeft="@dimen/mel_gutter"
+            android:paddingTop="@dimen/mel_header_pad_top"
+            android:paddingRight="@dimen/mel_gutter"
+            android:paddingBottom="@dimen/mel_header_pad_bottom"
             android:layout_width="fill_parent"
             android:layout_height="wrap_content">
             <ImageView
                 android:id="@id/nativeBackButton"
                 android:src="@drawable/arrow_back"
                 android:scaleType="centerInside"
-                android:padding="9.0dip"
+                android:padding="@dimen/mel_header_back_pad"
                 android:clickable="true"
                 android:focusable="true"
                 android:contentDescription="Back"
                 android:background="@drawable/native_button_dark"
                 android:onClick="onNativeBackClick"
                 android:visibility="gone"
-                android:layout_width="48.0dip"
-                android:layout_height="48.0dip"
-                android:layout_marginRight="8.0dip" />
+                android:layout_width="@dimen/mel_header_action"
+                android:layout_height="@dimen/mel_header_action"
+                android:layout_marginRight="@dimen/mel_space_2" />
             <androidx.cardview.widget.CardView
-                android:layout_width="48.0dip"
-                android:layout_height="48.0dip"
+                android:layout_width="@dimen/mel_header_avatar"
+                android:layout_height="@dimen/mel_header_avatar"
                 app:cardBackgroundColor="@color/mel_surface_card"
-                app:cardCornerRadius="24.0dip"
+                app:cardCornerRadius="@dimen/mel_header_avatar_radius"
                 app:cardElevation="0.0dip">
                 <ImageView
                     android:id="@id/nativeHeaderAvatar"
@@ -121,10 +121,10 @@
             <TextView
                 android:id="@id/nativeScreenTitle"
                 android:text="Accueil"
-                android:textSize="23.0sp"
+                android:textSize="@dimen/mel_header_title"
                 android:textStyle="bold"
                 android:textColor="@color/mel_text_primary"
-                android:paddingLeft="10.0dip"
+                android:paddingLeft="@dimen/mel_header_gap"
                 android:maxLines="1"
                 android:ellipsize="end"
                 android:layout_width="0.0dip"
@@ -135,15 +135,15 @@
                 android:src="@drawable/native_nav_settings"
                 android:tint="@color/mel_text_secondary"
                 android:scaleType="centerInside"
-                android:padding="11.0dip"
+                android:padding="@dimen/mel_header_settings_pad"
                 android:clickable="true"
                 android:focusable="true"
                 android:contentDescription="Paramètres"
                 android:background="@drawable/native_button_dark"
                 android:onClick="onNativeSettingsClick"
-                android:layout_width="48.0dip"
-                android:layout_height="48.0dip"
-                android:layout_marginLeft="8.0dip" />
+                android:layout_width="@dimen/mel_header_action"
+                android:layout_height="@dimen/mel_header_action"
+                android:layout_marginLeft="@dimen/mel_space_2" />
         </LinearLayout>
 
         <LinearLayout
@@ -151,15 +151,15 @@
             android:orientation="horizontal"
             android:gravity="center_vertical"
             android:visibility="gone"
-            android:paddingLeft="16.0dip"
-            android:paddingRight="16.0dip"
-            android:paddingBottom="10.0dip"
+            android:paddingLeft="@dimen/mel_gutter"
+            android:paddingRight="@dimen/mel_gutter"
+            android:paddingBottom="@dimen/mel_search_pad_bottom"
             android:layout_width="fill_parent"
             android:layout_height="wrap_content">
             <EditText
                 android:id="@id/nativeSearchInput"
                 android:hint="Que souhaitez-vous écouter ?"
-                android:textSize="15.0sp"
+                android:textSize="@dimen/mel_search_text"
                 android:textStyle="bold"
                 android:textColor="@color/mel_text_dark"
                 android:textColorHint="@color/mel_text_tertiary"
@@ -167,24 +167,24 @@
                 android:imeOptions="actionSearch"
                 android:inputType="text"
                 android:background="@drawable/native_search_field"
-                android:paddingLeft="14.0dip"
-                android:paddingRight="14.0dip"
+                android:paddingLeft="@dimen/mel_search_pad_h"
+                android:paddingRight="@dimen/mel_search_pad_h"
                 android:layout_width="0.0dip"
-                android:layout_height="48.0dip"
-                android:layout_marginRight="10.0dip"
+                android:layout_height="@dimen/mel_search_height"
+                android:layout_marginRight="@dimen/mel_search_gap"
                 android:layout_weight="1.0" />
             <ImageView
                 android:src="@drawable/native_nav_search"
                 android:tint="@color/mel_text_dark"
                 android:scaleType="centerInside"
-                android:padding="13.0dip"
+                android:padding="@dimen/mel_search_submit_pad"
                 android:clickable="true"
                 android:focusable="true"
                 android:contentDescription="Chercher"
                 android:background="@drawable/native_button_green"
                 android:onClick="onNativeSearchSubmit"
-                android:layout_width="48.0dip"
-                android:layout_height="48.0dip" />
+                android:layout_width="@dimen/mel_search_submit"
+                android:layout_height="@dimen/mel_search_submit" />
         </LinearLayout>
 
         <ScrollView
@@ -197,198 +197,198 @@
             android:layout_weight="1.0">
             <LinearLayout
                 android:orientation="vertical"
-                android:paddingLeft="16.0dip"
-                android:paddingRight="16.0dip"
-                android:paddingTop="4.0dip"
-                android:paddingBottom="24.0dip"
+                android:paddingLeft="@dimen/mel_gutter"
+                android:paddingRight="@dimen/mel_gutter"
+                android:paddingTop="@dimen/mel_browse_pad_top"
+                android:paddingBottom="@dimen/mel_browse_pad_bottom"
                 android:layout_width="fill_parent"
                 android:layout_height="wrap_content">
                 <TextView
                     android:text="Parcourir tout"
-                    android:textSize="21.0sp"
+                    android:textSize="@dimen/mel_browse_title"
                     android:textStyle="bold"
                     android:textColor="@color/mel_text_primary"
-                    android:paddingBottom="14.0dip"
+                    android:paddingBottom="@dimen/mel_browse_title_pad_bottom"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content" />
             <LinearLayout
                 android:orientation="horizontal"
                 android:layout_width="fill_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="8.0dip">
+                android:layout_marginBottom="@dimen/mel_tile_row_gap">
                 <TextView
                     android:text="Pop"
                     android:tag="Pop"
-                    android:textSize="15.0sp"
+                    android:textSize="@dimen/mel_tile_text"
                     android:textStyle="bold"
                     android:textColor="@color/mel_text_primary"
                     android:gravity="top|start"
-                    android:paddingLeft="12.0dip"
-                    android:paddingTop="10.0dip"
-                    android:paddingRight="12.0dip"
-                    android:paddingBottom="10.0dip"
+                    android:paddingLeft="@dimen/mel_tile_pad_h"
+                    android:paddingTop="@dimen/mel_tile_pad_v"
+                    android:paddingRight="@dimen/mel_tile_pad_h"
+                    android:paddingBottom="@dimen/mel_tile_pad_v"
                     android:clickable="true"
                     android:focusable="true"
                     android:background="@drawable/native_genre_tile"
                     android:backgroundTint="@color/mel_tile_purple"
                     android:onClick="onNativeGenreClick"
                     android:layout_width="0.0dip"
-                    android:layout_height="86.0dip"
+                    android:layout_height="@dimen/mel_tile_height"
                     android:layout_weight="1.0"
-                android:layout_marginRight="8.0dip" />
+                android:layout_marginRight="@dimen/mel_tile_row_gap" />
                 <TextView
                     android:text="Hip-hop"
                     android:tag="Hip-hop"
-                    android:textSize="15.0sp"
+                    android:textSize="@dimen/mel_tile_text"
                     android:textStyle="bold"
                     android:textColor="@color/mel_text_primary"
                     android:gravity="top|start"
-                    android:paddingLeft="12.0dip"
-                    android:paddingTop="10.0dip"
-                    android:paddingRight="12.0dip"
-                    android:paddingBottom="10.0dip"
+                    android:paddingLeft="@dimen/mel_tile_pad_h"
+                    android:paddingTop="@dimen/mel_tile_pad_v"
+                    android:paddingRight="@dimen/mel_tile_pad_h"
+                    android:paddingBottom="@dimen/mel_tile_pad_v"
                     android:clickable="true"
                     android:focusable="true"
                     android:background="@drawable/native_genre_tile"
                     android:backgroundTint="@color/mel_tile_amber"
                     android:onClick="onNativeGenreClick"
                     android:layout_width="0.0dip"
-                    android:layout_height="86.0dip"
+                    android:layout_height="@dimen/mel_tile_height"
                     android:layout_weight="1.0" />
             </LinearLayout>
             <LinearLayout
                 android:orientation="horizontal"
                 android:layout_width="fill_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="8.0dip">
+                android:layout_marginBottom="@dimen/mel_tile_row_gap">
                 <TextView
                     android:text="Rock"
                     android:tag="Rock"
-                    android:textSize="15.0sp"
+                    android:textSize="@dimen/mel_tile_text"
                     android:textStyle="bold"
                     android:textColor="@color/mel_text_primary"
                     android:gravity="top|start"
-                    android:paddingLeft="12.0dip"
-                    android:paddingTop="10.0dip"
-                    android:paddingRight="12.0dip"
-                    android:paddingBottom="10.0dip"
+                    android:paddingLeft="@dimen/mel_tile_pad_h"
+                    android:paddingTop="@dimen/mel_tile_pad_v"
+                    android:paddingRight="@dimen/mel_tile_pad_h"
+                    android:paddingBottom="@dimen/mel_tile_pad_v"
                     android:clickable="true"
                     android:focusable="true"
                     android:background="@drawable/native_genre_tile"
                     android:backgroundTint="@color/mel_tile_pink"
                     android:onClick="onNativeGenreClick"
                     android:layout_width="0.0dip"
-                    android:layout_height="86.0dip"
+                    android:layout_height="@dimen/mel_tile_height"
                     android:layout_weight="1.0"
-                android:layout_marginRight="8.0dip" />
+                android:layout_marginRight="@dimen/mel_tile_row_gap" />
                 <TextView
                     android:text="Latino"
                     android:tag="Latino"
-                    android:textSize="15.0sp"
+                    android:textSize="@dimen/mel_tile_text"
                     android:textStyle="bold"
                     android:textColor="@color/mel_text_primary"
                     android:gravity="top|start"
-                    android:paddingLeft="12.0dip"
-                    android:paddingTop="10.0dip"
-                    android:paddingRight="12.0dip"
-                    android:paddingBottom="10.0dip"
+                    android:paddingLeft="@dimen/mel_tile_pad_h"
+                    android:paddingTop="@dimen/mel_tile_pad_v"
+                    android:paddingRight="@dimen/mel_tile_pad_h"
+                    android:paddingBottom="@dimen/mel_tile_pad_v"
                     android:clickable="true"
                     android:focusable="true"
                     android:background="@drawable/native_genre_tile"
                     android:backgroundTint="@color/mel_tile_orange"
                     android:onClick="onNativeGenreClick"
                     android:layout_width="0.0dip"
-                    android:layout_height="86.0dip"
+                    android:layout_height="@dimen/mel_tile_height"
                     android:layout_weight="1.0" />
             </LinearLayout>
             <LinearLayout
                 android:orientation="horizontal"
                 android:layout_width="fill_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="8.0dip">
+                android:layout_marginBottom="@dimen/mel_tile_row_gap">
                 <TextView
                     android:text="Détente"
                     android:tag="Détente"
-                    android:textSize="15.0sp"
+                    android:textSize="@dimen/mel_tile_text"
                     android:textStyle="bold"
                     android:textColor="@color/mel_text_primary"
                     android:gravity="top|start"
-                    android:paddingLeft="12.0dip"
-                    android:paddingTop="10.0dip"
-                    android:paddingRight="12.0dip"
-                    android:paddingBottom="10.0dip"
+                    android:paddingLeft="@dimen/mel_tile_pad_h"
+                    android:paddingTop="@dimen/mel_tile_pad_v"
+                    android:paddingRight="@dimen/mel_tile_pad_h"
+                    android:paddingBottom="@dimen/mel_tile_pad_v"
                     android:clickable="true"
                     android:focusable="true"
                     android:background="@drawable/native_genre_tile"
                     android:backgroundTint="@color/mel_tile_teal"
                     android:onClick="onNativeGenreClick"
                     android:layout_width="0.0dip"
-                    android:layout_height="86.0dip"
+                    android:layout_height="@dimen/mel_tile_height"
                     android:layout_weight="1.0"
-                android:layout_marginRight="8.0dip" />
+                android:layout_marginRight="@dimen/mel_tile_row_gap" />
                 <TextView
                     android:text="Sport"
                     android:tag="Sport"
-                    android:textSize="15.0sp"
+                    android:textSize="@dimen/mel_tile_text"
                     android:textStyle="bold"
                     android:textColor="@color/mel_text_primary"
                     android:gravity="top|start"
-                    android:paddingLeft="12.0dip"
-                    android:paddingTop="10.0dip"
-                    android:paddingRight="12.0dip"
-                    android:paddingBottom="10.0dip"
+                    android:paddingLeft="@dimen/mel_tile_pad_h"
+                    android:paddingTop="@dimen/mel_tile_pad_v"
+                    android:paddingRight="@dimen/mel_tile_pad_h"
+                    android:paddingBottom="@dimen/mel_tile_pad_v"
                     android:clickable="true"
                     android:focusable="true"
                     android:background="@drawable/native_genre_tile"
                     android:backgroundTint="@color/mel_tile_forest"
                     android:onClick="onNativeGenreClick"
                     android:layout_width="0.0dip"
-                    android:layout_height="86.0dip"
+                    android:layout_height="@dimen/mel_tile_height"
                     android:layout_weight="1.0" />
             </LinearLayout>
             <LinearLayout
                 android:orientation="horizontal"
                 android:layout_width="fill_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="8.0dip">
+                android:layout_marginBottom="@dimen/mel_tile_row_gap">
                 <TextView
                     android:text="Podcasts"
                     android:tag="Podcasts"
-                    android:textSize="15.0sp"
+                    android:textSize="@dimen/mel_tile_text"
                     android:textStyle="bold"
                     android:textColor="@color/mel_text_primary"
                     android:gravity="top|start"
-                    android:paddingLeft="12.0dip"
-                    android:paddingTop="10.0dip"
-                    android:paddingRight="12.0dip"
-                    android:paddingBottom="10.0dip"
+                    android:paddingLeft="@dimen/mel_tile_pad_h"
+                    android:paddingTop="@dimen/mel_tile_pad_v"
+                    android:paddingRight="@dimen/mel_tile_pad_h"
+                    android:paddingBottom="@dimen/mel_tile_pad_v"
                     android:clickable="true"
                     android:focusable="true"
                     android:background="@drawable/native_genre_tile"
                     android:backgroundTint="@color/mel_tile_sea"
                     android:onClick="onNativeGenreClick"
                     android:layout_width="0.0dip"
-                    android:layout_height="86.0dip"
+                    android:layout_height="@dimen/mel_tile_height"
                     android:layout_weight="1.0"
-                android:layout_marginRight="8.0dip" />
+                android:layout_marginRight="@dimen/mel_tile_row_gap" />
                 <TextView
                     android:text="Nouveautés"
                     android:tag="Nouveautés"
-                    android:textSize="15.0sp"
+                    android:textSize="@dimen/mel_tile_text"
                     android:textStyle="bold"
                     android:textColor="@color/mel_text_primary"
                     android:gravity="top|start"
-                    android:paddingLeft="12.0dip"
-                    android:paddingTop="10.0dip"
-                    android:paddingRight="12.0dip"
-                    android:paddingBottom="10.0dip"
+                    android:paddingLeft="@dimen/mel_tile_pad_h"
+                    android:paddingTop="@dimen/mel_tile_pad_v"
+                    android:paddingRight="@dimen/mel_tile_pad_h"
+                    android:paddingBottom="@dimen/mel_tile_pad_v"
                     android:clickable="true"
                     android:focusable="true"
                     android:background="@drawable/native_genre_tile"
                     android:backgroundTint="@color/mel_tile_blue"
                     android:onClick="onNativeGenreClick"
                     android:layout_width="0.0dip"
-                    android:layout_height="86.0dip"
+                    android:layout_height="@dimen/mel_tile_height"
                     android:layout_weight="1.0" />
             </LinearLayout>
             </LinearLayout>
@@ -399,19 +399,19 @@
             android:visibility="gone"
             android:overScrollMode="never"
             android:scrollbars="none"
-            android:paddingLeft="16.0dip"
-            android:paddingRight="16.0dip"
-            android:paddingBottom="12.0dip"
+            android:paddingLeft="@dimen/mel_gutter"
+            android:paddingRight="@dimen/mel_gutter"
+            android:paddingBottom="@dimen/mel_chip_pad_bottom"
             android:layout_width="fill_parent"
             android:layout_height="wrap_content">
             <LinearLayout
                 android:orientation="horizontal"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content">
-                <TextView android:text="Playlists" android:tag="playlists" android:textSize="13.5sp" android:textStyle="bold" android:textColor="@color/mel_text_primary" android:gravity="center" android:clickable="true" android:focusable="true" android:background="@drawable/native_category_chip" android:paddingLeft="16.0dip" android:paddingRight="16.0dip" android:onClick="onNativeLibraryCategoryClick" android:layout_width="wrap_content" android:layout_height="48.0dip" android:layout_marginRight="8.0dip" />
-                <TextView android:text="Albums" android:tag="albums" android:textSize="13.5sp" android:textStyle="bold" android:textColor="@color/mel_text_primary" android:gravity="center" android:clickable="true" android:focusable="true" android:background="@drawable/native_category_chip" android:paddingLeft="16.0dip" android:paddingRight="16.0dip" android:onClick="onNativeLibraryCategoryClick" android:layout_width="wrap_content" android:layout_height="48.0dip" android:layout_marginRight="8.0dip" />
-                <TextView android:text="Artistes" android:tag="artists" android:textSize="13.5sp" android:textStyle="bold" android:textColor="@color/mel_text_primary" android:gravity="center" android:clickable="true" android:focusable="true" android:background="@drawable/native_category_chip" android:paddingLeft="16.0dip" android:paddingRight="16.0dip" android:onClick="onNativeLibraryCategoryClick" android:layout_width="wrap_content" android:layout_height="48.0dip" android:layout_marginRight="8.0dip" />
-                <TextView android:text="Podcasts" android:tag="podcasts" android:textSize="13.5sp" android:textStyle="bold" android:textColor="@color/mel_text_primary" android:gravity="center" android:clickable="true" android:focusable="true" android:background="@drawable/native_category_chip" android:paddingLeft="16.0dip" android:paddingRight="16.0dip" android:onClick="onNativeLibraryCategoryClick" android:layout_width="wrap_content" android:layout_height="48.0dip" />
+                <TextView android:text="Playlists" android:tag="playlists" android:textSize="@dimen/mel_chip_text" android:textStyle="bold" android:textColor="@color/mel_text_primary" android:gravity="center" android:clickable="true" android:focusable="true" android:background="@drawable/native_category_chip" android:paddingLeft="@dimen/mel_chip_pad_h" android:paddingRight="@dimen/mel_chip_pad_h" android:onClick="onNativeLibraryCategoryClick" android:layout_width="wrap_content" android:layout_height="@dimen/mel_chip_height" android:layout_marginRight="@dimen/mel_chip_gap" />
+                <TextView android:text="Albums" android:tag="albums" android:textSize="@dimen/mel_chip_text" android:textStyle="bold" android:textColor="@color/mel_text_primary" android:gravity="center" android:clickable="true" android:focusable="true" android:background="@drawable/native_category_chip" android:paddingLeft="@dimen/mel_chip_pad_h" android:paddingRight="@dimen/mel_chip_pad_h" android:onClick="onNativeLibraryCategoryClick" android:layout_width="wrap_content" android:layout_height="@dimen/mel_chip_height" android:layout_marginRight="@dimen/mel_chip_gap" />
+                <TextView android:text="Artistes" android:tag="artists" android:textSize="@dimen/mel_chip_text" android:textStyle="bold" android:textColor="@color/mel_text_primary" android:gravity="center" android:clickable="true" android:focusable="true" android:background="@drawable/native_category_chip" android:paddingLeft="@dimen/mel_chip_pad_h" android:paddingRight="@dimen/mel_chip_pad_h" android:onClick="onNativeLibraryCategoryClick" android:layout_width="wrap_content" android:layout_height="@dimen/mel_chip_height" android:layout_marginRight="@dimen/mel_chip_gap" />
+                <TextView android:text="Podcasts" android:tag="podcasts" android:textSize="@dimen/mel_chip_text" android:textStyle="bold" android:textColor="@color/mel_text_primary" android:gravity="center" android:clickable="true" android:focusable="true" android:background="@drawable/native_category_chip" android:paddingLeft="@dimen/mel_chip_pad_h" android:paddingRight="@dimen/mel_chip_pad_h" android:onClick="onNativeLibraryCategoryClick" android:layout_width="wrap_content" android:layout_height="@dimen/mel_chip_height" />
             </LinearLayout>
         </HorizontalScrollView>
 
@@ -426,17 +426,17 @@
             <LinearLayout
                 android:id="@id/nativeContent"
                 android:orientation="vertical"
-                android:paddingTop="8.0dip"
-                android:paddingBottom="24.0dip"
+                android:paddingTop="@dimen/mel_content_pad_top"
+                android:paddingBottom="@dimen/mel_content_pad_bottom"
                 android:layout_width="fill_parent"
                 android:layout_height="wrap_content">
                 <TextView
                     android:text="Chargement de votre musique…"
-                    android:textSize="14.0sp"
+                    android:textSize="@dimen/mel_empty_text"
                     android:textColor="@color/mel_text_secondary"
                     android:gravity="center"
-                    android:paddingTop="24.0dip"
-                    android:paddingBottom="24.0dip"
+                    android:paddingTop="@dimen/mel_empty_pad_v"
+                    android:paddingBottom="@dimen/mel_empty_pad_v"
                     android:layout_width="fill_parent"
                     android:layout_height="wrap_content" />
             </LinearLayout>
@@ -448,10 +448,10 @@
             android:overScrollMode="never"
             android:scrollbars="none"
             android:background="@drawable/native_player_background"
-            android:paddingLeft="16.0dip"
-            android:paddingRight="16.0dip"
-            android:paddingTop="10.0dip"
-            android:paddingBottom="18.0dip"
+            android:paddingLeft="@dimen/mel_gutter"
+            android:paddingRight="@dimen/mel_gutter"
+            android:paddingTop="@dimen/mel_player_pad_top"
+            android:paddingBottom="@dimen/mel_player_pad_bottom"
             android:visibility="gone"
             android:layout_width="fill_parent"
             android:layout_height="0.0dip"
@@ -462,13 +462,13 @@
                 android:layout_width="fill_parent"
                 android:layout_height="wrap_content">
             <androidx.cardview.widget.CardView
-                android:layout_width="272.0dip"
-                android:layout_height="272.0dip"
-                android:layout_marginTop="8.0dip"
-                android:layout_marginBottom="22.0dip"
+                android:layout_width="@dimen/mel_player_art"
+                android:layout_height="@dimen/mel_player_art"
+                android:layout_marginTop="@dimen/mel_player_art_margin_top"
+                android:layout_marginBottom="@dimen/mel_player_art_margin_bottom"
                 app:cardBackgroundColor="@color/mel_art_bg"
-                app:cardCornerRadius="8.0dip"
-                app:cardElevation="18.0dip">
+                app:cardCornerRadius="@dimen/mel_player_art_radius"
+                app:cardElevation="@dimen/mel_player_art_elevation">
                 <ImageView
                     android:id="@id/nativePlayerLargeArtwork"
                     android:src="@drawable/logo_melodix"
@@ -481,7 +481,7 @@
             <TextView
                 android:id="@id/nativePlayerLargeTitle"
                 android:text="Aucune lecture en cours"
-                android:textSize="24.0sp"
+                android:textSize="@dimen/mel_player_title"
                 android:textStyle="bold"
                 android:textColor="@color/mel_text_primary"
                 android:gravity="center"
@@ -492,21 +492,21 @@
             <TextView
                 android:id="@id/nativePlayerLargeArtist"
                 android:text="Ouvrez Spotify pour commencer l’écoute"
-                android:textSize="15.0sp"
+                android:textSize="@dimen/mel_player_artist"
                 android:textColor="@color/mel_text_secondary"
                 android:gravity="center"
                 android:maxLines="1"
                 android:ellipsize="end"
-                android:paddingTop="4.0dip"
+                android:paddingTop="@dimen/mel_space_1"
                 android:layout_width="fill_parent"
                 android:layout_height="wrap_content" />
             <TextView
                 android:text="● Lu via Spotify"
-                android:textSize="12.0sp"
+                android:textSize="@dimen/mel_player_caption"
                 android:textStyle="bold"
                 android:textColor="@color/mel_accent"
                 android:gravity="center"
-                android:paddingTop="6.0dip"
+                android:paddingTop="@dimen/mel_space_2"
                 android:layout_width="fill_parent"
                 android:layout_height="wrap_content" />
             <ProgressBar
@@ -519,18 +519,18 @@
                 android:progressTint="@color/mel_accent"
                 android:progressBackgroundTint="@color/mel_surface_alt"
                 android:layout_width="fill_parent"
-                android:layout_height="6.0dip"
-                android:layout_marginTop="16.0dip"
-                android:layout_marginBottom="6.0dip" />
+                android:layout_height="@dimen/mel_player_progress"
+                android:layout_marginTop="@dimen/mel_space_4"
+                android:layout_marginBottom="@dimen/mel_space_2" />
             <LinearLayout
                 android:orientation="horizontal"
-                android:paddingBottom="12.0dip"
+                android:paddingBottom="@dimen/mel_space_3"
                 android:layout_width="fill_parent"
                 android:layout_height="wrap_content">
                 <TextView
                     android:id="@id/nativePlayerPositionText"
                     android:text="0:00"
-                    android:textSize="12.0sp"
+                    android:textSize="@dimen/mel_player_time"
                     android:textStyle="bold"
                     android:textColor="@color/mel_text_secondary"
                     android:layout_width="0.0dip"
@@ -539,7 +539,7 @@
                 <TextView
                     android:id="@id/nativePlayerDurationText"
                     android:text="0:00"
-                    android:textSize="12.0sp"
+                    android:textSize="@dimen/mel_player_time"
                     android:textStyle="bold"
                     android:textColor="@color/mel_text_secondary"
                     android:gravity="right"
@@ -551,11 +551,11 @@
                 android:gravity="center"
                 android:layout_width="fill_parent"
                 android:layout_height="wrap_content">
-                <ImageView android:id="@id/nativePlayerShuffleButton" android:src="@drawable/shuffle" android:tint="@color/mel_text_secondary" android:scaleType="centerInside" android:padding="11.0dip" android:clickable="true" android:focusable="true" android:contentDescription="Lecture aléatoire" android:background="@drawable/native_button_dark" android:onClick="onNativePlayerShuffleClick" android:layout_width="48.0dip" android:layout_height="48.0dip" />
-                <ImageView android:id="@id/nativePlayerPreviousButton" android:src="@drawable/previous" android:scaleType="centerInside" android:padding="14.0dip" android:clickable="true" android:focusable="true" android:contentDescription="Morceau précédent" android:background="@drawable/native_button_dark" android:onClick="onNativePlayerPreviousClick" android:layout_width="54.0dip" android:layout_height="54.0dip" android:layout_marginLeft="12.0dip" />
-                <ImageView android:id="@id/nativePlayerLargePlayPauseButton" android:src="@drawable/play" android:tint="@color/mel_text_dark" android:scaleType="centerInside" android:padding="24.0dip" android:clickable="true" android:focusable="true" android:contentDescription="Lecture ou pause" android:background="@drawable/native_button_white" android:onClick="onNativePlayPauseClick" android:layout_width="72.0dip" android:layout_height="72.0dip" android:layout_marginLeft="14.0dip" android:layout_marginRight="14.0dip" />
-                <ImageView android:id="@id/nativePlayerNextButton" android:src="@drawable/next" android:scaleType="centerInside" android:padding="15.0dip" android:clickable="true" android:focusable="true" android:contentDescription="Morceau suivant" android:background="@drawable/native_button_dark" android:onClick="onNativePlayerNextClick" android:layout_width="54.0dip" android:layout_height="54.0dip" android:layout_marginRight="12.0dip" />
-                <ImageView android:id="@id/nativePlayerRepeatButton" android:src="@drawable/repoff" android:tint="@color/mel_text_secondary" android:scaleType="centerInside" android:padding="11.0dip" android:clickable="true" android:focusable="true" android:contentDescription="Répéter" android:background="@drawable/native_button_dark" android:onClick="onNativePlayerRepeatClick" android:layout_width="48.0dip" android:layout_height="48.0dip" />
+                <ImageView android:id="@id/nativePlayerShuffleButton" android:src="@drawable/shuffle" android:tint="@color/mel_text_secondary" android:scaleType="centerInside" android:padding="@dimen/mel_player_side_pad" android:clickable="true" android:focusable="true" android:contentDescription="Lecture aléatoire" android:background="@drawable/native_button_dark" android:onClick="onNativePlayerShuffleClick" android:layout_width="@dimen/mel_player_side_control" android:layout_height="@dimen/mel_player_side_control" />
+                <ImageView android:id="@id/nativePlayerPreviousButton" android:src="@drawable/previous" android:scaleType="centerInside" android:padding="@dimen/mel_player_control_pad" android:clickable="true" android:focusable="true" android:contentDescription="Morceau précédent" android:background="@drawable/native_button_dark" android:onClick="onNativePlayerPreviousClick" android:layout_width="@dimen/mel_player_control" android:layout_height="@dimen/mel_player_control" android:layout_marginLeft="@dimen/mel_player_control_inset" />
+                <ImageView android:id="@id/nativePlayerLargePlayPauseButton" android:src="@drawable/play" android:tint="@color/mel_text_dark" android:scaleType="centerInside" android:padding="@dimen/mel_player_play_pad" android:clickable="true" android:focusable="true" android:contentDescription="Lecture ou pause" android:background="@drawable/native_button_white" android:onClick="onNativePlayPauseClick" android:layout_width="@dimen/mel_player_play" android:layout_height="@dimen/mel_player_play" android:layout_marginLeft="@dimen/mel_player_control_gap" android:layout_marginRight="@dimen/mel_player_control_gap" />
+                <ImageView android:id="@id/nativePlayerNextButton" android:src="@drawable/next" android:scaleType="centerInside" android:padding="@dimen/mel_player_next_pad" android:clickable="true" android:focusable="true" android:contentDescription="Morceau suivant" android:background="@drawable/native_button_dark" android:onClick="onNativePlayerNextClick" android:layout_width="@dimen/mel_player_control" android:layout_height="@dimen/mel_player_control" android:layout_marginRight="@dimen/mel_player_control_inset" />
+                <ImageView android:id="@id/nativePlayerRepeatButton" android:src="@drawable/repoff" android:tint="@color/mel_text_secondary" android:scaleType="centerInside" android:padding="@dimen/mel_player_side_pad" android:clickable="true" android:focusable="true" android:contentDescription="Répéter" android:background="@drawable/native_button_dark" android:onClick="onNativePlayerRepeatClick" android:layout_width="@dimen/mel_player_side_control" android:layout_height="@dimen/mel_player_side_control" />
             </LinearLayout>
             </LinearLayout>
         </ScrollView>
@@ -567,10 +567,10 @@
             android:background="@drawable/native_mini_player_bg"
             android:layout_width="fill_parent"
             android:layout_height="wrap_content"
-            android:layout_marginLeft="8.0dip"
-            android:layout_marginTop="8.0dip"
-            android:layout_marginRight="8.0dip"
-            android:layout_marginBottom="4.0dip">
+            android:layout_marginLeft="@dimen/mel_mini_margin_h"
+            android:layout_marginTop="@dimen/mel_mini_margin_top"
+            android:layout_marginRight="@dimen/mel_mini_margin_h"
+            android:layout_marginBottom="@dimen/mel_mini_margin_bottom">
         <LinearLayout
             android:id="@id/nativeMiniPlayer"
             android:orientation="horizontal"
@@ -580,18 +580,18 @@
             android:contentDescription="Ouvrir le lecteur"
             android:background="@drawable/native_mini_row_ripple"
             android:onClick="onNativePlayerExpandClick"
-            android:paddingLeft="10.0dip"
-            android:paddingTop="6.0dip"
-            android:paddingRight="10.0dip"
-            android:paddingBottom="6.0dip"
+            android:paddingLeft="@dimen/mel_mini_pad_h"
+            android:paddingTop="@dimen/mel_mini_pad_v"
+            android:paddingRight="@dimen/mel_mini_pad_h"
+            android:paddingBottom="@dimen/mel_mini_pad_v"
             android:layout_width="fill_parent"
-            android:layout_height="64.0dip">
+            android:layout_height="@dimen/mel_mini_height">
             <androidx.cardview.widget.CardView
-                android:layout_width="46.0dip"
-                android:layout_height="46.0dip"
-                android:layout_marginRight="10.0dip"
+                android:layout_width="@dimen/mel_mini_art"
+                android:layout_height="@dimen/mel_mini_art"
+                android:layout_marginRight="@dimen/mel_mini_art_gap"
                 app:cardBackgroundColor="@color/mel_art_bg_dark"
-                app:cardCornerRadius="10.0dip"
+                app:cardCornerRadius="@dimen/mel_mini_art_radius"
                 app:cardElevation="0.0dip">
                 <ImageView
                     android:id="@id/nativePlayerArtwork"
@@ -605,14 +605,14 @@
             <LinearLayout
                 android:orientation="vertical"
                 android:gravity="center_vertical"
-                android:paddingRight="6.0dip"
+                android:paddingRight="@dimen/mel_mini_text_pad"
                 android:layout_width="0.0dip"
                 android:layout_height="fill_parent"
                 android:layout_weight="1.0">
                 <TextView
                     android:id="@id/nativePlayerTitle"
                     android:text="Aucune lecture en cours"
-                    android:textSize="14.5sp"
+                    android:textSize="@dimen/mel_mini_title"
                     android:textStyle="bold"
                     android:textColor="@color/mel_text_primary"
                     android:maxLines="1"
@@ -622,7 +622,7 @@
                 <TextView
                     android:id="@id/nativePlayerArtist"
                     android:text="Ouvrez Spotify pour commencer l’écoute"
-                    android:textSize="12.5sp"
+                    android:textSize="@dimen/mel_mini_artist"
                     android:textColor="@color/mel_text_secondary"
                     android:maxLines="1"
                     android:ellipsize="end"
@@ -634,16 +634,16 @@
                 android:src="@drawable/play"
                 android:tint="@color/mel_text_dark"
                 android:scaleType="centerInside"
-                android:padding="12.0dip"
+                android:padding="@dimen/mel_mini_play_pad"
                 android:clickable="true"
                 android:focusable="true"
                 android:contentDescription="Lecture ou pause"
                 android:background="@drawable/native_button_white"
                 android:onClick="onNativePlayPauseClick"
-                android:layout_width="48.0dip"
-                android:layout_height="48.0dip"
-                android:layout_marginLeft="8.0dip"
-                android:layout_marginRight="2.0dip" />
+                android:layout_width="@dimen/mel_mini_play"
+                android:layout_height="@dimen/mel_mini_play"
+                android:layout_marginLeft="@dimen/mel_space_2"
+                android:layout_marginRight="@dimen/mel_space_1" />
         </LinearLayout>
             <ProgressBar
                 android:id="@id/nativeMiniProgress"
@@ -655,26 +655,26 @@
                 android:progressTint="@color/mel_accent"
                 android:progressBackgroundTint="@color/mel_surface_alt"
                 android:layout_width="fill_parent"
-                android:layout_height="3.0dip"
-                android:layout_marginLeft="6.0dip"
-                android:layout_marginRight="6.0dip"
-                android:layout_marginBottom="6.0dip" />
+                android:layout_height="@dimen/mel_mini_progress"
+                android:layout_marginLeft="@dimen/mel_mini_progress_inset"
+                android:layout_marginRight="@dimen/mel_mini_progress_inset"
+                android:layout_marginBottom="@dimen/mel_mini_progress_inset" />
         </LinearLayout>
 
         <View
             android:background="@color/mel_scrim"
             android:layout_width="fill_parent"
-            android:layout_height="1.0dip" />
+            android:layout_height="@dimen/mel_tab_divider" />
         <LinearLayout
             android:id="@id/nativeTabBar"
             android:orientation="horizontal"
             android:gravity="center"
-            android:paddingTop="3.0dip"
+            android:paddingTop="@dimen/mel_tab_pad_v"
             android:layout_width="fill_parent"
-            android:layout_height="64.0dip">
-            <TextView android:id="@id/nativeHomeTab" android:text="Accueil" android:textSize="11.5sp" android:textStyle="bold" android:textColor="@color/mel_text_primary" android:gravity="center" android:clickable="true" android:focusable="true" android:drawableTop="@drawable/native_nav_home" android:drawablePadding="2.0dip" android:background="@drawable/native_tab_ripple" android:paddingTop="3.0dip" android:paddingBottom="3.0dip" android:contentDescription="Accueil" android:onClick="onNativeHomeClick" android:layout_width="0.0dip" android:layout_height="58.0dip" android:layout_weight="1.0" />
-            <TextView android:id="@id/nativeSearchTab" android:text="Rechercher" android:textSize="11.5sp" android:textStyle="bold" android:textColor="@color/mel_text_tertiary" android:gravity="center" android:clickable="true" android:focusable="true" android:drawableTop="@drawable/native_nav_search" android:drawablePadding="2.0dip" android:background="@drawable/native_tab_ripple" android:paddingTop="3.0dip" android:paddingBottom="3.0dip" android:contentDescription="Rechercher" android:onClick="onNativeSearchClick" android:layout_width="0.0dip" android:layout_height="58.0dip" android:layout_weight="1.0" />
-            <TextView android:id="@id/nativeLibraryTab" android:text="Bibliothèque" android:textSize="11.5sp" android:textStyle="bold" android:textColor="@color/mel_text_tertiary" android:gravity="center" android:clickable="true" android:focusable="true" android:drawableTop="@drawable/native_nav_library" android:drawablePadding="2.0dip" android:background="@drawable/native_tab_ripple" android:paddingTop="3.0dip" android:paddingBottom="3.0dip" android:contentDescription="Bibliothèque" android:onClick="onNativeLibraryClick" android:layout_width="0.0dip" android:layout_height="58.0dip" android:layout_weight="1.0" />
+            android:layout_height="@dimen/mel_tab_bar_height">
+            <TextView android:id="@id/nativeHomeTab" android:text="Accueil" android:textSize="@dimen/mel_tab_label" android:textStyle="bold" android:textColor="@color/mel_text_primary" android:gravity="center" android:clickable="true" android:focusable="true" android:drawableTop="@drawable/native_nav_home" android:drawablePadding="@dimen/mel_tab_drawable_pad" android:background="@drawable/native_tab_ripple" android:paddingTop="@dimen/mel_tab_pad_v" android:paddingBottom="@dimen/mel_tab_pad_v" android:contentDescription="Accueil" android:onClick="onNativeHomeClick" android:layout_width="0.0dip" android:layout_height="@dimen/mel_tab_height" android:layout_weight="1.0" />
+            <TextView android:id="@id/nativeSearchTab" android:text="Rechercher" android:textSize="@dimen/mel_tab_label" android:textStyle="bold" android:textColor="@color/mel_text_tertiary" android:gravity="center" android:clickable="true" android:focusable="true" android:drawableTop="@drawable/native_nav_search" android:drawablePadding="@dimen/mel_tab_drawable_pad" android:background="@drawable/native_tab_ripple" android:paddingTop="@dimen/mel_tab_pad_v" android:paddingBottom="@dimen/mel_tab_pad_v" android:contentDescription="Rechercher" android:onClick="onNativeSearchClick" android:layout_width="0.0dip" android:layout_height="@dimen/mel_tab_height" android:layout_weight="1.0" />
+            <TextView android:id="@id/nativeLibraryTab" android:text="Bibliothèque" android:textSize="@dimen/mel_tab_label" android:textStyle="bold" android:textColor="@color/mel_text_tertiary" android:gravity="center" android:clickable="true" android:focusable="true" android:drawableTop="@drawable/native_nav_library" android:drawablePadding="@dimen/mel_tab_drawable_pad" android:background="@drawable/native_tab_ripple" android:paddingTop="@dimen/mel_tab_pad_v" android:paddingBottom="@dimen/mel_tab_pad_v" android:contentDescription="Bibliothèque" android:onClick="onNativeLibraryClick" android:layout_width="0.0dip" android:layout_height="@dimen/mel_tab_height" android:layout_weight="1.0" />
         </LinearLayout>
     </LinearLayout>
 
@@ -682,13 +682,13 @@
         android:id="@id/btnSettings"
         android:background="@android:color/transparent"
         android:padding="0.0dip"
-        android:layout_width="40.0dip"
-        android:layout_height="40.0dip"
-        android:layout_marginTop="5.0dip"
+        android:layout_width="@dimen/mel_legacy_settings_size"
+        android:layout_height="@dimen/mel_legacy_settings_size"
+        android:layout_marginTop="@dimen/mel_legacy_settings_margin"
         android:src="@drawable/waves_white_bg"
         android:scaleType="fitCenter"
         android:alpha="0.9"
-        android:elevation="10.0dip"
+        android:elevation="@dimen/mel_splash_error_elevation"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
@@ -701,14 +701,14 @@
         android:clickable="true"
         android:layout_width="fill_parent"
         android:layout_height="fill_parent"
-        android:elevation="20.0dip">
+        android:elevation="@dimen/mel_splash_elevation">
         <androidx.cardview.widget.CardView
             android:id="@id/cardSplashLogo"
-            android:layout_width="140.0dip"
-            android:layout_height="140.0dip"
+            android:layout_width="@dimen/mel_splash_logo"
+            android:layout_height="@dimen/mel_splash_logo"
             app:cardBackgroundColor="@color/mel_splash_card"
-            app:cardCornerRadius="70.0dip"
-            app:cardElevation="8.0dip"
+            app:cardCornerRadius="@dimen/mel_splash_logo_radius"
+            app:cardElevation="@dimen/mel_splash_logo_elevation"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
@@ -727,35 +727,35 @@
             android:gravity="center_horizontal"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="28.0dip"
+            android:layout_marginTop="@dimen/mel_space_8"
             app:layout_constraintTop_toBottomOf="@id/cardSplashLogo"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent">
             <ProgressBar
                 android:indeterminate="true"
                 android:indeterminateTint="@color/mel_accent"
-                android:layout_width="30.0dip"
-                android:layout_height="30.0dip" />
+                android:layout_width="@dimen/mel_splash_spinner"
+                android:layout_height="@dimen/mel_splash_spinner" />
             <TextView
                 android:text="Chargement de votre musique…"
-                android:textSize="15.0sp"
+                android:textSize="@dimen/mel_splash_text"
                 android:textColor="@color/mel_text_secondary"
                 android:gravity="center"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14.0dip" />
+                android:layout_marginTop="@dimen/mel_space_4" />
         </LinearLayout>
-        <ImageView android:id="@id/imgSplashError" android:visibility="gone" android:layout_width="100.0dip" android:layout_height="100.0dip" android:src="@drawable/waves_white" android:alpha="0.0" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toTopOf="parent" />
-        <TextView android:textSize="18.0sp" android:textStyle="bold" android:textColor="@color/mel_text_primary" android:gravity="center" android:id="@id/txtSplashError" android:visibility="gone" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="24.0dip" android:text="Network Error\nTap to retry" android:alpha="0.0" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toBottomOf="@id/imgSplashError" />
+        <ImageView android:id="@id/imgSplashError" android:visibility="gone" android:layout_width="@dimen/mel_splash_error_icon" android:layout_height="@dimen/mel_splash_error_icon" android:src="@drawable/waves_white" android:alpha="0.0" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toTopOf="parent" />
+        <TextView android:textSize="@dimen/mel_splash_error_text" android:textStyle="bold" android:textColor="@color/mel_text_primary" android:gravity="center" android:id="@id/txtSplashError" android:visibility="gone" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="@dimen/mel_space_6" android:text="Network Error\nTap to retry" android:alpha="0.0" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toBottomOf="@id/imgSplashError" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 
     <ProgressBar
         android:id="@id/progressBar"
         android:visibility="invisible"
         android:layout_width="fill_parent"
-        android:layout_height="4.0dip"
+        android:layout_height="@dimen/mel_progress_height"
         android:indeterminate="true"
-        android:elevation="25.0dip"
+        android:elevation="@dimen/mel_progress_elevation"
         android:indeterminateTint="@color/teal_200"
         app:layout_constraintTop_toTopOf="parent"
         style="?android:progressBarStyleHorizontal" />

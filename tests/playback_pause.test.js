@@ -353,13 +353,25 @@ test('legacy playback traces are sanitized before they can be read again', () =>
 test('the transport controls expose thumb-sized touch targets', () => {
     const layout = read('res/layout/activity_main.xml');
 
-    const miniPause = layout.match(/nativePlayPauseButton[\s\S]{0,700}?android:layout_width="(\d+)\.0dip"/);
-    assert.ok(miniPause, 'the mini player pause button must declare a width');
-    assert.ok(Number(miniPause[1]) >= 48, `mini pause target is ${miniPause[1]}dp, expected >= 48dp`);
+    const { loadDimens, size, PHONE, TABLET } = require('./helpers/mel_dimens');
+    const blockFor = (id) => {
+        const at = layout.indexOf(`@id/${id}"`);
+        assert.ok(at > 0, `${id} exists`);
+        return layout.slice(layout.lastIndexOf('<', at), layout.indexOf('>', at));
+    };
+    const mini = blockFor('nativePlayPauseButton');
+    const large = blockFor('nativePlayerLargePlayPauseButton');
 
-    const largePause = layout.match(/nativePlayerLargePlayPauseButton[\s\S]{0,700}?android:layout_width="(\d+)\.0dip"/);
-    assert.ok(largePause, 'the full player pause button must declare a width');
-    assert.ok(Number(largePause[1]) >= 56, `full pause target is ${largePause[1]}dp, expected >= 56dp`);
+    for (const qualifier of [PHONE, TABLET]) {
+        const dimens = loadDimens(qualifier);
+        const miniWidth = size(mini, 'layout_width', dimens);
+        assert.ok(miniWidth !== null, `the mini player pause button declares a width (${qualifier})`);
+        assert.ok(miniWidth >= 48, `mini pause target is ${miniWidth}dp on ${qualifier}, expected >= 48dp`);
+
+        const largeWidth = size(large, 'layout_width', dimens);
+        assert.ok(largeWidth !== null, `the full player pause button declares a width (${qualifier})`);
+        assert.ok(largeWidth >= 56, `full pause target is ${largeWidth}dp on ${qualifier}, expected >= 56dp`);
+    }
 });
 
 test('a silent keep-alive element never makes the snapshot report playback', () => {

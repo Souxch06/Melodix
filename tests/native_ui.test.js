@@ -7,6 +7,7 @@ const { JSDOM } = require('jsdom');
 
 const root = path.resolve(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
+const { loadDimens, resolveSize, size, PHONE, TABLET } = require('./helpers/mel_dimens');
 
 const nativeIds = [
     'nativeRoot',
@@ -1207,7 +1208,14 @@ test('Home is rendered as Spotify-style cover shelves, not a flat settings list'
     assert.match(renderer, /NativeImageLoader;->load/, 'shelf covers load Spotify CDN artwork');
     assert.match(renderer, /const\/16 v9, 0x94/, 'cards are 148 dp wide');
     assert.match(renderer, /createSectionHeader/, 'every shelf keeps its section title');
-    assert.match(layout, /android:id="@id\/nativeMiniPlayerContainer"[\s\S]{0,400}?android:layout_marginLeft="8\.0dip"/);
+    // The mini player insets come from tokens; the tablet must inset further
+    // than the phone rather than reuse the phone margin.
+    const miniAt = layout.indexOf('@id/nativeMiniPlayerContainer');
+    const miniBlock = layout.slice(layout.lastIndexOf('<', miniAt), layout.indexOf('>', miniAt));
+    const miniMargin = (qualifier) => size(miniBlock, 'layout_marginLeft', loadDimens(qualifier));
+    assert.equal(miniMargin(PHONE), 8, 'the phone keeps its 8dp mini player inset');
+    assert.equal(miniMargin(TABLET), 16, 'the tablet widens the mini player inset');
+    assert.ok(miniMargin(TABLET) > miniMargin(PHONE), 'the tablet is not a stretched phone');
     assert.match(layout, /android:id="@id\/nativeMiniProgress"/, 'the mini player shows a progress line');
 });
 
@@ -1330,8 +1338,17 @@ test('the compact Settings icon opens and preserves the screen to return to', ()
     assert.equal(settings.tagName, 'ImageView');
     assert.equal(settings.getAttribute('android:contentDescription'), 'Paramètres');
     assert.equal(settings.getAttribute('android:onClick'), 'onNativeSettingsClick');
-    assert.equal(settings.getAttribute('android:layout_width'), '48.0dip');
-    assert.equal(settings.getAttribute('android:layout_height'), '48.0dip');
+    // The size is a design token now, so resolve it on both form factors
+    // instead of pinning a literal that no longer appears in the layout.
+    for (const qualifier of [PHONE, TABLET]) {
+        const dimens = loadDimens(qualifier);
+        const width = resolveSize(settings.getAttribute('android:layout_width'), dimens);
+        const height = resolveSize(settings.getAttribute('android:layout_height'), dimens);
+        assert.ok(width >= 48, `Settings stays a >=48dp target on ${qualifier}, got ${width}`);
+        assert.equal(width, height, `the Settings target is square on ${qualifier}`);
+    }
+    assert.equal(resolveSize(settings.getAttribute('android:layout_width'), loadDimens(PHONE)), 48);
+    assert.equal(resolveSize(settings.getAttribute('android:layout_width'), loadDimens(TABLET)), 52);
 
     const activity = read('smali/com/melodix/music/MainActivity.smali');
     const open = activity.slice(

@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Melodix design tokens - SINGLE SOURCE OF TRUTH for native shell metrics.
+
+    Every native shell dimension resolves through this file. The tablet variant
+    res/values-sw600dp/mel_dimens.xml overrides the same names, which is how the
+    tablet gets a genuinely different layout instead of a stretched phone:
+    gutters, touch targets, artwork, typography and shelf cards each have their
+    own tablet value.
+
+    The phone values below are the historical literals, so introducing the
+    tokens changed no phone rendering. Visual refinement is a separate step.
+
+    Rules:
+      * never hardcode a shell dimension in a layout again;
+      * never override a token for one screen only - add a new role instead;
+      * colour lives in colors.xml (mel_*), never here.
+-->
+<resources>
+    <!-- ===== spacing scale (4dp base) ===== -->
+    <dimen name="mel_space_1">4.0dip</dimen>
+    <dimen name="mel_space_2">8.0dip</dimen>
+    <dimen name="mel_space_3">12.0dip</dimen>
+    <dimen name="mel_space_4">16.0dip</dimen>
+    <dimen name="mel_space_5">20.0dip</dimen>
+    <dimen name="mel_space_6">24.0dip</dimen>
+    <dimen name="mel_space_8">32.0dip</dimen>
+    <!-- ===== screen gutters ===== -->
+    <dimen name="mel_gutter">16.0dip</dimen>
+    <dimen name="mel_gutter_half">8.0dip</dimen>
+    <dimen name="mel_shell_pad_top">8.0dip</dimen>
+    <dimen name="mel_shell_pad_bottom">6.0dip</dimen>
+    <!-- ===== header ===== -->
+    <dimen name="mel_header_pad_top">4.0dip</dimen>
+    <dimen name="mel_header_pad_bottom">6.0dip</dimen>
+    <dimen name="mel_header_action">48.0dip</dimen>
+    <dimen name="mel_header_avatar">48.0dip</dimen>
+    <dimen name="mel_header_avatar_radius">24.0dip</dimen>
+    <dimen name="mel_header_back_pad">9.0dip</dimen>
+    <dimen name="mel_header_settings_pad">11.0dip</dimen>
+    <dimen name="mel_header_gap">10.0dip</dimen>
+    <dimen name="mel_header_title">23.0sp</dimen>
+    <!-- ===== search ===== -->
+    <dimen name="mel_search_height">48.0dip</dimen>
+    <dimen name="mel_search_pad_h">14.0dip</dimen>
+    <dimen name="mel_search_pad_bottom">10.0dip</dimen>
+    <dimen name="mel_search_gap">10.0dip</dimen>
+    <dimen name="mel_search_submit">48.0dip</dimen>
+    <dimen name="mel_search_submit_pad">13.0dip</dimen>
+    <dimen name="mel_search_text">15.0sp</dimen>
+    <!-- ===== browse (genre tiles) ===== -->
+    <dimen name="mel_browse_title">21.0sp</dimen>
+    <dimen name="mel_browse_title_pad_bottom">14.0dip</dimen>
+    <dimen name="mel_browse_pad_top">4.0dip</dimen>
+    <dimen name="mel_browse_pad_bottom">24.0dip</dimen>
+    <dimen name="mel_tile_height">86.0dip</dimen>
+    <dimen name="mel_tile_pad_h">12.0dip</dimen>
+    <dimen name="mel_tile_pad_v">10.0dip</dimen>
+    <dimen name="mel_tile_text">15.0sp</dimen>
+    <dimen name="mel_tile_row_gap">8.0dip</dimen>
+    <!-- ===== library category chips ===== -->
+    <dimen name="mel_chip_height">48.0dip</dimen>
+    <dimen name="mel_chip_pad_h">16.0dip</dimen>
+    <dimen name="mel_chip_gap">8.0dip</dimen>
+    <dimen name="mel_chip_text">13.5sp</dimen>
+    <dimen name="mel_chip_pad_bottom">12.0dip</dimen>
+    <!-- ===== content shelves and rows ===== -->
+    <dimen name="mel_content_pad_top">8.0dip</dimen>
+    <dimen name="mel_content_pad_bottom">24.0dip</dimen>
+    <dimen name="mel_section_title">18.0sp</dimen>
+    <dimen name="mel_empty_text">14.0sp</dimen>
+    <dimen name="mel_empty_pad_v">24.0dip</dimen>
+    <dimen name="mel_shelf_card_width">148.0dip</dimen>
+    <dimen name="mel_shelf_art_height">148.0dip</dimen>
+    <dimen name="mel_shelf_card_height">176.0dip</dimen>
+    <dimen name="mel_shelf_gap">12.0dip</dimen>
+    <dimen name="mel_shelf_radius">8.0dip</dimen>
+    <!-- ===== full player ===== -->
+    <dimen name="mel_player_pad_top">10.0dip</dimen>
+    <dimen name="mel_player_pad_bottom">18.0dip</dimen>
+    <dimen name="mel_player_art">272.0dip</dimen>
+    <dimen name="mel_player_art_radius">8.0dip</dimen>
+    <dimen name="mel_player_art_elevation">18.0dip</dimen>
+    <dimen name="mel_player_art_margin_top">8.0dip</dimen>
+    <dimen name="mel_player_art_margin_bottom">22.0dip</dimen>
+    <dimen name="mel_player_title">24.0sp</dimen>
+    <dimen name="mel_player_artist">15.0sp</dimen>
+    <dimen name="mel_player_caption">12.0sp</dimen>
+    <dimen name="mel_player_time">12.0sp</dimen>
+    <dimen name="mel_player_progress">6.0dip</dimen>
+    <dimen name="mel_player_side_control">48.0dip</dimen>
+    <dimen name="mel_player_control">54.0dip</dimen>
+    <dimen name="mel_player_play">72.0dip</dimen>
+    <dimen name="mel_player_control_gap">14.0dip</dimen>
+    <dimen name="mel_player_control_inset">12.0dip</dimen>
+    <dimen name="mel_player_side_pad">11.0dip</dimen>
+    <dimen name="mel_player_control_pad">14.0dip</dimen>
+    <dimen name="mel_player_next_pad">15.0dip</dimen>
+    <dimen name="mel_player_play_pad">24.0dip</dimen>
+    <!-- ===== mini player ===== -->
+    <dimen name="mel_mini_height">64.0dip</dimen>
+    <dimen name="mel_mini_margin_h">8.0dip</dimen>
+    <dimen name="mel_mini_margin_top">8.0dip</dimen>
+    <dimen name="mel_mini_margin_bottom">4.0dip</dimen>
+    <dimen name="mel_mini_pad_h">10.0dip</dimen>
+    <dimen name="mel_mini_pad_v">6.0dip</dimen>
+    <dimen name="mel_mini_art">46.0dip</dimen>
+    <dimen name="mel_mini_art_radius">10.0dip</dimen>
+    <dimen name="mel_mini_art_gap">10.0dip</dimen>
+    <dimen name="mel_mini_text_pad">6.0dip</dimen>
+    <dimen name="mel_mini_title">14.5sp</dimen>
+    <dimen name="mel_mini_artist">12.5sp</dimen>
+    <dimen name="mel_mini_play">48.0dip</dimen>
+    <dimen name="mel_mini_play_pad">12.0dip</dimen>
+    <dimen name="mel_mini_progress">3.0dip</dimen>
+    <dimen name="mel_mini_progress_inset">6.0dip</dimen>
+    <!-- ===== bottom navigation ===== -->
+    <dimen name="mel_tab_bar_height">64.0dip</dimen>
+    <dimen name="mel_tab_height">58.0dip</dimen>
+    <dimen name="mel_tab_label">11.5sp</dimen>
+    <dimen name="mel_tab_pad_v">3.0dip</dimen>
+    <dimen name="mel_tab_drawable_pad">2.0dip</dimen>
+    <dimen name="mel_tab_divider">1.0dip</dimen>
+    <!-- ===== splash and loading ===== -->
+    <dimen name="mel_splash_logo">140.0dip</dimen>
+    <dimen name="mel_splash_logo_radius">70.0dip</dimen>
+    <dimen name="mel_splash_logo_elevation">8.0dip</dimen>
+    <dimen name="mel_splash_spinner">30.0dip</dimen>
+    <dimen name="mel_splash_error_icon">100.0dip</dimen>
+    <dimen name="mel_splash_text">15.0sp</dimen>
+    <dimen name="mel_splash_error_text">18.0sp</dimen>
+    <dimen name="mel_progress_height">4.0dip</dimen>
+    <dimen name="mel_splash_error_elevation">10.0dip</dimen>
+    <dimen name="mel_legacy_settings_size">40.0dip</dimen>
+    <dimen name="mel_legacy_settings_margin">5.0dip</dimen>
+    <!-- ===== elevation ===== -->
+    <dimen name="mel_shell_elevation">15.0dip</dimen>
+    <dimen name="mel_splash_elevation">20.0dip</dimen>
+    <dimen name="mel_progress_elevation">25.0dip</dimen>
+</resources>

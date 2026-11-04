@@ -136,10 +136,12 @@ function clickableViews() {
   return views;
 }
 
-function dp(block, attr) {
-  const re = new RegExp(`android:${attr}="([0-9.]+)dip"`);
-  const match = block.match(re);
-  return match ? Number(match[1]) : null;
+// Dimensions resolve through the design tokens, on BOTH form factors: a
+// control that is thumb-sized on the phone must stay thumb-sized on a tablet.
+const { loadDimens, size: tokenSize, PHONE, TABLET } = require('./helpers/mel_dimens');
+
+function dp(block, attr, qualifier = PHONE) {
+  return tokenSize(block, attr, loadDimens(qualifier));
 }
 
 test('every clickable native control is at least 48dp tall', () => {
@@ -169,8 +171,12 @@ test('the back button is reachable and never smaller than the header avatar', ()
   const views = clickableViews();
   const back = views.find((view) => view.handler === 'onNativeBackClick');
   assert.ok(back, 'le bouton retour existe');
-  assert.ok(dp(back.block, 'layout_height') >= 48, 'le retour fait au moins 48dp');
-  assert.ok(dp(back.block, 'layout_width') >= 48, 'le retour fait au moins 48dp de large');
+  for (const qualifier of [PHONE, TABLET]) {
+    assert.ok(dp(back.block, 'layout_height', qualifier) >= 48,
+      `le retour fait au moins 48dp (${qualifier})`);
+    assert.ok(dp(back.block, 'layout_width', qualifier) >= 48,
+      `le retour fait au moins 48dp de large (${qualifier})`);
+  }
 });
 
 // ---------------------------------------------------------------------------
