@@ -304,21 +304,17 @@
     new-instance v0, Landroid/widget/TextView;
     invoke-direct {v0, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
     invoke-virtual {v0, p1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-    const/high16 v1, 0x41a00000
-    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextSize(F)V
+    invoke-static {v0, p0}, Lcom/melodix/music/NativeUiMetrics;->applySectionTitle(Landroid/widget/TextView;Landroid/content/Context;)V
     const v1, -0x1
     invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextColor(I)V
     const/4 v1, 0x0
     const/4 v2, 0x1
     invoke-virtual {v0, v1, v2}, Landroid/widget/TextView;->setTypeface(Landroid/graphics/Typeface;I)V
-    const/16 v1, 0x10
-    invoke-static {p0, v1}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->gutter(Landroid/content/Context;)I
     move-result v1
-    const/16 v2, 0x18
-    invoke-static {p0, v2}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->sectionPadTop(Landroid/content/Context;)I
     move-result v2
-    const/16 v3, 0xa
-    invoke-static {p0, v3}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->sectionPadBottom(Landroid/content/Context;)I
     move-result v3
     invoke-virtual {v0, v1, v2, v1, v3}, Landroid/view/View;->setPadding(IIII)V
     return-object v0
@@ -578,4 +574,92 @@
 
     :native_dp_ready
     return v2
+.end method
+
+# ---------------------------------------------------------------------------
+# Design-token resolution.
+#
+# The native renderers used to hardcode dp literals, so a tablet received the
+# exact phone metrics. These helpers read the SAME tokens as the XML
+# (res/values/mel_dimens.xml + res/values-sw600dp/mel_dimens.xml) and let Android
+# pick the qualified value, so XML and smali cannot drift apart.
+#
+# Both keep the historical literal as a fallback: a missing token still draws at
+# the previous size instead of collapsing to zero.
+#
+# Call sites go through NativeUiMetrics accessors rather than calling these
+# directly, because passing a token name inline would need an extra live
+# register - and bumping .locals pushes the parameter registers past v15, which
+# non-range invoke instructions cannot encode.
+# ---------------------------------------------------------------------------
+.method public static metric(Landroid/content/Context;Ljava/lang/String;I)I
+    .locals 4
+
+    invoke-virtual {p0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
+
+    move-result-object v0
+
+    invoke-virtual {p0}, Landroid/content/Context;->getPackageName()Ljava/lang/String;
+
+    move-result-object v1
+
+    const-string v2, "dimen"
+
+    invoke-virtual {v0, p1, v2, v1}, Landroid/content/res/Resources;->getIdentifier(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I
+
+    move-result v3
+
+    if-eqz v3, :native_metric_fallback
+
+    invoke-virtual {v0, v3}, Landroid/content/res/Resources;->getDimensionPixelSize(I)I
+
+    move-result v0
+
+    if-gtz v0, :native_metric_fallback
+
+    return v0
+
+    :native_metric_fallback
+    invoke-static {p0, p2}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
+
+    move-result v0
+
+    return v0
+.end method
+
+# getDimension() already applies the sp font scale, so setTextSize with
+# COMPLEX_UNIT_PX honours the user's font setting exactly once.
+.method public static applyTextSize(Landroid/widget/TextView;Landroid/content/Context;Ljava/lang/String;F)V
+    .locals 4
+
+    invoke-virtual {p1}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
+
+    move-result-object v0
+
+    invoke-virtual {p1}, Landroid/content/Context;->getPackageName()Ljava/lang/String;
+
+    move-result-object v1
+
+    const-string v2, "dimen"
+
+    invoke-virtual {v0, p2, v2, v1}, Landroid/content/res/Resources;->getIdentifier(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I
+
+    move-result v3
+
+    if-eqz v3, :native_text_size_fallback
+
+    invoke-virtual {v0, v3}, Landroid/content/res/Resources;->getDimension(I)F
+
+    move-result v0
+
+    const/4 v1, 0x0
+
+    invoke-virtual {p0, v1, v0}, Landroid/widget/TextView;->setTextSize(IF)V
+
+    return-void
+
+    :native_text_size_fallback
+    invoke-virtual {p0, p3}, Landroid/widget/TextView;->setTextSize(F)V
+
+    return-void
 .end method

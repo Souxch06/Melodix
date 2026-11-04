@@ -14,6 +14,7 @@ const smaliFiles = [
     'smali/com/melodix/music/NativeUiUpdateRunnable.smali',
     'smali/com/melodix/music/NativeRowClickListener.smali',
     'smali/com/melodix/music/NativeUiRowFactory.smali',
+    'smali/com/melodix/music/NativeUiMetrics.smali',
     'smali/com/melodix/music/NativeImageLoader.smali',
     'smali/com/melodix/music/NativeSearchWatcher.smali',
     'smali/com/melodix/music/NativeSearchFocusRunnable.smali',
@@ -124,6 +125,7 @@ const diagnosticSmaliFiles = [
     'smali/com/melodix/music/NativeUiUpdateRunnable.smali',
     'smali/com/melodix/music/NativeRowClickListener.smali',
     'smali/com/melodix/music/NativeUiRowFactory.smali',
+    'smali/com/melodix/music/NativeUiMetrics.smali',
     'smali/com/melodix/music/NativeImageLoader.smali',
     'smali/com/melodix/music/NativeSearchWatcher.smali',
     'smali/com/melodix/music/NativeSearchFocusRunnable.smali',
@@ -249,6 +251,7 @@ test('const/high16 literals have the required zeroed low 16 bits', () => {
         'smali/com/melodix/music/NativeUiUpdateRunnable.smali',
         'smali/com/melodix/music/NativeRowClickListener.smali',
         'smali/com/melodix/music/NativeUiRowFactory.smali',
+        'smali/com/melodix/music/NativeUiMetrics.smali',
         'smali/com/melodix/music/NativeImageLoader.smali'
     ];
 

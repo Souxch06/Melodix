@@ -184,9 +184,7 @@
 
     invoke-virtual {v8, v9}, Landroid/view/ViewGroup;->setClipToPadding(Z)V
 
-    const/16 v9, 0x10
-
-    invoke-static {p0, v9}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->gutter(Landroid/content/Context;)I
 
     move-result v9
 
@@ -220,9 +218,7 @@
 
     new-instance v8, Landroid/widget/LinearLayout$LayoutParams;
 
-    const/16 v9, 0x94
-
-    invoke-static {p0, v9}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->shelfCardWidth(Landroid/content/Context;)I
 
     move-result v9
 
@@ -230,9 +226,7 @@
 
     invoke-direct {v8, v9, v10}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
 
-    const/16 v9, 0x8
-
-    invoke-static {p0, v9}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->shelfGap(Landroid/content/Context;)I
 
     move-result v9
 
@@ -273,9 +267,7 @@
 
     invoke-virtual {v10, v11}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
 
-    const/16 v11, 0xc
-
-    invoke-static {p0, v11}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->shelfRadius(Landroid/content/Context;)I
 
     move-result v11
 
@@ -297,9 +289,7 @@
 
     new-instance v10, Landroid/widget/LinearLayout$LayoutParams;
 
-    const/16 v11, 0x94
-
-    invoke-static {p0, v11}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->shelfArtHeight(Landroid/content/Context;)I
 
     move-result v11
 

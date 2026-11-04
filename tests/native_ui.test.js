@@ -1206,7 +1206,19 @@ test('Home is rendered as Spotify-style cover shelves, not a flat settings list'
     assert.match(renderer, /Landroid\/widget\/HorizontalScrollView;->setHorizontalScrollBarEnabled/);
     assert.match(renderer, /NativeRowClickListener;-><init>/, 'shelf cards stay clickable');
     assert.match(renderer, /NativeImageLoader;->load/, 'shelf covers load Spotify CDN artwork');
-    assert.match(renderer, /const\/16 v9, 0x94/, 'cards are 148 dp wide');
+    // Card width is a design token now. Assert the renderer actually asks for
+    // it, and that the accessor still falls back to the historical 148 dp.
+    assert.match(renderer, /NativeUiMetrics;->shelfCardWidth\(Landroid\/content\/Context;\)I/,
+        'shelf card width resolves through the design tokens');
+    assert.match(renderer, /NativeUiMetrics;->shelfArtHeight\(Landroid\/content\/Context;\)I/,
+        'shelf covers stay square through the same token family');
+    const metrics = read('smali/com/melodix/music/NativeUiMetrics.smali');
+    assert.match(metrics, /shelfCardWidth[\s\S]*?const-string v0, "mel_shelf_card_width"[\s\S]*?const\/16 v1, 0x94/,
+        'the card accessor keeps 148 dp as its fallback');
+    assert.equal(resolveSize('@dimen/mel_shelf_card_width', loadDimens(PHONE)), 148);
+    assert.equal(resolveSize('@dimen/mel_shelf_card_width', loadDimens(TABLET)), 190);
+    assert.equal(resolveSize('@dimen/mel_shelf_art_height', loadDimens(TABLET)), 190,
+        'tablet covers stay square');
     assert.match(renderer, /createSectionHeader/, 'every shelf keeps its section title');
     // The mini player insets come from tokens; the tablet must inset further
     // than the phone rather than reuse the phone margin.
