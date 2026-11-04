@@ -47,7 +47,7 @@
                 android:textColor="@color/mel_text_dark"
                 android:layout_gravity="bottom|center|right"
                 android:id="@id/txtMessage"
-                android:background="@color/teal_200"
+                android:background="@color/mel_accent"
                 android:paddingLeft="15.0dip"
                 android:paddingTop="5.0dip"
                 android:paddingRight="15.0dip"
@@ -756,7 +756,7 @@
         android:layout_height="@dimen/mel_progress_height"
         android:indeterminate="true"
         android:elevation="@dimen/mel_progress_elevation"
-        android:indeterminateTint="@color/teal_200"
+        android:indeterminateTint="@color/mel_accent"
         app:layout_constraintTop_toTopOf="parent"
         style="?android:progressBarStyleHorizontal" />
 </androidx.constraintlayout.widget.ConstraintLayout>

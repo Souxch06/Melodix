@@ -56,6 +56,8 @@
     <dimen name="mel_content_pad_top">12.0dip</dimen>
     <dimen name="mel_content_pad_bottom">32.0dip</dimen>
     <dimen name="mel_section_title">24.0sp</dimen>
+    <dimen name="mel_section_pad_top">32.0dip</dimen>
+    <dimen name="mel_section_pad_bottom">14.0dip</dimen>
     <dimen name="mel_empty_text">16.0sp</dimen>
     <dimen name="mel_empty_pad_v">36.0dip</dimen>
     <dimen name="mel_shelf_card_width">190.0dip</dimen>
@@ -63,6 +65,16 @@
     <dimen name="mel_shelf_card_height">224.0dip</dimen>
     <dimen name="mel_shelf_gap">16.0dip</dimen>
     <dimen name="mel_shelf_radius">14.0dip</dimen>
+    <!-- ===== list rows (library, playlists, albums) ===== -->
+    <dimen name="mel_row_art">64.0dip</dimen>
+    <dimen name="mel_row_height">76.0dip</dimen>
+    <dimen name="mel_row_title">17.0sp</dimen>
+    <dimen name="mel_row_subtitle">14.0sp</dimen>
+    <dimen name="mel_row_radius">8.0dip</dimen>
+    <dimen name="mel_row_pad_h">16.0dip</dimen>
+    <dimen name="mel_row_pad_v">10.0dip</dimen>
+    <dimen name="mel_row_art_gap">16.0dip</dimen>
+
     <!-- ===== full player ===== -->
     <dimen name="mel_player_pad_top">18.0dip</dimen>
     <dimen name="mel_player_pad_bottom">28.0dip</dimen>
