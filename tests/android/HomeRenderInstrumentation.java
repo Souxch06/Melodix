@@ -1492,6 +1492,28 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         }
     }
 
+    // Instrumentation.runOnMainSync() waits for the main thread with no bound.
+    // MainActivity.onCreate builds a large view tree, so on a cold emulator the
+    // main thread stays busy for seconds and a synchronous sample lands outside
+    // the checkpoint window (measured: failure at the 3 s checkpoint on both
+    // profiles). Posting instead lets the caller keep the launch-relative
+    // deadline and report "not observable in time" rather than a late sample.
+    private boolean postOnMainWithDeadline(final Runnable task, long timeoutMillis)
+            throws InterruptedException {
+        if (timeoutMillis <= 0L) return false;
+        final CountDownLatch done = new CountDownLatch(1);
+        new android.os.Handler(android.os.Looper.getMainLooper()).post(new Runnable() {
+            @Override public void run() {
+                try {
+                    task.run();
+                } finally {
+                    done.countDown();
+                }
+            }
+        });
+        return done.await(timeoutMillis, TimeUnit.MILLISECONDS);
+    }
+
     private void noteDisplayOwnershipPhase(String stage) {
         String safe = stage == null || !stage.matches("[a-z0-9_]{1,40}") ? "invalid_stage" : stage;
         displayOwnershipFailurePhase = "display_ownership_" + safe;
@@ -6381,7 +6403,12 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             final JSONObject[] sample = new JSONObject[1];
             final WebView[] sampleWebView = new WebView[1];
             final Throwable[] failure = new Throwable[1];
-            runOnMainSync(new Runnable() {
+            // Everything this checkpoint does must finish inside its own
+            // launch-relative window, so the recorded timestamps stay honest
+            // and inside the documented tolerance.
+            final long checkpointDeadline = launchStart + target
+                    + DISPLAY_OWNERSHIP_ACTIVITY_WAIT_TOLERANCE_MS;
+            boolean sampled = postOnMainWithDeadline(new Runnable() {
                 @Override
                 public void run() {
                     try {
@@ -6391,7 +6418,20 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                         failure[0] = error;
                     }
                 }
-            });
+            }, checkpointDeadline - SystemClock.elapsedRealtime());
+            if (!sampled) {
+                // The main thread did not run the sample in time. That is a
+                // fact about the launch, not a licence to move the deadline.
+                noteDisplayOwnershipPhase("checkpoint_" + DISPLAY_OWNERSHIP_CHECKPOINT_LABELS[index]
+                        + "_main_busy");
+                JSONObject late = unresumedDisplayOwnershipCheckpoint(target, launchStart);
+                completeDisplayOwnershipWebCenter(late, null, launchStart, 0L);
+                recordDisplayOwnershipMeasurement(DISPLAY_OWNERSHIP_CHECKPOINT_LABELS[index], late);
+                checkpoints.put(DISPLAY_OWNERSHIP_CHECKPOINT_LABELS[index], late);
+                previousOwner = late.getString("display_owner");
+                previousRoute = late.getString("route_category");
+                continue;
+            }
             if (failure[0] != null || sample[0] == null) {
                 noteDisplayOwnershipPhase("checkpoint_" + DISPLAY_OWNERSHIP_CHECKPOINT_LABELS[index]
                         + "_inspect");
@@ -6407,8 +6447,10 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             // deadlock if invoked from inside the block above.
             noteDisplayOwnershipPhase("checkpoint_" + DISPLAY_OWNERSHIP_CHECKPOINT_LABELS[index]
                     + "_probe");
-            completeDisplayOwnershipWebCenter(checkpoint, sampleWebView[0], launchStart,
-                    index == 0 ? DISPLAY_OWNERSHIP_LAUNCH_PROBE_TIMEOUT_MS : DISPLAY_OWNERSHIP_PROBE_TIMEOUT_MS);
+            long probeBudget = Math.min(
+                    index == 0 ? DISPLAY_OWNERSHIP_LAUNCH_PROBE_TIMEOUT_MS : DISPLAY_OWNERSHIP_PROBE_TIMEOUT_MS,
+                    checkpointDeadline - SystemClock.elapsedRealtime());
+            completeDisplayOwnershipWebCenter(checkpoint, sampleWebView[0], launchStart, probeBudget);
             long observed = checkpoint.getLong("observed_elapsed_ms");
             long probeElapsed = checkpoint.getLong("web_center_probe_elapsed_ms");
             if (observed < target || observed - target > 1500L || probeElapsed - target > 1500L) {
@@ -6653,9 +6695,12 @@ public final class HomeRenderInstrumentation extends Instrumentation {
     // reported as "no answer" rather than as a successful measurement.
     private String evaluateJavascriptWithDeadline(final WebView webView, final String script, long timeoutMillis)
             throws InterruptedException {
+        if (timeoutMillis <= 0L) return null;
         final CountDownLatch received = new CountDownLatch(1);
         final String[] result = new String[1];
-        runOnMainSync(new Runnable() {
+        // Post rather than runOnMainSync: the latter waits for a busy main
+        // thread without any bound, which would defeat the deadline below.
+        new android.os.Handler(android.os.Looper.getMainLooper()).post(new Runnable() {
             @Override
             public void run() {
                 try {

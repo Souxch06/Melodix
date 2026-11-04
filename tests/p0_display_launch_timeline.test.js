@@ -166,6 +166,27 @@ test('the launch-relative checkpoint rule is executed and never re-bases the tim
   assert.match(comparison, /displayOwnershipActivityWaitBudget\(launchStart, target,/);
   assert.match(source, /DISPLAY_OWNERSHIP_ACTIVITY_WAIT_TOLERANCE_MS = 1200L;/);
 
+  // Run 41887640414 measured the consequence of an unbounded sample: the
+  // activity had not resumed at 1406 ms / 2203 ms and the 3 s checkpoint failed
+  // its window, because Instrumentation.runOnMainSync() waits for a main thread
+  // that MainActivity.onCreate keeps busy for seconds. Every operation inside a
+  // checkpoint must therefore be bounded by that checkpoint's own deadline.
+  assert.match(comparison, /final long checkpointDeadline = launchStart \+ target\s*\+ DISPLAY_OWNERSHIP_ACTIVITY_WAIT_TOLERANCE_MS;/);
+  assert.match(comparison, /postOnMainWithDeadline\(new Runnable\(\)[\s\S]*?\}, checkpointDeadline - SystemClock\.elapsedRealtime\(\)\);/);
+  assert.match(comparison, /long probeBudget = Math\.min\([\s\S]*?checkpointDeadline - SystemClock\.elapsedRealtime\(\)\);/);
+  assert.doesNotMatch(comparison, /runOnMainSync\(new Runnable\(\)\s*\{\s*@Override\s*public void run\(\)\s*\{\s*try\s*\{\s*sampleWebView/,
+    'the checkpoint sample must not use the unbounded synchronous main-thread call');
+
+  // A sample that cannot run in time is recorded as unobservable, never thrown
+  // away and never allowed to move the deadline.
+  assert.match(comparison, /if \(!sampled\) \{[\s\S]*?_main_busy[\s\S]*?unresumedDisplayOwnershipCheckpoint\(target, launchStart\)[\s\S]*?continue;/);
+
+  const jsProbe = extractMethod(source, '    private String evaluateJavascriptWithDeadline(');
+  assert.match(jsProbe, /new android\.os\.Handler\(android\.os\.Looper\.getMainLooper\(\)\)\.post/);
+  assert.doesNotMatch(jsProbe, /runOnMainSync\(/,
+    'the bounded JS probe must not block on an unbounded main-thread call first');
+  assert.match(jsProbe, /if \(timeoutMillis <= 0L\) return null;/);
+
   const toolchain = findToolchain();
   if (!toolchain) {
     t.skip('no javac and no ECJ jar available: the timeline rule was not executed');
