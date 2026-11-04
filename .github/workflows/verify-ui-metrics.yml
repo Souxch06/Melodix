@@ -1,0 +1,237 @@
+name: Verify UI metrics on phone and tablet
+
+# Opt-in, build-only. This workflow never publishes a release, a preview page or
+# a tag, and it uses no signing secret: the APK is signed with a throwaway debug
+# key generated on the runner and discarded with it.
+#
+# Why it exists: every other check proves the tokens COMPILE. Only this one
+# proves Android SELECTS res/values-sw600dp and inflates the shell at those
+# sizes. It boots the same two profiles the P0 comparison uses, installs the
+# same APK on both, and compares the rendered bounds against the design tokens.
+#
+# It measures the unauthenticated shell, which is what a clean install honestly
+# shows. No account is used, nothing is injected and no playback is faked, so
+# the player, the content shelves and the collection banner are reported as NOT
+# MEASURED rather than guessed.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-ui-apk:
+    name: Build one build-only APK for both profiles
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out the branch under test
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Java
+        uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4.0.4
+
+      - name: Install build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager --install "build-tools;35.0.0" "platform-tools"
+          [[ -x "$ANDROID_HOME/build-tools/35.0.0/apksigner" ]] || {
+            echo "::error::apksigner is missing."; exit 1; }
+
+      - name: Assemble and sign with a throwaway debug key
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/melodix-ui-project"
+          framework="$RUNNER_TEMP/melodix-ui-framework"
+          unsigned="$RUNNER_TEMP/melodix-ui-unsigned.apk"
+          signed="$RUNNER_TEMP/melodix-ui-metrics.apk"
+          keystore="$RUNNER_TEMP/melodix-ui-debug.jks"
+          mkdir -p "$work" "$framework"
+
+          for item in AndroidManifest.xml META-INF apktool.yml assets kotlin lib original res smali unknown; do
+            if [[ ! -e "$GITHUB_WORKSPACE/$item" ]]; then
+              echo "::error::Root-level Apktool project item is missing: $item"; exit 1
+            fi
+            cp -a "$GITHUB_WORKSPACE/$item" "$work/"
+          done
+
+          framework_apk="$GITHUB_WORKSPACE/android/apktool-framework/1.apk"
+          [[ -s "$framework_apk" ]] || { echo "::error::Apktool framework is missing."; exit 1; }
+
+          curl --fail --silent --show-error --location \
+            "https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar" \
+            --output "$RUNNER_TEMP/apktool.jar"
+          java -jar "$RUNNER_TEMP/apktool.jar" if --frame-path "$framework" "$framework_apk"
+          java -jar "$RUNNER_TEMP/apktool.jar" b "$work" \
+            --frame-path "$framework" --output "$unsigned" --force-all
+          [[ -s "$unsigned" ]] || { echo "::error::Apktool produced no APK."; exit 1; }
+
+          # Build-only key. Generated here, never stored, never a repository secret.
+          keytool -genkeypair -keystore "$keystore" -alias uicheck \
+            -keyalg RSA -keysize 2048 -validity 2 \
+            -storepass android -keypass android \
+            -dname "CN=Melodix UI Metrics, O=Build Only, C=FR" >/dev/null
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -p -f 4 "$unsigned" "$signed"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign \
+            --ks "$keystore" --ks-pass pass:android --key-pass pass:android \
+            --ks-key-alias uicheck "$signed"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$signed"
+
+          package_id="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$signed" \
+            | sed -n "s/^package: name='\([^']*\)'.*/\1/p")"
+          [[ "$package_id" == "com.melodix.music" ]] || {
+            echo "::error::unexpected package id: $package_id"; exit 1; }
+          sha="$(sha256sum "$signed" | cut -d' ' -f1)"
+          echo "::notice title=UI metrics APK::sha256=$sha; source=$GITHUB_SHA; publication=disabled; signing=throwaway-debug"
+
+      - name: Upload the build-only APK for both profiles
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: melodix-ui-metrics-apk-${{ github.run_id }}
+          path: ${{ runner.temp }}/melodix-ui-metrics.apk
+          retention-days: 3
+          if-no-files-found: error
+
+  measure-ui:
+    name: Measure the rendered shell on ${{ matrix.profile }}
+    needs: build-ui-apk
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [phone, tablet]
+    steps:
+      - name: Check out the measurement tooling
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Java
+        uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4.0.4
+
+      - name: Install the Android 16 emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(uname -m)" == "x86_64" ]] || { echo "::error::expected an x86_64 host."; exit 1; }
+          system_image="system-images;android-36;google_apis;x86_64"
+          sdkmanager --install "platform-tools" "emulator" "build-tools;35.0.0" \
+            "platforms;android-36" "$system_image"
+          [[ -e /dev/kvm ]] || { echo "::error::KVM is unavailable on this runner."; exit 1; }
+
+      - name: Download the same-run build-only APK
+        uses: actions/download-artifact@v4.3.0
+        with:
+          name: melodix-ui-metrics-apk-${{ github.run_id }}
+          path: ${{ runner.temp }}/melodix-ui-apk
+
+      - name: Boot the profile AVD
+        shell: bash
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          bash scripts/p0_display_boot_avd.sh "$PROFILE" "MelodixDisplayUi${PROFILE}" \
+            "system-images;android-36;google_apis;x86_64" \
+            "$RUNNER_TEMP/melodix-ui-state-$PROFILE"
+
+      - name: Install, launch and measure the rendered shell
+        shell: bash
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          state="$RUNNER_TEMP/melodix-ui-state-$PROFILE"
+          out="$RUNNER_TEMP/melodix-ui-result-$PROFILE"
+          mkdir -p "$out"
+          device="$(cat "$state/emulator.device")"
+          apk="$RUNNER_TEMP/melodix-ui-apk/melodix-ui-metrics.apk"
+          [[ -s "$apk" ]] || { echo "::error::the build-only APK is missing."; exit 1; }
+
+          adb -s "$device" install -r -g "$apk"
+          adb -s "$device" logcat -c || true
+          adb -s "$device" shell am start -W -n com.melodix.music/.MainActivity
+
+          # The shell took about 20s to own the display in the P0 runs. Poll for
+          # it rather than assuming, and give up honestly if it never appears.
+          density="$(adb -s "$device" shell wm density | sed -n 's/.*: *\([0-9]*\).*/\1/p' | tail -1)"
+          [[ "$density" =~ ^[0-9]+$ ]] || { echo "::error::could not read the display density."; exit 1; }
+          echo "profile=$PROFILE density=$density"
+
+          deadline=$(( $(date +%s) + 180 ))
+          ready=0
+          while [[ "$(date +%s)" -lt "$deadline" ]]; do
+            if adb -s "$device" shell uiautomator dump /sdcard/melodix-ui.xml >/dev/null 2>&1 \
+              && adb -s "$device" shell cat /sdcard/melodix-ui.xml > "$out/dump.xml" 2>/dev/null \
+              && grep -q 'com.melodix.music:id/nativeRoot' "$out/dump.xml"; then
+              ready=1
+              break
+            fi
+            sleep 6
+          done
+
+          adb -s "$device" exec-out screencap -p > "$out/home-$PROFILE.png" || true
+          if [[ "$ready" != "1" ]]; then
+            echo "::error title=UI metrics $PROFILE::the native shell never appeared within 180s; no metric is claimed"
+            adb -s "$device" shell cat /sdcard/melodix-ui.xml > "$out/dump.xml" 2>/dev/null || true
+            exit 1
+          fi
+
+          python3 scripts/ui_metrics_measure.py "$PROFILE" "$density" \
+            "$out/dump.xml" "$out/ui-metrics-$PROFILE.json"
+
+          # Search is native and needs no account: it exposes the browse grid,
+          # so capture it as a second surface when the tab is reachable.
+          if grep -q 'com.melodix.music:id/nativeSearchTab' "$out/dump.xml"; then
+            bounds="$(python3 scripts/ui_view_center.py "$out/dump.xml" nativeSearchTab)"
+            if [[ -n "$bounds" ]]; then
+              adb -s "$device" shell input tap $bounds
+              sleep 4
+              adb -s "$device" shell uiautomator dump /sdcard/melodix-ui-search.xml >/dev/null 2>&1 || true
+              adb -s "$device" shell cat /sdcard/melodix-ui-search.xml > "$out/dump-search.xml" 2>/dev/null || true
+              adb -s "$device" exec-out screencap -p > "$out/search-$PROFILE.png" || true
+            fi
+          fi
+
+      - name: Upload the measurements and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: melodix-ui-metrics-${{ matrix.profile }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/melodix-ui-result-${{ matrix.profile }}
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Upload the boot diagnostic when the AVD failed
+        if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: melodix-ui-boot-${{ matrix.profile }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/melodix-ui-state-${{ matrix.profile }}/boot-diagnostic.json
+          retention-days: 3
+          if-no-files-found: ignore
+
+      - name: Stop only this profile's emulator
+        if: always()
+        shell: bash
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          state="$RUNNER_TEMP/melodix-ui-state-$PROFILE"
+          if [[ -d "$state" ]]; then
+            bash scripts/p0_display_stop_avd.sh "$state" || true
+          fi
