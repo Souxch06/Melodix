@@ -76,6 +76,10 @@
     invoke-static {p0, v13, v2}, Lcom/melodix/music/NativeHomeShelfRenderer;->renderHomeStatus(Lcom/melodix/music/MainActivity;Landroid/widget/LinearLayout;Lorg/json/JSONObject;)Z
     move-result v3
     if-eqz v3, :shelf_no_cards
+    # Visual rebuild, screen 1: the status card used to be the only thing on a
+    # signed-out home, leaving most of the screen blank. Offer real navigation
+    # instead. Only on this branch, so an authenticated home is untouched.
+    invoke-static {p0, v13}, Lcom/melodix/music/NativeShortcutGrid;->render(Lcom/melodix/music/MainActivity;Landroid/widget/LinearLayout;)V
     const-string v4, "status"
     invoke-static {v4}, Lcom/melodix/music/NativeHomeShelfRenderer;->traceHomeModel(Ljava/lang/String;)V
     invoke-static {v1, p1, v4}, Lcom/melodix/music/NativeHomeShelfRenderer;->traceHomeRendered(IILjava/lang/String;)V
