@@ -224,3 +224,66 @@ Les deux étapes renforcées échouaient avant le correctif MEL-BUG-010 et passe
 | **Garde validée par mutation** | Le bogue a été réintroduit volontairement : le test le **détecte** ; après restauration, tout repasse. La garde n'est pas décorative. |
 | **Statut** | **Résolu avec preuve** (correctif + garde mutée) |
 | **Leçon** | Un générateur de smali doit avoir une allocation de registres déclarée, pas des helpers qui choisissent un registre au hasard. |
+
+## MEL-BUG-001 — RÉSOLU AVEC PREUVE : cause racine démontrée
+
+**Cause confirmée, une seule instruction.** Dans `NativeUiRowFactory.metric`, après `getDimensionPixelSize` :
+
+```smali
+if-gtz v0, :native_metric_fallback   # saute au REPLI quand px > 0 : chemin de SUCCÈS
+return v0
+```
+
+`if-gtz` signifie « si **supérieur** à zéro ». Le chemin de succès partait donc au repli : **chaque dimension résolue était jetée** et remplacée par la valeur dp codée en dur. Le résolveur n'a jamais transmis sa valeur à aucun appelant.
+
+**Preuves concordantes, même instant, même contexte** (run `42019138039`) :
+
+| Sonde | Résultat | Interprétation |
+|---|---|---|
+| `logIdentity` | `id=2131165369`, `pkg=com.melodix.music`, témoin framework `17105764` | la recherche de nom fonctionne |
+| `MelMetrics` | `px=152` tablette, `px=168` téléphone | la dimension est bien lue |
+| Sonde de géométrie | `token_px=-1` (repli demandé à -1), `min_h=128`/`168` | **l'appelant reçoit `dp(64)`, pas 152** |
+
+**Correctif minimal** : `if-gtz` → `if-lez`. Aucun jeton modifié, aucune valeur en dur ajoutée, aucune exception par composant.
+
+**Vérification sur appareil** (run `42020667077`) :
+
+| Mesure | Téléphone avant → après | Tablette avant → après |
+|---|---|---|
+| Jeton reçu par l'appelant | -1 → **168 px** | -1 → **152 px** |
+| Minimum appliqué | 168 → **168 px** | 128 → **152 px** |
+| Hauteur finale de ligne | 171 → **174 px** (66,3 dp) | 132 → **160 px** (**80 dp**) |
+| Largeur carte statut Accueil | 379,4 → **379,4 dp** (inchangé) | 560 → **720 dp** |
+| Position carte Accueil | x=16 → **x=16 dp** | x=120 → **x=40 dp** |
+| Anomalies de navigation | 0 → **0** | 0 → **0** |
+
+**Le téléphone est préservé** : ses jetons valaient ses replis, donc rien ne change sauf `pad_v` qui applique enfin sa valeur (65,1 → 66,3 dp, toujours au-dessus du minimum 64 dp).
+
+**Garde validée par mutation** : réécrire `if-lez` en `if-gtz` fait échouer le test. Le test épingle aussi `dp()`, dont le `if-gtz` est **correct** car sa cible est le label de sortie et non le repli.
+
+**Statut** : **Résolu avec preuve**, sur les deux profils.
+
+## MEL-BUG-013 — Chrome hérité `btnSettings` présent dans la hiérarchie sous le shell natif
+
+| Champ | Valeur |
+|---|---|
+| **Gravité** | **P3** — non visible, mais signal réel |
+| **Appareil** | Téléphone uniquement, run `42020667077` |
+| **Étapes** | `background-resume`, `mini-player`, `player` (les trois dernières) |
+| **Observé, bornes** | `btnSettings`, `ImageButton`, **40×40 dp**, à x=185,9 dp y=29 dp, chevauchant `nativeRoot` de 11025 px² |
+| **Visible à l'écran ?** | **Non.** La capture montre l'en-tête natif normal ; le bouton est couvert par `nativeRoot`, opaque et surélevé de 15 dp. |
+| **Absent des runs précédents** | 0 défaut téléphone aux runs `42008408954` et `42019138039` ; `btnSettings` n'était pas dans le dump |
+| **Cause** | **Non établie.** Deux hypothèses à départager : l'application des vrais jetons a modifié un calcul de visibilité du chrome hérité, ou il s'agit d'un état transitoire en fin de parcours. |
+| **Décision** | **Je n'affaiblis pas l'audit** pour rendre la CI verte. Le défaut reste signalé, le parcours téléphone reste en échec, et c'est la prochaine tâche. |
+| **Statut** | **Ouvert — en diagnostic** |
+
+## MEL-BUG-014 — Les lignes de paramètres sont en plein bord, sans gouttière
+
+| Champ | Valeur |
+|---|---|
+| **Gravité** | **P2** — défaut visuel démontré |
+| **Observé, bornes** | `final_w=1600 px = 800 dp` sur tablette (plein écran), `marges=0/0`, parent `LinearLayout` avec `pad_lr=0/0`. Téléphone : `final_w=1080 px = 411,4 dp`, plein bord aussi. |
+| **Comparaison** | Le contenu **Accueil** respecte la gouttière (`x=16 dp`, `w=379,4 dp` téléphone ; `x=40 dp`, `w=720 dp` tablette) |
+| **Cause confirmée** | `nativeContent` n'a que `paddingTop`/`paddingBottom`, aucun padding horizontal, et les lignes sont ajoutées par `addView(View)` **sans LayoutParams** : elles héritent de `MATCH_PARENT × WRAP_CONTENT` sans marges. Le rendu Accueil, lui, pose des LayoutParams explicites. |
+| **Correctif prévu** | Ajouter le padding horizontal de gouttière à `nativeContent` dans les deux dispositions, ce qui couvre toutes les lignes sans exception par composant. Non encore appliqué : à vérifier séparément pour garder chaque changement attribuable. |
+| **Statut** | **Ouvert — cause confirmée, correctif identifié** |
