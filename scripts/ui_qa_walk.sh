@@ -143,5 +143,11 @@ refresh
 capture mini-player
 capture player
 
+# MEL-BUG-001: what the runtime resolver actually saw, per token. Deduplicated
+# because metric() runs on every render; each token/configuration pair once.
+adb -s "$device" logcat -d -s MelMetrics:I 2>/dev/null \
+  | sed -n 's/.*MelMetrics: //p' | sort -u > "$out/metrics-resolution.txt" || true
+echo "::notice title=QA walk $profile::metric lines=$(wc -l < "$out/metrics-resolution.txt" || echo 0)"
+
 echo "::notice title=QA walk $profile::failures=$failures; trace=$trace"
 exit "$failures"

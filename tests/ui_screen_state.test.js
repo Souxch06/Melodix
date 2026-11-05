@@ -74,3 +74,100 @@ test('the trace can actually detect this class of defect', () => {
   assert.ok(homeAgain.includes('nativeBackButton'),
     'the tab bar alone cannot discriminate: it is visible on every screen');
 });
+
+// --- MEL-BUG-002: system Back key ------------------------------------------
+// Root cause: the patched OnBackPressedDispatcher (androidx/activity/b.b())
+// only injects WebView JavaScript to close the fullscreen player. With a native
+// pushed screen on top it found nothing to close and swallowed the key, so the
+// Settings screen could not be left with the system Back key.
+
+const keyDown = method(activity, '.method public final onKeyDown(ILandroid/view/KeyEvent;)Z');
+
+// A label name also appears inside the branch that targets it, so indexOf would
+// land on the first jump rather than on the label definition.
+function labelAt(body, label) {
+  const at = body.indexOf(`\n    :${label}\n`);
+  assert.ok(at >= 0, `label :${label} must be defined`);
+  return at;
+}
+
+test('the system Back key is handled while a native pushed screen is shown', () => {
+  assert.match(keyDown, /const\/4 v0, 0x4/, 'KEYCODE_BACK must be recognised');
+  assert.match(keyDown, /0x7f090231/, 'the native back button identifies a pushed screen');
+  assert.match(keyDown, /View;->isShown\(\)Z/,
+    'isShown accounts for hidden ancestors; getVisibility alone would not');
+  assert.match(keyDown, /onNativeBackClick\(Landroid\/view\/View;\)V/,
+    'reuse the internal back, which already restores route, title and payload');
+});
+
+test('Back is delegated untouched when no native screen is pushed', () => {
+  const delegate = labelAt(keyDown, 'mel_back_delegate');
+  const superCall = keyDown.indexOf('invoke-super {p0, p1, p2}, Le6;->onKeyDown');
+  assert.ok(delegate > 0 && superCall > delegate,
+    'the original chain must still run for the WebView and the player');
+  // Every guard must fall through to the original behaviour, never to a bare return.
+  const guards = keyDown.slice(0, delegate).match(/if-\w+ [^\n]*:mel_back_delegate/g) || [];
+  assert.ok(guards.length >= 4, 'each guard must delegate, not swallow the key');
+});
+
+test('the matching key-up is consumed so navigation cannot happen twice', () => {
+  const up = labelAt(keyDown, 'mel_back_maybe_down');
+  assert.ok(keyDown.slice(0, up).includes('getAction()I'), 'the action must be inspected');
+  assert.match(keyDown.slice(0, up), /const\/4 v1, 0x1[\s\S]*?return v1/,
+    'ACTION_UP returns true without navigating a second time');
+});
+
+test('the internal back really re-renders, which is why it is safe to reuse', () => {
+  const back = method(activity, '.method public final onNativeBackClick(Landroid/view/View;)V');
+  assert.match(back, /setNativeScreen\(Ljava\/lang\/String;\)V/);
+  assert.match(back, /renderNativeRows\(Ljava\/lang\/String;Ljava\/lang\/String;\)V/);
+  assert.ok(!/\bp1\b/.test(back), 'it ignores its View argument, so passing null is safe');
+});
+
+// --- MEL-BUG-003: a route change left foreign content on screen -------------
+// Root cause: onNativeBackClick re-renders, a plain route change did not. The
+// fix belongs to the ROUTE CHANGE, not to the Home refresh handler: an existing
+// test forbids the Home handler from ever blanking a real shelf, and that guard
+// is correct. Placing the cleanup in setNativeScreen respects it and also covers
+// every other path that switches to Home.
+
+const setScreen = method(activity, '.method public final setNativeScreen(Ljava/lang/String;)V');
+
+test('a genuine route change to Home replaces the foreign rows', () => {
+  const at = labelAt(setScreen, 'mel_route_home_clean_done');
+  const block = setScreen.slice(setScreen.indexOf('iput-object p1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen'), at);
+  assert.match(block, /renderNativeRows\(Ljava\/lang\/String;Ljava\/lang\/String;\)V/,
+    'switching to Home must actually re-render, not only request data');
+});
+
+test('the cleanup is guarded by the route-change flag, not run on every Home entry', () => {
+  const at = labelAt(setScreen, 'mel_route_home_clean_done');
+  const start = setScreen.indexOf('iput-object p1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen');
+  const block = setScreen.slice(start, at);
+  assert.match(block, /if-eqz v0, :mel_route_home_clean_done/,
+    'v0 is the changed flag: a repeated Home route must not blank a real shelf');
+  assert.match(block, /const-string v2, "home"[\s\S]*?if-eqz v2, :mel_route_home_clean_done/,
+    'only the Home route is cleaned here');
+});
+
+test('the Home refresh handler is still untouched, as its own guard requires', () => {
+  const homeClick = method(activity, '.method public final onNativeHomeClick(Landroid/view/View;)V');
+  assert.match(homeClick, /__sfNativeRequestHome/);
+  assert.ok(!/renderNativeRows|nativeCurrentScreen/.test(homeClick),
+    'the Home refresh must keep reusing the existing shelf');
+  assert.match(homeClick, /\.locals 2\b/, 'unchanged from the original');
+});
+
+test('the renderer cannot recurse back into the route setter', () => {
+  assert.ok(!/setNativeScreen/.test(renderer),
+    'renderNativeRows -> render -> setNativeScreen would loop forever');
+});
+
+test('register budgets stay small enough that parameters keep their encoding', () => {
+  for (const [name, body] of [['onKeyDown', keyDown], ['setNativeScreen', setScreen]]) {
+    const locals = Number(body.match(/\.locals (\d+)/)[1]);
+    // onKeyDown has 2 params, setNativeScreen 1; pN must stay <= v15.
+    const params = name === 'onKeyDown' ? 2 : 1;
+    assert.ok(locals + params <= 15, `${name}: pN would exceed v15 and need /16 forms`);
+  }
+});

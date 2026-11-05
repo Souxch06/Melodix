@@ -574,6 +574,9 @@
 .method public static metric(Landroid/content/Context;Ljava/lang/String;I)I
     .locals 4
 
+    # MEL-BUG-001 diagnostic. No extra register: the call reuses p0 and p1.
+    invoke-static {p0, p1}, Lcom/melodix/music/NativeUiRowFactory;->logMetricResolution(Landroid/content/Context;Ljava/lang/String;)V
+
     invoke-virtual {p0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
 
     move-result-object v0
@@ -640,5 +643,63 @@
     :native_text_size_fallback
     invoke-virtual {p0, p3}, Landroid/widget/TextView;->setTextSize(F)V
 
+    return-void
+.end method
+
+.method public static logMetricResolution(Landroid/content/Context;Ljava/lang/String;)V
+    .locals 6
+
+    # MEL-BUG-001 diagnostic, removable in one block. Records what the runtime
+    # resolver actually sees, because the APK provably contains the right names
+    # and the right sw600dp values, yet the UI lands on the phone fallbacks.
+    # Never throws into the caller: a diagnostic must not break rendering.
+    :try_start_mel_diag
+    invoke-virtual {p0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
+    move-result-object v0
+    invoke-virtual {p0}, Landroid/content/Context;->getPackageName()Ljava/lang/String;
+    move-result-object v1
+    const-string v2, "dimen"
+    invoke-virtual {v0, p1, v2, v1}, Landroid/content/res/Resources;->getIdentifier(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I
+    move-result v2
+    const/4 v3, -0x1
+    if-eqz v2, :mel_diag_no_id
+    invoke-virtual {v0, v2}, Landroid/content/res/Resources;->getDimensionPixelSize(I)I
+    move-result v3
+    :mel_diag_no_id
+    invoke-virtual {v0}, Landroid/content/res/Resources;->getConfiguration()Landroid/content/res/Configuration;
+    move-result-object v4
+    iget v4, v4, Landroid/content/res/Configuration;->smallestScreenWidthDp:I
+    invoke-virtual {v0}, Landroid/content/res/Resources;->getDisplayMetrics()Landroid/util/DisplayMetrics;
+    move-result-object v5
+    iget v5, v5, Landroid/util/DisplayMetrics;->densityDpi:I
+    new-instance v0, Ljava/lang/StringBuilder;
+    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+    invoke-virtual {v0, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v1, " id="
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v1, " px="
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v1, " swdp="
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v1, " dpi="
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0, v5}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v1, " ctx="
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {p0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+    move-result-object v1
+    invoke-virtual {v1}, Ljava/lang/Class;->getSimpleName()Ljava/lang/String;
+    move-result-object v1
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v0
+    const-string v1, "MelMetrics"
+    invoke-static {v1, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+    :try_end_mel_diag
+    .catch Ljava/lang/Throwable; {:try_start_mel_diag .. :try_end_mel_diag} :mel_diag_catch
+    :mel_diag_catch
     return-void
 .end method

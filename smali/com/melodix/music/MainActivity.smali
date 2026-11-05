@@ -4746,8 +4746,39 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 .end method
 
 .method public final onKeyDown(ILandroid/view/KeyEvent;)Z
-    .locals 1
+    .locals 4
 
+    # MEL-BUG-002. The system Back key never reached the native shell: the
+    # patched OnBackPressedDispatcher only injects WebView JavaScript to close
+    # the fullscreen player, so with a native pushed screen on top it found
+    # nothing to close and swallowed the key. Handle Back here ONLY while the
+    # native back button is actually shown, then delegate everything else to the
+    # existing chain untouched, so player/WebView back behaviour is preserved.
+    const/4 v0, 0x4
+    if-ne p1, v0, :mel_back_delegate
+    const v0, 0x7f090231
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v0
+    if-eqz v0, :mel_back_delegate
+    # isShown() also accounts for hidden ancestors, unlike getVisibility().
+    invoke-virtual {v0}, Landroid/view/View;->isShown()Z
+    move-result v0
+    if-eqz v0, :mel_back_delegate
+    invoke-virtual {p2}, Landroid/view/KeyEvent;->getAction()I
+    move-result v0
+    const/4 v1, 0x1
+    if-eq v0, v1, :mel_back_maybe_down
+    # Consume the matching key-up too, so the framework cannot navigate twice.
+    return v1
+    :mel_back_maybe_down
+    if-nez v0, :mel_back_delegate
+    const/4 v2, 0x0
+    # onNativeBackClick ignores its View argument and already restores the
+    # previous route, title and payload: reuse it rather than duplicating logic.
+    invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->onNativeBackClick(Landroid/view/View;)V
+    return v1
+
+    :mel_back_delegate
     .line 1
     const/16 v0, 0x52
 
@@ -8637,6 +8668,23 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeFadeNextScreen:Z
 
     iput-object p1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+
+    # MEL-BUG-003. The shared content container still holds the rows of the
+    # screen we are leaving. The internal back button re-renders it, but a plain
+    # route change did not, so without a session the Settings rows survived under
+    # the Home title. Re-render Home ONLY on a genuine route change (v0), never on
+    # a repeated Home route: that preserves the guarantee that a real shelf is
+    # not blanked before its authenticated refresh.
+    if-eqz v0, :mel_route_home_clean_done
+    const-string v2, "home"
+    invoke-virtual {v2, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v2
+    if-eqz v2, :mel_route_home_clean_done
+    const-string v2, "Accueil"
+    const-string v3, "[]"
+    invoke-virtual {p0, v2, v3}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    :mel_route_home_clean_done
+
     const-string v0, "home"
     invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
