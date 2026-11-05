@@ -226,6 +226,8 @@ echo "::notice title=QA walk $profile::metric lines=$(wc -l < "$out/metrics-reso
 # token and the final view is demonstrated rather than estimated from pixels.
 adb -s "$device" logcat -d 2>/dev/null \
   | sed -n 's/.*MelRowGeom: //p' | sort -u > "$out/row-geometry.txt" || true
+adb -s "$device" logcat -d 2>/dev/null \
+  | sed -n 's/.*MelRowId: //p' | sort -u > "$out/row-identity.txt" || true
 echo "::notice title=QA walk $profile::row geometry lines=$(wc -l < "$out/row-geometry.txt" || echo 0)"
 
 echo "::notice title=QA walk $profile::failures=$failures; trace=$trace"

@@ -71,6 +71,14 @@ test('the walk collects the geometry log and CI publishes it', () => {
   assert.ok(walk.includes('MelRowGeom: ') && walk.includes('row-geometry.txt'),
     'the walk must capture the probe output');
   const wf = read('.github/workflows/ui-qa.yml');
-  assert.ok(/for f in crash\.txt app-log\.txt foreground\.txt row-geometry\.txt; do/.test(wf),
+  assert.ok(/for f in crash\.txt app-log\.txt foreground\.txt row-geometry\.txt row-identity\.txt; do/.test(wf),
     'an uncollected evidence file is not evidence');
+});
+
+test('the identity read reports the package and two witnesses, not just the failing name', () => {
+  const probeSrc = read('smali/com/melodix/music/NativeRowGeometryProbe.smali');
+  assert.ok(probeSrc.includes('->getPackageName()'), 'must report the package used for lookup');
+  assert.ok(probeSrc.includes('"mel_settings_pad_h"'), 'needs a sibling token as witness');
+  assert.ok(probeSrc.includes('"status_bar_height"'), 'needs a framework token to tell a broken lookup from a missing name');
+  assert.ok(read('scripts/ui_qa_walk.sh').includes('MelRowId: '), 'the walk must capture it');
 });
