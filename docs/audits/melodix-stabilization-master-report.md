@@ -15,18 +15,18 @@ Rapport de la phase précédente : [`melodix-qa-visual-functional-2026-11-05.md`
 |---|---|---|
 | 1 | Diagnostic et correction des défauts ouverts | **fait** |
 | 2 | Vérification téléphone + tablette | **fait pour le cycle 1 — D3 résolu, D2 inopérant, D1 rectifié** |
-| 3 | Inspection des 10 surfaces | à venir |
-| 4 | Audit des 15 commandes et des parcours | à venir |
-| 5 | Stabilité Android et renforcement des tests | à venir |
-| 6 | Validations authentifiées | bloqué — session utilisateur requise |
-| 7 | Non-régression et bilan bêta | à venir |
+| 3 | Inspection des 10 surfaces | **7 surfaces inspectées sur les 2 profils ; 3 dépendent d'une session** |
+| 4 | Audit des 15 commandes et des parcours | **parcours A–F exercés ; matrice de commandes ci-dessous** |
+| 5 | Stabilité Android et renforcement des tests | **fait — 3 défauts d'outillage trouvés et corrigés** |
+| 6 | Validations authentifiées | **bloqué — matrice prête, session utilisateur requise** |
+| 7 | Non-régression et bilan bêta | **en cours — 694 tests, JVM exécutées en CI** |
 
 ## Tableau des anomalies
 
 | ID | Gravité | Objet | Statut |
 |---|---|---|---|
-| MEL-BUG-001 | P2 | Géométrie tablette non conforme — **diagnostic initial réfuté** | **En diagnostic** |
-| MEL-BUG-002 | P1 | Touche système Retour inopérante sur écran natif | **Bloqué — autorisation requise** |
+| MEL-BUG-001 | P3 | Géométrie tablette — **thèse initiale réfutée deux fois** | **Clos comme non-défaut pour les composants mesurés** |
+| MEL-BUG-002 | P1 | Touche système Retour inopérante sur écran natif | **Résolu avec preuve** (volet lecteur web : en attente de session) |
 | MEL-BUG-003 | P2 | Contenu étranger survivant sous le titre Accueil | **Résolu avec preuve** |
 | MEL-BUG-004 | P2 | Faux vert de la trace | Résolu avec preuve |
 | MEL-BUG-005 | P3 | Faux défaut de timing tablette | Résolu avec preuve |
@@ -148,12 +148,82 @@ Le seul point d'accroche restant est le répartiteur `androidx/activity/b;->b()`
 
 ---
 
+---
+
+## Cycle 4 — MEL-BUG-002 corrigé et vérifié
+
+Autorisation ciblée reçue. **Cartographie établie avant modification** : [`melodix-back-dispatcher-map.md`](melodix-back-dispatcher-map.md).
+
+Le correctif est une **garde additive** en tête de la branche par défaut du répartiteur, avant tout code WebView. Elle ne se déclenche que si le shell natif affiche réellement une flèche de retour, et réutilise `onNativeBackClick`.
+
+**Préservation prouvée par empreintes**, figées dans `tests/fixtures/back-dispatch-preserved.json` : le JavaScript de fermeture du lecteur plein écran (888 caractères), `r70.a()` et `al0` sont **sha256 identiques**. Le cas 0 AndroidX est intact. Bridge, MediaSession, commandes multimédias et lecture en arrière-plan : aucun fichier touché. Toute modification de ces charges utiles fait échouer la suite.
+
+**Vérification sur appareil** (run `42005106693`, téléphone et tablette) :
+
+| Scénario | Résultat observé |
+|---|---|
+| `settings`, `settings-again` | flèche de retour présente |
+| `back-from-settings` | **`reached`** — flèche absente |
+| `back-once` | flèche absente : une seule pression suffit |
+| `back-settled` | toujours absente après stabilisation : **aucune double navigation différée** |
+| `back-from-library`, `back-from-search` | shell vivant : l'application ne s'est pas fermée |
+| `background-resume` | shell et onglets présents, aucun contenu étranger |
+| Mise en page | **0 défaut** sur les 8 scénarios, les 2 profils |
+
+L'interception `onKeyDown`, démontrée inatteignable, a été **retirée** : la conserver aurait créé un second chemin de navigation sur les appareils anciens.
+
+**Reste en attente de session** : la fermeture du lecteur plein écran *web* ne peut pas être observée sans compte. Elle est garantie par l'empreinte du payload et par la condition de la garde, et sera confirmée par les sections E et G de la matrice authentifiée.
+
+## MEL-BUG-001 — clos comme non-défaut pour les composants mesurés
+
+Les bornes autoritaires publiées montrent que **tous** les composants de navigation portent les bonnes valeurs tablette : bouton retour 52/48 dp, avatar 56/48, barre d'onglets 76/64, onglets 68/57,9, bouton paramètres 52/48. Le relevé runtime avait déjà montré des jetons corrects. La thèse « les jetons runtime sont ignorés » est **définitivement écartée**.
+
+Reste une observation non expliquée : la bande d'une ligne de paramètres mesure 66 dp alors que son minimum résolu est 76 dp. Les lignes n'ayant pas d'identifiant, elles n'étaient pas mesurables ; l'outillage publie désormais `container_items`, la géométrie des enfants anonymes. Cette observation est **reclassée P3** et sera tranchée par les bornes, plus jamais par estimation sur pixels.
+
+## Matrice de validation des commandes
+
+| Commande | Câblage | Résultat visible observé | Statut |
+|---|---|---|---|
+| Onglet Accueil | oui | changement d'écran + contenu cohérent | **Fonctionnement observé** |
+| Onglet Bibliothèque | oui | écran + 4 filtres | **Fonctionnement observé** |
+| Onglet Recherche | oui | écran + grille 2×4 / 4×2 | **Fonctionnement observé** |
+| Bouton Paramètres | oui | écran paramètres + flèche | **Fonctionnement observé** |
+| Retour interne (flèche) | oui | retour à l'écran précédent | **Fonctionnement observé** |
+| **Retour système** | oui | retour à l'accueil, sans double navigation | **Fonctionnement observé** |
+| Filtre de bibliothèque | oui | chips présentes, appui délivré | Câblage confirmé, résultat non vérifié (session) |
+| Tuile de genre | oui | appui délivré, grille inchangée sans session | **En attente de session** |
+| Validation de recherche | oui | — | **En attente de session** |
+| Ligne de playlist / album | oui | — | **En attente de session** |
+| Lecture / pause | oui | — | **En attente de session** |
+| Suivant / précédent | oui | — | **En attente de session** |
+| Aléatoire / répétition | oui | — | **En attente de session** |
+| Agrandir le lecteur | oui | — | **En attente de session** |
+| Interrupteur de paramètre | oui | — | **En attente de session** |
+
+Aucune ligne n'est déclarée fonctionnelle sans résultat visible observé.
+
+## Stabilité Android — défauts d'outillage trouvés et corrigés
+
+| ID | Objet | Effet |
+|---|---|---|
+| MEL-BUG-004 | faux vert de la trace | masquait des défauts réels |
+| MEL-BUG-005 | délai fixe capturant une transition | produisait un faux défaut tablette |
+| MEL-BUG-007 | **régression P0 de mon fait** : registre `View` écrasé par une chaîne | l'application ne démarrait plus |
+| MEL-BUG-008 | clé `optional` indexée sans défaut | 4 faux échecs, alors que l'app se comportait correctement |
+| MEL-BUG-009 | sonde de premier plan muette | preuve non publiée |
+
+Chacun est gardé par un test. Le parcours capture désormais le buffer `crash` et les lignes `AndroidRuntime`/`FATAL` quand le shell natif n'apparaît pas — c'est ce qui manquait pour diagnostiquer MEL-BUG-007 sans deviner.
+
+**Aucun plantage applicatif** n'a été observé sur les runs où le code était correct : `crash.txt` absent, shell présent sur toutes les étapes, 0 défaut de mise en page.
+
+---
+
 ## Blocages et besoins
 
 | Besoin | Pour | Qui |
 |---|---|---|
 | Exécution du protocole authentifié sur votre appareil | MEL-BUG-006, lecteur, mini-lecteur, playlists, albums, commandes de lecture | **Vous** — aucun identifiant ne m'est demandé |
-| Autorisation de toucher au répartiteur de retour | MEL-BUG-002 : seul point d'accroche restant, mêlé à la fermeture du lecteur plein écran | **Vous** — zone protégée |
+| ~~Autorisation répartiteur de retour~~ | accordée et utilisée, MEL-BUG-002 résolu | — |
 
 Aucune modification de zone protégée n'est nécessaire à ce stade. Si le diagnostic de MEL-BUG-001 désigne le bridge ou la session, je m'arrêterai et demanderai votre autorisation.
 
