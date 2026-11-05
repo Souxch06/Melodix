@@ -1,0 +1,30 @@
+apk=/home/runner/work/_temp/melodix-ui-apk/melodix-ui-metrics.apk
+apk_bytes=3408872
+aapt2=/usr/local/lib/android/sdk/build-tools/37.0.0/aapt2
+status=ok
+
+resource_name_count=3078
+--- resource table package
+Package name=com.melodix.music id=7f
+--- manifest package
+com.melodix.music
+--- mel_tab_bar_height
+    resource 0x7f0700f1 dimen/mel_tab_bar_height
+      () 64.000000dp
+      (sw600dp) 76.000000dp
+--- mel_settings_row_height
+    resource 0x7f0700b9 dimen/mel_settings_row_height
+      () 64.000000dp
+      (sw600dp) 76.000000dp
+--- mel_status_max_width
+    resource 0x7f0700e9 dimen/mel_status_max_width
+      () 560.000000dp
+      (sw600dp) 720.000000dp
+--- mel_gutter
+    resource 0x7f070045 dimen/mel_gutter
+      () 16.000000dp
+      (sw600dp) 32.000000dp
+--- mel_row_height
+    resource 0x7f0700a4 dimen/mel_row_height
+      () 60.000000dp
+      (sw600dp) 76.000000dp
