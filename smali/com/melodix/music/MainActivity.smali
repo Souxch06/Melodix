@@ -8458,7 +8458,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->hasNativeHomeContentAttached()Z
     move-result v0
     if-nez v0, :native_root_lookup
-    const-string v1, "[{\"kind\":\"state\",\"state\":\"loading\",\"sessionUnproven\":true,\"title\":\"Connexion à Spotify…\",\"subtitle\":\"Vérification de l’accès à votre bibliothèque. Vos playlists restent masquées jusqu’à validation.\",\"section\":\"Connexion Spotify\",\"image\":\"\"}]"
+    const-string v1, "[{\"kind\":\"state\",\"state\":\"loading\",\"sessionUnproven\":true,\"title\":\"Connexion à Spotify…\",\"subtitle\":\"Vérification de l’accès à votre bibliothèque. Vos playlists restent masquées jusqu’à validation ; touchez pour vous connecter.\",\"section\":\"Connexion Spotify\",\"image\":\"\",\"uri\":\"melodix:action:open-login\"}]"
     invoke-static {p0, v1}, Lcom/melodix/music/NativeHomeShelfRenderer;->render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
 
     :native_root_lookup

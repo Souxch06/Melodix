@@ -2019,3 +2019,22 @@ test('settings timeout renders a real local fallback (connect + notifications + 
     // No fabricated "connected" claim in the fallback.
     assert.doesNotMatch(fallback, /"settingValue\":\"Connecté\"/);
 });
+
+test('the Home connection card is actionable in every state, not just on error', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    // Loading state (session unproven, verification in progress) must carry the
+    // real connect action too: an identifiable connection state with a pertinent
+    // action, without blocking the local shortcuts.
+    const loading = activity.match(/\{"kind":"state","state":"loading"[^"]*"title":"Connexion à Spotify…"[^}]*\}/);
+    assert.ok(loading, 'the loading home payload exists');
+    assert.match(loading[0], /"uri":"melodix:action:open-login"/,
+        'the loading connection card must offer the real connect action');
+    // The unproven/error state keeps its connect action as well.
+    const unproven = activity.match(/"state":"error","sessionUnproven":true[^}]*\}/);
+    assert.ok(unproven && /melodix:action:open-login/.test(unproven[0]));
+    // The status renderer maps the action to a real label and dispatches it.
+    const shelf = read('smali/com/melodix/music/NativeHomeShelfRenderer.smali');
+    assert.match(shelf, /"melodix:action:open-login"[\s\S]*?"Se connecter"/);
+    // Local shortcuts stay rendered on the status branch (not blocked).
+    assert.match(shelf, /renderHomeStatus[\s\S]*?NativeShortcutGrid;->render/);
+});
