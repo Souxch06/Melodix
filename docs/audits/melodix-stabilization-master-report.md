@@ -507,3 +507,26 @@ Cycle 2 : vérifier sur les deux profils que `back-from-settings` et `home-again
 - **Bloqué sans session** (inchangé, documenté) : validation fonctionnelle du lecteur/mini-lecteur,
   résultats de recherche de genre, parcours G.
 
+---
+
+## Cycle 13 — Phases 1 & 2 : Paramètres fonctionnelle + Accueil avec état de connexion actionnable
+
+- **HEAD `419690d` poussé.** Suite **773 / 770 pass / 0 fail / 3 skip**. Run CI **`42113974311` 6/6 vert**.
+- **Releases de test publiées** (règle automatique, pre-releases uniquement) :
+  - `v1.2.2-test.39-preview` (run `42106633991`, commit `97e6539`) — page Paramètres réorganisée
+  - `v1.2.2-test.42-preview` (run `42111159471`, commit `0d817a9`) — repli local Paramètres
+  - `v1.2.2-test.44-preview` (run `42113974311`, commit `419690d`) — Accueil actionnable
+- **Phase 1 Paramètres** : sections Compte et connexion / Spotify / Apparence et thème /
+  Préférences de lecture / Notifications / Informations sur Melodix (version réelle
+  `1.2.2 (27)` lue du PackageManager, injectée nativement). États de connexion réels et
+  distincts (connecté / refus 401 sans affirmer "expirée" / refus 403 / erreur réseau /
+  vérification / non connecté) ; actions réelles (se connecter, se déconnecter,
+  renouveler, réessayer, réglages système de notifications). **Sans session**, le timeout
+  WebView rend un repli local réel (vérifié sur capture : 5 lignes dont « Se connecter »,
+  « Réglages système », « 1.2.2 (27) », « Protégées »). Aucun faux statut, aucun token affiché.
+- **Phase 2 Accueil** : la carte de connexion (état chargement compris) propose désormais le
+  bouton réel **« Se connecter »** — vérifié sur captures téléphone ET tablette (run
+  `42113974311`), raccourcis locaux toujours accessibles dessous.
+- **Bloqué sans session** (documenté) : variante connectée des Paramètres/Accueil (données
+  Spotify réelles), lecteur/mini-lecteur fonctionnels, parcours G.
+
