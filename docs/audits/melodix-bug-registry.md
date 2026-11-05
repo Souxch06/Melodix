@@ -294,3 +294,40 @@ return v0
 | **Correctif appliqué** | `NativeRowInsets.apply` pose des marges horizontales = jeton `mel_gutter` au point d'ajout partagé, en conservant `MATCH_PARENT × WRAP_CONTENT`. Le conteneur n'est **pas** paddé : il est partagé avec Accueil, qui inset déjà ses enfants. |
 | **Preuve de résolution** | Run `42022211867` : largeur de ligne téléphone **1080 → 996 px** (411,4 → 379,4 dp, gouttière 16 dp), tablette **1600 → 1472 px** (800 → 736 dp, gouttière 32 dp). Hauteurs préservées. **0 défaut** de mise en page sur les deux profils. |
 | **Statut** | **Résolu avec preuve** |
+
+## MEL-BUG-015 — P1 — VerifyError tuant l'application à l'ouverture de la Bibliothèque
+
+- **Repro** : run `42054485935`, profil téléphone et tablette, étape `library`.
+- **Attendu** : la Bibliothèque s'ouvre avec un état vide propre.
+- **Observé** : `library` = `not_reached`, puis 11 étapes en cascade ; `foreground.txt` contient
+  `com.google.android.apps.nexuslauncher` : l'application était morte. Accueil et Recherche
+  fonctionnaient. Les deux fichiers de diagnostic étaient vides, l'application étant morte avant.
+- **Cause établie** : dans `NativeEmptyState.create`, le helper de résolution de jeton écrivait
+  `const-string v2` alors que `v2` tenait les `LayoutParams` fraîchement alloués ; le `iput … v2 …
+  topMargin` suivant les traitait comme un objet. Erreur de vérification.
+  **Un `try/catch` interne n'attrape pas une erreur de vérification de classe** : elle survient au
+  chargement de la classe, chez l'appelant.
+- **Correctif** : résoudre la marge avant d'allouer les `LayoutParams` (`b12e5c3`).
+- **Garde** : `scripts/smali_register_check.py` suit désormais le **type courant** de chaque registre et
+  refuse un usage en position d'objet après réaffectation, y compris via `iput`/`iget`. Le modèle
+  inverse (« objet puis écrasement ») manquait ce cas : l'appel au constructeur comptait comme
+  utilisation avant l'écrasement. Test rejouant les trois VerifyErrors réels du chantier.
+- **Statut** : **correctif appliqué, en attente de validation appareil** (run `42057787244`).
+- **Régression introduite par moi** au commit `12228c8`, détectée par les parcours. C'est exactement ce
+  que les parcours sont censés attraper, et ils l'ont fait.
+
+## MEL-BUG-016 — P2 — les tuiles de raccourcis de l'Accueil ne s'affichent pas
+
+- **Repro** : run `42052285204`, les deux profils, écran Accueil sans session.
+- **Attendu** : sous l'en-tête « Explorer Melodix », trois tuiles Bibliothèque / Recherche / Réglages.
+- **Observé** : `container_items_deep` sur `nativeContent` ne contient que la carte de statut et le
+  `TextView` d'en-tête. **La rangée de tuiles est absente.** Le parcours reste vert car il ne vérifie
+  que le titre de l'écran.
+- **Cause** : **non établie.** Une exception est levée dans `NativeShortcutGrid.render` et avalée par le
+  repli, qui rendait l'en-tête sans les tuiles. Le repli muet ne produisait aucune trace.
+- **Action** : le repli journalise désormais la cause sous le tag `MelShortcut`, collecté et publié par
+  la CI (`shortcut-diag.txt`). Les runs `42054485935` l'ont rendu vide car l'application mourait avant ;
+  le run `42057787244` doit fournir la cause.
+- **Statut** : **ouvert, cause en cours d'établissement.** Aucun correctif tenté à l'aveugle.
+- **Enseignement** : un parcours vert ne prouve pas qu'un composant s'affiche. Les assertions de titre
+  ne couvrent pas le contenu ; c'est la mesure `container_items_deep` qui a révélé l'absence.
