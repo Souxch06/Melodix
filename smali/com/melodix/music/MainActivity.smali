@@ -9743,6 +9743,9 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
     :native_row_created
     if-eqz v0, :native_row_increment
+    # MEL-BUG-014: give every row from this path the gutter, instead of letting
+    # addView supply margin-less default LayoutParams. Uses only p0 and v0.
+    invoke-static {p0, v0}, Lcom/melodix/music/NativeRowInsets;->apply(Landroid/content/Context;Landroid/view/View;)V
     invoke-virtual {v2, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
     goto :native_row_increment
 
