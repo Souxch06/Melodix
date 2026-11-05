@@ -362,3 +362,31 @@ test('every workflow step using $PROFILE declares it, and a probe never blocks t
   assert.match(probe, /continue-on-error: true/,
     'a diagnostic must not prevent the QA walk from running');
 });
+
+test('the walk waits for the defining view instead of a fixed sleep', () => {
+  const walk = fs.readFileSync(path.join(root, 'scripts', 'ui_qa_walk.sh'), 'utf8');
+  assert.match(walk, /^settle\(\)/m, 'a bounded wait must exist');
+  for (const [step, view] of [['library', 'nativeLibraryCategories'],
+    ['search', 'nativeSearchInput'], ['settings', 'nativeBackButton']]) {
+    assert.ok(walk.includes(`settle ${view}`),
+      `${step} must wait for ${view}: the tablet dumped mid-transition`);
+  }
+  assert.match(walk, /settle\(\)[\s\S]*?return 1[\s\S]*?\}/,
+    'the wait must give up and say so, never hang');
+});
+
+test('an expected navigation failure is given time to happen', () => {
+  const walk = fs.readFileSync(path.join(root, 'scripts', 'ui_qa_walk.sh'), 'utf8');
+  const back = walk.slice(walk.indexOf('KEYCODE_BACK'), walk.indexOf('capture back-from-settings'));
+  const secs = Number((back.match(/sleep (\d+)/) || [])[1]);
+  assert.ok(secs >= 8,
+    'claiming the Back key fails requires more than a transition delay');
+  // It must NOT wait for the Home screen: that would mask the very defect.
+  assert.ok(!/settle nativeHomeTab/.test(back), 'do not wait away a real failure');
+});
+
+test('the resource probe output is published with the captures', () => {
+  const raw = fs.readFileSync(path.join(root, '.github', 'workflows', 'ui-qa.yml'), 'utf8');
+  assert.ok(raw.includes('resource-table.txt'),
+    'a diagnostic nobody can read is not evidence');
+});

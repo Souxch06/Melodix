@@ -53,6 +53,26 @@ tap() {
 
 refresh() { dump_now "$out/current-$profile.xml"; }
 
+# settle ID [BUDGET_S] -> poll until the expected view is on screen.
+# A fixed sleep is not enough on the tablet profile: the first tablet walk
+# reported Library and Search as not_reached with only 15 visible ids, i.e. it
+# dumped mid-transition. Waiting for the view that defines the screen removes
+# that false defect. It never waits on a screen we EXPECT to be wrong, so a real
+# navigation failure is still recorded as a failure.
+settle() {
+  local id="$1" budget="${2:-24}"
+  local deadline=$(( $(date +%s) + budget ))
+  while [[ "$(date +%s)" -lt "$deadline" ]]; do
+    refresh
+    if grep -q "com.melodix.music:id/$id" "$out/current-$profile.xml" 2>/dev/null; then
+      return 0
+    fi
+    sleep 2
+  done
+  echo "::notice title=QA walk $profile::$id did not appear within ${budget}s"
+  return 1
+}
+
 # ---- wait for the native shell to own the display -------------------------
 deadline=$(( $(date +%s) + 180 ))
 ready=0
@@ -75,13 +95,13 @@ capture home
 refresh
 
 # ---- 2. Home -> Library --------------------------------------------------
-if tap nativeLibraryTab; then capture library; else
+if tap nativeLibraryTab; then settle nativeLibraryCategories || true; capture library; else
   echo "::error title=QA walk $profile::the Library tab is not on screen"; failures=$((failures + 1))
 fi
 refresh
 
 # ---- 3. Library -> Search (browse grid) ----------------------------------
-if tap nativeSearchTab; then capture search; else
+if tap nativeSearchTab; then settle nativeSearchInput || true; capture search; else
   echo "::error title=QA walk $profile::the Search tab is not on screen"; failures=$((failures + 1))
 fi
 refresh
@@ -97,19 +117,23 @@ refresh
 # The header settings button is reachable from Home; go back there first.
 tap nativeHomeTab || true
 refresh
-if tap nativeSettingsButton; then capture settings; else
+if tap nativeSettingsButton; then settle nativeBackButton || true; capture settings; else
   echo "::error title=QA walk $profile::the Settings button is not on screen"; failures=$((failures + 1))
 fi
 refresh
 
 # ---- 6. Back and resume -------------------------------------------------
 adb -s "$device" shell input keyevent KEYCODE_BACK >/dev/null 2>&1 || true
-sleep 3
+# Deliberately generous: to claim the system Back key does not leave Settings,
+# the screen must have had ample time to change.
+sleep 8
 capture back-from-settings
 refresh
 
 # ---- 7. Return to Home --------------------------------------------------
 tap nativeHomeTab || true
+# Same reasoning: stale content must not be a screenshot taken too early.
+sleep 6
 capture home-again
 refresh
 
