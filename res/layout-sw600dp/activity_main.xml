@@ -233,8 +233,7 @@
                     android:layout_weight="1.0"
                     android:layout_marginRight="@dimen/mel_tile_row_gap">
                     <ImageView
-                        android:src="@drawable/native_cover_placeholder"
-                        android:tint="@color/mel_genre_glyph"
+                        android:src="@drawable/native_genre_glyph"
                         android:rotation="22.0"
                         android:importantForAccessibility="no"
                         android:layout_gravity="bottom|end"
@@ -274,8 +273,7 @@
                     android:layout_weight="1.0"
                     android:layout_marginRight="@dimen/mel_tile_row_gap">
                     <ImageView
-                        android:src="@drawable/native_cover_placeholder"
-                        android:tint="@color/mel_genre_glyph"
+                        android:src="@drawable/native_genre_glyph"
                         android:rotation="22.0"
                         android:importantForAccessibility="no"
                         android:layout_gravity="bottom|end"
@@ -315,8 +313,7 @@
                     android:layout_weight="1.0"
                     android:layout_marginRight="@dimen/mel_tile_row_gap">
                     <ImageView
-                        android:src="@drawable/native_cover_placeholder"
-                        android:tint="@color/mel_genre_glyph"
+                        android:src="@drawable/native_genre_glyph"
                         android:rotation="22.0"
                         android:importantForAccessibility="no"
                         android:layout_gravity="bottom|end"
@@ -355,8 +352,7 @@
                     android:layout_height="@dimen/mel_tile_height"
                     android:layout_weight="1.0">
                     <ImageView
-                        android:src="@drawable/native_cover_placeholder"
-                        android:tint="@color/mel_genre_glyph"
+                        android:src="@drawable/native_genre_glyph"
                         android:rotation="22.0"
                         android:importantForAccessibility="no"
                         android:layout_gravity="bottom|end"
@@ -402,8 +398,7 @@
                     android:layout_weight="1.0"
                     android:layout_marginRight="@dimen/mel_tile_row_gap">
                     <ImageView
-                        android:src="@drawable/native_cover_placeholder"
-                        android:tint="@color/mel_genre_glyph"
+                        android:src="@drawable/native_genre_glyph"
                         android:rotation="22.0"
                         android:importantForAccessibility="no"
                         android:layout_gravity="bottom|end"
@@ -443,8 +438,7 @@
                     android:layout_weight="1.0"
                     android:layout_marginRight="@dimen/mel_tile_row_gap">
                     <ImageView
-                        android:src="@drawable/native_cover_placeholder"
-                        android:tint="@color/mel_genre_glyph"
+                        android:src="@drawable/native_genre_glyph"
                         android:rotation="22.0"
                         android:importantForAccessibility="no"
                         android:layout_gravity="bottom|end"
@@ -484,8 +478,7 @@
                     android:layout_weight="1.0"
                     android:layout_marginRight="@dimen/mel_tile_row_gap">
                     <ImageView
-                        android:src="@drawable/native_cover_placeholder"
-                        android:tint="@color/mel_genre_glyph"
+                        android:src="@drawable/native_genre_glyph"
                         android:rotation="22.0"
                         android:importantForAccessibility="no"
                         android:layout_gravity="bottom|end"
@@ -524,8 +517,7 @@
                     android:layout_height="@dimen/mel_tile_height"
                     android:layout_weight="1.0">
                     <ImageView
-                        android:src="@drawable/native_cover_placeholder"
-                        android:tint="@color/mel_genre_glyph"
+                        android:src="@drawable/native_genre_glyph"
                         android:rotation="22.0"
                         android:importantForAccessibility="no"
                         android:layout_gravity="bottom|end"

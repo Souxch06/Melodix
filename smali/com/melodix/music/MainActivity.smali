@@ -8115,6 +8115,13 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     return-void
 .end method
 
+# Read-only accessor for presentation. The flag is already maintained by
+# noteNativeHomeSessionUnprovenStatusAttached; nothing here changes session logic.
+.method public final isNativeSessionUnproven()Z
+    .locals 1
+    iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeSessionUnprovenStatusAttached:Z
+    return v0
+.end method
 .method public final isNativeHomeScreen()Z
     .locals 2
 
@@ -9806,7 +9813,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     # Visual rebuild: the bare grey line used a raw 24 PIXEL padding (9dp on
     # phone, 12dp on tablet), a hardcoded 16sp and a hardcoded colour, ignoring
     # both density and the tablet type scale. Use the token-driven empty state.
-    invoke-static {p0, v0}, Lcom/melodix/music/NativeEmptyState;->forMessage(Lcom/melodix/music/MainActivity;Ljava/lang/String;)Landroid/widget/LinearLayout;
+    invoke-static {p0, v0}, Lcom/melodix/music/NativeStateView;->forSurfaceMessage(Lcom/melodix/music/MainActivity;Ljava/lang/String;)Landroid/widget/LinearLayout;
     move-result-object v0
     if-eqz v0, :native_rows_try_done
     new-instance v1, Landroid/widget/LinearLayout$LayoutParams;

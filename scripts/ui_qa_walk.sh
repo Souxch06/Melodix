@@ -271,6 +271,10 @@ adb -s "$device" logcat -d 2>/dev/null \
   | sed -n 's/.*MelShortcut: //p' | sort -u > "$out/shortcut-diag.txt" || true
 adb -s "$device" logcat -d 2>/dev/null \
   | sed -n 's/.*MelEmpty: //p' | sort -u > "$out/empty-state-diag.txt" || true
+adb -s "$device" logcat -d 2>/dev/null \
+  | sed -n 's/.*MelState: //p' | sort -u > "$out/state-diag.txt" || true
+adb -s "$device" logcat -d 2>/dev/null \
+  | sed -n 's/.*MelGenre: //p' | sort -u > "$out/genre-diag.txt" || true
 echo "::notice title=QA walk $profile::row geometry lines=$(wc -l < "$out/row-geometry.txt" || echo 0)"
 
 echo "::notice title=QA walk $profile::failures=$failures; trace=$trace"

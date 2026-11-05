@@ -48,7 +48,11 @@ test('browse tiles carry a decorative glyph and a real label, on both profiles',
     assert.equal(tiles.length, 8, `${layout} keeps eight tiles`);
     for (const tile of tiles) {
       assert.match(tile, /<ImageView/, 'a decorative glyph gives the tile depth');
-      assert.match(tile, /android:src="@drawable\/native_cover_placeholder"/, 'reuses the existing note vector');
+      // A dedicated copy of the note path: android:tint on the ImageView proved
+      // ineffective on device, and the shared placeholder feeds the row and shelf
+      // renderers, so its fill must not change.
+      assert.match(tile, /android:src="@drawable\/native_genre_glyph"/, 'uses the dark decorative glyph');
+      assert.doesNotMatch(tile, /android:tint=/, 'the fill lives in the vector, not an ineffective tint');
       assert.match(tile, /android:importantForAccessibility="no"/, 'the glyph must not be read aloud');
       assert.match(tile, /android:rotation="22\.0"/);
       assert.match(tile, /<TextView/, 'the genre name stays a real text label');
@@ -105,15 +109,16 @@ test('tile geometry is tokenised and the tablet composition is genuinely differe
 });
 
 test('no genre was invented or renamed by the redesign', () => {
-  const reference = execFileSync('git', ['show', '9322581:res/layout/activity_main.xml'],
-    { cwd: root, encoding: 'utf8' });
+  // Captured from the accepted reference 9322581. Pinned as a literal rather than
+  // read with `git show`: CI checks out a shallow clone where that commit does not
+  // exist, and a guard that only runs on a developer machine guards nothing.
+  const REFERENCE_TERMS = ['Pop', 'Hip-hop', 'Rock', 'Latino', 'Détente', 'Sport', 'Podcasts', 'Nouveautés'];
   const tagsOf = (s) => (s.match(/android:tag="[^"]*"/g) || [])
     .map((t) => t.slice('android:tag="'.length, -1));
-  const before = tagsOf(reference.slice(reference.indexOf('@id/nativeGenreScroll'), reference.indexOf('@id/nativeLibraryCategories')));
   for (const layout of [PHONE, TABLET]) {
     const s = read(layout);
     const after = tagsOf(s.slice(s.indexOf('@id/nativeGenreScroll'), s.indexOf('@id/nativeLibraryCategories')));
-    assert.deepEqual(after, before, `${layout} must keep exactly the real browse terms`);
+    assert.deepEqual(after, REFERENCE_TERMS, `${layout} must keep exactly the real browse terms`);
   }
 });
 
@@ -158,4 +163,16 @@ test('the token parser accepts negative margins but still rejects invalid units'
     fs.writeFileSync(dims, original);
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('the decorative glyph carries its own dark fill and does not touch the shared placeholder', () => {
+  const glyph = read('res/drawable/native_genre_glyph.xml');
+  const shared = read('res/drawable/native_cover_placeholder.xml');
+  assert.match(glyph, /android:fillColor="@color\/mel_genre_glyph"/);
+  assert.match(shared, /android:fillColor="@color\/mel_icon_muted"/, 'the shared placeholder keeps its fill');
+  const pathOf = (s) => /android:pathData="([^"]+)"/.exec(s)[1];
+  assert.equal(pathOf(glyph), pathOf(shared), 'same note drawing, only the fill differs');
+  const colors = read('res/values/colors.xml');
+  const alpha = /<color name="mel_genre_glyph">#([0-9a-fA-F]{2})/.exec(colors)[1];
+  assert.ok(parseInt(alpha, 16) <= 0x40, 'the glyph must stay a subtle emboss, not a sticker');
 });

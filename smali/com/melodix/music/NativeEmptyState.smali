@@ -5,34 +5,6 @@
 # optional subtitle, all sized and spaced from tokens so the tablet gets its own
 # type scale. It states nothing about data it does not have.
 
-.method public static forMessage(Lcom/melodix/music/MainActivity;Ljava/lang/String;)Landroid/widget/LinearLayout;
-    .locals 3
-
-    # Keeps the choice of icon and subtitle out of renderNativeRows, whose
-    # registers are already busy: the call site stays a single invoke. The
-    # subtitles describe the interface, never data the app does not have.
-    const-string v0, "native_nav_library"
-    const-string v1, "Vos playlists, albums et artistes apparaîtront ici."
-
-    const-string v2, "Recherchez un artiste, un titre, un album ou une playlist ci-dessus"
-    invoke-virtual {v2, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v2
-    # if-nez, not if-eqz: equals returns 1 when the message IS the search prompt.
-    # The inverted test sent every OTHER message down the search branch, so the
-    # library showed a magnifier and an empty subtitle. Caught by reading the
-    # capture, not by the walk, which only asserts the screen title.
-    if-nez v2, :for_message_search
-    goto :for_message_ready
-
-    :for_message_search
-    const-string v0, "native_nav_search"
-    const-string v1, ""
-
-    :for_message_ready
-    invoke-static {p0, p1, v1, v0}, Lcom/melodix/music/NativeEmptyState;->create(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Landroid/widget/LinearLayout;
-    move-result-object v0
-    return-object v0
-.end method
 
 .method public static create(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Landroid/widget/LinearLayout;
     .locals 6

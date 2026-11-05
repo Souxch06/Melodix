@@ -144,48 +144,6 @@ test('a handler that assigns its own fallback return value is not flagged', () =
   } finally { fs.unlinkSync(tmpPath); }
 });
 
-test('forMessage routes the search prompt to search and everything else to library', () => {
-  // The branch polarity is the whole behaviour here. An inverted if-eqz gave the
-  // library a magnifier icon and no subtitle, and the walk stayed green because it
-  // only asserts the screen title. Interpret the dispatch rather than grep it.
-  const src = fs.readFileSync(path.join(root, 'smali/com/melodix/music/NativeEmptyState.smali'), 'utf8');
-  const body = src.slice(src.indexOf('.method public static forMessage'), src.indexOf('.end method', src.indexOf('.method public static forMessage')));
-  const lines = body.split('\n').map((l) => l.split('#')[0].trim()).filter(Boolean);
-  const dispatch = (message) => {
-    const v = {}; let equalsResult = 0;
-    for (let i = 0; i < lines.length; i += 1) {
-      const l = lines[i];
-      let m = /^const-string (v\d+), "(.*)"$/.exec(l);
-      if (m) { v[m[1]] = m[2]; continue; }
-      if (/^invoke-virtual \{(v\d+), p1\}, Ljava\/lang\/String;->equals/.test(l)) {
-        const reg = /^invoke-virtual \{(v\d+),/.exec(l)[1];
-        equalsResult = v[reg] === message ? 1 : 0; continue;
-      }
-      m = /^move-result (v\d+)$/.exec(l);
-      if (m) { v[m[1]] = equalsResult; continue; }
-      m = /^if-(eqz|nez) (v\d+), (:\S+)$/.exec(l);
-      if (m) {
-        const taken = m[1] === 'eqz' ? v[m[2]] === 0 : v[m[2]] !== 0;
-        if (taken) { i = lines.indexOf(m[3]); }
-        continue;
-      }
-      m = /^goto (:\S+)$/.exec(l);
-      if (m) { i = lines.indexOf(m[1]); continue; }
-      if (/^invoke-static \{p0, p1, (v\d+), (v\d+)\}/.test(l)) {
-        const a = /^invoke-static \{p0, p1, (v\d+), (v\d+)\}/.exec(l);
-        return { subtitle: v[a[1]], icon: v[a[2]] };
-      }
-    }
-    throw new Error('dispatch never reached create');
-  };
-  const search = dispatch('Recherchez un artiste, un titre, un album ou une playlist ci-dessus');
-  assert.equal(search.icon, 'native_nav_search');
-  assert.equal(search.subtitle, '');
-  const library = dispatch('Chargement de votre bibliothèque…');
-  assert.equal(library.icon, 'native_nav_library', 'the library must not get the search magnifier');
-  assert.ok(library.subtitle.length > 0, 'the library must explain what will appear here');
-});
-
 test('each shortcut action renders its own label and icon, with no duplicates', () => {
   // Interprets the addTile dispatch. The inverted if-eq produced "Bibliothèque,
   // Rechercher, Rechercher" on screen; a grep for the strings would have passed.

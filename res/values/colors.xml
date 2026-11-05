@@ -153,4 +153,9 @@
     <color name="mel_tile_edge">#1f000000</color>
     <color name="mel_tile_press">#4dffffff</color>
     <color name="mel_tile_label_shadow">#59000000</color>
+    <!-- Inert transport control. Nothing drives this yet: no code calls
+         setEnabled on the player buttons, so the default stays enabled and real
+         playback is untouched. The state exists so a future disabled control
+         looks inert instead of merely unresponsive. -->
+    <color name="mel_btn_disabled">#2a343d</color>
 </resources>

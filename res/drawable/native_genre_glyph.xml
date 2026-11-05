@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Same note path as native_cover_placeholder, with its own dark fill.
+     android:tint on the ImageView had no effect on device (the glyph rendered in
+     the shared placeholder's mel_icon_muted grey), and that placeholder is used by
+     the row and shelf renderers, so changing its fill was not an option. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24.0dip" android:height="24.0dip"
+    android:viewportWidth="24.0" android:viewportHeight="24.0">
+    <path android:fillColor="@color/mel_genre_glyph"
+        android:pathData="M12,3v10.55c-0.59,-0.34 -1.27,-0.55 -2,-0.55 -2.21,0 -4,1.79 -4,4s1.79,4 4,4 4,-1.79 4,-4V7h4V3h-6z" />
+</vector>
