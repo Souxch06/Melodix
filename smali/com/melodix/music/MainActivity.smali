@@ -7778,6 +7778,16 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     const/16 v1, 0x8
     invoke-virtual {v0, v1}, Landroid/view/View;->setVisibility(I)V
     :login_owner_show_web
+    # btnSettings is gone by default in XML (MEL-BUG-013: it had no visibility
+    # attribute and overlapped nativeRoot during the onCreate/resume window).
+    # The web-owned display is its only legitimate surface, so show it here.
+    const v0, 0x7f090060
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v0
+    if-eqz v0, :login_owner_show_web_2
+    const/4 v1, 0x0
+    invoke-virtual {v0, v1}, Landroid/view/View;->setVisibility(I)V
+    :login_owner_show_web_2
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->N:Landroid/widget/FrameLayout;
     if-eqz v0, :login_owner_trace
     const/4 v1, 0x0

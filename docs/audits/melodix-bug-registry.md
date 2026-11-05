@@ -280,7 +280,8 @@ return v0
 | **Défaut d'accessibilité démontré** | `mel_legacy_settings_size` valait **40 dp** et n'avait **aucun override tablette** : sous le minimum tactile de 48 dp sur les deux profils. |
 | **Correctif appliqué** | Jeton porté à **48 dp** (téléphone) et **52 dp** (tablette), aligné sur `mel_header_action`, le bouton natif qu'il remplace. Couche visuelle uniquement. |
 | **Correctif NON appliqué, et pourquoi** | Mettre `visibility="gone"` en XML supprimerait la fenêtre transitoire, mais **retirerait l'accès aux réglages dans le repli web**, puisque aucun code ne le réaffiche. Périmètre non maîtrisé : je ne l'applique pas. Correctif proposé : l'afficher explicitement dans le chemin de repli, puis le masquer en XML. |
-| **Statut** | **Partiellement corrigé** — cible tactile résolue ; chevauchement transitoire **ouvert**, cause établie, correctif proposé. **Je n'affaiblis pas l'audit** : le parcours téléphone reste en échec sur ce point. |
+| **Correctif appliqué (cycle 10)** | `android:visibility="gone"` posé sur `btnSettings` dans **les deux layouts** : la fenêtre transitoire onCreate/reprise est fermée à la source. Le chemin de possession Web (`applyLoginWebUi`) ré-affiche explicitement le bouton (`setVisibility(0x0)`), donc l'accès aux réglages dans le repli web est **préservé** — la possession d'affichage native/WebView n'est **pas** modifiée. Garde de test ajoutée (XML gone ×2 + ré-affichage web + masquage natif). |
+| **Statut** | **Corrigé côté code** — à confirmer par les prochains runs CI (le défaut était intermittent : présent à `42030168198`, absent à `42022211867` et `42027909065`). L'audit n'est **pas** affaibli. |
 
 ## MEL-BUG-014 — Les lignes de paramètres sont en plein bord, sans gouttière
 

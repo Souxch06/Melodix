@@ -507,3 +507,30 @@ test('a red suite names its failing tests instead of only exiting non-zero', () 
   assert.ok(job.includes('exit \\"$suite_status\\"; fi'),
     'the step must still fail with the suite status');
 });
+
+test('the legacy btnSettings is gone by default and re-shown only in the web-owned display', () => {
+  // MEL-BUG-013: btnSettings had no visibility attribute, so it was visible from
+  // inflation until showNativeUiFrom hid it -- an intermittent overlap with
+  // nativeRoot on background-resume. Hiding it in XML closes that window; the
+  // web fallback (applyLoginWebUi) must re-show it explicitly or settings would
+  // become unreachable there.
+  const read = (f) => fs.readFileSync(path.join(root, f), 'utf8');
+  for (const layout of ['res/layout/activity_main.xml', 'res/layout-sw600dp/activity_main.xml']) {
+    const xml = read(layout);
+    const at = xml.indexOf('@id/btnSettings');
+    const block = xml.slice(at, xml.indexOf('/>', at));
+    assert.match(block, /android:visibility="gone"/, `${layout}: default must be gone`);
+  }
+  const activity = read('smali/com/melodix/music/MainActivity.smali');
+  const at = activity.indexOf('.method private final applyLoginWebUi');
+  const web = activity.slice(at, activity.indexOf('.end method', at));
+  const code = web.split('\n').filter((l) => !l.trim().startsWith('#')).join('\n');
+  const showAt = code.indexOf('const v0, 0x7f090060');
+  assert.ok(showAt !== -1, 'the web-owned path must reference btnSettings');
+  assert.match(code.slice(showAt), /const\/4 v1, 0x0\s*\n\s*invoke-virtual \{v0, v1\}, Landroid\/view\/View;->setVisibility\(I\)V/,
+    'the web-owned path must set it VISIBLE (0x0)');
+  const native = activity.slice(activity.indexOf('.method public final showNativeUiFrom'));
+  const nativeBlock = native.slice(0, native.indexOf('.end method'));
+  assert.match(nativeBlock, /const\/16 v2, 0x8\s*\n\s*invoke-virtual \{v1, v2\}, Landroid\/view\/View;->setVisibility\(I\)V/,
+    'the native shell must still hide it (GONE)');
+});
