@@ -68,6 +68,7 @@ jobs:
           unsigned="$RUNNER_TEMP/melodix-ui-unsigned.apk"
           signed="$RUNNER_TEMP/melodix-ui-metrics.apk"
           keystore="$RUNNER_TEMP/melodix-ui-debug.jks"
+          cert="$RUNNER_TEMP/melodix-ui-debug.der"
           mkdir -p "$work" "$framework"
 
           for item in AndroidManifest.xml META-INF apktool.yml assets kotlin lib original res smali unknown; do
@@ -76,6 +77,30 @@ jobs:
             fi
             cp -a "$GITHUB_WORKSPACE/$item" "$work/"
           done
+
+          # The app verifies its own signing certificate against
+          # res/values/strings.xml expected_signature_sha256. A re-signed APK
+          # whose fingerprint is not written back exits at startup, which is
+          # exactly what the first device runs showed. Generate the key FIRST,
+          # derive its fingerprint, and patch the temporary build - the same
+          # approach the preview build uses, but with a disposable key and no
+          # secret. The repository copy is never modified.
+          keytool -genkeypair -keystore "$keystore" -alias uicheck \
+            -keyalg RSA -keysize 2048 -validity 2 \
+            -storepass android -keypass android \
+            -dname "CN=Melodix UI Metrics, O=Build Only, C=FR" >/dev/null
+          keytool -exportcert -alias uicheck -keystore "$keystore" \
+            -storepass android -file "$cert" >/dev/null
+          fingerprint_hex="$(sha256sum "$cert" | awk '{print toupper($1)}')"
+          fingerprint="$(printf '%s' "$fingerprint_hex" | fold -w 2 | paste -sd ':' -)"
+          [[ "$fingerprint" =~ ^([A-F0-9]{2}:){31}[A-F0-9]{2}$ ]] || {
+            echo "::error::could not derive the build-only certificate fingerprint."; exit 1; }
+
+          python3 -c 'import pathlib, re, sys; p = pathlib.Path(sys.argv[1]); t = p.read_text(encoding="utf-8"); pat = r"(<string name=\"expected_signature_sha256\">)[^<]*(</string>)"; assert len(re.findall(pat, t)) == 1, "expected exactly one signature resource"; p.write_text(re.sub(pat, lambda m: m.group(1) + sys.argv[2] + m.group(2), t), encoding="utf-8")' \
+            "$work/res/values/strings.xml" "$fingerprint"
+          grep -q "$fingerprint" "$work/res/values/strings.xml" || {
+            echo "::error::the fingerprint was not written into the temporary build."; exit 1; }
+          echo "::notice title=UI metrics signing::throwaway-debug; fingerprint_written=true; repository_unchanged=true"
 
           framework_apk="$GITHUB_WORKSPACE/android/apktool-framework/1.apk"
           [[ -s "$framework_apk" ]] || { echo "::error::Apktool framework is missing."; exit 1; }
@@ -88,11 +113,6 @@ jobs:
             --frame-path "$framework" --output "$unsigned" --force-all
           [[ -s "$unsigned" ]] || { echo "::error::Apktool produced no APK."; exit 1; }
 
-          # Build-only key. Generated here, never stored, never a repository secret.
-          keytool -genkeypair -keystore "$keystore" -alias uicheck \
-            -keyalg RSA -keysize 2048 -validity 2 \
-            -storepass android -keypass android \
-            -dname "CN=Melodix UI Metrics, O=Build Only, C=FR" >/dev/null
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -p -f 4 "$unsigned" "$signed"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign \
             --ks "$keystore" --ks-pass pass:android --key-pass pass:android \
@@ -177,7 +197,11 @@ jobs:
 
           adb -s "$device" install -r -g "$apk"
           adb -s "$device" logcat -c || true
-          adb -s "$device" shell am start -W -n com.melodix.music/.MainActivity
+          adb -s "$device" shell am start -W -n com.melodix.music/.MainActivity \
+            | tr -d '\r' | tee "$out/am-start.txt"
+          sleep 5
+          early_pid="$(adb -s "$device" shell pidof com.melodix.music 2>/dev/null | tr -d '\r' || true)"
+          echo "::notice title=UI launch $PROFILE::pid_after_5s=${early_pid:-none}; start=$(grep -E 'Status|Error|Warning' "$out/am-start.txt" | tr '\n' ' ' || true)"
 
           # The shell took about 20s to own the display in the P0 runs. Poll for
           # it rather than assuming, and give up honestly if it never appears.
@@ -206,8 +230,10 @@ jobs:
           if [[ "$ready" != "1" ]]; then
             echo "::error title=UI metrics $PROFILE::the native shell was not measured within 180s; no metric is claimed"
             python3 scripts/ui_metrics_diagnose.py "$PROFILE" "$out/dump.xml" || true
-            pid="$(adb -s "$device" shell pidof com.melodix.music 2>/dev/null | tr -d '\r')"
-            focus="$(adb -s "$device" shell dumpsys window 2>/dev/null | grep -m1 mCurrentFocus | tr -d '\r' | sed 's/.*mCurrentFocus=//')"
+            # pidof exits 1 when the process is gone, and grep exits 1 on no
+            # match; under set -e either would abort before the notice prints.
+            pid="$(adb -s "$device" shell pidof com.melodix.music 2>/dev/null | tr -d '\r' || true)"
+            focus="$(adb -s "$device" shell dumpsys window 2>/dev/null | grep -m1 mCurrentFocus | tr -d '\r' | sed 's/.*mCurrentFocus=//' || true)"
             echo "::notice title=UI runtime $PROFILE::pid=${pid:-none}; focus=${focus:-unknown}; attempts=$attempt; last_dump_status=$(tail -1 "$out/uiautomator-attempts.txt" 2>/dev/null)"
             adb -s "$device" logcat -d -v brief > "$out/logcat.txt" 2>/dev/null || true
             # Class names and counts only - never log messages, which can carry

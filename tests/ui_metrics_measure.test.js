@@ -270,3 +270,40 @@ test('the diagnosis never echoes screen text', () => {
   assert.doesNotMatch(out, /Bearer abc123/);
   assert.match(out, /nativeRoot=true/);
 });
+
+test('the build writes its own signing fingerprint before assembling', () => {
+  // The app verifies its signing certificate against
+  // res/values/strings.xml expected_signature_sha256. The first device runs
+  // failed exactly here: a re-signed APK whose fingerprint was not written back
+  // exits at startup, so the shell never appears and nothing can be measured.
+  const yaml = fs.readFileSync(path.join(root, '.github', 'workflows', 'verify-ui-metrics.yml'), 'utf8');
+  const key = yaml.indexOf('keytool -genkeypair');
+  const exportCert = yaml.indexOf('keytool -exportcert');
+  const patch = yaml.indexOf('p.write_text(re.sub');
+  const build = yaml.indexOf('apktool.jar" b');
+  const sign = yaml.indexOf('apksigner" sign');
+  for (const [label, at] of [['genkeypair', key], ['exportcert', exportCert],
+    ['fingerprint patch', patch], ['apktool b', build], ['apksigner', sign]]) {
+    assert.ok(at > 0, `${label} must be present`);
+  }
+  assert.ok(key < exportCert, 'the certificate must come from the generated key');
+  assert.ok(exportCert < patch, 'the fingerprint must be derived before it is written');
+  assert.ok(patch < build, 'the fingerprint must be in the project BEFORE assembly');
+  assert.ok(build < sign, 'the APK is assembled then signed');
+  assert.match(yaml, /expected_signature_sha256/, 'the signature resource is the one patched');
+  assert.match(yaml, /repository_unchanged=true/,
+    'only the temporary build copy is patched, never the repository');
+});
+
+test('the failure diagnostics survive a dead process and an empty grep', () => {
+  // pidof exits 1 when the process is gone and grep exits 1 on no match; under
+  // set -e either would abort the step before the notice is printed, which is
+  // precisely what hid the crash on the first run.
+  const yaml = fs.readFileSync(path.join(root, '.github', 'workflows', 'verify-ui-metrics.yml'), 'utf8');
+  assert.match(yaml, /pidof com\.melodix\.music 2>\/dev\/null \| tr -d '\\r' \|\| true/,
+    'a missing process must not abort the diagnostics');
+  assert.match(yaml, /mCurrentFocus[\s\S]*?\|\| true/,
+    'an unfocused window must not abort the diagnostics');
+  assert.match(yaml, /ui_metrics_diagnose\.py/, 'the dump is diagnosed, not just reported missing');
+  assert.match(yaml, /pid_after_5s=/, 'the process state right after launch is reported');
+});
