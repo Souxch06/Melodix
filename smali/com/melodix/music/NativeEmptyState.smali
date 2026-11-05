@@ -36,9 +36,13 @@
     # A real empty state instead of a bare grey line. The previous block used a
     # raw 24 PIXEL padding (9dp on phone, 12dp on tablet), a hardcoded 16sp and a
     # hardcoded colour, so it ignored both the density and the tablet type scale.
-    :try_start_empty
+    # Allocate the container BEFORE the try region. The handler returns v0, and
+    # ART verifies the handler with the registers live at try entry: with the
+    # allocation inside the try, v0 was undefined on the exception path and the
+    # verifier rejected the whole class ("[0xE1] returning undefined register").
     new-instance v0, Landroid/widget/LinearLayout;
     invoke-direct {v0, p0}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
+    :try_start_empty
     const/4 v1, 0x1
     invoke-virtual {v0, v1}, Landroid/widget/LinearLayout;->setOrientation(I)V
     const/16 v1, 0x11

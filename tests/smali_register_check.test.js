@@ -7,11 +7,15 @@ const root = path.join(__dirname, '..');
 const AUTHORED = ['NativeShortcutGrid', 'NativeShortcutClickListener', 'NativeEmptyState',
   'NativeRowGeometryProbe', 'NativeRowGeometryRunnable', 'NativeRowInsets',
   'NativeHomeShelfRenderer', 'NativeUiRowFactory', 'NativeSettingsRowFactory'];
-const files = AUTHORED.map((n) => `smali/com/melodix/music/${n}.smali`);
+// Scoped to the human-readable Native* sources. The obfuscated library classes
+// use forms this parser does not model, and flagging them would be noise.
+const files = fs.readdirSync(path.join(root, 'smali/com/melodix/music'))
+  .filter((f) => f.startsWith('Native') && f.endsWith('.smali'))
+  .map((f) => `smali/com/melodix/music/${f}`);
 const runCheck = (args) => execFileSync('python3', ['scripts/smali_register_check.py', ...args],
   { cwd: root, encoding: 'utf8', stdio: 'pipe' });
 
-test('every smali file authored in this chantier passes the register checker', () => {
+test('every native smali source passes the register checker', () => {
   runCheck(files);
 });
 
@@ -91,4 +95,51 @@ test('the walk collects crash evidence on every run, not only when startup fails
   assert.match(tail, /logcat -d -b crash[^\n]*> "\$out\/crash\.txt"/,
     'crash.txt must be collected after the walk too: run 42057787244 died mid-walk and produced none');
   assert.match(tail, /VerifyError/, 'the app log must capture verification failures');
+});
+
+test('the checker rejects a catch handler returning a register the try assigns', () => {
+  // The actual VerifyError from run 42060738823: "[0xE1] returning undefined
+  // register". ART verifies a handler against registers live at try entry.
+  const tmp = 'smali/com/melodix/music/__mut_handler.smali';
+  const tmpPath = path.join(root, tmp);
+  const src = fs.readFileSync(path.join(root, 'smali/com/melodix/music/NativeEmptyState.smali'), 'utf8');
+  const broken = src.replace(
+    `    new-instance v0, Landroid/widget/LinearLayout;
+    invoke-direct {v0, p0}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
+    :try_start_empty`,
+    `    :try_start_empty
+    new-instance v0, Landroid/widget/LinearLayout;
+    invoke-direct {v0, p0}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V`);
+  assert.notEqual(broken, src);
+  try {
+    fs.writeFileSync(tmpPath, broken);
+    assert.throws(() => runCheck([tmp]));
+  } finally { fs.unlinkSync(tmpPath); }
+});
+
+test('a handler that assigns its own fallback return value is not flagged', () => {
+  const tmp = 'smali/com/melodix/music/__mut_handler_ok.smali';
+  const tmpPath = path.join(root, tmp);
+  const ok = `.class public final Lcom/melodix/music/__mut_handler_ok;
+.super Ljava/lang/Object;
+.method public static f(Landroid/content/Context;)I
+    .locals 3
+    :try_start_x
+    invoke-virtual {p0}, Landroid/content/Context;->getPackageName()Ljava/lang/String;
+    move-result-object v0
+    invoke-virtual {v0}, Ljava/lang/String;->length()I
+    move-result v1
+    :try_end_x
+    .catch Ljava/lang/Throwable; {:try_start_x .. :try_end_x} :catch_x
+    return v1
+    :catch_x
+    move-exception v0
+    const/4 v1, 0x0
+    return v1
+.end method
+`;
+  try {
+    fs.writeFileSync(tmpPath, ok);
+    runCheck([tmp]);
+  } finally { fs.unlinkSync(tmpPath); }
 });

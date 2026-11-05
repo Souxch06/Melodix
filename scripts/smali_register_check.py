@@ -91,6 +91,50 @@ def scalar_then_object(body):
     return problems
 
 
+CATCH_DIRECTIVE = re.compile(r"\.catch\s+\S+\s+\{(\S+)\s*\.\.\s*(\S+)\}\s*(\S+)")
+
+
+def handler_returns_undefined(body):
+    """A catch handler must not return a register that the try region assigns.
+
+    ART verifies a handler against the registers live at try ENTRY. Returning a
+    View allocated inside the try is therefore "returning undefined register" and
+    the verifier rejects the class, killing the app at the call site. This shipped
+    in NativeEmptyState and cost three device runs to find.
+    """
+    problems = []
+    lines = body.split("\n")
+    for i, line in enumerate(lines):
+        m = CATCH_DIRECTIVE.search(line)
+        if not m:
+            continue
+        start, _end, handler = m.groups()
+        try_idx = next((j for j, l in enumerate(lines) if l.strip() == start), None)
+        h_idx = next((j for j, l in enumerate(lines) if l.strip() == handler), None)
+        if try_idx is None or h_idx is None:
+            continue
+        before = "\n".join(lines[:try_idx])
+        assigned_before = set(re.findall(r"(?:new-instance|move-result-object|const[\w/-]*|move) (v\d+|p\d+)", before))
+        assigned_before |= set(re.findall(r"(v\d+|p\d+)", "".join(
+            l for l in lines[:try_idx] if l.strip().startswith(".param"))))
+        # The handler may legitimately assign the register itself before
+        # returning it (a `const/4 vN, 0x0` fallback). Only a return with no
+        # definition on either path is a rejection.
+        live = set(assigned_before)
+        for l in lines[h_idx + 1:]:
+            st = l.strip()
+            if st.startswith(".end method") or st.startswith(".catch") or st.startswith(":"):
+                break
+            d = re.match(r"(?:new-instance|new-array|move-result-object|move-result|const[\w/-]*|move|check-cast|iget[\w-]*) (v\d+|p\d+)", st)
+            if d:
+                live.add(d.group(1))
+            r = re.match(r"return(?:-object|-wide)? (v\d+|p\d+)$", st)
+            if r and r.group(1) not in live and not r.group(1).startswith("p"):
+                problems.append(f"handler {handler} returns {r.group(1)}, which is not assigned "
+                                f"before {start}: ART rejects the class")
+    return problems
+
+
 def check(path):
     text = pathlib.Path(path).read_text()
     problems = []
@@ -147,10 +191,14 @@ def check(path):
             # A field access is a use too: `iput vA, vB, Type->field` failed
             # verification just as an invoke would. Counting only invokes let a
             # real VerifyError through.
+            # Any argument position counts as a use, not just the receiver:
+            # `invoke-virtual {v2, v11}, ViewGroup->indexOfChild(View)` consumes
+            # v11. Matching only the receiver produced a false positive on
+            # NativeUiVisibilityTraceRunnable, which is correct code.
             use = re.search(
-                rf"(invoke-\w+ \{{{reg}[,}}][^\n]*{esc}->"
-                rf"|i(?:get|put)(?:-\w+)? [^\n]*, {reg}, {esc}->"
-                rf"|i(?:get|put)(?:-\w+)? {reg}, [^\n]*{esc}->"
+                rf"(invoke-\w+ \{{[^\n}}]*\b{reg}\b[^\n}}]*\}}"
+                rf"|[is](?:get|put)[\w-]* [^\n]*\b{reg}\b"
+                rf"|if-\w+ {reg}[,)]"
                 rf"|check-cast {reg}, {esc})", after)
             if not use:
                 continue
@@ -163,6 +211,7 @@ def check(path):
                     f"{name}: {reg} holds {typ} from {getter}() but is overwritten "
                     f"before its first use ({clobber.group(1).strip()})")
         problems.extend(f"{name}: {p}" for p in scalar_then_object(body))
+        problems.extend(f"{name}: {p}" for p in handler_returns_undefined(body))
     return problems
 
 
