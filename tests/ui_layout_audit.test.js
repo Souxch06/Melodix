@@ -395,14 +395,22 @@ test('the resource probe output is published with the captures', () => {
     'a diagnostic nobody can read is not evidence');
 });
 
-test('a genre tap without a session does not claim results appeared', () => {
+test('a genre tap without a session echoes the genre but claims no results', () => {
+  // After MEL-BUG-019 the tap works: the header really becomes the tapped genre.
+  // The walk now asserts that title ("Pop"), which is stronger than the old
+  // "Rechercher" that only held because the tap did nothing.
   const searchNodes = [['nativeRoot', ''], ['nativeTabBar', ''], ['nativeHomeTab', ''],
     ['nativeSearchPanel', ''], ['nativeSearchInput', ''], ['nativeGenreScroll', ''],
-    ['nativeScreenTitle', 'Rechercher']];
+    ['nativeScreenTitle', 'Pop']];
   const { entry } = traceStep('browse-tile', traceDump(searchNodes));
   assert.equal(entry.verdict, 'reached');
   assert.match(entry.scope_note, /authenticated session/,
     'the published trace itself must carry the limit, not just the report');
+  // And the stale expectation must fail: a title that did NOT change means the
+  // tap did nothing, which is exactly what MEL-BUG-019 was.
+  const stale = traceStep('browse-tile', traceDump(searchNodes.map(([id, t]) =>
+    [id, id === 'nativeScreenTitle' ? 'Rechercher' : t])));
+  assert.equal(stale.entry.verdict, 'wrong_screen');
 });
 
 test('the suite runs in CI with a compiler, and skips are treated as failures there', () => {

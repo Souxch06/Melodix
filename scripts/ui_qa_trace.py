@@ -58,15 +58,15 @@ STEPS = {
     "browse-tile": {
         "required": ["nativeRoot"],
         "optional": ["nativeContent", "nativeRowsScroll", "nativeSearchInput"],
-        # "reached" here means the tap was delivered and the shell survived it,
-        # NOT that results appeared: a genre search calls searchMediaItems, which
-        # needs a session. The capture shows the grid unchanged and the field
-        # still empty. The outcome is covered by the authenticated protocol.
-        "note": "tap delivered only; genre results require an authenticated session",
-        # No-session expectation: the tap is delivered but the genre route
-        # needs a session to produce results, so the search screen stays put.
-        # The authenticated matrix covers the results case separately.
-        "title_is": "Rechercher",
+        # After a delivered tap the header echoes the chosen genre ("Pop", the
+        # first tile); this is the designed behaviour of onNativeGenreClick and
+        # the proof the tap did something. "reached" still does NOT mean results
+        # appeared: a genre search calls searchMediaItems, which needs a session.
+        # The grid stays put and the field stays empty without one.
+        "note": "header echoes the tapped genre; genre results still require an authenticated session",
+        # No-session expectation: results need a session, but the header echo of
+        # the choice does not. The authenticated matrix covers the results case.
+        "title_is": "Pop",
     },
     "settings": {
         "required": ["nativeRoot", "nativeContent", "nativeBackButton"],
