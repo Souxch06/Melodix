@@ -55,15 +55,25 @@ def check(path):
         for r in re.finditer(r"\bp(\d+)\b", body):
             if int(r.group(1)) >= params_n:
                 problems.append(f"{name}: p{r.group(1)} beyond {params_n} parameter register(s)")
-        if locals_n + params_n > 16:
-            problems.append(f"{name}: {locals_n}+{params_n} registers exceeds 16")
+        # A method may declare more than 16 registers; what must stay below 16
+        # is the INDEX each non-range invoke references. onCreate legitimately
+        # has 19 and uses invoke/range for the wide calls.
         for iv in INVOKE.finditer(body):
             kind, regs = iv.group(1), iv.group(2)
-            if "/range" in body[max(0, iv.start()):iv.start() + 40].split("{")[0]:
-                continue
+            head = body[max(0, iv.start()):iv.start() + 40].split("{")[0]
             args = [x.strip() for x in regs.split(",") if x.strip()]
-            if ".." not in regs and len(args) > 5:
+            if "/range" in head or ".." in regs:
+                continue
+            if len(args) > 5:
                 problems.append(f"{name}: invoke-{kind} passes {len(args)} registers (limit 5)")
+            for a in args:
+                m2 = re.fullmatch(r"([vp])(\d+)", a)
+                if not m2:
+                    continue
+                idx = int(m2.group(2)) + (locals_n if m2.group(1) == "p" else 0)
+                if idx > 15:
+                    problems.append(
+                        f"{name}: invoke-{kind} references {a} (index {idx}) above v15; needs /range")
         for hold in OBJ_GETTER.finditer(body):
             owner, getter, typ, reg = hold.groups()
             if typ in ("Ljava/lang/String;", "Ljava/lang/Class;", "Ljava/lang/Object;"):

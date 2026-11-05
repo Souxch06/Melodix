@@ -71,8 +71,15 @@ test('the walk collects the geometry log and CI publishes it', () => {
   assert.ok(walk.includes('MelRowGeom: ') && walk.includes('row-geometry.txt'),
     'the walk must capture the probe output');
   const wf = read('.github/workflows/ui-qa.yml');
-  assert.ok(/for f in crash\.txt app-log\.txt foreground\.txt foreground-after-stress\.txt row-geometry\.txt row-identity\.txt; do/.test(wf),
-    'an uncollected evidence file is not evidence');
+  // Assert each required file is published, not an exact list: the list grows as
+  // probes are added, and rewriting this assertion every time is churn.
+  const loop = /for f in ([^;]+); do/.exec(wf);
+  assert.ok(loop, 'the publish loop must exist');
+  const published = loop[1].split(/\s+/);
+  for (const f of ['crash.txt', 'app-log.txt', 'foreground.txt', 'foreground-after-stress.txt',
+    'row-geometry.txt', 'row-identity.txt', 'shortcut-diag.txt', 'empty-state-diag.txt']) {
+    assert.ok(published.includes(f), `${f} must be published: an uncollected file is not evidence`);
+  }
 });
 
 test('the identity read reports the package and two witnesses, not just the failing name', () => {

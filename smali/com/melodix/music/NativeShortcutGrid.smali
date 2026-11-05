@@ -57,6 +57,12 @@
     goto :grid_done
     :grid_catch
     move-exception v0
+    # Never swallow silently: the first run rendered the header but no tiles and
+    # gave no clue why. Name the failure in the log.
+    invoke-virtual {v0}, Ljava/lang/Throwable;->toString()Ljava/lang/String;
+    move-result-object v0
+    const-string v1, "MelShortcut"
+    invoke-static {v1, v0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
     :grid_done
     return-void
 .end method

@@ -9803,20 +9803,17 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     :native_rows_detail_empty
     const-string v0, "Chargement de la playlist…"
     :native_rows_set_empty
-    invoke-virtual {v6, v0}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-    const/high16 v0, 0x41800000
-    invoke-virtual {v6, v0}, Landroid/widget/TextView;->setTextSize(F)V
-    const v0, -0x4a3f48
-    invoke-virtual {v6, v0}, Landroid/widget/TextView;->setTextColor(I)V
-    const/16 v0, 0x11
-    invoke-virtual {v6, v0}, Landroid/widget/TextView;->setGravity(I)V
-    const/16 v0, 0x18
-    invoke-virtual {v6, v0, v0, v0, v0}, Landroid/view/View;->setPadding(IIII)V
+    # Visual rebuild: the bare grey line used a raw 24 PIXEL padding (9dp on
+    # phone, 12dp on tablet), a hardcoded 16sp and a hardcoded colour, ignoring
+    # both density and the tablet type scale. Use the token-driven empty state.
+    invoke-static {p0, v0}, Lcom/melodix/music/NativeEmptyState;->forMessage(Lcom/melodix/music/MainActivity;Ljava/lang/String;)Landroid/widget/LinearLayout;
+    move-result-object v0
+    if-eqz v0, :native_rows_try_done
     new-instance v1, Landroid/widget/LinearLayout$LayoutParams;
-    const/4 v0, -0x1
+    const/4 v6, -0x1
     const/4 v7, -0x2
-    invoke-direct {v1, v0, v7}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-    invoke-virtual {v2, v6, v1}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    invoke-direct {v1, v6, v7}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    invoke-virtual {v2, v0, v1}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
     :native_rows_try_done
     :try_end_native_rows
