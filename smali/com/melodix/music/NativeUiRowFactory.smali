@@ -597,7 +597,14 @@
 
     move-result v0
 
-    if-gtz v0, :native_metric_fallback
+    # MEL-BUG-001 root cause. This guard was inverted: if-gtz jumps when the
+    # value is GREATER than zero, so every successfully resolved dimension was
+    # discarded and replaced by the hardcoded dp fallback. Only a non-positive
+    # (i.e. failed) lookup may fall back. Measured proof: the token resolved to
+    # id=2131165369 px=152 on tablet, yet callers received dp(64)=128, and the
+    # status card got dp(560) instead of its 720dp token. Phone looked correct
+    # only because its fallbacks happen to equal its own token values.
+    if-lez v0, :native_metric_fallback
 
     return v0
 
