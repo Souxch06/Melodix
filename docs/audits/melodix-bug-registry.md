@@ -312,7 +312,13 @@ return v0
   refuse un usage en position d'objet après réaffectation, y compris via `iput`/`iget`. Le modèle
   inverse (« objet puis écrasement ») manquait ce cas : l'appel au constructeur comptait comme
   utilisation avant l'écrasement. Test rejouant les trois VerifyErrors réels du chantier.
-- **Statut** : **correctif appliqué, en attente de validation appareil** (run `42057787244`).
+- **Cause RÉELLE, établie par logcat** (run `42060738823`) : `VerifyError … [0xE1] returning undefined
+  register`. Le bloc `try` commençait **avant** l'allocation de `v0` et le handler retournait `v0`.
+  ART vérifie un handler avec les registres vivants à l'**entrée** du `try`. L'ordre marge/LayoutParams
+  et `setBounds(II)V` étaient **deux autres bogues réels**, corrigés aussi, mais **aucun n'était la cause
+  de ce plantage**. Correctif décisif : allouer le conteneur avant la région `try` (`ff129cf`).
+- **Statut** : **RÉSOLU AVEC PREUVE.** Run `42065755408` **5/5**, `crash.txt` **0 octet** sur les deux
+  profils, état vide rendu et mesuré (3 descendants, 2 TextViews).
 - **Régression introduite par moi** au commit `12228c8`, détectée par les parcours. C'est exactement ce
   que les parcours sont censés attraper, et ils l'ont fait.
 
@@ -328,6 +334,42 @@ return v0
 - **Action** : le repli journalise désormais la cause sous le tag `MelShortcut`, collecté et publié par
   la CI (`shortcut-diag.txt`). Les runs `42054485935` l'ont rendu vide car l'application mourait avant ;
   le run `42057787244` doit fournir la cause.
-- **Statut** : **ouvert, cause en cours d'établissement.** Aucun correctif tenté à l'aveugle.
+- **Cause établie** : `Drawable.setBounds(II)V` — la vraie signature prend **quatre** entiers. apktool
+  assemble une référence de méthode sans la résoudre ; ART ne la résout pas et **rejette la classe**.
+  Deux occurrences dans `createTile`. Corrigé par `54c7f8d`.
+- **Statut** : **RÉSOLU AVEC PREUVE.** Run `42065755408` : **3 tuiles** sur les deux profils
+  (118,9×66,3 dp tél, 233×55 dp tab), `shortcut-diag.txt` vide, 0 défaut.
 - **Enseignement** : un parcours vert ne prouve pas qu'un composant s'affiche. Les assertions de titre
   ne couvrent pas le contenu ; c'est la mesure `container_items_deep` qui a révélé l'absence.
+
+
+## MEL-BUG-017 — P2 — deux tuiles de raccourci identiques, dispatch à polarité inversée
+
+- **Repro** : run `42063164990`, écran Accueil, les deux profils. **Trouvé en regardant la capture.**
+- **Attendu** : trois tuiles distinctes Bibliothèque / Rechercher / Paramètres.
+- **Observé** : « Bibliothèque, Rechercher, Rechercher ». La troisième tuile était un doublon.
+- **Cause établie** : la chaîne de dispatch de `addTile` utilisait `if-eq` pour sauter au cas
+  **suivant**. `if-eq` saute sur **égalité** : l'action 0 tombait sur le libellé de l'action 1, et les
+  actions 1 et 2 tombaient toutes deux sur le dernier libellé. `if-ne` est la bonne polarité.
+  Le listener, lui, était correct : il utilise `if-eq` pour sauter au cas **correspondant**. Les deux
+  formes se ressemblent, ce qui rend l'erreur facile à commettre.
+- **Correctif** : `ac696e4`. Ordre de rendu choisi : Bibliothèque, Rechercher, Paramètres.
+- **Garde** : test qui **interprète** le dispatch pour les trois actions et exige trois libellés
+  **distincts**. Une recherche de chaînes serait passée au travers.
+- **Statut** : **RÉSOLU AVEC PREUVE**, run `42065755408`, capture téléphone : trois tuiles correctes.
+
+## MEL-BUG-018 — P2 — état vide de la Bibliothèque avec une loupe et sans sous-titre
+
+- **Repro** : run `42063164990`, écran Bibliothèque, les deux profils. **Trouvé en regardant la capture.**
+- **Attendu** : icône bibliothèque et sous-titre « Vos playlists, albums et artistes apparaîtront ici. »
+- **Observé** : icône **loupe**, sous-titre **absent** (1 seul TextView dans le dump).
+- **Cause établie** : `forMessage` testait `String.equals` avec `if-eqz`, ce qui envoyait tout message
+  **autre** que la recherche dans la branche recherche (`subtitle = ""`, icône `native_nav_search`).
+- **Correctif** : `if-nez` (`ac696e4`).
+- **Garde** : test qui interprète `forMessage` pour les deux messages et vérifie icône **et** sous-titre.
+- **Statut** : **RÉSOLU AVEC PREUVE**, run `42065755408` : 2 TextViews, texte 379,4 dp à x=16 (tél)
+  et 736 dp à x=32 (tab), icône bibliothèque, sous-titre présent.
+
+**Famille commune 017/018/001** : polarité d'un saut conditionnel. Aucun parcours d'écrans ne les
+détecte, parce qu'une étape n'affirme que le titre. Seules la **lecture des captures** et
+l'**interprétation du dispatch** les révèlent.

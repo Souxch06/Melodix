@@ -409,3 +409,28 @@ Aucune modification de zone protégée n'est nécessaire à ce stade. Si le diag
 ## Prochain travail réalisable
 
 Cycle 2 : vérifier sur les deux profils que `back-from-settings` et `home-again` passent à `reached`, et lire le relevé `MelMetrics` pour identifier MEL-BUG-001. En parallèle, préparer l'extension du parcours aux scénarios de retour multiples et aux transitions de cycle de vie.
+
+---
+
+## Cycle 8 — reconstruction visuelle, écrans 1 et 2
+
+**Rapport détaillé** : `melodix-visual-rebuild-report.md` (9 points).
+
+- **Référence** `f9399b2` / run `42031794726`. **Dernier run** `42065755408` **5/5 SUCCESS**,
+  19 étapes, **0 défaut réel**, **0 plantage**, 2 profils. Suite **740 / 737 pass / 0 fail / 3 skip**.
+- **Réellement reconstruits et validés** : **Accueil** (grille de 3 raccourcis, composition tablette
+  distincte) et **Bibliothèque** (état vide tokenisé, gouttière respectée). Recherche inspectée mais
+  non modifiée. Lecteur, mini-lecteur, playlists, albums, artistes : **bloqués sans session**, non
+  déclarés inspectés.
+- **Résolus ce cycle avec preuve** : MEL-BUG-015, 016, 017, 018.
+- **Toujours ouverts** : MEL-BUG-013 (`btnSettings`, intermittent, **non résolu**) ; parcours **G**
+  bloqué sans session ; validation authentifiée manquante ; l'échec unitaire isolé en CI reste
+  **non reproduit**, donc non résolu.
+- **Coût et honnêteté** : quatre runs rouges ou aveugles. Deux causes supposées (ordre des registres,
+  `setBounds`) étaient des bogues réels mais **pas** la cause du plantage. La preuve décisive est
+  venue de `crash.txt`, dont la collecte n'était déclenchée qu'au démarrage raté — corrigée.
+  Deux défauts supplémentaires n'ont été vus qu'en **regardant les captures**.
+- **Aucune assertion assouplie.** Gardes renforcées et validées par mutation : les quatre VerifyErrors
+  réels sont rejoués et doivent être détectés.
+- **Prochain travail réalisable** : surface 3 (tuiles de genres), puis états de chargement et d'erreur
+  sur le modèle de `NativeEmptyState`.
