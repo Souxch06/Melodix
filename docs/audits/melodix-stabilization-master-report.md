@@ -25,7 +25,10 @@ Rapport de la phase précédente : [`melodix-qa-visual-functional-2026-11-05.md`
 
 | ID | Gravité | Objet | Statut |
 |---|---|---|---|
-| MEL-BUG-001 | P3 | Géométrie tablette — **thèse initiale réfutée deux fois** | **Clos comme non-défaut pour les composants mesurés** |
+| MEL-BUG-001 | **P1** | **Garde inversée dans `metric()` : tous les jetons runtime ignorés** | **Résolu avec preuve** |
+| MEL-BUG-012 | P0 | Régression de diagnostic de mon fait (2 modes) | **Résolu avec preuve** + gardes mutées |
+| MEL-BUG-013 | P3 | Chrome hérité `btnSettings` dans la hiérarchie | **Non reproduit** au run suivant |
+| MEL-BUG-014 | P2 | Lignes en plein bord, sans gouttière | **Résolu avec preuve** |
 | MEL-BUG-002 | P1 | Touche système Retour inopérante sur écran natif | **Résolu avec preuve** (volet lecteur web : en attente de session) |
 | MEL-BUG-010 | P2 | Retour inerte sur un onglet racine | **Résolu avec preuve** |
 | MEL-BUG-011 | P2 | Mes assertions de retour trop faibles (faux vert) | **Résolu avec preuve** |
@@ -246,6 +249,71 @@ Ce vert n'est pas un artefact : il a été obtenu **après avoir renforcé** les
 | Fermeture du lecteur plein écran web | Garantie par empreinte, **non observée** | Sections E/G de la matrice |
 
 **Melodix n'est pas déclaré prêt à publier.** Les fonctionnalités musicales essentielles ne sont pas validées sur appareil.
+
+---
+
+## Cycle 6 — MEL-BUG-001 : la cause racine, enfin démontrée
+
+### Ce que mes rapports précédents avaient faux
+
+J'avais écrit « le résolveur fonctionne, ne plus y toucher ». **C'était faux**, et la consigne qui en découlait reposait sur cette erreur. Le journal `MelMetrics` montrait la résolution *réussie* ; il ne montrait pas la valeur **retournée**. Personne ne recevait jamais sa dimension.
+
+### La cause, une seule instruction
+
+```smali
+invoke-virtual {v0, v3}, Landroid/content/res/Resources;->getDimensionPixelSize(I)I
+move-result v0
+if-gtz v0, :native_metric_fallback   # saute au REPLI quand px > 0 : le SUCCÈS
+return v0
+```
+
+`if-gtz` = « si supérieur à zéro ». Le chemin de succès partait au repli : **chaque dimension résolue était jetée** et remplacée par la valeur dp codée en dur. Les 26 surcharges tablette n'ont jamais été appliquées.
+
+Le téléphone paraissait conforme **parce que ses replis valent ses propres jetons**. Le défaut était présent sur les deux profils, invisible côté téléphone.
+
+### Instrumentation construite pour trancher
+
+`NativeRowGeometryProbe` / `NativeRowGeometryRunnable`, en lecture seule, relèvent après layout : jeton en pixels, minimum demandé, hauteur mesurée, hauteur et largeur finales, paddings, densite, LayoutParams réellement appliqués (classe, dimensions, marges), classe et hauteur du parent avec ses paddings, nombre d'enfants. `logIdentity` relève en plus le paquet, l'identifiant du jeton, un jeton témoin, le même jeton sans contrainte de paquet, et un témoin framework.
+
+Trois sondes concordantes au même instant ont isolé la contradiction : nom résolu (`id=2131165369`), dimension lue (`px=152`), **appelant servi avec `dp(64)=128`**.
+
+### Résultats sur appareil, avant → après
+
+| Mesure | Téléphone | Tablette |
+|---|---|---|
+| Jeton reçu par l'appelant | -1 → **168 px** | -1 → **152 px** |
+| Minimum appliqué | 168 → 168 px | 128 → **152 px** |
+| Hauteur finale de ligne | 171 → 174 px (66,3 dp) | 132 → **160 px (80 dp)** |
+| Largeur carte statut Accueil | 379,4 → **379,4 dp** | 560 → **720 dp** |
+| Position carte Accueil | x=16 → **x=16 dp** | x=120 → **x=40 dp** |
+
+**Correctif minimal : `if-gtz` → `if-lez`.** Aucun jeton modifié, aucune valeur en dur ajoutée, aucune exception par composant.
+
+### MEL-BUG-014 — gouttière, même exigence de cause commune
+
+Les lignes étaient en plein bord (`marges=0/0`, parent `pad_lr=0/0`) alors qu'Accueil respecte la gouttière. **Je n'ai pas paddé le conteneur** : `nativeContent` est partagé avec le rendu Accueil, qui inset déjà ses enfants — l'aurait doublé. Un test interdit ce padding dans les deux dispositions.
+
+`NativeRowInsets.apply` pose des marges horizontales = jeton `mel_gutter`, en conservant `MATCH_PARENT × WRAP_CONTENT` pour ne pas combattre le minimum de hauteur. **Un seul point d'appel**, partagé par les lignes de paramètres et de contenu.
+
+| Largeur de ligne | Avant | Après |
+|---|---|---|
+| Téléphone | 1080 px = 411,4 dp | **996 px = 379,4 dp** (gouttière 16 dp) |
+| Tablette | 1600 px = 800 dp | **1472 px = 736 dp** (gouttière 32 dp) |
+
+### Deux régressions de diagnostic, de mon fait, assumées
+
+| Mode | Effet | Garde ajoutée |
+|---|---|---|
+| `const-string v1` alors que `v1` tenait les `Resources` | shell natif jamais apparu, `visible_ids=5` puis `0` | tout registre objet ne doit pas être réécrit avant son dernier appel **sur ce type** |
+| `p2` référencé dans une méthode à deux paramètres | l'app tombait à l'ouverture des Parametres, Accueil/Bibliothèque/Recherche fonctionnaient encore | tout `pN` doit exister dans la signature, tout `vN` sous `.locals` |
+
+**Les deux gardes ont été validées par mutation** : bogue réintroduit → détecté ; restauré → tout repasse. La garde de `metric()` est mutée de la même façon.
+
+### État du run final
+
+Run **`42022211867`** : **5 jobs sur 5 en succès**, **15 étapes**, **0 anomalie de navigation**, **0 défaut de mise en page**, téléphone **et** tablette. `unit-tests` : **717 tests, 717 pass, 0 fail, 0 skipped**.
+
+`MEL-BUG-013` (`btnSettings`, chrome hérité 40 dp couvert par le shell) **ne s'est pas reproduit**. Je le laisse au registre comme non reproduit, pas comme résolu : sa cause n'a jamais été établie. **Je n'ai affaibli aucune assertion** pour obtenir ce vert — il est obtenu après en avoir *ajouté*.
 
 ---
 

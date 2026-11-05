@@ -275,7 +275,8 @@ return v0
 | **Absent des runs précédents** | 0 défaut téléphone aux runs `42008408954` et `42019138039` ; `btnSettings` n'était pas dans le dump |
 | **Cause** | **Non établie.** Deux hypothèses à départager : l'application des vrais jetons a modifié un calcul de visibilité du chrome hérité, ou il s'agit d'un état transitoire en fin de parcours. |
 | **Décision** | **Je n'affaiblis pas l'audit** pour rendre la CI verte. Le défaut reste signalé, le parcours téléphone reste en échec, et c'est la prochaine tâche. |
-| **Statut** | **Ouvert — en diagnostic** |
+| **Suite** | **Non reproduit** au run `42022211867` : 0 défaut téléphone. La cause n'ayant jamais été établie, je ne le déclare pas résolu. |
+| **Statut** | **Non reproduit — à surveiller** |
 
 ## MEL-BUG-014 — Les lignes de paramètres sont en plein bord, sans gouttière
 
@@ -286,4 +287,6 @@ return v0
 | **Comparaison** | Le contenu **Accueil** respecte la gouttière (`x=16 dp`, `w=379,4 dp` téléphone ; `x=40 dp`, `w=720 dp` tablette) |
 | **Cause confirmée** | `nativeContent` n'a que `paddingTop`/`paddingBottom`, aucun padding horizontal, et les lignes sont ajoutées par `addView(View)` **sans LayoutParams** : elles héritent de `MATCH_PARENT × WRAP_CONTENT` sans marges. Le rendu Accueil, lui, pose des LayoutParams explicites. |
 | **Correctif prévu** | Ajouter le padding horizontal de gouttière à `nativeContent` dans les deux dispositions, ce qui couvre toutes les lignes sans exception par composant. Non encore appliqué : à vérifier séparément pour garder chaque changement attribuable. |
-| **Statut** | **Ouvert — cause confirmée, correctif identifié** |
+| **Correctif appliqué** | `NativeRowInsets.apply` pose des marges horizontales = jeton `mel_gutter` au point d'ajout partagé, en conservant `MATCH_PARENT × WRAP_CONTENT`. Le conteneur n'est **pas** paddé : il est partagé avec Accueil, qui inset déjà ses enfants. |
+| **Preuve de résolution** | Run `42022211867` : largeur de ligne téléphone **1080 → 996 px** (411,4 → 379,4 dp, gouttière 16 dp), tablette **1600 → 1472 px** (800 → 736 dp, gouttière 32 dp). Hauteurs préservées. **0 défaut** de mise en page sur les deux profils. |
+| **Statut** | **Résolu avec preuve** |
