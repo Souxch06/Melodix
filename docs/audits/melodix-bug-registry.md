@@ -374,26 +374,29 @@ return v0
 détecte, parce qu'une étape n'affirme que le titre. Seules la **lecture des captures** et
 l'**interprétation du dispatch** les révèlent.
 
-## MEL-BUG-019 — P2 — le tap d'une tuile de genre ne déclenche pas son handler
+## MEL-BUG-019 — P2 — le tap d'une tuile de genre n'avait aucun effet
 
-- **Repro** : runs `42077053251`, `42078730287`, `42081094275`, les deux profils.
+- **Repro** : runs `42077053251`, `42078730287`, `42081094275`, `42087348653`, les deux profils.
 - **Attendu** : taper une tuile lance la recherche réelle et marque la tuile comme sélectionnée.
 - **Observé** : `tap_point=284 625`, cible `FrameLayout desc='Pop' enabled=true
   bounds=[42,499][527,751]` : le tap frappe la bonne tuile, active, en son centre. Pourtant
-  `selected=0`, titre inchangé, trace `MelGenre` vide **même collectée immédiatement après le tap**,
-  et **aucun crash**. `onNativeGenreClick` ne s'exécute pas.
-- **Cause** : **non établie.** `android:onClick` ne se déclenche pas sur ces `FrameLayout`. Déplacer
-  l'appel du styleur avant `performNativeLiveSearch` n'a rien changé, ce qui élimine l'hypothèse
-  « la recherche avale la fin du handler ».
-- **Antériorité** : l'ancien parcours n'a **jamais** vérifié qu'un tap de genre produisait un effet
-  (« tap delivered only »). Ces taps pourraient n'avoir jamais fonctionné dans le shell natif.
-  **Non tranché**, donc non affirmé.
-- **Statut** : **OUVERT.** Les parcours téléphone et tablette restent **rouges** sur cette assertion.
-  Elle n'a pas été assouplie.
-- **Prochaine étape** : poser l'écouteur programmatiquement et journaliser l'entrée du handler, pour
-  distinguer un problème d'attribut XML d'un problème de dispatch.
+  `selected=0`, titre inchangé, **aucun crash**.
+- **Cause racine** : **trouvée et corrigée** (`7f99e34`). Deux couches :
+  1. Le câblage par `android:onClick` restait muet ; un écouteur posé programmatiquement
+     (`NativeGenreClickListener` via `NativeGenreTileStyler.install`, run `42087348653`)
+     a prouvé que le handler **était** atteint : la trace `tile click received` apparaît.
+  2. Mais le handler sortait aussitôt : `String->isEmpty()Z` suivi de **`if-eqz`** sautait
+     quand le tag était **non vide** — l'inverse de l'intention. Toutes les tuiles portent
+     `android:tag` dans les deux layouts, donc chaque tap sortait avant le styleur, la
+     recherche et le titre. Corrigé en **`if-nez`**, avec un test de garde de polarité.
+- **Pourquoi les diagnostics étaient vides** : le handler ne plantait pas, il sortait tôt ;
+  `MelGenre` vide signifiait « sorti avant le premier log », pas « jamais appelé ».
+- **Antériorité** : l'ancien parcours n'a **jamais** vérifié l'effet d'un tap de genre
+  (« tap delivered only ») ; ce défaut était donc **préexistant dans le shell natif**.
+- **Statut** : **RÉSOLU côté code** — à confirmer par un run CI avec `selected=[1-9]` observé.
+  L'assertion n'a **pas** été assouplie.
 
-## MEL-BUG-020 — P3 — mon assertion de sélection était un faux vert (corrigé)
+MEL-BUG-020 — P3 — mon assertion de sélection était un faux vert (corrigé)
 
 - **Observé** : run `42075202324` **5/5** alors que `genre-selection.txt` disait `selected=0` sur les
   deux profils. Le garde cherchait la présence de la ligne `selected=`, pas un compte positif.
