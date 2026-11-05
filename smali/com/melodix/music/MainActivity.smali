@@ -10596,7 +10596,20 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     const/4 v0, 0x0
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeSettingsLoading:Z
     const-string v1, "Paramètres"
+    # No WebView answer (no session): render a REAL local fallback, not a dead
+    # end. Connection state comes from the native session-unproven flag; the
+    # About section (version, sensitive data) is appended like any settings
+    # payload. Retry stays available to re-ask the WebView.
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->isNativeSessionUnproven()Z
+    move-result v0
+    if-eqz v0, :settings_fallback_proven
+    const-string v2, "[{\"section\":\"État\",\"title\":\"Paramètres indisponibles\",\"subtitle\":\"Le module de réglages n’a pas répondu. Réessayez.\",\"settingValue\":\"Réessayer\",\"uri\":\"melodix:action:retry-settings\"},{\"section\":\"Compte et connexion\",\"title\":\"État de la connexion Spotify\",\"subtitle\":\"Non connecté : aucune session Spotify n’est confirmée sur cet appareil.\",\"settingValue\":\"Se connecter\",\"uri\":\"melodix:action:open-login\"},{\"section\":\"Notifications\",\"title\":\"Notifications de Melodix\",\"subtitle\":\"L’autorisation se gère dans les réglages système Android de l’application.\",\"settingValue\":\"Réglages système\",\"uri\":\"melodix:action:open-notifications\"}]"
+    goto :settings_fallback_render
+    :settings_fallback_proven
     const-string v2, "[{\"section\":\"État\",\"title\":\"Paramètres indisponibles\",\"subtitle\":\"Le module de réglages n’a pas répondu. Réessayez.\",\"settingValue\":\"Réessayer\",\"uri\":\"melodix:action:retry-settings\"}]"
+    :settings_fallback_render
+    invoke-direct {p0, v2}, Lcom/melodix/music/MainActivity;->appendNativeAboutRows(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v2
     invoke-virtual {p0, v1, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     const-string v1, "settings-load result=timeout"
     invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V

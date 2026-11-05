@@ -2000,3 +2000,24 @@ test('native side: notifications action opens the real system screen, and the Ab
     assert.ok(settingsBlock.indexOf('appendNativeAboutRows') < settingsBlock.indexOf('renderNativeRows'),
         'the About rows are appended BEFORE rendering');
 });
+
+test('settings timeout renders a real local fallback (connect + notifications + about), never a dead end', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const at = activity.indexOf('.method public final onNativeSettingsTimeout');
+    const body = activity.slice(at, activity.indexOf('.end method', at));
+    const code = body.split('\n').filter((l) => !l.trim().startsWith('#')).join('\n');
+    // The fallback payload is derived from the REAL native session flag.
+    assert.match(code, /isNativeSessionUnproven\(\)Z/);
+    // Unproven session -> real connect action + real notifications action.
+    const fallback = code.slice(code.indexOf(':settings_fallback_render') - 2600);
+    assert.match(fallback, /melodix:action:open-login/);
+    assert.match(fallback, /melodix:action:open-notifications/);
+    assert.match(fallback, /Non connecté/);
+    assert.match(fallback, /melodix:action:retry-settings/, 'retrying the WebView stays possible');
+    // The About rows (real version) are appended to the fallback too.
+    assert.match(code, /appendNativeAboutRows\(Ljava\/lang\/String;\)Ljava\/lang\/String;/);
+    assert.ok(code.indexOf('appendNativeAboutRows') < code.indexOf('renderNativeRows'),
+        'About rows are appended before the fallback renders');
+    // No fabricated "connected" claim in the fallback.
+    assert.doesNotMatch(fallback, /Connecté/);
+});
