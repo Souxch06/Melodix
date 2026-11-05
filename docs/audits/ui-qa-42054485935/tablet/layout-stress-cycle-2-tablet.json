@@ -1,0 +1,112 @@
+{
+  "container_items": {},
+  "container_items_deep": {},
+  "defects": {
+    "collapsed": [],
+    "offscreen": [],
+    "overlap": [],
+    "small_target": []
+  },
+  "density_dpi": 320.0,
+  "node_count": 53,
+  "profile": "tablet",
+  "readable": true,
+  "schema_version": 1,
+  "screen_px": [
+    1600,
+    2560
+  ],
+  "surface": "stress-cycle-2",
+  "views": [
+    {
+      "cls": "LinearLayout",
+      "dp": [
+        0.0,
+        0.0,
+        800.0,
+        1280.0
+      ],
+      "h_dp": 1280.0,
+      "id": "action_bar_root",
+      "px": [
+        0,
+        0,
+        1600,
+        2560
+      ],
+      "w_dp": 800.0
+    },
+    {
+      "cls": "ViewGroup",
+      "dp": [
+        0.0,
+        0.0,
+        800.0,
+        1280.0
+      ],
+      "h_dp": 1280.0,
+      "id": "main",
+      "px": [
+        0,
+        0,
+        1600,
+        2560
+      ],
+      "w_dp": 800.0
+    },
+    {
+      "cls": "HorizontalScrollView",
+      "dp": [
+        0.0,
+        0.0,
+        800.0,
+        1280.0
+      ],
+      "h_dp": 1280.0,
+      "id": "hScrollView",
+      "px": [
+        0,
+        0,
+        1600,
+        2560
+      ],
+      "w_dp": 800.0
+    },
+    {
+      "cls": "FrameLayout",
+      "dp": [
+        0.0,
+        80.0,
+        800.0,
+        1280.0
+      ],
+      "h_dp": 1200.0,
+      "id": "webViewContainer",
+      "px": [
+        0,
+        160,
+        1600,
+        2560
+      ],
+      "w_dp": 800.0
+    },
+    {
+      "cls": "TextView",
+      "dp": [
+        0.0,
+        80.0,
+        800.0,
+        1280.0
+      ],
+      "h_dp": 1200.0,
+      "id": "frameBgText",
+      "px": [
+        0,
+        160,
+        1600,
+        2560
+      ],
+      "w_dp": 800.0
+    }
+  ]
+}
