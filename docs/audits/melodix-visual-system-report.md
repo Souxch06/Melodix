@@ -100,7 +100,7 @@ tuile, la couleur de base est le pire cas : un test la mesure pour les huit.
 **0 défaut géométrique** sur 38 dumps, 2 profils. **`crash.txt` 0 octet**, `state-diag` 0 octet.
 19 étapes par profil, dont 2 en échec attendu : lecteur et mini-lecteur, bloqués sans session.
 
-## 6. Le défaut ouvert : la sélection d'une tuile ne fonctionne pas
+## 6. MEL-BUG-019 : la sélection d'une tuile — RÉSOLU (run `42091441657`, 5/5 vert)
 
 **Chaîne de preuve, quatre runs :**
 
@@ -125,6 +125,18 @@ preuves disponibles et je ne l'affirme pas.
 plutôt que via `android:onClick`, et journaliser l'entrée du handler. Cela distingue un problème
 d'attribut XML d'un problème de dispatch.
 
+
+**Résolution (cycle 10).** Deux couches, tranchées par la trace plutôt que supposées :
+(1) câblage programmatique `NativeGenreClickListener` posé par `NativeGenreTileStyler.install`
+à l'ouverture de Recherche → run `42087348653` : la trace `tile click received` prouve que
+`onNativeGenreClick` est invoqué ; (2) cause racine dans le handler : `isEmpty()Z` suivi de
+`if-eqz` sautait quand le tag était **non vide** — chaque tuile taguée sortait avant le styleur.
+Corrigé en `if-nez` (`7f99e34`), avec un **test de garde de polarité**. Run **`42091441657` :
+5/5 vert**, `selected=3` et `walk-status=0` sur les deux profils, 0 défaut sur 38 dumps, et les
+captures montrent le titre « Pop » + l'anneau vert (téléphone 2×4, tablette 4×2). L'étape
+`browse-tile` du walk attend désormais le titre « Pop » — une assertion plus forte qu'avant.
+L'assertion `selected=[1-9]` n'a jamais été assouplie.
+
 ## 7. Tests, compilations, gardes
 
 | Contrôle | Résultat |
@@ -132,7 +144,7 @@ d'attribut XML d'un problème de dispatch.
 | Suite locale | **757 / 754 pass / 0 fail / 3 skip** |
 | CI unitaires (avec `javac`) | ✅ |
 | CI build APK | ✅ |
-| CI parcours téléphone / tablette | ❌ **selection assertion, §6** |
+| CI parcours téléphone / tablette | ✅ **`42091441657` 5/5 vert**, `selected=3` les 2 profils, titre « Pop » + anneau vus sur les captures |
 | Défauts géométriques, 38 dumps | **0** |
 | Registre smali (25 sources) / signatures Android | **0 / 0** |
 

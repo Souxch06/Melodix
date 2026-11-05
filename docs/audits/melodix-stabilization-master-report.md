@@ -455,3 +455,20 @@ Cycle 2 : vérifier sur les deux profils que `back-from-settings` et `home-again
   validation authentifiée manquante ; échec unitaire isolé en CI non reproduit.
 - **Prochain travail réalisable sans session** : écouteur posé programmatiquement sur les tuiles pour
   trancher MEL-BUG-019 ; puis états de chargement prolongé et d'erreur sur les surfaces à session.
+
+---
+
+## Cycle 10 — MEL-BUG-019 résolu, CI 5/5 vert
+
+- **HEAD `7b95134` poussé, arbre propre.** Suite **759 / 756 pass / 0 fail / 3 skip**. Validateurs 0/26.
+- **Run `42091441657` : 5/5 VERT** (build, unit-tests, walks téléphone **et** tablette, publish).
+- **MEL-BUG-019 RÉSOLU et confirmé** : cause racine = polarité inversée (`if-eqz` sur `isEmpty()`)
+  dans `onNativeGenreClick` — chaque tuile taguée sortait avant le styleur, sans crash ni trace.
+  Le câblage programmatique (`NativeGenreClickListener`) a d'abord prouvé que le handler était
+  atteint (trace `tile click received`, run `42087348653`), puis le correctif `if-nez` a débloqué
+  la sélection. `selected=3`, `walk-status=0`, 0 défaut sur 38 dumps, titre « Pop » + anneau de
+  sélection **vus sur les captures** des 2 profils. Garde de test de polarité ajoutée ; l'assertion
+  `selected=[1-9]` n'a jamais été assouplie. L'étape `browse-tile` attend désormais le titre « Pop ».
+- **Toujours ouverts** : 013 `btnSettings` intermittent ; parcours G sans session ; validation
+  authentifiée manquante.
+

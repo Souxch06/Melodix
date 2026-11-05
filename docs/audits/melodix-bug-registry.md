@@ -393,8 +393,10 @@ l'**interprétation du dispatch** les révèlent.
   `MelGenre` vide signifiait « sorti avant le premier log », pas « jamais appelé ».
 - **Antériorité** : l'ancien parcours n'a **jamais** vérifié l'effet d'un tap de genre
   (« tap delivered only ») ; ce défaut était donc **préexistant dans le shell natif**.
-- **Statut** : **RÉSOLU côté code** — à confirmer par un run CI avec `selected=[1-9]` observé.
-  L'assertion n'a **pas** été assouplie.
+- **Statut** : **RÉSOLU, confirmé par CI** — run **`42091441657` 5/5 VERT** : `selected=3`
+  (tuile Pop + enfants) sur les deux profils, `walk-status=0`, 0 défaut géométrique sur
+  38 dumps, titre d'en-tête « Pop » et anneau de sélection vérifiés **sur les captures**
+  (pas seulement sur le parcours). L'assertion n'a **pas** été assouplie.
 
 MEL-BUG-020 — P3 — mon assertion de sélection était un faux vert (corrigé)
 
