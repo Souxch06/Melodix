@@ -13,8 +13,8 @@ Rapport de la phase précédente : [`melodix-qa-visual-functional-2026-11-05.md`
 
 | Cycle | Objet | État |
 |---|---|---|
-| 1 | Diagnostic et correction des défauts ouverts | **fait — en attente de vérification CI** |
-| 2 | Vérification téléphone + tablette | à venir |
+| 1 | Diagnostic et correction des défauts ouverts | **fait** |
+| 2 | Vérification téléphone + tablette | **fait pour le cycle 1 — D3 résolu, D2 inopérant, D1 rectifié** |
 | 3 | Inspection des 10 surfaces | à venir |
 | 4 | Audit des 15 commandes et des parcours | à venir |
 | 5 | Stabilité Android et renforcement des tests | à venir |
@@ -25,9 +25,9 @@ Rapport de la phase précédente : [`melodix-qa-visual-functional-2026-11-05.md`
 
 | ID | Gravité | Objet | Statut |
 |---|---|---|---|
-| MEL-BUG-001 | P1 | Métriques runtime ignorent `sw600dp` | **En diagnostic** — instrumenté sur appareil |
-| MEL-BUG-002 | P1 | Touche système Retour inopérante sur écran natif | **Correctif appliqué** |
-| MEL-BUG-003 | P2 | Contenu étranger survivant sous le titre Accueil | **Correctif appliqué** |
+| MEL-BUG-001 | P2 | Géométrie tablette non conforme — **diagnostic initial réfuté** | **En diagnostic** |
+| MEL-BUG-002 | P1 | Touche système Retour inopérante sur écran natif | **En diagnostic — correctif inopérant** |
+| MEL-BUG-003 | P2 | Contenu étranger survivant sous le titre Accueil | **Résolu avec preuve** |
 | MEL-BUG-004 | P2 | Faux vert de la trace | Résolu avec preuve |
 | MEL-BUG-005 | P3 | Faux défaut de timing tablette | Résolu avec preuve |
 | MEL-BUG-006 | P1 | Lecteur / playlists / albums jamais observés | En attente de validation authentifiée |
@@ -81,6 +81,39 @@ Cela tranchera entre les deux hypothèses restantes : `getIdentifier` échoue, o
 Nouveaux : 12 tests dans `tests/ui_screen_state.test.js`, dont la vérification que chaque garde du retour **délègue** au lieu d'avaler la touche, que le key-up est consommé, que la garde de changement de route est présente, et que les budgets de registres restent sous v15.
 
 Deux erreurs de test évitées en cours de route : `indexOf(':label')` tombe sur l'instruction de saut et non sur la définition du label ; un helper `dump()` entrait en collision avec un existant.
+
+---
+
+---
+
+## Cycle 2 — vérification sur appareil (run `41998795135`)
+
+### MEL-BUG-003 : résolu, avec preuve
+
+`home-again` passe de `wrong_screen` à **`reached`** sur **téléphone et tablette**, `unexpected_chrome_present=false`. Le contenu des paramètres ne survit plus sous le titre Accueil. C'est une observation sur appareil, pas une inférence sur le code.
+
+### MEL-BUG-002 : le correctif n'a pas pris effet
+
+`back-from-settings` reste `wrong_screen` sur les deux profils. L'interception dans `onKeyDown` n'a donc pas été atteinte : la touche est consommée en amont, par `fm.dispatchKeyEvent` → `kn1.f` → `superDispatchKeyEvent`, qui ne repasse pas par `Activity.onKeyDown` sur les versions récentes d'Android.
+
+**Je ne tente pas une seconde correction à l'aveugle.** Un relevé `MelBack` répondra à trois questions précises : la touche atteint-elle `onKeyDown` ? le bouton retour est-il trouvé par son identifiant ? est-il `isShown()` ?
+
+### MEL-BUG-001 : mon diagnostic initial était faux — rectification
+
+Le relevé sur appareil réfute l'hypothèse du repli téléphone :
+
+```
+mel_settings_row_height  px=152  swdp=800  dpi=320  ctx=MainActivity   → 76 dp
+mel_status_max_width     px=1440 swdp=800  dpi=320  ctx=MainActivity   → 720 dp
+```
+
+**Le résolveur runtime est correct.** Les 26 jetons relevés sur tablette portent tous la bonne configuration. L'affirmation précédente est retirée du registre.
+
+Le problème est en aval : la ligne mesure 132 px alors que son minimum est de 152 px. Pour trancher sans deviner, les **bornes exactes des vues** (id, classe, px, dp) sont désormais publiées dans `layout-*.json`, sans aucun texte. L'estimation sur pixels m'a induit en erreur ; le dump est la mesure autoritaire.
+
+### Qualité des tests — lacune réelle trouvée et corrigée
+
+Le seul workflow qui exécutait `npm test` était en `workflow_dispatch`, injoignable depuis une branche non défaut. **Les 681 tests, dont 3 règles JVM, ne s'exécutaient donc automatiquement nulle part.** Un job `unit-tests` est ajouté au workflow QA, avec `setup-java` : les 3 règles JVM pourront réellement s'exécuter. Le job vérifie que `pass + fail + skip = total` et **échoue si un test est ignoré alors qu'un compilateur est installé** — un skip en CI signifie une régression d'environnement, jamais une règle validée.
 
 ---
 

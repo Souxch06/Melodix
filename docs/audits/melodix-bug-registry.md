@@ -6,22 +6,37 @@ Statuts : Ouvert · En diagnostic · Correctif appliqué · En vérification · 
 
 ---
 
-## MEL-BUG-001 — Les métriques runtime ignorent `sw600dp`
+## MEL-BUG-001 — Géométrie tablette non conforme aux jetons ( diagnostic initial RÉFUTÉ )
 
 | Champ | Valeur |
 |---|---|
-| **Gravité** | **P1** — toute l'interface tablette est dimensionnée comme un téléphone |
-| **Écran** | Accueil (carte de statut), Paramètres (lignes), et par extension tout composant rendu en code |
-| **Appareil** | Tablette 800 dp (1600×2560 @320 dpi). Invisible sur téléphone. |
-| **Reproduction** | 1. Installer l'APK QA sur le profil tablette. 2. Ouvrir Paramètres. 3. Mesurer la hauteur de ligne. |
-| **Attendu** | 76 dp (`mel_settings_row_height`, sw600dp) |
-| **Observé** | **64,0 dp** — exactement la constante de repli de l'accesseur |
-| **Preuve** | `docs/audits/ui-qa-41989590342/tablet/settings-tablet.png` ; mesures pixel : ligne 64,0 dp, carte de statut 559,5 dp (au lieu de 720), gouttière runtime 14 dp (au lieu de 32) |
-| **Cause** | **Non encore confirmée.** Trois causes d'empaquetage éliminées par `aapt2` sur l'APK installé : noms présents, valeurs sw600dp correctes, paquet identique (`com.melodix.music`, id 7f). Une référence XML est compilée en id numérique ; `getIdentifier()` a besoin du nom. La divergence est donc dans le chemin runtime. |
-| **Pourquoi masqué** | Les 67 accesseurs ont un repli **égal** au jeton téléphone : le téléphone ne peut structurellement pas révéler la panne. |
-| **Correctif** | Aucun. Diagnostic sur appareil ajouté (`NativeUiRowFactory.logMetricResolution`, tag `MelMetrics`) : relève id, pixels, `smallestScreenWidthDp`, `densityDpi`, classe du `Context`. |
-| **Tests** | `tests/ui_layout_audit.test.js` (sonde), mesures pixel des captures |
+| **Gravité** | **P2** (réévaluée de P1 à P2 : le résolveur n'est pas en cause) |
+| **Écran** | Paramètres (hauteur de ligne), Accueil (largeur de carte de statut) |
+| **Appareil** | Tablette 800 dp. Non observable sur téléphone. |
+| **Attendu** | Ligne de paramètres 76 dp ; carte de statut ≤ 720 dp |
+| **Observé** | Bande de la ligne : 132 px = **66 dp** (trait inclus), intérieur 128 px = 64 dp |
+| **Preuve** | `ui-qa-41998795135/tablet/settings-tablet.png`, relevé de couleurs ligne par ligne : trait à y=224, intérieur 226–353, trait à 354 |
+
+### Le diagnostic initial était FAUX — rectification
+
+J'avais conclu que le résolveur runtime retombait sur ses constantes téléphone. **Le relevé sur appareil le réfute :**
+
+```
+mel_settings_row_height id=2131165369 px=152 swdp=800 dpi=320 ctx=MainActivity
+mel_status_max_width    id=2131165417 px=1440 swdp=800 dpi=320 ctx=MainActivity
+```
+
+152 px / 2,0 = **76 dp**, 1440 px / 2,0 = **720 dp** : ce sont exactement les valeurs `sw600dp`. Le `Context` est bien `MainActivity`, `smallestScreenWidthDp` vaut bien 800, `getIdentifier` renvoie un identifiant valide. **La résolution runtime est correcte.** Les 26 jetons relevés sur tablette portent tous la bonne configuration.
+
+Ce qui reste inexpliqué est donc **en aval** : `settingsRowHeight` est appliqué par `setMinimumHeight(152)`, la ligne est ajoutée en `wrap_content`, et pourtant elle mesure 132 px. Une `LinearLayout` verticale devrait honors son minimum.
+
+| **Cause** | **Non confirmée.** hypothèse restante : la hauteur est contrainte en aval de la fabrique. Aucune modification tentée. |
+| **Instrumentation** | Les bornes exactes des vues (id, classe, px, dp) sont désormais publiées dans `layout-*.json`, **sans aucun texte**. C'est la mesure autoritaire ; l'estimation sur pixels m'a déjà induit en erreur une fois. |
 | **Statut** | **En diagnostic** |
+
+### MEL-BUG-001a — Fausse conclusion « repli téléphone » · **Résolu avec preuve (réfutation)**
+
+L'affirmation « les 67 accesseurs retombent sur leur constante téléphone » est **retirée**. Elle reposait sur une mesure de pixels, pas sur la valeur réellement résolue. Leçon appliquée : publier les bornes du dump plutôt que deviner sur une capture.
 
 ## MEL-BUG-002 — La touche système Retour ne quitte pas les écrans natifs
 
@@ -38,7 +53,9 @@ Statuts : Ouvert · En diagnostic · Correctif appliqué · En vérification · 
 | **Correctif** | `MainActivity.onKeyDown` intercepte `KEYCODE_BACK` **uniquement quand le bouton retour natif est réellement affiché** (`isShown()`), et réutilise `onNativeBackClick` qui restaure déjà route, titre et contenu. Sinon, délégation intégrale à la chaîne existante. Le key-up correspondant est consommé pour éviter une double navigation. `.locals` 1 → 4, `pN` reste ≤ v15. |
 | **Zone protégée** | La chaîne WebView/lecteur n'est **pas modifiée** : elle reste atteinte dans tous les autres cas. |
 | **Tests** | `tests/ui_screen_state.test.js` (7 tests) |
-| **Statut** | **Correctif appliqué — en vérification** |
+| **Vérification** | Run `41998795135` : `back-from-settings` reste `wrong_screen` sur les deux profils. **Le correctif n'a pas pris effet** : la touche n'atteint vraisemblablement pas `onKeyDown`, consommée en amont par `fm.dispatchKeyEvent` → `kn1.f` → `superDispatchKeyEvent`. |
+| **Diagnostic ajouté** | Tag `MelBack` : la touche atteint-elle `onKeyDown` ? le bouton est-il trouvé par son id ? est-il `isShown()` ? Publié dans `back-key.txt`. |
+| **Statut** | **En diagnostic — correctif inopérant, ne pas le présenter comme résolu** |
 
 ## MEL-BUG-003 — Le contenu d'un écran survit sous le titre « Accueil »
 
@@ -54,8 +71,10 @@ Statuts : Ouvert · En diagnostic · Correctif appliqué · En vérification · 
 | **Cause** | **Confirmée.** `onNativeBackClick` appelle `renderNativeRows` ; `onNativeHomeClick` ne faisait que `setNativeScreen` + demande de données. Sans session, aucune donnée n'arrive, donc rien ne remplace les lignes étrangères. |
 | **Historique** | Un premier correctif (restauration des drapeaux d'attachement via `beginNativeHomeRender`) était nécessaire mais **insuffisant** : le run de vérification a montré la persistance du symptôme. Il est conservé. |
 | **Correctif** | `onNativeHomeClick` capture la route quittée **avant** `setNativeScreen`, et re-rend l'accueil **seulement si elle diffère de `home`**. La garantie d'idempotence d'origine (« ne jamais vider une étagère réelle ») est préservée : sur `home → home`, rien n'est touché. |
+| **Correctif final** | Déplacé dans `setNativeScreen`, gardé par le drapeau de changement de route. Un test existant interdisait à `onNativeHomeClick` de vider une étagère réelle : plutôt que d'assouplir l'assertion, le correctif a été placé au bon endroit. |
+| **Preuve de résolution** | Run `41998795135` : `home-again` = **`reached`**, `unexpected_chrome_present=false`, sur **téléphone et tablette**. |
 | **Tests** | `tests/ui_screen_state.test.js` |
-| **Statut** | **Correctif appliqué — en vérification** |
+| **Statut** | **Résolu avec preuve** |
 
 ## MEL-BUG-004 — Faux vert de la trace de navigation
 

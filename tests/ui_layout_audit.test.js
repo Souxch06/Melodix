@@ -397,3 +397,14 @@ test('a genre tap without a session does not claim results appeared', () => {
   assert.match(entry.scope_note, /authenticated session/,
     'the published trace itself must carry the limit, not just the report');
 });
+
+test('the suite runs in CI with a compiler, and skips are treated as failures there', () => {
+  const raw = fs.readFileSync(path.join(root, '.github', 'workflows', 'ui-qa.yml'), 'utf8');
+  assert.ok(raw.includes('unit-tests:'), 'the suite must run automatically, not only on dispatch');
+  const job = raw.slice(raw.indexOf('unit-tests:'));
+  assert.match(job, /setup-java/, 'the three JVM rules only execute when javac exists');
+  assert.match(job, /npm test/);
+  assert.match(job, /pass \+ fail \+ skip/, 'discovered tests must all be accounted for');
+  assert.match(job, /skipped although a Java compiler is installed/,
+    'a skip in CI means the environment regressed, never that the rule passed');
+});

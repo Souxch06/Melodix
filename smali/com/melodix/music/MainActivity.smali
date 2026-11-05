@@ -4756,14 +4756,34 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     # existing chain untouched, so player/WebView back behaviour is preserved.
     const/4 v0, 0x4
     if-ne p1, v0, :mel_back_delegate
+    # MEL-BUG-002 diagnostic: did the key even reach onKeyDown, and did the
+    # guard pass? The first attempt changed nothing on device, so measure
+    # instead of guessing a second time.
+    const-string v0, "onKeyDown BACK reached"
+    const-string v1, "MelBack"
+    invoke-static {v1, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
     const v0, 0x7f090231
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v0
-    if-eqz v0, :mel_back_delegate
+    if-eqz v0, :mel_back_no_view
+    const-string v0, "back button found"
+    invoke-static {v1, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
     # isShown() also accounts for hidden ancestors, unlike getVisibility().
     invoke-virtual {v0}, Landroid/view/View;->isShown()Z
     move-result v0
-    if-eqz v0, :mel_back_delegate
+    if-eqz v0, :mel_back_not_shown
+    const-string v0, "back button shown -> native back"
+    invoke-static {v1, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+    goto :mel_back_guard_passed
+    :mel_back_no_view
+    const-string v0, "back button NOT FOUND by id"
+    invoke-static {v1, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+    goto :mel_back_delegate
+    :mel_back_not_shown
+    const-string v0, "back button found but NOT shown"
+    invoke-static {v1, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+    goto :mel_back_delegate
+    :mel_back_guard_passed
     invoke-virtual {p2}, Landroid/view/KeyEvent;->getAction()I
     move-result v0
     const/4 v1, 0x1

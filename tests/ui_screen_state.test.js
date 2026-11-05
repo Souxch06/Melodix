@@ -105,9 +105,21 @@ test('Back is delegated untouched when no native screen is pushed', () => {
   const superCall = keyDown.indexOf('invoke-super {p0, p1, p2}, Le6;->onKeyDown');
   assert.ok(delegate > 0 && superCall > delegate,
     'the original chain must still run for the WebView and the player');
-  // Every guard must fall through to the original behaviour, never to a bare return.
-  const guards = keyDown.slice(0, delegate).match(/if-\w+ [^\n]*:mel_back_delegate/g) || [];
-  assert.ok(guards.length >= 4, 'each guard must delegate, not swallow the key');
+  // Every non-matching path must reach the original behaviour, never a bare
+  // return. Counted across both conditional branches and gotos, because the
+  // diagnostic branches route through their own labels first.
+  const head = keyDown.slice(0, delegate);
+  const guards = head.match(/(?:if-\w+|goto) [^\n]*:mel_back_delegate/g) || [];
+  assert.ok(guards.length >= 3, 'each guard must delegate, not swallow the key');
+  for (const label of ['mel_back_no_view', 'mel_back_not_shown']) {
+    const at = labelAt(keyDown, label);
+    // A label block ends at the next label definition.
+    const rest = keyDown.slice(at + label.length + 6);
+    const next = rest.search(/\n    :\w+\n/);
+    const block = next < 0 ? rest : rest.slice(0, next);
+    assert.ok(block.includes('goto :mel_back_delegate'),
+      `${label} must end in delegation, not in a swallowed key`);
+  }
 });
 
 test('the matching key-up is consumed so navigation cannot happen twice', () => {

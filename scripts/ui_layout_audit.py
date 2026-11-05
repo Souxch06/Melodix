@@ -162,8 +162,27 @@ def main():
 
     screen = (root_box[2], root_box[3])
     defects, count = audit(root, scale, screen)
+    # Geometry only: id, class and bounds, never the text. Pixel guessing led to
+    # a wrong diagnosis once already; the dump is the authoritative measurement,
+    # and publishing it without text keeps account data out of the repository.
+    views = []
+    for node in root.iter("node"):
+        rid = node.get("resource-id", "")
+        if not rid.startswith("com.melodix.music:id/"):
+            continue
+        box = parse_bounds(node.get("bounds"))
+        if not box:
+            continue
+        views.append({
+            "id": rid[len("com.melodix.music:id/"):],
+            "cls": (node.get("class", "") or "").rsplit(".", 1)[-1],
+            "px": list(box),
+            "dp": [round(v / scale, 1) for v in box],
+            "w_dp": round((box[2] - box[0]) / scale, 1),
+            "h_dp": round((box[3] - box[1]) / scale, 1),
+        })
     report.update({"readable": True, "node_count": count,
-                   "screen_px": list(screen), "defects": defects})
+                   "screen_px": list(screen), "defects": defects, "views": views})
     pathlib.Path(out_path).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n",
                                      encoding="utf-8")
 
