@@ -534,3 +534,24 @@ test('the legacy btnSettings is gone by default and re-shown only in the web-own
   assert.match(nativeBlock, /const\/16 v2, 0x8\s*\n\s*invoke-virtual \{v1, v2\}, Landroid\/view\/View;->setVisibility\(I\)V/,
     'the native shell must still hide it (GONE)');
 });
+
+test('every green QA run publishes its own test APK as a pre-release', () => {
+  // Permanent delivery rule: a sufficiently complete testable state gets an
+  // installable TEST APK, traceable to one commit and one CI run. The release
+  // must be a pre-release (never production), must run only when the build,
+  // the suite and both device walks are green, and must attach the APK built
+  // from the exact commit under test.
+  const raw = fs.readFileSync(path.join(root, '.github', 'workflows', 'ui-qa.yml'), 'utf8');
+  const jobAt = raw.indexOf('release-test:');
+  assert.ok(jobAt !== -1, 'the workflow must contain a release-test job');
+  const job = raw.slice(jobAt);
+  assert.match(job, /if: success\(\)/, 'a red build/tests/walk must never publish');
+  assert.match(job, /needs:\s*\n\s*- build-qa-apk\s*\n\s*- unit-tests\s*\n\s*- walk-qa/, 'gated on build + suite + both walks');
+  assert.match(job, /permissions:\s*\n\s*contents: write/);
+  assert.match(job, /melodix-ui-metrics-apk-\$\{\{ github\.run_id \}\}/, 'the APK of THIS run is attached');
+  assert.match(job, /--prerelease/, 'test releases are pre-releases, never production');
+  assert.match(job, /--target "\$\{\{ github\.sha \}\}"/, 'the tag points at the exact commit tested');
+  assert.match(job, /v1\.2\.2-test\.\$\{\{ github\.run_number \}\}-preview/, 'traceable tag naming');
+  assert.match(job, /\.apk\.sha256/, 'a checksum ships next to the APK');
+  assert.match(job, /walk reported|no release is published/, 'no APK, no release');
+});

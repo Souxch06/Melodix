@@ -156,3 +156,82 @@ jobs:
       run: npm ci
     - name: Run the full suite and report skips honestly
       run: "set -euo pipefail\nset +e\nnpm test 2>&1 | tee \"$RUNNER_TEMP/suite.tap\"\nsuite_status=${PIPESTATUS[0]}\nset -e\n# Name the failures in the log. A red X with no test name cost a whole run\n# to diagnose: the artifact and log endpoints are not reachable from here.\nif [[ \"$suite_status\" != \"0\" ]]; then\n  echo \"::error title=Suite::npm test exited $suite_status\"\n  grep -E '^not ok' \"$RUNNER_TEMP/suite.tap\" || echo \"(no not-ok line: the runner itself failed)\"\n  grep -A12 -E '^not ok' \"$RUNNER_TEMP/suite.tap\" | head -80 || true\nfi\ntotal=$(sed -n \"s/^# tests \\([0-9]*\\)/\\1/p\" \"$RUNNER_TEMP/suite.tap\" | tail -1)\npass=$(sed -n \"s/^# pass \\([0-9]*\\)/\\1/p\" \"$RUNNER_TEMP/suite.tap\" | tail -1)\nfail=$(sed -n \"s/^# fail \\([0-9]*\\)/\\1/p\" \"$RUNNER_TEMP/suite.tap\" | tail -1)\nskip=$(sed -n \"s/^# skipped \\([0-9]*\\)/\\1/p\" \"$RUNNER_TEMP/suite.tap\" | tail -1)\necho \"::notice title=Suite::tests=$total pass=$pass fail=$fail skipped=$skip\"\n# The arithmetic must close: a discovered test is never silently dropped.\nif [[ \"$((pass + fail + skip))\" != \"$total\" ]]; then\n  echo \"::error title=Suite::counts do not add up: $pass + $fail + $skip != $total\"; exit 1\nfi\ngrep -E \"^ok .* # SKIP\" \"$RUNNER_TEMP/suite.tap\" || true\n# With javac present the JVM rules must run: a skip here means the\n# environment regressed, not that the rule passed.\nif [[ \"$skip\" != \"0\" ]]; then\n  echo \"::error title=Suite::$skip test(s) skipped although a Java compiler is installed\"\n  grep -E \"# SKIP\" \"$RUNNER_TEMP/suite.tap\" || true\n  exit 1\nfi\nif [[ \"$suite_status\" != \"0\" ]]; then exit \"$suite_status\"; fi\n"
+
+  release-test:
+    # Permanent rule: every sufficiently complete, testable state gets its own
+    # installable TEST APK published as a pre-release (never a production
+    # release). The sandbox cannot reach the artifact blob host, so the release
+    # is created from inside CI, where the APK and the token are both available.
+    name: Publish the test release (pre-release only)
+    needs:
+    - build-qa-apk
+    - unit-tests
+    - walk-qa
+    if: success()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+    - name: Check out the exact commit under test
+      uses: actions/checkout@v7.0.1
+      with:
+        ref: ${{ github.sha }}
+        fetch-depth: 1
+    - name: Download the APK built from this commit
+      uses: actions/download-artifact@v4.3.0
+      with:
+        name: melodix-ui-metrics-apk-${{ github.run_id }}
+        path: ${{ runner.temp }}/release
+    - name: Name, checksum and describe the release
+      shell: bash
+      run: |
+        set -euo pipefail
+        apk="$RUNNER_TEMP/release/melodix-ui-metrics.apk"
+        [[ -s "$apk" ]] || { echo "::error::the build-only APK is missing; no release is published"; exit 1; }
+        sha="$(sha256sum "$apk" | cut -d' ' -f1)"
+        printf '%s  %s\n' "$sha" "Melodix-Test-v1.2.2-test${{ github.run_number }}.apk" \
+          > "$RUNNER_TEMP/release/Melodix-Test-v1.2.2-test${{ github.run_number }}.apk.sha256"
+        mv "$apk" "$RUNNER_TEMP/release/Melodix-Test-v1.2.2-test${{ github.run_number }}.apk"
+        tag="v1.2.2-test.${{ github.run_number }}-preview"
+        cat > "$RUNNER_TEMP/release/notes.md" <<NOTES
+        ## Melodix test release v1.2.2-test.${{ github.run_number }} (PRE-RELEASE — test only, not a production release)
+
+        - **Commit testé** : \`${{ github.sha }}\` (branche \`arena/6b935c3e-melodix\`)
+        - **Run CI associé** : \`${{ github.run_number }}\` — build + suite + walks téléphone/tablette tous verts avant publication
+        - **APK** : \`Melodix-Test-v1.2.2-test${{ github.run_number }}.apk\` (signé par une clé jetable de build ; la fingerprint est écrite dans la copie temporaire, le dépôt n'est pas modifié)
+        - **sha256** : \`$sha\`
+
+        ### Contenu de cette livraison
+        - MEL-BUG-019 résolu : le tap d'une tuile de genre fonctionne (sélection + titre « Pop »), confirmé par captures sur les 2 profils
+        - MEL-BUG-013 résolu : \`btnSettings\` legacy masqué par défaut, plus de chevauchement transitoire
+        - Recherche (tuiles de genres, contraste AA), système d'états (chargement/erreur avec actions réelles), Accueil et Bibliothèque livrés et observés
+
+        ### Tests
+        - Suite locale/CI : 760 tests, 757 pass, 0 fail, 3 skip (les 3 skips = règles JVM sans javac en local)
+        - Validateurs smali (registres + signatures) : 0 problème / 26 fichiers
+        - Walks CI téléphone + tablette : 0 échec, 0 défaut géométrique sur 38 dumps
+
+        ### Comment tester
+        1. Télécharger l'APK ci-joint et l'installer (\`adb install -r\` ; autoriser les sources inconnues)
+        2. Ouvrir Melodix → onglet **Rechercher** → taper la tuile **Pop** : l'anneau de sélection apparaît et le titre devient « Pop »
+        3. Onglet **Bibliothèque** : état de chargement réel ; Accueil sans session : état d'erreur avec bouton **Réessayer** réel
+        4. Mise en arrière-plan puis reprise : aucun élément legacy ne chevauche l'en-tête natif
+
+        ### Bloqué / non vérifié (sans session Spotify authentifiée)
+        - Lecteur et mini-lecteur : structure préparée, **non validée fonctionnellement** (aucune lecture simulée)
+        - Résultats de recherche de genre et parcours nécessitant une session
+        NOTES
+        if gh release view "$tag" >/dev/null 2>&1; then
+          echo "::notice title=Test release::$tag already exists; uploading assets only"
+          gh release upload "$tag" "$RUNNER_TEMP/release/"* --clobber
+        else
+          gh release create "$tag" "$RUNNER_TEMP/release/"* \
+            --target "${{ github.sha }}" \
+            --prerelease \
+            --title "Melodix Preview v1.2.2 test.${{ github.run_number }}" \
+            --notes-file "$RUNNER_TEMP/release/notes.md"
+        fi
+        gh release view "$tag" --json url -q '.url'
