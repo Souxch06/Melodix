@@ -15,7 +15,7 @@ on:
     - scripts/ui_view_center.py
     - .github/workflows/ui-qa.yml
     - scripts/ui_resource_probe.sh
-    - tests/ui_wiring_audit.test.js
+    - tests/**
     - scripts/ui_wiring_audit.py
 permissions:
   contents: read

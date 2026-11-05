@@ -8821,7 +8821,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     if-eqz v2, :native_tab_bar
     if-eqz v1, :hide_native_mini_player
     iget-boolean v3, p0, Lcom/melodix/music/MainActivity;->nativeHasTrack:Z
-    if-eqz v3, :show_native_mini_player
+    if-nez v3, :show_native_mini_player
     :hide_native_mini_player
     const/16 v3, 0x8
     goto :set_native_mini_player
@@ -9339,7 +9339,9 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     move-result-object v2
     invoke-virtual {v2}, Ljava/lang/String;->isEmpty()Z
     move-result v1
-    if-eqz v1, :native_player_no_track
+    # if-nez: flag=1 quand la piste est NON vide, comme le documente le champ.
+    # (if-eqz ici donnait flag=1 quand vide -- double inversion avec les lecteurs.)
+    if-nez v1, :native_player_no_track
     const/4 v1, 0x1
     goto :native_player_track_flag
     :native_player_no_track
@@ -9502,7 +9504,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     move-result v1
     if-eqz v1, :native_player_mini_visibility
     iget-boolean v1, p0, Lcom/melodix/music/MainActivity;->nativeHasTrack:Z
-    if-eqz v1, :native_player_mini_visible
+    if-nez v1, :native_player_mini_visible
     const/16 v1, 0x8
     goto :native_player_mini_apply
     :native_player_mini_visible
