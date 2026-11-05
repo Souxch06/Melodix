@@ -23,6 +23,7 @@ Aucune maquette, aucune simulation, aucune session Spotify simulée. Les seules 
 | `41988054735` | sonde de ressources | échec : `PROFILE` non déclaré dans l'étape |
 | `41988771073` | trace à critères discriminants | 2 défauts confirmés, 2 faux défauts de timing |
 | `41989590342` | vérification après correctifs | timing corrigé, sonde publiée |
+| `41990724746` | run final de référence | D2 et D3 confirmés, paquet innocenté |
 
 Captures et relevés : `docs/audits/ui-qa-<run>/{phone,tablet}/` — `*.png`, `navigation-*.json`, `layout-*.json`, `resource-table.txt`.
 
@@ -127,7 +128,20 @@ resource 0x7f0700b9 dimen/mel_settings_row_height
   (sw600dp) 76.000000dp
 ```
 
-Une référence XML est compilée en identifiant numérique et n'a pas besoin du nom à l'exécution ; `Resources.getIdentifier()` en a besoin. La panne est donc dans **la résolution à l'exécution**, pas dans le build. Dernier suspect en cours de vérification : le paquet de la table de ressources comparé à `getPackageName()` — la sonde relève désormais cette valeur.
+Une référence XML est compilée en identifiant numérique et n'a pas besoin du nom à l'exécution ; `Resources.getIdentifier()` en a besoin. La panne est donc dans **la résolution à l'exécution**, pas dans le build.
+
+**Second suspect écarté** (run `41990724746`) : le paquet de la table de ressources et le paquet du manifeste **coïncident** —
+
+```
+--- resource table package
+Package name=com.melodix.music id=7f
+--- manifest package
+com.melodix.music
+```
+
+`getIdentifier(nom, "dimen", getPackageName())` ne peut donc pas échouer pour cause de paquet divergent.
+
+**Où cela laisse D1 :** les trois causes côté empaquetage sont éliminées (nom absent, valeur sw600dp absente, paquet divergent). Ce qui reste est côté exécution — soit `getIdentifier` échoue pour une raison non encore observée, soit le `Context` transmis aux accesseurs ne porte pas la configuration sw600dp. Trancher exige un relevé **sur l'appareil** de la valeur retournée par `getIdentifier` et de la configuration du `Context`, c'est-à-dire du code de diagnostic dans le résolveur. Je ne l'ai pas ajouté sans autorisation.
 
 **Pourquoi la refonte est passée à travers :** les 67 accesseurs ont un repli **égal** au jeton téléphone. Le téléphone ne pouvait donc structurellement pas révéler la panne. Vérifié : aucun accesseur n'a un repli divergent.
 
@@ -174,7 +188,7 @@ Ce protocole exige un appareil que vous contrôlez : la CI ne peut pas offrir de
 
 ## 10. Ce qui reste à faire
 
-1. **D1** — identifier la cause de l'échec de résolution runtime, puis corriger. La sonde relève désormais le paquet de la table de ressources.
+1. **D1** — les trois causes d'empaquetage sont éliminées. Prochaine étape : relevé sur appareil de la valeur retournée par `getIdentifier` et de la configuration du `Context` passé aux accesseurs. **Autorisation nécessaire** car cela ajoute du diagnostic dans le résolveur de métriques.
 2. **D2** — decidir du traitement de la touche retour Android. **Autorisation nécessaire.**
 3. **D3** — traiter la persistance du contenu étranger lors d'un changement d'écran sans nouveau rendu.
 4. **Session authentifiée** — exécuter le protocole manuel : lecteur, mini-lecteur, playlists, albums, pochettes, synchronisation.
@@ -184,4 +198,6 @@ Ce protocole exige un appareil que vous contrôlez : la CI ne peut pas offrir de
 
 Branche `arena/6b935c3e-melodix`. `main` inchangé. Chaîne de cette phase :
 
-`cc29b6c` → `0fb8275` audit de câblage + protocole → `7b1d01d` sonde de ressources → `ee77cae` trace discriminante → `f2e3e93` invariant de rendu → `142a2f4` attente bornée + publication de la sonde → commit final de ce rapport.
+`cc29b6c` → `0fb8275` audit de câblage + protocole → `7b1d01d` sonde de ressources → `ee77cae` trace discriminante → `f2e3e93` invariant de rendu → `142a2f4` attente bornée + publication de la sonde → `9228793` rapport → commit de mise à jour ci-présent.
+
+Run de référence pour rejouer le contrôle : **`41990724746`**. Ses deux seuls échecs sont D2 et D3 ; toutes les autres étapes sont `reached` ou `blocked_no_session`, sur les deux profils.
