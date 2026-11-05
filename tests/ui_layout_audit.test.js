@@ -486,3 +486,16 @@ test('every non-session step asserts a title, so a wrong tab cannot pass as reac
     !body.includes('title_is') && !body.includes('needs_session')).map(([, n]) => n);
   assert.deepEqual(weak, [], `steps without a title assertion: ${weak.join(', ')}`);
 });
+
+test('a red suite names its failing tests instead of only exiting non-zero', () => {
+  // A CI failure with no test name cost a full run to diagnose: the log and
+  // artifact endpoints are unreachable from the review sandbox. The step must
+  // print the not-ok lines before it exits.
+  const raw = fs.readFileSync(path.join(root, '.github', 'workflows', 'ui-qa.yml'), 'utf8');
+  const job = raw.slice(raw.indexOf('unit-tests:'));
+  assert.ok(job.includes('suite_status=${PIPESTATUS[0]}'), 'the suite status must be captured, not lost to pipefail');
+  assert.ok(job.includes("grep -E '^not ok'"), 'failing test names must be printed');
+  assert.ok(job.includes('# SKIP'), 'skips must be named too');
+  assert.ok(job.includes('exit \\"$suite_status\\"; fi'),
+    'the step must still fail with the suite status');
+});
