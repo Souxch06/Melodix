@@ -112,16 +112,26 @@ fi
 refresh
 
 # ---- 4. Browse tile -> live search --------------------------------------
-if tap nativeGenreScroll 0; then capture browse-tile; else
+if tap nativeGenreScroll 0; then
+  echo "tap=delivered" > "$out/genre-tap.txt"
+  capture browse-tile
+else
+  echo "tap=noClickableDescendant" > "$out/genre-tap.txt"
   echo "::notice title=QA walk $profile::no browse tile was tappable on this surface"
   capture browse-tile
 fi
 refresh
+# Collect the styler trace NOW. Reading logcat only at the end of the walk lost it:
+# the main buffer rotates, and an empty file then looks like "the styler did nothing".
+adb -s "$device" logcat -d 2>/dev/null \
+  | sed -n 's/.*MelGenre: //p' | sort -u > "$out/genre-diag.txt" || true
 # The selected ring is pure presentation, so it must appear WITHOUT a session.
 # Asserting it turns "the tap was delivered" into "the tap did something".
 python3 scripts/ui_selected_check.py "$out/current-$profile.xml" nativeGenreScroll \
   > "$out/genre-selection.txt" 2>&1 || true
-if ! grep -q '^selected=' "$out/genre-selection.txt"; then
+# grep for a POSITIVE count. Testing only for the line's presence passed with
+# "selected=0", a false green of my own making.
+if ! grep -q '^selected=[1-9]' "$out/genre-selection.txt"; then
   echo "::error title=QA walk $profile::tapping a browse tile selected nothing: $(cat "$out/genre-selection.txt")"
   failures=$((failures + 1))
 fi

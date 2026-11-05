@@ -47,6 +47,10 @@ test('the walk asserts the selection and publishes the evidence', () => {
   const at = walk.indexOf('ui_selected_check.py');
   const around = walk.slice(at, at + 500);
   assert.match(around, /failures=\$\(\(failures \+ 1\)\)/, 'a grid where nothing gets selected is a failure');
+  const guard = walk.slice(walk.indexOf('genre-selection.txt'));
+  assert.match(guard, /grep -q '\^selected=\[1-9\]'/,
+    'the assertion must require a POSITIVE count: matching the line alone passed with selected=0');
+  assert.match(walk, /genre-tap\.txt/, 'whether the tap was delivered must be recorded separately');
   const wf = fs.readFileSync(path.join(root, '.github/workflows/ui-qa.yml'), 'utf8');
   for (const f of ['genre-selection.txt', 'state-diag.txt', 'genre-diag.txt', 'crash.txt']) {
     assert.ok(wf.includes(f), `${f} must be published`);
