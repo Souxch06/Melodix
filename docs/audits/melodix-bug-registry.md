@@ -54,7 +54,7 @@ L'affirmation « les 67 accesseurs retombent sur leur constante téléphone » e
 | **Zone protégée** | La chaîne WebView/lecteur n'est **pas modifiée** : elle reste atteinte dans tous les autres cas. |
 | **Tests** | `tests/ui_screen_state.test.js` (7 tests) |
 | **Vérification** | Run `41998795135` : `back-from-settings` reste `wrong_screen` sur les deux profils. **Le correctif n'a pas pris effet** : la touche n'atteint vraisemblablement pas `onKeyDown`, consommée en amont par `fm.dispatchKeyEvent` → `kn1.f` → `superDispatchKeyEvent`. |
-| **Diagnostic ajouté** | Tag `MelBack` : la touche atteint-elle `onKeyDown` ? le bouton est-il trouvé par son id ? est-il `isShown()` ? Publié dans `back-key.txt`. |
+| **Diagnostic** | Tag `MelBack`, corrigé (voir MEL-BUG-007). **Conclusion intermédiaire retirée** : le `back-key.txt` vide du run `42000520939` ne prouvait rien, l'application n'ayant jamais démarré — aucune touche retour n'a été pressée. L'affirmation « `onKeyDown` n'est pas atteint » n'est **pas établie**. |
 | **Statut** | **En diagnostic — correctif inopérant, ne pas le présenter comme résolu** |
 
 ## MEL-BUG-003 — Le contenu d'un écran survit sous le titre « Accueil »
@@ -115,3 +115,17 @@ L'affirmation « les 67 accesseurs retombent sur leur constante téléphone » e
 | Champ de recherche clair dans un thème sombre | **Volontaire.** Spotify fait de même. Vérifié dans le XML avant signalement. |
 | Vide central de l'accueil | État sans session, pas un défaut de mise en page. |
 | Bibliothèque / Recherche « non atteintes » sur tablette | Artefact de timing (MEL-BUG-005), jamais rapporté comme défaut applicatif. |
+
+## MEL-BUG-007 — Régression de diagnostic : `MainActivity` ne se chargeait plus
+
+| Champ | Valeur |
+|---|---|
+| **Gravité** | **P0** — l'application ne démarrait pas |
+| **Origine** | **Introduite par moi**, dans la sonde `MelBack` du cycle 2 |
+| **Appareil** | Téléphone et tablette |
+| **Symptôme** | Run `42000520939` : 6 fichiers publiés au lieu de 42 ; « le shell natif n'est jamais apparu » ; écran sur `com.google.android.apps.nexuslauncher` |
+| **Cause confirmée** | La `View` du bouton retour était stockée dans `v0`, puis `v0` était écrasé par la chaîne du journal, puis `View->isShown()` était appelé sur une `String`. Échec de vérification de classe : `MainActivity` ne se chargeait plus. |
+| **Correctif** | La `View` reste dans `v3`, jamais réutilisée ; `v0`/`v1` ne portent que des chaînes. |
+| **Test de non-régression** | `tests/ui_screen_state.test.js` : aucun registre contenant une `View` ne doit recevoir `const-string` ou `move-result` avant son utilisation. |
+| **Leçon** | Le symptôme ne pointait pas la cause. Capture du buffer `crash` et des lignes `AndroidRuntime`/`FATAL` ajoutée au parcours, publiée dans `crash.txt` et `app-log.txt`. |
+| **Statut** | **Correctif appliqué — en vérification** |

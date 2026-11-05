@@ -30,6 +30,7 @@ Rapport de la phase précédente : [`melodix-qa-visual-functional-2026-11-05.md`
 | MEL-BUG-003 | P2 | Contenu étranger survivant sous le titre Accueil | **Résolu avec preuve** |
 | MEL-BUG-004 | P2 | Faux vert de la trace | Résolu avec preuve |
 | MEL-BUG-005 | P3 | Faux défaut de timing tablette | Résolu avec preuve |
+| MEL-BUG-007 | P0 | Régression de diagnostic introduite par moi : app au launcher | **Correctif appliqué** |
 | MEL-BUG-006 | P1 | Lecteur / playlists / albums jamais observés | En attente de validation authentifiée |
 
 ---
@@ -114,6 +115,22 @@ Le problème est en aval : la ligne mesure 132 px alors que son minimum est de 1
 ### Qualité des tests — lacune réelle trouvée et corrigée
 
 Le seul workflow qui exécutait `npm test` était en `workflow_dispatch`, injoignable depuis une branche non défaut. **Les 681 tests, dont 3 règles JVM, ne s'exécutaient donc automatiquement nulle part.** Un job `unit-tests` est ajouté au workflow QA, avec `setup-java` : les 3 règles JVM pourront réellement s'exécuter. Le job vérifie que `pass + fail + skip = total` et **échoue si un test est ignoré alors qu'un compilateur est installé** — un skip en CI signifie une régression d'environnement, jamais une règle validée.
+
+---
+
+---
+
+## Cycle 3 — une régression que j'ai introduite, trouvée et corrigée
+
+Le run `42000520939` n'a produit que 6 fichiers au lieu de 42 : **l'application ne démarrait plus**. La cause était dans ma propre sonde : la `View` du bouton retour, stockée dans `v0`, était écrasée par la chaîne du journal, puis `View->isShown()` était appelé sur une `String`. Échec de vérification de classe, donc `MainActivity` ne se chargeait plus.
+
+Corrigé : la `View` reste dans `v3`. Un test structurel interdit désormais qu'un registre contenant une `View` reçoive une chaîne ou un entier avant son utilisation.
+
+**Conséquence méthodologique.** Le `back-key.txt` vide de ce run ne prouvait rien sur MEL-BUG-002 : l'application n'ayant jamais tourné, aucune touche retour n'a été pressée. J'allais en tirer une seconde conclusion fausse. Elle est retirée ; la question reste ouverte.
+
+Pour ne plus diagnostiquer à l'aveugle, le parcours capture maintenant le buffer `crash` et les lignes `AndroidRuntime`/`FATAL` quand le shell natif n'apparaît pas.
+
+**Tests en CI : le job `unit-tests` a réussi avec un vrai compilateur.** Les 3 règles JVM, jusque-là ignorées partout, ont enfin été exécutées, et le job exige `skip=0`.
 
 ---
 
