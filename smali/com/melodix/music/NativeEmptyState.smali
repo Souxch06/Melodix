@@ -17,7 +17,11 @@
     const-string v2, "Recherchez un artiste, un titre, un album ou une playlist ci-dessus"
     invoke-virtual {v2, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v2
-    if-eqz v2, :for_message_search
+    # if-nez, not if-eqz: equals returns 1 when the message IS the search prompt.
+    # The inverted test sent every OTHER message down the search branch, so the
+    # library showed a magnifier and an empty subtitle. Caught by reading the
+    # capture, not by the walk, which only asserts the screen title.
+    if-nez v2, :for_message_search
     goto :for_message_ready
 
     :for_message_search

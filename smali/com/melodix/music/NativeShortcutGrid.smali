@@ -45,9 +45,9 @@
     const/16 v1, 0x8
     invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
     move-result v6
-    const/4 v0, 0x0
-    invoke-static {p0, v5, v0, v4, v6}, Lcom/melodix/music/NativeShortcutGrid;->addTile(Lcom/melodix/music/MainActivity;Landroid/widget/LinearLayout;IZI)V
     const/4 v0, 0x1
+    invoke-static {p0, v5, v0, v4, v6}, Lcom/melodix/music/NativeShortcutGrid;->addTile(Lcom/melodix/music/MainActivity;Landroid/widget/LinearLayout;IZI)V
+    const/4 v0, 0x0
     invoke-static {p0, v5, v0, v4, v6}, Lcom/melodix/music/NativeShortcutGrid;->addTile(Lcom/melodix/music/MainActivity;Landroid/widget/LinearLayout;IZI)V
     const/4 v0, 0x2
     invoke-static {p0, v5, v0, v4, v6}, Lcom/melodix/music/NativeShortcutGrid;->addTile(Lcom/melodix/music/MainActivity;Landroid/widget/LinearLayout;IZI)V
@@ -74,13 +74,17 @@
     # five-register invoke limit. Each action maps to a handler already
     # verified on device.
     const/4 v0, 0x0
-    if-eq p2, v0, :add_kind_1
+    # if-ne: fall through on a MATCH, branch to the next case otherwise. With
+    # if-eq the dispatch was inverted, so action 0 rendered "Bibliothèque" and
+    # actions 1 and 2 both rendered "Rechercher" -- two identical tiles, visible
+    # on the capture while the walk stayed green.
+    if-ne p2, v0, :add_kind_1
     const-string v0, "Rechercher"
     const-string v1, "native_nav_search"
     goto :add_kind_ready
     :add_kind_1
     const/4 v2, 0x1
-    if-eq p2, v2, :add_kind_2
+    if-ne p2, v2, :add_kind_2
     const-string v0, "Bibliothèque"
     const-string v1, "native_nav_library"
     goto :add_kind_ready

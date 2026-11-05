@@ -143,3 +143,96 @@ test('a handler that assigns its own fallback return value is not flagged', () =
     runCheck([tmp]);
   } finally { fs.unlinkSync(tmpPath); }
 });
+
+test('forMessage routes the search prompt to search and everything else to library', () => {
+  // The branch polarity is the whole behaviour here. An inverted if-eqz gave the
+  // library a magnifier icon and no subtitle, and the walk stayed green because it
+  // only asserts the screen title. Interpret the dispatch rather than grep it.
+  const src = fs.readFileSync(path.join(root, 'smali/com/melodix/music/NativeEmptyState.smali'), 'utf8');
+  const body = src.slice(src.indexOf('.method public static forMessage'), src.indexOf('.end method', src.indexOf('.method public static forMessage')));
+  const lines = body.split('\n').map((l) => l.split('#')[0].trim()).filter(Boolean);
+  const dispatch = (message) => {
+    const v = {}; let equalsResult = 0;
+    for (let i = 0; i < lines.length; i += 1) {
+      const l = lines[i];
+      let m = /^const-string (v\d+), "(.*)"$/.exec(l);
+      if (m) { v[m[1]] = m[2]; continue; }
+      if (/^invoke-virtual \{(v\d+), p1\}, Ljava\/lang\/String;->equals/.test(l)) {
+        const reg = /^invoke-virtual \{(v\d+),/.exec(l)[1];
+        equalsResult = v[reg] === message ? 1 : 0; continue;
+      }
+      m = /^move-result (v\d+)$/.exec(l);
+      if (m) { v[m[1]] = equalsResult; continue; }
+      m = /^if-(eqz|nez) (v\d+), (:\S+)$/.exec(l);
+      if (m) {
+        const taken = m[1] === 'eqz' ? v[m[2]] === 0 : v[m[2]] !== 0;
+        if (taken) { i = lines.indexOf(m[3]); }
+        continue;
+      }
+      m = /^goto (:\S+)$/.exec(l);
+      if (m) { i = lines.indexOf(m[1]); continue; }
+      if (/^invoke-static \{p0, p1, (v\d+), (v\d+)\}/.test(l)) {
+        const a = /^invoke-static \{p0, p1, (v\d+), (v\d+)\}/.exec(l);
+        return { subtitle: v[a[1]], icon: v[a[2]] };
+      }
+    }
+    throw new Error('dispatch never reached create');
+  };
+  const search = dispatch('Recherchez un artiste, un titre, un album ou une playlist ci-dessus');
+  assert.equal(search.icon, 'native_nav_search');
+  assert.equal(search.subtitle, '');
+  const library = dispatch('Chargement de votre bibliothèque…');
+  assert.equal(library.icon, 'native_nav_library', 'the library must not get the search magnifier');
+  assert.ok(library.subtitle.length > 0, 'the library must explain what will appear here');
+});
+
+test('each shortcut action renders its own label and icon, with no duplicates', () => {
+  // Interprets the addTile dispatch. The inverted if-eq produced "Bibliothèque,
+  // Rechercher, Rechercher" on screen; a grep for the strings would have passed.
+  const src = fs.readFileSync(path.join(root, 'smali/com/melodix/music/NativeShortcutGrid.smali'), 'utf8');
+  const start = src.indexOf('.method private static addTile');
+  const body = src.slice(start, src.indexOf('.end method', start));
+  const lines = body.split('\n').map((l) => l.split('#')[0].trim()).filter(Boolean);
+  const labelFor = (action) => {
+    const v = { p2: action };
+    for (let i = 0; i < lines.length; i += 1) {
+      const l = lines[i];
+      let m = /^const(?:\/4|\/16)? (v\d+|p\d+), (0x[0-9a-f]+|\d+)$/.exec(l);
+      if (m) { v[m[1]] = parseInt(m[2], m[2].startsWith('0x') ? 16 : 10); continue; }
+      m = /^const-string (v\d+), "(.*)"$/.exec(l);
+      if (m) { v[m[1]] = m[2]; continue; }
+      m = /^if-(eq|ne) (v\d+|p\d+), (v\d+|p\d+), (:\S+)$/.exec(l);
+      if (m) {
+        const taken = m[1] === 'eq' ? v[m[2]] === v[m[3]] : v[m[2]] !== v[m[3]];
+        if (taken) i = lines.indexOf(m[4]);
+        continue;
+      }
+      m = /^goto (:\S+)$/.exec(l);
+      if (m) { i = lines.indexOf(m[1]); continue; }
+      if (/^invoke-static \{p0, (v\d+), (v\d+), p2, p3\}.*createTile/.test(l)) {
+        const a = /^invoke-static \{p0, (v\d+), (v\d+), p2, p3\}/.exec(l);
+        return { label: v[a[1]], icon: v[a[2]] };
+      }
+    }
+    throw new Error('dispatch never reached createTile');
+  };
+  const got = [0, 1, 2].map(labelFor);
+  assert.deepEqual(got, [
+    { label: 'Rechercher', icon: 'native_nav_search' },
+    { label: 'Bibliothèque', icon: 'native_nav_library' },
+    { label: 'Paramètres', icon: 'native_nav_settings' },
+  ]);
+  assert.equal(new Set(got.map((g) => g.label)).size, 3, 'three distinct tiles, not two identical ones');
+});
+
+test('the shortcut listener routes each action to the matching handler', () => {
+  const src = fs.readFileSync(path.join(root, 'smali/com/melodix/music/NativeShortcutClickListener.smali'), 'utf8');
+  for (const [action, handler] of [[0, 'onNativeSearchClick'], [1, 'onNativeLibraryClick'], [2, 'onNativeSettingsClick']]) {
+    const label = `:click_${handler.replace('onNative', '').replace('Click', '').toLowerCase()}`;
+    assert.ok(src.includes(label), `label ${label} must exist`);
+    const at = src.indexOf(`\n    ${label}\n`);
+    assert.ok(at > 0, `label ${label} must be defined, not only branched to`);
+    const block = src.slice(at, src.indexOf('goto', at));
+    assert.ok(block.includes(handler), `action ${action} must reach ${handler}`);
+  }
+});
