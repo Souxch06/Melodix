@@ -223,7 +223,9 @@ test('the QA workflow keeps a literal on: key and cannot re-trigger itself', () 
   assert.match(yaml, /\[skip ci\]/, 'publishing captures must not re-trigger the walk');
   const paths = yaml.slice(yaml.indexOf('paths:'), yaml.indexOf('permissions:'));
   assert.doesNotMatch(paths, /docs\//, 'the published capture path must not be watched');
-  assert.doesNotMatch(yaml, /secrets\./, 'no signing secret');
+  // No CUSTOM secret (in particular no signing key). The built-in GITHUB_TOKEN
+  // is allowed and required for gh release create; anything else is forbidden.
+  assert.doesNotMatch(yaml, /secrets\.(?!GITHUB_TOKEN\b)[A-Z_]+/, 'no custom secret, no signing key');
   assert.match(yaml, /profile:\s*(?:\[phone,\s*tablet\]|\n\s*- phone\n\s*- tablet)/,
     'both form factors are walked');
 });
