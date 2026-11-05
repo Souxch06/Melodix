@@ -112,11 +112,13 @@ fi
 refresh
 
 # ---- 4. Browse tile -> live search --------------------------------------
+genre_point="$(python3 scripts/ui_view_center.py "$out/current-$profile.xml" nativeGenreScroll 0 || true)"
+echo "tap_point=${genre_point:-none}" > "$out/genre-tap.txt"
 if tap nativeGenreScroll 0; then
-  echo "tap=delivered" > "$out/genre-tap.txt"
+  echo "tap=delivered" >> "$out/genre-tap.txt"
   capture browse-tile
 else
-  echo "tap=noClickableDescendant" > "$out/genre-tap.txt"
+  echo "tap=noClickableDescendant" >> "$out/genre-tap.txt"
   echo "::notice title=QA walk $profile::no browse tile was tappable on this surface"
   capture browse-tile
 fi

@@ -34,6 +34,11 @@ def main():
         clickable = [d for d in node.iter("node")
                      if d is not node and d.get("clickable") == "true"]
         print(f"clickable_descendants={len(clickable)}")
+        # Name the nodes: "8 clickable descendants" does not say WHICH node the
+        # walk taps, and a tap on the wrong node looks exactly like a dead handler.
+        for i, d in enumerate(clickable):
+            print(f"  tap_target[{i}] cls={d.get('class')} desc={d.get('content-desc')!r} "
+                  f"enabled={d.get('enabled')} bounds={d.get('bounds')}")
         return 0
     print("container absent")
     return 1
