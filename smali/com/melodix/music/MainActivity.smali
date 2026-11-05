@@ -4748,28 +4748,20 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 .method public final onKeyDown(ILandroid/view/KeyEvent;)Z
     .locals 4
 
-    # MEL-BUG-002. The system Back key never reached the native shell: the
-    # patched OnBackPressedDispatcher only injects WebView JavaScript to close
-    # the fullscreen player, so with a native pushed screen on top it found
-    # nothing to close and swallowed the key. Handle Back here ONLY while the
-    # native back button is actually shown, then delegate everything else to the
-    # existing chain untouched, so player/WebView back behaviour is preserved.
+    # MEL-BUG-002 probe. The View lives in v3 and is NEVER reused for a log
+    # string: an earlier version overwrote it with the message and then called
+    # View->isShown() on a String, which fails class verification and stops
+    # MainActivity from loading at all. v0/v1 carry only strings.
     const/4 v0, 0x4
     if-ne p1, v0, :mel_back_delegate
-    # MEL-BUG-002 diagnostic: did the key even reach onKeyDown, and did the
-    # guard pass? The first attempt changed nothing on device, so measure
-    # instead of guessing a second time.
-    const-string v0, "onKeyDown BACK reached"
     const-string v1, "MelBack"
+    const-string v0, "onKeyDown BACK reached"
     invoke-static {v1, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
     const v0, 0x7f090231
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v0
-    if-eqz v0, :mel_back_no_view
-    const-string v0, "back button found"
-    invoke-static {v1, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
-    # isShown() also accounts for hidden ancestors, unlike getVisibility().
-    invoke-virtual {v0}, Landroid/view/View;->isShown()Z
+    move-result-object v3
+    if-eqz v3, :mel_back_no_view
+    invoke-virtual {v3}, Landroid/view/View;->isShown()Z
     move-result v0
     if-eqz v0, :mel_back_not_shown
     const-string v0, "back button shown -> native back"
@@ -4788,13 +4780,10 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     move-result v0
     const/4 v1, 0x1
     if-eq v0, v1, :mel_back_maybe_down
-    # Consume the matching key-up too, so the framework cannot navigate twice.
     return v1
     :mel_back_maybe_down
     if-nez v0, :mel_back_delegate
     const/4 v2, 0x0
-    # onNativeBackClick ignores its View argument and already restores the
-    # previous route, title and payload: reuse it rather than duplicating logic.
     invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->onNativeBackClick(Landroid/view/View;)V
     return v1
 

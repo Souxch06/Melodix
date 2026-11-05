@@ -86,6 +86,11 @@ while [[ "$(date +%s)" -lt "$deadline" ]]; do
 done
 if [[ "$ready" != "1" ]]; then
   echo "::error title=QA walk $profile::the native shell never appeared; no surface was inspected"
+  # A crash is the first thing to rule out. Without this the only symptom is
+  # "the launcher is showing", which says nothing about the cause.
+  adb -s "$device" logcat -d -b crash 2>/dev/null | tail -120 > "$out/crash.txt" || true
+  adb -s "$device" logcat -d 2>/dev/null | grep -iE "AndroidRuntime|FATAL|melodix" | tail -80 > "$out/app-log.txt" || true
+  head -25 "$out/crash.txt" || true
   python3 scripts/ui_metrics_diagnose.py "$profile" "$out/current-$profile.xml" || true
   exit 1
 fi

@@ -105,15 +105,14 @@ test('Back is delegated untouched when no native screen is pushed', () => {
   const superCall = keyDown.indexOf('invoke-super {p0, p1, p2}, Le6;->onKeyDown');
   assert.ok(delegate > 0 && superCall > delegate,
     'the original chain must still run for the WebView and the player');
-  // Every non-matching path must reach the original behaviour, never a bare
-  // return. Counted across both conditional branches and gotos, because the
-  // diagnostic branches route through their own labels first.
+  // Every guard must fall through to the original behaviour, never to a bare
+  // return. The MelBack probe was removed after it proved onKeyDown is never
+  // reached for BACK, so the flow is a simple chain of conditional guards again.
   const head = keyDown.slice(0, delegate);
   const guards = head.match(/(?:if-\w+|goto) [^\n]*:mel_back_delegate/g) || [];
   assert.ok(guards.length >= 3, 'each guard must delegate, not swallow the key');
   for (const label of ['mel_back_no_view', 'mel_back_not_shown']) {
     const at = labelAt(keyDown, label);
-    // A label block ends at the next label definition.
     const rest = keyDown.slice(at + label.length + 6);
     const next = rest.search(/\n    :\w+\n/);
     const block = next < 0 ? rest : rest.slice(0, next);
@@ -182,4 +181,23 @@ test('register budgets stay small enough that parameters keep their encoding', (
     const params = name === 'onKeyDown' ? 2 : 1;
     assert.ok(locals + params <= 15, `${name}: pN would exceed v15 and need /16 forms`);
   }
+});
+
+// --- register clobbering ----------------------------------------------------
+// A real regression this caused: the probe stored the back button View in v0,
+// then overwrote v0 with a log string and called View->isShown() on it. That
+// fails class verification, so MainActivity never loaded and the emulator sat
+// on the launcher. The symptom ("native shell never appeared") pointed nowhere
+// near the cause, so the mistake is now guarded structurally.
+
+test('a register holding a View is never reused for a log string before its use', () => {
+  const viewReg = (keyDown.match(/move-result-object (v\d+)\n\s*if-eqz \1, :mel_back_no_view/) || [])[1];
+  assert.ok(viewReg, 'the findViewById result must be kept in an identifiable register');
+  const shownAt = keyDown.indexOf(`invoke-virtual {${viewReg}}, Landroid/view/View;->isShown()Z`);
+  assert.ok(shownAt > 0, 'isShown must be called on that same register');
+  const before = keyDown.slice(0, shownAt);
+  assert.ok(!new RegExp(`const-string ${viewReg},`).test(before),
+    `${viewReg} holds the View: assigning a string to it would fail verification`);
+  assert.ok(!new RegExp(`move-result ${viewReg}\\b`).test(before),
+    `${viewReg} must not receive an int either while it holds the View`);
 });
