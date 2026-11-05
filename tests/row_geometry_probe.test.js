@@ -115,3 +115,33 @@ test('no probe method overwrites an object register with a string before its las
     }
   }
 });
+
+test('every parameter register referenced exists in the method signature', () => {
+  // Second self-inflicted regression: logIdentity takes (Context, String) so it
+  // has p0 and p1 only, but its body was copied from a three-argument method and
+  // referenced p2. That is a VerifyError, and it took the app down exactly when
+  // the settings screen was opened, while home/library/search still worked.
+  const sources = {
+    probe: read('smali/com/melodix/music/NativeRowGeometryProbe.smali'),
+    runnable: read('smali/com/melodix/music/NativeRowGeometryRunnable.smali'),
+  };
+  for (const [name, src] of Object.entries(sources)) {
+    for (const m of src.matchAll(/^\.method([^\n]*)\n([\s\S]*?)^\.end method/gm)) {
+      const [, header, body] = m;
+      const sig = /\.method[^(]*\(([^)]*)\)/.exec(`.method${header}`);
+      const args = sig && sig[1] ? sig[1].split(';').filter((x) => x.trim()).length : 0;
+      const isStatic = /\bstatic\b/.test(header);
+      const count = args + (isStatic ? 0 : 1);
+      const locals = Number(/\.locals (\d+)/.exec(body)[1]);
+      for (const ref of body.matchAll(/\bp(\d+)\b/g)) {
+        assert.ok(Number(ref[1]) < count,
+          `${name}: p${ref[1]} referenced but the method declares only ${count} parameter register(s)`);
+      }
+      for (const ref of body.matchAll(/\bv(\d+)\b/g)) {
+        assert.ok(Number(ref[1]) < locals,
+          `${name}: v${ref[1]} referenced but .locals is ${locals}`);
+      }
+      assert.ok(locals + count <= 16, `${name}: too many registers for a non-range invoke`);
+    }
+  }
+});
