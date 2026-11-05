@@ -180,3 +180,36 @@ test('the new back-once step cannot pass on a generic view', () => {
   assert.match(block, /title_is/, 'the title must be the expected one');
   assert.match(block, /forbidden_chrome/, 'and no foreign content may remain');
 });
+
+test('MEL-BUG-010: on a root tab, back is handled only while the native shell is on screen', () => {
+  // Observed on both profiles: BACK from Search left the shell on Search. The
+  // arrow-only guard returned false and the WebView chain did nothing visible.
+  const body = method(activity, '.method public final handleNativeSystemBack()Z');
+  const rootBranch = body.slice(body.indexOf('\n    :mel_sysback_not_native\n'));
+  assert.ok(rootBranch.includes('0x7f09022f'), 'must look up nativeRoot');
+  assert.ok(/isShown\(\)Z/.test(rootBranch),
+    'nativeRoot visibility is the discriminator: it is GONE whenever web content is shown');
+  assert.ok(/nativeCurrentScreen:Ljava\/lang\/String;/.test(rootBranch), 'must read the native route');
+});
+
+test('MEL-BUG-010: on home the guard still declines, so the original exit behaviour survives', () => {
+  const body = method(activity, '.method public final handleNativeSystemBack()Z');
+  const rootBranch = body.slice(body.indexOf('\n    :mel_sysback_not_native\n'));
+  assert.ok(/const-string v\d+, "home"/.test(rootBranch), 'must compare against home');
+  assert.ok(/if-nez v\d+, :mel_sysback_no/.test(rootBranch),
+    'an equal route must fall through to the declining label, not navigate');
+  const decline = rootBranch.slice(rootBranch.indexOf('\n    :mel_sysback_no\n'));
+  assert.match(decline, /const\/4 v\d+, 0x0\s+return v\d+/, 'declining must return false');
+});
+
+test('MEL-BUG-010: the root-tab branch reuses the internal back and never reuses a View register as an int', () => {
+  const body = method(activity, '.method public final handleNativeSystemBack()Z');
+  const rootBranch = body.slice(body.indexOf('\n    :mel_sysback_not_native\n'));
+  assert.ok(rootBranch.includes('->onNativeBackClick(Landroid/view/View;)V'),
+    'must reuse the internal back so route, title and payload are restored');
+  // MEL-BUG-007 guard, applied to the new branch: the boolean result goes to its
+  // own register, never over the one holding the View.
+  const shown = rootBranch.match(/invoke-virtual \{(v\d+)\}, Landroid\/view\/View;->isShown\(\)Z\s+move-result (v\d+)/);
+  assert.ok(shown, 'isShown result must be captured');
+  assert.notEqual(shown[1], shown[2], 'the View register must not be overwritten by the boolean');
+});

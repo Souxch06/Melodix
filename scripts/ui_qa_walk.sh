@@ -195,6 +195,11 @@ if tap nativeSearchTab; then
 fi
 
 # ---- 7d. Lifecycle: background then resume -------------------------------
+# Revenir explicitement a l'accueil avant la mise en arriere-plan : l'invariant
+# teste est "la reprise conserve l'ecran courant". Sans ce retour explicite,
+# l'ecran attendu dependait d'une navigation precedente non assertee.
+tap nativeHomeTab || true
+settle nativeHomeTab || true
 adb -s "$device" shell input keyevent KEYCODE_HOME >/dev/null 2>&1 || true
 sleep 4
 adb -s "$device" shell am start -W -n com.melodix.music/.MainActivity >/dev/null 2>&1 || true

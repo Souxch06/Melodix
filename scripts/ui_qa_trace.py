@@ -103,11 +103,13 @@ STEPS = {
         "required": ["nativeRoot", "nativeTabBar"],
         "optional": ["nativeLibraryCategories", "nativeBackButton"],
         "note": "no native back arrow on a tab: the WebView chain owns this key",
+        "title_is": "Accueil",
     },
     "back-from-search": {
         "required": ["nativeRoot", "nativeTabBar"],
         "optional": ["nativeSearchPanel", "nativeBackButton"],
         "note": "no native back arrow on a tab: the WebView chain owns this key",
+        "title_is": "Accueil",
     },
     # Lifecycle: HOME then relaunch must restore a coherent native screen.
     "background-resume": {

@@ -157,3 +157,35 @@ L'affirmation « les 67 accesseurs retombent sur leur constante téléphone » e
 | **Cause** | Le champ a été renommé selon les versions d'Android (`mResumedActivity`, `topResumedActivity`, …) ; la recherche était trop stricte |
 | **Correctif** | Recherche insensible à la casse, repli sur `dumpsys window`, et message explicite si rien n'est disponible — jamais un fichier silencieusement vide |
 | **Statut** | **Correctif appliqué — en vérification** |
+
+## MEL-BUG-010 — Retour système inerte sur un onglet racine
+
+| Champ | Valeur |
+|---|---|
+| **Gravité** | **P2** |
+| **Écran / fonction** | Recherche et Bibliothèque — touche système Retour |
+| **Appareil** | Téléphone **et** tablette, Android 16 |
+| **Reproduction** | Ouvrir Recherche, appuyer sur la touche système Retour |
+| **Attendu** | Revenir à l'accueil |
+| **Observé** | **L'écran reste sur Recherche.** Capture `back-from-search-*.png` du run `42006533505` : titre « Rechercher », onglet Recherche actif, identique à l'écran précédent. Reproduit sur les deux profils. |
+| **Cause confirmée** | La garde MEL-BUG-002 ne se déclenchait que si `nativeBackButton` était affichée. Sur un onglet racine il n'y a pas de flèche : la garde déclinait, le Retour partait dans la chaîne WebView qui ne connaît pas l'écran natif, et rien de visible ne se produisait. |
+| **Correctif appliqué** | Extension de `handleNativeSystemBack()` : quand aucune flèche n'est affichée, agir **seulement** si `nativeRoot` est réellement à l'écran et que `nativeCurrentScreen` n'est pas déjà `home`, puis réutiliser `onNativeBackClick`. Sur l'accueil la garde décline toujours : le comportement de sortie d'origine est conservé. |
+| **Préservation du lecteur plein écran** | `nativeRoot` est mis à `GONE` (`0x8`) par `applyLoginWebUi` et `showNativeUiFrom` dès que du contenu web s'affiche. Un lecteur plein écran ouvert rend donc `isShown()` faux : la garde décline et le JavaScript d'origine, **inchangé en empreinte**, ferme le lecteur. |
+| **Tests** | 3 tests dédiés : discriminant de visibilité, déclin sur l'accueil, réutilisation du retour interne et non-écrasement d'un registre `View`. `back_dispatch.test.js` = **18**. |
+| **Statut** | **Correctif appliqué — en vérification** |
+
+## MEL-BUG-011 — Mes assertions de retour depuis les onglets étaient trop faibles
+
+| Champ | Valeur |
+|---|---|
+| **Gravité** | **P2** — faux vert, défaut de méthode de ma part |
+| **Symptôme** | `back-from-library` et `back-from-search` étaient notés **`reached`** alors que l'app n'était pas revenue à l'accueil |
+| **Cause confirmée** | Ces deux étapes n'avaient **aucune assertion de titre** (`title_expected: None`). Elles ne vérifiaient que la présence du shell et l'absence de chrome interdit — vrais sur n'importe quel onglet. |
+| **Comment il a été pris** | En refusant de traiter `background-resume = wrong_screen` comme un défaut de cycle de vie sans regarder la capture : elle montrait Recherche, et la capture de l'étape précédente aussi. Le « reached » était donc creux. |
+| **Correctif** | Assertion `title_is: "Accueil"` ajoutée aux deux étapes. Elles échouent désormais tant que le retour ne fonctionne pas. |
+| **Conséquence** | `background-resume` **n'était pas** un défaut de cycle de vie : l'app restaurait fidèlement l'écran réel. Le parcours revient désormais explicitement à l'accueil avant la mise en arrière-plan, pour tester l'invariant « la reprise conserve l'écran courant » sans dépendre d'une navigation non assertée. |
+| **Statut** | **Résolu avec preuve** (assertion renforcée, aucune assertion affaiblie) |
+
+## MEL-BUG-009 — Sonde de premier plan : résolu
+
+`foreground.txt` publie désormais `topResumedActivity=ActivityRecord{… com.melodix.music/.MainActivity …}` sur les deux profils (run `42006533505`). **Résolu avec preuve.**

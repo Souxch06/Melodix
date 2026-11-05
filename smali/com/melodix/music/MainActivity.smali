@@ -10721,6 +10721,32 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     const/4 v0, 0x1
     return v0
     :mel_sysback_not_native
+
+    # MEL-BUG-010. On a root tab the shell shows no back arrow, so the guard
+    # above returned false and BACK fell through to the WebView chain, which
+    # left the native shell on the same tab: BACK looked inert. Observed on both
+    # profiles. Act only when the native shell is really on screen and its route
+    # is not already home. nativeRoot is set GONE whenever web content is shown,
+    # so an open fullscreen web player still reaches the original JS unchanged.
+    # On home we keep returning false and the original exit behaviour is intact.
+    const v0, 0x7f09022f
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v0
+    if-eqz v0, :mel_sysback_no
+    invoke-virtual {v0}, Landroid/view/View;->isShown()Z
+    move-result v1
+    if-eqz v1, :mel_sysback_no
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    if-eqz v0, :mel_sysback_no
+    const-string v1, "home"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-nez v1, :mel_sysback_no
+    const/4 v0, 0x0
+    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->onNativeBackClick(Landroid/view/View;)V
+    const/4 v0, 0x1
+    return v0
+    :mel_sysback_no
     const/4 v0, 0x0
     return v0
 .end method
