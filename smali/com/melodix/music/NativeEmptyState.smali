@@ -129,13 +129,16 @@
     move-result v1
     invoke-virtual {v5, v1}, Landroid/widget/TextView;->setTextColor(I)V
     :empty_sub_color
-    new-instance v2, Landroid/widget/LinearLayout$LayoutParams;
-    const/4 v1, -0x2
-    invoke-direct {v2, v1, v1}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    # Resolve the margin FIRST. The metric helper uses v2 as a string scratch,
+    # so calling it while v2 held the LayoutParams destroyed the object and the
+    # next iput failed verification, killing the app on the library screen.
     const-string v2, "mel_gutter_half"
     const/16 v4, 0x8
     invoke-static {p0, v2, v4}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
     move-result v1
+    new-instance v2, Landroid/widget/LinearLayout$LayoutParams;
+    const/4 v3, -0x2
+    invoke-direct {v2, v3, v3}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
     iput v1, v2, Landroid/view/ViewGroup$MarginLayoutParams;->topMargin:I
     invoke-virtual {v0, v5, v2}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
     :empty_done

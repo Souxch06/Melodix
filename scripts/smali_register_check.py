@@ -18,6 +18,7 @@ import pathlib
 import re
 import sys
 
+NEW_INSTANCE = re.compile(r"new-instance (v\d+), (L[\w/$]+;)")
 OBJ_GETTER = re.compile(
     r"invoke-\w+ \{[^}]*\}, (L[\w/$]+;)->(\w+)\([^)]*\)(L[\w/$]+;)\s*\n\s*move-result-object (v\d+)")
 INVOKE = re.compile(r"invoke-(\w+)(?:/range)? \{([^}]*)\}, (L[\w/$]+;)->(\w+)")
@@ -36,6 +37,58 @@ def strip_comments(body):
     # A comment mentioning v15 or a register name is not code. analysing it
     # produced false positives on the existing renderer.
     return re.sub(r"#.*", "", body)
+
+
+SCALAR_DEF = re.compile(r"^\s*(?:const[\w/-]* (v\d+|p\d+),|move-result (v\d+|p\d+)\s*$|move (v\d+|p\d+),|int-to-float (v\d+|p\d+),|float-to-int (v\d+|p\d+),|add-int/lit8 (v\d+|p\d+),|mul-int/lit8 (v\d+|p\d+),|div-int/lit8 (v\d+|p\d+),|iget (v\d+|p\d+),)")
+OBJECT_DEF = re.compile(r"^\s*(?:new-instance (v\d+|p\d+),|move-result-object (v\d+|p\d+)|check-cast (v\d+|p\d+),|iget-object (v\d+|p\d+),|new-array (v\d+|p\d+),)")
+RECEIVER = re.compile(r"^\s*invoke-(?:virtual|direct|interface|super)(?:/range)? \{(v\d+|p\d+)")
+FIELD_BASE = re.compile(r"^\s*i(?:get|put)(?:-object|-wide|-byte|-char|-short|-boolean)? (?:v\d+|p\d+), (v\d+|p\d+), L")
+
+
+def scalar_then_object(body):
+    """A register reassigned to a scalar must not be used as an object afterwards.
+
+    This is the direction that catches all three real VerifyErrors: a View, a
+    Resources and a LayoutParams each overwritten by a string scratch and then
+    used as an object. Tracking only 'object then clobber' missed the LayoutParams
+    case, because its constructor call counted as a use before the clobber.
+    Kinds reset at labels, where branches merge, to stay conservative.
+    """
+    problems = []
+    kind = {}
+    for line in body.split("\n"):
+        st = line.strip()
+        if not st:
+            continue
+        if st.startswith(":"):
+            kind = {}
+            continue
+        m = OBJECT_DEF.match(line)
+        if m:
+            kind[next(g for g in m.groups() if g)] = "object"
+            continue
+        m = SCALAR_DEF.match(line)
+        if m:
+            reg = next(g for g in m.groups() if g)
+            # A String IS an object, so calling it on String/CharSequence/Object
+            # is legitimate. Only a numeric assignment makes every object use
+            # wrong; a string makes non-string object uses wrong.
+            kind[reg] = "string" if st.startswith("const-string") else "number"
+            continue
+        for rx, what in ((RECEIVER, "invoke receiver"), (FIELD_BASE, "field base")):
+            m = rx.match(line)
+            if not m:
+                continue
+            reg = m.group(1)
+            k = kind.get(reg)
+            if k == "number":
+                problems.append(f"{reg} used as {what} after a numeric assignment: {st[:70]}")
+            elif k == "string":
+                owner = re.search(r", (L[\w/$]+;)->", st)
+                allowed = ("Ljava/lang/String;", "Ljava/lang/CharSequence;", "Ljava/lang/Object;")
+                if what == "field base" or (owner and owner.group(1) not in allowed):
+                    problems.append(f"{reg} holds a String but is used as {what}: {st[:70]}")
+    return problems
 
 
 def check(path):
@@ -74,17 +127,31 @@ def check(path):
                 if idx > 15:
                     problems.append(
                         f"{name}: invoke-{kind} references {a} (index {idx}) above v15; needs /range")
-        for hold in OBJ_GETTER.finditer(body):
-            owner, getter, typ, reg = hold.groups()
+        # new-instance also establishes a typed object. Missing it let a real
+        # VerifyError through: a LayoutParams in v2 was overwritten by a string
+        # scratch and the next iput failed verification, killing the activity.
+        holds = [(h.group(2), "new-instance", h.group(1), h.end(), h.start())
+                 for h in NEW_INSTANCE.finditer(body)]
+        holds += [(h.group(3), h.group(2), h.group(4), h.end(), h.start())
+                  for h in OBJ_GETTER.finditer(body)]
+        for typ, getter, reg, after_at, _ in holds:
+            owner = typ
             if typ in ("Ljava/lang/String;", "Ljava/lang/Class;", "Ljava/lang/Object;"):
                 continue
-            after = body[hold.end():]
+            after = body[after_at:]
             esc = re.escape(typ)
             # The live range ends at the first redefinition. A later block may
             # legitimately re-acquire the same type into the same register, so
             # "last use in the method" would be a false positive. The real bug is
             # a rewrite that lands BEFORE the first call on the held type.
-            use = re.search(rf"invoke-\w+ \{{{reg}[,}}][^\n]*{esc}->", after)
+            # A field access is a use too: `iput vA, vB, Type->field` failed
+            # verification just as an invoke would. Counting only invokes let a
+            # real VerifyError through.
+            use = re.search(
+                rf"(invoke-\w+ \{{{reg}[,}}][^\n]*{esc}->"
+                rf"|i(?:get|put)(?:-\w+)? [^\n]*, {reg}, {esc}->"
+                rf"|i(?:get|put)(?:-\w+)? {reg}, [^\n]*{esc}->"
+                rf"|check-cast {reg}, {esc})", after)
             if not use:
                 continue
             clobber = re.search(
@@ -95,6 +162,7 @@ def check(path):
                 problems.append(
                     f"{name}: {reg} holds {typ} from {getter}() but is overwritten "
                     f"before its first use ({clobber.group(1).strip()})")
+        problems.extend(f"{name}: {p}" for p in scalar_then_object(body))
     return problems
 
 
