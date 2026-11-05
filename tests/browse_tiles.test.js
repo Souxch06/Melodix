@@ -182,3 +182,31 @@ test('the decorative glyph carries its own dark fill and does not touch the shar
   const alpha = /<color name="mel_genre_glyph">#([0-9a-fA-F]{2})/.exec(colors)[1];
   assert.ok(parseInt(alpha, 16) <= 0x40, 'the glyph must stay a subtle emboss, not a sticker');
 });
+
+test('browse tiles are wired explicitly, and the click trace survives the log call', () => {
+  // android:onClick provably never fired on these FrameLayouts. The listener is
+  // now set in code, which also makes the view clickable on its own.
+  const styler = read('smali/com/melodix/music/NativeGenreTileStyler.smali');
+  assert.match(styler, /\.method public static install\(Lcom\/melodix\/music\/MainActivity;\)V/);
+  assert.match(styler, /NativeGenreClickListener;-><init>/);
+  assert.match(styler, /setOnClickListener\(Landroid\/view\/View\$OnClickListener;\)V/);
+  assert.match(styler, /"listeners installed="/, 'the install count must be observable');
+  const entry = styler.slice(styler.indexOf('.method public static install'), styler.indexOf(':try_start_i'));
+  assert.match(entry, /const\/4 v3, 0x0/, 'the logged counter must be defined on the early-exit paths too');
+
+  const activity = read('smali/com/melodix/music/MainActivity.smali');
+  const at = activity.indexOf('.method public final onNativeSearchClick');
+  const search = activity.slice(at, activity.indexOf('.end method', at));
+  assert.match(search, /NativeGenreTileStyler;->install/, 'opening Search must wire the tiles');
+
+  const listener = read('smali/com/melodix/music/NativeGenreClickListener.smali');
+  const onClick = listener.slice(listener.indexOf('.method public final onClick'));
+  const code = onClick.split('\n').filter((l) => !l.trim().startsWith('#')).join('\n');
+  // p1 is the clicked View. Logging must not overwrite it before the dispatch.
+  const dispatchAt = code.indexOf('onNativeGenreClick(Landroid/view/View;)V');
+  const before = code.slice(0, dispatchAt);
+  assert.doesNotMatch(before, /(?:const-string|const\/4|move-result(?:-object)?) p1\b/,
+    'overwriting p1 would call the handler with null and crash on getTag()');
+  assert.match(code, /invoke-virtual \{v0, p1\}, Lcom\/melodix\/music\/MainActivity;->onNativeGenreClick/);
+  assert.match(code, /"tile click received"/, 'the entry point must leave a trace');
+});

@@ -9893,6 +9893,9 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
     const-string v0, "search"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
+
+    # Wire the browse tiles explicitly rather than trusting android:onClick.
+    invoke-static {p0}, Lcom/melodix/music/NativeGenreTileStyler;->install(Lcom/melodix/music/MainActivity;)V
     const/4 v0, 0x0
     iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeExpectedSearch:Ljava/lang/String;
     const-string v0, "Rechercher"
