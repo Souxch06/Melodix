@@ -2025,13 +2025,20 @@ test('the Home connection card is actionable in every state, not just on error',
     // Loading state (session unproven, verification in progress) must carry the
     // real connect action too: an identifiable connection state with a pertinent
     // action, without blocking the local shortcuts.
-    const loading = activity.match(/\{"kind":"state","state":"loading"[^"]*"title":"Connexion à Spotify…"[^}]*\}/);
-    assert.ok(loading, 'the loading home payload exists');
-    assert.match(loading[0], /"uri":"melodix:action:open-login"/,
+    // In the smali source the JSON quotes are escaped: use plain indexOf.
+    const li = activity.indexOf('Connexion à Spotify…');
+    assert.ok(li !== -1, 'the loading home payload exists');
+    const lStart = activity.lastIndexOf('const-string', li);
+    const lEnd = activity.indexOf('"]', li);
+    const loadingPayload = activity.slice(lStart, lEnd);
+    assert.ok(loadingPayload.includes('melodix:action:open-login'),
         'the loading connection card must offer the real connect action');
     // The unproven/error state keeps its connect action as well.
-    const unproven = activity.match(/"state":"error","sessionUnproven":true[^}]*\}/);
-    assert.ok(unproven && /melodix:action:open-login/.test(unproven[0]));
+    const ei = activity.indexOf('Connexion Spotify non confirmée');
+    assert.ok(ei !== -1, 'the unproven error payload exists');
+    const eStart = activity.lastIndexOf('const-string', ei);
+    const eEnd = activity.indexOf('"]', ei);
+    assert.ok(activity.slice(eStart, eEnd).includes('melodix:action:open-login'));
     // The status renderer maps the action to a real label and dispatches it.
     const shelf = read('smali/com/melodix/music/NativeHomeShelfRenderer.smali');
     assert.match(shelf, /"melodix:action:open-login"[\s\S]*?"Se connecter"/);
