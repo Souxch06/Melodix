@@ -26,11 +26,11 @@ Rapport de la phase précédente : [`melodix-qa-visual-functional-2026-11-05.md`
 | ID | Gravité | Objet | Statut |
 |---|---|---|---|
 | MEL-BUG-001 | P2 | Géométrie tablette non conforme — **diagnostic initial réfuté** | **En diagnostic** |
-| MEL-BUG-002 | P1 | Touche système Retour inopérante sur écran natif | **En diagnostic — correctif inopérant** |
+| MEL-BUG-002 | P1 | Touche système Retour inopérante sur écran natif | **Bloqué — autorisation requise** |
 | MEL-BUG-003 | P2 | Contenu étranger survivant sous le titre Accueil | **Résolu avec preuve** |
 | MEL-BUG-004 | P2 | Faux vert de la trace | Résolu avec preuve |
 | MEL-BUG-005 | P3 | Faux défaut de timing tablette | Résolu avec preuve |
-| MEL-BUG-007 | P0 | Régression de diagnostic introduite par moi : app au launcher | **Correctif appliqué** |
+| MEL-BUG-007 | P0 | Régression de diagnostic introduite par moi : app au launcher | **Résolu avec preuve** |
 | MEL-BUG-006 | P1 | Lecteur / playlists / albums jamais observés | En attente de validation authentifiée |
 
 ---
@@ -134,11 +134,26 @@ Pour ne plus diagnostiquer à l'aveugle, le parcours capture maintenant le buffe
 
 ---
 
+---
+
+## Cycle 3bis — vérification (run `42002228908`)
+
+**MEL-BUG-007 résolu avec preuve** : l'application démarre, les 9 étapes sont capturées sur les deux profils, `home-again` reste `reached`. La régression que j'avais introduite est corrigée et gardée par test.
+
+**MEL-BUG-002 — cause enfin établie par une mesure valide.** Cette fois l'application a tourné et la touche a été pressée, et `back-key.txt` est **vide sur les deux profils** : `MainActivity.onKeyDown` n'est jamais atteint pour BACK. `fm.dispatchKeyEvent` renvoie directement `superDispatchKeyEvent`, sans repasser par `Activity.onKeyDown`/`onKeyUp` ; le framework appelle ensuite `onBackPressed()`, **final** dans `androidx.activity.a`, qui délègue au répartiteur patché par Melodix.
+
+Mon interception dans `onKeyDown` est donc **structurellement inopérante**, et c'est démontré, pas supposé.
+
+Le seul point d'accroche restant est le répartiteur `androidx/activity/b;->b()`, dont le branchement interne est mêlé à la fermeture du lecteur plein écran — **zone protégée**. Je m'arrête ici et je demande l'autorisation plutôt que de modifier la logique de retour du lecteur.
+
+---
+
 ## Blocages et besoins
 
 | Besoin | Pour | Qui |
 |---|---|---|
 | Exécution du protocole authentifié sur votre appareil | MEL-BUG-006, lecteur, mini-lecteur, playlists, albums, commandes de lecture | **Vous** — aucun identifiant ne m'est demandé |
+| Autorisation de toucher au répartiteur de retour | MEL-BUG-002 : seul point d'accroche restant, mêlé à la fermeture du lecteur plein écran | **Vous** — zone protégée |
 
 Aucune modification de zone protégée n'est nécessaire à ce stade. Si le diagnostic de MEL-BUG-001 désigne le bridge ou la session, je m'arrêterai et demanderai votre autorisation.
 

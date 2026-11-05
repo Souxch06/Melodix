@@ -54,8 +54,11 @@ L'affirmation « les 67 accesseurs retombent sur leur constante téléphone » e
 | **Zone protégée** | La chaîne WebView/lecteur n'est **pas modifiée** : elle reste atteinte dans tous les autres cas. |
 | **Tests** | `tests/ui_screen_state.test.js` (7 tests) |
 | **Vérification** | Run `41998795135` : `back-from-settings` reste `wrong_screen` sur les deux profils. **Le correctif n'a pas pris effet** : la touche n'atteint vraisemblablement pas `onKeyDown`, consommée en amont par `fm.dispatchKeyEvent` → `kn1.f` → `superDispatchKeyEvent`. |
-| **Diagnostic** | Tag `MelBack`, corrigé (voir MEL-BUG-007). **Conclusion intermédiaire retirée** : le `back-key.txt` vide du run `42000520939` ne prouvait rien, l'application n'ayant jamais démarré — aucune touche retour n'a été pressée. L'affirmation « `onKeyDown` n'est pas atteint » n'est **pas établie**. |
-| **Statut** | **En diagnostic — correctif inopérant, ne pas le présenter comme résolu** |
+| **Cause confirmée par mesure** | Run `42002228908`, application démarrée, touche pressée, `back-key.txt` **vide sur les deux profils** : `MainActivity.onKeyDown` n'est **jamais atteint** pour BACK. `fm.dispatchKeyEvent` renvoie directement `superDispatchKeyEvent` et ne repasse jamais par `Activity.onKeyDown`/`onKeyUp`. Le framework appelle ensuite `onBackPressed()`, **final** dans `androidx.activity.a`, qui délègue au répartiteur patché. |
+| **Correctif tenté** | Interception dans `onKeyDown` : **inopérant, démontré**. Conservé comme garde inoffensif pour les appareils anciens, à retirer. |
+| **Correctif proposé** | Enregistrer un `OnBackPressedCallback` auprès du répartiteur, actif seulement quand un écran natif poussé est affiché. **Mais** le répartiteur `androidx/activity/b;->b()` a été patché par Melodix et son branchement interne (`packed-switch` sur `r70.d`) est mêlé à la fermeture du lecteur plein écran. Y toucher touche une zone protégée. |
+| **Besoin** | **Autorisation explicite** pour modifier le répartiteur de retour, ou accord pour tenter l'enregistrement d'un callback sans modifier le répartiteur. |
+| **Statut** | **Bloqué — cause établie, correctif en zone protégée, autorisation requise** |
 
 ## MEL-BUG-003 — Le contenu d'un écran survit sous le titre « Accueil »
 
