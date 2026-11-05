@@ -1,0 +1,13 @@
+selected=3
+  cls=android.widget.FrameLayout desc='Pop' bounds=[42,499][527,751]
+  cls=android.widget.TextView desc='' bounds=[42,499][527,751]
+  cls=android.widget.ImageView desc='' bounds=[376,589][527,751]
+clickable_descendants=8
+  tap_target[0] cls=android.widget.FrameLayout desc='Pop' enabled=true bounds=[42,499][527,751]
+  tap_target[1] cls=android.widget.FrameLayout desc='Hip-hop' enabled=true bounds=[553,499][1038,751]
+  tap_target[2] cls=android.widget.FrameLayout desc='Rock' enabled=true bounds=[42,777][527,1029]
+  tap_target[3] cls=android.widget.FrameLayout desc='Latino' enabled=true bounds=[553,777][1038,1029]
+  tap_target[4] cls=android.widget.FrameLayout desc='Détente' enabled=true bounds=[42,1055][527,1307]
+  tap_target[5] cls=android.widget.FrameLayout desc='Sport' enabled=true bounds=[553,1055][1038,1307]
+  tap_target[6] cls=android.widget.FrameLayout desc='Podcasts' enabled=true bounds=[42,1333][527,1585]
+  tap_target[7] cls=android.widget.FrameLayout desc='Nouveautés' enabled=true bounds=[553,1333][1038,1585]
