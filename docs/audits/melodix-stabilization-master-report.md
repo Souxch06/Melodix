@@ -434,3 +434,24 @@ Cycle 2 : vérifier sur les deux profils que `back-from-settings` et `home-again
   réels sont rejoués et doivent être détectés.
 - **Prochain travail réalisable** : surface 3 (tuiles de genres), puis états de chargement et d'erreur
   sur le modèle de `NativeEmptyState`.
+
+---
+
+## Cycle 9 — système visuel, Recherche et système d'états
+
+**Rapport détaillé** : `melodix-visual-system-report.md`.
+
+- **Référence `9322581` préservée.** HEAD `c5246aa`, arbre propre. Suite **757 / 754 pass / 0 fail / 3 skip**.
+- **Livré et observé sur les 2 profils** : refonte des tuiles de genres (contraste AA mesuré, six
+  teintes corrigées ; 184,8×96 dp téléphone / 173,5×116 dp tablette ; 2 vs 4 colonnes) et état de
+  chargement de la Bibliothèque via le nouveau système d'états. **0 défaut géométrique** sur 38 dumps,
+  **0 crash**.
+- **Système d'états** : `NativeStateView`, 11 états, actions réelles seulement, branché sur
+  `renderNativeRows`, le renderer partagé par bibliothèque, playlists, albums, artistes et recherche.
+- **CI ROUGE assumée** : MEL-BUG-019, le tap d'une tuile de genre ne déclenche pas son handler.
+  Cause non établie. **Assertion non assouplie.**
+- **Résolus ce cycle** : MEL-BUG-020 (mon faux vert) et 021 (déclencheur CI aveugle à MainActivity).
+- **Toujours ouverts** : 013 `btnSettings` intermittent non résolu ; parcours G sans session ;
+  validation authentifiée manquante ; échec unitaire isolé en CI non reproduit.
+- **Prochain travail réalisable sans session** : écouteur posé programmatiquement sur les tuiles pour
+  trancher MEL-BUG-019 ; puis états de chargement prolongé et d'erreur sur les surfaces à session.

@@ -373,3 +373,36 @@ return v0
 **Famille commune 017/018/001** : polarité d'un saut conditionnel. Aucun parcours d'écrans ne les
 détecte, parce qu'une étape n'affirme que le titre. Seules la **lecture des captures** et
 l'**interprétation du dispatch** les révèlent.
+
+## MEL-BUG-019 — P2 — le tap d'une tuile de genre ne déclenche pas son handler
+
+- **Repro** : runs `42077053251`, `42078730287`, `42081094275`, les deux profils.
+- **Attendu** : taper une tuile lance la recherche réelle et marque la tuile comme sélectionnée.
+- **Observé** : `tap_point=284 625`, cible `FrameLayout desc='Pop' enabled=true
+  bounds=[42,499][527,751]` : le tap frappe la bonne tuile, active, en son centre. Pourtant
+  `selected=0`, titre inchangé, trace `MelGenre` vide **même collectée immédiatement après le tap**,
+  et **aucun crash**. `onNativeGenreClick` ne s'exécute pas.
+- **Cause** : **non établie.** `android:onClick` ne se déclenche pas sur ces `FrameLayout`. Déplacer
+  l'appel du styleur avant `performNativeLiveSearch` n'a rien changé, ce qui élimine l'hypothèse
+  « la recherche avale la fin du handler ».
+- **Antériorité** : l'ancien parcours n'a **jamais** vérifié qu'un tap de genre produisait un effet
+  (« tap delivered only »). Ces taps pourraient n'avoir jamais fonctionné dans le shell natif.
+  **Non tranché**, donc non affirmé.
+- **Statut** : **OUVERT.** Les parcours téléphone et tablette restent **rouges** sur cette assertion.
+  Elle n'a pas été assouplie.
+- **Prochaine étape** : poser l'écouteur programmatiquement et journaliser l'entrée du handler, pour
+  distinguer un problème d'attribut XML d'un problème de dispatch.
+
+## MEL-BUG-020 — P3 — mon assertion de sélection était un faux vert (corrigé)
+
+- **Observé** : run `42075202324` **5/5** alors que `genre-selection.txt` disait `selected=0` sur les
+  deux profils. Le garde cherchait la présence de la ligne `selected=`, pas un compte positif.
+- **Correctif** : `^selected=[1-9]`, avec un test qui exige cette forme précise.
+- **Statut** : **RÉSOLU.** Consigné parce que c'est exactement le faux vert que ce chantier traque.
+
+## MEL-BUG-021 — P2 — le déclencheur QA ignorait MainActivity.smali (corrigé)
+
+- **Observé** : le commit `8b5657e`, qui modifiait l'écran principal, n'a déclenché **aucun** parcours.
+  Le filtre `paths` listait `smali/com/melodix/music/Native**` mais pas `MainActivity.smali`.
+- **Correctif** : chemin ajouté, vérifié en relisant le YAML parsé, sous test.
+- **Statut** : **RÉSOLU.** Un changement réel de l'interface pouvait partir sans contrôle appareil.
