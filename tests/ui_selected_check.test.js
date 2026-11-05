@@ -65,3 +65,13 @@ test('the styler logs its work and keeps every logged register defined', () => {
   const entry = s.slice(s.indexOf('.locals'), s.indexOf(':try_start_g'));
   assert.match(entry, /const\/4 v3, 0x0/, 'v3 is logged at :g_done and must be defined on every path');
 });
+
+test('the UI QA trigger watches the files that can break the UI', () => {
+  // A commit touching only MainActivity.smali silently skipped every walk: the
+  // filter watched Native** but not the activity that owns the screens.
+  const wf = fs.readFileSync(path.join(root, '.github/workflows/ui-qa.yml'), 'utf8');
+  const paths = wf.slice(wf.indexOf('paths:'), wf.indexOf('jobs:'));
+  for (const p of ['smali/com/melodix/music/MainActivity.smali', 'smali/com/melodix/music/Native**', 'res/**']) {
+    assert.ok(paths.includes(p), `${p} must trigger the UI walk`);
+  }
+});
