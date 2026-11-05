@@ -151,7 +151,7 @@ function executeSettingsTimeout(currentGeneration, timerGeneration, loading, scr
             pendingResult = registers[match[1]] === registers[match[2]] ? 1 : 0;
             continue;
         }
-        if ((match = /^move-result (\w+)$/.exec(instruction))) {
+        if ((match = /^move-result(?:-object)? (\w+)$/.exec(instruction))) {
             assert.notEqual(pendingResult, undefined);
             registers[match[1]] = pendingResult;
             pendingResult = undefined;
@@ -159,6 +159,14 @@ function executeSettingsTimeout(currentGeneration, timerGeneration, loading, scr
         }
         if ((match = /^iput-boolean (\w+), p0, .*->nativeSettingsLoading:Z$/.exec(instruction))) {
             state.nativeSettingsLoading = Boolean(registers[match[1]]);
+            continue;
+        }
+        if ((match = /^invoke-virtual \{p0\}, Lcom\/melodix\/music\/MainActivity;->isNativeSessionUnproven\(\)Z$/.exec(instruction))) {
+            pendingResult = state.nativeSessionUnproven === false ? 0 : 1;
+            continue;
+        }
+        if ((match = /^invoke-direct \{p0, (\w+)\}, Lcom\/melodix\/music\/MainActivity;->appendNativeAboutRows\(Ljava\/lang\/String;\)Ljava\/lang\/String;$/.exec(instruction))) {
+            pendingResult = registers[match[1]]; // identity in the interpreter
             continue;
         }
         if ((match = /^invoke-virtual \{p0, (\w+), (\w+)\}, Lcom\/melodix\/music\/MainActivity;->renderNativeRows\(Ljava\/lang\/String;Ljava\/lang\/String;\)V$/.exec(instruction))) {
@@ -169,6 +177,11 @@ function executeSettingsTimeout(currentGeneration, timerGeneration, loading, scr
             continue;
         }
         if (instruction === 'return-void') return state;
+        if ((match = /^goto :([\w$.-]+)$/.exec(instruction))) {
+            assert.ok(labels.has(match[1]), `goto target :${match[1]} exists`);
+            pc = labels.get(match[1]);
+            continue;
+        }
         throw new Error(`unreviewed settings-timeout instruction: ${instruction}`);
     }
     throw new Error('settings timeout completed without return-void');
@@ -412,6 +425,11 @@ test('native Settings timeout replaces loading with a retryable error, and rejec
     const errorRows = JSON.parse(timedOut.renders[0].json);
     assert.equal(errorRows[0].title, 'Paramètres indisponibles');
     assert.equal(errorRows[0].uri, 'melodix:action:retry-settings');
+    // Unproven session (default in the interpreter): the fallback carries the
+    // real connect and notifications actions, plus the About injection point.
+    assert.ok(errorRows.some((r) => r.uri === 'melodix:action:open-login'), 'fallback offers a real connect action');
+    assert.ok(errorRows.some((r) => r.uri === 'melodix:action:open-notifications'), 'fallback offers the real notifications screen');
+    assert.ok(errorRows.some((r) => r.title === 'État de la connexion Spotify' && r.settingValue === 'Se connecter'));
 
     const staleDeadline = executeSettingsTimeout(7, 6, true, 'settings');
     assert.equal(staleDeadline.nativeSettingsLoading, true);

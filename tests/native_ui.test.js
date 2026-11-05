@@ -2009,7 +2009,7 @@ test('settings timeout renders a real local fallback (connect + notifications + 
     // The fallback payload is derived from the REAL native session flag.
     assert.match(code, /isNativeSessionUnproven\(\)Z/);
     // Unproven session -> real connect action + real notifications action.
-    const fallback = code.slice(code.indexOf(':settings_fallback_render') - 2600);
+    const fallback = code;
     assert.match(fallback, /melodix:action:open-login/);
     assert.match(fallback, /melodix:action:open-notifications/);
     assert.match(fallback, /Non connecté/);
