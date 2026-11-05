@@ -125,11 +125,17 @@ test('no genre was invented or renamed by the redesign', () => {
 test('the selected state is wired to the real handler, and failures are logged', () => {
   const activity = read('smali/com/melodix/music/MainActivity.smali');
   const at = activity.indexOf('.method public final onNativeGenreClick');
-  const handler = activity.slice(at, activity.indexOf('.end method', at));
+  // Compare instruction positions, not comment prose: a comment naming the
+  // search would otherwise sort before the call it describes.
+  const handler = activity.slice(at, activity.indexOf('.end method', at))
+    .split('\n').filter((l) => !l.trim().startsWith('#')).join('\n');
   assert.match(handler, /performNativeLiveSearch/, 'the real search still runs');
   assert.match(handler, /NativeGenreTileStyler;->apply/, 'the ring is applied');
-  // The styling call must sit AFTER the search, and must not guard it.
-  assert.ok(handler.indexOf('performNativeLiveSearch') < handler.indexOf('NativeGenreTileStyler'));
+  // The ring must be applied BEFORE the search: on device the tap landed on the
+  // enabled tile but nothing after performNativeLiveSearch ran without a session.
+  // Presentation must not be hostage to the search completing.
+  assert.ok(handler.indexOf('NativeGenreTileStyler') < handler.indexOf('performNativeLiveSearch'),
+    'the selected ring must not depend on the search succeeding');
   const styler = read('smali/com/melodix/music/NativeGenreTileStyler.smali');
   assert.match(styler, /setSelected\(Z\)V/);
   assert.match(styler, /0x7f09024f/, 'targets the real browse container');

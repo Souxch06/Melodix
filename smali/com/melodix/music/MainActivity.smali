@@ -10074,14 +10074,19 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
     # Keep the browse grid until results land (a failed search must not leave a
     # blank screen); only the header echoes the choice.
+    # Ring the tile BEFORE starting the search. The tap provably lands on the
+    # enabled "Pop" tile, yet neither the title nor the ring changed and the styler
+    # never logged: everything after performNativeLiveSearch was skipped when that
+    # call did not complete without a session. Selection is presentation; it must
+    # not depend on the search succeeding.
+    invoke-static {p0, v0}, Lcom/melodix/music/NativeGenreTileStyler;->apply(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->performNativeLiveSearch(Ljava/lang/String;)V
 
     const-string v1, "screen-title"
 
     invoke-virtual {p0, v1, v0}, Lcom/melodix/music/MainActivity;->applyNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
 
-    # Presentation only: ring the chosen tile, clear the others.
-    invoke-static {p0, v0}, Lcom/melodix/music/NativeGenreTileStyler;->apply(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
 
     :native_genre_done
     return-void
