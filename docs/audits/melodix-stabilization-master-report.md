@@ -472,3 +472,18 @@ Cycle 2 : vérifier sur les deux profils que `back-from-settings` et `home-again
 - **Toujours ouverts** : 013 `btnSettings` intermittent ; parcours G sans session ; validation
   authentifiée manquante.
 
+---
+
+## Cycle 11 — MEL-BUG-013 résolu, deuxième run CI 5/5 vert d'affilée
+
+- **HEAD `6e0ba92` poussé.** Suite **760 / 757 pass / 0 fail / 3 skip**. Validateurs 0/26.
+- **Run `42096058683` : 5/5 VERT.** `walk-status=0` et `selected=3` sur les deux profils, **0 défaut
+  géométrique sur 38 dumps**, et `btnSettings` **absent de tous les dumps** : la fenêtre transitoire
+  (bouton legacy visible entre l'inflation et `showNativeUiFrom`) est fermée à la source par
+  `android:visibility="gone"` dans les deux layouts. Capture `background-resume` vérifiée : en-tête
+  natif propre. Le repli web ré-affiche le bouton explicitement (`applyLoginWebUi`) : possession
+  d'affichage native/WebView **non modifiée**, accès réglages du repli **préservé**. Garde de test.
+- **MEL-BUG-019 reste confirmé** (`selected=3`, titre « Pop » + anneau vus sur captures).
+- **Ouverts restants** : validation authentifiée manquante ; parcours G sans session ; états
+  appuyé/indisponible des tuiles non observables sans geste maintenu.
+
