@@ -7,7 +7,9 @@ explicit - anything that needs a real Spotify session is recorded as
 BLOCKED_NO_SESSION rather than silently skipped or faked.
 
 Verdicts:
-  reached            - every required view for the step is on screen;
+  reached            - every required view is on screen, no view that belongs
+                       to another screen is showing, and the header carries the
+                       expected app-chrome title;
   not_reached        - a required view is missing: a real navigation defect;
   blocked_no_session - the step cannot be attempted without a signed-in session;
   unreadable         - the UI could not be dumped, so nothing is claimed.
@@ -24,8 +26,16 @@ import xml.etree.ElementTree as ET
 
 PREFIX = "com.melodix.music:id/"
 
-# required: must be visible for the step to count as reached.
-# optional: recorded when present, never required.
+# required:  must be visible for the step to count as reached.
+# optional:  recorded when present, never required.
+# forbidden: must NOT be visible. The tab bar and the home tab are on screen on
+#            EVERY native screen, settings included, so requiring them proved
+#            nothing: an earlier version of this file reported "reached" for a
+#            back step that had not left Settings at all. The back button is the
+#            discriminator, because it only exists on pushed screens.
+# title_is / forbidden_chrome: compared against fixed APP CHROME strings only.
+#            The actual text is never echoed, so no account data can leak into
+#            the log; only the boolean outcome is reported.
 STEPS = {
     "home": {
         "required": ["nativeRoot", "nativeTabBar", "nativeHomeTab", "nativeScreenTitle"],
@@ -34,6 +44,7 @@ STEPS = {
     "library": {
         "required": ["nativeRoot", "nativeLibraryTab", "nativeLibraryCategories"],
         "optional": ["nativeContent", "nativeRowsScroll"],
+        "title_is": "Votre bibliothèque",
     },
     "search": {
         "required": ["nativeRoot", "nativeSearchPanel", "nativeSearchInput"],
@@ -46,14 +57,21 @@ STEPS = {
     "settings": {
         "required": ["nativeRoot", "nativeContent", "nativeBackButton"],
         "optional": ["nativeScreenTitle"],
+        "title_is": "Paramètres",
     },
     "back-from-settings": {
         "required": ["nativeRoot", "nativeTabBar"],
+        "forbidden": ["nativeBackButton", "nativeSearchPanel"],
         "optional": ["nativeContent"],
+        "title_is": "Accueil",
     },
     "home-again": {
         "required": ["nativeRoot", "nativeTabBar", "nativeHomeTab"],
+        "forbidden": ["nativeBackButton", "nativeSearchPanel"],
         "optional": ["nativeContent"],
+        "title_is": "Accueil",
+        # Settings content must not survive the switch back to Home.
+        "forbidden_chrome": ["Paramètres indisponibles"],
     },
     # Needs real playback: never attempted on a clean install.
     "player": {
@@ -89,15 +107,29 @@ def main():
 
     path = pathlib.Path(dump_path)
     visible = []
+    title = ""
+    all_text = ""
     readable = False
     if path.exists() and path.stat().st_size > 0:
         try:
             root = ET.parse(path).getroot()
-            visible = sorted({n.get("resource-id", "")[len(PREFIX):] for n in root.iter("node")
+            nodes = [n for n in root.iter("node")]
+            visible = sorted({n.get("resource-id", "")[len(PREFIX):] for n in nodes
                               if n.get("resource-id", "").startswith(PREFIX)})
+            title = ""
+            for n in nodes:
+                if n.get("resource-id", "") == PREFIX + "nativeScreenTitle":
+                    title = n.get("text", "") or ""
+                    break
+            all_text = " | ".join((n.get("text", "") or "") for n in nodes)
             readable = True
         except ET.ParseError:
             readable = False
+
+    forbidden_present = [v for v in spec.get("forbidden", []) if v in visible]
+    chrome_present = [c for c in spec.get("forbidden_chrome", []) if c in all_text]
+    expected_title = spec.get("title_is")
+    title_ok = (expected_title is None) or (title == expected_title)
 
     present = [v for v in spec["required"] if v in visible]
     missing = [v for v in spec["required"] if v not in visible]
@@ -109,6 +141,8 @@ def main():
         verdict = "blocked_no_session"
     elif missing:
         verdict = "not_reached"
+    elif forbidden_present or chrome_present or not title_ok:
+        verdict = "wrong_screen"
     else:
         verdict = "reached"
 
@@ -116,21 +150,22 @@ def main():
         "step": step, "profile": profile, "verdict": verdict,
         "required_present": present, "required_missing": missing,
         "optional_present": optional_present, "visible_id_count": len(visible),
+        "forbidden_present": forbidden_present,
+        "unexpected_chrome_present": bool(chrome_present),
+        "title_expected": expected_title,
+        "title_matched": title_ok,
     }
     trace.append(entry)
     trace_file.write_text(json.dumps(trace, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
-    if verdict == "not_reached":
-        level = "error"
-    elif verdict == "unreadable":
-        level = "error"
-    else:
-        level = "notice"
+    level = "notice" if verdict in ("reached", "blocked_no_session") else "error"
     print(f"::{level} title=Navigation {profile}/{step}::{verdict}; "
           f"missing={','.join(missing) or 'none'}; "
-          f"optional={','.join(optional_present) or 'none'}; visible_ids={len(visible)}")
+          f"forbidden={','.join(forbidden_present) or 'none'}; "
+          f"stale_chrome={bool(chrome_present)}; title_matched={title_ok}; "
+          f"visible_ids={len(visible)}")
 
-    return 1 if verdict in ("not_reached", "unreadable") else 0
+    return 1 if verdict in ("not_reached", "unreadable", "wrong_screen") else 0
 
 
 if __name__ == "__main__":

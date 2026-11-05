@@ -90,6 +90,9 @@ jobs:
         bash scripts/ui_resource_probe.sh "$RUNNER_TEMP/melodix-ui-apk/melodix-ui-metrics.apk" "$out/resource-table.txt"
 
         '
+      env:
+        PROFILE: ${{ matrix.profile }}
+      continue-on-error: true
     - name: Walk the navigation graph and capture every surface
       shell: bash
       env:

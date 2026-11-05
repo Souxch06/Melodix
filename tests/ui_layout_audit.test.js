@@ -259,3 +259,106 @@ test('the QA workflow runs the probe before walking, and keeps its trigger', () 
   const walkAt = raw.indexOf('Walk the navigation graph');
   assert.ok(probeAt > 0 && probeAt < walkAt, 'the probe must run before the walk');
 });
+
+// --- the trace must not report a false green -------------------------------
+// Real defect found while reviewing run 41986397958: `back-from-settings` and
+// `settings` produced byte-identical screenshots, yet both steps were reported
+// "reached", because the tab bar and the home tab are visible on EVERY native
+// screen. These tests reproduce that exact situation.
+
+function traceDump(nodes) {
+  const body = nodes.map(([id, text]) =>
+    `<node resource-id="com.melodix.music:id/${id}" text="${text || ''}" bounds="[0,0][100,100]" />`
+  ).join('');
+  return `<?xml version="1.0"?><hierarchy>${body}</hierarchy>`;
+}
+
+function traceStep(step, xml) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mel-trace-'));
+  const dumpPath = path.join(dir, 'dump.xml');
+  const tracePath = path.join(dir, 'trace.json');
+  fs.writeFileSync(dumpPath, xml);
+  let status = 0;
+  try {
+    execFileSync('python3', [path.join(root, 'scripts', 'ui_qa_trace.py'),
+      step, 'phone', dumpPath, tracePath], { encoding: 'utf8' });
+  } catch (error) { status = error.status; }
+  const entry = JSON.parse(fs.readFileSync(tracePath, 'utf8'))[0];
+  fs.rmSync(dir, { recursive: true, force: true });
+  return { status, entry };
+}
+
+const SETTINGS_NODES = [['nativeRoot', ''], ['nativeTabBar', ''], ['nativeHomeTab', ''],
+  ['nativeContent', ''], ['nativeBackButton', ''], ['nativeScreenTitle', 'Paramètres']];
+const HOME_NODES = [['nativeRoot', ''], ['nativeTabBar', ''], ['nativeHomeTab', ''],
+  ['nativeContent', ''], ['nativeScreenTitle', 'Accueil']];
+
+test('staying on Settings is NOT a successful back step', () => {
+  const { status, entry } = traceStep('back-from-settings', traceDump(SETTINGS_NODES));
+  assert.equal(entry.verdict, 'wrong_screen');
+  assert.equal(status, 1);
+  assert.ok(entry.forbidden_present.includes('nativeBackButton'));
+  assert.equal(entry.title_matched, false);
+});
+
+test('actually landing on Home is a successful back step', () => {
+  const { status, entry } = traceStep('back-from-settings', traceDump(HOME_NODES));
+  assert.equal(entry.verdict, 'reached');
+  assert.equal(status, 0);
+});
+
+test('Settings content surviving onto Home is reported, not ignored', () => {
+  const nodes = HOME_NODES.concat([['nativeSettingsLeak', 'Paramètres indisponibles']]);
+  const { status, entry } = traceStep('home-again', traceDump(nodes));
+  assert.equal(entry.verdict, 'wrong_screen');
+  assert.equal(status, 1);
+  assert.equal(entry.unexpected_chrome_present, true);
+});
+
+test('the trace never echoes screen text into the log', () => {
+  const secret = 'Jean Dupont Premium';
+  const nodes = HOME_NODES.concat([['nativeRow', secret]]);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mel-trace-priv-'));
+  const dumpPath = path.join(dir, 'd.xml');
+  const tracePath = path.join(dir, 't.json');
+  fs.writeFileSync(dumpPath, traceDump(nodes));
+  let out = '';
+  try {
+    out = execFileSync('python3', [path.join(root, 'scripts', 'ui_qa_trace.py'),
+      'home-again', 'phone', dumpPath, tracePath], { encoding: 'utf8' });
+  } catch (error) { out = (error.stdout || '') + (error.stderr || ''); }
+  assert.ok(!out.includes(secret), 'account data must not reach the log');
+  assert.ok(!fs.readFileSync(tracePath, 'utf8').includes(secret),
+    'account data must not reach the published trace either');
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('a missing dump is unreadable, not a crash', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mel-trace-missing-'));
+  const tracePath = path.join(dir, 't.json');
+  let status = 0;
+  try {
+    execFileSync('python3', [path.join(root, 'scripts', 'ui_qa_trace.py'),
+      'home-again', 'phone', path.join(dir, 'absent.xml'), tracePath], { encoding: 'utf8' });
+  } catch (error) { status = error.status; }
+  assert.equal(status, 1);
+  assert.equal(JSON.parse(fs.readFileSync(tracePath, 'utf8'))[0].verdict, 'unreadable');
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('every workflow step using $PROFILE declares it, and a probe never blocks the walk', () => {
+  const raw = fs.readFileSync(path.join(root, '.github', 'workflows', 'ui-qa.yml'), 'utf8');
+  // A per-step env is easy to forget: `set -u` then kills the step before it
+  // creates its output directory, which is exactly how the first probe run died.
+  const blocks = raw.split(/\n\s*- name: /).slice(1);
+  for (const block of blocks) {
+    const name = block.split('\n')[0].trim();
+    if (!/\$PROFILE|\$\{PROFILE\}/.test(block)) continue;
+    assert.ok(/PROFILE:\s*\$\{\{\s*matrix\.profile\s*\}\}/.test(block),
+      `step "${name}" reads $PROFILE so it must declare it`);
+  }
+  const probe = blocks.find((b) => b.startsWith('Probe the resource table'));
+  assert.ok(probe, 'the probe step must exist');
+  assert.match(probe, /continue-on-error: true/,
+    'a diagnostic must not prevent the QA walk from running');
+});
