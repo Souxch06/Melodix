@@ -136,12 +136,21 @@
     <color name="mel_surface_card">#242424</color>
     <color name="mel_scrim">#1fffffff</color>
     <!-- genre tile tints -->
-    <color name="mel_tile_forest">#2fa36b</color>
+    <color name="mel_tile_forest">#268356</color>
     <color name="mel_tile_sea">#1e7f63</color>
-    <color name="mel_tile_purple">#7c5cff</color>
-    <color name="mel_tile_amber">#f2a23c</color>
-    <color name="mel_tile_pink">#e8467c</color>
-    <color name="mel_tile_orange">#ff6b4a</color>
-    <color name="mel_tile_teal">#2fb5c9</color>
+    <color name="mel_tile_purple">#7756ff</color>
+    <color name="mel_tile_amber">#aa640b</color>
+    <color name="mel_tile_pink">#e11c5e</color>
+    <color name="mel_tile_orange">#e12900</color>
+    <color name="mel_tile_teal">#217f8d</color>
     <color name="mel_tile_blue">#3d63d5</color>
+    <!-- Decorative glyph on a browse tile: dark, never a label. -->
+    <color name="mel_genre_glyph">#33000000</color>
+    <!-- Veil over an unavailable tile; keeps the hue readable but clearly inert. -->
+    <color name="mel_tile_unavailable_veil">#bf10161a</color>
+    <!-- Browse tile depth. Kept in the palette so drawables carry no hex. -->
+    <color name="mel_tile_shade_bottom">#ffb0b0b0</color>
+    <color name="mel_tile_edge">#1f000000</color>
+    <color name="mel_tile_press">#4dffffff</color>
+    <color name="mel_tile_label_shadow">#59000000</color>
 </resources>

@@ -10073,6 +10073,9 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
     invoke-virtual {p0, v1, v0}, Lcom/melodix/music/MainActivity;->applyNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
 
+    # Presentation only: ring the chosen tile, clear the others.
+    invoke-static {p0, v0}, Lcom/melodix/music/NativeGenreTileStyler;->apply(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+
     :native_genre_done
     return-void
 .end method

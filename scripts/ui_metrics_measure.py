@@ -53,8 +53,11 @@ def tokens(profile):
         for name, raw in re.findall(
             r'<dimen name="([A-Za-z0-9_]+)">([^<]+)</dimen>', path.read_text(encoding="utf-8")
         ):
-            match = re.fullmatch(r"([0-9]+(?:\.[0-9]+)?)(?:dip|dp|sp)", raw.strip())
+            match = re.fullmatch(r"(-?[0-9]+(?:\.[0-9]+)?)(?:dip|dp|sp)", raw.strip())
             if match is None:
+                # Negative dimensions are legal in Android (a negative margin
+                # pushes a decorative child past its parent's edge). The unit is
+                # still mandatory: px, ?attr/ and bare numbers remain rejected.
                 raise SystemExit(f"token {name} has an unsupported value: {raw!r}")
             values[name] = float(match.group(1))
     return values

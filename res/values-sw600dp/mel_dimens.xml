@@ -37,15 +37,15 @@
     <dimen name="mel_search_submit_pad">15.0dip</dimen>
     <dimen name="mel_search_text">16.0sp</dimen>
     <!-- ===== browse (genre tiles) ===== -->
-    <dimen name="mel_browse_title">26.0sp</dimen>
-    <dimen name="mel_browse_title_pad_bottom">20.0dip</dimen>
+    <dimen name="mel_browse_title">27.0sp</dimen>
+    <dimen name="mel_browse_title_pad_bottom">22.0dip</dimen>
     <dimen name="mel_browse_pad_top">8.0dip</dimen>
     <dimen name="mel_browse_pad_bottom">32.0dip</dimen>
-    <dimen name="mel_tile_height">104.0dip</dimen>
-    <dimen name="mel_tile_pad_h">16.0dip</dimen>
-    <dimen name="mel_tile_pad_v">14.0dip</dimen>
-    <dimen name="mel_tile_text">17.0sp</dimen>
-    <dimen name="mel_tile_row_gap">12.0dip</dimen>
+    <dimen name="mel_tile_height">116.0dip</dimen>
+    <dimen name="mel_tile_pad_h">18.0dip</dimen>
+    <dimen name="mel_tile_pad_v">16.0dip</dimen>
+    <dimen name="mel_tile_text">19.0sp</dimen>
+    <dimen name="mel_tile_row_gap">14.0dip</dimen>
     <!-- ===== library category chips ===== -->
     <dimen name="mel_chip_height">52.0dip</dimen>
     <dimen name="mel_chip_pad_h">22.0dip</dimen>
@@ -185,4 +185,8 @@
     <dimen name="mel_splash_error_text">20.0sp</dimen>
     <!-- ===== elevation ===== -->
     <dimen name="mel_legacy_settings_size">52.0dip</dimen>
+    <dimen name="mel_tile_radius">16.0dip</dimen>
+    <dimen name="mel_tile_glyph">78.0dip</dimen>
+    <dimen name="mel_tile_glyph_out">-18.0dip</dimen>
+    <dimen name="mel_tile_glyph_down">-14.0dip</dimen>
 </resources>
