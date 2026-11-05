@@ -307,3 +307,25 @@ test('the failure diagnostics survive a dead process and an empty grep', () => {
   assert.match(yaml, /ui_metrics_diagnose\.py/, 'the dump is diagnosed, not just reported missing');
   assert.match(yaml, /pid_after_5s=/, 'the process state right after launch is reported');
 });
+
+test('the tap helper can reach an unlabelled tile through its container', () => {
+  // Browse tiles have no id; they are reached by position inside their
+  // container, never by a hardcoded coordinate or by their visible label.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mel-ui-tile-'));
+  const file = path.join(dir, 'dump.xml');
+  const xml = '<?xml version="1.0"?><hierarchy>'
+    + '<node resource-id="com.melodix.music:id/nativeGenreScroll" bounds="[0,0][1600,900]">'
+    + '<node clickable="true" bounds="[40,40][400,240]"/>'
+    + '<node clickable="true" bounds="[440,40][800,240]"/>'
+    + '</node></hierarchy>';
+  fs.writeFileSync(file, xml);
+  const at = (index) => execFileSync('python3',
+    [centreScript, file, 'nativeGenreScroll', String(index)], { encoding: 'utf8' }).trim();
+  try {
+    assert.equal(at(0), '220 140');
+    assert.equal(at(1), '620 140');
+    assert.equal(at(2), '', 'an out-of-range index taps nothing rather than guessing');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

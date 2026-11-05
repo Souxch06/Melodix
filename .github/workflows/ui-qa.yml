@@ -1,0 +1,135 @@
+# Melodix UI quality control: walk the real navigation graph on both form
+# factors, capture every reachable surface, and audit the rendered bounds.
+#
+# Build-only. No signing secret, no release, no tag, no preview page. The APK is
+# signed with a throwaway debug key whose fingerprint is written into the
+# temporary build so the app's own signature check passes.
+#
+# Runs on a clean, unauthenticated install: nothing is injected and no account
+# is used. Surfaces that need real playback are recorded as blocked_no_session.
+#
+# The captures are committed to docs/audits/ui-qa-<run>/ because artifact
+# downloads are unreachable from the review sandbox. No trigger watches docs/,
+# and the commit carries [skip ci], so publishing cannot re-trigger the walk.
+name: Melodix UI quality control
+on:
+  workflow_dispatch: null
+  push:
+    branches:
+    - arena/6b935c3e-melodix
+    paths:
+    - res/**
+    - smali/com/melodix/music/Native**
+    - assets/css_hacks.css
+    - scripts/ui_qa_walk.sh
+    - scripts/ui_qa_trace.py
+    - scripts/ui_layout_audit.py
+    - scripts/ui_view_center.py
+    - .github/workflows/ui-qa.yml
+permissions:
+  contents: read
+jobs:
+  build-qa-apk:
+    name: Build one build-only APK for both profiles
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+    - name: Check out the branch under test
+      uses: actions/checkout@v7.0.1
+    - name: Set up Java
+      uses: actions/setup-java@v6.1.0
+      with:
+        distribution: temurin
+        java-version: '17'
+    - name: Set up Android SDK
+      uses: android-actions/setup-android@v4.0.4
+    - name: Install build tools
+      shell: bash
+      run: "set -euo pipefail\nsdkmanager --install \"build-tools;35.0.0\" \"platform-tools\"\n[[ -x \"$ANDROID_HOME/build-tools/35.0.0/apksigner\" ]] || {\n  echo \"::error::apksigner is missing.\"; exit 1; }\n"
+    - name: Assemble and sign with a throwaway debug key
+      shell: bash
+      run: "set -euo pipefail\nwork=\"$RUNNER_TEMP/melodix-ui-project\"\nframework=\"$RUNNER_TEMP/melodix-ui-framework\"\nunsigned=\"$RUNNER_TEMP/melodix-ui-unsigned.apk\"\nsigned=\"$RUNNER_TEMP/melodix-ui-metrics.apk\"\nkeystore=\"$RUNNER_TEMP/melodix-ui-debug.jks\"\ncert=\"$RUNNER_TEMP/melodix-ui-debug.der\"\nmkdir -p \"$work\" \"$framework\"\n\nfor item in AndroidManifest.xml META-INF apktool.yml assets kotlin lib original res smali unknown; do\n  if [[ ! -e \"$GITHUB_WORKSPACE/$item\" ]]; then\n    echo \"::error::Root-level Apktool project item is missing: $item\"; exit 1\n  fi\n  cp -a \"$GITHUB_WORKSPACE/$item\" \"$work/\"\ndone\n\n# The app verifies its own signing certificate against\n# res/values/strings.xml expected_signature_sha256. A re-signed APK\n# whose fingerprint is not written back exits at startup, which is\n# exactly what the first device runs showed. Generate the key FIRST,\n# derive its fingerprint, and patch the temporary build - the same\n# approach the preview build uses, but with a disposable key and no\n# secret. The repository copy is never modified.\nkeytool -genkeypair -keystore \"$keystore\" -alias uicheck \\\n  -keyalg RSA -keysize 2048 -validity 2 \\\n  -storepass android -keypass android \\\n  -dname \"CN=Melodix UI Metrics, O=Build Only, C=FR\" >/dev/null\nkeytool -exportcert -alias uicheck -keystore \"$keystore\" \\\n  -storepass android -file \"$cert\" >/dev/null\nfingerprint_hex=\"$(sha256sum \"$cert\" | awk '{print toupper($1)}')\"\nfingerprint=\"$(printf '%s' \"$fingerprint_hex\" | fold -w 2 | paste -sd ':' -)\"\n[[ \"$fingerprint\" =~ ^([A-F0-9]{2}:){31}[A-F0-9]{2}$ ]] || {\n  echo \"::error::could not derive the build-only certificate fingerprint.\"; exit 1; }\n\npython3 -c 'import pathlib, re, sys; p = pathlib.Path(sys.argv[1]); t = p.read_text(encoding=\"utf-8\"); pat = r\"(<string name=\\\"expected_signature_sha256\\\">)[^<]*(</string>)\"; assert len(re.findall(pat, t)) == 1, \"expected exactly one signature resource\"; p.write_text(re.sub(pat, lambda m: m.group(1) + sys.argv[2] + m.group(2), t), encoding=\"utf-8\")' \\\n  \"$work/res/values/strings.xml\" \"$fingerprint\"\ngrep -q \"$fingerprint\" \"$work/res/values/strings.xml\" || {\n  echo \"::error::the fingerprint was not written into the temporary build.\"; exit 1; }\necho \"::notice title=UI metrics signing::throwaway-debug; fingerprint_written=true; repository_unchanged=true\"\n\nframework_apk=\"$GITHUB_WORKSPACE/android/apktool-framework/1.apk\"\n[[ -s \"$framework_apk\" ]] || { echo \"::error::Apktool framework is missing.\"; exit 1; }\n\ncurl --fail --silent --show-error --location \\\n  \"https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar\" \\\n  --output \"$RUNNER_TEMP/apktool.jar\"\njava -jar \"$RUNNER_TEMP/apktool.jar\" if --frame-path \"$framework\" \"$framework_apk\"\njava -jar \"$RUNNER_TEMP/apktool.jar\" b \"$work\" \\\n  --frame-path \"$framework\" --output \"$unsigned\" --force-all\n[[ -s \"$unsigned\" ]] || { echo \"::error::Apktool produced no APK.\"; exit 1; }\n\n\"$ANDROID_HOME/build-tools/35.0.0/zipalign\" -p -f 4 \"$unsigned\" \"$signed\"\n\"$ANDROID_HOME/build-tools/35.0.0/apksigner\" sign \\\n  --ks \"$keystore\" --ks-pass pass:android --key-pass pass:android \\\n  --ks-key-alias uicheck \"$signed\"\n\"$ANDROID_HOME/build-tools/35.0.0/apksigner\" verify \"$signed\"\n\npackage_id=\"$(\"$ANDROID_HOME/build-tools/35.0.0/aapt\" dump badging \"$signed\" \\\n  | sed -n \"s/^package: name='\\([^']*\\)'.*/\\1/p\")\"\n[[ \"$package_id\" == \"com.melodix.music\" ]] || {\n  echo \"::error::unexpected package id: $package_id\"; exit 1; }\nsha=\"$(sha256sum \"$signed\" | cut -d' ' -f1)\"\necho \"::notice title=UI metrics APK::sha256=$sha; source=$GITHUB_SHA; publication=disabled; signing=throwaway-debug\"\n"
+    - name: Upload the build-only APK for both profiles
+      uses: actions/upload-artifact@v4.6.2
+      with:
+        name: melodix-ui-metrics-apk-${{ github.run_id }}
+        path: ${{ runner.temp }}/melodix-ui-metrics.apk
+        retention-days: 3
+        if-no-files-found: error
+  walk-qa:
+    name: Walk and capture on ${{ matrix.profile }}
+    needs: build-qa-apk
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        profile:
+        - phone
+        - tablet
+    steps:
+    - name: Check out the measurement tooling
+      uses: actions/checkout@v7.0.1
+    - name: Set up Java
+      uses: actions/setup-java@v6.1.0
+      with:
+        distribution: temurin
+        java-version: '17'
+    - name: Set up Android SDK
+      uses: android-actions/setup-android@v4.0.4
+    - name: Install the Android 16 emulator
+      shell: bash
+      run: "set -euo pipefail\n[[ \"$(uname -m)\" == \"x86_64\" ]] || { echo \"::error::expected an x86_64 host.\"; exit 1; }\nsystem_image=\"system-images;android-36;google_apis;x86_64\"\nsdkmanager --install \"platform-tools\" \"emulator\" \"build-tools;35.0.0\" \\\n  \"platforms;android-36\" \"$system_image\"\n[[ -e /dev/kvm ]] || { echo \"::error::KVM is unavailable on this runner.\"; exit 1; }\n"
+    - name: Download the same-run build-only APK
+      uses: actions/download-artifact@v4.3.0
+      with:
+        name: melodix-ui-metrics-apk-${{ github.run_id }}
+        path: ${{ runner.temp }}/melodix-ui-apk
+    - name: Boot the profile AVD
+      shell: bash
+      env:
+        PROFILE: ${{ matrix.profile }}
+      run: "set -euo pipefail\nbash scripts/p0_display_boot_avd.sh \"$PROFILE\" \"MelodixDisplayUi${PROFILE}\" \\\n  \"system-images;android-36;google_apis;x86_64\" \\\n  \"$RUNNER_TEMP/melodix-ui-state-$PROFILE\"\n"
+    - name: Walk the navigation graph and capture every surface
+      shell: bash
+      env:
+        PROFILE: ${{ matrix.profile }}
+      run: "set -euo pipefail\nstate=\"$RUNNER_TEMP/melodix-ui-state-$PROFILE\"\nout=\"$RUNNER_TEMP/melodix-qa-$PROFILE\"\nmkdir -p \"$out\"\ndevice=\"$(cat \"$state/emulator.device\")\"\napk=\"$RUNNER_TEMP/melodix-ui-apk/melodix-ui-metrics.apk\"\n[[ -s \"$apk\" ]] || { echo \"::error::the build-only APK is missing.\"; exit 1; }\n\nadb -s \"$device\" install -r -g \"$apk\"\nadb -s \"$device\" logcat -c || true\nadb -s \"$device\" shell am start -W -n com.melodix.music/.MainActivity | tr -d '\\r' | tee \"$out/am-start.txt\"\n\ndensity=\"$(adb -s \"$device\" shell wm density | sed -n 's/.*: *\\([0-9]*\\).*/\\1/p' | tail -1)\"\n[[ \"$density\" =~ ^[0-9]+$ ]] || { echo \"::error::could not read the display density.\"; exit 1; }\necho \"profile=$PROFILE density=$density\"\n\nset +e\nbash scripts/ui_qa_walk.sh \"$device\" \"$PROFILE\" \"$density\" \"$out\"\nwalk_status=$?\nset -e\necho \"$walk_status\" > \"$out/walk-status.txt\"\nif [[ \"$walk_status\" != \"0\" ]]; then\n  echo \"::error title=QA walk $PROFILE::the walk reported $walk_status failing step(s); see the navigation and layout annotations\"\nfi\n# The captures are published even when a step failed: a defect is exactly what\n# needs to be seen. The job still fails so nothing is presented as clean.\nexit \"$walk_status\"\n"
+    - name: Upload the QA captures
+      if: always()
+      uses: actions/upload-artifact@v4.6.2
+      with:
+        name: melodix-qa-${{ matrix.profile }}-${{ github.run_id }}
+        path: ${{ runner.temp }}/melodix-qa-${{ matrix.profile }}
+        retention-days: 7
+        if-no-files-found: warn
+    - name: Stop only this profile's emulator
+      if: always()
+      shell: bash
+      env:
+        PROFILE: ${{ matrix.profile }}
+      run: "set -euo pipefail\nstate=\"$RUNNER_TEMP/melodix-ui-state-$PROFILE\"\nif [[ -d \"$state\" ]]; then\n  bash scripts/p0_display_stop_avd.sh \"$state\" || true\nfi\n"
+  publish-captures:
+    name: Publish the captures to the working branch
+    needs:
+    - build-qa-apk
+    - walk-qa
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+    - name: Check out the working branch
+      uses: actions/checkout@v7.0.1
+      with:
+        ref: arena/6b935c3e-melodix
+        fetch-depth: 1
+    - name: Download both profiles
+      uses: actions/download-artifact@v4.3.0
+      with:
+        pattern: melodix-qa-*-${{ github.run_id }}
+        path: ${{ runner.temp }}/qa
+    - name: Commit the captures so they can be reviewed outside Actions
+      shell: bash
+      run: "set -euo pipefail\n# Artifact downloads are not reachable from the review sandbox (the blob host\n# is outside its allowlist), so the evidence is committed to the working branch.\n# Only this docs/ path is written, which no workflow trigger watches, and the\n# commit carries [skip ci] as a second guard against a re-trigger loop.\ndest=\"docs/audits/ui-qa-${{ github.run_id }}\"\nmkdir -p \"$dest\"\nfound=0\nfor profile in phone tablet; do\n  src=\"${{ runner.temp }}/qa/melodix-qa-$profile-${{ github.run_id }}\"\n  [[ -d \"$src\" ]] || continue\n  mkdir -p \"$dest/$profile\"\n  find \"$src\" -maxdepth 1 -name '*.png' -exec cp {} \"$dest/$profile/\" \\;\n  find \"$src\" -maxdepth 1 -name '*.json' -exec cp {} \"$dest/$profile/\" \\;\n  found=1\ndone\nif [[ \"$found\" != \"1\" ]]; then\n  echo \"::error title=QA captures::no capture directory was produced by either profile\"\n  exit 1\nfi\ngit config user.name \"Melodix QA\"\ngit config user.email \"qa@melodix.local\"\ngit add \"$dest\"\nif git diff --cached --quiet; then\n  echo \"::notice title=QA captures::nothing new to commit\"\n  exit 0\nfi\ncount=\"$(git diff --cached --name-only | wc -l)\"\ngit commit -q -m \"docs: QA captures for run ${{ github.run_id }} [skip ci]\"\ngit push -q origin HEAD:arena/6b935c3e-melodix\necho \"::notice title=QA captures published::path=$dest; files=$count\"\n"
