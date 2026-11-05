@@ -1,16 +1,3 @@
-# Melodix UI quality control: walk the real navigation graph on both form
-# factors, capture every reachable surface, and audit the rendered bounds.
-#
-# Build-only. No signing secret, no release, no tag, no preview page. The APK is
-# signed with a throwaway debug key whose fingerprint is written into the
-# temporary build so the app's own signature check passes.
-#
-# Runs on a clean, unauthenticated install: nothing is injected and no account
-# is used. Surfaces that need real playback are recorded as blocked_no_session.
-#
-# The captures are committed to docs/audits/ui-qa-<run>/ because artifact
-# downloads are unreachable from the review sandbox. No trigger watches docs/,
-# and the commit carries a skip marker, so publishing cannot re-trigger the walk.
 name: Melodix UI quality control
 on:
   workflow_dispatch: null
@@ -26,6 +13,9 @@ on:
     - scripts/ui_layout_audit.py
     - scripts/ui_view_center.py
     - .github/workflows/ui-qa.yml
+    - scripts/ui_resource_probe.sh
+    - tests/ui_wiring_audit.test.js
+    - scripts/ui_wiring_audit.py
 permissions:
   contents: read
 jobs:
@@ -90,6 +80,16 @@ jobs:
       env:
         PROFILE: ${{ matrix.profile }}
       run: "set -euo pipefail\nbash scripts/p0_display_boot_avd.sh \"$PROFILE\" \"MelodixDisplayUi${PROFILE}\" \\\n  \"system-images;android-36;google_apis;x86_64\" \\\n  \"$RUNNER_TEMP/melodix-ui-state-$PROFILE\"\n"
+    - name: Probe the resource table of the installed APK
+      run: 'set -euo pipefail
+
+        out="$RUNNER_TEMP/melodix-qa-$PROFILE"
+
+        mkdir -p "$out"
+
+        bash scripts/ui_resource_probe.sh "$RUNNER_TEMP/melodix-ui-apk/melodix-ui-metrics.apk" "$out/resource-table.txt"
+
+        '
     - name: Walk the navigation graph and capture every surface
       shell: bash
       env:

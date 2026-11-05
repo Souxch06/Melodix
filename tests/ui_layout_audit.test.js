@@ -223,3 +223,39 @@ test('the QA workflow keeps a literal on: key and cannot re-trigger itself', () 
   assert.match(yaml, /profile:\s*(?:\[phone,\s*tablet\]|\n\s*- phone\n\s*- tablet)/,
     'both form factors are walked');
 });
+
+// --- resource probe -------------------------------------------------------
+// The tablet captures showed runtime-resolved tokens landing on their phone
+// fallback while XML-resolved tokens were correct. The probe separates a
+// packaging cause from a lookup cause, so the fix is not a guess.
+
+test('the resource probe reports honestly when it cannot run', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mel-probe-'));
+  const out = path.join(dir, 'nested', 'resource-table.txt');
+  execFileSync('bash', [path.join(root, 'scripts', 'ui_resource_probe.sh'),
+    path.join(dir, 'absent.apk'), out], { encoding: 'utf8' });
+  const text = fs.readFileSync(out, 'utf8');
+  assert.match(text, /status=apk_missing/, 'a missing APK must be stated, not guessed around');
+  assert.ok(!/ABSENT_FROM_RESOURCE_TABLE/.test(text), 'no claim about resources without a dump');
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('the probe covers the tokens that disagreed on the tablet', () => {
+  const text = fs.readFileSync(path.join(root, 'scripts', 'ui_resource_probe.sh'), 'utf8');
+  for (const token of ['mel_settings_row_height', 'mel_status_max_width', 'mel_tab_bar_height']) {
+    assert.ok(text.includes(token), `${token} must be probed`);
+  }
+  assert.ok(text.includes('mel_tab_bar_height'),
+    'a token known to resolve correctly is needed as the control');
+});
+
+test('the QA workflow runs the probe before walking, and keeps its trigger', () => {
+  const raw = fs.readFileSync(path.join(root, '.github', 'workflows', 'ui-qa.yml'), 'utf8');
+  // YAML 1.1 parsers turn the bare key `on` into a boolean; assert on the text.
+  assert.match(raw, /^on:/m, 'GitHub must see a trigger block');
+  assert.ok(!/^true:/m.test(raw), 'a dumped boolean key would disable every trigger');
+  assert.ok(raw.includes('ui_resource_probe.sh'), 'the probe must actually run in CI');
+  const probeAt = raw.indexOf('Probe the resource table');
+  const walkAt = raw.indexOf('Walk the navigation graph');
+  assert.ok(probeAt > 0 && probeAt < walkAt, 'the probe must run before the walk');
+});
