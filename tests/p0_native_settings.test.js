@@ -425,8 +425,7 @@ test('native Settings timeout replaces loading with a retryable error, and rejec
     const errorRows = JSON.parse(timedOut.renders[0].json);
     assert.equal(errorRows[0].title, 'Paramètres indisponibles');
     assert.equal(errorRows[0].uri, 'melodix:action:retry-settings');
-    // Unproven session (default in the interpreter): the fallback carries the
-    // real connect and notifications actions, plus the About injection point.
+    // The fallback always carries the real connect and notifications actions.
     assert.ok(errorRows.some((r) => r.uri === 'melodix:action:open-login'), 'fallback offers a real connect action');
     assert.ok(errorRows.some((r) => r.uri === 'melodix:action:open-notifications'), 'fallback offers the real notifications screen');
     assert.ok(errorRows.some((r) => r.title === 'État de la connexion Spotify' && r.settingValue === 'Se connecter'));
