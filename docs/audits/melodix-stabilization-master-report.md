@@ -487,3 +487,23 @@ Cycle 2 : vérifier sur les deux profils que `back-from-settings` et `home-again
 - **Ouverts restants** : validation authentifiée manquante ; parcours G sans session ; états
   appuyé/indisponible des tuiles non observables sans geste maintenu.
 
+---
+
+## Cycle 12 — release de test automatique + audit P4 lecteur/mini-lecteur
+
+- **Règle permanente en place** : le job `release-test` de `ui-qa.yml` publie à chaque run QA
+  100 % vert une **pre-release** `v1.2.2-test.<run>-preview` taggée sur le SHA exact testé, avec
+  l'APK build-only + son sha256. Run **`42102006731` 6/6 vert** → release
+  [v1.2.2-test.38-preview](https://github.com/Souxch06/Melodix/releases/tag/v1.2.2-test.38-preview)
+  (commit `34d312c`). La porte fonctionne : le run `42100380968` (suite rouge) a **skippé** la release.
+- **P4 audit (sans session)** : nouveau `tests/player_structure.test.js` (8 tests) — panneaux
+  cachés par défaut, progress inerte (max 1000, progress 0), placeholders réels, cibles ≥ 48 dp
+  sur les 2 profils, contraste AA, handlers qui ne délèguent qu'au vrai pont JS.
+- **Défaut réel trouvé et normalisé** : `nativeHasTrack` écrit inversé (double inversion avec les
+  2 lecteurs = comportement correct par accident, contraire au commentaire). 3 sites normalisés en
+  `if-nez`, comportement identique, garde de test sur la cohérence. Aucun mécanisme de transport touché.
+- **Workflow** : `paths` inclut `tests/**` (un commit test-seul ne déclenchait plus rien).
+- Suite **769 / 766 pass / 0 fail / 3 skip**.
+- **Bloqué sans session** (inchangé, documenté) : validation fonctionnelle du lecteur/mini-lecteur,
+  résultats de recherche de genre, parcours G.
+
