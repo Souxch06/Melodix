@@ -58,6 +58,13 @@ fi
     exit 0
   fi
   echo "resource_name_count=$(grep -cE '^ *resource [0-9a-fx]+ ' "$dump" || true)"
+  # getIdentifier(name, type, getPackageName()) returns 0 when the package of the
+  # resource table differs from the manifest package. The APK is built with
+  # forcedPackageId, so this is the last packaging-side suspect to rule out.
+  echo "--- resource table package"
+  grep -m3 -E '^Package |^ *Package Groups|package ' "$dump" || echo "  (no package header found)"
+  echo "--- manifest package"
+  "$aapt2" dump packagename "$apk" 2>/dev/null || echo "  (packagename unavailable)"
   for token in $tokens; do
     echo "--- $token"
     # Print the resource block: its id, then each configuration and value.

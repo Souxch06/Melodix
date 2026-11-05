@@ -53,6 +53,11 @@ STEPS = {
     "browse-tile": {
         "required": ["nativeRoot"],
         "optional": ["nativeContent", "nativeRowsScroll", "nativeSearchInput"],
+        # "reached" here means the tap was delivered and the shell survived it,
+        # NOT that results appeared: a genre search calls searchMediaItems, which
+        # needs a session. The capture shows the grid unchanged and the field
+        # still empty. The outcome is covered by the authenticated protocol.
+        "note": "tap delivered only; genre results require an authenticated session",
     },
     "settings": {
         "required": ["nativeRoot", "nativeContent", "nativeBackButton"],
@@ -155,6 +160,8 @@ def main():
         "title_expected": expected_title,
         "title_matched": title_ok,
     }
+    if spec.get("note"):
+        entry["scope_note"] = spec["note"]
     trace.append(entry)
     trace_file.write_text(json.dumps(trace, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 

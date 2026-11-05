@@ -390,3 +390,10 @@ test('the resource probe output is published with the captures', () => {
   assert.ok(raw.includes('resource-table.txt'),
     'a diagnostic nobody can read is not evidence');
 });
+
+test('a genre tap without a session does not claim results appeared', () => {
+  const { entry } = traceStep('browse-tile', traceDump(HOME_NODES));
+  assert.equal(entry.verdict, 'reached');
+  assert.match(entry.scope_note, /authenticated session/,
+    'the published trace itself must carry the limit, not just the report');
+});
