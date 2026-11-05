@@ -289,3 +289,19 @@ test('the WebView backdrops match the native shell palette', () => {
   assert.equal(tokens.get('--mel-accent'), androidColour('mel_accent'),
     'both layers share one accent');
 });
+
+test('MEL-BUG-013: the legacy settings button meets the minimum touch target on both profiles', () => {
+  // Measured at 40x40dp on device, below the 48dp minimum. The token had no
+  // tablet override at all, so both profiles were undersized.
+  const phone = fs.readFileSync(path.join(root, 'res/values/mel_dimens.xml'), 'utf8');
+  const tablet = fs.readFileSync(path.join(root, 'res/values-sw600dp/mel_dimens.xml'), 'utf8');
+  const val = (s, n) => {
+    const m = new RegExp(`<dimen name="${n}">([\\d.]+)dip</dimen>`).exec(s);
+    assert.ok(m, `${n} must be declared`);
+    return Number(m[1]);
+  };
+  assert.ok(val(phone, 'mel_legacy_settings_size') >= 48, 'phone touch target must be at least 48dp');
+  assert.ok(val(tablet, 'mel_legacy_settings_size') >= 48, 'tablet needs its own override');
+  assert.equal(val(tablet, 'mel_legacy_settings_size'), val(tablet, 'mel_header_action'),
+    'the legacy button must match the native settings button it stands in for');
+});

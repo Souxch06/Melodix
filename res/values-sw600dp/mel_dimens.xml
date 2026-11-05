@@ -184,4 +184,5 @@
     <dimen name="mel_splash_text">17.0sp</dimen>
     <dimen name="mel_splash_error_text">20.0sp</dimen>
     <!-- ===== elevation ===== -->
+    <dimen name="mel_legacy_settings_size">52.0dip</dimen>
 </resources>

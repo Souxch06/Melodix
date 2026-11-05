@@ -275,8 +275,12 @@ return v0
 | **Absent des runs précédents** | 0 défaut téléphone aux runs `42008408954` et `42019138039` ; `btnSettings` n'était pas dans le dump |
 | **Cause** | **Non établie.** Deux hypothèses à départager : l'application des vrais jetons a modifié un calcul de visibilité du chrome hérité, ou il s'agit d'un état transitoire en fin de parcours. |
 | **Décision** | **Je n'affaiblis pas l'audit** pour rendre la CI verte. Le défaut reste signalé, le parcours téléphone reste en échec, et c'est la prochaine tâche. |
-| **Suite** | **Non reproduit** au run `42022211867` : 0 défaut téléphone. La cause n'ayant jamais été établie, je ne le déclare pas résolu. |
-| **Statut** | **Non reproduit — à surveiller** |
+| **Reproduit** | Run `42030168198`, étape `background-resume`, téléphone. Absent aux runs `42022211867` et `42027909065`. **Intermittent**, lié à la reprise d'arrière-plan. |
+| **Cause établie** | `btnSettings` n'a **aucun attribut `visibility`** dans `activity_main.xml` : il est donc visible par défaut. Seul `showNativeUiFrom` le met à `GONE`, et seulement quand le shell natif est prêt. À la reprise, `onCreate` repose la vue et une fenêtre existe entre cet instant et la prise de possession par le shell. Les trois seuls sites qui référencent l'id sont deux dans `onCreate` (écouteur, style) et un dans `showNativeUiFrom` (`GONE`) : **aucun code ne le montre explicitement**. |
+| **Défaut d'accessibilité démontré** | `mel_legacy_settings_size` valait **40 dp** et n'avait **aucun override tablette** : sous le minimum tactile de 48 dp sur les deux profils. |
+| **Correctif appliqué** | Jeton porté à **48 dp** (téléphone) et **52 dp** (tablette), aligné sur `mel_header_action`, le bouton natif qu'il remplace. Couche visuelle uniquement. |
+| **Correctif NON appliqué, et pourquoi** | Mettre `visibility="gone"` en XML supprimerait la fenêtre transitoire, mais **retirerait l'accès aux réglages dans le repli web**, puisque aucun code ne le réaffiche. Périmètre non maîtrisé : je ne l'applique pas. Correctif proposé : l'afficher explicitement dans le chemin de repli, puis le masquer en XML. |
+| **Statut** | **Partiellement corrigé** — cible tactile résolue ; chevauchement transitoire **ouvert**, cause établie, correctif proposé. **Je n'affaiblis pas l'audit** : le parcours téléphone reste en échec sur ce point. |
 
 ## MEL-BUG-014 — Les lignes de paramètres sont en plein bord, sans gouttière
 

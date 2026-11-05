@@ -201,7 +201,7 @@
     <dimen name="mel_splash_error_text">18.0sp</dimen>
     <dimen name="mel_progress_height">4.0dip</dimen>
     <dimen name="mel_splash_error_elevation">10.0dip</dimen>
-    <dimen name="mel_legacy_settings_size">40.0dip</dimen>
+    <dimen name="mel_legacy_settings_size">48.0dip</dimen>
     <dimen name="mel_legacy_settings_margin">5.0dip</dimen>
     <!-- ===== elevation ===== -->
     <dimen name="mel_shell_elevation">15.0dip</dimen>
