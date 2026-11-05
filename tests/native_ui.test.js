@@ -1073,9 +1073,9 @@ test('native settings rows reflect real controls, keep Melodix preferences local
     const localCanvas = rows.find((row) => row.uri === 'melodix:setting:canvas');
     const shuffleRow = rows.find((row) => row.uri === 'spotify:settings:shuffle');
     const repeatRow = rows.find((row) => row.uri === 'spotify:settings:repeat');
-    const unavailable = rows.find((row) => row.section === 'Non disponibles');
+    const unavailable = rows.find((row) => row.title === 'Autres réglages Spotify');
     const refresh = rows.find((row) => row.title === 'Actualiser la bibliothèque');
-    assert.ok(localCanvas && localCanvas.section === 'Préférences Melodix');
+    assert.ok(localCanvas && localCanvas.section === 'Préférences de lecture');
     assert.equal(localCanvas.settingValue, 'ON');
     assert.equal(shuffleRow.settingValue, 'OFF', 'the value comes from Spotify control-button-shuffle');
     assert.equal(repeatRow.settingValue, 'ON', 'the value comes from Spotify control-button-repeat');
@@ -1877,4 +1877,126 @@ test('login Web ownership ends only when the primary SPA leaves the login path',
         'late generic reveal callbacks stay behind the login guard');
     assert.doesNotMatch(route + ready + finished, /CookieManager|clearCache|clearHistory|removeAllCookies|loadUrl/,
         'login-owner exit never clears cookies or changes the existing SPA navigation');
+});
+
+test('settings page distinguishes connecté / expirée / réseau / non connecté, honestly', () => {
+    const buildWindow = (over) => {
+        const calls = [];
+        const controls = {
+            'control-button-shuffle': { enabled: false },
+            'control-button-repeat': { enabled: false }
+        };
+        Object.values(controls).forEach((c) => {
+            c.getAttribute = (n) => n === 'aria-checked' ? String(c.enabled) : null;
+            c.click = () => {};
+        });
+        const document = {
+            readyState: 'complete',
+            documentElement: {},
+            body: { classList: { toggle: () => {} } },
+            querySelector: (sel) => {
+                const m = /data-testid="([^"]+)"/.exec(sel);
+                return m ? controls[m[1]] || null : null;
+            },
+            addEventListener: () => {}
+        };
+        class TestMutationObserver { observe() {} }
+        const window = Object.assign({
+            SF_CONFIG: { autoPlayMode: 'permanent', isCanvasDisabled: false },
+            location: { hostname: 'open.spotify.com', pathname: '/', href: 'https://open.spotify.com/' },
+            AndBridge: { onNativeUiReady: () => {}, onNativeUiData: (k, d) => calls.push({ k, d }), setCanvasDisabled: () => {}, manageTSleep: () => {} },
+            MutationObserver: TestMutationObserver,
+            addEventListener: () => {},
+            setTimeout: () => 1,
+            clearTimeout: () => {},
+            localStorage: { getItem: () => null, setItem: () => {}, clear: () => {} }
+        }, over);
+        return { window, document, calls, TestMutationObserver };
+    };
+    const run = (over) => {
+        const { window, document, calls, TestMutationObserver } = buildWindow(over);
+        vm.runInNewContext(read('scripts/native_ui_shell.source.js'), { window, document, URL, MutationObserver: TestMutationObserver });
+        calls.length = 0;
+        window.__sfRequestSpotifySettings();
+        return JSON.parse(calls[0].d);
+    };
+    const state = (rows) => rows.find((r) => r.title === 'État de la connexion Spotify');
+
+    // 1. Connecté (preuve libraryV3) : jamais de faux statut, action déconnexion réelle.
+    let rows = run({ __sfMediaLibSessionProofKnown: true, __sfMediaLibSessionProven: true, __sfMediaLibStatus: 'ready', __sfMediaLibRawItemCount: 3 });
+    assert.equal(state(rows).settingValue, 'Connecté');
+    assert.equal(state(rows).uri, '', 'no action on a confirmed connection');
+    assert.equal(rows.find((r) => r.title === 'Se déconnecter de Spotify').uri, 'spotify:settings:logout');
+    const accountOk = rows.find((r) => r.section === 'Compte et connexion' && /Compte/.test(r.title));
+    assert.equal(accountOk.title, 'Compte non identifié', 'no fabricated account name without a widget');
+    assert.equal(accountOk.settingValue, 'Confirmé', 'the session proof is the confirmation, not the name');
+
+    // 2. Session expirée (401) : état distinct + renouvellement réel.
+    rows = run({ __sfMediaLibSessionProofKnown: true, __sfMediaLibSessionProven: false, __sfMediaLibStatus: 'error', __sfMediaLibError: 'http-401' });
+    assert.equal(state(rows).settingValue, 'Renouveler la session');
+    assert.equal(state(rows).uri, 'melodix:action:open-login');
+    assert.match(state(rows).subtitle, /HTTP 401/);
+    assert.match(state(rows).subtitle, /sans être prouvée/, 'a 401 must not be asserted as an expired session');
+
+    // 3. Erreur réseau : état distinct + réessayer réel, pas de "connecté".
+    rows = run({ __sfMediaLibSessionProofKnown: true, __sfMediaLibSessionProven: false, __sfMediaLibStatus: 'error', __sfMediaLibError: 'network-error' });
+    assert.equal(state(rows).settingValue, 'Réessayer');
+    assert.equal(state(rows).uri, 'melodix:action:retry-library');
+    assert.match(state(rows).subtitle, /Erreur réseau/);
+
+    // 4. Non connecté : connexion proposée, aucun statut inventé.
+    rows = run({ __sfMediaLibStatus: 'absent' });
+    assert.equal(state(rows).settingValue, 'Se connecter');
+    assert.equal(state(rows).uri, 'melodix:action:open-login');
+    const account = rows.find((r) => r.section === 'Compte et connexion' && /Compte/.test(r.title));
+    assert.equal(account.title, 'Compte non identifié', 'no fabricated account name');
+    assert.match(account.subtitle, /aucune donnée n’est inventée/);
+
+    // 5. Sections demandées présentes, notifications = vraie action système.
+    for (const section of ['Compte et connexion', 'Spotify', 'Apparence et thème', 'Préférences de lecture', 'Notifications']) {
+        assert.ok(rows.some((r) => r.section === section), `section manquante: ${section}`);
+    }
+    const notif = rows.find((r) => r.section === 'Notifications');
+    assert.equal(notif.uri, 'melodix:action:open-notifications');
+    assert.equal(notif.settingValue, 'Réglages système');
+    const theme = rows.find((r) => r.section === 'Apparence et thème');
+    assert.match(theme.title, /Thème/);
+    assert.equal(theme.uri, '', 'the theme row is information only, not a fake toggle');
+    // Aucun jeton/scope inventé.
+    assert.doesNotMatch(rows.map((r) => r.title + r.subtitle).join('\n'), /user-read-private|playlist-read-private|token/i);
+});
+
+test('native side: notifications action opens the real system screen, and the About section carries the real version', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const at = activity.indexOf('.method public final openNativeRow');
+    const row = activity.slice(at, activity.indexOf('.end method', at));
+    const code = row.split('\n').filter((l) => !l.trim().startsWith('#')).join('\n');
+    const notifAt = code.indexOf('"melodix:action:open-notifications"');
+    assert.ok(notifAt !== -1, 'openNativeRow must dispatch the notifications action');
+    assert.match(code.slice(notifAt), /openNativeNotificationSettings\(\)V/);
+
+    const notif = activity.slice(activity.indexOf('.method public final openNativeNotificationSettings'),
+        activity.indexOf('.end method', activity.indexOf('.method public final openNativeNotificationSettings')));
+    assert.match(notif, /android\.settings\.APP_NOTIFICATION_SETTINGS/);
+    assert.match(notif, /Uri;->fromParts/);
+    assert.match(notif, /startActivity\(Landroid\/content\/Intent;\)V/);
+    assert.match(notif, /\.catch Ljava\/lang\/Throwable;/, 'a failed intent must not crash the row click');
+
+    const about = activity.slice(activity.indexOf('.method private final appendNativeAboutRows'),
+        activity.indexOf('.end method', activity.indexOf('.method private final appendNativeAboutRows')));
+    assert.match(about, /getPackageManager\(\)Landroid\/content\/pm\/PackageManager;/);
+    assert.match(about, /getPackageInfo\(Ljava\/lang\/String;I\)Landroid\/content\/pm\/PackageInfo;/);
+    assert.match(about, /PackageInfo;->versionName:Ljava\/lang\/String;/);
+    assert.match(about, /PackageInfo;->versionCode:I/);
+    assert.match(about, /"Informations sur Melodix"/);
+    assert.match(about, /Données sensibles/);
+    // Repli propre: en cas d'échec, le payload d'origine est renvoyé tel quel.
+    assert.match(about, /:about_catch[\s\S]*?return-object p1/);
+    // Le payload settings passe par appendNativeAboutRows avant le rendu.
+    const applyAt = activity.indexOf('.method public final applyNativeUiData');
+    const apply = activity.slice(applyAt, activity.indexOf('.end method', applyAt));
+    const settingsBlock = apply.slice(apply.indexOf('const-string v3, "settings"'));
+    assert.match(settingsBlock, /appendNativeAboutRows\(Ljava\/lang\/String;\)Ljava\/lang\/String;/);
+    assert.ok(settingsBlock.indexOf('appendNativeAboutRows') < settingsBlock.indexOf('renderNativeRows'),
+        'the About rows are appended BEFORE rendering');
 });

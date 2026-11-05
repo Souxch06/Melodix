@@ -9286,7 +9286,9 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     move-result v5
     if-eqz v5, :apply_done
     const-string v2, "Paramètres"
-    invoke-virtual {p0, v2, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    invoke-direct {p0, p2}, Lcom/melodix/music/MainActivity;->appendNativeAboutRows(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v6
+    invoke-virtual {p0, v2, v6}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     invoke-direct {p0, p2}, Lcom/melodix/music/MainActivity;->markNativeSettingsPayloadApplied(Ljava/lang/String;)V
     return-void
 
@@ -10209,6 +10211,116 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     return-void
 .end method
 
+.method public final openNativeNotificationSettings()V
+    .locals 3
+
+    # Real system screen for this app's notifications (POST_NOTIFICATIONS is
+    # declared in the manifest). No fake toggle: the OS owns the permission.
+    :try_start_notif
+    new-instance v0, Landroid/content/Intent;
+    const-string v1, "android.settings.APP_NOTIFICATION_SETTINGS"
+    invoke-direct {v0, v1}, Landroid/content/Intent;-><init>(Ljava/lang/String;)V
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->getPackageName()Ljava/lang/String;
+    move-result-object v2
+    const-string v1, "package"
+    const/4 v3, 0x0
+    invoke-static {v1, v2, v3}, Landroid/net/Uri;->fromParts(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Landroid/net/Uri;
+    move-result-object v1
+    invoke-virtual {v0, v1}, Landroid/content/Intent;->setData(Landroid/net/Uri;)Landroid/content/Intent;
+    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->startActivity(Landroid/content/Intent;)V
+    :try_end_notif
+    .catch Ljava/lang/Throwable; {:try_start_notif .. :try_end_notif} :notif_catch
+    return-void
+
+    :notif_catch
+    move-exception v0
+    invoke-virtual {v0}, Ljava/lang/Throwable;->toString()Ljava/lang/String;
+    move-result-object v0
+    const-string v1, "MelSettings"
+    invoke-static {v1, v0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
+    return-void
+.end method
+
+.method private final appendNativeAboutRows(Ljava/lang/String;)Ljava/lang/String;
+    .locals 6
+
+    # The settings payload comes from the WebView, which cannot know the app
+    # version. Append the real "Informations sur Melodix" section here, reading
+    # versionName/versionCode from the PackageManager. On any failure, return
+    # the original payload unchanged. v0 holds the result on every path.
+    move-object v0, p1
+    :try_start_about
+    new-instance v1, Lorg/json/JSONArray;
+    invoke-direct {v1, p1}, Lorg/json/JSONArray;-><init>(Ljava/lang/String;)V
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->getPackageManager()Landroid/content/pm/PackageManager;
+    move-result-object v2
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->getPackageName()Ljava/lang/String;
+    move-result-object v3
+    const/4 v4, 0x0
+    invoke-virtual {v2, v3, v4}, Landroid/content/pm/PackageManager;->getPackageInfo(Ljava/lang/String;I)Landroid/content/pm/PackageInfo;
+    move-result-object v2
+    iget-object v3, v2, Landroid/content/pm/PackageInfo;->versionName:Ljava/lang/String;
+    iget v4, v2, Landroid/content/pm/PackageInfo;->versionCode:I
+    new-instance v5, Ljava/lang/StringBuilder;
+    invoke-direct {v5}, Ljava/lang/StringBuilder;-><init>()V
+    invoke-virtual {v5, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v3, " ("
+    invoke-virtual {v5, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v5, v4}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v3, ")"
+    invoke-virtual {v5, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v5}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v3
+    new-instance v4, Lorg/json/JSONObject;
+    invoke-direct {v4}, Lorg/json/JSONObject;-><init>()V
+    const-string v5, "section"
+    const-string v2, "Informations sur Melodix"
+    invoke-virtual {v4, v5, v2}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
+    const-string v5, "title"
+    const-string v2, "Version de Melodix"
+    invoke-virtual {v4, v5, v2}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
+    const-string v5, "subtitle"
+    const-string v2, "versionName et versionCode lus du PackageManager."
+    invoke-virtual {v4, v5, v2}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
+    const-string v5, "settingValue"
+    invoke-virtual {v4, v5, v3}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
+    const-string v5, "uri"
+    const-string v2, ""
+    invoke-virtual {v4, v5, v2}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
+    invoke-virtual {v1, v4}, Lorg/json/JSONArray;->put(Ljava/lang/Object;)Lorg/json/JSONArray;
+    new-instance v4, Lorg/json/JSONObject;
+    invoke-direct {v4}, Lorg/json/JSONObject;-><init>()V
+    const-string v5, "section"
+    const-string v2, "Informations sur Melodix"
+    invoke-virtual {v4, v5, v2}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
+    const-string v5, "title"
+    const-string v2, "Données sensibles"
+    invoke-virtual {v4, v5, v2}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
+    const-string v5, "subtitle"
+    const-string v2, "Les jetons, cookies et données de session ne sont jamais affichés ni transmis à cette page."
+    invoke-virtual {v4, v5, v2}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
+    const-string v5, "settingValue"
+    const-string v2, "Protégées"
+    invoke-virtual {v4, v5, v2}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
+    const-string v5, "uri"
+    const-string v2, ""
+    invoke-virtual {v4, v5, v2}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
+    invoke-virtual {v1, v4}, Lorg/json/JSONArray;->put(Ljava/lang/Object;)Lorg/json/JSONArray;
+    invoke-virtual {v1}, Lorg/json/JSONArray;->toString()Ljava/lang/String;
+    move-result-object v0
+    :try_end_about
+    .catch Ljava/lang/Throwable; {:try_start_about .. :try_end_about} :about_catch
+    return-object v0
+
+    :about_catch
+    move-exception v1
+    invoke-virtual {v1}, Ljava/lang/Throwable;->toString()Ljava/lang/String;
+    move-result-object v1
+    const-string v2, "MelSettings"
+    invoke-static {v2, v1}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
+    return-object p1
+.end method
+
 .method public final openNativeRow(Ljava/lang/String;Ljava/lang/String;)V
     .locals 12
 
@@ -10251,6 +10363,14 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     if-eqz v3, :native_row_check_settings_uri
     const-string v2, "window.__sfNativeRetryLibrary && window.__sfNativeRetryLibrary();"
     invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+    return-void
+
+    :native_row_check_notifications
+    const-string v2, "melodix:action:open-notifications"
+    invoke-virtual {p1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v3
+    if-eqz v3, :native_row_check_settings_uri
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->openNativeNotificationSettings()V
     return-void
 
     :native_row_check_settings_uri
