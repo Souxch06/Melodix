@@ -71,7 +71,7 @@ test('the walk collects the geometry log and CI publishes it', () => {
   assert.ok(walk.includes('MelRowGeom: ') && walk.includes('row-geometry.txt'),
     'the walk must capture the probe output');
   const wf = read('.github/workflows/ui-qa.yml');
-  assert.ok(/for f in crash\.txt app-log\.txt foreground\.txt row-geometry\.txt row-identity\.txt; do/.test(wf),
+  assert.ok(/for f in crash\.txt app-log\.txt foreground\.txt foreground-after-stress\.txt row-geometry\.txt row-identity\.txt; do/.test(wf),
     'an uncollected evidence file is not evidence');
 });
 

@@ -40,6 +40,7 @@ STEPS = {
     "home": {
         "required": ["nativeRoot", "nativeTabBar", "nativeHomeTab", "nativeScreenTitle"],
         "optional": ["nativeContent", "nativeMiniPlayer"],
+        "title_is": "Accueil",
     },
     "library": {
         "required": ["nativeRoot", "nativeLibraryTab", "nativeLibraryCategories"],
@@ -49,6 +50,10 @@ STEPS = {
     "search": {
         "required": ["nativeRoot", "nativeSearchPanel", "nativeSearchInput"],
         "optional": ["nativeGenreScroll"],
+        # No-session expectation: the tap is delivered but the genre route
+        # needs a session to produce results, so the search screen stays put.
+        # The authenticated matrix covers the results case separately.
+        "title_is": "Rechercher",
     },
     "browse-tile": {
         "required": ["nativeRoot"],
@@ -58,6 +63,10 @@ STEPS = {
         # needs a session. The capture shows the grid unchanged and the field
         # still empty. The outcome is covered by the authenticated protocol.
         "note": "tap delivered only; genre results require an authenticated session",
+        # No-session expectation: the tap is delivered but the genre route
+        # needs a session to produce results, so the search screen stays put.
+        # The authenticated matrix covers the results case separately.
+        "title_is": "Rechercher",
     },
     "settings": {
         "required": ["nativeRoot", "nativeContent", "nativeBackButton"],
@@ -116,6 +125,26 @@ STEPS = {
         "required": ["nativeRoot", "nativeTabBar", "nativeHomeTab"],
         "title_is": "Accueil",
         "forbidden_chrome": ["Paramètres indisponibles"],
+    },
+    "stress-cycle-1": {
+        "required": ["nativeRoot", "nativeTabBar", "nativeHomeTab", "nativeScreenTitle"],
+        "optional": ["nativeContent", "nativeMiniPlayer"],
+        "title_is": "Accueil",
+    },
+    "stress-cycle-2": {
+        "required": ["nativeRoot", "nativeTabBar", "nativeHomeTab", "nativeScreenTitle"],
+        "optional": ["nativeContent", "nativeMiniPlayer"],
+        "title_is": "Accueil",
+    },
+    "stress-cycle-3": {
+        "required": ["nativeRoot", "nativeTabBar", "nativeHomeTab", "nativeScreenTitle"],
+        "optional": ["nativeContent", "nativeMiniPlayer"],
+        "title_is": "Accueil",
+    },
+    "stress-settled": {
+        "required": ["nativeRoot", "nativeTabBar", "nativeHomeTab", "nativeScreenTitle"],
+        "optional": ["nativeContent", "nativeMiniPlayer"],
+        "title_is": "Accueil",
     },
     # Needs real playback: never attempted on a clean install.
     "player": {

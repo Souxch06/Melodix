@@ -208,6 +208,32 @@ settle nativeTabBar || true
 capture background-resume
 refresh
 
+# ---- 7e. Parcours H : enchainement repete et stabilite --------------------
+# Three full cycles through four screens each. A single pass can look fine while
+# state accumulates; this checks the shell still owns the screen, the title still
+# matches and nothing leaks after repeated navigation. No session required.
+for cycle in 1 2 3; do
+  tap nativeLibraryTab || true
+  settle nativeLibraryCategories || true
+  tap nativeSearchTab || true
+  settle nativeGenreScroll || true
+  tap nativeSettingsButton || true
+  settle nativeBackButton || true
+  adb -s "$device" shell input keyevent KEYCODE_BACK >/dev/null 2>&1 || true
+  sleep 2
+  tap nativeHomeTab || true
+  settle nativeHomeTab || true
+  capture "stress-cycle-$cycle"
+  refresh
+done
+# Let any deferred work settle, then assert the app is still foregrounded and
+# still on the expected screen rather than merely still running.
+sleep 5
+capture stress-settled
+refresh
+adb -s "$device" shell dumpsys activity activities 2>/dev/null \
+  | grep -m1 -iE 'resumedactivity' | tr -d '\r' > "$out/foreground-after-stress.txt" || true
+
 # ---- 8. Surfaces that need real playback --------------------------------
 # Recorded honestly from whatever is on screen: without a session the mini
 # player and the full player are absent, which the trace marks as blocked.

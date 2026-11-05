@@ -16,10 +16,10 @@ const root = path.join(__dirname, '..');
 const script = path.join(root, 'scripts', 'ui_layout_audit.py');
 const DPI = 320; // scale 2, so 48dp = 96px
 
-function node({ id, box, clickable = false, cls = 'android.view.View', children = '' }) {
+function node({ id, box, clickable = false, cls = 'android.view.View', children = '', text = '' }) {
   const rid = id ? ` resource-id="com.melodix.music:id/${id}"` : '';
   const [x1, y1, x2, y2] = box;
-  return `<node class="${cls}"${rid} clickable="${clickable}" text="" `
+  return `<node class="${cls}"${rid} clickable="${clickable}" text="${text}" `
     + `bounds="[${x1},${y1}][${x2},${y2}]">${children}</node>`;
 }
 
@@ -164,9 +164,13 @@ function trace(steps) {
   const out = path.join(dir, 'trace.json');
   const results = [];
   try {
-    for (const [step, ids] of steps) {
-      fs.writeFileSync(file, dump(ids.map((id, i) =>
-        node({ id, box: [0, i * 200, 1600, i * 200 + 152] }))));
+    for (const [step, ids, title] of steps) {
+      const nodes = ids.map((id, i) =>
+        node({ id, box: [0, i * 200, 1600, i * 200 + 152] }));
+      if (title !== undefined) {
+        nodes.push(node({ id: 'nativeScreenTitle', text: title, box: [0, 0, 400, 80] }));
+      }
+      fs.writeFileSync(file, dump(nodes));
       let status = 0;
       try {
         execFileSync('python3', [traceScript, step, 'tablet', file, out], { encoding: 'utf8' });
@@ -181,7 +185,7 @@ function trace(steps) {
 
 test('a navigation step whose screen appeared is reached', () => {
   const { results, entries } = trace([['search',
-    ['nativeRoot', 'nativeSearchPanel', 'nativeSearchInput', 'nativeGenreScroll']]]);
+    ['nativeRoot', 'nativeSearchPanel', 'nativeSearchInput', 'nativeGenreScroll'], 'Rechercher']]);
   assert.equal(results[0].status, 0);
   assert.equal(entries[0].verdict, 'reached');
   assert.deepEqual(entries[0].optional_present, ['nativeGenreScroll']);
@@ -392,7 +396,10 @@ test('the resource probe output is published with the captures', () => {
 });
 
 test('a genre tap without a session does not claim results appeared', () => {
-  const { entry } = traceStep('browse-tile', traceDump(HOME_NODES));
+  const searchNodes = [['nativeRoot', ''], ['nativeTabBar', ''], ['nativeHomeTab', ''],
+    ['nativeSearchPanel', ''], ['nativeSearchInput', ''], ['nativeGenreScroll', ''],
+    ['nativeScreenTitle', 'Rechercher']];
+  const { entry } = traceStep('browse-tile', traceDump(searchNodes));
   assert.equal(entry.verdict, 'reached');
   assert.match(entry.scope_note, /authenticated session/,
     'the published trace itself must carry the limit, not just the report');
@@ -432,4 +439,50 @@ test('every trace step definition is usable, not just the ones with all keys', (
     const { entry } = traceStep(step, traceDump(HOME_NODES));
     assert.ok(entry.verdict, `${step} must produce a verdict`);
   }
+});
+
+test('nested tiles are measured, not just the wrapper that holds them', () => {
+  // Search exposed exactly one child of nativeGenreScroll: a layout wrapper. The
+  // genre tiles themselves are grandchildren and were never measured, so the
+  // surface that matters most on Search was invisible to the audit.
+  const src = fs.readFileSync(path.join(root, 'scripts', 'ui_layout_audit.py'), 'utf8');
+  assert.ok(src.includes('container_items_deep'), 'a deep measurement must be published');
+  assert.ok(/def walk\(node, path, depth\)/.test(src), 'descendants must be walked');
+  assert.ok(/if depth > 3:/.test(src), 'the walk must be bounded');
+  assert.ok(!/container_items_deep.*text/.test(src), 'still no text is recorded');
+  // The one-level list stays, so existing comparisons keep working.
+  assert.ok(src.includes('"container_items": items'), 'the flat list must be preserved');
+});
+
+test('parcours H asserts the same screen ownership as home, three times over', () => {
+  const trace = fs.readFileSync(path.join(root, 'scripts', 'ui_qa_trace.py'), 'utf8');
+  const walk = fs.readFileSync(path.join(root, 'scripts', 'ui_qa_walk.sh'), 'utf8');
+  const spec = (name) => {
+    const m = new RegExp(`    "${name}": \\{([\\s\\S]*?)\\n    \\},`).exec(trace);
+    assert.ok(m, `${name} must be a known step`);
+    return m[1];
+  };
+  const home = spec('home');
+  for (const step of ['stress-cycle-1', 'stress-cycle-2', 'stress-cycle-3', 'stress-settled']) {
+    assert.equal(spec(step), home, `${step} must not be weaker than home`);
+    assert.ok(walk.includes('capture "stress-cycle-$cycle"') || walk.includes(`capture ${step}`),
+      `${step} must be captured`);
+  }
+  assert.ok(/for cycle in 1 2 3; do/.test(walk), 'three cycles, not one');
+  assert.ok(walk.includes('foreground-after-stress.txt'),
+    'foreground must be re-checked after the stress, not only before');
+  const wf = fs.readFileSync(path.join(root, '.github/workflows/ui-qa.yml'), 'utf8');
+  assert.ok(wf.includes('foreground-after-stress.txt'), 'the evidence must be published');
+});
+
+test('every non-session step asserts a title, so a wrong tab cannot pass as reached', () => {
+  // `home` had no title_is and its required ids are present on every native tab,
+  // so it could report "reached" while the app sat on Search. That is the same
+  // false green already found on back-from-search, still live on home.
+  const trace = fs.readFileSync(path.join(root, 'scripts', 'ui_qa_trace.py'), 'utf8');
+  const steps = [...trace.matchAll(/    "([a-z0-9-]+)": \{([\s\S]*?)\n    \},/g)];
+  assert.ok(steps.length >= 19, `expected the full step set, got ${steps.length}`);
+  const weak = steps.filter(([, name, body]) =>
+    !body.includes('title_is') && !body.includes('needs_session')).map(([, n]) => n);
+  assert.deepEqual(weak, [], `steps without a title assertion: ${weak.join(', ')}`);
 });

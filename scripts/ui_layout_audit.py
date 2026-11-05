@@ -188,6 +188,7 @@ def main():
     containers = ("nativeContent", "nativeGenreScroll", "nativeLibraryCategories",
                   "nativeQuickGrid", "nativeShelfRow")
     items = {}
+    deep_items = {}
     for node in root.iter("node"):
         rid = node.get("resource-id", "")
         if not rid.startswith("com.melodix.music:id/"):
@@ -210,9 +211,40 @@ def main():
             })
         if kids:
             items[name] = kids
+        # The genre grid and the shelves wrap their tiles in an extra layout, so
+        # the direct children above are containers, not the tiles themselves.
+        # Search showed exactly one child and no tile was ever measured. Walk the
+        # descendants too, keeping a stable path so runs can be diffed. Still no
+        # text is recorded.
+        deep = []
+
+        def walk(node, path, depth):
+            if depth > 3:
+                return
+            for i, kid in enumerate(node.findall("node")):
+                box = parse_bounds(kid.get("bounds"))
+                if not box:
+                    continue
+                here = f"{path}/{i}"
+                deep.append({
+                    "path": here,
+                    "depth": depth,
+                    "cls": (kid.get("class", "") or "").rsplit(".", 1)[-1],
+                    "px": list(box),
+                    "w_dp": round((box[2] - box[0]) / scale, 1),
+                    "h_dp": round((box[3] - box[1]) / scale, 1),
+                    "x_dp": round(box[0] / scale, 1),
+                    "y_dp": round(box[1] / scale, 1),
+                    "kids": len(kid.findall("node")),
+                })
+                walk(kid, here, depth + 1)
+
+        walk(node, "", 1)
+        if deep:
+            deep_items[name] = deep
     report.update({"readable": True, "node_count": count,
                    "screen_px": list(screen), "defects": defects, "views": views,
-                   "container_items": items})
+                   "container_items": items, "container_items_deep": deep_items})
     pathlib.Path(out_path).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n",
                                      encoding="utf-8")
 
