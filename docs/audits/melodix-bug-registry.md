@@ -210,3 +210,17 @@ Run **`42008408954`**, **5 jobs sur 5 en succès**, **15 étapes, 0 anomalie**, 
 ## MEL-BUG-011 — Résolu avec preuve
 
 Les deux étapes renforcées échouaient avant le correctif MEL-BUG-010 et passent après, sur les deux profils. La chaîne de preuve est complète : faux vert identifié → assertion renforcée → défaut réel révélé → correctif → assertion verte.
+
+## MEL-BUG-012 — Régression P0 de diagnostic, de mon fait : la sonde d'identité écrasait un registre objet
+
+| Champ | Valeur |
+|---|---|
+| **Gravité** | **P0** — l'application ne démarrait plus |
+| **Run** | `42016295325` — walks en échec sur les deux profils |
+| **Symptôme** | Shell natif jamais apparu, `visible_ids=5` puis `0`, 7 étapes en échec, `row-identity.txt` vide |
+| **Cause confirmée** | Mon générateur de smali émettait `const-string v1` pour les libellés alors que `v1` tenait les `Resources` renvoyés par `getResources()`. L'appel suivant `Resources->getIdentifier` échouait à la vérification. **Exactement le mode de MEL-BUG-007, reproduit par moi.** |
+| **Correctif** | Allocation explicite : `v0` StringBuilder, `v1` Resources, `v2` scalaire, `v3` constante `"dimen"`, `v4` chaînes. `v1` n'est réutilisé qu'après le dernier appel sur les Resources. |
+| **Garde ajoutée** | Un test parcourt **toutes** les méthodes des deux classes de sonde et, pour chaque registre recevant un objet typé, interdit toute réécriture avant son dernier appel **sur ce type**. Restreindre au type tenu évite le faux positif d'un registre réutilisé ensuite comme tag de log. |
+| **Garde validée par mutation** | Le bogue a été réintroduit volontairement : le test le **détecte** ; après restauration, tout repasse. La garde n'est pas décorative. |
+| **Statut** | **Résolu avec preuve** (correctif + garde mutée) |
+| **Leçon** | Un générateur de smali doit avoir une allocation de registres déclarée, pas des helpers qui choisissent un registre au hasard. |

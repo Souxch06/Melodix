@@ -82,3 +82,36 @@ test('the identity read reports the package and two witnesses, not just the fail
   assert.ok(probeSrc.includes('"status_bar_height"'), 'needs a framework token to tell a broken lookup from a missing name');
   assert.ok(read('scripts/ui_qa_walk.sh').includes('MelRowId: '), 'the walk must capture it');
 });
+
+test('no probe method overwrites an object register with a string before its last use', () => {
+  // This is the MEL-BUG-007 failure mode, and it bit this very probe once: a
+  // helper emitted `const-string v1` while v1 held Resources, so the next
+  // Resources call failed verification and the activity never loaded. The walk
+  // showed visible_ids=5 then 0 and no native shell at all.
+  const sources = {
+    probe: read('smali/com/melodix/music/NativeRowGeometryProbe.smali'),
+    runnable: read('smali/com/melodix/music/NativeRowGeometryRunnable.smali'),
+  };
+  for (const [name, src] of Object.entries(sources)) {
+    for (const m of src.matchAll(/^\.method[^\n]*\n([\s\S]*?)^\.end method/gm)) {
+      const body = m[1];
+      // Every register that receives an object from a typed getter.
+      for (const hold of body.matchAll(/invoke-virtual \{[^}]*\}, (L[\w/$]+;)->(\w+)\(\)(L[\w/$]+;)\s+move-result-object (v\d+)/g)) {
+        const [, owner, getter, type, reg] = hold;
+        if (type === 'Ljava/lang/String;' || type === 'Ljava/lang/Class;') continue;
+        const after = body.slice(hold.index + hold[0].length);
+        // Only calls ON the held type count as uses. A register legitimately
+        // reused for something else afterwards (a log tag, say) is not a clobber.
+        const esc = type.replace(/[$]/g, '\\$');
+        const uses = [...after.matchAll(
+          new RegExp(`invoke-\\w+ \\{${reg}[,}][^\\n]*${esc}->`, 'g'))];
+        if (!uses.length) continue;
+        const lastUse = uses[uses.length - 1].index;
+        const window = after.slice(0, lastUse);
+        const clobber = new RegExp(`(const-string ${reg},|move-result ${reg}\\s|const/4 ${reg},|const ${reg},)`);
+        assert.ok(!clobber.test(window),
+          `${name}: ${reg} holds ${type} from ${owner}->${getter} but is overwritten before its last use`);
+      }
+    }
+  }
+});
