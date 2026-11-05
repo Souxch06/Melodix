@@ -9,6 +9,10 @@
 .method public static apply(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
     .locals 8
 
+    # v3 is logged at :g_done, which the early exits also reach. Initialising it
+    # here keeps it defined on every path; an undefined register in the log block
+    # would make ART reject the class.
+    const/4 v3, 0x0
     :try_start_g
     const v0, 0x7f09024f
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
@@ -66,6 +70,20 @@
     goto :g_row
 
     :g_done
+    # Evidence: how many tiles were visited and whether one matched. Without this
+    # a tap that never reached a tile looks exactly like a styler that did nothing.
+    new-instance v0, Ljava/lang/StringBuilder;
+    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v1, "styler rows="
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v1, " tag="
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v0
+    const-string v1, "MelGenre"
+    invoke-static {v1, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
     :try_end_g
     .catch Ljava/lang/Throwable; {:try_start_g .. :try_end_g} :g_catch
     return-void

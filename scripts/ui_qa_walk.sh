@@ -117,6 +117,14 @@ if tap nativeGenreScroll 0; then capture browse-tile; else
   capture browse-tile
 fi
 refresh
+# The selected ring is pure presentation, so it must appear WITHOUT a session.
+# Asserting it turns "the tap was delivered" into "the tap did something".
+python3 scripts/ui_selected_check.py "$out/current-$profile.xml" nativeGenreScroll \
+  > "$out/genre-selection.txt" 2>&1 || true
+if ! grep -q '^selected=' "$out/genre-selection.txt"; then
+  echo "::error title=QA walk $profile::tapping a browse tile selected nothing: $(cat "$out/genre-selection.txt")"
+  failures=$((failures + 1))
+fi
 
 # ---- 5. Navigation -> Settings ------------------------------------------
 # The header settings button is reachable from Home; go back there first.
