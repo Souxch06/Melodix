@@ -27,6 +27,10 @@ Rapport de la phase précédente : [`melodix-qa-visual-functional-2026-11-05.md`
 |---|---|---|---|
 | MEL-BUG-001 | P3 | Géométrie tablette — **thèse initiale réfutée deux fois** | **Clos comme non-défaut pour les composants mesurés** |
 | MEL-BUG-002 | P1 | Touche système Retour inopérante sur écran natif | **Résolu avec preuve** (volet lecteur web : en attente de session) |
+| MEL-BUG-010 | P2 | Retour inerte sur un onglet racine | **Résolu avec preuve** |
+| MEL-BUG-011 | P2 | Mes assertions de retour trop faibles (faux vert) | **Résolu avec preuve** |
+| MEL-BUG-008 | P3 | Étapes de trace incomplètes, 4 faux échecs d'outillage | **Résolu avec preuve** |
+| MEL-BUG-009 | P4 | Sonde de premier plan muette | **Résolu avec preuve** |
 | MEL-BUG-003 | P2 | Contenu étranger survivant sous le titre Accueil | **Résolu avec preuve** |
 | MEL-BUG-004 | P2 | Faux vert de la trace | Résolu avec preuve |
 | MEL-BUG-005 | P3 | Faux défaut de timing tablette | Résolu avec preuve |
@@ -215,6 +219,33 @@ Aucune ligne n'est déclarée fonctionnelle sans résultat visible observé.
 Chacun est gardé par un test. Le parcours capture désormais le buffer `crash` et les lignes `AndroidRuntime`/`FATAL` quand le shell natif n'apparaît pas — c'est ce qui manquait pour diagnostiquer MEL-BUG-007 sans deviner.
 
 **Aucun plantage applicatif** n'a été observé sur les runs où le code était correct : `crash.txt` absent, shell présent sur toutes les étapes, 0 défaut de mise en page.
+
+---
+
+## Cycle 5 — premier parcours entièrement vert
+
+Run **`42008408954`** : **5 jobs sur 5 en succès**, **15 étapes**, **0 anomalie**, téléphone **et** tablette, **0 défaut de mise en page**. `unit-tests` : **697 tests, 697 pass, 0 fail, 0 skipped** — les règles JVM sont réellement exécutées, aucun test ignoré.
+
+Ce vert n'est pas un artefact : il a été obtenu **après avoir renforcé** les assertions. La séquence honnête a été :
+
+1. `back-from-library` / `back-from-search` étaient notés `reached` **sans aucune assertion de titre** → faux vert de ma part (MEL-BUG-011).
+2. `background-resume` sortait en `wrong_screen`. Plutôt que d'ajuster l'attente, j'ai regardé la capture : elle montrait **Rechercher**, et l'étape précédente aussi.
+3. Le vrai défaut était donc **le Retour inerte sur un onglet racine** (MEL-BUG-010), pas le cycle de vie : l'app restaurait fidèlement l'écran réel.
+4. Assertion de titre ajoutée, défaut corrigé, puis vert réel sur les deux profils.
+
+**Le retour système est désormais vérifié** depuis un écran poussé et depuis un onglet racine, sans double navigation différée, avec survie de l'app après mise en arrière-plan et retour au premier plan (`topResumedActivity = MainActivity`).
+
+**Préservation** : empreintes sha256 du JS de fermeture du lecteur plein écran, de `r70.a()` et de `al0` **inchangées** ; `nativeRoot` est `GONE` dès que du contenu web s'affiche, donc un lecteur ouvert fait décliner la garde et le JS d'origine le ferme. Bridge, MediaSession, multimédia, arrière-plan : aucun fichier touché.
+
+## Ce qui reste ouvert, précisément
+
+| Objet | État | Prochaine action réalisable |
+|---|---|---|
+| Hauteur de ligne paramètres tablette : **66 dp au lieu de 76** | **Défaut confirmé par les bornes**, cause non établie | Relever la spec de mesure du parent avant tout correctif |
+| Lecteur, mini-lecteur, playlists, albums, commandes de lecture | **En attente de validation authentifiée** | Matrice prête, connexion manuelle par vous |
+| Fermeture du lecteur plein écran web | Garantie par empreinte, **non observée** | Sections E/G de la matrice |
+
+**Melodix n'est pas déclaré prêt à publier.** Les fonctionnalités musicales essentielles ne sont pas validées sur appareil.
 
 ---
 

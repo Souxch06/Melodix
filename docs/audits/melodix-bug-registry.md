@@ -189,3 +189,24 @@ L'affirmation « les 67 accesseurs retombent sur leur constante téléphone » e
 ## MEL-BUG-009 — Sonde de premier plan : résolu
 
 `foreground.txt` publie désormais `topResumedActivity=ActivityRecord{… com.melodix.music/.MainActivity …}` sur les deux profils (run `42006533505`). **Résolu avec preuve.**
+
+## MEL-BUG-010 — RÉSOLU AVEC PREUVE
+
+Run **`42008408954`**, **5 jobs sur 5 en succès**, **15 étapes, 0 anomalie**, téléphone **et** tablette. Les assertions de titre **renforcées** passent réellement : `back-from-library`, `back-from-search` et `background-resume` = `reached` avec `title_expected = "Accueil"`, `title_matched = true`. Le retour système fonctionne désormais depuis un écran poussé **et** depuis un onglet racine, sans double navigation, et l'app survit à la mise en arrière-plan.
+
+## MEL-BUG-001 — Observation restante enfin mesurée, défaut confirmé
+
+| Champ | Valeur |
+|---|---|
+| **Gravité** | **P3** — cosmétique, aucun impact fonctionnel |
+| **Écran** | Paramètres, variante tablette |
+| **Attendu** | Hauteur de ligne ≥ **76 dp** (`mel_settings_row_height`, `values-sw600dp`) |
+| **Observé, bornes autoritaires** | `container_items.nativeContent` : **1 enfant, hauteur 66,0 dp, largeur 800,0 dp** sur tablette ; **65,1 dp** sur téléphone. Run `42008408954`, `layout-settings-*.json`. |
+| **Ce qui est confirmé** | Le résolveur renvoie bien **76 dp** sur tablette (`px=152 swdp=800`, sonde `MelMetrics`) et le téléphone est conforme (**65,1 ≈ 64 dp**). **La tablette ne respecte pas son minimum**, alors que le téléphone oui. Ce n'est plus une estimation sur pixels : ce sont les bornes du dump. |
+| **Cause — hypothèse, non confirmée** | `setMinimumHeight` n'est honoré que si la mesure du parent est `AT_MOST`/`UNSPECIFIED`. La ligne est ajoutée par `addView(View)` **sans LayoutParams** (`MainActivity:9712`) ; si le parent impose une spec `EXACTLY`, le minimum est ignoré. À confirmer en relevant la spec de mesure, pas en devinant. |
+| **Correctif proposé, non appliqué** | Passer des `LayoutParams` explicites à l'ajout, ou appliquer la hauteur au lieu du seul minimum. Non appliqué : la cause n'est pas confirmée et je ne modifie pas la construction des lignes sur une hypothèse. |
+| **Statut** | **En diagnostic — défaut confirmé par les bornes, cause à établir** |
+
+## MEL-BUG-011 — Résolu avec preuve
+
+Les deux étapes renforcées échouaient avant le correctif MEL-BUG-010 et passent après, sur les deux profils. La chaîne de preuve est complète : faux vert identifié → assertion renforcée → défaut réel révélé → correctif → assertion verte.
