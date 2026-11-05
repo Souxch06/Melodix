@@ -222,5 +222,11 @@ adb -s "$device" logcat -d -s MelMetrics:I 2>/dev/null \
   | sed -n 's/.*MelMetrics: //p' | sort -u > "$out/metrics-resolution.txt" || true
 echo "::notice title=QA walk $profile::metric lines=$(wc -l < "$out/metrics-resolution.txt" || echo 0)"
 
+# MEL-BUG-001: real row geometry after layout, so the gap between a resolved
+# token and the final view is demonstrated rather than estimated from pixels.
+adb -s "$device" logcat -d 2>/dev/null \
+  | sed -n 's/.*MelRowGeom: //p' | sort -u > "$out/row-geometry.txt" || true
+echo "::notice title=QA walk $profile::row geometry lines=$(wc -l < "$out/row-geometry.txt" || echo 0)"
+
 echo "::notice title=QA walk $profile::failures=$failures; trace=$trace"
 exit "$failures"

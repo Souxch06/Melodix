@@ -87,6 +87,16 @@ function executeRowFactory(settingValue) {
             }
             continue;
         }
+        if (/^invoke-static \{p0, v0, v1\}, Lcom\/melodix\/music\/NativeRowGeometryProbe;->attach\(Landroid\/content\/Context;Landroid\/view\/View;Ljava\/lang\/String;\)V$/.test(instruction)) {
+            // MEL-BUG-001 diagnostic, explicitly reviewed rather than allowed by
+            // loosening this guard. It returns void, so it must neither leave a
+            // pending result nor replace the row the factory just produced.
+            assert.equal(registers.v0, selectedFactory,
+                'the geometry probe must not replace the created row in v0');
+            assert.equal(pendingResult, undefined,
+                'a void diagnostic call must not leave a pending result');
+            continue;
+        }
         if ((match = /^invoke-static \{p0, v6\}, Lcom\/melodix\/music\/(NativeSettingsRowFactory|NativeUiRowFactory);->create/.exec(instruction))) {
             selectedFactory = match[1];
             pendingResult = selectedFactory;

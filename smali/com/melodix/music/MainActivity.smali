@@ -9728,11 +9728,18 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     if-nez v1, :native_row_create_standard
     invoke-static {p0, v6}, Lcom/melodix/music/NativeSettingsRowFactory;->create(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
     move-result-object v0
+    # MEL-BUG-001 diagnostic: read the real geometry after layout.
+    const-string v1, "mel_settings_row_height"
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeRowGeometryProbe;->attach(Landroid/content/Context;Landroid/view/View;Ljava/lang/String;)V
     goto :native_row_created
 
     :native_row_create_standard
     invoke-static {p0, v6}, Lcom/melodix/music/NativeUiRowFactory;->create(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
     move-result-object v0
+    # MEL-BUG-001 diagnostic: same read on content rows, to tell a shared cause
+    # from a settings-only one.
+    const-string v1, "mel_row_height"
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeRowGeometryProbe;->attach(Landroid/content/Context;Landroid/view/View;Ljava/lang/String;)V
 
     :native_row_created
     if-eqz v0, :native_row_increment
