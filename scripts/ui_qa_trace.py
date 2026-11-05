@@ -173,9 +173,9 @@ def main():
     expected_title = spec.get("title_is")
     title_ok = (expected_title is None) or (title == expected_title)
 
-    present = [v for v in spec["required"] if v in visible]
-    missing = [v for v in spec["required"] if v not in visible]
-    optional_present = [v for v in spec["optional"] if v in visible]
+    present = [v for v in spec.get("required", []) if v in visible]
+    missing = [v for v in spec.get("required", []) if v not in visible]
+    optional_present = [v for v in spec.get("optional", []) if v in visible]
 
     if not readable:
         verdict = "unreadable"

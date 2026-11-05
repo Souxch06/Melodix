@@ -57,8 +57,11 @@ L'affirmation « les 67 accesseurs retombent sur leur constante téléphone » e
 | **Cause confirmée par mesure** | Run `42002228908`, application démarrée, touche pressée, `back-key.txt` **vide sur les deux profils** : `MainActivity.onKeyDown` n'est **jamais atteint** pour BACK. `fm.dispatchKeyEvent` renvoie directement `superDispatchKeyEvent` et ne repasse jamais par `Activity.onKeyDown`/`onKeyUp`. Le framework appelle ensuite `onBackPressed()`, **final** dans `androidx.activity.a`, qui délègue au répartiteur patché. |
 | **Correctif tenté** | Interception dans `onKeyDown` : **inopérant, démontré**. Conservé comme garde inoffensif pour les appareils anciens, à retirer. |
 | **Correctif proposé** | Enregistrer un `OnBackPressedCallback` auprès du répartiteur, actif seulement quand un écran natif poussé est affiché. **Mais** le répartiteur `androidx/activity/b;->b()` a été patché par Melodix et son branchement interne (`packed-switch` sur `r70.d`) est mêlé à la fermeture du lecteur plein écran. Y toucher touche une zone protégée. |
-| **Besoin** | **Autorisation explicite** pour modifier le répartiteur de retour, ou accord pour tenter l'enregistrement d'un callback sans modifier le répartiteur. |
-| **Statut** | **Bloqué — cause établie, correctif en zone protégée, autorisation requise** |
+| **Correctif appliqué** | Garde **additive** en tête de la branche par défaut de `b()`, avant tout code WebView : si le propriétaire du callback est un `MainActivity` et que `handleNativeSystemBack()` renvoie vrai, l'écran natif a traité la touche ; sinon le code d'origine s'exécute. Cartographie : `melodix-back-dispatcher-map.md`. |
+| **Préservation prouvée** | JS du lecteur plein écran, `r70.a()` et `al0` : **empreintes sha256 identiques**, figées dans `tests/fixtures/back-dispatch-preserved.json`. Cas 0 AndroidX intact. Bridge, MediaSession, multimédia, arrière-plan : aucun fichier touché. |
+| **Preuve de résolution** | Run `42005106693`, **téléphone et tablette** : `back-from-settings` = **`reached`**. Bornes publiées : flèche présente sur `settings`/`settings-again`, **absente** sur `back-once`, toujours absente sur `back-settled` (aucune double navigation différée), shell vivant sur `background-resume`, `back-from-library` et `back-from-search`. **0 défaut** de mise en page sur les 8 étapes. |
+| **Reste à valider en session** | La fermeture du lecteur plein écran **web** ne peut pas être observée sans session : garantie par empreinte du payload, à confirmer en section E/G de la matrice authentifiée. |
+| **Statut** | **Résolu avec preuve** (retour natif) — volet lecteur plein écran en attente de validation authentifiée |
 
 ## MEL-BUG-003 — Le contenu d'un écran survit sous le titre « Accueil »
 
@@ -131,4 +134,26 @@ L'affirmation « les 67 accesseurs retombent sur leur constante téléphone » e
 | **Correctif** | La `View` reste dans `v3`, jamais réutilisée ; `v0`/`v1` ne portent que des chaînes. |
 | **Test de non-régression** | `tests/ui_screen_state.test.js` : aucun registre contenant une `View` ne doit recevoir `const-string` ou `move-result` avant son utilisation. |
 | **Leçon** | Le symptôme ne pointait pas la cause. Capture du buffer `crash` et des lignes `AndroidRuntime`/`FATAL` ajoutée au parcours, publiée dans `crash.txt` et `app-log.txt`. |
+| **Statut** | **Correctif appliqué — en vérification** |
+
+## MEL-BUG-008 — Étapes de trace incomplètes : 4 faux échecs d'outillage
+
+| Champ | Valeur |
+|---|---|
+| **Gravité** | **P3** — outillage, aucun impact applicatif |
+| **Symptôme** | Run `42005106693` : `walk-status=4`, alors que les 8 scénarios de retour s'étaient tous bien déroulés sur appareil |
+| **Cause confirmée** | Mes 4 nouvelles définitions d'étapes omettaient la clé `optional`, que `main()` indexait directement → `KeyError`. Les captures et les audits de mise en page, eux, avaient réussi. |
+| **Correctif** | Lecture des clés avec défaut (`spec.get`). |
+| **Test de non-régression** | Un test parcourt **toutes** les définitions d'étapes et exige que chacune produise un verdict ; il interdit l'indexation directe des clés optionnelles. |
+| **Distinction importante** | Ces 4 échecs n'ont **jamais** été rapportés comme défauts applicatifs : les bornes publiées prouvaient le contraire. |
+| **Statut** | **Résolu avec preuve** |
+
+## MEL-BUG-009 — Sonde de premier plan muette
+
+| Champ | Valeur |
+|---|---|
+| **Gravité** | **P4** — outillage |
+| **Symptôme** | `foreground.txt` vide sur les deux profils : aucune preuve publiée de l'activité au premier plan |
+| **Cause** | Le champ a été renommé selon les versions d'Android (`mResumedActivity`, `topResumedActivity`, …) ; la recherche était trop stricte |
+| **Correctif** | Recherche insensible à la casse, repli sur `dumpsys window`, et message explicite si rien n'est disponible — jamais un fichier silencieusement vide |
 | **Statut** | **Correctif appliqué — en vérification** |

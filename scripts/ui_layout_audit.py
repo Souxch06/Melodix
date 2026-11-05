@@ -181,8 +181,38 @@ def main():
             "w_dp": round((box[2] - box[0]) / scale, 1),
             "h_dp": round((box[3] - box[1]) / scale, 1),
         })
+    # Rows, shelf cards and genre tiles are built in code WITHOUT an id, so the
+    # id-filtered list above cannot measure them. That gap is what made an earlier
+    # diagnosis rely on pixel guessing. Record the geometry of the anonymous
+    # children of the known item containers instead. Still no text.
+    containers = ("nativeContent", "nativeGenreScroll", "nativeLibraryCategories",
+                  "nativeQuickGrid", "nativeShelfRow")
+    items = {}
+    for node in root.iter("node"):
+        rid = node.get("resource-id", "")
+        if not rid.startswith("com.melodix.music:id/"):
+            continue
+        name = rid[len("com.melodix.music:id/"):]
+        if name not in containers:
+            continue
+        kids = []
+        for kid in node.findall("node"):
+            box = parse_bounds(kid.get("bounds"))
+            if not box:
+                continue
+            kids.append({
+                "cls": (kid.get("class", "") or "").rsplit(".", 1)[-1],
+                "px": list(box),
+                "w_dp": round((box[2] - box[0]) / scale, 1),
+                "h_dp": round((box[3] - box[1]) / scale, 1),
+                "x_dp": round(box[0] / scale, 1),
+                "y_dp": round(box[1] / scale, 1),
+            })
+        if kids:
+            items[name] = kids
     report.update({"readable": True, "node_count": count,
-                   "screen_px": list(screen), "defects": defects, "views": views})
+                   "screen_px": list(screen), "defects": defects, "views": views,
+                   "container_items": items})
     pathlib.Path(out_path).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n",
                                      encoding="utf-8")
 

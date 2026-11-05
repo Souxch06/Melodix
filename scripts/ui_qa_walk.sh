@@ -163,7 +163,16 @@ refresh
 # The app must still own the display: a swallowed-or-doubled Back that finished
 # the activity would leave the launcher, which the trace records as unreadable
 # or wrong_screen rather than as a pass.
-fg="$(adb -s "$device" shell dumpsys activity activities 2>/dev/null | grep -m1 -oE 'mResumedActivity[^}]*' || true)"
+# Android renamed this field across versions (mResumedActivity,
+# topResumedActivity, ResumedActivity): match case-insensitively and keep the
+# first hit, otherwise the evidence file is silently empty.
+fg="$(adb -s "$device" shell dumpsys activity activities 2>/dev/null \
+  | grep -m1 -iE 'resumedactivity' | tr -d '\r' || true)"
+if [[ -z "$fg" ]]; then
+  fg="$(adb -s "$device" shell dumpsys window 2>/dev/null \
+    | grep -m1 -iE 'mCurrentFocus|mFocusedApp' | tr -d '\r' || true)"
+fi
+[[ -n "$fg" ]] || fg="unavailable: neither dumpsys activity nor window reported a focused activity"
 echo "$fg" > "$out/foreground.txt"
 echo "::notice title=QA walk $profile::foreground=$fg"
 

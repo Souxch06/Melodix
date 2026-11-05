@@ -408,3 +408,28 @@ test('the suite runs in CI with a compiler, and skips are treated as failures th
   assert.match(job, /skipped although a Java compiler is installed/,
     'a skip in CI means the environment regressed, never that the rule passed');
 });
+
+test('anonymous rows and cards are measured, not guessed from pixels', () => {
+  const src = fs.readFileSync(path.join(root, 'scripts', 'ui_layout_audit.py'), 'utf8');
+  assert.match(src, /container_items/, 'items without an id must still be measured');
+  for (const c of ['nativeContent', 'nativeGenreScroll', 'nativeLibraryCategories']) {
+    assert.ok(src.includes(c), `${c} holds anonymous items`);
+  }
+  assert.ok(!/"text"/.test(src.slice(src.indexOf('containers = ('), src.indexOf('report.update'))),
+    'geometry only: no text may be published');
+});
+
+test('every trace step definition is usable, not just the ones with all keys', () => {
+  // A new step omitted "optional" and main() indexed it directly: the walk
+  // reported 4 failures that were tooling crashes, not app defects. Every step
+  // must run, and a missing dump must yield "unreadable" rather than a KeyError.
+  const src = fs.readFileSync(path.join(root, 'scripts', 'ui_qa_trace.py'), 'utf8');
+  const steps = [...src.matchAll(/^    "([a-z-]+)": \{/gm)].map((m) => m[1]);
+  assert.ok(steps.length >= 15, `expected the full step set, got ${steps.length}`);
+  assert.ok(!/spec\["optional"\]|spec\["required"\]/.test(src),
+    'optional keys must be read with a default');
+  for (const step of steps) {
+    const { entry } = traceStep(step, traceDump(HOME_NODES));
+    assert.ok(entry.verdict, `${step} must produce a verdict`);
+  }
+});
