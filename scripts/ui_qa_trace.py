@@ -78,6 +78,43 @@ STEPS = {
         # Settings content must not survive the switch back to Home.
         "forbidden_chrome": ["Paramètres indisponibles"],
     },
+    # Second visit to Settings, to test Back again after the first fix and to
+    # prove a single press lands exactly on Home without overshooting.
+    "settings-again": {
+        "required": ["nativeRoot", "nativeContent", "nativeBackButton"],
+        "title_is": "Paramètres",
+    },
+    "back-once": {
+        "required": ["nativeRoot", "nativeTabBar", "nativeHomeTab"],
+        "forbidden": ["nativeBackButton"],
+        "title_is": "Accueil",
+        "forbidden_chrome": ["Paramètres indisponibles"],
+    },
+    # A second, delayed navigation would show up here: the screen must still be
+    # Home after settling, and the app must not have gone to the launcher.
+    "back-settled": {
+        "required": ["nativeRoot", "nativeTabBar", "nativeHomeTab"],
+        "forbidden": ["nativeBackButton"],
+        "title_is": "Accueil",
+    },
+    # Back from a tab screen: no native back arrow, so the original WebView
+    # chain must still own the key. Recorded, never asserted as a native back.
+    "back-from-library": {
+        "required": ["nativeRoot", "nativeTabBar"],
+        "optional": ["nativeLibraryCategories", "nativeBackButton"],
+        "note": "no native back arrow on a tab: the WebView chain owns this key",
+    },
+    "back-from-search": {
+        "required": ["nativeRoot", "nativeTabBar"],
+        "optional": ["nativeSearchPanel", "nativeBackButton"],
+        "note": "no native back arrow on a tab: the WebView chain owns this key",
+    },
+    # Lifecycle: HOME then relaunch must restore a coherent native screen.
+    "background-resume": {
+        "required": ["nativeRoot", "nativeTabBar", "nativeHomeTab"],
+        "title_is": "Accueil",
+        "forbidden_chrome": ["Paramètres indisponibles"],
+    },
     # Needs real playback: never attempted on a clean install.
     "player": {
         "required": ["nativePlayerPanel"],

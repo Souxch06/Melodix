@@ -4746,48 +4746,8 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 .end method
 
 .method public final onKeyDown(ILandroid/view/KeyEvent;)Z
-    .locals 4
+    .locals 1
 
-    # MEL-BUG-002 probe. The View lives in v3 and is NEVER reused for a log
-    # string: an earlier version overwrote it with the message and then called
-    # View->isShown() on a String, which fails class verification and stops
-    # MainActivity from loading at all. v0/v1 carry only strings.
-    const/4 v0, 0x4
-    if-ne p1, v0, :mel_back_delegate
-    const-string v1, "MelBack"
-    const-string v0, "onKeyDown BACK reached"
-    invoke-static {v1, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
-    const v0, 0x7f090231
-    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v3
-    if-eqz v3, :mel_back_no_view
-    invoke-virtual {v3}, Landroid/view/View;->isShown()Z
-    move-result v0
-    if-eqz v0, :mel_back_not_shown
-    const-string v0, "back button shown -> native back"
-    invoke-static {v1, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
-    goto :mel_back_guard_passed
-    :mel_back_no_view
-    const-string v0, "back button NOT FOUND by id"
-    invoke-static {v1, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
-    goto :mel_back_delegate
-    :mel_back_not_shown
-    const-string v0, "back button found but NOT shown"
-    invoke-static {v1, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
-    goto :mel_back_delegate
-    :mel_back_guard_passed
-    invoke-virtual {p2}, Landroid/view/KeyEvent;->getAction()I
-    move-result v0
-    const/4 v1, 0x1
-    if-eq v0, v1, :mel_back_maybe_down
-    return v1
-    :mel_back_maybe_down
-    if-nez v0, :mel_back_delegate
-    const/4 v2, 0x0
-    invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->onNativeBackClick(Landroid/view/View;)V
-    return v1
-
-    :mel_back_delegate
     .line 1
     const/16 v0, 0x52
 
@@ -10738,4 +10698,29 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     const-string v0, "(function(){if(typeof window.actRepeat===\'function\'){window.actRepeat();return;}var b=document.querySelector(\'[data-testid=\"control-button-repeat\"]\');if(b){b.click();}})();"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     return-void
+.end method
+
+.method public final handleNativeSystemBack()Z
+    .locals 2
+
+    # MEL-BUG-002. Called by the back dispatcher before any WebView logic.
+    # Returns true only when a native pushed screen is on screen, identified by
+    # the back arrow the shell itself decided to show. In every other case it
+    # returns false and the dispatcher continues untouched, so closing the
+    # fullscreen web player, WebView history and media handling are unaffected.
+    const v0, 0x7f090231
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v0
+    if-eqz v0, :mel_sysback_not_native
+    invoke-virtual {v0}, Landroid/view/View;->isShown()Z
+    move-result v1
+    if-eqz v1, :mel_sysback_not_native
+    const/4 v0, 0x0
+    # Reuses the internal back, which restores route, title and payload.
+    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->onNativeBackClick(Landroid/view/View;)V
+    const/4 v0, 0x1
+    return v0
+    :mel_sysback_not_native
+    const/4 v0, 0x0
+    return v0
 .end method

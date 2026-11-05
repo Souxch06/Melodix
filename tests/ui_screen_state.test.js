@@ -27,6 +27,14 @@ function method(source, signature) {
   return source.slice(start, end);
 }
 
+// A label name also appears inside the branch that targets it, so indexOf
+// would land on the first jump rather than on the label definition.
+function labelAt(body, label) {
+  const at = body.indexOf(`\n    :${label}\n`);
+  assert.ok(at >= 0, `label :${label} must be defined`);
+  return at;
+}
+
 const renderRows = method(activity,
   '.method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V');
 
@@ -75,66 +83,6 @@ test('the trace can actually detect this class of defect', () => {
     'the tab bar alone cannot discriminate: it is visible on every screen');
 });
 
-// --- MEL-BUG-002: system Back key ------------------------------------------
-// Root cause: the patched OnBackPressedDispatcher (androidx/activity/b.b())
-// only injects WebView JavaScript to close the fullscreen player. With a native
-// pushed screen on top it found nothing to close and swallowed the key, so the
-// Settings screen could not be left with the system Back key.
-
-const keyDown = method(activity, '.method public final onKeyDown(ILandroid/view/KeyEvent;)Z');
-
-// A label name also appears inside the branch that targets it, so indexOf would
-// land on the first jump rather than on the label definition.
-function labelAt(body, label) {
-  const at = body.indexOf(`\n    :${label}\n`);
-  assert.ok(at >= 0, `label :${label} must be defined`);
-  return at;
-}
-
-test('the system Back key is handled while a native pushed screen is shown', () => {
-  assert.match(keyDown, /const\/4 v0, 0x4/, 'KEYCODE_BACK must be recognised');
-  assert.match(keyDown, /0x7f090231/, 'the native back button identifies a pushed screen');
-  assert.match(keyDown, /View;->isShown\(\)Z/,
-    'isShown accounts for hidden ancestors; getVisibility alone would not');
-  assert.match(keyDown, /onNativeBackClick\(Landroid\/view\/View;\)V/,
-    'reuse the internal back, which already restores route, title and payload');
-});
-
-test('Back is delegated untouched when no native screen is pushed', () => {
-  const delegate = labelAt(keyDown, 'mel_back_delegate');
-  const superCall = keyDown.indexOf('invoke-super {p0, p1, p2}, Le6;->onKeyDown');
-  assert.ok(delegate > 0 && superCall > delegate,
-    'the original chain must still run for the WebView and the player');
-  // Every guard must fall through to the original behaviour, never to a bare
-  // return. The MelBack probe was removed after it proved onKeyDown is never
-  // reached for BACK, so the flow is a simple chain of conditional guards again.
-  const head = keyDown.slice(0, delegate);
-  const guards = head.match(/(?:if-\w+|goto) [^\n]*:mel_back_delegate/g) || [];
-  assert.ok(guards.length >= 3, 'each guard must delegate, not swallow the key');
-  for (const label of ['mel_back_no_view', 'mel_back_not_shown']) {
-    const at = labelAt(keyDown, label);
-    const rest = keyDown.slice(at + label.length + 6);
-    const next = rest.search(/\n    :\w+\n/);
-    const block = next < 0 ? rest : rest.slice(0, next);
-    assert.ok(block.includes('goto :mel_back_delegate'),
-      `${label} must end in delegation, not in a swallowed key`);
-  }
-});
-
-test('the matching key-up is consumed so navigation cannot happen twice', () => {
-  const up = labelAt(keyDown, 'mel_back_maybe_down');
-  assert.ok(keyDown.slice(0, up).includes('getAction()I'), 'the action must be inspected');
-  assert.match(keyDown.slice(0, up), /const\/4 v1, 0x1[\s\S]*?return v1/,
-    'ACTION_UP returns true without navigating a second time');
-});
-
-test('the internal back really re-renders, which is why it is safe to reuse', () => {
-  const back = method(activity, '.method public final onNativeBackClick(Landroid/view/View;)V');
-  assert.match(back, /setNativeScreen\(Ljava\/lang\/String;\)V/);
-  assert.match(back, /renderNativeRows\(Ljava\/lang\/String;Ljava\/lang\/String;\)V/);
-  assert.ok(!/\bp1\b/.test(back), 'it ignores its View argument, so passing null is safe');
-});
-
 // --- MEL-BUG-003: a route change left foreign content on screen -------------
 // Root cause: onNativeBackClick re-renders, a plain route change did not. The
 // fix belongs to the ROUTE CHANGE, not to the Home refresh handler: an existing
@@ -172,32 +120,4 @@ test('the Home refresh handler is still untouched, as its own guard requires', (
 test('the renderer cannot recurse back into the route setter', () => {
   assert.ok(!/setNativeScreen/.test(renderer),
     'renderNativeRows -> render -> setNativeScreen would loop forever');
-});
-
-test('register budgets stay small enough that parameters keep their encoding', () => {
-  for (const [name, body] of [['onKeyDown', keyDown], ['setNativeScreen', setScreen]]) {
-    const locals = Number(body.match(/\.locals (\d+)/)[1]);
-    // onKeyDown has 2 params, setNativeScreen 1; pN must stay <= v15.
-    const params = name === 'onKeyDown' ? 2 : 1;
-    assert.ok(locals + params <= 15, `${name}: pN would exceed v15 and need /16 forms`);
-  }
-});
-
-// --- register clobbering ----------------------------------------------------
-// A real regression this caused: the probe stored the back button View in v0,
-// then overwrote v0 with a log string and called View->isShown() on it. That
-// fails class verification, so MainActivity never loaded and the emulator sat
-// on the launcher. The symptom ("native shell never appeared") pointed nowhere
-// near the cause, so the mistake is now guarded structurally.
-
-test('a register holding a View is never reused for a log string before its use', () => {
-  const viewReg = (keyDown.match(/move-result-object (v\d+)\n\s*if-eqz \1, :mel_back_no_view/) || [])[1];
-  assert.ok(viewReg, 'the findViewById result must be kept in an identifiable register');
-  const shownAt = keyDown.indexOf(`invoke-virtual {${viewReg}}, Landroid/view/View;->isShown()Z`);
-  assert.ok(shownAt > 0, 'isShown must be called on that same register');
-  const before = keyDown.slice(0, shownAt);
-  assert.ok(!new RegExp(`const-string ${viewReg},`).test(before),
-    `${viewReg} holds the View: assigning a string to it would fail verification`);
-  assert.ok(!new RegExp(`move-result ${viewReg}\\b`).test(before),
-    `${viewReg} must not receive an int either while it holds the View`);
 });

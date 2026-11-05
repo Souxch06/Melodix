@@ -142,6 +142,58 @@ sleep 6
 capture home-again
 refresh
 
+# ---- 7b. Back navigation, in depth (MEL-BUG-002) -------------------------
+# Second Settings visit: the first Back test above ran before the fix existed in
+# this build, so repeat it and then prove a single press lands exactly on Home.
+tap nativeSettingsButton || true
+settle nativeBackButton || true
+capture settings-again
+refresh
+
+adb -s "$device" shell input keyevent KEYCODE_BACK >/dev/null 2>&1 || true
+sleep 8
+capture back-once
+refresh
+
+# If the key were handled twice, a second navigation would land here.
+sleep 5
+capture back-settled
+refresh
+
+# The app must still own the display: a swallowed-or-doubled Back that finished
+# the activity would leave the launcher, which the trace records as unreadable
+# or wrong_screen rather than as a pass.
+fg="$(adb -s "$device" shell dumpsys activity activities 2>/dev/null | grep -m1 -oE 'mResumedActivity[^}]*' || true)"
+echo "$fg" > "$out/foreground.txt"
+echo "::notice title=QA walk $profile::foreground=$fg"
+
+# ---- 7c. Back from tab screens ------------------------------------------
+# These have no native back arrow, so the original WebView chain must keep
+# owning the key. Recorded honestly, never asserted as a native back.
+if tap nativeLibraryTab; then
+  settle nativeLibraryCategories || true
+  adb -s "$device" shell input keyevent KEYCODE_BACK >/dev/null 2>&1 || true
+  sleep 5
+  capture back-from-library
+  refresh
+fi
+if tap nativeSearchTab; then
+  settle nativeSearchInput || true
+  adb -s "$device" shell input keyevent KEYCODE_BACK >/dev/null 2>&1 || true
+  sleep 5
+  capture back-from-search
+  refresh
+fi
+
+# ---- 7d. Lifecycle: background then resume -------------------------------
+adb -s "$device" shell input keyevent KEYCODE_HOME >/dev/null 2>&1 || true
+sleep 4
+adb -s "$device" shell am start -W -n com.melodix.music/.MainActivity >/dev/null 2>&1 || true
+sleep 8
+settle nativeTabBar || true
+capture background-resume
+refresh
+
 # ---- 8. Surfaces that need real playback --------------------------------
 # Recorded honestly from whatever is on screen: without a session the mini
 # player and the full player are absent, which the trace marks as blocked.
