@@ -202,7 +202,10 @@
     move-result v1
     invoke-virtual {v2}, Landroid/graphics/drawable/Drawable;->getIntrinsicHeight()I
     move-result v3
-    invoke-virtual {v2, v1, v3}, Landroid/graphics/drawable/Drawable;->setBounds(II)V
+    # Four ints, not two: the unresolvable two-argument reference made ART reject
+    # this class, which is why the header rendered but no tile ever did.
+    const/4 v4, 0x0
+    invoke-virtual {v2, v4, v4, v1, v3}, Landroid/graphics/drawable/Drawable;->setBounds(IIII)V
     const/4 v1, 0x0
     invoke-virtual {v0, v2, v1, v1, v1}, Landroid/widget/TextView;->setCompoundDrawables(Landroid/graphics/drawable/Drawable;Landroid/graphics/drawable/Drawable;Landroid/graphics/drawable/Drawable;Landroid/graphics/drawable/Drawable;)V
     goto :tile_icon_pad
@@ -211,7 +214,10 @@
     move-result v1
     invoke-virtual {v2}, Landroid/graphics/drawable/Drawable;->getIntrinsicHeight()I
     move-result v3
-    invoke-virtual {v2, v1, v3}, Landroid/graphics/drawable/Drawable;->setBounds(II)V
+    # Four ints, not two: the unresolvable two-argument reference made ART reject
+    # this class, which is why the header rendered but no tile ever did.
+    const/4 v4, 0x0
+    invoke-virtual {v2, v4, v4, v1, v3}, Landroid/graphics/drawable/Drawable;->setBounds(IIII)V
     const/4 v1, 0x0
     invoke-virtual {v0, v1, v2, v1, v1}, Landroid/widget/TextView;->setCompoundDrawables(Landroid/graphics/drawable/Drawable;Landroid/graphics/drawable/Drawable;Landroid/graphics/drawable/Drawable;Landroid/graphics/drawable/Drawable;)V
     :tile_icon_pad

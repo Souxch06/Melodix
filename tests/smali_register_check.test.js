@@ -59,3 +59,36 @@ test('a String used as a String is not a false positive', () => {
     runCheck([tmp]);
   } finally { fs.unlinkSync(tmpPath); }
 });
+
+const NATIVE = fs.readdirSync(path.join(root, 'smali/com/melodix/music'))
+  .filter((f) => f.startsWith('Native') && f.endsWith('.smali'))
+  .map((f) => `smali/com/melodix/music/${f}`);
+
+test('every native smali invoke matches a real Android signature', () => {
+  // apktool does not resolve method references, so a wrong arity assembles cleanly
+  // and only fails on the device. Drawable.setBounds(II)V shipped twice that way
+  // and rejected both classes at load time.
+  execFileSync('python3', ['scripts/android_signature_check.py', ...NATIVE],
+    { cwd: root, encoding: 'utf8', stdio: 'pipe' });
+});
+
+test('the signature checker rejects the setBounds arity that broke two screens', () => {
+  const tmp = 'smali/com/melodix/music/__mut_sig.smali';
+  const tmpPath = path.join(root, tmp);
+  const src = fs.readFileSync(path.join(root, 'smali/com/melodix/music/NativeEmptyState.smali'), 'utf8');
+  const broken = src.replace('setBounds(IIII)V', 'setBounds(II)V');
+  assert.notEqual(broken, src);
+  try {
+    fs.writeFileSync(tmpPath, broken);
+    assert.throws(() => execFileSync('python3', ['scripts/android_signature_check.py', tmp],
+      { cwd: root, encoding: 'utf8', stdio: 'pipe' }));
+  } finally { fs.unlinkSync(tmpPath); }
+});
+
+test('the walk collects crash evidence on every run, not only when startup fails', () => {
+  const walk = fs.readFileSync(path.join(root, 'scripts/ui_qa_walk.sh'), 'utf8');
+  const tail = walk.slice(walk.indexOf('# ---- 1. Home'));
+  assert.match(tail, /logcat -d -b crash[^\n]*> "\$out\/crash\.txt"/,
+    'crash.txt must be collected after the walk too: run 42057787244 died mid-walk and produced none');
+  assert.match(tail, /VerifyError/, 'the app log must capture verification failures');
+});

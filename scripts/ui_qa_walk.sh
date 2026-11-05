@@ -242,6 +242,19 @@ capture player
 
 # MEL-BUG-001: what the runtime resolver actually saw, per token. Deduplicated
 # because metric() runs on every render; each token/configuration pair once.
+# Crash evidence must be collected on EVERY walk, not only when the shell never
+# appears. Run 42057787244 died on the library screen AFTER a healthy start, so the
+# startup-only branch never fired and there was no crash.txt at all. A class that
+# fails verification never runs its own catch, so the app-level diagnostic tags
+# stay empty and logcat is the only witness.
+adb -s "$device" logcat -d -b crash 2>/dev/null | tail -200 > "$out/crash.txt" || true
+adb -s "$device" logcat -d 2>/dev/null \
+  | grep -iE "AndroidRuntime|FATAL|VerifyError|melodix|Rejecting class" \
+  | tail -160 > "$out/app-log.txt" || true
+if [[ -s "$out/crash.txt" ]]; then
+  echo "::error title=QA walk $profile::the app crashed during the walk; see crash.txt"
+  head -40 "$out/crash.txt" || true
+fi
 adb -s "$device" logcat -d -s MelBack:I 2>/dev/null \
   | sed -n 's/.*MelBack: //p' | sort | uniq -c > "$out/back-key.txt" || true
 adb -s "$device" logcat -d -s MelMetrics:I 2>/dev/null \

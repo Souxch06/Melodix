@@ -84,7 +84,11 @@
     move-result v1
     invoke-virtual {v2}, Landroid/graphics/drawable/Drawable;->getIntrinsicHeight()I
     move-result v3
-    invoke-virtual {v2, v1, v3}, Landroid/graphics/drawable/Drawable;->setBounds(II)V
+    # setBounds takes FOUR ints (left, top, right, bottom). The two-argument
+    # reference did not resolve, so ART rejected the class and the app died on
+    # the library screen before any catch could run.
+    const/4 v4, 0x0
+    invoke-virtual {v2, v4, v4, v1, v3}, Landroid/graphics/drawable/Drawable;->setBounds(IIII)V
     const/4 v1, 0x0
     invoke-virtual {v5, v1, v2, v1, v1}, Landroid/widget/TextView;->setCompoundDrawables(Landroid/graphics/drawable/Drawable;Landroid/graphics/drawable/Drawable;Landroid/graphics/drawable/Drawable;Landroid/graphics/drawable/Drawable;)V
     const-string v2, "mel_gutter_half"
