@@ -9624,6 +9624,14 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     return-void
 
     :native_rows_list
+    # The shared content container was just emptied, so any Home status card or
+    # shelf that was attached is gone. beginNativeHomeRender() already exists to
+    # restore exactly that invariant, but it was only ever reached from the Home
+    # renderer: rendering Settings left nativeHomeStatusAttached true, so coming
+    # back to Home believed its card was still attached and never rebuilt it,
+    # leaving the Settings rows on screen under the Home title. Restore the
+    # invariant here too. No new state, no register change (.locals stays 10).
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->beginNativeHomeRender()V
     :try_start_native_rows
     new-instance v3, Lorg/json/JSONArray;
     invoke-direct {v3, p2}, Lorg/json/JSONArray;-><init>(Ljava/lang/String;)V
