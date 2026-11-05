@@ -210,3 +210,22 @@ test('browse tiles are wired explicitly, and the click trace survives the log ca
   assert.match(code, /invoke-virtual \{v0, p1\}, Lcom\/melodix\/music\/MainActivity;->onNativeGenreClick/);
   assert.match(code, /"tile click received"/, 'the entry point must leave a trace');
 });
+
+test('onNativeGenreClick skips only EMPTY tags (polarity guard)', () => {
+  const activity = read('smali/com/melodix/music/MainActivity.smali');
+  const at = activity.indexOf('.method public final onNativeGenreClick');
+  const handler = activity.slice(at, activity.indexOf('.end method', at));
+  const code = handler.split('\n').filter((l) => !l.trim().startsWith('#')).join('\n');
+  const isEmpty = code.indexOf('Ljava/lang/String;->isEmpty()Z');
+  assert.ok(isEmpty !== -1, 'the handler must read the tag and test emptiness');
+  // Anchor on the label DEFINITION, not its first mention (the branch itself
+  // mentions it, which truncated the window and failed this very test once).
+  const doneDef = code.indexOf('\n    :native_genre_done', isEmpty);
+  const after = code.slice(isEmpty, doneDef);
+  // isEmpty()==false means a real tag: the handler must CONTINUE, so the branch
+  // taken on "empty" must be if-nez. if-eqz here was MEL-BUG-019: every tap with a
+  // non-empty tag jumped straight to the end.
+  assert.match(after, /if-nez v\d+, :native_genre_done/,
+    'an empty tag must exit; a non-empty tag must fall through to the styler');
+  assert.doesNotMatch(after, /if-eqz v\d+, :native_genre_done/);
+});

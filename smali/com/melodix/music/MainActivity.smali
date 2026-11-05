@@ -10073,7 +10073,8 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
     move-result v1
 
-    if-eqz v1, :native_genre_done
+    # if-nez, not if-eqz: skip only when the tag IS empty (MEL-BUG-019).
+    if-nez v1, :native_genre_done
 
     # Keep the browse grid until results land (a failed search must not leave a
     # blank screen); only the header echoes the choice.
