@@ -317,6 +317,86 @@ Run **`42022211867`** : **5 jobs sur 5 en succès**, **15 étapes**, **0 anomali
 
 ---
 
+## Cycle 7 — régression visuelle complète, parcours H, matrice des commandes
+
+### 1. Les 10 surfaces
+
+Détail et mesures : [`melodix-surface-inspection.md`](melodix-surface-inspection.md).
+
+**8 surfaces sur 10 inspectées sur les deux profils**, à partir des **bornes réelles** du dump, jamais d'une estimation sur capture. Les surfaces 9 et 10 — **lecteur plein écran** et **mini-lecteur** — restent **bloquées par l'absence de session** et ne sont pas déclarées inspectées.
+
+### 2. Régression introduite par `metric()` — mesurée
+
+Nouvel outil `scripts/ui_surface_diff.py`, qui compare les bornes entre deux runs, par surface et par profil. Artefacts : `surface-diff-metric-fix.json`, `surface-diff-stress.json`.
+
+**Téléphone : aucune régression.** Un seul déplacement, voulu (gouttière des lignes, 411,4 → 379,4 dp) et +0,8 dp de padding. `library`, `search`, `browse-tile` **strictement inchangés**.
+
+**Tablette : les surcharges s'appliquent enfin.** Carte de statut 560 → **720 dp**, x=120 → **40 dp**, ligne de paramètres 800 → **736 dp** de large et 66 → **80 dp** de haut.
+
+**0 défaut de mise en page avant et après**, sur toutes les étapes des deux profils.
+
+Entre les deux derniers runs : **0 changement de géométrie** — le parcours H et le renforcement des assertions n'ont rien déplacé.
+
+### 3. Lacune de mesure trouvée
+
+`nativeGenreScroll` n'exposait qu'**un** enfant, un conteneur : les tuiles de genre sont des petits-enfants et n'étaient **jamais mesurées**. Le composant principal de Recherche était invisible à l'audit. `container_items_deep` parcourt désormais les descendants jusqu'à profondeur 3, sans enregistrer aucun texte.
+
+### 4. Les 15 commandes
+
+Matrice générée par `scripts/ui_command_matrix.py`, qui croise le câblage statique et les verdicts **observés** : [`command-matrix.md`](command-matrix.md).
+
+| État | Nombre |
+|---|---|
+| **1 — Opérationnelle, vérifiée sur appareil** | **5** |
+| 2 — Câblée, résultat non vérifié | 0 |
+| **3 — En attente de session authentifiée** | **10** |
+| 4 — En échec | 0 |
+| 5 — Non testée | 0 |
+
+Les 5 vérifiées : onglets Accueil, Bibliothèque, Recherche, bouton Paramètres, Retour interne **et** Retour système. Les 10 autres ont un câblage confirmé mais **aucun résultat musical observé** : elles ne sont pas déclarées fonctionnelles.
+
+### 5. Parcours G et H
+
+**H — enchaînement répété : RÉUSSI sur les deux profils.** Trois cycles complets bibliothèque → recherche → paramètres → retour → accueil, puis stabilisation. **19 étapes, 0 anomalie, 0 défaut**, titre vérifié à chaque cycle et après l'effort, premier plan revérifié après la charge (`foreground-after-stress.txt`). Le shell garde la possession de l'écran après navigation répétée.
+
+**G — lecteur plein écran : BLOQUÉ, en attente de connexion manuelle.** Aucune assertion n'a été modifiée pour le faire passer. Les étapes restent `blocked_no_session`.
+
+### 6. Un faux vert de plus, trouvé dans mes propres assertions
+
+`home` n'avait **aucune** assertion de titre, et ses identifiants requis sont présents sur **tous** les onglets natifs : il pouvait être noté `reached` alors que l'app affichait Recherche. C'est le même faux vert que celui déjà trouvé sur `back-from-search`, encore vivant sur `home`.
+
+Titres ajoutés à `home`, `home-again`, `back-once`, `back-settled`, `back-from-settings`, `search`, `browse-tile` et aux quatre étapes H. **Un test interdit désormais toute étape non-session sans assertion de titre.** Les fixtures ont été alignées sur un dump réel, pas les assertions assouplies.
+
+### 7. MEL-BUG-013 — reproduit, localisé, partiellement corrigé
+
+Reproduit au run `42030168198` sur `background-resume`, téléphone, après deux runs où il était absent : **intermittent**.
+
+**Cause établie** : `btnSettings` n'a aucun attribut `visibility` en XML, donc visible par défaut ; seul `showNativeUiFrom` le met à `GONE`, quand le shell est prêt. À la reprise, une fenêtre existe entre `onCreate` et la prise de possession par le shell. Les trois seuls sites référençant l'id sont deux dans `onCreate` et un dans `showNativeUiFrom` : **aucun code ne le montre explicitement**.
+
+**Corrigé** : `mel_legacy_settings_size` valait **40 dp sans aucun override tablette**, sous le minimum tactile sur les deux profils. Porté à **48 dp** / **52 dp**, aligné sur le bouton natif qu'il remplace.
+
+**Non appliqué, et pourquoi** : `visibility="gone"` en XML supprimerait la fenêtre transitoire mais **retirerait l'accès aux réglages dans le repli web**. Périmètre non maîtrisé. Correctif proposé : afficher explicitement le bouton dans le chemin de repli, puis le masquer en XML.
+
+### 8. Non-défaut écarté avec preuve
+
+La divergence `--mel-accent-deep` entre CSS (`#1db954`) et natif (`#0e8f47`) **n'est pas un défaut** : les rôles diffèrent. Le CSS l'utilise comme couleur de texte (**7,76:1**), le natif comme `colorPrimaryVariant` décoratif (**4,4:1**). Aligner le CSS ferait tomber le texte sous le seuil WCAG AA. Aucune modification : ce serait une régression d'accessibilité déguisée en harmonisation.
+
+### 9. Reprise de l'ancienne interface — état des lieux
+
+Il n'existe **pas de branche « ancienne »** dans ce dépôt : seuls `main` et la branche de travail, et l'historique du layout principal commence à la base `44902d9`. L'ancienne interface est la **couche web thémée** (`assets/css_hacks.css`, 2063 lignes), toujours active sous le shell natif, plus 13 vues de chrome hérité (`webViewContainer`, `hScrollView`, `btnSettings`, splash, états d'erreur).
+
+Réintégrer sélectivement ces surfaces demande de faire céder le shell natif, ce qui touche l'invariant de possession d'affichage P0 — **zone protégée**. Je n'ai pas engagé cette modification sans autorisation distincte. Le seul élément sûr et démontré a été traité : la cible tactile du bouton hérité.
+
+### 10. CI honnête
+
+`unit-tests` a échoué une fois **sans nommer le test**, et les journaux ne sont pas joignables depuis cet environnement. Le step capture désormais le statut de la suite et **imprime les lignes `not ok` et les skips** avant de sortir ; un test épingle cette exigence. Au run suivant : **722 tests, 722 pass, 0 fail, 0 skipped** — l'échec ne s'est pas reproduit, et il est consigné comme tel, pas comme résolu.
+
+### État du run final
+
+Run **`42031794726`** : **5 jobs sur 5**, **19 étapes**, **0 anomalie**, **0 défaut**, les deux profils. **Aucune assertion affaiblie** : ce cycle en a ajouté.
+
+---
+
 ## Blocages et besoins
 
 | Besoin | Pour | Qui |

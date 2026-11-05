@@ -1,4 +1,4 @@
-# Matrice des 15 commandes — run `42027909065`
+# Matrice des 15 commandes — run `42031794726`
 
 Générée par `scripts/ui_command_matrix.py` : croisement du câblage statique
 et des verdicts **observés** par le parcours sur appareil. Un bouton présent
