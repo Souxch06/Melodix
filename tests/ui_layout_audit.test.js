@@ -584,3 +584,17 @@ test('MEL-BUG-023: test APKs are signed with one persistent key, never a throwaw
   assert.doesNotMatch(tracked, /\.(p12|jks|keystore|pem|der)$/i,
     'no key or certificate material may be committed');
 });
+
+test('MEL-BUG-023/P0: versionCode strictly increases per release, captures ship with the release', () => {
+  const raw = fs.readFileSync(path.join(root, '.github', 'workflows', 'ui-qa.yml'), 'utf8');
+  const flat = raw.replace(/\\(.)/g, '$1');
+  // versionCode bumped in the TEMPORARY build only, asserted in the badging.
+  assert.match(flat, /sed -i "s\/\^  versionCode: \.\*\/  versionCode: \$\(\(1000 \+ GITHUB_RUN_NUMBER\)\)\/" "\$work\/apktool\.yml"/);
+  assert.match(flat, /version_code[\s\S]*?-gt 1000/, 'the built APK must carry versionCode > 1000');
+  // The repository copy is never modified: the sed targets $work, not $GITHUB_WORKSPACE.
+  assert.doesNotMatch(flat, /sed -i[^\n]*"\$GITHUB_WORKSPACE\/apktool\.yml"/);
+  // The release carries the real Home/Settings captures of both profiles.
+  assert.match(flat, /for shot in home settings/);
+  assert.match(flat, /capture-\$shot-\$prof\.png/);
+  assert.match(flat, /melodix-qa-\*-\$\{\{ github\.run_id \}\}/);
+});

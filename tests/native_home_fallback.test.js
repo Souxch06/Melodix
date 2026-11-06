@@ -307,3 +307,18 @@ test('the no-cards Home fallback offers authentication first when the session is
   assert.match(renderer, /addHomeStatusActions\(Lcom\/melodix\/music\/MainActivity;Landroid\/widget\/LinearLayout;Ljava\/lang\/String;Ljava\/lang\/String;Ljava\/lang\/String;\)V/,
     'primary + secondary actions are both wired');
 });
+
+test('the Home status card shows a real indeterminate spinner when state=loading', () => {
+  const renderer = read('smali/com/melodix/music/NativeHomeShelfRenderer.smali');
+  const at = renderer.indexOf('.method private static renderHomeStatus');
+  const body = renderer.slice(at, renderer.indexOf('.end method', at));
+  const code = body.split('\n').filter((l) => !l.trim().startsWith('#')).join('\n');
+  assert.match(code, /optString\(Ljava\/lang\/String;Ljava\/lang\/String;\)Ljava\/lang\/String;\s*\n\s*move-result-object v\d+\s*\n\s*const-string v\d+, "loading"/,
+    'the state field is read and compared to "loading"');
+  assert.match(code, /new-instance v\d+, Landroid\/widget\/ProgressBar;/);
+  assert.match(code, /setIndeterminate\(Z\)V/, 'a real loading indicator, not a fake progress');
+  // Only on the loading branch: the label guards the spinner.
+  const loadingAt = code.indexOf('"loading"');
+  assert.match(code.slice(loadingAt), /if-eqz v\d+, :home_status_no_spinner/);
+  assert.match(code, /mel_splash_spinner/, 'sized from a real dimen token');
+});

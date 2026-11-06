@@ -639,6 +639,34 @@
     iput v6, v5, Landroid/view/ViewGroup$MarginLayoutParams;->bottomMargin:I
     invoke-virtual {p1, v3, v5}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
+    # A real loading indicator for state=loading: text alone gave no feedback
+    # that verification was in progress (incident P0, accueil).
+    const-string v6, "state"
+    const-string v7, ""
+    invoke-virtual {p2, v6, v7}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v6
+    const-string v7, "loading"
+    invoke-virtual {v7, v6}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v7
+    if-eqz v7, :home_status_no_spinner
+    new-instance v6, Landroid/widget/ProgressBar;
+    invoke-direct {v6, p0}, Landroid/widget/ProgressBar;-><init>(Landroid/content/Context;)V
+    const/4 v7, 0x1
+    invoke-virtual {v6, v7}, Landroid/widget/ProgressBar;->setIndeterminate(Z)V
+    const-string v7, "mel_splash_spinner"
+    const/16 v8, 0x1e
+    invoke-static {p0, v7, v8}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+    move-result v7
+    new-instance v8, Landroid/widget/LinearLayout$LayoutParams;
+    invoke-direct {v8, v7, v7}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    const/4 v9, 0x0
+    iput v9, v8, Landroid/widget/LinearLayout$LayoutParams;->gravity:I
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->statusMarginV(Landroid/content/Context;)I
+    move-result v9
+    iput v9, v8, Landroid/view/ViewGroup$MarginLayoutParams;->bottomMargin:I
+    invoke-virtual {v3, v6, v8}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    :home_status_no_spinner
+
     # Brand-neutral music glyph in a soft accent circle, beside the state label.
     new-instance v5, Landroid/widget/LinearLayout;
     invoke-direct {v5, p0}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
