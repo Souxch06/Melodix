@@ -769,3 +769,6 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 
 ## CI — commit d694869 (2026-11-06, run 42265732431)
 - « Unit and regression suite » : **SUCCESS**. Seul rouge : fail-loud volontaire (secret keystore absent). Suite locale : 825/822/0/3.
+
+## Garde d'intégrité du canal previews (2026-11-06)
+- Nouveau `tests/releases_integrity.test.js` (2) : chaque `releases/*.apk` a un `.sha256` valide (digest réel vérifié), et `releases/README.md` garde la procédure `adb uninstall` + référence la preview la plus récente. Suite : **827/824/0/3**.
