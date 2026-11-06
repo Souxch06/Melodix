@@ -141,8 +141,13 @@ function loadShell({ withCards = true, mediaLib = null, mediaLibSessionProofKnow
     if (rootMode === 'legacy') byId.set('#main-view', main);
     if (rootMode === 'semantic') byId.set('[data-testid="home-page"]', main);
     if (!noUserWidget) {
+        // MEL-BUG-029: the shell's profile selector now also accepts /user/ links.
         byId.set(
             'button[data-testid="user-widget-link"], a[data-testid="user-widget-link"], .main-userWidget-box',
+            widget
+        );
+        byId.set(
+            'button[data-testid="user-widget-link"], a[data-testid="user-widget-link"], .main-userWidget-box, a[href^="/user/"]',
             widget
         );
     }

@@ -3786,8 +3786,16 @@
             loginRoute: host === 'open.spotify.com' &&
                 /^\/(?:login|signin|oauth|auth|v2\/auth)(?:\/|$)/i.test(normalizedPath),
             loginAction: !!document.querySelector('a[href*="login"], [data-testid="login-button"]'),
-            profileControl: !!document.querySelector('[data-testid="user-widget-link"], .main-userWidget-box'),
-            playerControls: !!document.querySelector('[data-testid="control-button-playpause"], .main-playButton-entrancePoint')
+            // MEL-BUG-029: a logged-in WebView must stay recognizable even when
+            // one Spotify DOM selector family goes stale. Each side keeps
+            // several selectors already used across this codebase; sign-in still
+            // requires BOTH a profile-side and a player-side signal (fail closed).
+            profileControl: !!document.querySelector(
+                '[data-testid="user-widget-link"], .main-userWidget-box, a[href^="/user/"]'),
+            playerControls: !!document.querySelector(
+                '[data-testid="control-button-playpause"], .main-playButton-entrancePoint, ' +
+                'aside[data-testid="now-playing-bar"], [data-testid="mini-player"], ' +
+                '[data-testid="control-button-skip-forward"], [data-testid="control-button-skip-back"]')
         };
     }
 

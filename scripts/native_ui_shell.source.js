@@ -1634,7 +1634,8 @@
 
     function pageHasProfileSignal() {
         return Boolean(sfDeepQuery(
-            'button[data-testid="user-widget-link"], a[data-testid="user-widget-link"], .main-userWidget-box'
+            'button[data-testid="user-widget-link"], a[data-testid="user-widget-link"], ' +
+            '.main-userWidget-box, a[href^="/user/"]'
         ));
     }
 

@@ -686,3 +686,8 @@ commit `85dc840` · chaîne reproductible : `scripts/build_preview_apk.sh` + `zi
 ## Preview publiée depuis Arena — v1.2.2-test.51-preview (2026-11-06, commit ba32135 + APK)
 - **Contenu** : MEL-BUG-026 complément 3 (recherche live depuis tuile de genre sans session → carte de connexion).
 - APK `releases/Melodix-Test-v1.2.2-test51.apk` · sha256 `d08ebc75120ad70600ecfbc0bdbb31ae21f559feae0ee157a09795d25e9da9f7` · versionCode **1051** · empreinte `F9:A6:3F:…:24:18` (mise à jour directe depuis test.47→50). Suite 803/800/0/3.
+
+## MEL-BUG-029 — P1 : l'accueil affichait « non connecté » pour un utilisateur réellement connecté (sélecteurs DOM périmés)
+- **Cause** : la preuve « connecté » exigeait exactement `user-widget-link`/`.main-userWidget-box` ET `control-button-playpause`/`.main-playButton-entrancePoint`. Si une famille de sélecteurs Spotify change, l'état reste « unknown » → `mediaLibraryAuthReady()` faux → aucune preuve de session → carte « Connexion Spotify non confirmée » sur l'accueil malgré une vraie session.
+- **Correctif** (fail-closed conservé) : chaque côté accepte désormais plusieurs sélecteurs déjà utilisés dans le codebase (profil : + `a[href^="/user/"]` ; lecteur : + `now-playing-bar`, `mini-player`, skip forward/back). L'état connecté exige toujours **les deux** côtés ; les routes login/accounts restent prioritaires (SIGNED_OUT). Assets minifiés régénérés via `build_runtime_assets.sh`. Tests : `mel_bug_029_auth_signals.test.js` (5) + fixture `p0_shell_takeover` mise à jour. Suite : 808/805/0/3.
+- **Statut** : correctif livré + tests verts ; validation avec une vraie session Spotify toujours en attente (non simulable en sandbox).
