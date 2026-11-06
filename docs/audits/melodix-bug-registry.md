@@ -618,3 +618,8 @@ branche de travail.
   `resources.arsc` aligné ; APK redécodable (apktool d) ; suite 790/787/0/3 ; aucun matériel de clé tracké.
 - **Limites honnêtes** : build local avec apktool 2.4.1 (CI utilise 2.9.3) ; validation émulateur (walks)
   non exécutée pour cette build (pas d'émulateur local) ; parcours Spotify live toujours non prouvé.
+
+### Release publiée : https://github.com/Souxch06/Melodix/releases/tag/v1.2.2-test.46-preview
+APK : https://github.com/Souxch06/Melodix/blob/arena/6b935c3e-melodix/releases/Melodix-Test-v1.2.2-test46.apk
+sha256 `f64da5b6ec115318813a25cc3f5e120a1ad2dc00be0abf3207a57a8d4da826b7` · cert `C2:A9:1D:F7:…:EB:67` ·
+commit `85dc840` · chaîne reproductible : `scripts/build_preview_apk.sh` + `zipalign4.py` + `apk_sign.js`.
