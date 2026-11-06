@@ -459,7 +459,7 @@ MEL-BUG-020 — P3 — mon assertion de sélection était un faux vert (corrigé
   notes de release. Clé déposée hors dépôt pour le propriétaire (`melodix-test-release.p12`, à pousser
   UNE FOIS dans le secret avec `gh secret set`) ; aucun matériel de clé tracké (test de garde).
 - **Empreinte du certificat de test (publique)** :
-  `45:62:21:AC:C4:B4:B4:57:F2:9C:55:72:BB:9F:B2:D8:32:29:25:39:7D:88:60:F4:CC:E2:6F:2B:CE:8C:B1:AF`
+  `05:47:8B:C0:52:4C:EC:88:02:D9:13:04:CC:58:84:80:87:B4:9B:05:25:DE:B7:35:42:D1:24:44:EA:9B:06:17`
 - **Validation** : le test de mise à jour 44→45 en conditions réelles nécessite le secret posé puis un
   run CI vert (build avec preuve de stabilité + walk avec update-over-install). **En attente du secret.**
 - **Migration** : tant que le secret n'est pas posé, aucune nouvelle release n'est publiée (build rouge
@@ -586,3 +586,21 @@ branche de travail.
   volontaire** (`MELODIX_TEST_KEYSTORE_B64` non posé) ⇒ walks émulateur et release skipped, **aucune release
   publiée** (dernière : `v1.2.2-test.45-preview`). La validation sur émulateur du correctif MEL-BUG-024 (capture
   `library` montrant l'état session + « Se connecter ») est prête mais **bloquée par le même secret**.
+
+## Recréation de la clé de test persistante depuis Arena — 2026-11-06
+
+- Le système de fichiers Arena ayant été réinitialisé, l'ancienne clé (`45:62:21:…`) est perdue ; elle n'avait
+  jamais signé de release publiée (builds en fail-loud), donc **aucune clé de release publiée n'est remplacée**.
+  Les pre-releases ≤ `test.45` utilisent des clés jetables par run : migration = désinstaller l'ancienne build.
+- Nouvelle clé persistante recréée ici (openssl 3.0.20) : PKCS12 AES-256-CBC / MAC SHA-256, alias
+  `melodix-test`, validité 30 ans, fichier `/home/user/melodix-test-release.p12` (hors dépôt).
+- **Empreinte SHA-256 du certificat** : `05:47:8B:C0:52:4C:EC:88:02:D9:13:04:CC:58:84:80:87:B4:9B:05:25:DE:B7:35:42:D1:24:44:EA:9B:06:17`
+  (dérivée deux fois depuis le p12 : identique — stabilité vérifiée localement).
+- **Blocage confirmé** : le token GitHub d'Arena renvoie **HTTP 403** sur tous les endpoints `actions/secrets`
+  (public-key, list, get, set) — permission « Secrets » manquante. `gh secret set` échoue à « failed to fetch
+  public key: HTTP 403 ». **Le secret n'a PAS été posé et je ne prétends pas le contraire.**
+- **Action requise** : reconnecter GitHub dans Arena (depuis l'interface Arena, aucun PC nécessaire) avec un
+  token autorisé à gérer les secrets Actions du dépôt (PAT fine-grained : « Secrets: Read and write »), puis
+  exécuter `./scripts/set_test_signing_secret.sh` depuis Arena. Le workflow ne contient **aucune empreinte en
+  dur** (test de garde ajouté) : il dérive l'empreinte du keystore à chaque build et la croise avec celle de l'APK.
+- Suite : **790 / 787 pass / 0 fail / 3 skip**.

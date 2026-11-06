@@ -5,7 +5,7 @@ MEL-BUG-023 exige une clé de signature **persistante** pour les pre-releases de
 être commitée, journalisée, collée dans un chat, ni imprimée à l'écran.
 
 Empreinte SHA-256 du certificat (publique, publiée dans les notes de release) :
-`45:62:21:AC:C4:B4:B4:57:F2:9C:55:72:BB:9F:B2:D8:32:29:25:39:7D:88:60:F4:CC:E2:6F:2B:CE:8C:B1:AF`
+`05:47:8B:C0:52:4C:EC:88:02:D9:13:04:CC:58:84:80:87:B4:9B:05:25:DE:B7:35:42:D1:24:44:EA:9B:06:17`
 
 ## Méthode recommandée (script fourni, rien n'est affiché)
 
@@ -48,6 +48,21 @@ Puis poussez un commit sur `arena/6b935c3e-melodix` : le job `build-qa-apk` doit
 fail-loud), la preuve de stabilité de signature s'exécute (2 signatures → même empreinte de
 certificat), et la pre-release de test se publie automatiquement **uniquement** si les 6 jobs sont
 verts.
+
+## Historique et migration (2026-11-06, recréation depuis Arena)
+
+- La clé précédente (`45:62:21:…:8C:B1:AF`) a été générée dans un bac à sable dont le système de fichiers a été
+  réinitialisé : elle n'a **jamais** été posée comme secret et n'a signé **aucune** release publiée (les builds
+  correspondants ont échoué volontairement, fail-loud). Les pre-releases publiées jusqu'à `test.45` étaient signées
+  par des clés jetables par run (MEL-BUG-023) : elles ne sont **pas** installables par-dessus une build signée avec
+  la clé persistante. **Migration** : désinstaller l'ancienne build de test avant d'installer la première build
+  signée avec la clé persistante.
+- Nouvelle clé persistante recréée depuis l'environnement Arena (openssl 3, PKCS12 AES-256-CBC / MAC SHA-256,
+  alias `melodix-test`, validité 30 ans) : empreinte SHA-256 du certificat ci-dessus.
+- Pose du secret : **bloquée côté Arena** — le token GitHub connecté renvoie HTTP 403 sur tous les endpoints
+  `actions/secrets` (y compris `public-key`), il manque la permission « Secrets » en écriture. Action requise :
+  reconnecter GitHub dans Arena avec un token autorisé à gérer les secrets Actions du dépôt (PAT fine-grained :
+  permission dépôt « Secrets: Read and write »), puis relancer `./scripts/set_test_signing_secret.sh` depuis Arena.
 
 ## Règles absolues
 

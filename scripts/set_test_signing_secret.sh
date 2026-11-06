@@ -43,6 +43,6 @@ base64 -w0 "$KEYSTORE_FILE" | gh secret set "$SECRET_NAME" --repo "$REPO" --body
 
 echo "Secret '$SECRET_NAME' posé sur $REPO (valeur jamais affichée)."
 echo "Empreinte SHA-256 du certificat attendue dans les notes de release :"
-echo "  45:62:21:AC:C4:B4:B4:57:F2:9C:55:72:BB:9F:B2:D8:32:29:25:39:7D:88:60:F4:CC:E2:6F:2B:CE:8C:B1:AF"
+echo "  05:47:8B:C0:52:4C:EC:88:02:D9:13:04:CC:58:84:80:87:B4:9B:05:25:DE:B7:35:42:D1:24:44:EA:9B:06:17"
 echo "Vérification (n'affiche que les noms) : gh secret list --repo $REPO"
 echo "Ne committez jamais le .p12, ne collez jamais sa valeur base64 dans le chat."

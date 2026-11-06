@@ -658,3 +658,17 @@ test('workflow E: the test release gates on real build+tests+walks, cites the ce
   assert.match(flat, /\$\{\{ runner\.temp \}\}\/melodix-ui-test-cert-sha256\.txt/, 'the fingerprint travels with the APK artifact');
   assert.doesNotMatch(flat, /clé jetable de build/, 'the notes must not claim a throwaway signing key');
 });
+
+test('MEL-BUG-023: the workflow never hardcodes a certificate fingerprint — it derives it from the keystore at build time', () => {
+  const raw = fs.readFileSync(path.join(root, '.github', 'workflows', 'ui-qa.yml'), 'utf8');
+  const flat = raw.replace(/\\(.)/g, '$1');
+  // No colon-separated 32-byte hex fingerprint constant in the workflow.
+  assert.doesNotMatch(flat, /[0-9A-F]{2}(:[0-9A-F]{2}){31}/, 'no hardcoded cert fingerprint in the workflow');
+  // It is computed from the exported cert and cross-checked against the APK.
+  assert.match(flat, /keytool -exportcert[\s\S]*?-alias melodix-test/);
+  assert.match(flat, /sha256sum "\$cert"/);
+  assert.match(flat, /"\$cert1" == "\$fingerprint"/, 'APK cert must equal the keystore-derived fingerprint');
+  // The documented expected fingerprint matches the shipped test keystore docs.
+  const doc = fs.readFileSync(path.join(root, 'docs', 'audits', 'melodix-test-secret-setup.md'), 'utf8');
+  assert.match(doc, /[0-9A-F]{2}(:[0-9A-F]{2}){31}/, 'the setup doc publishes the expected public fingerprint');
+});
