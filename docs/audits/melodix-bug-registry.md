@@ -629,3 +629,10 @@ commit `85dc840` · chaîne reproductible : `scripts/build_preview_apk.sh` + `zi
 - **Correctif** (natif, même pattern que MEL-BUG-024) : dans `applyNativeUiData`, la branche `:search_render` et le handler `initial-search` consultent désormais le flag persistant `isNativeSessionUnproven()` ; si vrai, ils rendent la carte d'état réelle via `NativeHomeShelfRenderer` (« Connexion Spotify non confirmée — touchez pour vous connecter », uri `melodix:action:open-login`) et ne rendent PAS la liste vide. Session prouvée : comportement inchangé (lignes + `window.searchMediaItems`).
 - **Tests** : `tests/mel_bug_025_search_unproven.test.js` (3 tests : branche search_render, deep link initial-search, non-régression branche prouvée). Suite : 793/790/0/3.
 - **Statut** : correctif livré + tests verts ; validation émulateur via prochain run CI (walk search), comme MEL-BUG-024.
+
+## Preview publiée depuis Arena — v1.2.2-test.47-preview (2026-11-06, commit 5722d0f + APK)
+- **Contenu** : MEL-BUG-025 (Recherche sans session → carte d'état réelle « Connexion Spotify non confirmée » + Se connecter).
+- APK `releases/Melodix-Test-v1.2.2-test47.apk` · sha256 `430360c21080ea868b27846696663bf7500c5305a73cf075f67b390c03ae36d2` · versionCode **1047** · package `com.melodix.music`.
+- **Signature** : v1+v2+v3, clé persistante régénérée après reset sandbox (empreinte `F9:A6:3F:7A:22:72:45:99:82:00:20:76:21:6E:48:96:81:75:F2:11:84:D9:1E:2A:D3:99:88:11:52:6C:24:18`) ; stabilité prouvée (2 signatures → même certificat) ; empreinte APK == empreinte keystore ; `resources.arsc` stocké+aligné 4 o ; APK redécodable.
+- **Migration** : DÉSINSTALLER test.46 (empreinte `C2:A9:…:EB:67`) avant d'installer test.47 (nouvelle empreinte `F9:A6:…:24:18`) — le bac à sable efface le keystore entre sessions, chaque preview Arena a donc sa propre empreinte documentée.
+- Suite : 793/790/0/3. Aucun matériel de clé tracké.
