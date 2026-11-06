@@ -759,3 +759,10 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 
 ## CI — commit 744de85 (2026-11-06, run 42264490769)
 - « Unit and regression suite » : **SUCCESS**. Seul rouge : fail-loud volontaire (secret keystore absent). Suite locale : 823/820/0/3.
+
+## MEL-BUG-034 — P3 : réouverture de l'onglet Recherche avec un texte résiduel (2026-11-06)
+- **Cause** : `onNativeSearchClick` rouvrait le champ avec l'ancien texte alors que la grille de genres était affichée (le watcher ne se déclenche que sur édition).
+- **Correctif** : `setText("")` à l'ouverture de l'onglet Recherche → le watcher ramène la grille de genres (MEL-BUG-031), champ et écran cohérents. Suite : **825/822/0/3**.
+
+## Preview publiée depuis Arena — v1.2.2-test.60-preview (2026-11-06, commit MEL-BUG-034 + APK)
+- APK `releases/Melodix-Test-v1.2.2-test60.apk` · sha256 `868047eb90c8bc3a8ee4b7735720bd18bd7d7ac5ed447fd7dc7b7a00937788eb` · versionCode **1060** · empreinte `DB:63:77:…:59:A2` (même session Arena → mise à jour directe). Suite 825/822/0/3.
