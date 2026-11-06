@@ -35,8 +35,31 @@ test('publish_preview_release.sh puts the direct APK download links at the very 
   const script = fs.readFileSync(path.join(repo, 'scripts/publish_preview_release.sh'), 'utf8');
   assert.match(script, /### 📥 Télécharger l'APK/,
     'la section téléchargement doit être en tête des notes (pas d\'asset attaché possible depuis le sandbox)');
-  assert.match(script, /raw\.githubusercontent\.com\/\$\{REPO\}\/\$\{BR\}\/releases\/\$\{APK\}/,
-    'lien direct raw présent');
+  assert.match(script, /raw\.githubusercontent\.com\/\$\{REPO\}\/\$\{TAG\}\/releases\/\$\{APK\}/,
+    'lien direct raw présent, épinglé sur le TAG de la release (l\'APK est dans le tag)');
+  assert.match(script, /blob\/\$\{TAG\}\/releases\/\$\{APK\}/,
+    'page blob épinglée sur le tag');
+  assert.match(script, /codeload\.github\.com\/\$\{REPO\}\/zip\/refs\/tags\/\$\{TAG\}/,
+    'archive zip du tag proposée en repli');
   assert.ok(script.indexOf("### 📥 Télécharger l'APK") < script.indexOf('## Melodix test release'),
     'la section téléchargement précède le reste des notes');
+});
+
+test('every preview release tag actually contains its APK in git (releases/<apk> at the tag ref)', () => {
+  // The APK cannot be attached as a release *asset* from the Arena sandbox
+  // (uploads.github.com is blocked), so the contract is: the release TAG must
+  // carry the APK in the repository, and the notes must link to it at the tag.
+  const { execSync } = require('node:child_process');
+  const tags = execSync(
+    "gh api 'repos/Souxch06/Melodix/releases?per_page=100' --jq '.[].tag_name'",
+    { encoding: 'utf8' }).trim().split('\n').filter((t) => /-test\.\d+-preview$/.test(t));
+  assert.ok(tags.length >= 10, 'les previews publiées sont listées');
+  for (const tag of tags.slice(0, 5)) {
+    const n = tag.split('test.')[1].split('-')[0];
+    const apk = `releases/Melodix-Test-v1.2.2-test${n}.apk`;
+    const out = execSync(
+      `gh api 'repos/Souxch06/Melodix/contents/${apk}?ref=${tag}' --jq '.size'`,
+      { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+    assert.ok(Number(out) > 1000000, `${tag} doit contenir ${apk} (> 1 Mo), size=${out}`);
+  }
 });

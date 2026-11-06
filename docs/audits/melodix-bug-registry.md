@@ -772,3 +772,7 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 
 ## Garde d'intégrité du canal previews (2026-11-06)
 - Nouveau `tests/releases_integrity.test.js` (2) : chaque `releases/*.apk` a un `.sha256` valide (digest réel vérifié), et `releases/README.md` garde la procédure `adb uninstall` + référence la preview la plus récente. Suite : **827/824/0/3**.
+
+## APK « dans la release » — contrainte sandbox uploads.github.com (2026-11-06)
+- **Contrainte technique prouvée** : `uploads.github.com` est hors allowlist du bac à sable Arena (TCP OK puis stall, HTTP 000 ; `gh release upload` → EOF). Aucun asset binaire ne peut donc être attaché à une release depuis Arena.
+- **Contrat garanti à la place** : chaque **tag de pre-release contient l'APK dans le dépôt git** (`releases/Melodix-Test-…apk` au ref du tag, vérifié via l'API contents > 1 Mo) et les notes de release ont en tête une section « 📥 Télécharger l'APK » avec (1) lien raw **épinglé sur le tag**, (2) page blob du tag (bouton Download), (3) archive zip du tag via codeload. Appliqué rétroactivement aux 15 previews (test.46→60) et généré automatiquement par `publish_preview_release.sh` (liens désormais sur `${TAG}`, pas la branche). Garde : `tests/releases_integrity.test.js` (4 tests). Suite : **828/825/0/3**.
