@@ -30,3 +30,13 @@ test('releases/README.md keeps the anti-conflict procedure and points at the lat
   const latest = Math.max(...apks);
   assert.ok(readme.includes(`test.${latest}`), `README must reference the latest preview test.${latest}`);
 });
+
+test('publish_preview_release.sh puts the direct APK download links at the very top of the notes', () => {
+  const script = fs.readFileSync(path.join(repo, 'scripts/publish_preview_release.sh'), 'utf8');
+  assert.match(script, /### 📥 Télécharger l'APK/,
+    'la section téléchargement doit être en tête des notes (pas d\'asset attaché possible depuis le sandbox)');
+  assert.match(script, /raw\.githubusercontent\.com\/\$\{REPO\}\/\$\{BR\}\/releases\/\$\{APK\}/,
+    'lien direct raw présent');
+  assert.ok(script.indexOf("### 📥 Télécharger l'APK") < script.indexOf('## Melodix test release'),
+    'la section téléchargement précède le reste des notes');
+});

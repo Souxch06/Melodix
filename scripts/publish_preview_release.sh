@@ -18,6 +18,11 @@ BR="arena/6b935c3e-melodix"
 
 NOTES="$(mktemp)"
 {
+  echo "### 📥 Télécharger l'APK (pas d'asset attaché : \`uploads.github.com\` est bloqué depuis le bac à sable Arena, l'APK est donc servi directement depuis le dépôt)"
+  echo "- **Lien direct (raw)** : https://raw.githubusercontent.com/${REPO}/${BR}/releases/${APK}"
+  echo "- **Page fichier → bouton « Download raw file »** : https://github.com/${REPO}/blob/${BR}/releases/${APK}"
+  echo "- sha256 : voir ci-dessous (vérifiez après téléchargement : \`sha256sum ${APK}\`)"
+  echo
   echo "## Melodix test release ${TAG} (PRE-RELEASE — test uniquement)"
   echo
   echo "- **Commit testé** : \`${COMMIT}\` (branche \`${BR}\`, PR #8)"
