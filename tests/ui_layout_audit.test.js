@@ -223,9 +223,11 @@ test('the QA workflow keeps a literal on: key and cannot re-trigger itself', () 
   assert.match(yaml, /\[skip ci\]/, 'publishing captures must not re-trigger the walk');
   const paths = yaml.slice(yaml.indexOf('paths:'), yaml.indexOf('permissions:'));
   assert.doesNotMatch(paths, /docs\//, 'the published capture path must not be watched');
-  // No CUSTOM secret (in particular no signing key). The built-in GITHUB_TOKEN
-  // is allowed and required for gh release create; anything else is forbidden.
-  assert.doesNotMatch(yaml, /secrets\.(?!GITHUB_TOKEN\b)[A-Z_]+/, 'no custom secret, no signing key');
+  // Only two secrets are allowed: the built-in GITHUB_TOKEN (releases) and the
+  // PERSISTENT TEST keystore (MEL-BUG-023). The keystore VALUE never appears in
+  // the repo — only the secret NAME. Any other secret is forbidden.
+  assert.doesNotMatch(yaml, /secrets\.(?!GITHUB_TOKEN\b|MELODIX_TEST_KEYSTORE_B64\b)[A-Z_]+/,
+    'no custom secret beyond GITHUB_TOKEN and the persistent test keystore name');
   assert.match(yaml, /profile:\s*(?:\[phone,\s*tablet\]|\n\s*- phone\n\s*- tablet)/,
     'both form factors are walked');
 });
@@ -544,9 +546,12 @@ test('every green QA run publishes its own test APK as a pre-release', () => {
   // the suite and both device walks are green, and must attach the APK built
   // from the exact commit under test.
   const raw = fs.readFileSync(path.join(root, '.github', 'workflows', 'ui-qa.yml'), 'utf8');
-  const jobAt = raw.indexOf('release-test:');
+  // The workflow file is YAML-serialised: quotes inside run: scalars appear as \".
+  // Normalise before matching shell fragments.
+  const flat = raw.replace(/\\(.)/g, '$1');
+  const jobAt = flat.indexOf('release-test:');
   assert.ok(jobAt !== -1, 'the workflow must contain a release-test job');
-  const job = raw.slice(jobAt);
+  const job = flat.slice(jobAt);
   assert.match(job, /if: success\(\)/, 'a red build/tests/walk must never publish');
   assert.match(job, /needs:\s*\n\s*- build-qa-apk\s*\n\s*- unit-tests\s*\n\s*- walk-qa/, 'gated on build + suite + both walks');
   assert.match(job, /permissions:\s*\n\s*contents: write/);
@@ -556,4 +561,26 @@ test('every green QA run publishes its own test APK as a pre-release', () => {
   assert.match(job, /v1\.2\.2-test\.\$\{\{ github\.run_number \}\}-preview/, 'traceable tag naming');
   assert.match(job, /\.apk\.sha256/, 'a checksum ships next to the APK');
   assert.match(job, /walk reported|no release is published/, 'no APK, no release');
+});
+
+test('MEL-BUG-023: test APKs are signed with one persistent key, never a throwaway one', () => {
+  const raw = fs.readFileSync(path.join(root, '.github', 'workflows', 'ui-qa.yml'), 'utf8');
+  const flat = raw.replace(/\\(.)/g, '$1');
+  assert.doesNotMatch(flat, /genkeypair/, 'no key may be generated per build — that broke updates');
+  assert.match(flat, /secrets\.MELODIX_TEST_KEYSTORE_B64/, 'the persistent test keystore comes from a CI secret');
+  assert.match(flat, /MELODIX_TEST_KEYSTORE_B64 is not set[\s\S]*?exit 1/,
+    'a missing key must fail loudly, not silently fall back to a throwaway key');
+  assert.match(flat, /--ks-type PKCS12[\s\S]*?--ks-key-alias melodix-test/);
+  // Stability proof: two signatures from the same key must yield the same cert.
+  assert.match(flat, /cert1=[\s\S]*?cert2=[\s\S]*?"\$cert1" == "\$cert2"/,
+    'the build must prove the signing certificate is stable across builds');
+  // Update path: the walk installs the APK over an existing install.
+  assert.match(flat, /update-over-install=ok/, 'the walk must test install-over-install');
+  // Package identity stays constant.
+  assert.match(flat, /package_id/);
+  assert.match(flat, /com\.melodix\.music/);
+  // No keystore material is tracked in the repo.
+  const tracked = execFileSync('git', ['ls-files'], { cwd: root, encoding: 'utf8' });
+  assert.doesNotMatch(tracked, /\.(p12|jks|keystore|pem|der)$/i,
+    'no key or certificate material may be committed');
 });
