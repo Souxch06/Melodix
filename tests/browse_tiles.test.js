@@ -148,13 +148,18 @@ test('the token parser accepts negative margins but still rejects invalid units'
   const os = require('node:os');
   const script = path.join(root, 'scripts/ui_metrics_measure.py');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mel-neg-token-'));
-  const dims = path.join(root, 'res/values/mel_dimens.xml');
-  const original = fs.readFileSync(dims, 'utf8');
+  // MEL-BUG-027: never mutate the shared res/values/mel_dimens.xml -- under
+  // node --test the files run in parallel and another test reading the token
+  // file mid-probe saw a bogus unit and failed (flaky CI). Probe a COPY.
+  const resCopy = path.join(dir, 'res');
+  fs.mkdirSync(path.join(resCopy, 'values'), { recursive: true });
+  const original = fs.readFileSync(path.join(root, 'res/values/mel_dimens.xml'), 'utf8');
+  const dims = path.join(resCopy, 'values', 'mel_dimens.xml');
   const probe = (value) => {
-    fs.writeFileSync(dims, original.replace('</resources>', `    <dimen name="mel_probe_token">${value}</dimen>\n</resources>`));
+    fs.writeFileSync(dims, original.replace('</resources>', `    <dimen name=\"mel_probe_token\">${value}</dimen>\\n</resources>`));
     try {
       execFileSync('python3', [script, 'phone', '420', path.join(dir, 'missing.xml'), path.join(dir, 'out.json')],
-        { cwd: root, encoding: 'utf8', stdio: 'pipe' });
+        { cwd: root, encoding: 'utf8', stdio: 'pipe', env: { ...process.env, MELODIX_DIMENS_DIR: resCopy } });
       return null;
     } catch (e) { return `${e.stdout || ''}${e.stderr || ''}`; }
   };
@@ -166,7 +171,6 @@ test('the token parser accepts negative margins but still rejects invalid units'
       assert.ok(out && out.includes('unsupported value'), `${bad} must still be rejected`);
     }
   } finally {
-    fs.writeFileSync(dims, original);
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });

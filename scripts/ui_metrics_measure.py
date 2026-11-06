@@ -45,10 +45,17 @@ BOUNDS = re.compile(r"\[(-?\d+),(-?\d+)\]\[(-?\d+),(-?\d+)\]")
 
 
 def tokens(profile):
-    """Resolve the token set exactly as Android would for this profile."""
-    base = REPO / "res" / "values" / "mel_dimens.xml"
+    """Resolve the token set exactly as Android would for this profile.
+
+    MELODIX_DIMENS_DIR optionally points at a copied res/ directory so tests
+    can probe extra tokens without mutating the shared repository file (which
+    races with other test files under node --test's parallel file execution).
+    """
+    import os
+    res_dir = pathlib.Path(os.environ.get("MELODIX_DIMENS_DIR") or (REPO / "res"))
+    base = res_dir / "values" / "mel_dimens.xml"
     values = {}
-    for path in [base] + ([REPO / "res" / "values-sw600dp" / "mel_dimens.xml"]
+    for path in [base] + ([res_dir / "values-sw600dp" / "mel_dimens.xml"]
                           if profile == "tablet" else []):
         for name, raw in re.findall(
             r'<dimen name="([A-Za-z0-9_]+)">([^<]+)</dimen>', path.read_text(encoding="utf-8")

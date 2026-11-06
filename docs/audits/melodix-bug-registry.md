@@ -650,3 +650,9 @@ commit `85dc840` · chaîne reproductible : `scripts/build_preview_apk.sh` + `zi
 - **Contenu** : MEL-BUG-026 (états vides library/detail + submit recherche sans session → carte d'état réelle « Connexion Spotify non confirmée » + Se connecter, 4 points d'entrée natifs).
 - APK `releases/Melodix-Test-v1.2.2-test48.apk` · sha256 `299227909fa7b9a1922f27a93552064f19e458a2516f2dd56a6fb79465389eb9` · versionCode **1048** · empreinte cert `F9:A6:3F:…:24:18` (identique à test.47 — même keystore, pas de reset entre-temps ; **test.47 et test.48 sont installables en mise à jour l'une sur l'autre**).
 - Signature v1+v2+v3 vérifiée (cert APK == keystore), `resources.arsc` stocké+aligné, APK redécodable. Suite 797/794/0/3.
+
+## MEL-BUG-027 — P1 : suite flaky en CI (race entre fichiers de test)
+- **Constat** : run CI `42229664851` (commit 4399bc8) en échec sur « dimension tokens carry the right unit » alors que le même commit passe en local et en clone frais. Cause : `tests/browse_tiles.test.js` injectait un token sonde en **modifiant res/values/mel_dimens.xml en place** ; `node --test` exécute les fichiers en parallèle, donc `mel_design_system.test.js` pouvait lire le fichier mid-probe (unité bogus) → échec aléatoire.
+- **Correctif** : `ui_metrics_measure.py` accepte `MELODIX_DIMENS_DIR` (répertoire res/ copiable) ; le test sonde désormais une **copie** en tmp et ne touche plus le dépôt. Test de garde `tests/mel_bug_027_test_isolation.test.js` (aucun test n'écrit dans res/ ou smali/).
+- **Preuve** : 3 runs complets consécutifs 799/796/0/3. Le build CI reste en fail-loud volontaire (secret absent) — inchangé.
+- **Statut** : résolu avec preuve (repro + 3 runs stables).
