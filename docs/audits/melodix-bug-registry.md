@@ -741,3 +741,10 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 
 ## CI — commit 04719fa (2026-11-06, runs 42261747619 / 42261747620)
 - Job « Unit and regression suite (with a real Java compiler) » : **SUCCESS**. « Verify UI metrics on phone and tablet » : **SUCCESS**. Seul rouge : fail-loud volontaire « Build one build-only APK » (secret keystore absent). Suite locale : 821/818/0/3. Assets minifiés resynchronisés (aucun diff après `build_runtime_assets.sh`).
+
+## MEL-BUG-031 (complément) — Entrée avec champ vide (2026-11-06)
+- `onNativeSearchSubmit` avec requête vide appelle désormais `onNativeSearchQueryCleared()` : retour à la grille de genres, comme un effacement. Suite : **822/819/0/3**.
+
+## Preview publiée depuis Arena — v1.2.2-test.57-preview (2026-11-06, commit be773f6 + APK)
+- **Contenu** : complément MEL-BUG-031 (submit vide → grille de genres).
+- APK `releases/Melodix-Test-v1.2.2-test57.apk` · sha256 `1328aff5e93f85825f4aa5c8f887689edde9e45dd69b2ceb67bfd067b3992ac6` · versionCode **1057** · empreinte `DB:63:77:…:59:A2` (même session Arena → mise à jour directe). Suite 822/819/0/3.

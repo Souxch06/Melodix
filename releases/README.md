@@ -19,8 +19,10 @@ La pre-release est donc publiée via l'API GitHub (autorisée) et l'APK est serv
 | v1.2.2-test.53-preview (MEL-BUG-030) | 1053 | `ef76d0a4a82579f4a1a131eb93ec12eefdbccda8dc123a518cdcc2a98c137fa6` | `DB:63:77:…:59:A2` |
 | v1.2.2-test.54-preview (MEL-BUG-031) | 1054 | `d03d24473465615b7ca0a5a44e75ef7862b7615e5fcd2f39dc265b168051e5f6` | `DB:63:77:…:59:A2` |
 | v1.2.2-test.55-preview (MEL-BUG-032) | 1055 | `75e8200e567e91843010750a6ab1b65c34aa1f3648389271c42781955e135901` | `DB:63:77:…:59:A2` |
+| v1.2.2-test.56-preview (MEL-BUG-033) | 1056 | `a091e1747fdd0a25e3f88a27056fa9c0b8d495e2236831533bbbb03eb4729da7` | `DB:63:77:…:59:A2` |
+| v1.2.2-test.57-preview (MEL-BUG-031 complément) | 1057 | `1328aff5e93f85825f4aa5c8f887689edde9e45dd69b2ceb67bfd067b3992ac6` | `DB:63:77:…:59:A2` |
 
-La plus récente est **test.55** (`Melodix-Test-v1.2.2-test55.apk` + `.sha256`). Previews test.53→55 partagent
+La plus récente est **test.57** (`Melodix-Test-v1.2.2-test57.apk` + `.sha256`). Previews test.53→55 partagent
 l'empreinte `DB:63:77:15:AA:DE:11:58:EF:AD:BF:16:4F:CD:E3:10:A5:8E:1F:AF:1B:E2:D5:A1:E5:2F:AE:DE:70:C8:59:A2`
 (même session Arena → mise à jour directe). Les previews test.47→52 avaient l'empreinte `F9:A6:…:24:18`,
 test.46 `C2:A9:…:EB:67` (sessions Arena antérieures → désinstaller d'abord, voir MEL-BUG-023 ci-dessus).
