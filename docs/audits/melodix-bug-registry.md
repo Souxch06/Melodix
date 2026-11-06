@@ -467,3 +467,24 @@ MEL-BUG-020 — P3 — mon assertion de sélection était un faux vert (corrigé
   nouvelle — c'est la migration la moins risquée, sans toucher à la production.
 - **Statut** : correctif livré ; **validation bloquée sur la pose du secret** `MELODIX_TEST_KEYSTORE_B64`.
 
+
+## Mise à jour P0 — commit `1efd0b2` (état au 2026-11-06)
+
+- **Accueil (P1)** : la carte de statut affiche désormais un vrai `ProgressBar` **indéterminé** quand
+  `state == "loading"` (branche `home_status_no_spinner` sinon), dimensionnée via le jeton `mel_splash_spinner`.
+  Test natif ajouté (lecture de `state`, comparaison `"loading"`, `setIndeterminate(true)`).
+- **Release (P4/P6)** : `versionCode` de la **copie temporaire** bumpé à `1000 + GITHUB_RUN_NUMBER`, asserté
+  `> 1000` via `aapt dump badging` (le dépôt n'est jamais modifié) ; les captures réelles
+  `capture-home|settings-phone|tablet.png` sont téléchargées et publiées dans les assets de la release.
+  Tests de workflow ajoutés (pas de `genkeypair`, bump sur copie temporaire uniquement, captures dans la
+  release, fail-loud si le secret manque).
+- **Tests** : `npm test` local **778 / 775 pass / 0 fail / 3 skip** (skips pré-existants).
+- **CI run `42177264532` (commit `1efd0b2`)** : suite unitaire **success** ; job `build-qa-apk` **failure volontaire**
+  (secret `MELODIX_TEST_KEYSTORE_B64` toujours non posé — fail-loud MEL-BUG-023) ; walk/release skipped en
+  cascade. **Aucune release publiée depuis `v1.2.2-test.45-preview`** — conforme à l'interdiction de release
+  intermédiaire. Workflow « Verify UI metrics » : success (3/3).
+- **Bloquant restant** : pose du secret par le propriétaire (`gh secret set MELODIX_TEST_KEYSTORE_B64
+  --repo Souxch06/Melodix --body-file <(base64 -w0 melodix-test-release.p12)`) puis run CI vert 6/6 ⇒
+  seule la release auto-publie l'APK signé avec la clé persistante. **Test live restant non prouvé** :
+  parcours OAuth Spotify complet avec une vraie session + mise à jour 44→45 installée par-dessus sur un
+  appareil réel — impossibles à démontrer sans session ni appareil ici ; jamais déclarés réussis.
