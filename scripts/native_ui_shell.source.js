@@ -992,8 +992,13 @@
                     previousError === 'http-401' ? 401 : 403, 0, 0);
                 return false;
             }
+            // MEL-BUG-035: do NOT reset __sfMediaLibRetryAt here. The previous
+            // attempt armed it (now + >=5s, doubling) when it started, and the
+            // generic backoff check below blocks until that deadline; resetting
+            // it to 0 burned the whole budget within milliseconds, before the
+            // post-login session cookie had settled -> every attempt 401'd and
+            // Home stayed on the error card.
             window.__sfMediaLibRefusalAttempts = Number(window.__sfMediaLibRefusalAttempts || 0) + 1;
-            window.__sfMediaLibRetryAt = 0;
         } else if (previousError && !libraryErrorIsTransient(previousError) && !explicitRetry) {
             traceHomePipeline(correlationId, 'request', 'blocked', 0, 0, 0, 0);
             return false;
@@ -1105,11 +1110,29 @@
             return;
         }
         if (libraryError === 'http-401' || libraryError === 'http-403') {
-            // Repeated auth refusals do not refresh a session or improve proof.
-            // Stop background requests; the status card exposes explicit actions.
-            if (homeRetryTimer) window.clearTimeout(homeRetryTimer);
-            homeRetryTimer = null;
-            homeRetries = 0;
+            // MEL-BUG-035: a 401/403 right after a fresh sign-in is often a
+            // cookie-settling race. While the per-epoch refusal budget
+            // (MEL-BUG-030, max 3) is not spent, schedule the next attempt at
+            // the backoff deadline set by requestMediaLibraryProof. Once the
+            // budget is spent (or the epoch changed), stop background requests;
+            // the status card still exposes the explicit retry/login actions.
+            var refusalEpoch = Number(window.__sfMediaLibRefusalEpoch || 0);
+            var refusalAttempts = Number(window.__sfMediaLibRefusalAttempts || 0);
+            var authEpochNow = Number(window.__sfSpotifyAuthEpoch || 0);
+            if (refusalAttempts >= 3 || refusalEpoch !== authEpochNow ||
+                homeRetryTimer || homeRetries >= MAX_HOME_RETRIES) {
+                if (homeRetryTimer) window.clearTimeout(homeRetryTimer);
+                homeRetryTimer = null;
+                homeRetries = 0;
+                return;
+            }
+            homeRetries += 1;
+            var retryAt = Number(window.__sfMediaLibRetryAt || 0);
+            var waitMs = Number.isFinite(retryAt) && retryAt > Date.now() ? retryAt - Date.now() : 500;
+            homeRetryTimer = window.setTimeout(function() {
+                homeRetryTimer = null;
+                if (currentSpotifyAuthUiState() === 'connected' && isSpotifyHome()) runUpdate();
+            }, waitMs);
             return;
         }
         if (homeRetryTimer || homeRetries >= MAX_HOME_RETRIES) return;

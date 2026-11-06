@@ -211,9 +211,12 @@ test('[P0 playlists] 6. un echec HTTP explicite reste visible et retentable', ()
   const afterRefusal = checkMediaLibCalls.count;
   assert.ok(afterRefusal >= 1 && afterRefusal <= 3,
     `le budget de retries après un refus HTTP est borné (1..3), got ${afterRefusal}`);
+  // MEL-BUG-035: la tentative suivante a armé un backoff (>= 5s) -> un refresh
+  // immédiat est bloqué, pas relancé à l'instant (c'est ce qui raceait le cookie
+  // de session juste après le login).
   window.__sfNativeUiRefresh();
   assert.equal(checkMediaLibCalls.count, afterRefusal,
-    'une fois le budget épuisé, plus aucun retry automatique en arrière-plan');
+    'le backoff armé bloque tout retry immédiat après un refus');
   let homeRows = calls.filter((c) => c.screen === 'home');
   let rows = homeRows.length ? JSON.parse(homeRows[homeRows.length - 1].data) : [];
   assert.equal(rows[0].uri, 'melodix:action:retry-library', 'le 403 ne renvoie pas vers un login player sans rapport avec les permissions API');
