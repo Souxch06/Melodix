@@ -22,9 +22,11 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 
 const phoneFile = 'res/layout/activity_main.xml';
 const tabletFile = 'res/layout-sw600dp/activity_main.xml';
+const landFile = 'res/layout-land/activity_main.xml';
 
 const phoneXml = read(phoneFile);
 const tabletXml = read(tabletFile);
+const landXml = read(landFile);
 
 const doc = (xml) => new JSDOM(xml, { contentType: 'text/xml' }).window.document;
 
@@ -49,6 +51,20 @@ test('the tablet variant is a valid layout with the same contract as the phone',
     'accessibility labels must not be lost on tablet');
   assert.deepEqual(tags(tabletXml), tags(phoneXml),
     'browse tiles keep their identity and order, so the same search runs');
+});
+
+test('the landscape variant is a valid layout with the same contract as the phone', () => {
+  // MEL-BUG-033: landscape devices (phones in landscape, tablets) must get the
+  // same id/handler contract as portrait; two layouts can drift, so parity is
+  // asserted here rather than trusted.
+  assert.ok(fs.existsSync(path.join(root, landFile)), 'a landscape layout must exist');
+  assert.deepEqual(ids(landXml), ids(phoneXml), 'landscape must expose exactly the phone ids');
+  assert.deepEqual(handlers(landXml), handlers(phoneXml), 'every phone click handler must still be wired in landscape');
+  assert.deepEqual(descriptions(landXml), descriptions(phoneXml), 'accessibility labels must not be lost in landscape');
+  assert.deepEqual(tags(landXml), tags(phoneXml), 'browse tiles keep their identity and order in landscape');
+  const host = landXml.indexOf('@id/hScrollView');
+  const shell = landXml.indexOf('@id/nativeRoot');
+  assert.ok(host >= 0 && shell > host, 'land: nativeRoot must follow the WebView host');
 });
 
 test('the tablet keeps the native shell above the WebView host', () => {
