@@ -579,3 +579,10 @@ Les PR ouvertes #6 (`arena/dbf2d44f-melodix`) et #7 (`arena/7142700d-melodix`) s
 de la branche de travail. **Décision : aucune fusion** — fusionner serait un no-op ou créerait des conflits
 inutiles ; `main` reste intacte et non modifiée. Aucun doublon de correctif n'a été trouvé entre ces PR et la
 branche de travail.
+
+## CI — commit `03e6c33` (MEL-BUG-024)
+
+- Run `42192828221` : suite unitaire **789/789/0/0 success** (JDK 17, aucun skip). Build toujours en **fail-loud
+  volontaire** (`MELODIX_TEST_KEYSTORE_B64` non posé) ⇒ walks émulateur et release skipped, **aucune release
+  publiée** (dernière : `v1.2.2-test.45-preview`). La validation sur émulateur du correctif MEL-BUG-024 (capture
+  `library` montrant l'état session + « Se connecter ») est prête mais **bloquée par le même secret**.
