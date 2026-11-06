@@ -703,3 +703,13 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 - **Cause** : Android refuse la mise à jour si la signature change. Le bac à sable efface le keystore local à chaque réinitialisation → une nouvelle session Arena peut publier une empreinte différente → conflit avec l'app installée. C'est la protection voulue (aucun contournement, jamais de contrôle de signature désactivé).
 - **Procédure documentée partout** (releases/README.md en tête, notes de chaque release via publish_preview_release.sh, test de garde) : `adb uninstall com.melodix.music` (ou Réglages → Applications → Melodix → Désinstaller) puis installer la nouvelle APK. La désinstall efface la session Spotify (reconnexion nécessaire). Même session Arena = même empreinte = mise à jour directe.
 - Suite : 809/805/0/3.
+
+## MEL-BUG-030 — P1 : après login, les playlists flashent 1 frame puis l'accueil retombe sur la carte 401 « Connexion Spotify à vérifier » (2026-11-06)
+- **Cause** : `requestMediaLibraryProof` n'autorisait **exactement une** tentative de preuve par époque de sign-in après un 401/403. Si ce premier essai 401 (race de cookies juste après le login Spotify), plus aucun retry automatique pour cette époque → l'accueil reste bloqué sur la carte d'erreur jusqu'au « Réessayer » manuel, alors que la session est valide (d'où le flash des playlists).
+- **Correctif** (fail-closed conservé, contrats auth/session intacts) : budget **borné de 3 tentatives** par époque de sign-in (`__sfMediaLibRefusalEpoch`/`__sfMediaLibRefusalAttempts`), réinitialisé quand l'époque augmente ou quand la preuve réussit ; au-delà, bloqué (aucune boucle infinie possible). Le retry manuel « Réessayer » reste disponible. Aucune ligne privée n'est jamais rendue sans preuve libraryV3 valide.
+- Tests : nouveau `tests/mel_bug_030_refusal_budget.test.js` (4) + P0 `p0_home_visibility_gate`/`p0_shell_takeover`/`p0_playlist_sync` mis à jour vers la sémantique bornée. Suite : **813/810/0/3**.
+- **Statut** : correctif livré + tests verts + preview test.53 publiée ; validation avec une vraie session Spotify toujours en attente (non simulable en sandbox).
+
+## Preview publiée depuis Arena — v1.2.2-test.53-preview (2026-11-06, commit fa71128 + APK)
+- **Contenu** : MEL-BUG-030 (budget borné de 3 retries post-401 par époque de login).
+- APK `releases/Melodix-Test-v1.2.2-test53.apk` · sha256 `ef76d0a4a82579f4a1a131eb93ec12eefdbccda8dc123a518cdcc2a98c137fa6` · versionCode **1053** · empreinte `DB:63:77:15:AA:DE:11:58:EF:AD:BF:16:4F:CD:E3:10:A5:8E:1F:AF:1B:E2:D5:A1:E5:2F:AE:DE:70:C8:59:A2` (nouvelle session Arena = nouveau keystore local, d'où le warning « Package en conflit » → `adb uninstall com.melodix.music` d'abord). Suite 813/810/0/3.
