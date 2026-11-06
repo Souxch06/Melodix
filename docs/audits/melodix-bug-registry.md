@@ -663,3 +663,8 @@ commit `85dc840` · chaîne reproductible : `scripts/build_preview_apk.sh` + `zi
 
 ## Outillage — commit suivant (2026-11-06)
 `scripts/publish_preview_release.sh` : publie + **vérifie** une pre-release via l'API GitHub (tag test inédit, prerelease, notes avec APK/sha256/empreinte/limites, contrôle existence release + APK servie). Le canal Arena est désormais entièrement scripté : `build_preview_apk.sh` → `publish_preview_release.sh`.
+
+## MEL-BUG-028 — P2 : recherche avec requête mais 0 résultat affichait l'indice « Recherchez un artiste… »
+- **Constat** : la branche empty de l'écran Recherche affichait toujours l'indice de saisie, même après une requête soumise sans résultat.
+- **Correctif** : `:native_rows_search_empty` branche sur `nativeExpectedSearch` ; requête non vide → « Aucun résultat pour « <requête> » » ; requête vide → indice conservé. 2 tests (`mel_bug_028_search_no_results.test.js`), test MEL-BUG-026 ajusté. Suite : 801/798/0/3.
+- **Statut** : correctif livré + tests verts ; validation émulateur via prochain run CI.

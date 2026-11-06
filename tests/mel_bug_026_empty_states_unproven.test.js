@@ -73,9 +73,11 @@ test('MEL-BUG-026: native search submit without proven session shows the state c
     'both branches still kick the WebView search');
 });
 
-test('MEL-BUG-026: search empty hint unchanged (session proven, no query yet)', () => {
+test('MEL-BUG-026/028: search empty keeps the hint only for an empty query', () => {
   const body = renderNativeRowsBody();
   const at = body.indexOf('\n    :native_rows_search_empty\n');
   assert.ok(at > 0, ':native_rows_search_empty must exist');
-  assert.match(body.slice(at, at + 200), /Recherchez un artiste, un titre, un album ou une playlist ci-dessus/);
+  // MEL-BUG-028: with a submitted query, the hint is replaced by the
+  // zero-result message; the hint remains reachable via :native_rows_search_hint.
+  assert.match(body.slice(at), /:native_rows_search_hint\s+const-string v0, "Recherchez un artiste, un titre, un album ou une playlist ci-dessus"/);
 });

@@ -9842,6 +9842,28 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     goto :native_rows_set_empty
 
     :native_rows_search_empty
+    # MEL-BUG-028: a submitted query with zero results must not show the
+    # "type something" hint — that hint is only for an empty query. Distinguish
+    # via nativeExpectedSearch (set on submit and on deep link).
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeExpectedSearch:Ljava/lang/String;
+    if-eqz v0, :native_rows_search_hint
+    invoke-virtual {v0}, Ljava/lang/String;->trim()Ljava/lang/String;
+    move-result-object v0
+    invoke-virtual {v0}, Ljava/lang/String;->isEmpty()Z
+    move-result v1
+    if-nez v1, :native_rows_search_hint
+    new-instance v0, Ljava/lang/StringBuilder;
+    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v1, "Aucun résultat pour « "
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeExpectedSearch:Ljava/lang/String;
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v1, " »"
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v0
+    goto :native_rows_set_empty
+    :native_rows_search_hint
     const-string v0, "Recherchez un artiste, un titre, un album ou une playlist ci-dessus"
     goto :native_rows_set_empty
 
