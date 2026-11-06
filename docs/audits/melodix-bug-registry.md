@@ -645,3 +645,8 @@ commit `85dc840` · chaîne reproductible : `scripts/build_preview_apk.sh` + `zi
 
 ### MEL-BUG-026 (complément) — submit natif de la recherche sans session
 `onNativeSearchSubmit` rendait « Résultats de recherche » + `[]` même sans session prouvée → même correctif : branche `isNativeSessionUnproven()` → carte d'état réelle, la branche prouvée garde `[]` + kick WebView. Test ajouté (4/4 dans le fichier MEL-BUG-026). Suite : 797/794/0/3.
+
+## Preview publiée depuis Arena — v1.2.2-test.48-preview (2026-11-06, commit 4399bc8 + APK)
+- **Contenu** : MEL-BUG-026 (états vides library/detail + submit recherche sans session → carte d'état réelle « Connexion Spotify non confirmée » + Se connecter, 4 points d'entrée natifs).
+- APK `releases/Melodix-Test-v1.2.2-test48.apk` · sha256 `299227909fa7b9a1922f27a93552064f19e458a2516f2dd56a6fb79465389eb9` · versionCode **1048** · empreinte cert `F9:A6:3F:…:24:18` (identique à test.47 — même keystore, pas de reset entre-temps ; **test.47 et test.48 sont installables en mise à jour l'une sur l'autre**).
+- Signature v1+v2+v3 vérifiée (cert APK == keystore), `resources.arsc` stocké+aligné, APK redécodable. Suite 797/794/0/3.
