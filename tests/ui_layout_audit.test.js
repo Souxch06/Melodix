@@ -598,3 +598,63 @@ test('MEL-BUG-023/P0: versionCode strictly increases per release, captures ship 
   assert.match(flat, /capture-\$shot-\$prof\.png/);
   assert.match(flat, /melodix-qa-\*-\$\{\{ github\.run_id \}\}/);
 });
+
+test('workflow A: the Apktool copy loop completes BEFORE the temporary versionCode bump', () => {
+  const raw = fs.readFileSync(path.join(root, '.github', 'workflows', 'ui-qa.yml'), 'utf8');
+  const flat = raw.replace(/\\(.)/g, '$1');
+  const build = flat.slice(flat.indexOf('for item in AndroidManifest.xml'), flat.indexOf('MEL-BUG-023: the test keystore'));
+  const loopDone = build.indexOf('done');
+  const sed = build.indexOf('sed -i "s/^  versionCode:');
+  assert.ok(loopDone >= 0 && sed > loopDone, 'the versionCode sed must run after the copy loop `done`, never inside it');
+  assert.match(build.slice(sed), /grep -q "versionCode: \$\(\(1000 \+ GITHUB_RUN_NUMBER\)\)" "\$work\/apktool\.yml"/, 'the expected versionCode is asserted before Apktool runs');
+  assert.doesNotMatch(build, /sed -i[^\n]*GITHUB_WORKSPACE/, 'the repository copy is never modified');
+});
+
+test('workflow B: build-tools path is built once; zipalign/apksigner/aapt all resolve through $bt', () => {
+  const raw = fs.readFileSync(path.join(root, '.github', 'workflows', 'ui-qa.yml'), 'utf8');
+  const flat = raw.replace(/\\(.)/g, '$1');
+  assert.doesNotMatch(flat, /build-tools\/35\.0\.0\/"\$ANDROID_HOME/, 'no double-concatenated tool path');
+  assert.match(flat, /bt="\$ANDROID_HOME\/build-tools\/35\.0\.0"/);
+  assert.match(flat, /"\$bt\/zipalign" -p -f 4/);
+  assert.match(flat, /"\$bt\/apksigner" sign[\s\S]*?--ks-key-alias melodix-test/);
+  assert.match(flat, /"\$bt\/apksigner" verify "\$signed"/);
+  assert.match(flat, /"\$bt\/aapt" dump badging/);
+  // Package and versionCode controls stay on the signed artifact.
+  assert.match(flat, /\[\[ "\$package_id" == "com\.melodix\.music" \]\] \|\|/);
+  assert.match(flat, /\[\[ "\$version_code" -gt 1000 \]\] \|\|/);
+});
+
+test('workflow C: persistent signature only — alias checked, fingerprint coherent, no throwaway wording in logs', () => {
+  const raw = fs.readFileSync(path.join(root, '.github', 'workflows', 'ui-qa.yml'), 'utf8');
+  const flat = raw.replace(/\\(.)/g, '$1');
+  assert.match(flat, /keytool -list[^\n]*PKCS12[^\n]*\| grep -q "melodix-test"/, 'the expected alias must be verified in the keystore');
+  assert.match(flat, /"\$cert1" == "\$fingerprint"/, 'APK certificate must equal the keystore fingerprint written into the build');
+  assert.doesNotMatch(flat, /signing=throwaway-debug/, 'log notices must not claim a throwaway key');
+  assert.match(flat, /signing=persistent-test-key/g);
+  assert.doesNotMatch(flat, /genkeypair/);
+  // The secret value is only ever piped, never echoed.
+  assert.match(flat, /echo "\$\{\{ secrets\.MELODIX_TEST_KEYSTORE_B64 \}\}" \| base64 -d > "\$keystore"/);
+  assert.doesNotMatch(flat, /echo "\$\{\{ secrets\.MELODIX_TEST_KEYSTORE_B64 \}\}"(?! \| base64)/, 'the secret must never be printed');
+});
+
+test('workflow D: publish-captures exits cleanly (0, no commit) when no capture was produced', () => {
+  const raw = fs.readFileSync(path.join(root, '.github', 'workflows', 'ui-qa.yml'), 'utf8');
+  const flat = raw.replace(/\\(.)/g, '$1');
+  assert.match(flat, /no capture directory was produced[\s\S]*?exit 0/, 'missing captures = clean notice, not a second artificial failure');
+  assert.doesNotMatch(flat, /::error title=QA captures::no capture directory/, 'the no-capture case must be a notice, not an error');
+  assert.match(flat, /::notice title=QA captures::no capture directory was produced[\s\S]{0,300}?exit 0/, 'and it must exit 0 within its own block');
+  // When captures exist, they are still published under docs/audits/.
+  assert.match(flat, /docs\/audits\/ui-qa-\$\{\{ github\.run_id \}\}/);
+  assert.match(flat, /git commit -q -m "docs: QA captures/);
+});
+
+test('workflow E: the test release gates on real build+tests+walks, cites the cert fingerprint and requires the 4 real captures', () => {
+  const raw = fs.readFileSync(path.join(root, '.github', 'workflows', 'ui-qa.yml'), 'utf8');
+  const flat = raw.replace(/\\(.)/g, '$1');
+  assert.match(flat, /release-test:\n[\s\S]*?needs:\n    - build-qa-apk\n    - unit-tests\n    - walk-qa\n    if: success\(\)/, 'release depends on build + unit suite + both UI walks and only on success');
+  assert.match(flat, /--prerelease/, 'test releases stay pre-releases');
+  assert.match(flat, /expected 4 QA captures, found \$captures; no release is published"; exit 1/, 'no release without the 4 real captures');
+  assert.match(flat, /Empreinte SHA-256 du certificat de signature/, 'the cert fingerprint is published in the notes');
+  assert.match(flat, /\$\{\{ runner\.temp \}\}\/melodix-ui-test-cert-sha256\.txt/, 'the fingerprint travels with the APK artifact');
+  assert.doesNotMatch(flat, /clé jetable de build/, 'the notes must not claim a throwaway signing key');
+});
