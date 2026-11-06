@@ -731,3 +731,10 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 ## Preview publiée depuis Arena — v1.2.2-test.55-preview (2026-11-06, commit MEL-BUG-032 + APK)
 - **Contenu** : MEL-BUG-032 (400 PersistedQueryNotFound → hash vidé + retry borné au lieu d'un blocage permanent).
 - APK `releases/Melodix-Test-v1.2.2-test55.apk` · sha256 `75e8200e567e91843010750a6ab1b65c34aa1f3648389271c42781955e135901` · versionCode **1055** · empreinte `DB:63:77:…:59:A2` (même session Arena que test.53/54 → mise à jour directe). Suite 819/816/0/3.
+
+## MEL-BUG-033 — P3 : aucun layout paysage dédié (2026-11-06)
+- **Ajout** : `res/layout-land/activity_main.xml` avec exactement le même contrat que le portrait (ids, onClick, contentDescription, tuiles) + tests de parité anti-dérive (`mel_bug_033_landscape_layout.test.js`, extension de `mel_tablet_layout.test.js`). Suite : **821/818/0/3**.
+
+## Preview publiée depuis Arena — v1.2.2-test.56-preview (2026-11-06, commit 04719fa + APK)
+- **Contenu** : MEL-BUG-033 (layout-land) + MEL-BUG-030/031/032 déjà dans test.53-55.
+- APK `releases/Melodix-Test-v1.2.2-test56.apk` · sha256 `a091e1747fdd0a25e3f88a27056fa9c0b8d495e2236831533bbbb03eb4729da7` · versionCode **1056** · empreinte `DB:63:77:…:59:A2` (même session Arena → mise à jour directe). Suite 821/818/0/3.
