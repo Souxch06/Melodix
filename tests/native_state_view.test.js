@@ -150,3 +150,39 @@ test('the state system is really wired into the screen, and reuses the real list
   assert.match(src, /"MelState"/, 'a swallowed failure leaves a trace');
   assert.doesNotMatch(src, /openSpotifyLogin|runNativeJavascript|openNativeRow/, 'never bypasses the dispatcher');
 });
+
+test('MEL-BUG-024: isNativeSessionUnproven reads a PERSISTENT flag that survives screen changes', () => {
+  const activity = read('smali/com/melodix/music/MainActivity.smali');
+  // The persistent field exists exactly once.
+  assert.equal((activity.match(/\.field private nativeSessionUnproven:Z/g) || []).length, 1);
+  // The accessor reads the persistent flag, not the home-scoped one.
+  const at = activity.indexOf('.method public final isNativeSessionUnproven()Z');
+  const acc = activity.slice(at, activity.indexOf('.end method', at));
+  assert.match(acc, /iget-boolean v0, p0, Lcom\/melodix\/music\/MainActivity;->nativeSessionUnproven:Z/);
+  assert.doesNotMatch(acc, /nativeHomeSessionUnprovenStatusAttached/);
+  // Writers: unproven status attached -> true, real cards attached -> false, login -> true.
+  const card = activity.slice(activity.indexOf('.method public final noteNativeHomeCardAttached'),
+    activity.indexOf('.end method', activity.indexOf('.method public final noteNativeHomeCardAttached')));
+  assert.match(card, /const\/4 v0, 0x0\s+iput-boolean v0, p0, .*->nativeSessionUnproven:Z/);
+  const unproven = activity.slice(activity.indexOf('.method public final noteNativeHomeSessionUnprovenStatusAttached'),
+    activity.indexOf('.end method', activity.indexOf('.method public final noteNativeHomeSessionUnprovenStatusAttached')));
+  assert.match(unproven, /iput-boolean v0, p0, .*->nativeSessionUnproven:Z/);
+  const login = activity.slice(activity.indexOf('.method public final openSpotifyLogin'),
+    activity.indexOf('.end method', activity.indexOf('.method public final openSpotifyLogin')));
+  assert.match(login, /const\/4 v0, 0x1\s+iput-boolean v0, p0, .*->nativeSessionUnproven:Z/);
+  // Screen changes and home re-renders must NOT reset the persistent flag.
+  for (const m of ['beginNativeHomeRender', 'setNativeScreen']) {
+    const i = activity.indexOf(`.method public final ${m}(`);
+    assert.ok(i >= 0, m);
+    const body = activity.slice(i, activity.indexOf('.end method', i));
+    assert.doesNotMatch(body.replace(/nativeHomeSessionUnprovenStatusAttached:Z/g, ''), /nativeSessionUnproven:Z/,
+      `${m} must leave the persistent session flag alone`);
+  }
+  // The library/detail empty path still funnels through forSurfaceMessage, which
+  // maps an unproven session to the real login action instead of eternal loading.
+  const sv = read('smali/com/melodix/music/NativeStateView.smali');
+  const fsm = sv.slice(sv.indexOf('.method public static forSurfaceMessage'), sv.indexOf('.end method', sv.indexOf('.method public static forSurfaceMessage')));
+  assert.match(fsm, /isNativeSessionUnproven\(\)Z/);
+  assert.match(fsm, /native_state_session/);
+  assert.match(fsm, /melodix:action:open-login/);
+});

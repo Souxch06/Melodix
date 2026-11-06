@@ -83,6 +83,7 @@
 .field private nativeHomeCardsAttached:Z
 .field private nativeHomeStatusAttached:Z
 .field private nativeHomeSessionUnprovenStatusAttached:Z
+.field private nativeSessionUnproven:Z
 .field private nativeHomeContentReady:Z
 .field private nativeHomeVisibilityDiagnosticReported:Z
 .field private nativeHomeFirstCard:Landroid/view/View;
@@ -8094,6 +8095,8 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     :native_card_attach_marked
     const/4 v0, 0x1
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeCardsAttached:Z
+    const/4 v0, 0x0
+    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeSessionUnproven:Z
 
     :native_card_attach_done
     return-void
@@ -8120,16 +8123,20 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     if-eqz p1, :native_session_status_attach_done
     const/4 v0, 0x1
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeSessionUnprovenStatusAttached:Z
+    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeSessionUnproven:Z
 
     :native_session_status_attach_done
     return-void
 .end method
 
-# Read-only accessor for presentation. The flag is already maintained by
-# noteNativeHomeSessionUnprovenStatusAttached; nothing here changes session logic.
+# Read-only accessor for presentation. Reads the PERSISTENT nativeSessionUnproven
+# flag (MEL-BUG-024), maintained by noteNativeHomeSessionUnprovenStatusAttached /
+# noteNativeHomeCardAttached / openSpotifyLogin and NOT reset by screen changes:
+# the home-scoped flag is, and relying on it made the other tabs (Library, detail)
+# show an eternal loading state without a session. Nothing here changes session logic.
 .method public final isNativeSessionUnproven()Z
     .locals 1
-    iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeSessionUnprovenStatusAttached:Z
+    iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeSessionUnproven:Z
     return v0
 .end method
 .method public final isNativeHomeScreen()Z
@@ -10503,6 +10510,8 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeContentReady:Z
     iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeFirstCard:Landroid/view/View;
     iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeStatusView:Landroid/view/View;
+    const/4 v0, 0x1
+    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeSessionUnproven:Z
     iget-object v1, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
     if-eqz v1, :native_login_surface
     const-string v2, "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&allow_signup=1"

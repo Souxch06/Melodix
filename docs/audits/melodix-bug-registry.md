@@ -550,3 +550,32 @@ MEL-BUG-020 — P3 — mon assertion de sélection était un faux vert (corrigé
 - **Tests** : 5 nouveaux tests de verrouillage dans `tests/ui_layout_audit.test.js` (ordre copie/bump,
   chemins `$bt`, alias+cohérence empreinte, sortie propre sans captures, gating release) ; `bash -n` OK sur
   les 11 scripts `run` ; suite **788 / 785 pass / 0 fail / 3 skip**.
+
+## MEL-BUG-024 — P1 : l'onglet Bibliothèque affiche « Chargement de votre bibliothèque… » indéfiniment sans session
+
+- **Constat** : capture réelle `ui-qa-42172550412/phone/library-phone.png` — onglet Bibliothèque sans session :
+  « Chargement de votre bibliothèque… » + « Cela ne devrait prendre qu’un instant. », **aucune action de connexion**.
+- **Cause racine** : `NativeStateView.forSurfaceMessage` sait pourtant distinguer (unproven → `native_state_session`
+  + `melodix:action:open-login`), mais `isNativeSessionUnproven()` lisait le flag **à portée écran**
+  `nativeHomeSessionUnprovenStatusAttached`, remis à zéro par `setNativeScreen` à chaque changement d'onglet et par
+  `beginNativeHomeRender` à chaque rendu Home. Résultat : hors de l'Accueil, la session « non prouvée » était
+  perdue et le chargement éternel s'affichait.
+- **Correctif** : nouveau champ persistant `nativeSessionUnproven:Z` sur `MainActivity`, maintenu par
+  `noteNativeHomeSessionUnprovenStatusAttached` (true), `noteNativeHomeCardAttached` (false, session prouvée par
+  des cartes réelles), `openSpotifyLogin` (true, tant que la preuve n'est pas revenue) ; **non** remis à zéro par
+  `setNativeScreen`/`beginNativeHomeRender` (le flag home-scoped, lui, garde sa sémantique et ses tests). L'accesseur
+  `isNativeSessionUnproven()` lit désormais ce champ persistant. Aucun mécanisme de session/auth, pont ou
+  possession WebView modifié.
+- **Effet** : Bibliothèque (et détail) sans session affichent « Session Spotify non confirmée » + action réelle
+  **Se connecter** (`melodix:action:open-login`) au lieu d'un chargement infini.
+- **Tests** : test de régression dédié (champ unique, accesseur persistant, 3 writers, pas de reset par
+  navigation, câblage `forSurfaceMessage`). Suite **789 / 786 pass / 0 fail / 3 skip**.
+- **Statut** : correctif livré ; validation sur émulateur via le prochain run CI (walk `library`).
+
+## Décision PR #6 / #7 (2026-11-06)
+
+Les PR ouvertes #6 (`arena/dbf2d44f-melodix`) et #7 (`arena/7142700d-melodix`) sont des **branches ancêtres** de
+`arena/6b935c3e-melodix` (notre branche en descend directement) : leur contenu est déjà intégré à l'historique
+de la branche de travail. **Décision : aucune fusion** — fusionner serait un no-op ou créerait des conflits
+inutiles ; `main` reste intacte et non modifiée. Aucun doublon de correctif n'a été trouvé entre ces PR et la
+branche de travail.
