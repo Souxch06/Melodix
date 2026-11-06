@@ -22,8 +22,9 @@ La pre-release est donc publiée via l'API GitHub (autorisée) et l'APK est serv
 | v1.2.2-test.56-preview (MEL-BUG-033) | 1056 | `a091e1747fdd0a25e3f88a27056fa9c0b8d495e2236831533bbbb03eb4729da7` | `DB:63:77:…:59:A2` |
 | v1.2.2-test.57-preview (MEL-BUG-031 complément) | 1057 | `1328aff5e93f85825f4aa5c8f887689edde9e45dd69b2ceb67bfd067b3992ac6` | `DB:63:77:…:59:A2` |
 | v1.2.2-test.58-preview (MEL-BUG-033 complément) | 1058 | `4986bf09298d55c499b521b9cde7cf6d9d4be07da1d8e889291374043f9e6514` | `DB:63:77:…:59:A2` |
+| v1.2.2-test.59-preview (MEL-BUG-032 complément) | 1059 | `9299d91c4a5d8c867c4abc3e04f8497b1ea2415d86165a32e2ee54de29213079` | `DB:63:77:…:59:A2` |
 
-La plus récente est **test.58** (`Melodix-Test-v1.2.2-test58.apk` + `.sha256`). Previews test.53→55 partagent
+La plus récente est **test.59** (`Melodix-Test-v1.2.2-test59.apk` + `.sha256`). Previews test.53→55 partagent
 l'empreinte `DB:63:77:15:AA:DE:11:58:EF:AD:BF:16:4F:CD:E3:10:A5:8E:1F:AF:1B:E2:D5:A1:E5:2F:AE:DE:70:C8:59:A2`
 (même session Arena → mise à jour directe). Les previews test.47→52 avaient l'empreinte `F9:A6:…:24:18`,
 test.46 `C2:A9:…:EB:67` (sessions Arena antérieures → désinstaller d'abord, voir MEL-BUG-023 ci-dessus).
