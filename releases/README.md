@@ -1,5 +1,14 @@
 # Pre-release de test Melodix — canal de publication Arena
 
+## ⚠️ « Package en conflit » à la mise à jour (MEL-BUG-023)
+Android refuse la mise à jour si la signature change. **Désinstalle d'abord** l'ancienne version :
+- via PC : `adb uninstall com.melodix.music` puis installe la nouvelle APK ;
+- ou sur le téléphone : Réglages → Applications → Melodix → Désinstaller.
+⚠️ La désinstallation efface les données de l'app (dont la session Spotify : reconnexion nécessaire).
+Les previews d'une même session partagent la même empreinte (mise à jour directe OK) ; une nouvelle
+session Arena peut régénérer la clé (le bac à sable efface le keystore local) → l'empreinte change et
+est toujours documentée dans les notes de la release.
+
 Le bac à sable Arena ne peut pas écrire de secret GitHub Actions (HTTP 403, permission « Secrets »
 absente du token d'app) ni uploader d'assets de release (uploads.github.com hors allowlist).
 La pre-release est donc publiée via l'API GitHub (autorisée) et l'APK est servi depuis ce dépôt.

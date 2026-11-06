@@ -698,3 +698,8 @@ commit `85dc840` · chaîne reproductible : `scripts/build_preview_apk.sh` + `zi
 
 ## CI — commit 1b29e71 (2026-11-06, run 42241948330)
 Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (secret keystore absent).
+
+## MEL-BUG-023 — expérience « Package en conflit » à la mise à jour (2026-11-06)
+- **Cause** : Android refuse la mise à jour si la signature change. Le bac à sable efface le keystore local à chaque réinitialisation → une nouvelle session Arena peut publier une empreinte différente → conflit avec l'app installée. C'est la protection voulue (aucun contournement, jamais de contrôle de signature désactivé).
+- **Procédure documentée partout** (releases/README.md en tête, notes de chaque release via publish_preview_release.sh, test de garde) : `adb uninstall com.melodix.music` (ou Réglages → Applications → Melodix → Désinstaller) puis installer la nouvelle APK. La désinstall efface la session Spotify (reconnexion nécessaire). Même session Arena = même empreinte = mise à jour directe.
+- Suite : 809/805/0/3.

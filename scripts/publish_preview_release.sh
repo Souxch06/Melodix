@@ -24,7 +24,8 @@ NOTES="$(mktemp)"
   echo "- **APK** : [${APK}](https://github.com/${REPO}/blob/${BR}/releases/${APK}) (servie depuis le dépôt : uploads.github.com indisponible depuis l'environnement Arena)"
   echo "- **sha256** : \`${SHA256}\`"
   echo "- **Signature** : v1+v2+v3, empreinte certificat \`${FP}\` (stabilité prouvée : 2 signatures → même certificat)."
-  echo "- ⚠️ Désinstaller toute preview d'empreinte différente avant installation (chaque preview Arena documente son empreinte)."
+  echo "- ⚠️ « Package en conflit » à la mise à jour ? Désinstaller d'abord : `adb uninstall com.melodix.music` (ou Réglages → Applications → Melodix → Désinstaller). La désinstall efface la session Spotify (reconnexion nécessaire)."
+  echo "- Même empreinte que les previews de la même session Arena (mise à jour directe) ; empreinte différente = nouvelle session Arena (keystore local effacé par le bac à sable)."
   echo
   if [[ -n "$EXTRA" && -f "$EXTRA" ]]; then cat "$EXTRA"; fi
   echo

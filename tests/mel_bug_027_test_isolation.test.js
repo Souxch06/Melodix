@@ -29,3 +29,14 @@ test('ui_metrics_measure.py supports a dimens-dir override so probes use copies'
   const src = fs.readFileSync(path.join(root, 'scripts/ui_metrics_measure.py'), 'utf8');
   assert.match(src, /MELODIX_DIMENS_DIR/, 'the probe must be redirectable to a copied res/ dir');
 });
+
+// MEL-BUG-023 (expérience utilisateur): a signature change makes Android refuse
+// the update ("Package en conflit"). The repo README and the publish script must
+// always carry the uninstall-first instructions so testers are never stuck.
+test('MEL-BUG-023: uninstall-first instructions are documented in releases/README.md and the publish script', () => {
+  const readme = fs.readFileSync(path.join(root, 'releases/README.md'), 'utf8');
+  assert.match(readme, /Package en conflit/);
+  assert.match(readme, /adb uninstall com\.melodix\.music/);
+  const script = fs.readFileSync(path.join(root, 'scripts/publish_preview_release.sh'), 'utf8');
+  assert.match(script, /adb uninstall com\.melodix\.music/);
+});
