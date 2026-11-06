@@ -756,3 +756,6 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 ## Preview publiée depuis Arena — v1.2.2-test.59-preview (2026-11-06, commit MEL-BUG-032 complément + APK)
 - **Contenu** : copie d'erreur honnête pour http-400(-persisted-query) « Réponse Spotify inattendue » + action retry réelle. Suite : **824/821/0/3**.
 - APK `releases/Melodix-Test-v1.2.2-test59.apk` · sha256 `9299d91c4a5d8c867c4abc3e04f8497b1ea2415d86165a32e2ee54de29213079` · versionCode **1059** · empreinte `DB:63:77:…:59:A2` (même session Arena → mise à jour directe).
+
+## CI — commit 744de85 (2026-11-06, run 42264490769)
+- « Unit and regression suite » : **SUCCESS**. Seul rouge : fail-loud volontaire (secret keystore absent). Suite locale : 823/820/0/3.
