@@ -783,3 +783,11 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 ## Preview publiée depuis Arena — v1.2.2-test.61-preview (2026-11-06, commit APK test.61)
 - **Contenu** : cumul MEL-BUG-030/031/032/033/034. APK **vérifié dans le tag** via l'API (`releases/Melodix-Test-v1.2.2-test61.apk` au ref du tag, 3 675 195 o) ; notes de release avec section « 📥 Télécharger l'APK » épinglée sur le tag (raw + blob + zip codeload), générée automatiquement par `publish_preview_release.sh`.
 - APK `releases/Melodix-Test-v1.2.2-test61.apk` · sha256 `f307a1b3df7eaa6add7e52dddf8c5235c6cc4804982b88124afeb51e305d5ba1` · versionCode **1061** · empreinte `B0:B8:D5:60:70:9C:00:A7:14:FE:A4:60:5F:DB:22:51:83:CD:59:5F:91:0E:70:28:01:E5:94:E9:79:CB:6C:F5` (**nouvelle session Arena** → « Package en conflit » possible vs test.53-60 : `adb uninstall com.melodix.music` d'abord). Suite 829/825/0/4.
+
+## MEL-BUG-035 — P0 : après login, les playlists flashent puis la carte 401 reste coincee meme apres MEL-BUG-030 (2026-11-06, signal utilisateur « rien n'a changé »)
+- **Cause racine** : la branche 401/403 de `requestMediaLibraryProof` remettait `__sfMediaLibRetryAt = 0` → les 3 tentatives du budget MEL-BUG-030 partaient **dans la même milliseconde**, avant que le cookie de session post-login soit posé → toutes 401 → `scheduleHomeRetry` stoppait tout (refus auth) → carte « Connexion Spotify à vérifier » permanente.
+- **Correctif** : la branche ne touche plus à `retryAt` (le backoff armé à chaque tentative : >= 5 s, doublé, cap 60 s, bloque les retries immédiats via le check générique) + `scheduleHomeRetry` garde un **timer borné** tant que le budget de 3 refus/epoque n'est pas épuisé (puis stoppe, actions explicites sur la carte). Jamais de boucle infinie (budget + MAX_HOME_RETRIES). Fail-closed conservé.
+- Tests : nouveau `tests/mel_bug_035_refusal_backoff.test.js` (3) + 030/P0 mis à jour. Suite : **834/830/0/4**.
+
+## Preview publiée depuis Arena — v1.2.2-test.62-preview (2026-11-06, commit MEL-BUG-035 + APK)
+- APK `releases/Melodix-Test-v1.2.2-test62.apk` · sha256 `8c58d998d20fbca0c76622dda4b50c703a79d04abaf4a7a7cd1e9198a7f5d5f4` · versionCode **1062** · empreinte `B0:B8:D5:…:6C:F5` (**même session Arena que test.61 → mise à jour directe, PAS de « Package en conflit »**). APK vérifié dans le tag via l'API.
