@@ -604,3 +604,17 @@ branche de travail.
   exécuter `./scripts/set_test_signing_secret.sh` depuis Arena. Le workflow ne contient **aucune empreinte en
   dur** (test de garde ajouté) : il dérive l'empreinte du keystore à chaque build et la croise avec celle de l'APK.
 - Suite : **790 / 787 pass / 0 fail / 3 skip**.
+
+## Preview publiée depuis Arena — v1.2.2-test.46-preview (2026-11-06)
+
+- **Architecture autonome** (le token Arena a `contents:write` + releases API, mais 403 sur `actions/secrets`
+  et EOF sur `uploads.github.com`) : build + signature effectués localement dans Arena, APK commit dans
+  `releases/`, pre-release créée via l'API GitHub (tag `v1.2.2-test.46-preview`, prerelease).
+- **Chaîne** : apktool 2.4.1 (npm `apktool-jar`) + JRE Temurin 25 (pypi `jdk4py`) ; copie temporaire, versionCode
+  1046, empreinte cert écrite dans la copie temporaire ; zipalign maison (stored 4-aligned, resources.arsc
+  stocké) ; signature v1+v2+v3 via `apk_sign_ts` avec le keystore PKCS12 persistant (alias `melodix-test`).
+- **Vérifications** : empreinte certificat de l'APK == empreinte keystore (`C2:A9:1D:F7:…:EB:67`) ; stabilité
+  (2 signatures → même certificat) ; blocs v1+v2 présents ; package `com.melodix.music` ; versionCode 1046 ;
+  `resources.arsc` aligné ; APK redécodable (apktool d) ; suite 790/787/0/3 ; aucun matériel de clé tracké.
+- **Limites honnêtes** : build local avec apktool 2.4.1 (CI utilise 2.9.3) ; validation émulateur (walks)
+  non exécutée pour cette build (pas d'émulateur local) ; parcours Spotify live toujours non prouvé.
