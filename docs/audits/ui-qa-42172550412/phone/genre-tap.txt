@@ -1,0 +1,2 @@
+tap_point=284 625
+tap=delivered
