@@ -3514,8 +3514,28 @@
                     ? resp.ok : trace.http >= 200 && trace.http < 300;
                 if (!responseOk) {
                     if (trace.http === 429) scheduleMediaLibraryRetryAfter(resp);
-                    window.__sfMediaLibError = trace.http > 0 ? 'http-' + trace.http : 'http-unknown';
-                    trace.error = 'http-other';
+                    if (trace.http === 400) {
+                        // MEL-BUG-032: a 400 from pathfinder is typically a rotated
+                        // persisted-query hash (PersistedQueryNotFound). Drop the
+                        // cached hash so the next attempt re-resolves it, and record
+                        // a bounded transient error instead of a permanently blocking
+                        // one. The body text never reaches the log sink.
+                        try { localStorage.removeItem('sp_hash_libraryV3'); } catch(_) {}
+                        let persistedQueryMiss = false;
+                        try {
+                            const bodyText = await Promise.race([
+                                Promise.resolve().then(() => resp.clone().text()), timeout
+                            ]);
+                            persistedQueryMiss = typeof bodyText === 'string' &&
+                                bodyText.indexOf('PersistedQueryNotFound') >= 0;
+                        } catch(_) {}
+                        window.__sfMediaLibError = persistedQueryMiss
+                            ? 'http-400-persisted-query' : 'http-400';
+                        trace.error = persistedQueryMiss ? 'persisted-query-not-found' : 'http-other';
+                    } else {
+                        window.__sfMediaLibError = trace.http > 0 ? 'http-' + trace.http : 'http-unknown';
+                        trace.error = 'http-other';
+                    }
                     break;
                 }
 

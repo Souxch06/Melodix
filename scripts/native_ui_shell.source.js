@@ -1131,7 +1131,10 @@
         if (!err) return false;
         if ([
             'fetch-parse-error', 'network-error', 'timeout', 'non-json', 'invalid-json',
-            'unexpected-shape', 'graphql-error', 'transform-error', 'http-401', 'http-403', 'token-missing'
+            'unexpected-shape', 'graphql-error', 'transform-error', 'http-401', 'http-403', 'token-missing',
+            // MEL-BUG-032: a 400 (usually a rotated persisted-query hash whose cache
+            // was dropped) must retry with backoff, not block the Home proof forever.
+            'http-400', 'http-400-persisted-query'
         ].indexOf(String(err)) >= 0) return true;
         if (err === 'http-429') return true;
         return /^http-5/.test(String(err));
