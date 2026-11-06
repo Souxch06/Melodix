@@ -22,6 +22,7 @@ NOTES="$(mktemp)"
   echo "- **Lien direct (raw, épinglé sur le tag ${TAG})** : https://raw.githubusercontent.com/${REPO}/${TAG}/releases/${APK}"
   echo "- **Page fichier → bouton « Download raw file » (tag ${TAG})** : https://github.com/${REPO}/blob/${TAG}/releases/${APK}"
   echo "- **Archive zip du tag (contient releases/${APK})** : https://codeload.github.com/${REPO}/zip/refs/tags/${TAG}"
+  echo "- 📦 **L'APK est AUSSI dans l'asset « Source code (zip) » affiché dans la section Assets de cette release** : chemin \`releases/${APK}\` dans le zip (sha256 vérifié côté Arena)."
   echo "- sha256 : voir ci-dessous (vérifiez après téléchargement : \`sha256sum ${APK}\`)"
   echo
   echo "## Melodix test release ${TAG} (PRE-RELEASE — test uniquement)"

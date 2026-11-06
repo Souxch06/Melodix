@@ -73,3 +73,9 @@ test('every preview release tag actually contains its APK in git (releases/<apk>
       'contrat dépôt vérifiable hors-ligne ; check API des tags exécuté depuis Arena');
   }
 });
+
+test('les notes de release disent que l APK est dans l asset "Source code (zip)" (Assets de la release)', () => {
+  const script = fs.readFileSync(path.join(repo, 'scripts/publish_preview_release.sh'), 'utf8');
+  assert.match(script, /Source code \(zip\)[\s\S]*?releases\/\$\{APK\}/,
+    'le script doit expliquer que l\'APK est dans le zip de la release (seul asset binaire possible sans uploads.github.com)');
+});
