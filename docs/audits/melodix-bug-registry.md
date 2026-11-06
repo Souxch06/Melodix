@@ -512,3 +512,15 @@ MEL-BUG-020 — P3 — mon assertion de sélection était un faux vert (corrigé
 - **Captures** : inchangé, `capture-{home,settings}-{phone,tablet}.png` publiées dans la release par le
   workflow (vérifié par test).
 - **Bloquant inchangé** : pose du secret par le propriétaire → puis run CI 6/6 vert ⇒ release auto.
+
+## CI — commit `d67cc32` (2026-11-06)
+
+- Run `42183389867` : **suite unitaire 783/783/0/0 success** (les 3 tests à toolchain Java exécutés avec
+  JDK 17). Le fail isolé du run précédent (`42182200707`, 782/783) était un **flaky** — non reproductible
+  sur node 18/22/24 localement ni sur le run suivant ; le workflow publie désormais les noms des tests en
+  échec en annotation `::error` (lisible via l'API check-runs) pour tout futur diagnostic.
+- Job `build-qa-apk` : **failure volontaire** (fail-loud MEL-BUG-023, secret `MELODIX_TEST_KEYSTORE_B64`
+  toujours non posé) ; walks/release skipped en cascade ; **aucune release publiée** (dernière :
+  `v1.2.2-test.45-preview`). conforme.
+- Prochaine étape inchangée : pose du secret via `scripts/set_test_signing_secret.sh` puis run 6/6 vert
+  ⇒ publication auto de la pre-release de test.
