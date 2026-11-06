@@ -30,6 +30,8 @@ transitoire avec retry borné au lieu d'un blocage permanent). La plus récente 
 | v1.2.2-test.59-preview (MEL-BUG-032 complément) | 1059 | `9299d91c4a5d8c867c4abc3e04f8497b1ea2415d86165a32e2ee54de29213079` | `DB:63:77:…:59:A2` |
 | v1.2.2-test.60-preview (MEL-BUG-034) | 1060 | `868047eb90c8bc3a8ee4b7735720bd18bd7d7ac5ed447fd7dc7b7a00937788eb` | `DB:63:77:…:59:A2` |
 | v1.2.2-test.61-preview (MEL-BUG-030/031/032/033/034) | 1061 | `f307a1b3df7eaa6add7e52dddf8c5235c6cc4804982b88124afeb51e305d5ba1` | `B0:B8:D5:…:6C:F5` |
+| v1.2.2-test.62-preview (MEL-BUG-035) | 1062 | `8c58d998…` | `B0:B8:D5:…:6C:F5` |
+| v1.2.2-test.63-preview (MEL-BUG-036 Bearer) | 1063 | `dc2bef60cf7da96c2b33bccd6b8a8ba21d523157a33639f42b73ce48fcb84f83` | `B0:B8:D5:…:6C:F5` |
 | v1.2.2-test.62-preview (MEL-BUG-035) | 1062 | `8c58d998d20fbca0c76622dda4b50c703a79d04abaf4a7a7cd1e9198a7f5d5f4` | `B0:B8:D5:…:6C:F5` |
 
 La plus récente est **test.62** (`Melodix-Test-v1.2.2-test62.apk` + `.sha256`).

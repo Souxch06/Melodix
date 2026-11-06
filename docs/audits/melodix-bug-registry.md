@@ -791,3 +791,12 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 
 ## Preview publiée depuis Arena — v1.2.2-test.62-preview (2026-11-06, commit MEL-BUG-035 + APK)
 - APK `releases/Melodix-Test-v1.2.2-test62.apk` · sha256 `8c58d998d20fbca0c76622dda4b50c703a79d04abaf4a7a7cd1e9198a7f5d5f4` · versionCode **1062** · empreinte `B0:B8:D5:…:6C:F5` (**même session Arena que test.61 → mise à jour directe, PAS de « Package en conflit »**). APK vérifié dans le tag via l'API.
+
+## MEL-BUG-036 — P0 : 401 persistant sur libraryV3 juste après login (cause racine la plus probable) (2026-11-06)
+- **Cause** : la requête pathfinder `libraryV3` n'envoyait que les cookies (`credentials: 'include'`), sans `Authorization: Bearer`. Le WebPlayer s'authentifie sur pathfinder avec un **token web-player** (`GET open.spotify.com/api/token`, cookie-auth) ; un appel cookie-seul peut être répondu 401 juste après login → la preuve est invalidée (fail-closed) → carte « Connexion Spotify à vérifier » alors que la session est valide (d'où le flash des playlists quand un essai réussit puis un autre 401).
+- **Correctif** : `fetchWebPlayerToken()` fetch/cache le token (avec expiry, marge 60 s), header `Authorization: Bearer` ajouté **uniquement** si un token existe (requête cookie-seule préservée sinon) ; sur 401/403 le cache est vidé (`dropWebPlayerToken`) pour que le retry borné (MEL-BUG-030/035, 3/époque avec backoff ≥5 s) le re-fetche. Le token n'est **jamais** loggué (snapshot diagnostic = allow-list fixe, vérifié par test). Contrats auth/session inchangés, fail-closed conservé.
+- Tests : `tests/mel_bug_036_webplayer_bearer.test.js` (5) + test comportemental dans `p0_library_fetch.test.js` (harnais route `/api/token`, 404 par défaut → header absent, comportement legacy intact). Suite : **840/836/0/4**.
+- **Statut** : correctif livré + preview test.63 ; validation avec une vraie session Spotify en attente (non simulable en sandbox).
+
+## Preview publiée depuis Arena — v1.2.2-test.63-preview (2026-11-06, commit d7d253f + APK)
+- APK `releases/Melodix-Test-v1.2.2-test63.apk` · sha256 `dc2bef60cf7da96c2b33bccd6b8a8ba21d523157a33639f42b73ce48fcb84f83` · versionCode **1063** · empreinte `B0:B8:D5:…:6C:F5` (même session Arena que test.61/62 → **mise à jour directe**, pas de « Package en conflit »). APK vérifié présent dans le tag via l'API. Suite 840/836/0/4.
