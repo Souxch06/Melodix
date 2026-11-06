@@ -13,6 +13,18 @@ Le bac à sable Arena ne peut pas écrire de secret GitHub Actions (HTTP 403, pe
 absente du token d'app) ni uploader d'assets de release (uploads.github.com hors allowlist).
 La pre-release est donc publiée via l'API GitHub (autorisée) et l'APK est servi depuis ce dépôt.
 
+## Dernières previews publiées (branche `arena/6b935c3e-melodix`, PR #8)
+| Preview | versionCode | sha256 | Empreinte certificat |
+|---|---|---|---|
+| v1.2.2-test.53-preview (MEL-BUG-030) | 1053 | `ef76d0a4a82579f4a1a131eb93ec12eefdbccda8dc123a518cdcc2a98c137fa6` | `DB:63:77:…:59:A2` |
+| v1.2.2-test.54-preview (MEL-BUG-031) | 1054 | `d03d24473465615b7ca0a5a44e75ef7862b7615e5fcd2f39dc265b168051e5f6` | `DB:63:77:…:59:A2` |
+| v1.2.2-test.55-preview (MEL-BUG-032) | 1055 | `75e8200e567e91843010750a6ab1b65c34aa1f3648389271c42781955e135901` | `DB:63:77:…:59:A2` |
+
+La plus récente est **test.55** (`Melodix-Test-v1.2.2-test55.apk` + `.sha256`). Previews test.53→55 partagent
+l'empreinte `DB:63:77:15:AA:DE:11:58:EF:AD:BF:16:4F:CD:E3:10:A5:8E:1F:AF:1B:E2:D5:A1:E5:2F:AE:DE:70:C8:59:A2`
+(même session Arena → mise à jour directe). Les previews test.47→52 avaient l'empreinte `F9:A6:…:24:18`,
+test.46 `C2:A9:…:EB:67` (sessions Arena antérieures → désinstaller d'abord, voir MEL-BUG-023 ci-dessus).
+
 - APK : `Melodix-Test-v1.2.2-test46.apk` (branche `arena/6b935c3e-melodix`)
 - sha256 : `Melodix-Test-v1.2.2-test46.apk.sha256`
 - Signé avec la clé de test persistante PKCS12 (alias `melodix-test`), empreinte SHA-256 du certificat :
