@@ -2045,3 +2045,59 @@ test('the Home connection card is actionable in every state, not just on error',
     // Local shortcuts stay rendered on the status branch (not blocked).
     assert.match(shelf, /renderHomeStatus[\s\S]*?NativeShortcutGrid;->render/);
 });
+
+test('settings connection state covers the full incident scenario matrix', () => {
+  // The 10 incident scenarios, mapped to the real signals the page observes.
+  // Every expectation is derived from libraryV3 proof / error, never asserted.
+  const buildWindow = (over) => {
+    const calls = [];
+    const document = {
+      readyState: 'complete', documentElement: {}, body: { classList: { toggle: () => {} } },
+      querySelector: () => null, addEventListener: () => {}
+    };
+    class TestMutationObserver { observe() {} }
+    const window = Object.assign({
+      SF_CONFIG: { autoPlayMode: 'permanent', isCanvasDisabled: false },
+      location: { hostname: 'open.spotify.com', pathname: '/', href: 'https://open.spotify.com/' },
+      AndBridge: { onNativeUiReady: () => {}, onNativeUiData: (k, d) => calls.push({ k, d }), setCanvasDisabled: () => {}, manageTSleep: () => {} },
+      MutationObserver: TestMutationObserver, addEventListener: () => {},
+      setTimeout: () => 1, clearTimeout: () => {},
+      localStorage: { getItem: () => null, setItem: () => {}, clear: () => {} }
+    }, over);
+    return { window, document, calls, TestMutationObserver };
+  };
+  const rowsFor = (over) => {
+    const { window, document, calls, TestMutationObserver } = buildWindow(over);
+    vm.runInNewContext(read('scripts/native_ui_shell.source.js'), { window, document, URL, MutationObserver: TestMutationObserver });
+    calls.length = 0;
+    window.__sfRequestSpotifySettings();
+    return JSON.parse(calls[0].d);
+  };
+  const conn = (rows) => rows.find((r) => r.title === 'État de la connexion Spotify');
+
+  const scenarios = [
+    ['première connexion / session absente', { __sfMediaLibStatus: 'absent' }, 'Se connecter', 'melodix:action:open-login'],
+    ['authentification en cours', { __sfMediaLibStatus: 'loading' }, 'Vérification…', ''],
+    ['connexion réussie (preuve libraryV3)', { __sfMediaLibSessionProofKnown: true, __sfMediaLibSessionProven: true, __sfMediaLibStatus: 'ready', __sfMediaLibRawItemCount: 5 }, 'Connecté', ''],
+    ['session refusée 401 (renouveler)', { __sfMediaLibSessionProofKnown: true, __sfMediaLibSessionProven: false, __sfMediaLibStatus: 'error', __sfMediaLibError: 'http-401' }, 'Renouveler la session', 'melodix:action:open-login'],
+    ['accès refusé 403', { __sfMediaLibSessionProofKnown: true, __sfMediaLibSessionProven: false, __sfMediaLibStatus: 'error', __sfMediaLibError: 'http-403' }, 'Renouveler la session', 'melodix:action:open-login'],
+    ['erreur réseau', { __sfMediaLibSessionProofKnown: true, __sfMediaLibSessionProven: false, __sfMediaLibStatus: 'error', __sfMediaLibError: 'network-error' }, 'Réessayer', 'melodix:action:retry-library'],
+    ['délai dépassé', { __sfMediaLibSessionProofKnown: true, __sfMediaLibSessionProven: false, __sfMediaLibStatus: 'error', __sfMediaLibError: 'timeout' }, 'Réessayer', 'melodix:action:retry-library'],
+    ['jeton absent (non connecté)', { __sfMediaLibSessionProofKnown: true, __sfMediaLibSessionProven: false, __sfMediaLibStatus: 'error', __sfMediaLibError: 'token-missing' }, 'Se connecter', 'melodix:action:open-login']
+  ];
+  for (const [name, over, value, uri] of scenarios) {
+    const c = conn(rowsFor(over));
+    assert.ok(c, `scénario "${name}": ligne d'état présente`);
+    assert.equal(c.settingValue, value, `scénario "${name}"`);
+    assert.equal(c.uri, uri, `scénario "${name}" action`);
+  }
+  // Déconnexion volontaire puis reconnexion: après déconnexion la preuve est
+  // retirée -> on retombe sur "non connecté", jamais sur un faux "Connecté".
+  const afterLogout = rowsFor({ __sfMediaLibSessionProofKnown: true, __sfMediaLibSessionProven: false, __sfMediaLibStatus: 'absent' });
+  assert.equal(conn(afterLogout).settingValue, 'Se connecter');
+  assert.equal(rowsFor({ __sfMediaLibSessionProofKnown: true, __sfMediaLibSessionProven: true, __sfMediaLibStatus: 'ready', __sfMediaLibRawItemCount: 5 })
+    .find((r) => r.title === 'Se déconnecter de Spotify').uri, 'spotify:settings:logout');
+  // Aucune ligne ne prétend jamais "synchronisé" sans preuve.
+  const all = rowsFor({ __sfMediaLibStatus: 'loading' });
+  assert.doesNotMatch(JSON.stringify(all), /synchronis/i);
+});

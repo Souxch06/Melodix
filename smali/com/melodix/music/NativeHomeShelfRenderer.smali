@@ -507,9 +507,18 @@
     invoke-static {v1}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     const-string v0, "home-render-failed"
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
-    # A missing/invalid Home payload becomes a native retry state, not an
-    # automatic Spotify-Web takeover. This contains no account resources.
+    # A missing/invalid Home payload becomes a native state, not an automatic
+    # Spotify-Web takeover. This contains no account resources. When the session
+    # was explicitly marked unproven, the card must offer authentication first:
+    # a bare "Réessayer" hides the real cause (incident: reconnexion sans données).
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->isNativeSessionUnproven()Z
+    move-result v3
+    if-eqz v3, :shelf_no_cards_retry
+    const-string v2, "[{\"kind\":\"state\",\"state\":\"error\",\"sessionUnproven\":true,\"title\":\"Connexion Spotify requise\",\"subtitle\":\"Aucune session Spotify n’est confirmée sur cet appareil. Connectez-vous pour retrouver vos données ; vous pouvez aussi réessayer.\",\"section\":\"Accueil\",\"image\":\"\",\"uri\":\"melodix:action:open-login\",\"secondaryUri\":\"melodix:action:retry-library\"}]"
+    goto :shelf_no_cards_render
+    :shelf_no_cards_retry
     const-string v2, "[{\"kind\":\"state\",\"state\":\"error\",\"title\":\"Votre accueil n’a pas pu être chargé\",\"subtitle\":\"Les données Spotify ne sont pas disponibles. Touchez pour réessayer.\",\"section\":\"Accueil\",\"image\":\"\",\"uri\":\"melodix:action:retry-library\"}]"
+    :shelf_no_cards_render
     invoke-static {p0, v2}, Lcom/melodix/music/NativeHomeShelfRenderer;->render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
     return-void
 

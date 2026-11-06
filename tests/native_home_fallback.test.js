@@ -275,3 +275,35 @@ test('native callback requires a Home route and real rows; the renderer remains 
   assert.ok(overlay.includes('.method public static appendDiagnosticLine(Ljava/lang/String;)V'));
   assert.ok(overlay.includes('TextView;->setText(Ljava/lang/CharSequence;)V'));
 });
+
+test('the no-cards Home fallback offers authentication first when the session is unproven', () => {
+  // Incident P0: after a sign-in that never produced data, Home showed a bare
+  // "Réessayer". When the session is explicitly unproven, the card must offer
+  // "Se connecter" (primary) + "Réessayer" (secondary); otherwise keep retry.
+  const renderer = read('smali/com/melodix/music/NativeHomeShelfRenderer.smali');
+  // Anchor on the label DEFINITION (a jump reference earlier in the file would
+  // truncate the window -- same trap as a label mention in a branch).
+  const at = renderer.indexOf('\n    :shelf_no_cards\n');
+  assert.ok(at !== -1, 'the :shelf_no_cards label definition exists');
+  const block = renderer.slice(at, renderer.indexOf(':shelf_done', at));
+  const code = block.split('\n').filter((l) => !l.trim().startsWith('#')).join('\n');
+  assert.match(code, /isNativeSessionUnproven\(\)Z/, 'the branch must read the real unproven flag');
+  const unprovenAt = code.indexOf('Connexion Spotify requise');
+  const retryAt = code.indexOf('Votre accueil n’a pas pu être chargé');
+  assert.ok(unprovenAt !== -1 && retryAt !== -1, 'both variants exist');
+  const unprovenPayload = code.slice(code.lastIndexOf('const-string', unprovenAt), code.indexOf('"]', unprovenAt));
+  assert.ok(unprovenPayload.includes('melodix:action:open-login'), 'primary action = real login');
+  assert.ok(unprovenPayload.includes('melodix:action:retry-library'), 'secondary action = retry');
+  assert.ok(unprovenPayload.includes('sessionUnproven'), 'the state row re-marks the session unproven');
+  // Order: the unproven branch is taken when the flag is TRUE (if-eqz -> retry).
+  const flagAt = code.indexOf('isNativeSessionUnproven()Z');
+  assert.match(code.slice(flagAt), /if-eqz v\d+, :shelf_no_cards_retry/,
+    'flag true must lead to the login variant, not the retry variant');
+  // The renderer maps open-login to a real label and renders secondaryUri.
+  assert.match(renderer, /"melodix:action:open-login"[\s\S]*?"Se connecter"/);
+  // The action row receives the secondary URI as its own parameter (the literal
+  // "secondaryUri" is read BEFORE the call in the file, so assert both sides).
+  assert.match(renderer, /const-string v\d+, "secondaryUri"/);
+  assert.match(renderer, /addHomeStatusActions\(Lcom\/melodix\/music\/MainActivity;Landroid\/widget\/LinearLayout;Ljava\/lang\/String;Ljava\/lang\/String;Ljava\/lang\/String;\)V/,
+    'primary + secondary actions are both wired');
+});
