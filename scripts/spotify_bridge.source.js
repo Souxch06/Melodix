@@ -2963,6 +2963,43 @@
         return list[1]?.url || list[0]?.url || null;
     }
 
+    // MEL-BUG-036: the WebPlayer authorizes pathfinder with a Bearer web-player
+    // token (GET open.spotify.com/api/token, cookie-authenticated), not with
+    // cookies alone. A cookie-only libraryV3 can be answered 401 right after a
+    // fresh login -> the Home falls back to the error card. The token is cached
+    // with its expiry, NEVER logged (only a boolean reaches diagnostics), and
+    // dropped on any 401/403 so the bounded retry refetches it.
+    let webPlayerTokenCache = null; // { token, expMs }
+    async function fetchWebPlayerToken() {
+        const nowMs = Date.now();
+        if (webPlayerTokenCache && webPlayerTokenCache.token &&
+            Number(webPlayerTokenCache.expMs) - 60000 > nowMs) {
+            return webPlayerTokenCache.token;
+        }
+        try {
+            const tokenResp = await oriFetch('https://open.spotify.com/api/token', {
+                method: 'GET',
+                credentials: 'include',
+                headers: { 'app-platform': 'WebPlayer', 'spotify-app-version': '1.2.40.0' }
+            });
+            if (tokenResp && tokenResp.ok) {
+                const tokenData = await tokenResp.json();
+                const token = tokenData && tokenData.accessToken;
+                if (token) {
+                    const expMs = Number(tokenData.accessTokenExpirationTimestampMs);
+                    webPlayerTokenCache = {
+                        token: String(token),
+                        expMs: Number.isFinite(expMs) && expMs > nowMs ? expMs : nowMs + 3600000
+                    };
+                    return webPlayerTokenCache.token;
+                }
+            }
+        } catch (_) {}
+        webPlayerTokenCache = null;
+        return null;
+    }
+    function dropWebPlayerToken() { webPlayerTokenCache = null; }
+
     function getGqlHash(opName, fallbackHash) {
         if (window.spHashes && window.spHashes[opName]) return window.spHashes[opName];
         try {
@@ -3400,6 +3437,10 @@
         let offset = 0;
         let allItems = [];
         let hasMore = true;
+        // MEL-BUG-036: attach the Bearer web-player token when available. The
+        // token value itself must never reach diagnostics; only this flag does.
+        const bearerToken = await fetchWebPlayerToken();
+        trace.bearer = Boolean(bearerToken);
 
         while (hasMore && offset < 1000 && requestGeneration === mediaLibraryRequestGeneration &&
             authEpoch === boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999)) {
@@ -3426,11 +3467,11 @@
                     method: 'POST',
                     mode: 'cors',
                     credentials: 'include',
-                    headers: {
+                    headers: Object.assign({
                         'Content-Type': 'application/json;charset=UTF-8',
                         'app-platform': 'WebPlayer',
                         'spotify-app-version': '1.2.40.0'
-                    },
+                    }, bearerToken ? { 'Authorization': 'Bearer ' + bearerToken } : {}),
                     body: JSON.stringify({
                         variables: {
                             filters: [],
@@ -3497,6 +3538,9 @@
                     // accepted private rows. A 403 may mean insufficient scope,
                     // app access, or another policy refusal; it is not proof of logout.
                     const refusal = trace.http === 401 ? 'http-401' : 'http-403';
+                    // MEL-BUG-036: a refusal may be an expired web-player token;
+                    // drop it so the bounded retry refetches a fresh one.
+                    dropWebPlayerToken();
                     window.__sfMediaLibSessionProofKnown = true;
                     window.__sfMediaLibSessionProven = false;
                     window.__sfMediaLibError = refusal;

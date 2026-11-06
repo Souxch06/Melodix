@@ -30,7 +30,7 @@ function fakeElement() {
 
 // Loads the real bridge into its own sandbox. `fetchImpl` replaces page fetch
 // captured as oriFetch. Long production deadlines are shortened only in tests.
-function loadBridge({ fetchImpl, profileSignal = true, playerSignal = true, loginSignal = false,
+function loadBridge({ fetchImpl, tokenResponse = null, profileSignal = true, playerSignal = true, loginSignal = false,
     pathname = '/', hostname = 'open.spotify.com' } = {}) {
     const listeners = {};
     const dispatchedEvents = [];
@@ -84,7 +84,17 @@ function loadBridge({ fetchImpl, profileSignal = true, playerSignal = true, logi
             title: 'Spotify'
         },
         console: { log() {}, warn() {}, error() {}, info() {}, debug() {} },
-        fetch: fetchImpl || (async () => libraryPage([])),
+        // MEL-BUG-036: the bridge now fetches a web-player token from
+        // /api/token before libraryV3. Tests control it via tokenResponse
+        // (null => 404 => no Bearer header, legacy behaviour preserved).
+        fetch: (async (url, init) => {
+            if (String(url).indexOf('/api/token') >= 0) {
+                return tokenResponse
+                    ? jsonResponse(200, tokenResponse)
+                    : jsonResponse(404, {});
+            }
+            return (fetchImpl || (async () => libraryPage([])))(url, init);
+        }),
         MutationObserver: class { observe() {} disconnect() {} },
         matchMedia: () => ({ matches: false, addEventListener() {}, addListener() {} }),
         getComputedStyle: () => ({ getPropertyValue: () => '' }),
@@ -766,4 +776,28 @@ test('concurrent checkMediaLib calls do not double-fetch', async () => {
     });
     await Promise.all([win.checkMediaLib(), win.checkMediaLib(), win.checkMediaLib()]);
     assert.equal(calls, 1);
+});
+
+// MEL-BUG-036: when the web-player token endpoint answers, libraryV3 must
+// carry Authorization: Bearer, and the token value must never be logged.
+test('MEL-BUG-036: with a web-player token, libraryV3 sends Authorization: Bearer and never logs the token', async () => {
+    const calls = [];
+    const win = loadBridge({
+        tokenResponse: { accessToken: 'TEST_TOKEN_036', accessTokenExpirationTimestampMs: Date.now() + 3600000 },
+        fetchImpl: async (url, init) => {
+            calls.push({ url, init });
+            return libraryPage([libraryItem({ uri: 'spotify:playlist:fixture-t', name: 'Fixture T' })]);
+        }
+    });
+    await win.checkMediaLib(true);
+    assert.equal(win.__sfMediaLibSessionProven, true);
+    assert.equal(calls.length, 1, 'only the pathfinder call is recorded (token call routed separately)');
+    assert.equal(calls[0].url, 'https://api-partner.spotify.com/pathfinder/v2/query');
+    assert.equal(calls[0].init.credentials, 'include');
+    assert.equal(calls[0].init.headers['Authorization'], 'Bearer TEST_TOKEN_036');
+    assert.equal(calls[0].init.headers['app-platform'], 'WebPlayer');
+    assert.doesNotMatch(win.__testDiagnostics.join('\n'), /TEST_TOKEN_036/,
+        'the token value never reaches diagnostics');
+    assert.ok(!('bearer' in win.__sfMediaLibLastDiagnostic),
+        'the diagnostic snapshot stays a fixed allow-list: no bearer field at all (token never exposed)');
 });
