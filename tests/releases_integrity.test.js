@@ -79,3 +79,9 @@ test('les notes de release disent que l APK est dans l asset "Source code (zip)"
   assert.match(script, /Source code \(zip\)[\s\S]*?releases\/\$\{APK\}/,
     'le script doit expliquer que l\'APK est dans le zip de la release (seul asset binaire possible sans uploads.github.com)');
 });
+
+test('les notes de release donnent un lien fichier direct vers le .sha256 (comme vers l APK)', () => {
+  const script = fs.readFileSync(path.join(repo, 'scripts/publish_preview_release.sh'), 'utf8');
+  assert.match(script, /blob\/\$\{TAG\}\/releases\/\$\{APK\}\.sha256/,
+    'lien direct vers le fichier .sha256 épinglé sur le tag');
+});
