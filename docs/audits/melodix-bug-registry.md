@@ -488,3 +488,27 @@ MEL-BUG-020 — P3 — mon assertion de sélection était un faux vert (corrigé
   seule la release auto-publie l'APK signé avec la clé persistante. **Test live restant non prouvé** :
   parcours OAuth Spotify complet avec une vraie session + mise à jour 44→45 installée par-dessus sur un
   appareil réel — impossibles à démontrer sans session ni appareil ici ; jamais déclarés réussis.
+
+## Audit P0 — commit `b77ac56` (2026-11-06)
+
+- **Signature (P4)** : fail-loud intact, aucun `genkeypair` effectif dans le workflow. Instructions sûres
+  livrées : `scripts/set_test_signing_secret.sh` + `docs/audits/melodix-test-secret-setup.md`
+  (base64 du `.p12` passé à `gh secret set` par tube stdin — la valeur n'est jamais affichée, journalisée
+  ni commitée ; garde-fou anti-dépôt ; empreinte cert publiée).
+- **Accueil — spinner vs chargement réel (distinction vérifiée)** : le spinner natif n'est affiché que
+  quand le payload `kind=state` porte `state=loading`, et ce state n'est émis par `homeStateRow()` que
+  tant que `__sfMediaLibStatus` est `loading/pending` avec une requête réellement in-flight
+  (trace `request in-flight`). `ready`+vide → `empty`, erreur → `error` (+ action réelle
+  `melodix:action:retry-library` → `__sfNativeRetryLibrary` → vrai re-fetch), retries épuisés →
+  `unavailable`. Session non prouvée : aucune carte, statut `sessionUnproven=true`. Aucun donnée simulée.
+- **Paramètres — infos réelles vérifiées** : ligne « État de la connexion Spotify » pilotée par l'état
+  réel (`Se connecter` + `melodix:action:open-login` hors session ; `Confirmé` + `spotify:settings:logout`
+  + `Se déconnecter` avec preuve libraryV3). Nom de compte affiché uniquement avec session confirmée.
+  Fallback sans WebView (timeout 6 s, génération corrélée) : actions réelles `retry-settings`,
+  `open-login`, `open-notifications` + section À propos ; **aucune affirmation de connexion non prouvée**.
+- **Tests de non-régression** (`tests/p0_home_loading_state.test.js`, 5 tests) : loading réel, empty/error
+  jamais « loading », session non prouvée sans cartes, lignes Paramètres réelles, fallback honnête.
+  Suite **783 / 780 pass / 0 fail / 3 skip** (skips = absence de javac local, pré-existants).
+- **Captures** : inchangé, `capture-{home,settings}-{phone,tablet}.png` publiées dans la release par le
+  workflow (vérifié par test).
+- **Bloquant inchangé** : pose du secret par le propriétaire → puis run CI 6/6 vert ⇒ release auto.
