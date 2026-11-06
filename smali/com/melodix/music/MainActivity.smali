@@ -9140,9 +9140,19 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     check-cast v1, Landroid/widget/EditText;
     invoke-virtual {v1, p2}, Landroid/widget/EditText;->setText(Ljava/lang/CharSequence;)V
     :native_initial_search_submit
+    # MEL-BUG-025: a deep-linked search without a proven session must show the
+    # real state card instead of an empty "Résultats de recherche" list.
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->isNativeSessionUnproven()Z
+    move-result v2
+    if-nez v2, :initial_search_unproven
     const-string v2, "Résultats de recherche"
     const-string v3, "[]"
     invoke-virtual {p0, v2, v3}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    goto :initial_search_kick
+    :initial_search_unproven
+    const-string v2, "[{\"kind\":\"state\",\"state\":\"error\",\"sessionUnproven\":true,\"title\":\"Connexion Spotify non confirmée\",\"subtitle\":\"La recherche nécessite une session Spotify confirmée. Aucun résultat n’est affiché ; touchez pour vous connecter.\",\"section\":\"Recherche Spotify\",\"image\":\"\",\"uri\":\"melodix:action:open-login\"}]"
+    invoke-static {p0, v2}, Lcom/melodix/music/NativeHomeShelfRenderer;->render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+    :initial_search_kick
     const-string v2, "window.searchMediaItems"
     invoke-virtual {p0, v2, p2}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
     return-void
@@ -9330,6 +9340,17 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-virtual {v5, v6}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v7
     if-eqz v7, :apply_done
+    # MEL-BUG-025: without a proven session the shell never sends search rows,
+    # so the screen used to keep an empty "Résultats de recherche" list with no
+    # explanation and no action. Render the real state card (login action) via
+    # the same shelf renderer the Library unproven state already uses.
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->isNativeSessionUnproven()Z
+    move-result v8
+    if-eqz v8, :search_render_rows
+    const-string v8, "[{\"kind\":\"state\",\"state\":\"error\",\"sessionUnproven\":true,\"title\":\"Connexion Spotify non confirmée\",\"subtitle\":\"La recherche nécessite une session Spotify confirmée. Aucun résultat n’est affiché ; touchez pour vous connecter.\",\"section\":\"Recherche Spotify\",\"image\":\"\",\"uri\":\"melodix:action:open-login\"}]"
+    invoke-static {p0, v8}, Lcom/melodix/music/NativeHomeShelfRenderer;->render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+    return-void
+    :search_render_rows
     const-string v8, "Résultats de recherche"
     invoke-virtual {p0, v8, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     :apply_done

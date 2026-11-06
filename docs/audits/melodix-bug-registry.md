@@ -623,3 +623,9 @@ branche de travail.
 APK : https://github.com/Souxch06/Melodix/blob/arena/6b935c3e-melodix/releases/Melodix-Test-v1.2.2-test46.apk
 sha256 `f64da5b6ec115318813a25cc3f5e120a1ad2dc00be0abf3207a57a8d4da826b7` · cert `C2:A9:1D:F7:…:EB:67` ·
 commit `85dc840` · chaîne reproductible : `scripts/build_preview_apk.sh` + `zipalign4.py` + `apk_sign.js`.
+
+## MEL-BUG-025 — P1 : l'écran Recherche sans session affichait une liste « Résultats de recherche » vide, sans explication ni action
+- **Constat** : sans session prouvée, le shell ne envoie jamais de lignes `search:` (garde `libraryProvesSession`), et le natif rendait `"[]"` (deep link `initial-search`) ou gardait la liste vide — même classe que MEL-BUG-024, côté Recherche.
+- **Correctif** (natif, même pattern que MEL-BUG-024) : dans `applyNativeUiData`, la branche `:search_render` et le handler `initial-search` consultent désormais le flag persistant `isNativeSessionUnproven()` ; si vrai, ils rendent la carte d'état réelle via `NativeHomeShelfRenderer` (« Connexion Spotify non confirmée — touchez pour vous connecter », uri `melodix:action:open-login`) et ne rendent PAS la liste vide. Session prouvée : comportement inchangé (lignes + `window.searchMediaItems`).
+- **Tests** : `tests/mel_bug_025_search_unproven.test.js` (3 tests : branche search_render, deep link initial-search, non-régression branche prouvée). Suite : 793/790/0/3.
+- **Statut** : correctif livré + tests verts ; validation émulateur via prochain run CI (walk search), comme MEL-BUG-024.
