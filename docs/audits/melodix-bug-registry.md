@@ -656,3 +656,7 @@ commit `85dc840` · chaîne reproductible : `scripts/build_preview_apk.sh` + `zi
 - **Correctif** : `ui_metrics_measure.py` accepte `MELODIX_DIMENS_DIR` (répertoire res/ copiable) ; le test sonde désormais une **copie** en tmp et ne touche plus le dépôt. Test de garde `tests/mel_bug_027_test_isolation.test.js` (aucun test n'écrit dans res/ ou smali/).
 - **Preuve** : 3 runs complets consécutifs 799/796/0/3. Le build CI reste en fail-loud volontaire (secret absent) — inchangé.
 - **Statut** : résolu avec preuve (repro + 3 runs stables).
+
+## CI — commit 796f5e0 (2026-11-06, run 42231991349)
+- **Unit and regression suite : 799/799/0/0 SUCCESS** (avec javac réel) — la race MEL-BUG-027 est éradiquée.
+- **Verify UI metrics phone+tablet : SUCCESS.** Seul échec : build signée, fail-loud volontaire « MELODIX_TEST_KEYSTORE_B64 is not set » (inchangé, à poser via l'interface GitHub pour débloquer walk émulateur + release CI).
