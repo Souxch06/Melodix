@@ -29,8 +29,11 @@ transitoire avec retry borné au lieu d'un blocage permanent). La plus récente 
 | v1.2.2-test.58-preview (MEL-BUG-033 complément) | 1058 | `4986bf09298d55c499b521b9cde7cf6d9d4be07da1d8e889291374043f9e6514` | `DB:63:77:…:59:A2` |
 | v1.2.2-test.59-preview (MEL-BUG-032 complément) | 1059 | `9299d91c4a5d8c867c4abc3e04f8497b1ea2415d86165a32e2ee54de29213079` | `DB:63:77:…:59:A2` |
 | v1.2.2-test.60-preview (MEL-BUG-034) | 1060 | `868047eb90c8bc3a8ee4b7735720bd18bd7d7ac5ed447fd7dc7b7a00937788eb` | `DB:63:77:…:59:A2` |
+| v1.2.2-test.61-preview (MEL-BUG-030/031/032/033/034) | 1061 | `f307a1b3df7eaa6add7e52dddf8c5235c6cc4804982b88124afeb51e305d5ba1` | `B0:B8:D5:…:6C:F5` |
 
-La plus récente est **test.60** (`Melodix-Test-v1.2.2-test60.apk` + `.sha256`). Previews test.53→55 partagent
+La plus récente est **test.61** (`Melodix-Test-v1.2.2-test61.apk` + `.sha256`).
+
+⚠️ test.61 a une **nouvelle empreinte** (`B0:B8:D5:…:6C:F5`, nouvelle session Arena) : si « Package en conflit » → `adb uninstall com.melodix.music` d'abord (voir MEL-BUG-023 en haut de ce fichier). Previews test.53→55 partagent
 l'empreinte `DB:63:77:15:AA:DE:11:58:EF:AD:BF:16:4F:CD:E3:10:A5:8E:1F:AF:1B:E2:D5:A1:E5:2F:AE:DE:70:C8:59:A2`
 (même session Arena → mise à jour directe). Les previews test.47→52 avaient l'empreinte `F9:A6:…:24:18`,
 test.46 `C2:A9:…:EB:67` (sessions Arena antérieures → désinstaller d'abord, voir MEL-BUG-023 ci-dessus).

@@ -779,3 +779,7 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 
 ## CI — commit 6811e23 (2026-11-06, run 42277884610)
 - « Unit and regression suite » : **SUCCESS** (0 skip avec javac — le check API des tags de previews ne skippe plus en CI, il valide le contrat dépôt hors-ligne). Seul rouge : fail-loud volontaire. Suite locale : 829/825/0/4 (skips = javac absent en local). Note : les runs 8dd6682/a2d5c06/aa7c126 étaient rouges à cause d'un skip conditionnel ajouté en CI (interdit par le workflow) — corrigé.
+
+## Preview publiée depuis Arena — v1.2.2-test.61-preview (2026-11-06, commit APK test.61)
+- **Contenu** : cumul MEL-BUG-030/031/032/033/034. APK **vérifié dans le tag** via l'API (`releases/Melodix-Test-v1.2.2-test61.apk` au ref du tag, 3 675 195 o) ; notes de release avec section « 📥 Télécharger l'APK » épinglée sur le tag (raw + blob + zip codeload), générée automatiquement par `publish_preview_release.sh`.
+- APK `releases/Melodix-Test-v1.2.2-test61.apk` · sha256 `f307a1b3df7eaa6add7e52dddf8c5235c6cc4804982b88124afeb51e305d5ba1` · versionCode **1061** · empreinte `B0:B8:D5:60:70:9C:00:A7:14:FE:A4:60:5F:DB:22:51:83:CD:59:5F:91:0E:70:28:01:E5:94:E9:79:CB:6C:F5` (**nouvelle session Arena** → « Package en conflit » possible vs test.53-60 : `adb uninstall com.melodix.music` d'abord). Suite 829/825/0/4.
