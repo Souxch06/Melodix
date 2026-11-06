@@ -4,9 +4,9 @@
 # Usage: publish_preview_release.sh <tag> <apk-name> <sha256> <cert-fingerprint> <commit-sha> [extra-notes-file]
 # Exemple: publish_preview_release.sh v1.2.2-test.49-preview Melodix-Test-v1.2.2-test49.apk 29ab… F9:A6:…:24:18 $(git rev-parse HEAD)
 set -euo pipefail
-TAG="${1:?tag requis (ex. v1.2.2-test.49-preview)}"
-APK="${2:?nom de l'APK dans releases/}"
-SHA256="${3:?sha256 de l'APK}"
+TAG="${1:?tag requis, ex. v1.2.2-test.49-preview}"
+APK="${2:?nom de l APK dans releases/}"
+SHA256="${3:?sha256 de l APK}"
 FP="${4:?empreinte SHA-256 du certificat}"
 COMMIT="${5:?sha du commit testé}"
 EXTRA="${6:-}"
