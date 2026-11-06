@@ -440,3 +440,30 @@ MEL-BUG-020 — P3 — mon assertion de sélection était un faux vert (corrigé
   fonctionnement live post-connexion n'est **pas prouvé** ici. Aucun token n'a été journalisé.
 - **Statut** : correctifs livrés et publiés; validation live en attente d'une session de test réelle.
 
+## MEL-BUG-023 — P0 : conflit de signature APK à la mise à jour (« Package en conflit »)
+
+- **Constat** : installer `v1.2.2-test.45-preview` par-dessus `v1.2.2-test.44-preview` échoue.
+- **Diagnostic** :
+  - applicationId constant `com.melodix.music` (asserté dans le job build) ; versionCode 27 constant
+    (accepté en mise à jour si la signature matche).
+  - **Cause racine** : le job `build-qa-apk` exécutait `keytool -genkeypair -validity 2` à **chaque run**
+    → certificat différent à chaque release → `INSTALL_FAILED_UPDATE_INCOMPATIBLE`. Les sha256 des APK
+    publiés (44: `75c0ab2d…`, 45: `a7a4a6f6…`) diffèrent, conforme à des clés différentes.
+  - Téléchargement des APK depuis le bac à sable impossible (CDN hors allowlist) : la comparaison des
+    certificats est remplacée par une **preuve par construction en CI** (double signature, empreintes
+    de certificat identiques exigées).
+- **Correctif** (`0d4d143`) : clé de test **persistante** via le secret CI `MELODIX_TEST_KEYSTORE_B64`
+  (PKCS12, alias `melodix-test`). Aucun `genkeypair` dans le workflow ; secret absent = build en échec
+  explicite (jamais de repli jetable). Preuve de stabilité (2 signatures → même SHA-256 de certificat) +
+  test de mise à jour `adb install -r` par-dessus dans le walk. Empreinte du certificat publiée dans les
+  notes de release. Clé déposée hors dépôt pour le propriétaire (`melodix-test-release.p12`, à pousser
+  UNE FOIS dans le secret avec `gh secret set`) ; aucun matériel de clé tracké (test de garde).
+- **Empreinte du certificat de test (publique)** :
+  `45:62:21:AC:C4:B4:B4:57:F2:9C:55:72:BB:9F:B2:D8:32:29:25:39:7D:88:60:F4:CC:E2:6F:2B:CE:8C:B1:AF`
+- **Validation** : le test de mise à jour 44→45 en conditions réelles nécessite le secret posé puis un
+  run CI vert (build avec preuve de stabilité + walk avec update-over-install). **En attente du secret.**
+- **Migration** : tant que le secret n'est pas posé, aucune nouvelle release n'est publiée (build rouge
+  volontaire) ; les testeurs doivent désinstaller l'ancienne build de test avant d'installer la
+  nouvelle — c'est la migration la moins risquée, sans toucher à la production.
+- **Statut** : correctif livré ; **validation bloquée sur la pose du secret** `MELODIX_TEST_KEYSTORE_B64`.
+
