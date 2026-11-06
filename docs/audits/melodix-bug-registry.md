@@ -713,3 +713,12 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 ## Preview publiée depuis Arena — v1.2.2-test.53-preview (2026-11-06, commit fa71128 + APK)
 - **Contenu** : MEL-BUG-030 (budget borné de 3 retries post-401 par époque de login).
 - APK `releases/Melodix-Test-v1.2.2-test53.apk` · sha256 `ef76d0a4a82579f4a1a131eb93ec12eefdbccda8dc123a518cdcc2a98c137fa6` · versionCode **1053** · empreinte `DB:63:77:15:AA:DE:11:58:EF:AD:BF:16:4F:CD:E3:10:A5:8E:1F:AF:1B:E2:D5:A1:E5:2F:AE:DE:70:C8:59:A2` (nouvelle session Arena = nouveau keystore local, d'où le warning « Package en conflit » → `adb uninstall com.melodix.music` d'abord). Suite 813/810/0/3.
+
+## MEL-BUG-031 — P2 : effacer la recherche laissait les résultats figés à la place de la grille de genres (2026-11-06)
+- **Cause** : `NativeSearchWatcher.afterTextChanged` ne réagissait qu'aux requêtes ≥ 2 caractères ; une requête effacée (< 2) ne déclenchait rien, les rows de résultats restaient visibles.
+- **Correctif** : requête courte/effacée → `pendingQuery` annulé + appel de la nouvelle `MainActivity.onNativeSearchQueryCleared()` qui remet `nativeGenreScroll` VISIBLE, `nativeRowsScroll` GONE et oublie `nativeExpectedSearch`. La live search ≥ 2 caractères est inchangée.
+- Tests : nouveau `tests/mel_bug_031_search_clear_genre_grid.test.js` (3). Suite : **816/813/0/3**. CI 508d948 : suite unitaire SUCCESS (seul rouge = fail-loud volontaire).
+
+## Preview publiée depuis Arena — v1.2.2-test.54-preview (2026-11-06, commit 508d948 + APK)
+- **Contenu** : MEL-BUG-031 (recherche effacée → retour grille de genres).
+- APK `releases/Melodix-Test-v1.2.2-test54.apk` · sha256 `d03d24473465615b7ca0a5a44e75ef7862b7615e5fcd2f39dc265b168051e5f6` · versionCode **1054** · empreinte `DB:63:77:…:59:A2` (même session Arena que test.53 → mise à jour directe). Suite 816/813/0/3.
