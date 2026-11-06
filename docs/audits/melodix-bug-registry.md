@@ -675,3 +675,7 @@ commit `85dc840` · chaîne reproductible : `scripts/build_preview_apk.sh` + `zi
 
 ### MEL-BUG-026 (complément 2) — branche empty de la Recherche
 `:native_rows_search_empty` branche désormais d'abord sur `isNativeSessionUnproven()` → carte de connexion (la recherche sans session ne peut jamais produire de résultats, même via Retour). Ensuite seulement la distinction MEL-BUG-028 (indice vs « Aucun résultat »). Test ajouté dans mel_bug_028. Suite : 802/799/0/3.
+
+## Preview publiée depuis Arena — v1.2.2-test.50-preview (2026-11-06, commit 51e133e + APK)
+- **Contenu** : MEL-BUG-026 complément 2 (branche empty Recherche sans session → carte de connexion avant toute autre chose).
+- APK `releases/Melodix-Test-v1.2.2-test50.apk` · sha256 `e0a2886aefd5ed076d90b34f13d0d37e67a359ea654259c8d0695d1c2689c1b2` · versionCode **1050** · empreinte `F9:A6:3F:…:24:18` (identique test.47→49 → mise à jour directe). v1+v2+v3 vérifié. Suite 802/799/0/3.
