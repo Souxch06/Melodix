@@ -530,3 +530,18 @@ Cycle 2 : vérifier sur les deux profils que `back-from-settings` et `home-again
 - **Bloqué sans session** (documenté) : variante connectée des Paramètres/Accueil (données
   Spotify réelles), lecteur/mini-lecteur fonctionnels, parcours G.
 
+---
+
+## Cycle 14 — Incident P0 MEL-BUG-022 : « Réessayer » affiché sans authentification
+
+- **HEAD `ada507d` poussé.** Suite **775 / 772 pass / 0 fail / 3 skip**. Run **`42172550412` 6/6 vert** →
+  release **`v1.2.2-test.45-preview`** (https://github.com/Souxch06/Melodix/releases/tag/v1.2.2-test.45-preview).
+- **Cause racine** : le repli natif « aucune carte réelle » (`NativeHomeShelfRenderer :shelf_no_cards`) proposait
+  toujours `retry-library`, même session non confirmée — un réessayer voué à l'échec, d'où l'absence de données.
+- **Correctif** : branche sur `isNativeSessionUnproven()` → « Connexion Spotify requise » + **Se connecter**
+  (primaire) + **Réessayer** (secondaire). Carte de chargement déjà actionnable (cycle 13). Paramètres: états
+  réels + repli natif (cycle 13).
+- **Audit OAuth tracé** (statique) : le point de passage obligé est la preuve libraryV3 après
+  `authState === 'connected'`; sans preuve, aucune donnée n'est envoyée (règle de confidentialité).
+- **Non prouvé** : parcours OAuth live avec vraie session (hors CI). Aucun token journalisé. Voir registre MEL-BUG-022.
+

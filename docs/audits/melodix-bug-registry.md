@@ -412,3 +412,31 @@ MEL-BUG-020 — P3 — mon assertion de sélection était un faux vert (corrigé
   Le filtre `paths` listait `smali/com/melodix/music/Native**` mais pas `MainActivity.smali`.
 - **Correctif** : chemin ajouté, vérifié en relisant le YAML parsé, sous test.
 - **Statut** : **RÉSOLU.** Un changement réel de l'interface pouvait partir sans contrôle appareil.
+
+## MEL-BUG-022 — Incident P0 : reconnexion Spotify sans récupération des données (carte « Réessayer » affichée à tort)
+
+- **Signalement** : après installation de `v1.2.2-test.44-preview` (commit `419690d`, versionName 1.2.2 / versionCode 27)
+  et connexion à Spotify, l'accueil affiche « Votre accueil n'a pas pu être chargé » + « Réessayer », aucune donnée,
+  et les Paramètres ne montrent pas l'état attendu.
+- **Cause racine identifiée (côté natif)** : `NativeHomeShelfRenderer` `:shelf_no_cards` — quand le payload accueil
+  ne contient aucune carte réelle, la carte de repli affichait **systématiquement** `melodix:action:retry-library`,
+  même quand la session n'était pas confirmée. Un « Réessayer » sans authentification ne peut jamais récupérer de
+  données: le symptôme était donc structurel, pas un simple message.
+- **Chaîne OAuth auditée** (traçage statique, sans session live) : connexion (`openSpotifyLogin` → accounts.spotify.com,
+  WebView) → retour open.spotify.com → `observeSpotifyAuthState` (signaux `collectAuthSignals`, machine d'état) →
+  `requestMediaLibraryProof` **bloquée tant que `authState !== 'connected'`** → `checkMediaLib`/libraryV3 →
+  preuve `libraryProvesSession()` → envoi des lignes home. Le point de passage obligé est la preuve libraryV3;
+  sans elle, aucune donnée n'est envoyée (conforme à la règle de confidentialité).
+- **Correctifs** (`ada507d`) :
+  1. `:shelf_no_cards` consulte `isNativeSessionUnproven()` : session non confirmée → carte « Connexion Spotify
+     requise » avec **Se connecter** (primaire, réel) + **Réessayer** (secondaire); cas prouvé inchangé.
+  2. Carte de chargement de l'accueil actionnable (« Se connecter ») depuis le cycle 13.
+  3. Paramètres : états réels distincts + repli natif fonctionnel sans WebView (cycles 13).
+- **Tests** : matrice de 10 scénarios (première connexion, réussite, 401, 403, réseau, timeout, jeton absent,
+  déconnexion, reconnexion…) sur les lignes d'état Paramètres + test natif de la nouvelle branche.
+  Suite **775 / 772 pass / 0 fail / 3 skip**. Run CI **`42172550412` 6/6 vert**, release **`v1.2.2-test.45-preview`**.
+- **Limite honnête** : la validation OAuth de bout en bout avec une **vraie session** reste impossible en CI
+  (pas de session disponible). Le parcours est audité, les états et actions sont corrigés et testés, mais le
+  fonctionnement live post-connexion n'est **pas prouvé** ici. Aucun token n'a été journalisé.
+- **Statut** : correctifs livrés et publiés; validation live en attente d'une session de test réelle.
+
