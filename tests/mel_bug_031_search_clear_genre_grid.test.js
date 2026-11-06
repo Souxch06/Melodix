@@ -38,3 +38,13 @@ test('MEL-BUG-031: live search still requires >= 2 chars and a non-empty trimmed
   assert.ok(ls);
   assert.match(ls[1], /isEmpty\(\)Z/);
 });
+
+test('MEL-BUG-031: submitting an empty query also returns to the genre grid', () => {
+  const activity = read('smali/com/melodix/music/MainActivity.smali');
+  const m = activity.match(/\.method public final onNativeSearchSubmit\(Landroid\/view\/View;\)V([\s\S]*?)\.end method/);
+  assert.ok(m, 'onNativeSearchSubmit exists');
+  assert.match(m[1], /if-eqz v2, :native_search_submit_empty/,
+    'an empty submitted query branches to the clear handler');
+  assert.match(m[1], /:native_search_submit_empty[\s\S]*?invoke-virtual \{p0\}, Lcom\/melodix\/music\/MainActivity;->onNativeSearchQueryCleared\(\)V/,
+    'empty submit calls onNativeSearchQueryCleared (genre grid back, rows hidden)');
+});

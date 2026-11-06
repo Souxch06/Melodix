@@ -10122,7 +10122,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     move-result-object v1
     invoke-virtual {v1}, Ljava/lang/String;->isEmpty()Z
     move-result v2
-    if-eqz v2, :native_search_submit_done
+    if-eqz v2, :native_search_submit_empty
 
     iput-object v1, p0, Lcom/melodix/music/MainActivity;->nativeExpectedSearch:Ljava/lang/String;
     const-string v2, "search"
@@ -10144,6 +10144,12 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     # the playback bridge never started.
     const-string v2, "(window.__sfSubmitSearch||window.searchMediaItems)"
     invoke-virtual {p0, v2, v1}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
+
+    :native_search_submit_empty
+    # MEL-BUG-031: submitting an empty query behaves like clearing the field:
+    # back to the genre browse grid, no stale result rows.
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->onNativeSearchQueryCleared()V
+    goto :native_search_submit_done
 
     :native_search_submit_done
     return-void
