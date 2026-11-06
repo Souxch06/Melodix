@@ -722,3 +722,12 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 ## Preview publiée depuis Arena — v1.2.2-test.54-preview (2026-11-06, commit 508d948 + APK)
 - **Contenu** : MEL-BUG-031 (recherche effacée → retour grille de genres).
 - APK `releases/Melodix-Test-v1.2.2-test54.apk` · sha256 `d03d24473465615b7ca0a5a44e75ef7862b7615e5fcd2f39dc265b168051e5f6` · versionCode **1054** · empreinte `DB:63:77:…:59:A2` (même session Arena que test.53 → mise à jour directe). Suite 816/813/0/3.
+
+## MEL-BUG-032 — P1 : un 400 pathfinder (hash persistant libraryV3 rotaté) bloquait la preuve Home indéfiniment (2026-11-06)
+- **Cause** : `fetchAllLibrary` classait toute erreur non-2xx autre que 401/403/429 en `http-400`, **non transitoire** dans la porte du shell → plus aucun retry automatique, accueil bloqué. Si Spotify a rotaté le hash `libraryV3`, chaque requête返ait 400 `PersistedQueryNotFound` avec le hash embarqué/périmé.
+- **Correctif** (fail-closed conservé) : sur un 400, le hash caché `sp_hash_libraryV3` est supprimé (le prochain essai retombe sur le hash embarqué/re-résolu), le corps est inspecté localement (jamais loggé) pour classer `http-400-persisted-query`, et ces erreurs deviennent **transitoires** (retry borné avec backoff). 401/403 gardent leur budget borné MEL-BUG-030. Aucune ligne privée sans preuve.
+- Tests : nouveau `tests/mel_bug_032_persisted_query_400.test.js` (3). Suite : **819/816/0/3**.
+
+## Preview publiée depuis Arena — v1.2.2-test.55-preview (2026-11-06, commit MEL-BUG-032 + APK)
+- **Contenu** : MEL-BUG-032 (400 PersistedQueryNotFound → hash vidé + retry borné au lieu d'un blocage permanent).
+- APK `releases/Melodix-Test-v1.2.2-test55.apk` · sha256 `75e8200e567e91843010750a6ab1b65c34aa1f3648389271c42781955e135901` · versionCode **1055** · empreinte `DB:63:77:…:59:A2` (même session Arena que test.53/54 → mise à jour directe). Suite 819/816/0/3.
