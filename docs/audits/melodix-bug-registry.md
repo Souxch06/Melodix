@@ -660,3 +660,6 @@ commit `85dc840` · chaîne reproductible : `scripts/build_preview_apk.sh` + `zi
 ## CI — commit 796f5e0 (2026-11-06, run 42231991349)
 - **Unit and regression suite : 799/799/0/0 SUCCESS** (avec javac réel) — la race MEL-BUG-027 est éradiquée.
 - **Verify UI metrics phone+tablet : SUCCESS.** Seul échec : build signée, fail-loud volontaire « MELODIX_TEST_KEYSTORE_B64 is not set » (inchangé, à poser via l'interface GitHub pour débloquer walk émulateur + release CI).
+
+## Outillage — commit suivant (2026-11-06)
+`scripts/publish_preview_release.sh` : publie + **vérifie** une pre-release via l'API GitHub (tag test inédit, prerelease, notes avec APK/sha256/empreinte/limites, contrôle existence release + APK servie). Le canal Arena est désormais entièrement scripté : `build_preview_apk.sh` → `publish_preview_release.sh`.
