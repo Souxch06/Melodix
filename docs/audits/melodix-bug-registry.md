@@ -695,3 +695,6 @@ commit `85dc840` · chaîne reproductible : `scripts/build_preview_apk.sh` + `zi
 ## Preview publiée depuis Arena — v1.2.2-test.52-preview (2026-11-06, commit 1b29e71 + APK)
 - **Contenu** : MEL-BUG-029 (accueil « non connecté » à tort → détection auth élargie, fail-closed conservé).
 - APK `releases/Melodix-Test-v1.2.2-test52.apk` · sha256 `140f8513d828b1100945d6c571f49c90e309d1670068e38a5001d163948c3ca4` · versionCode **1052** · empreinte `F9:A6:3F:…:24:18` (mise à jour directe depuis test.47→51). Suite 808/805/0/3.
+
+## CI — commit 1b29e71 (2026-11-06, run 42241948330)
+Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (secret keystore absent).
