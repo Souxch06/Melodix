@@ -9999,6 +9999,12 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v1
     if-eqz v1, :native_search_click_done
+    # MEL-BUG-034: reopening Search starts from a clean field — a leftover query
+    # would otherwise sit in the input while the genre grid is shown (the
+    # watcher only fires live search on edits, not on reopening).
+    check-cast v1, Landroid/widget/EditText;
+    const-string v2, ""
+    invoke-virtual {v1, v2}, Landroid/widget/EditText;->setText(Ljava/lang/CharSequence;)V
     invoke-virtual {v1}, Landroid/view/View;->requestFocus()Z
     new-instance v2, Lcom/melodix/music/NativeSearchFocusRunnable;
     invoke-direct {v2, p0, v1}, Lcom/melodix/music/NativeSearchFocusRunnable;-><init>(Lcom/melodix/music/MainActivity;Landroid/view/View;)V

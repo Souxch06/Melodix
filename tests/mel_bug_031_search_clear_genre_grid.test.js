@@ -48,3 +48,11 @@ test('MEL-BUG-031: submitting an empty query also returns to the genre grid', ()
   assert.match(m[1], /:native_search_submit_empty[\s\S]*?invoke-virtual \{p0\}, Lcom\/melodix\/music\/MainActivity;->onNativeSearchQueryCleared\(\)V/,
     'empty submit calls onNativeSearchQueryCleared (genre grid back, rows hidden)');
 });
+
+test('MEL-BUG-034: reopening the Search tab clears a leftover query (field and genre grid stay consistent)', () => {
+  const activity = read('smali/com/melodix/music/MainActivity.smali');
+  const m = activity.match(/\.method public final onNativeSearchClick\(Landroid\/view\/View;\)V([\s\S]*?)\.end method/);
+  assert.ok(m, 'onNativeSearchClick exists');
+  assert.match(m[1], /const v0, 0x7f090233[\s\S]*?check-cast v1, Landroid\/widget\/EditText;[\s\S]*?const-string v2, ""[\s\S]*?invoke-virtual \{v1, v2\}, Landroid\/widget\/EditText;->setText\(Ljava\/lang\/CharSequence;\)V/,
+    'the search input is emptied when the Search tab opens (setText triggers the watcher -> genre grid)');
+});
