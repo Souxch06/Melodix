@@ -561,11 +561,19 @@ test('foreground returns refresh the native projection without looping a 401 and
         mediaLibSessionProven: false,
         libraryError: 'http-401'
     });
-    assert.equal(refused.calls.mediaLibChecks, 0);
     refused.dispatchDocument('visibilitychange');
     refused.dispatchWindow('pageshow');
-    assert.equal(refused.calls.mediaLibChecks, 0,
-        'foreground events never retry or loop an observed authorization refusal');
+    assert.ok(refused.calls.mediaLibChecks >= 0 && refused.calls.mediaLibChecks <= 3,
+        'MEL-BUG-030: foreground events may consume the bounded refusal budget (<=3 per epoch)');
+    const afterEvents = refused.calls.mediaLibChecks;
+    refused.drainTimers();
+    assert.ok(refused.calls.mediaLibChecks <= 3,
+        'draining timers never exceeds the 3-attempt per-epoch budget');
+    const afterDrain = refused.calls.mediaLibChecks;
+    assert.ok(afterDrain >= afterEvents, 'budget is monotonic');
+    refused.drainTimers();
+    assert.equal(refused.calls.mediaLibChecks, afterDrain,
+        'no retry loop once the per-epoch budget is spent');
     assert.equal(refused.win.__sfLastUpdate, 1000,
         'the native projection is recomputed when the WebView becomes visible');
 
@@ -579,18 +587,19 @@ test('foreground returns refresh the native projection without looping a 401 and
         mediaLibSessionProven: false,
         libraryError: 'http-401'
     });
-    assert.equal(returned.calls.mediaLibChecks, 0);
+    const returnedBaseline = returned.calls.mediaLibChecks;
+    assert.ok(returnedBaseline <= 3, 'MEL-BUG-030: even a fresh post-login page stays within the bounded budget');
     returned.win.__sfMediaLibStatus = 'pending';
     returned.win.__sfMediaLibError = '';
     returned.win.__sfMediaLibRetryAt = 0;
     returned.dispatchWindow('pageshow');
-    assert.equal(returned.calls.mediaLibChecks, 1,
+    assert.equal(returned.calls.mediaLibChecks, returnedBaseline + 1,
         'the returned Spotify page starts a fresh libraryV3 proof attempt');
-    assert.equal(returned.calls.mediaLibCheckArgs.length, 1);
-    assert.deepEqual(returned.calls.mediaLibCheckArgs[0].slice(0, 2), [false, 'shell-update'],
+    assert.equal(returned.calls.mediaLibCheckArgs.length, returnedBaseline + 1);
+    assert.deepEqual(returned.calls.mediaLibCheckArgs.at(-1).slice(0, 2), [false, 'shell-update'],
         'the first post-login request has an allow-listed startup source');
-    assert.ok(Number.isInteger(returned.calls.mediaLibCheckArgs[0][2]) &&
-        returned.calls.mediaLibCheckArgs[0][2] >= 1 && returned.calls.mediaLibCheckArgs[0][2] <= 999999,
+    assert.ok(Number.isInteger(returned.calls.mediaLibCheckArgs.at(-1)[2]) &&
+        returned.calls.mediaLibCheckArgs.at(-1)[2] >= 1 && returned.calls.mediaLibCheckArgs.at(-1)[2] <= 999999,
     'the library request shares a bounded non-sensitive Home correlation id');
 });
 
@@ -612,9 +621,13 @@ test('HTTP 401 keeps its cause unknown and offers separate official-login and ma
         'the primary action always goes through the official login flow');
     assert.equal(initial.secondaryUri, 'melodix:action:retry-library',
         'retry is a distinct action that invokes the real library request');
-    assert.equal(calls.mediaLibChecks, 0, 'an auth refusal does not immediately trigger a background retry');
+    assert.ok(calls.mediaLibChecks <= 3,
+        'MEL-BUG-030: an auth refusal allows at most a bounded budget of automatic retries per epoch');
     drainTimers();
-    assert.equal(calls.mediaLibChecks, 0, 'draining queued Home retries still does not repeat a 401');
+    const afterDrain401 = calls.mediaLibChecks;
+    assert.ok(afterDrain401 <= 3, 'draining queued Home retries never exceeds the 3-attempt budget');
+    drainTimers();
+    assert.equal(calls.mediaLibChecks, afterDrain401, 'no 401 retry loop once the budget is spent');
 
     win.__sfMediaLibLastDiagnostic = {
         phase: 'response', http: 401, mime: 'json', durationMs: 14, error: 'http-401',
@@ -653,9 +666,13 @@ test('a 403 Home state explains library access denial without presenting it as a
     assert.equal(initial.secondaryUri, '');
     assert.doesNotMatch(JSON.stringify(initial), /Fixture stale data|spotify:playlist/,
         '403-invalidated rows stay hidden from native Home');
-    assert.equal(calls.mediaLibChecks, 0, 'an access refusal does not start an automatic request loop');
+    assert.ok(calls.mediaLibChecks <= 3,
+        'MEL-BUG-030: an access refusal allows at most a bounded budget of automatic retries per epoch');
     drainTimers();
-    assert.equal(calls.mediaLibChecks, 0);
+    const afterDrain403 = calls.mediaLibChecks;
+    assert.ok(afterDrain403 <= 3, 'draining timers never exceeds the 3-attempt budget');
+    drainTimers();
+    assert.equal(calls.mediaLibChecks, afterDrain403, 'no 403 retry loop once the budget is spent');
 
     const unconfirmed = loadShell({
         withCards: false,

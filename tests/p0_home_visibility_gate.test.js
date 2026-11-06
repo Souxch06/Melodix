@@ -592,8 +592,13 @@ test('[P0] the shell waits for confirmed player UI, retries once per auth epoch,
     'an unauthenticated state is recorded without presenting an assumed cause');
   assert.match(gate, /window\.__sfMediaLibStatus === 'loading'/, 'single-flight state blocks concurrent requests');
   assert.match(gate, /previousError === 'http-401' \|\| previousError === 'http-403'/);
-  assert.match(gate, /authEpoch <= lastAttemptEpoch/,
-    'a 401/403 is not retried in the same authentication epoch');
+  // MEL-BUG-030: a 401/403 right after a fresh sign-in is often a cookie race;
+  // a new epoch now gets a bounded budget (3 attempts) instead of exactly one,
+  // and the budget is spent -> blocked in that epoch (never an infinite loop).
+  assert.match(gate, /__sfMediaLibRefusalEpoch/,
+    'the refusal budget is tracked per sign-in epoch');
+  assert.match(gate, /__sfMediaLibRefusalAttempts \|\| 0\) >= 3/,
+    'at most 3 attempts per epoch, then blocked (no 401/403 retry loop)');
   assert.match(gate, /previousError === 'http-429'[\s\S]*?now < window\.__sfMediaLibRetryAt/,
     'Retry-After/backoff remains authoritative even for explicit retries');
   assert.match(shell, /addEventListener\('sf-spotify-auth-state-changed', scheduleUpdate\)/,

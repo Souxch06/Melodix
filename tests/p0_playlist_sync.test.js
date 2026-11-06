@@ -203,18 +203,25 @@ test('[P0 playlists] 6. un echec HTTP explicite reste visible et retentable', ()
       w.__sfMediaLibError = 'http-403';
     }
   });
-  // A 403 stops background retries and is not mislabeled as a player logout.
+  // MEL-BUG-030: a 403 allows a bounded budget (1..3) of automatic retries in the
+  // same epoch (cookie-settling race right after login), then stops; it is still
+  // never mislabeled as a player logout and never loops.
   window.__sfMediaLibRetryAt = 0;
   window.__sfNativeUiRefresh();
-  assert.equal(checkMediaLibCalls.count, 0, 'un refus HTTP ne relance pas la requête en arrière-plan');
+  const afterRefusal = checkMediaLibCalls.count;
+  assert.ok(afterRefusal >= 1 && afterRefusal <= 3,
+    `le budget de retries après un refus HTTP est borné (1..3), got ${afterRefusal}`);
+  window.__sfNativeUiRefresh();
+  assert.equal(checkMediaLibCalls.count, afterRefusal,
+    'une fois le budget épuisé, plus aucun retry automatique en arrière-plan');
   let homeRows = calls.filter((c) => c.screen === 'home');
   let rows = homeRows.length ? JSON.parse(homeRows[homeRows.length - 1].data) : [];
   assert.equal(rows[0].uri, 'melodix:action:retry-library', 'le 403 ne renvoie pas vers un login player sans rapport avec les permissions API');
   assert.equal(rows[0].secondaryUri, '', 'une seule action de retry explicite reste disponible');
   window.__sfNativeRetryLibrary();
-  assert.equal(checkMediaLibCalls.count, 1, 'le clic de nouvel essai lance une seule requête réelle');
+  assert.equal(checkMediaLibCalls.count, afterRefusal + 1, 'le clic de nouvel essai lance une seule requête réelle');
   window.__sfNativeUiRefresh();
-  assert.equal(checkMediaLibCalls.count, 1, 'aucune boucle ne repart après le nouvel échec');
+  assert.equal(checkMediaLibCalls.count, afterRefusal + 1, 'aucune boucle ne repart après le nouvel échec');
   homeRows = calls.filter((c) => c.screen === 'home');
   rows = homeRows.length ? JSON.parse(homeRows[homeRows.length - 1].data) : [];
   assert.ok(!rows.some((r) => /fake|demo|example/i.test(r.title)), 'pas de donnees fabriquees');

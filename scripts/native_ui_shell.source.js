@@ -966,17 +966,33 @@
             !explicitRetry && proofEpoch >= authEpoch) {
             window.__sfMediaLibRetryAt = 0;
             window.__sfMediaLibRetryDelayMs = 5000;
+            window.__sfMediaLibRefusalEpoch = 0;
+            window.__sfMediaLibRefusalAttempts = 0;
             traceHomePipeline(correlationId, 'request', 'ready', 0, 0, 0, 0);
             return false;
         }
         if ((previousError === 'http-401' || previousError === 'http-403') && !explicitRetry) {
-            if (!Number.isFinite(authEpoch) || authEpoch <= 0 || authEpoch <= lastAttemptEpoch) {
-                // Do not repeat an authorization refusal in the same confirmed
-                // player-UI epoch. A new sign-in epoch permits exactly one retry.
+            // MEL-BUG-030: a 401/403 right after a fresh sign-in is often a
+            // cookie-settling race, not a real logout. Instead of exactly one
+            // retry per sign-in epoch (which left the Home stuck on the error
+            // card when that single attempt raced), allow a small bounded
+            // budget per epoch: 3 attempts. The refusal still blocks forever
+            // once the budget is spent in the same epoch.
+            if (!Number.isFinite(authEpoch) || authEpoch <= 0) {
                 traceHomePipeline(correlationId, 'request', 'blocked', 0,
                     previousError === 'http-401' ? 401 : 403, 0, 0);
                 return false;
             }
+            if (authEpoch !== Number(window.__sfMediaLibRefusalEpoch || 0)) {
+                window.__sfMediaLibRefusalEpoch = authEpoch;
+                window.__sfMediaLibRefusalAttempts = 0;
+            }
+            if (Number(window.__sfMediaLibRefusalAttempts || 0) >= 3) {
+                traceHomePipeline(correlationId, 'request', 'blocked', 0,
+                    previousError === 'http-401' ? 401 : 403, 0, 0);
+                return false;
+            }
+            window.__sfMediaLibRefusalAttempts = Number(window.__sfMediaLibRefusalAttempts || 0) + 1;
             window.__sfMediaLibRetryAt = 0;
         } else if (previousError && !libraryErrorIsTransient(previousError) && !explicitRetry) {
             traceHomePipeline(correlationId, 'request', 'blocked', 0, 0, 0, 0);
