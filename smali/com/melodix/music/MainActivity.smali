@@ -9842,6 +9842,11 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     goto :native_rows_set_empty
 
     :native_rows_search_empty
+    # MEL-BUG-026: without a proven session, show the real state card first —
+    # no search result can ever arrive, whatever the query.
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->isNativeSessionUnproven()Z
+    move-result v1
+    if-nez v1, :native_rows_search_unproven
     # MEL-BUG-028: a submitted query with zero results must not show the
     # "type something" hint — that hint is only for an empty query. Distinguish
     # via nativeExpectedSearch (set on submit and on deep link).
@@ -9866,6 +9871,10 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     :native_rows_search_hint
     const-string v0, "Recherchez un artiste, un titre, un album ou une playlist ci-dessus"
     goto :native_rows_set_empty
+    :native_rows_search_unproven
+    const-string v1, "[{\"kind\":\"state\",\"state\":\"error\",\"sessionUnproven\":true,\"title\":\"Connexion Spotify non confirmée\",\"subtitle\":\"La recherche nécessite une session Spotify confirmée. Touchez pour vous connecter.\",\"section\":\"Recherche Spotify\",\"image\":\"\",\"uri\":\"melodix:action:open-login\"}]"
+    invoke-static {p0, v1}, Lcom/melodix/music/NativeHomeShelfRenderer;->render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+    return-void
 
     :native_rows_library_empty
     # MEL-BUG-026: without a proven session no library rows can ever arrive, so

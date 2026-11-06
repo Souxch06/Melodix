@@ -672,3 +672,6 @@ commit `85dc840` · chaîne reproductible : `scripts/build_preview_apk.sh` + `zi
 ## Preview publiée depuis Arena — v1.2.2-test.49-preview (2026-11-06, commit cbcee2a + APK)
 - **Contenu** : MEL-BUG-028 (recherche 0 résultat → « Aucun résultat pour « … » »).
 - APK `releases/Melodix-Test-v1.2.2-test49.apk` · sha256 `af05b7e2e5eaf64957a72de74592cf5618edd2669a147413d06c2057c5a6e53e` · versionCode **1049** · empreinte `F9:A6:3F:…:24:18` (identique test.47/48 → mise à jour directe). v1+v2+v3 vérifié, arsc aligné. Suite 801/798/0/3.
+
+### MEL-BUG-026 (complément 2) — branche empty de la Recherche
+`:native_rows_search_empty` branche désormais d'abord sur `isNativeSessionUnproven()` → carte de connexion (la recherche sans session ne peut jamais produire de résultats, même via Retour). Ensuite seulement la distinction MEL-BUG-028 (indice vs « Aucun résultat »). Test ajouté dans mel_bug_028. Suite : 802/799/0/3.

@@ -32,6 +32,21 @@ test('MEL-BUG-028: zero-result search names the query instead of the hint', () =
   assert.match(branch, /:native_rows_search_hint\s+const-string v0, "Recherchez un artiste, un titre, un album ou une playlist ci-dessus"/);
 });
 
+test('MEL-BUG-026/028: search empty without proven session renders the login card first', () => {
+  const branch = searchEmptyBranch();
+  // The unproven check must come FIRST, before the query distinction.
+  const unprovenAt = branch.indexOf('isNativeSessionUnproven()Z');
+  const queryAt = branch.indexOf('nativeExpectedSearch');
+  assert.ok(unprovenAt > 0 && queryAt > 0 && unprovenAt < queryAt,
+    'isNativeSessionUnproven() must gate before the query branch');
+  assert.match(branch,
+    /if-nez v1, :native_rows_search_unproven[\s\S]*?:native_rows_search_unproven\s+const-string v1, "(\[\{[\s\S]*?\}\])"\s*\n\s*invoke-static \{p0, v1\}, Lcom\/melodix\/music\/NativeHomeShelfRenderer;->render/);
+  const card = branch.match(/:native_rows_search_unproven\s+const-string v1, "(\[\{[\s\S]*?\}\])"/);
+  const payload = JSON.parse(card[1].replace(/\\"/g, '"'));
+  assert.equal(payload[0].sessionUnproven, true);
+  assert.equal(payload[0].uri, 'melodix:action:open-login');
+});
+
 test('MEL-BUG-028: the zero-result text and the hint both reach the empty-state view', () => {
   const branch = searchEmptyBranch();
   const gotoSet = branch.match(/goto :native_rows_set_empty/g) || [];
