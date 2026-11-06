@@ -13,6 +13,11 @@ Le bac à sable Arena ne peut pas écrire de secret GitHub Actions (HTTP 403, pe
 absente du token d'app) ni uploader d'assets de release (uploads.github.com hors allowlist).
 La pre-release est donc publiée via l'API GitHub (autorisée) et l'APK est servi depuis ce dépôt.
 
+## 🐞 Si après connexion Spotify les playlists « flashent » puis reviennent à la carte d'erreur
+Testez **au moins la test.53** (MEL-BUG-030 : 3 retries bornés après un refus 401/403 par session de login,
+au lieu d'un seul essai bloqué) et **la test.55** (MEL-BUG-032 : hash persistant rotaté → 400 traité comme
+transitoire avec retry borné au lieu d'un blocage permanent). La plus récente (test.60) les contient toutes.
+
 ## Dernières previews publiées (branche `arena/6b935c3e-melodix`, PR #8)
 | Preview | versionCode | sha256 | Empreinte certificat |
 |---|---|---|---|
