@@ -636,3 +636,9 @@ commit `85dc840` · chaîne reproductible : `scripts/build_preview_apk.sh` + `zi
 - **Signature** : v1+v2+v3, clé persistante régénérée après reset sandbox (empreinte `F9:A6:3F:7A:22:72:45:99:82:00:20:76:21:6E:48:96:81:75:F2:11:84:D9:1E:2A:D3:99:88:11:52:6C:24:18`) ; stabilité prouvée (2 signatures → même certificat) ; empreinte APK == empreinte keystore ; `resources.arsc` stocké+aligné 4 o ; APK redécodable.
 - **Migration** : DÉSINSTALLER test.46 (empreinte `C2:A9:…:EB:67`) avant d'installer test.47 (nouvelle empreinte `F9:A6:…:24:18`) — le bac à sable efface le keystore entre sessions, chaque preview Arena a donc sa propre empreinte documentée.
 - Suite : 793/790/0/3. Aucun matériel de clé tracké.
+
+## MEL-BUG-026 — P1 : états vides « Chargement de la playlist… / bibliothèque… » éternels sans session (écrans Détail/Bibliothèque)
+- **Constat** : la branche empty générique de `renderNativeRows` affichait un texte de chargement même quand aucune ligne ne pouvait jamais arriver (session non prouvée) — même classe que MEL-BUG-024/025.
+- **Correctif** : `:native_rows_library_empty` et `:native_rows_detail_empty` branchent désormais sur `isNativeSessionUnproven()` ; si vrai → carte d'état réelle via `NativeHomeShelfRenderer` (« Connexion Spotify non confirmée », uri `melodix:action:open-login`) et return ; sinon texte de chargement conservé (session prouvée, lignes encore possibles). `:native_rows_search_empty` inchangé.
+- **Tests** : `tests/mel_bug_026_empty_states_unproven.test.js` (3 tests). Suite : 796/793/0/3.
+- **Statut** : correctif livré + tests verts ; validation émulateur via prochain run CI.

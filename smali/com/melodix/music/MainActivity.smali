@@ -9846,11 +9846,30 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     goto :native_rows_set_empty
 
     :native_rows_library_empty
+    # MEL-BUG-026: without a proven session no library rows can ever arrive, so
+    # the loading text would be eternal. Show the real state card instead.
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->isNativeSessionUnproven()Z
+    move-result v1
+    if-nez v1, :native_rows_library_unproven
     const-string v0, "Chargement de votre bibliothèque…"
     goto :native_rows_set_empty
+    :native_rows_library_unproven
+    const-string v1, "[{\"kind\":\"state\",\"state\":\"error\",\"sessionUnproven\":true,\"title\":\"Connexion Spotify non confirmée\",\"subtitle\":\"Les playlists restent masquées tant que la session n’est pas confirmée. Touchez pour vous connecter.\",\"section\":\"Connexion Spotify\",\"image\":\"\",\"uri\":\"melodix:action:open-login\"}]"
+    invoke-static {p0, v1}, Lcom/melodix/music/NativeHomeShelfRenderer;->render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+    return-void
 
     :native_rows_detail_empty
+    # MEL-BUG-026: same eternal-loading class on the detail screen without a
+    # proven session — render the real state card instead of the loading text.
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->isNativeSessionUnproven()Z
+    move-result v1
+    if-nez v1, :native_rows_detail_unproven
     const-string v0, "Chargement de la playlist…"
+    goto :native_rows_set_empty
+    :native_rows_detail_unproven
+    const-string v1, "[{\"kind\":\"state\",\"state\":\"error\",\"sessionUnproven\":true,\"title\":\"Connexion Spotify non confirmée\",\"subtitle\":\"Le contenu de la playlist nécessite une session Spotify confirmée. Touchez pour vous connecter.\",\"section\":\"Connexion Spotify\",\"image\":\"\",\"uri\":\"melodix:action:open-login\"}]"
+    invoke-static {p0, v1}, Lcom/melodix/music/NativeHomeShelfRenderer;->render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+    return-void
     :native_rows_set_empty
     # Visual rebuild: the bare grey line used a raw 24 PIXEL padding (9dp on
     # phone, 12dp on tablet), a hardcoded 16sp and a hardcoded colour, ignoring

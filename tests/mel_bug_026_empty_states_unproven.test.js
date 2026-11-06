@@ -1,0 +1,59 @@
+const test = require('node:test');
+const assert = require('node:assert');
+const fs = require('node:fs');
+const path = require('node:path');
+const root = path.join(__dirname, '..');
+const activity = fs.readFileSync(path.join(root, 'smali/com/melodix/music/MainActivity.smali'), 'utf8');
+
+// MEL-BUG-026: the generic empty-state branch of renderNativeRows used to show
+// an eternal "Chargement de votre bibliothèque…" / "Chargement de la playlist…"
+// when no rows could ever arrive (session unproven). Both screens must now
+// render the real state card (login action) via NativeHomeShelfRenderer.
+function renderNativeRowsBody() {
+  const at = activity.indexOf('.method public final renderNativeRows(');
+  assert.ok(at > 0, 'renderNativeRows must exist');
+  return activity.slice(at, activity.indexOf('.end method', at));
+}
+
+for (const [label, screenLabel, loadingText, subtitleHint] of [
+  ['library', ':native_rows_library_empty', 'Chargement de votre bibliothèque…', 'playlists restent masquées'],
+  ['detail', ':native_rows_detail_empty', 'Chargement de la playlist…', 'session Spotify confirmée'],
+]) {
+  test(`MEL-BUG-026: ${screenLabel} empty state without proven session renders the state card`, () => {
+    const body = renderNativeRowsBody();
+    const at = body.indexOf(`\n    ${screenLabel}\n`);
+    assert.ok(at > 0, `${screenLabel} must exist`);
+    const branch = body.slice(at, at + 1400);
+    // Unproven branch consults the PERSISTENT flag and renders the card.
+    assert.match(branch,
+      /invoke-virtual \{p0\}, Lcom\/melodix\/music\/MainActivity;->isNativeSessionUnproven\(\)Z\s+move-result v1\s+if-nez v1, :\w+/,
+      `${screenLabel} must branch on isNativeSessionUnproven()`);
+    const ifAt = branch.search(/if-nez v1, :(\w+)/);
+    const unprovenLabel = branch.match(/if-nez v1, :(\w+)/)[1];
+    // Proven path: between the branch and the unproven label, the loading text stays.
+    const labelAt = branch.indexOf(`\n    :${unprovenLabel}\n`);
+    assert.ok(labelAt > 0, 'unproven label must be defined');
+    const proven = branch.slice(ifAt, labelAt);
+    assert.ok(proven.includes(loadingText), `${screenLabel} proven branch must keep "${loadingText}"`);
+    // Unproven branch: from its label onward, a state card is rendered and the
+    // method returns without ever showing the loading text.
+    const unproven = branch.slice(labelAt);
+    const card = unproven.match(/const-string v1, "(\[\{[\s\S]*?\}\])"\s*\n\s*invoke-static \{p0, v1\}, Lcom\/melodix\/music\/NativeHomeShelfRenderer;->render/);
+    assert.ok(card, `${screenLabel} unproven branch must render a state card via NativeHomeShelfRenderer`);
+    const payload = JSON.parse(card[1].replace(/\\"/g, '"'));
+    assert.equal(payload[0].kind, 'state');
+    assert.equal(payload[0].sessionUnproven, true);
+    assert.equal(payload[0].uri, 'melodix:action:open-login');
+    assert.match(payload[0].subtitle, new RegExp(subtitleHint));
+    assert.match(unproven, /render[\s\S]*?return-void/, `${screenLabel} unproven branch must return without the loading text`);
+    assert.ok(!unproven.slice(0, unproven.indexOf('invoke-static')).includes(loadingText),
+      `${screenLabel} unproven branch must not contain the loading text`);
+  });
+}
+
+test('MEL-BUG-026: search empty hint unchanged (session proven, no query yet)', () => {
+  const body = renderNativeRowsBody();
+  const at = body.indexOf('\n    :native_rows_search_empty\n');
+  assert.ok(at > 0, ':native_rows_search_empty must exist');
+  assert.match(body.slice(at, at + 200), /Recherchez un artiste, un titre, un album ou une playlist ci-dessus/);
+});
