@@ -81,3 +81,18 @@ test('MEL-BUG-026/028: search empty keeps the hint only for an empty query', () 
   // zero-result message; the hint remains reachable via :native_rows_search_hint.
   assert.match(body.slice(at), /:native_rows_search_hint\s+const-string v0, "Recherchez un artiste, un titre, un album ou une playlist ci-dessus"/);
 });
+
+test('MEL-BUG-026: genre-tile live search without proven session renders the login card', () => {
+  const at = activity.indexOf('.method public final performNativeLiveSearch(');
+  assert.ok(at > 0, 'performNativeLiveSearch must exist');
+  const body = activity.slice(at, activity.indexOf('.end method', at));
+  // The WebView search is still kicked, THEN the card is rendered when unproven.
+  assert.ok(body.indexOf('window.searchMediaItems') < body.indexOf('isNativeSessionUnproven()Z'),
+    'the WebView search fallback must still be kicked before the card');
+  const card = body.match(/const-string v1, "(\[\{[\s\S]*?\}\])"\s*\n\s*invoke-static \{p0, v1\}, Lcom\/melodix\/music\/NativeHomeShelfRenderer;->render/);
+  assert.ok(card, 'unproven live search must render the state card');
+  const payload = JSON.parse(card[1].replace(/\\"/g, '"'));
+  assert.equal(payload[0].sessionUnproven, true);
+  assert.equal(payload[0].uri, 'melodix:action:open-login');
+  assert.match(body, /if-eqz v1, :live_search_done/, 'proven sessions skip the card');
+});

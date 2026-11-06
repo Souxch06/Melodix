@@ -10055,6 +10055,13 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeExpectedSearch:Ljava/lang/String;
     const-string v1, "window.searchMediaItems"
     invoke-virtual {p0, v1, v0}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
+    # MEL-BUG-026: a genre-tile search without a proven session must show the
+    # real state card instead of leaving the browse grid frozen.
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->isNativeSessionUnproven()Z
+    move-result v1
+    if-eqz v1, :live_search_done
+    const-string v1, "[{\"kind\":\"state\",\"state\":\"error\",\"sessionUnproven\":true,\"title\":\"Connexion Spotify non confirmée\",\"subtitle\":\"La recherche nécessite une session Spotify confirmée. Touchez pour vous connecter.\",\"section\":\"Recherche Spotify\",\"image\":\"\",\"uri\":\"melodix:action:open-login\"}]"
+    invoke-static {p0, v1}, Lcom/melodix/music/NativeHomeShelfRenderer;->render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
 
     :live_search_done
     return-void
