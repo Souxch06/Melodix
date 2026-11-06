@@ -40,3 +40,11 @@ test('MEL-BUG-032: minified assets carry the fix', () => {
   assert.ok(shellAsset.includes('http-400-persisted-query'),
     'assets/native_ui_shell.js must be regenerated');
 });
+
+test('MEL-BUG-032: the 400 error copy is honest ("Réponse Spotify inattendue"), not a fake network message', () => {
+  const shell = read('scripts/native_ui_shell.source.js');
+  const m = shell.match(/function homeLibraryErrorText\(\) \{([\s\S]*?)\n    \}/);
+  assert.ok(m);
+  assert.match(m[1], /err === 'http-400' \|\| err === 'http-400-persisted-query' \? 'Réponse Spotify inattendue'/,
+    'a 400 is presented as an unexpected Spotify response, with a real retry action');
+});

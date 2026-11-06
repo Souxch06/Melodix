@@ -1187,7 +1187,8 @@
             var base = err === 'http-429' ? 'Spotify limite les requêtes'
                 : (/^http-5/.test(err) ? 'Spotify est momentanément indisponible'
                     : (err === 'invalid-json' || err === 'non-json' || err === 'unexpected-shape' ||
-                        err === 'graphql-error' || err === 'transform-error' ? 'Réponse Spotify inattendue'
+                        err === 'graphql-error' || err === 'transform-error' ||
+                        err === 'http-400' || err === 'http-400-persisted-query' ? 'Réponse Spotify inattendue'
                         : 'Connexion ou délai de réponse instable'));
             return base + (homeRetryLoopAlive()
                 ? ' — nouvel essai automatique en cours. Touchez pour réessayer maintenant.'
