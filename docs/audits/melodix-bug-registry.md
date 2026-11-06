@@ -748,3 +748,7 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 ## Preview publiée depuis Arena — v1.2.2-test.57-preview (2026-11-06, commit be773f6 + APK)
 - **Contenu** : complément MEL-BUG-031 (submit vide → grille de genres).
 - APK `releases/Melodix-Test-v1.2.2-test57.apk` · sha256 `1328aff5e93f85825f4aa5c8f887689edde9e45dd69b2ceb67bfd067b3992ac6` · versionCode **1057** · empreinte `DB:63:77:…:59:A2` (même session Arena → mise à jour directe). Suite 822/819/0/3.
+
+## Preview publiée depuis Arena — v1.2.2-test.58-preview (2026-11-06, commit 744de85 + APK)
+- **Contenu** : MEL-BUG-033 complément (layout paysage tablette `res/layout-sw600dp-land/` + parité testée).
+- APK `releases/Melodix-Test-v1.2.2-test58.apk` · sha256 `4986bf09298d55c499b521b9cde7cf6d9d4be07da1d8e889291374043f9e6514` · versionCode **1058** · empreinte `DB:63:77:…:59:A2` (même session Arena → mise à jour directe). Suite 823/820/0/3.
