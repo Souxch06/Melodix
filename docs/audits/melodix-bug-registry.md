@@ -524,3 +524,29 @@ MEL-BUG-020 — P3 — mon assertion de sélection était un faux vert (corrigé
   `v1.2.2-test.45-preview`). conforme.
 - Prochaine étape inchangée : pose du secret via `scripts/set_test_signing_secret.sh` puis run 6/6 vert
   ⇒ publication auto de la pre-release de test.
+
+## Correctifs workflow `ui-qa.yml` — commit `e5e82dd` (2026-11-06)
+
+- **A (préparation Apktool)** : la boucle de copie des 10 éléments racine est terminée (`done`) AVANT le
+  `sed` de `versionCode` sur la copie temporaire ; le `versionCode` attendu est asserté (`grep -q`) avant
+  Apktool ; le dépôt n'est jamais modifié (smoke-test local : copie complète d'abord, dépôt intact,
+  copie temporaire bumpée à `1000+run_number`).
+- **B (apksigner)** : le chemin des build-tools est factorisé en `bt="$ANDROID_HOME/build-tools/35.0.0"` ;
+  la concaténation double `"$ANDROID_HOME/.../""$ANDROID_HOME/.../apksigner"` (chemin invalide) est
+  supprimée ; `zipalign`, `apksigner sign`, `apksigner verify`, `aapt` passent tous par `"$bt/..."` ;
+  contrôles package `com.melodix.music` et `versionCode > 1000` conservés sur l'APK signé.
+- **C (signature persistante)** : secret `MELODIX_TEST_KEYSTORE_B64` exclusivement, uniquement pipé
+  (`base64 -d > clé`), jamais affiché ; format PKCS12 + alias `melodix-test` vérifiés ; cohérence exigée
+  entre l'empreinte du keystore et celle du certificat de l'APK (`cert1 == fingerprint`) ; preuve de
+  stabilité (2 signatures → même SHA-256) conservée ; fail-loud conservé ; les logs ne disent plus
+  « throwaway-debug » mais `signing=persistent-test-key`.
+- **D (captures)** : si aucun profil n'a produit de capture (build KO / émulateurs non démarrés),
+  `publish-captures` termine proprement (`exit 0`, aucun commit, aucun échec artificiel) avec un
+  `::notice` explicite ; sinon publication inchangée dans `docs/audits/ui-qa-<runId>/`.
+- **E (release)** : `release-test` ne tourne que si `build-qa-apk` + `unit-tests` + `walk-qa` sont verts
+  (`needs` + `if: success()`), reste en `--prerelease`, publie l'empreinte SHA-256 du certificat dans
+  les notes et exige les 4 captures réelles (`capture-{home,settings}-{phone,tablet}.png`) — sinon
+  `exit 1`, aucune release.
+- **Tests** : 5 nouveaux tests de verrouillage dans `tests/ui_layout_audit.test.js` (ordre copie/bump,
+  chemins `$bt`, alias+cohérence empreinte, sortie propre sans captures, gating release) ; `bash -n` OK sur
+  les 11 scripts `run` ; suite **788 / 785 pass / 0 fail / 3 skip**.
