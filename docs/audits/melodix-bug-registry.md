@@ -738,3 +738,6 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 ## Preview publiée depuis Arena — v1.2.2-test.56-preview (2026-11-06, commit 04719fa + APK)
 - **Contenu** : MEL-BUG-033 (layout-land) + MEL-BUG-030/031/032 déjà dans test.53-55.
 - APK `releases/Melodix-Test-v1.2.2-test56.apk` · sha256 `a091e1747fdd0a25e3f88a27056fa9c0b8d495e2236831533bbbb03eb4729da7` · versionCode **1056** · empreinte `DB:63:77:…:59:A2` (même session Arena → mise à jour directe). Suite 821/818/0/3.
+
+## CI — commit 04719fa (2026-11-06, runs 42261747619 / 42261747620)
+- Job « Unit and regression suite (with a real Java compiler) » : **SUCCESS**. « Verify UI metrics on phone and tablet » : **SUCCESS**. Seul rouge : fail-loud volontaire « Build one build-only APK » (secret keystore absent). Suite locale : 821/818/0/3. Assets minifiés resynchronisés (aucun diff après `build_runtime_assets.sh`).
