@@ -10062,9 +10062,19 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     iput-object v1, p0, Lcom/melodix/music/MainActivity;->nativeExpectedSearch:Ljava/lang/String;
     const-string v2, "search"
     invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
+    # MEL-BUG-026: submitting a query without a proven session must show the
+    # real state card instead of an eternal empty result list.
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->isNativeSessionUnproven()Z
+    move-result v2
+    if-nez v2, :native_search_submit_unproven
     const-string v2, "Résultats de recherche"
     const-string v3, "[]"
     invoke-virtual {p0, v2, v3}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    goto :native_search_submit_kick
+    :native_search_submit_unproven
+    const-string v2, "[{\"kind\":\"state\",\"state\":\"error\",\"sessionUnproven\":true,\"title\":\"Connexion Spotify non confirmée\",\"subtitle\":\"La recherche nécessite une session Spotify confirmée. Aucun résultat n’est affiché ; touchez pour vous connecter.\",\"section\":\"Recherche Spotify\",\"image\":\"\",\"uri\":\"melodix:action:open-login\"}]"
+    invoke-static {p0, v2}, Lcom/melodix/music/NativeHomeShelfRenderer;->render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+    :native_search_submit_kick
     # A submitted query navigates at once; the shell exposes this even when
     # the playback bridge never started.
     const-string v2, "(window.__sfSubmitSearch||window.searchMediaItems)"

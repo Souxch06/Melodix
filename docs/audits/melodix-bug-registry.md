@@ -642,3 +642,6 @@ commit `85dc840` · chaîne reproductible : `scripts/build_preview_apk.sh` + `zi
 - **Correctif** : `:native_rows_library_empty` et `:native_rows_detail_empty` branchent désormais sur `isNativeSessionUnproven()` ; si vrai → carte d'état réelle via `NativeHomeShelfRenderer` (« Connexion Spotify non confirmée », uri `melodix:action:open-login`) et return ; sinon texte de chargement conservé (session prouvée, lignes encore possibles). `:native_rows_search_empty` inchangé.
 - **Tests** : `tests/mel_bug_026_empty_states_unproven.test.js` (3 tests). Suite : 796/793/0/3.
 - **Statut** : correctif livré + tests verts ; validation émulateur via prochain run CI.
+
+### MEL-BUG-026 (complément) — submit natif de la recherche sans session
+`onNativeSearchSubmit` rendait « Résultats de recherche » + `[]` même sans session prouvée → même correctif : branche `isNativeSessionUnproven()` → carte d'état réelle, la branche prouvée garde `[]` + kick WebView. Test ajouté (4/4 dans le fichier MEL-BUG-026). Suite : 797/794/0/3.

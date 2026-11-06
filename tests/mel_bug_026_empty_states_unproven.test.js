@@ -51,6 +51,28 @@ for (const [label, screenLabel, loadingText, subtitleHint] of [
   });
 }
 
+test('MEL-BUG-026: native search submit without proven session shows the state card, not "[]"', () => {
+  const at = activity.indexOf('.method public final onNativeSearchSubmit(');
+  assert.ok(at > 0, 'onNativeSearchSubmit must exist');
+  const body = activity.slice(at, activity.indexOf('.end method', at));
+  assert.match(body,
+    /isNativeSessionUnproven\(\)Z\s+move-result v2\s+if-nez v2, :native_search_submit_unproven/,
+    'submit must branch on the persistent unproven flag');
+  const labelAt = body.indexOf('\n    :native_search_submit_unproven\n');
+  assert.ok(labelAt > 0, 'unproven label must be defined');
+  const unproven = body.slice(labelAt);
+  const card = unproven.match(/const-string v2, "(\[\{[\s\S]*?\}\])"\s*\n\s*invoke-static \{p0, v2\}, Lcom\/melodix\/music\/NativeHomeShelfRenderer;->render/);
+  assert.ok(card, 'unproven submit must render the state card');
+  const payload = JSON.parse(card[1].replace(/\\"/g, '"'));
+  assert.equal(payload[0].sessionUnproven, true);
+  assert.equal(payload[0].uri, 'melodix:action:open-login');
+  assert.ok(!unproven.includes('"[]"'), 'unproven submit must never render the empty list');
+  const proven = body.slice(body.search(/if-nez v2, :native_search_submit_unproven/), labelAt);
+  assert.ok(proven.includes('const-string v3, "[]"'), 'proven submit keeps the empty-list placeholder');
+  assert.match(body, /:native_search_submit_kick(?:\s+#[^\n]*\n)*\s+const-string v2, "\(window\.__sfSubmitSearch\|\|window\.searchMediaItems\)"/,
+    'both branches still kick the WebView search');
+});
+
 test('MEL-BUG-026: search empty hint unchanged (session proven, no query yet)', () => {
   const body = renderNativeRowsBody();
   const at = body.indexOf('\n    :native_rows_search_empty\n');
