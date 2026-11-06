@@ -43,11 +43,20 @@
     invoke-virtual {v1}, Ljava/lang/String;->length()I
     move-result v2
     const/4 v3, 0x2
-    if-lt v2, v3, :done
+    if-lt v2, v3, :query_short
 
     iput-object v1, p0, Lcom/melodix/music/NativeSearchWatcher;->pendingQuery:Ljava/lang/String;
     const-wide/16 v2, 0x118
     invoke-virtual {v0, p0, v2, v3}, Landroid/view/View;->postDelayed(Ljava/lang/Runnable;J)Z
+
+    :query_short
+    # MEL-BUG-031: a cleared (or < 2 chars) query returns the search screen to
+    # the genre browse grid instead of leaving stale result rows visible.
+    const/4 v3, 0x0
+    iput-object v3, p0, Lcom/melodix/music/NativeSearchWatcher;->pendingQuery:Ljava/lang/String;
+    iget-object v0, p0, Lcom/melodix/music/NativeSearchWatcher;->activity:Lcom/melodix/music/MainActivity;
+    if-eqz v0, :done
+    invoke-virtual {v0}, Lcom/melodix/music/MainActivity;->onNativeSearchQueryCleared()V
 
     :done
     return-void

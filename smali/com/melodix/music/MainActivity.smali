@@ -10035,6 +10035,33 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     return-void
 .end method
 
+.method public final onNativeSearchQueryCleared()V
+    .locals 2
+
+    # MEL-BUG-031: clearing the search field returns to the genre browse grid
+    # (nativeGenreScroll visible, result rows hidden) and forgets any expected
+    # query, so a later retype starts a fresh search.
+    const/4 v0, 0x0
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeExpectedSearch:Ljava/lang/String;
+    const v0, 0x7f09024f
+    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->findViewById(I)Landroid/view/View;
+    move-result-object v1
+    if-eqz v1, :genre_shown
+    const/4 v0, 0x0
+    invoke-virtual {v1, v0}, Landroid/view/View;->setVisibility(I)V
+
+    :genre_shown
+    const v0, 0x7f090239
+    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->findViewById(I)Landroid/view/View;
+    move-result-object v1
+    if-eqz v1, :rows_hidden
+    const/16 v0, 0x8
+    invoke-virtual {v1, v0}, Landroid/view/View;->setVisibility(I)V
+
+    :rows_hidden
+    return-void
+.end method
+
 .method public final performNativeLiveSearch(Ljava/lang/String;)V
     .locals 3
 
