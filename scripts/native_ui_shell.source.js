@@ -1376,6 +1376,18 @@
         if ((err === 'http-401' || err === 'http-403') && subtitle) {
             subtitle += mediaLibraryBearerSuffix();
         }
+        // MEL-BUG-050: make the test build self-diagnosing — the card carries a
+        // compact internal state (auth state, library status, attempts sent,
+        // last error, bearer flag) so one screenshot tells exactly what happens.
+        var diagBearer = '-';
+        var diag = window.__sfMediaLibLastDiagnostic;
+        if (diag && typeof diag === 'object' && Object.prototype.hasOwnProperty.call(diag, 'bearer')) {
+            diagBearer = diag.bearer === true ? '1' : '0';
+        }
+        var diagLine = ' [auth=' + authState + ' statut=' + status +
+            ' essais=' + safeHomeTraceCount(window.__sfNativeUiHomeAttempt, 999999) +
+            ' erreur=' + (err || 'aucune') + ' bearer=' + diagBearer + ']';
+        if (subtitle) subtitle += diagLine; else subtitle = diagLine;
         return {
             kind: 'state',
             state: state,

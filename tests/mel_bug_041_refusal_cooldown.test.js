@@ -110,3 +110,16 @@ test('MEL-BUG-049: only a definite sign-out blocks the library proof', () => {
   assert.ok(!/authState !== 'connected'/.test(gate), 'the old never-fire gate is gone');
   assert.match(gate, /__sfMediaLibRefusalCooldownAt/, 'attempts stay bounded by budget + cool-down');
 });
+
+// MEL-BUG-050: the unproven Home state card is self-diagnosing — it carries a
+// compact bracket with auth state, library status, attempts sent, last error
+// and the boolean bearer flag, so ONE home screenshot is enough evidence.
+test('MEL-BUG-050: the home state card carries a compact diagnostic line', () => {
+  const shellSrc = fs.readFileSync(path.join(repo, 'scripts/native_ui_shell.source.js'), 'utf8');
+  assert.match(shellSrc, /var diagLine = ' \[auth=' \+ authState \+ ' statut=' \+ status \+/,
+    'the card subtitle includes auth/status/attempts');
+  assert.match(shellSrc, /' erreur=' \+ \(err \|\| 'aucune'\) \+ ' bearer=' \+ diagBearer \+ '\]'/,
+    'the card subtitle includes last error and the boolean bearer flag');
+  assert.doesNotMatch(shellSrc, /diagLine[\s\S]{0,200}TEST_TOKEN/, 'no token in the diagnostic line');
+  assert.ok(shellAsset.includes('diagLine'), 'assets/native_ui_shell.js must be regenerated');
+});
