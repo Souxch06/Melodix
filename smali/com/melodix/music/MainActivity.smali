@@ -10541,9 +10541,31 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     const-string v2, "melodix:action:open-notifications"
     invoke-virtual {p1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v3
-    if-eqz v3, :native_row_check_settings_uri
+    if-eqz v3, :native_row_check_search
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->openNativeNotificationSettings()V
     return-void
+
+    :native_row_check_search
+    # MEL-BUG-053: a search action row navigates the existing WebView to the
+    # official Spotify search page, so the app stays usable even when the
+    # library proof is refused. Plain navigation, no bridge/transport change.
+    const-string v2, "melodix:action:open-search"
+    invoke-virtual {p1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v3
+    if-eqz v3, :native_row_check_settings_uri
+    iget-object v1, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+    if-eqz v1, :native_row_click_done
+    const-string v2, "https://open.spotify.com/search"
+    :try_start_native_search
+    invoke-virtual {v1, v2}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
+    :try_end_native_search
+    .catch Ljava/lang/Throwable; {:try_start_native_search .. :try_end_native_search} :native_search_failed
+    goto :native_row_click_done
+
+    :native_search_failed
+    move-exception v0
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->recordWebViewConfigFailure(Ljava/lang/Throwable;)V
+    goto :native_row_click_done
 
     :native_row_check_settings_uri
     # Melodix-local preferences and Spotify-owned controls share one shell
@@ -10775,7 +10797,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     # No WebView answer (no session or slow bridge): render a REAL local fallback,
     # not a dead end. Every action is a real dispatch; the About section (version,
     # sensitive data) is appended like any settings payload.
-    const-string v2, "[{\"section\":\"État\",\"title\":\"Paramètres indisponibles\",\"subtitle\":\"Le module de réglages n’a pas répondu. Réessayez.\",\"settingValue\":\"Réessayer\",\"uri\":\"melodix:action:retry-settings\"},{\"section\":\"Compte et connexion\",\"title\":\"État de la connexion Spotify\",\"subtitle\":\"Aucune session confirmée par la WebView : touchez pour (re)connecter Spotify.\",\"settingValue\":\"Se connecter\",\"uri\":\"melodix:action:open-login\"},{\"section\":\"Apparence et thème\",\"title\":\"Thème actuel\",\"subtitle\":\"Identité sombre avec accent vert émeraude, définie par le thème de l’application.\",\"settingValue\":\"Sombre\",\"uri\":\"\"},{\"section\":\"Préférences de lecture\",\"title\":\"Lecture automatique après un titre\",\"subtitle\":\"Préférence locale Melodix.\",\"settingValue\":\"ON\",\"uri\":\"melodix:setting:autoplay\"},{\"section\":\"Préférences de lecture\",\"title\":\"Visuels Canvas\",\"subtitle\":\"Préférence locale d’affichage Melodix.\",\"settingValue\":\"ON\",\"uri\":\"melodix:setting:canvas\"},{\"section\":\"Préférences de lecture\",\"title\":\"Maintenir l’audio en arrière-plan\",\"subtitle\":\"Préférence locale de gestion de veille Melodix.\",\"settingValue\":\"ON\",\"uri\":\"melodix:setting:bg_audio\"},{\"section\":\"Notifications\",\"title\":\"Notifications de Melodix\",\"subtitle\":\"L’autorisation se gère dans les réglages système Android de l’application.\",\"settingValue\":\"Réglages système\",\"uri\":\"melodix:action:open-notifications\"},{\"section\":\"Compte et connexion\",\"title\":\"Autorisations\",\"subtitle\":\"Session web officielle Spotify ; l\u2019acc\u00e8s aux donn\u00e9es priv\u00e9es n\u2019est confirm\u00e9 que par libraryV3. Aucune autorisation suppl\u00e9mentaire demand\u00e9e.\",\"settingValue\":\"Aucune confirm\u00e9e\",\"uri\":\"\"},{\"section\":\"Spotify\",\"title\":\"\u00c9tat de libraryV3\",\"subtitle\":\"V\u00e9rification de la session via la r\u00e9ponse libraryV3.\",\"settingValue\":\"\u00c0 v\u00e9rifier\",\"uri\":\"melodix:action:retry-library\"},{\"section\":\"Spotify\",\"title\":\"Diagnostic interne\",\"subtitle\":\"auth/statut/essais/erreur/bearer affich\u00e9s sur l\u2019accueil.\",\"settingValue\":\"Interne\",\"uri\":\"\"},{\"section\":\"Spotify\",\"title\":\"Actualiser la biblioth\u00e8que\",\"subtitle\":\"Relance la requ\u00eate libraryV3.\",\"settingValue\":\"Actualiser\",\"uri\":\"melodix:action:retry-library\"},{\"section\":\"Spotify\",\"title\":\"Lecture al\u00e9atoire\",\"subtitle\":\"N\u00e9cessite le contr\u00f4le Spotify du lecteur.\",\"settingValue\":\"Indisponible\",\"uri\":\"\"},{\"section\":\"Spotify\",\"title\":\"R\u00e9p\u00e9tition\",\"subtitle\":\"N\u00e9cessite le contr\u00f4le Spotify du lecteur.\",\"settingValue\":\"Indisponible\",\"uri\":\"\"}]"
+    const-string v2, "[{\"section\":\"État\",\"title\":\"Paramètres indisponibles\",\"subtitle\":\"Le module de réglages n’a pas répondu. Réessayez.\",\"settingValue\":\"Réessayer\",\"uri\":\"melodix:action:retry-settings\"},{\"section\":\"Compte et connexion\",\"title\":\"État de la connexion Spotify\",\"subtitle\":\"Aucune session confirmée par la WebView : touchez pour (re)connecter Spotify.\",\"settingValue\":\"Se connecter\",\"uri\":\"melodix:action:open-login\"},{\"section\":\"Apparence et thème\",\"title\":\"Thème actuel\",\"subtitle\":\"Identité sombre avec accent vert émeraude, définie par le thème de l’application.\",\"settingValue\":\"Sombre\",\"uri\":\"\"},{\"section\":\"Préférences de lecture\",\"title\":\"Lecture automatique après un titre\",\"subtitle\":\"Préférence locale Melodix.\",\"settingValue\":\"ON\",\"uri\":\"melodix:setting:autoplay\"},{\"section\":\"Préférences de lecture\",\"title\":\"Visuels Canvas\",\"subtitle\":\"Préférence locale d’affichage Melodix.\",\"settingValue\":\"ON\",\"uri\":\"melodix:setting:canvas\"},{\"section\":\"Préférences de lecture\",\"title\":\"Maintenir l’audio en arrière-plan\",\"subtitle\":\"Préférence locale de gestion de veille Melodix.\",\"settingValue\":\"ON\",\"uri\":\"melodix:setting:bg_audio\"},{\"section\":\"Notifications\",\"title\":\"Notifications de Melodix\",\"subtitle\":\"L’autorisation se gère dans les réglages système Android de l’application.\",\"settingValue\":\"Réglages système\",\"uri\":\"melodix:action:open-notifications\"},{\"section\":\"Compte et connexion\",\"title\":\"Autorisations\",\"subtitle\":\"Session web officielle Spotify ; l\u2019acc\u00e8s aux donn\u00e9es priv\u00e9es n\u2019est confirm\u00e9 que par libraryV3. Aucune autorisation suppl\u00e9mentaire demand\u00e9e.\",\"settingValue\":\"Aucune confirm\u00e9e\",\"uri\":\"\"},{\"section\":\"Spotify\",\"title\":\"\u00c9tat de libraryV3\",\"subtitle\":\"V\u00e9rification de la session via la r\u00e9ponse libraryV3.\",\"settingValue\":\"\u00c0 v\u00e9rifier\",\"uri\":\"melodix:action:retry-library\"},{\"section\":\"Spotify\",\"title\":\"Diagnostic interne\",\"subtitle\":\"auth/statut/essais/erreur/bearer affich\u00e9s sur l\u2019accueil.\",\"settingValue\":\"Interne\",\"uri\":\"\"},{\"section\":\"Spotify\",\"title\":\"Rechercher sur Spotify\",\"subtitle\":\"Ouvre la recherche Spotify dans le lecteur.\",\"settingValue\":\"Ouvrir\",\"uri\":\"melodix:action:open-search\"},{\"section\":\"Spotify\",\"title\":\"Actualiser la biblioth\u00e8que\",\"subtitle\":\"Relance la requ\u00eate libraryV3.\",\"settingValue\":\"Actualiser\",\"uri\":\"melodix:action:retry-library\"},{\"section\":\"Spotify\",\"title\":\"Lecture al\u00e9atoire\",\"subtitle\":\"N\u00e9cessite le contr\u00f4le Spotify du lecteur.\",\"settingValue\":\"Indisponible\",\"uri\":\"\"},{\"section\":\"Spotify\",\"title\":\"R\u00e9p\u00e9tition\",\"subtitle\":\"N\u00e9cessite le contr\u00f4le Spotify du lecteur.\",\"settingValue\":\"Indisponible\",\"uri\":\"\"}]"
     invoke-direct {p0, v2}, Lcom/melodix/music/MainActivity;->appendNativeAboutRows(Ljava/lang/String;)Ljava/lang/String;
     move-result-object v2
     invoke-virtual {p0, v1, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V

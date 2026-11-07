@@ -3107,6 +3107,14 @@
             },
             {
                 section: 'Spotify',
+                title: 'Rechercher sur Spotify',
+                subtitle: 'Ouvre la recherche Spotify dans le lecteur — utilisable même si la bibliothèque n’est pas confirmée.',
+                image: '',
+                uri: 'melodix:action:open-search',
+                settingValue: 'Ouvrir'
+            },
+            {
+                section: 'Spotify',
                 title: 'Actualiser la bibliothèque',
                 subtitle: refreshAvailable
                     ? 'Relancer libraryV3; le résultat ne sera confirmé qu’après sa réponse.'

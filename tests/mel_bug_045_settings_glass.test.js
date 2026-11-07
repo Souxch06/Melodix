@@ -83,3 +83,23 @@ test('MEL-BUG-052: a Diagnostic interne row exists in the settings payload', () 
   const body = mainSmali.slice(at, mainSmali.indexOf('.end method', at));
   assert.ok(body.includes('Diagnostic interne'), 'the native fallback has the diagnostic row too');
 });
+
+// MEL-BUG-053: a "Rechercher sur Spotify" action (plain WebView navigation to
+// open.spotify.com/search) keeps the app usable even when the libraryV3 proof
+// is refused — offered in Settings and in the native no-WebView fallback.
+// (Home card rows must keep Spotify URIs only, so no row is added there.)
+test('MEL-BUG-053: search action row exists in Settings and in the native fallback', () => {
+  const shellSrc = fs.readFileSync(path.join(repo, 'scripts/native_ui_shell.source.js'), 'utf8');
+  assert.match(shellSrc, /title: 'Rechercher sur Spotify',[\s\S]*?uri: 'melodix:action:open-search',[\s\S]*?settingValue: 'Ouvrir'/,
+    'settings carries the search row');
+  const mainSmali = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/MainActivity.smali'), 'utf8');
+  const at = mainSmali.indexOf('melodix:action:open-search');
+  assert.ok(at > 0, 'native dispatch knows open-search');
+  assert.match(mainSmali.slice(at, at + 700), /https:\/\/open\.spotify\.com\/search[\s\S]*?loadUrl/,
+    'open-search navigates the existing WebView to the official search page');
+  const line = mainSmali.split('\n').find((l) => l.includes('Diagnostic interne') && l.includes('const-string'));
+  const raw = line.slice(line.indexOf('"') + 1, line.lastIndexOf('"')).replace(/\\"/g, '"');
+  const rows = JSON.parse(raw);
+  assert.ok(rows.some((r) => r.title === 'Rechercher sur Spotify' && r.uri === 'melodix:action:open-search'),
+    'native fallback settings include the search row');
+});
