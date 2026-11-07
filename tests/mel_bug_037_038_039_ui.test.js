@@ -87,7 +87,21 @@ test('MEL-BUG-058: tab bar hairline and active-tab pill use the accent palette',
   const main = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/MainActivity.smali'), 'utf8');
   const at = main.indexOf('.method public final styleNativeTab');
   const body = main.slice(at, main.indexOf('.end method', at));
-  assert.match(body, /if-eqz v0, :native_tab_style_done[\s\S]{0,300}?new-instance v2, Landroid\/graphics\/drawable\/GradientDrawable;[\s\S]{0,300}?MelColors;->glow:I[\s\S]{0,200}?setCornerRadius[\s\S]{0,120}?setBackground/,
-    'active tab gets a glow pill; inactive tabs keep the ripple');
+  assert.match(body, /if-eqz v0, :native_tab_restore_ripple[\s\S]{0,300}?new-instance v2, Landroid\/graphics\/drawable\/GradientDrawable;[\s\S]{0,300}?MelColors;->glow:I[\s\S]{0,200}?setCornerRadius[\s\S]{0,120}?setBackground/,
+    'active tab gets a glow pill');
+  // MEL-BUG-059: the pill must be REMOVED on inactive tabs (bug: every visited
+  // tab stayed green) — the original ripple drawable is restored by id.
+  assert.match(body, /:native_tab_restore_ripple[\s\S]{0,200}?const v2, 0x7f08013f[\s\S]{0,80}?invoke-virtual \{v1, v2\}, Landroid\/view\/View;->setBackgroundResource\(I\)V/,
+    'inactive tab restores native_tab_ripple (0x7f08013f)');
   assert.match(body, /const\/high16 v3, 0x41a00000/, 'pill radius = 20dp');
+});
+
+// MEL-BUG-059: header gets a 1dp accent hairline (glass vibe) via a palette-only
+// drawable referenced from the main layout.
+test('MEL-BUG-059: header hairline drawable exists, palette-only, and is wired in the layout', () => {
+  const xml = fs.readFileSync(path.join(repo, 'res/drawable/native_header_glass.xml'), 'utf8');
+  assert.ok(xml.includes('@color/mel_stroke_accent'), 'header hairline = accent');
+  assert.ok(!/#[0-9a-fA-F]{3,8}/.test(xml), 'no raw hex in the drawable');
+  const layout = fs.readFileSync(path.join(repo, 'res/layout/activity_main.xml'), 'utf8');
+  assert.ok(layout.includes('android:background="@drawable/native_header_glass"'), 'header uses the glass hairline');
 });

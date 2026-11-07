@@ -9055,9 +9055,8 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-static {v4}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
     move-result-object v4
     invoke-virtual {v1, v4}, Landroid/widget/TextView;->setCompoundDrawableTintList(Landroid/content/res/ColorStateList;)V
-    if-eqz v0, :native_tab_style_done
-    # MEL-BUG-058: active tab gets a soft accent pill (glow) behind icon+label;
-    # inactive tabs keep the ripple background for press feedback.
+    if-eqz v0, :native_tab_restore_ripple
+    # MEL-BUG-058/059: active tab gets a soft accent pill (glow) behind icon+label.
     new-instance v2, Landroid/graphics/drawable/GradientDrawable;
     invoke-direct {v2}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
     sget v3, Lcom/melodix/music/MelColors;->glow:I
@@ -9065,6 +9064,13 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     const/high16 v3, 0x41a00000
     invoke-virtual {v2, v3}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
     invoke-virtual {v1, v2}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
+    goto :native_tab_style_done
+
+    :native_tab_restore_ripple
+    # MEL-BUG-059: an inactive tab must LOSE the pill and get the ripple back,
+    # otherwise every visited tab stays green.
+    const v2, 0x7f08013f
+    invoke-virtual {v1, v2}, Landroid/view/View;->setBackgroundResource(I)V
 
     :native_tab_style_done
     return-void

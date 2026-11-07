@@ -84,6 +84,7 @@
         <LinearLayout
             android:orientation="horizontal"
             android:gravity="center_vertical"
+            android:background="@drawable/native_header_glass"
             android:paddingLeft="@dimen/mel_gutter"
             android:paddingTop="@dimen/mel_header_pad_top"
             android:paddingRight="@dimen/mel_gutter"
