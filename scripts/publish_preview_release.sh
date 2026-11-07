@@ -6,6 +6,7 @@
 set -euo pipefail
 TAG="${1:?tag requis, ex. v1.2.2-test.49-preview}"
 APK="${2:?nom de l APK dans releases/}"
+APK="${APK#releases/}"  # tolère "releases/x.apk" ou simple "x.apk"
 SHA256="${3:?sha256 de l APK}"
 FP="${4:?empreinte SHA-256 du certificat}"
 COMMIT="${5:?sha du commit testé}"
@@ -32,7 +33,7 @@ NOTES="$(mktemp)"
   echo "- **APK** : [${APK}](https://github.com/${REPO}/blob/${BR}/releases/${APK}) (servie depuis le dépôt : uploads.github.com indisponible depuis l'environnement Arena)"
   echo "- **sha256** : \`${SHA256}\`"
   echo "- **Signature** : v1+v2+v3, empreinte certificat \`${FP}\` (stabilité prouvée : 2 signatures → même certificat)."
-  echo "- ⚠️ « Package en conflit » à la mise à jour ? Désinstaller d'abord : `adb uninstall com.melodix.music` (ou Réglages → Applications → Melodix → Désinstaller). La désinstall efface la session Spotify (reconnexion nécessaire)."
+  echo "- ⚠️ « Package en conflit » à la mise à jour ? Désinstaller d'abord : \`adb uninstall com.melodix.music\` (ou Réglages → Applications → Melodix → Désinstaller). La désinstall efface la session Spotify (reconnexion nécessaire)."
   echo "- Même empreinte que les previews de la même session Arena (mise à jour directe) ; empreinte différente = nouvelle session Arena (keystore local effacé par le bac à sable)."
   echo
   if [[ -n "$EXTRA" && -f "$EXTRA" ]]; then cat "$EXTRA"; fi
