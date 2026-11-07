@@ -68,8 +68,9 @@
     # MEL-BUG-054: accent-tinted icon slot (accent at ~25% alpha) instead of the
     # flat glass fill — the placeholder glyph becomes clearly visible.
     sget v3, Lcom/melodix/music/MelColors;->accent:I
-    const v4, 0x40000000
-    or-int/2addr v3, v4
+    # v4 holds the row title further below — use a free high register (v11).
+    const v11, 0x40000000
+    or-int/2addr v3, v11
     invoke-virtual {v1, v3}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
     const/high16 v3, 0x41b00000
     invoke-virtual {v1, v3}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V

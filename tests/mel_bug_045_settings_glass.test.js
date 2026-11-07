@@ -133,10 +133,23 @@ test('MEL-BUG-054: Settings offers the online Spotify account page and a real lo
 
 test('MEL-BUG-054: settings icon slots are accent-tinted with an accent glyph', () => {
   const smali = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/NativeSettingsRowFactory.smali'), 'utf8');
-  assert.match(smali, /MelColors;->accent:I\s*\n\s*const v4, 0x40000000\s*\n\s*or-int\/2addr v3, v4/,
+  assert.match(smali, /MelColors;->accent:I[\s\S]{0,160}?const v11, 0x40000000[\s\S]{0,60}?or-int\/2addr v3, v11/,
     'icon slot background = accent at 25% alpha');
   const at = smali.indexOf('\n    :native_settings_icon_placeholder\n');
   const block = smali.slice(at, smali.indexOf(':native_settings_no_avatar', at));
   assert.match(block, /MelColors;->accent:I\s*\n\s*invoke-virtual \{v0, v3\}, Landroid\/widget\/ImageView;->setColorFilter/,
     'placeholder glyph drawn in accent color');
+});
+
+// MEL-BUG-055: regression — the accent-tint polish (054) must NOT clobber the
+// title register v4 (used later by setText(v4)); writing an int into v4 caused
+// a VerifyError and a crash when opening Settings.
+test('MEL-BUG-055: the accent-tint block never overwrites the title register v4', () => {
+  const smali = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/NativeSettingsRowFactory.smali'), 'utf8');
+  assert.doesNotMatch(smali, /const v4, 0x40000000|or-int\/2addr v3, v4/,
+    'no int written into v4 (the title) in the settings row factory');
+  assert.match(smali, /const v11, 0x40000000\s*\n\s*or-int\/2addr v3, v11/,
+    'alpha mask uses a free high register (v11)');
+  assert.match(smali, /invoke-virtual \{v9, v4\}, Landroid\/widget\/TextView;->setText\(Ljava\/lang\/CharSequence;\)V/,
+    'the title is still passed from v4 to setText');
 });
