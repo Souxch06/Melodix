@@ -112,6 +112,7 @@
     <color name="mel_text_secondary">#bfc0cb</color>
     <color name="mel_text_tertiary">#949cab</color>
     <color name="mel_text_dim">#aaaaaa</color>
+    <color name="mel_warning">#FF6B6B</color>
     <color name="mel_icon_muted">#6e7684</color>
     <!-- strokes and technical masks -->
     <color name="mel_stroke">#33FFFFFF</color>

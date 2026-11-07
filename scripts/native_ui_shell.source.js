@@ -3063,166 +3063,156 @@
 
         var rows = [
             {
-                section: 'Compte et connexion',
-                title: connectionTitle,
-                subtitle: connectionSubtitle,
-                image: '',
-                uri: connectionUri,
-                settingValue: connectionValue
+    section: 'Compte et connexion',
+                    title: connectionTitle,
+                    subtitle: connectionSubtitle,
+                    image: '',
+                    uri: connectionUri,
+                    settingValue: connectionValue
             },
             {
-                section: 'Compte et connexion',
-                title: accountTitle,
-                subtitle: accountSubtitle,
-                image: '',
-                uri: '',
-                settingValue: sessionProven ? 'Confirmé' : 'Non confirmé'
+    section: 'Compte et connexion',
+                    title: accountTitle,
+                    subtitle: accountSubtitle,
+                    image: '',
+                    uri: '',
+                    settingValue: sessionProven ? 'Confirmé' : 'Non confirmé'
             },
             {
-                section: 'Compte et connexion',
-                title: sessionProven ? 'Se déconnecter de Spotify' : 'Se connecter à Spotify',
-                subtitle: sessionProven
-                    ? 'Termine la session web Spotify de cette WebView via la déconnexion native réelle.'
-                    : 'Ouvre la page de connexion officielle Spotify dans la WebView.'
-                ,
-                image: '',
-                uri: sessionProven ? 'spotify:settings:logout' : 'melodix:action:open-login',
-                settingValue: sessionProven ? 'Se déconnecter' : 'Se connecter'
+    section: 'Compte et connexion',
+                    title: sessionProven ? 'Se déconnecter de Spotify' : 'Se connecter à Spotify',
+                    subtitle: sessionProven
+                        ? 'Termine la session web Spotify de cette WebView via la déconnexion native réelle.'
+                        : 'Ouvre la page de connexion officielle Spotify dans la WebView.'
+                    ,
+                    image: '',
+                    uri: sessionProven ? 'spotify:settings:logout' : 'melodix:action:open-login',
+                    settingValue: sessionProven ? 'Se déconnecter' : 'Se connecter'
             },
             {
-                section: 'Compte et connexion',
-                title: 'Autorisations',
-                subtitle: 'Melodix utilise la session web officielle de Spotify ; l’accès aux données privées n’est accordé que lorsqu’il est confirmé par la réponse libraryV3. Aucune autorisation supplémentaire n’est demandée et aucun jeton n’est affiché.',
-                image: '',
-                uri: '',
-                settingValue: sessionProven ? 'Session confirmée' : 'Aucune confirmée'
+    section: 'Compte et connexion',
+                    title: 'Autorisations',
+                    subtitle: 'Melodix utilise la session web officielle de Spotify ; l’accès aux données privées n’est accordé que lorsqu’il est confirmé par la réponse libraryV3. Aucune autorisation supplémentaire n’est demandée et aucun jeton n’est affiché.',
+                    image: '',
+                    uri: '',
+                    settingValue: sessionProven ? 'Session confirmée' : 'Aucune confirmée'
             },
             {
-                section: 'Spotify',
-                title: 'État de libraryV3',
-                subtitle: mediaLibraryDiagnosticStatus(),
-                image: '',
-                // MEL-BUG-047: the status row is itself actionable (except while
-                // a check is running) so the user can force a libraryV3 check
-                // from the phone and read the resulting error + bearer flag here.
-                uri: status === 'loading' ? '' : 'melodix:action:retry-library',
-                settingValue: status === 'ready' ? 'Résultat reçu' : status === 'loading' ? 'Chargement' : status === 'error' ? 'Erreur' : 'À vérifier'
+    section: 'Préférences de lecture',
+                    title: 'Lecture automatique après un titre',
+                    subtitle: 'Préférence locale Melodix; ce n’est pas un réglage du compte Spotify.',
+                    image: '',
+                    uri: 'melodix:setting:autoplay',
+                    settingValue: local.autoplay ? 'ON' : 'OFF'
             },
             {
-                // MEL-BUG-052: same compact self-diagnostic as the Home card,
-                // visible in Settings too — one screenshot is enough evidence.
-                section: 'Spotify',
-                title: 'Diagnostic interne',
-                subtitle: 'auth=' + currentSpotifyAuthUiState() + ' statut=' + status +
-                    ' essais=' + safeHomeTraceCount(window.__sfNativeUiHomeAttempt, 999999) +
-                    ' erreur=' + (libError || 'aucune') + mediaLibraryBearerSuffix(),
-                image: '',
-                uri: '',
-                settingValue: 'Interne'
+    section: 'Préférences de lecture',
+                    title: 'Visuels Canvas',
+                    subtitle: 'Préférence locale d’affichage Melodix.',
+                    image: '',
+                    uri: 'melodix:setting:canvas',
+                    settingValue: local.canvas ? 'ON' : 'OFF'
             },
             {
-                section: 'Spotify',
-                title: 'Rechercher sur Spotify',
-                subtitle: 'Ouvre la recherche Spotify dans le lecteur — utilisable même si la bibliothèque n’est pas confirmée.',
-                image: '',
-                uri: 'melodix:action:open-search',
-                settingValue: 'Ouvrir'
+    section: 'Préférences de lecture',
+                    title: 'Maintenir l’audio en arrière-plan',
+                    subtitle: 'Préférence locale de gestion de veille Melodix.',
+                    image: '',
+                    uri: 'melodix:setting:bg_audio',
+                    settingValue: local.bg_audio ? 'ON' : 'OFF'
             },
             {
-                section: 'Spotify',
-                title: 'Compte Spotify en ligne',
-                subtitle: 'Ouvre la page compte Spotify dans le lecteur : réglages du compte, qualité audio et confidentialité gérés par Spotify.',
-                image: '',
-                uri: 'melodix:action:open-account',
-                settingValue: 'Ouvrir'
+    section: 'Apparence et thème',
+                    title: 'Thème actuel',
+                    subtitle: 'Identité sombre avec accent vert émeraude, définie par le thème en cours de l’application.',
+                    image: '',
+                    uri: '',
+                    settingValue: 'Sombre'
             },
             {
-                section: 'Spotify',
-                title: 'Se déconnecter de Spotify',
-                subtitle: sessionProven
-                    ? 'Termine la session Spotify de ce lecteur via le contrôle officiel.'
-                    : 'Disponible uniquement quand la session est confirmée par libraryV3.',
-                image: '',
-                uri: sessionProven ? 'spotify:settings:logout' : '',
-                settingValue: sessionProven ? 'Déconnexion' : 'Indisponible'
+    section: 'Notifications',
+                    title: 'Notifications de Melodix',
+                    subtitle: 'L’autorisation se gère dans les réglages système Android de l’application (POST_NOTIFICATIONS déclaré).',
+                    image: '',
+                    uri: 'melodix:action:open-notifications',
+                    settingValue: 'Réglages système'
             },
             {
-                section: 'Spotify',
-                title: 'Actualiser la bibliothèque',
-                subtitle: refreshAvailable
-                    ? 'Relancer libraryV3; le résultat ne sera confirmé qu’après sa réponse.'
-                    : status === 'loading'
-                        ? 'Une requête libraryV3 est déjà en cours.'
-                        : 'Disponible après validation de la session Spotify.',
-                image: '',
-                uri: refreshAvailable ? 'melodix:action:retry-library' : '',
-                settingValue: refreshAvailable ? 'Actualiser' : 'Indisponible'
+    section: 'Spotify',
+                    title: 'État de libraryV3',
+                    subtitle: mediaLibraryDiagnosticStatus(),
+                    image: '',
+                    // MEL-BUG-047: the status row is itself actionable (except while
+                    // a check is running) so the user can force a libraryV3 check
+                    // from the phone and read the resulting error + bearer flag here.
+                    uri: status === 'loading' ? '' : 'melodix:action:retry-library',
+                    settingValue: status === 'ready' ? 'Résultat reçu' : status === 'loading' ? 'Chargement' : status === 'error' ? 'Erreur' : 'À vérifier'
             },
             {
-                section: 'Spotify',
-                title: 'Lecture aléatoire',
-                subtitle: shuffle ? 'État lu depuis le contrôle Spotify du lecteur.' : 'Contrôle Spotify indisponible sur cette page.',
-                image: '',
-                uri: shuffle ? 'spotify:settings:shuffle' : '',
-                settingValue: shuffle ? (shuffle.enabled ? 'ON' : 'OFF') : 'Indisponible'
+    section: 'Spotify',
+                    title: 'Rechercher sur Spotify',
+                    subtitle: 'Ouvre la recherche Spotify dans le lecteur — utilisable même si la bibliothèque n’est pas confirmée.',
+                    image: '',
+                    uri: 'melodix:action:open-search',
+                    settingValue: 'Ouvrir'
             },
             {
-                section: 'Spotify',
-                title: 'Répétition',
-                subtitle: repeat ? 'État lu depuis le contrôle Spotify du lecteur.' : 'Contrôle Spotify indisponible sur cette page.',
-                image: '',
-                uri: repeat ? 'spotify:settings:repeat' : '',
-                settingValue: repeat ? (repeat.enabled ? 'ON' : 'OFF') : 'Indisponible'
+    section: 'Spotify',
+                    title: 'Compte Spotify en ligne',
+                    subtitle: 'Ouvre la page compte Spotify dans le lecteur : réglages du compte, qualité audio et confidentialité gérés par Spotify.',
+                    image: '',
+                    uri: 'melodix:action:open-account',
+                    settingValue: 'Ouvrir'
             },
             {
-                section: 'Spotify',
-                title: 'Autres réglages Spotify',
-                subtitle: 'Qualité audio, normalisation, économie de données, gapless et contrôle du contenu explicite ne sont pas exposés par cette intégration.',
-                image: '',
-                uri: '',
-                settingValue: 'Non implémenté'
+    section: 'Spotify',
+                    title: 'Actualiser la bibliothèque',
+                    subtitle: refreshAvailable
+                        ? 'Relancer libraryV3; le résultat ne sera confirmé qu’après sa réponse.'
+                        : status === 'loading'
+                            ? 'Une requête libraryV3 est déjà en cours.'
+                            : 'Disponible après validation de la session Spotify.',
+                    image: '',
+                    uri: refreshAvailable ? 'melodix:action:retry-library' : '',
+                    settingValue: refreshAvailable ? 'Actualiser' : 'Indisponible'
             },
             {
-                section: 'Apparence et thème',
-                title: 'Thème actuel',
-                subtitle: 'Identité sombre avec accent vert émeraude, définie par le thème en cours de l’application.',
-                image: '',
-                uri: '',
-                settingValue: 'Sombre'
+    section: 'Spotify',
+                    title: 'Lecture aléatoire',
+                    subtitle: shuffle ? 'État lu depuis le contrôle Spotify du lecteur.' : 'Contrôle Spotify indisponible sur cette page.',
+                    image: '',
+                    uri: shuffle ? 'spotify:settings:shuffle' : '',
+                    settingValue: shuffle ? (shuffle.enabled ? 'ON' : 'OFF') : 'Indisponible'
             },
             {
-                section: 'Préférences de lecture',
-                title: 'Lecture automatique après un titre',
-                subtitle: 'Préférence locale Melodix; ce n’est pas un réglage du compte Spotify.',
-                image: '',
-                uri: 'melodix:setting:autoplay',
-                settingValue: local.autoplay ? 'ON' : 'OFF'
+    section: 'Spotify',
+                    title: 'Répétition',
+                    subtitle: repeat ? 'État lu depuis le contrôle Spotify du lecteur.' : 'Contrôle Spotify indisponible sur cette page.',
+                    image: '',
+                    uri: repeat ? 'spotify:settings:repeat' : '',
+                    settingValue: repeat ? (repeat.enabled ? 'ON' : 'OFF') : 'Indisponible'
             },
             {
-                section: 'Préférences de lecture',
-                title: 'Visuels Canvas',
-                subtitle: 'Préférence locale d’affichage Melodix.',
-                image: '',
-                uri: 'melodix:setting:canvas',
-                settingValue: local.canvas ? 'ON' : 'OFF'
+    section: 'Spotify',
+                    title: 'Autres réglages Spotify',
+                    subtitle: 'Qualité audio, normalisation, économie de données, gapless et contrôle du contenu explicite ne sont pas exposés par cette intégration.',
+                    image: '',
+                    uri: '',
+                    settingValue: 'Non implémenté'
             },
             {
-                section: 'Préférences de lecture',
-                title: 'Maintenir l’audio en arrière-plan',
-                subtitle: 'Préférence locale de gestion de veille Melodix.',
-                image: '',
-                uri: 'melodix:setting:bg_audio',
-                settingValue: local.bg_audio ? 'ON' : 'OFF'
-            },
-            {
-                section: 'Notifications',
-                title: 'Notifications de Melodix',
-                subtitle: 'L’autorisation se gère dans les réglages système Android de l’application (POST_NOTIFICATIONS déclaré).',
-                image: '',
-                uri: 'melodix:action:open-notifications',
-                settingValue: 'Réglages système'
+    // MEL-BUG-052: same compact self-diagnostic as the Home card,
+                    // visible in Settings too — one screenshot is enough evidence.
+                    section: 'Spotify',
+                    title: 'Diagnostic interne',
+                    subtitle: 'auth=' + currentSpotifyAuthUiState() + ' statut=' + status +
+                        ' essais=' + safeHomeTraceCount(window.__sfNativeUiHomeAttempt, 999999) +
+                        ' erreur=' + (libError || 'aucune') + mediaLibraryBearerSuffix(),
+                    image: '',
+                    uri: '',
+                    settingValue: 'Interne'
             }
-        ];
+                ];
         return rows;
     }
 

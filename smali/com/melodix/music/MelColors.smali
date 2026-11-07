@@ -16,6 +16,7 @@
 .field public static textPrimary:I
 .field public static textSecondary:I
 .field public static textTertiary:I
+.field public static warning:I
 .field public static stroke:I
 .field public static strokeAccent:I
 .field public static glow:I
@@ -62,6 +63,10 @@
     const v0, 0xff949cab
 
     sput v0, Lcom/melodix/music/MelColors;->textTertiary:I
+
+    const v0, 0xffff6b6b
+
+    sput v0, Lcom/melodix/music/MelColors;->warning:I
 
     const v0, 0x33ffffff
 

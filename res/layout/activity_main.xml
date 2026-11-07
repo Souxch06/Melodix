@@ -134,7 +134,7 @@
             <ImageView
                 android:id="@id/nativeSettingsButton"
                 android:src="@drawable/native_nav_settings"
-                android:tint="@color/mel_text_secondary"
+                android:tint="@color/mel_accent"
                 android:scaleType="centerInside"
                 android:padding="@dimen/mel_header_settings_pad"
                 android:clickable="true"

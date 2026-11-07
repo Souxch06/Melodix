@@ -117,8 +117,10 @@ test('MEL-BUG-054: Settings offers the online Spotify account page and a real lo
   const shellSrc = fs.readFileSync(path.join(repo, 'scripts/native_ui_shell.source.js'), 'utf8');
   assert.match(shellSrc, /title: 'Compte Spotify en ligne',[\s\S]*?uri: 'melodix:action:open-account'/,
     'account page row present');
-  assert.match(shellSrc, /title: 'Se déconnecter de Spotify',[\s\S]*?uri: sessionProven \? 'spotify:settings:logout' : ''/,
-    'logout row uses the real spotify:settings:logout control when the session is proven');
+  assert.match(shellSrc, /title: sessionProven \? 'Se déconnecter de Spotify' : 'Se connecter à Spotify',[\s\S]*?uri: sessionProven \? 'spotify:settings:logout' : 'melodix:action:open-login'/,
+    'logout row (Compte et connexion, unique since MEL-BUG-063 removed the Spotify duplicate) uses the real spotify:settings:logout control when the session is proven');
+  assert.equal(shellSrc.split("'Se déconnecter de Spotify'").length - 1, 1,
+    'exactly one logout row in settings (no duplicate)');
   const mainSmali = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/MainActivity.smali'), 'utf8');
   const at = mainSmali.indexOf('melodix:action:open-account');
   assert.ok(at > 0, 'native dispatch knows open-account');

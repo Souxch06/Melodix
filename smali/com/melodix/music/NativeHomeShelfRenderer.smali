@@ -724,15 +724,51 @@
     invoke-virtual {v5, v4, v7}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
     invoke-virtual {v3, v5}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
 
+    # MEL-BUG-063: the trailing " [auth=...]" self-diagnostic is split out of
+    # the subtitle and rendered as its own larger bold-monospace warning line,
+    # so the real error is readable at a glance from one screenshot.
+    const-string v4, " [auth="
+    invoke-virtual {v1, v4}, Ljava/lang/String;->lastIndexOf(Ljava/lang/String;)I
+    move-result v4
+    const/4 v5, 0x0
+    if-ltz v4, :home_status_subtitle_ready
+    add-int/lit8 v6, v4, 0x1
+    invoke-virtual {v1, v6}, Ljava/lang/String;->substring(I)Ljava/lang/String;
+    move-result-object v5
+    const/4 v6, 0x0
+    invoke-virtual {v1, v6, v4}, Ljava/lang/String;->substring(II)Ljava/lang/String;
+    move-result-object v1
+    :home_status_subtitle_ready
     invoke-virtual {v1}, Ljava/lang/String;->isEmpty()Z
     move-result v4
-    if-nez v4, :home_status_actions
+    if-nez v4, :home_status_diag
     sget v7, Lcom/melodix/music/MelColors;->textSecondary:I
     const/4 v8, 0x0
     const/high16 v9, 0x41600000
     invoke-static {p0, v1, v7, v8, v9}, Lcom/melodix/music/NativeHomeShelfRenderer;->createHomeStatusText(Landroid/content/Context;Ljava/lang/String;IZF)Landroid/widget/TextView;
     move-result-object v6
     const/4 v7, 0x5
+    invoke-virtual {v6, v7}, Landroid/widget/TextView;->setMaxLines(I)V
+    new-instance v7, Landroid/widget/LinearLayout$LayoutParams;
+    const/4 v8, -0x1
+    const/4 v9, -0x2
+    invoke-direct {v7, v8, v9}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->statusSublabelGap(Landroid/content/Context;)I
+    move-result v8
+    iput v8, v7, Landroid/view/ViewGroup$MarginLayoutParams;->topMargin:I
+    invoke-virtual {v3, v6, v7}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    :home_status_diag
+    if-eqz v5, :home_status_actions
+    sget v7, Lcom/melodix/music/MelColors;->warning:I
+    const/4 v8, 0x0
+    const/high16 v9, 0x41800000
+    invoke-static {p0, v5, v7, v8, v9}, Lcom/melodix/music/NativeHomeShelfRenderer;->createHomeStatusText(Landroid/content/Context;Ljava/lang/String;IZF)Landroid/widget/TextView;
+    move-result-object v6
+    sget-object v7, Landroid/graphics/Typeface;->MONOSPACE:Landroid/graphics/Typeface;
+    const/4 v8, 0x1
+    invoke-virtual {v6, v7, v8}, Landroid/widget/TextView;->setTypeface(Landroid/graphics/Typeface;I)V
+    const/4 v7, 0x3
     invoke-virtual {v6, v7}, Landroid/widget/TextView;->setMaxLines(I)V
     new-instance v7, Landroid/widget/LinearLayout$LayoutParams;
     const/4 v8, -0x1
@@ -953,14 +989,14 @@
     invoke-direct {v0, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
     invoke-virtual {v0, v1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
     invoke-virtual {v0, v1}, Landroid/view/View;->setContentDescription(Ljava/lang/CharSequence;)V
-    const/high16 v2, 0x41600000
+    const/high16 v2, 0x41700000
     invoke-virtual {v0, v2}, Landroid/widget/TextView;->setTextSize(F)V
     if-eqz p3, :home_status_action_secondary
     sget v3, Lcom/melodix/music/MelColors;->background:I
     const-string v2, "native_button_green"
     goto :home_status_action_color_ready
     :home_status_action_secondary
-    sget v3, Lcom/melodix/music/MelColors;->textPrimary:I
+    sget v3, Lcom/melodix/music/MelColors;->textSecondary:I
     const-string v2, "native_button_dark"
     :home_status_action_color_ready
     invoke-virtual {v0, v3}, Landroid/widget/TextView;->setTextColor(I)V
