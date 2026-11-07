@@ -912,3 +912,10 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 - Carte d'état d'accueil : **liseré accent** (`strokeAccent`) au lieu du verre neutre.
 - (Déjà en place : boutons dégradé accent→accentDeep, mini-player liseré accent, cartes settings 28 dp + bordure accent + icônes anneau accent.)
 - **Livré** : test.81 (vC 1081, tag `v1.2.2-test.81-preview`, sha256 `e26ae789…f27833`, commit `a409ac5`). Suite 879/876/0/3 VERT.
+
+## MEL-BUG-059 — P1/P2 : bug onglets tous verts + liseré header (2026-11-07)
+
+- **Bug trouvé sur capture 17:13** : la pilule accent (058) restait collée à chaque onglet visité → les 3 onglets apparaissaient sélectionnés en vert. **Corrigé** : l'onglet inactif restaure le ripple d'origine (`setBackgroundResource(0x7f08013f)` = native_tab_ripple) ; seul l'onglet actif a la pilule.
+- **Header** : liseré accent 1 dp sous la barre de titre (nouveau drawable `native_header_glass.xml`, palette `mel_*` uniquement).
+- Capture 17:13 : `[auth=connected statut=error essais=1 erreur=http-401 bearer=0 token=none]` — toujours pas de jeton (bearer=0) → 401 ; déblocage = vraie connexion via « Se connecter ».
+- **Livré** : test.82 (vC 1082, tag `v1.2.2-test.82-preview`, sha256 `816876c5e0d1a32d22a18b3b48bde48f9fc2f5308e869ee86ae81e3d05f4c763`, commit `13d630d`). Suite 880/877/0/3 VERT.
