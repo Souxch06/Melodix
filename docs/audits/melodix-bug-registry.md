@@ -898,3 +898,9 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 - **Accueil** : quand `auth=unknown` (carte `pending`), la carte affiche désormais **« Se connecter »** (primaire) + **« Réessayer »** (secondaire) — le filtre de payload autorise `open-login` sur les cartes loading non prouvées. Avant : aucun bouton, donc aucun changement possible sans aller dans les Paramètres.
 - **Paramètres plus vivants** : bordure des cartes en `strokeAccent` (vert), coins 24 dp, cases icônes accent (054), et **pills remplies accent à texte foncé** pour les valeurs actionnables (Ouvrir, Actualiser, Se connecter, Connecté, Renouveler la session).
 - **Livré** : test.79 (vC 1079, tag `v1.2.2-test.79-preview`, sha256 `99315211…d5c52`, commit `d85f5ba`). Suite 875/872/0/3 VERT.
+
+## MEL-BUG-057 — P1/P2 : diagnostic token= (statut /api/token) + glass vibe settings (2026-11-07)
+
+- **Diagnostic définitif** : la ligne de la carte d'accueil gagne `token=ok|ko-httpXXX|ko-network|none` = statut du dernier appel à `open.spotify.com/api/token` (l'endpoint qui minte le token web-player, authentifié par cookies). Sanitisé en enum borné ; **la valeur du token n'est jamais stockée ni affichée**. Lecture : `token=ok` + `bearer=1` = requête signée ; `bearer=0` + `token=ko-http401` = la session cookie ne peut pas minter de token (pas de vraie session WebView) → seule une connexion via « Se connecter » débloque ; `token=ko-network` = problème réseau.
+- **Settings glass vibe** : cartes 28 dp, bordure `strokeAccent`, anneau accent 2 px autour des icônes, pills accent remplies (056), placeholders glyphés accent (054).
+- **Livré** : test.80 (vC 1080, tag `v1.2.2-test.80-preview`, sha256 `32904a93…144337`, commit `00441b3`). Suite 878/875/0/3 VERT ; asset shell sous le plafond 108867 o (108863).
