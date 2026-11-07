@@ -3005,9 +3005,34 @@
                     return webPlayerTokenCache.token;
                 }
             }
+            // MEL-BUG-061: /api/token answers 400 on some WebView sessions.
+            // Fall back to the endpoint the official web player itself calls
+            // (cookie-authenticated, same session). No OAuth parameter, no
+            // session change: we only read the token the page already owns.
             const status = tokenResp && Number(tokenResp.status);
             lastTokenFetchStatus = safeTokenFetchStatus(
                 Number.isFinite(status) && status >= 100 && status <= 599 ? 'ko-http' + Math.floor(status) : 'ko-network');
+            const altResp = await oriFetch('https://open.spotify.com/get_access_token?reason=transport&productType=web_player', {
+                method: 'GET',
+                credentials: 'include',
+                headers: { 'app-platform': 'WebPlayer', 'spotify-app-version': '1.2.40.0' }
+            });
+            if (altResp && altResp.ok) {
+                const altData = await altResp.json();
+                const altToken = altData && altData.accessToken;
+                if (altToken) {
+                    const altExp = Number(altData.accessTokenExpirationTimestampMs);
+                    webPlayerTokenCache = {
+                        token: String(altToken),
+                        expMs: Number.isFinite(altExp) && altExp > nowMs ? altExp : nowMs + 3600000
+                    };
+                    lastTokenFetchStatus = 'ok';
+                    return webPlayerTokenCache.token;
+                }
+            }
+            const altStatus = altResp && Number(altResp.status);
+            lastTokenFetchStatus = safeTokenFetchStatus(
+                Number.isFinite(altStatus) && altStatus >= 100 && altStatus <= 599 ? 'ko-http' + Math.floor(altStatus) : 'ko-network');
         } catch (_) {
             lastTokenFetchStatus = 'ko-network';
         }

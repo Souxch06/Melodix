@@ -43,8 +43,8 @@
     # the Apple-glass UI (MEL-BUG-039) instead of the flat opaque gray.
     sget v0, Lcom/melodix/music/MelColors;->glassCard:I
     invoke-virtual {v3, v0}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
-    # MEL-BUG-057: extra-round glass cards (28dp).
-    const/high16 v0, 0x41e00000
+    # MEL-BUG-061: 16dp — sobre, plus proche d'une vraie appli mobile.
+    const/high16 v0, 0x41800000
     invoke-virtual {v3, v0}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
     invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->settingsStroke(Landroid/content/Context;)I
     move-result v0

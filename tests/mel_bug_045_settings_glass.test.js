@@ -169,8 +169,8 @@ test('MEL-BUG-056: settings cards get accent stroke, 24dp radius and accent pill
   const smali = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/NativeSettingsRowFactory.smali'), 'utf8');
   assert.match(smali, /MelColors;->strokeAccent:I\s*\n\s*invoke-virtual \{v3, v0, v1\}, Landroid\/graphics\/drawable\/GradientDrawable;->setStroke\(II\)V/,
     'card stroke uses strokeAccent');
-  assert.match(smali, /const\/high16 v0, 0x41e00000\s*\n\s*invoke-virtual \{v3, v0\}, Landroid\/graphics\/drawable\/GradientDrawable;->setCornerRadius/,
-    'card corner radius is 28dp (MEL-BUG-057)');
+  assert.match(smali, /const\/high16 v0, 0x41800000\s*\n\s*invoke-virtual \{v3, v0\}, Landroid\/graphics\/drawable\/GradientDrawable;->setCornerRadius/,
+    'card corner radius is 16dp (MEL-BUG-061, sobre style appli mobile)');
   for (const val of ['Ouvrir', 'Actualiser', 'Se connecter', 'Connecté', 'Renouveler la session']) {
     assert.ok(smali.includes('const-string v3, "' + val + '"'), `pill knows ${val}`);
   }

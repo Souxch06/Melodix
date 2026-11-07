@@ -88,7 +88,8 @@ function loadBridge({ fetchImpl, tokenResponse = null, profileSignal = true, pla
         // /api/token before libraryV3. Tests control it via tokenResponse
         // (null => 404 => no Bearer header, legacy behaviour preserved).
         fetch: (async (url, init) => {
-            if (String(url).indexOf('/api/token') >= 0) {
+            if (String(url).indexOf('/api/token') >= 0 || String(url).indexOf('get_access_token') >= 0) {
+                // MEL-BUG-061: the fallback token endpoint shares the same mock.
                 return tokenResponse
                     ? jsonResponse(200, tokenResponse)
                     : jsonResponse(404, {});

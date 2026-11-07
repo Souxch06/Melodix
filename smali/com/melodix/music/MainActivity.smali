@@ -7819,6 +7819,16 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     :login_owner_trace
     const/4 v0, 0x0
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->melodixWebHomeActive:Z
+    # MEL-BUG-061: the accounts.spotify.com login form renders tiny in the
+    # WebView — zoom it so it is usable without pinch-zoom.
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+    if-eqz v0, :login_zoom_done
+    invoke-virtual {v0}, Landroid/webkit/WebView;->getSettings()Landroid/webkit/WebSettings;
+    move-result-object v0
+    if-eqz v0, :login_zoom_done
+    const/16 v1, 0x8c
+    invoke-virtual {v0, v1}, Landroid/webkit/WebSettings;->setTextZoom(I)V
+    :login_zoom_done
     const-string v1, "pending"
     invoke-virtual {p0, p1, p2, v1}, Lcom/melodix/music/MainActivity;->traceNativeDisplayOwner(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
     return-void
@@ -8162,6 +8172,14 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     const/4 v0, 0x1
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeSessionUnprovenStatusAttached:Z
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeSessionUnproven:Z
+    # MEL-BUG-061: not connected -> the official login screen comes FIRST,
+    # not the home shelf. Guarded against re-entry while login is already up.
+    iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginWebRequested:Z
+    if-nez v0, :native_session_status_attach_done
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->isNativeHomeScreen()Z
+    move-result v0
+    if-eqz v0, :native_session_status_attach_done
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->openSpotifyLogin()V
 
     :native_session_status_attach_done
     return-void
@@ -8443,6 +8461,15 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
     :native_show_not_login
     const/4 v4, 0x0
+    # MEL-BUG-061: native shell visible again -> normal text zoom.
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+    if-eqz v0, :native_zoom_done
+    invoke-virtual {v0}, Landroid/webkit/WebView;->getSettings()Landroid/webkit/WebSettings;
+    move-result-object v0
+    if-eqz v0, :native_zoom_done
+    const/16 v1, 0x64
+    invoke-virtual {v0, v1}, Landroid/webkit/WebSettings;->setTextZoom(I)V
+    :native_zoom_done
     const-string v0, "native-shell-show-requested"
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
     invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V

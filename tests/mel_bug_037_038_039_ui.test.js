@@ -105,3 +105,18 @@ test('MEL-BUG-059: header hairline drawable exists, palette-only, and is wired i
   const layout = fs.readFileSync(path.join(repo, 'res/layout/activity_main.xml'), 'utf8');
   assert.ok(layout.includes('android:background="@drawable/native_header_glass"'), 'header uses the glass hairline');
 });
+
+// MEL-BUG-061: login web UI is zoomed (140%) while the native shell resets to
+// 100%, and an unproven session on Home opens the official login FIRST.
+test('MEL-BUG-061: login UI zoom + login-first when session unproven', () => {
+  const main = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/MainActivity.smali'), 'utf8');
+  const login = main.slice(main.indexOf('.method private final applyLoginWebUi'), main.indexOf('.end method', main.indexOf('.method private final applyLoginWebUi')));
+  assert.match(login, /const\/16 v1, 0x8c\s*\n\s*invoke-virtual \{v0, v1\}, Landroid\/webkit\/WebSettings;->setTextZoom\(I\)V/,
+    'login UI zoomed to 140%');
+  const show = main.slice(main.indexOf('.method public final showNativeUiFrom'), main.indexOf('.end method', main.indexOf('.method public final showNativeUiFrom')));
+  assert.match(show, /const\/16 v1, 0x64\s*\n\s*invoke-virtual \{v0, v1\}, Landroid\/webkit\/WebSettings;->setTextZoom\(I\)V/,
+    'native shell resets zoom to 100%');
+  const unproven = main.slice(main.indexOf('.method public final noteNativeHomeSessionUnprovenStatusAttached'), main.indexOf('.end method', main.indexOf('.method public final noteNativeHomeSessionUnprovenStatusAttached')));
+  assert.match(unproven, /nativeLoginWebRequested:Z\s*\n\s*if-nez v0[\s\S]*?isNativeHomeScreen[\s\S]*?openSpotifyLogin\(\)V/,
+    'unproven session on Home opens the official login first (guarded against loops)');
+});

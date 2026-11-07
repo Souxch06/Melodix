@@ -162,3 +162,15 @@ test('MEL-BUG-060: new library diagnostics inherit the last known token-fetch st
     'createMediaLibraryDiagnostic seeds token from lastTokenFetchStatus');
   assert.ok(bridgeAsset.includes('lastTokenFetchStatus'), 'assets/spotify_bridge.js must be regenerated');
 });
+
+// MEL-BUG-061: /api/token answers 400 on some WebView sessions -> fall back to
+// the endpoint the official web player itself uses (get_access_token), still
+// cookie-authenticated; the token value never leaves this scope.
+test('MEL-BUG-061: token fetch falls back to the web player get_access_token endpoint', () => {
+  assert.match(bridge, /open\.spotify\.com\/get_access_token\?reason=transport&productType=web_player/,
+    'fallback endpoint = the official web player token endpoint');
+  assert.match(bridge, /altResp && altResp\.ok[\s\S]*?altData\.accessToken/,
+    'fallback parses accessToken');
+  assert.doesNotMatch(bridge, /console\.\w+\([^)]*[Tt]oken/, 'token value never passed to console');
+  assert.ok(bridgeAsset.includes('get_access_token'), 'assets/spotify_bridge.js must be regenerated');
+});
