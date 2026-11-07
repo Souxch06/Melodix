@@ -9055,6 +9055,16 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-static {v4}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
     move-result-object v4
     invoke-virtual {v1, v4}, Landroid/widget/TextView;->setCompoundDrawableTintList(Landroid/content/res/ColorStateList;)V
+    if-eqz v0, :native_tab_style_done
+    # MEL-BUG-058: active tab gets a soft accent pill (glow) behind icon+label;
+    # inactive tabs keep the ripple background for press feedback.
+    new-instance v2, Landroid/graphics/drawable/GradientDrawable;
+    invoke-direct {v2}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
+    sget v3, Lcom/melodix/music/MelColors;->glow:I
+    invoke-virtual {v2, v3}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
+    const/high16 v3, 0x41a00000
+    invoke-virtual {v2, v3}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
+    invoke-virtual {v1, v2}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
 
     :native_tab_style_done
     return-void

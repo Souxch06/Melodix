@@ -9,7 +9,7 @@
     </item>
     <item android:gravity="top" android:height="1.0dip">
         <shape android:shape="rectangle">
-            <solid android:color="@color/mel_glass_stroke" />
+            <solid android:color="@color/mel_stroke_accent" />
         </shape>
     </item>
 </layer-list>

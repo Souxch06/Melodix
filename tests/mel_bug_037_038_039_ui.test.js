@@ -63,7 +63,7 @@ test('MEL-BUG-039: glass drawables applied in all 4 layout variants', () => {
 test('MEL-BUG-039: status card and status icon use the glass colors at runtime', () => {
   const shelf = read('smali/com/melodix/music/NativeHomeShelfRenderer.smali');
   const card = shelf.slice(shelf.indexOf('method private static createHomeStatusBackground'));
-  assert.match(card, /MelColors;->glassStroke:I/, 'status card hairline = glass stroke');
+  assert.match(card, /MelColors;->strokeAccent:I/, 'status card hairline = accent stroke (MEL-BUG-058 vibe)');
   const icon = shelf.slice(shelf.indexOf('method private static createHomeStatusIcon'));
   assert.match(icon, /MelColors;->glassFill:I[\s\S]*?setColor/, 'status icon disc = glass fill');
   assert.match(icon, /MelColors;->glassStroke:I[\s\S]*?setStroke/, 'status icon disc = glass stroke');
@@ -76,4 +76,18 @@ test('MEL-BUG-040: auth-state-changed resets the 401/403 refusal budget', () => 
   assert.ok(m && /__sfMediaLibRefusalEpoch = 0/.test(m[1]) && /__sfMediaLibRefusalAttempts = 0/.test(m[1]));
   assert.ok(/__sfMediaLibRefusalEpoch\s*=\s*0/.test(read('assets/native_ui_shell.js')),
     'assets/native_ui_shell.js must be regenerated');
+});
+
+// MEL-BUG-058: global vibe pass — accent hairline on the glass tab bar, accent
+// stroke on the home status card, and a soft accent pill behind the ACTIVE tab.
+test('MEL-BUG-058: tab bar hairline and active-tab pill use the accent palette', () => {
+  const tabbar = fs.readFileSync(path.join(repo, 'res/drawable/native_tabbar_glass.xml'), 'utf8');
+  assert.ok(tabbar.includes('@color/mel_stroke_accent'), 'tab bar top hairline = accent');
+  assert.ok(!tabbar.includes('@color/mel_glass_stroke'), 'no more neutral hairline on the tab bar');
+  const main = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/MainActivity.smali'), 'utf8');
+  const at = main.indexOf('.method public final styleNativeTab');
+  const body = main.slice(at, main.indexOf('.end method', at));
+  assert.match(body, /if-eqz v0, :native_tab_style_done[\s\S]{0,300}?new-instance v2, Landroid\/graphics\/drawable\/GradientDrawable;[\s\S]{0,300}?MelColors;->glow:I[\s\S]{0,200}?setCornerRadius[\s\S]{0,120}?setBackground/,
+    'active tab gets a glow pill; inactive tabs keep the ripple');
+  assert.match(body, /const\/high16 v3, 0x41a00000/, 'pill radius = 20dp');
 });

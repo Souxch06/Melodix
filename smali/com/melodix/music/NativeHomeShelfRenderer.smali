@@ -787,8 +787,8 @@
     invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->statusStroke(Landroid/content/Context;)I
 
     move-result v3
-    # MEL-BUG-039: hairline glass stroke (light) instead of the accent stroke.
-    sget v4, Lcom/melodix/music/MelColors;->glassStroke:I
+    # MEL-BUG-058: hairline ACCENT stroke on the status card (glass vibe).
+    sget v4, Lcom/melodix/music/MelColors;->strokeAccent:I
     invoke-virtual {v2, v3, v4}, Landroid/graphics/drawable/GradientDrawable;->setStroke(II)V
     return-object v2
 .end method
