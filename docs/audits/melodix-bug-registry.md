@@ -867,3 +867,8 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 ## Preview publiée depuis Arena — v1.2.2-test.64-preview (2026-11-07, commit 77afe52 + APK)
 - **Contenu** : MEL-BUG-037/038/039/040 (Paramètres remplis, accueil sans grille du milieu, UI verre Apple, 401 plus jamais coincé par époque).
 - APK `releases/Melodix-Test-v1.2.2-test64.apk` · sha256 `a7b87f4ebd2ce6d87d9ce743ad41be95841360207e43d26ba2c8ca6c7c183d56` · versionCode **1064** · empreinte `8B:93:8C:…:B7:1D:9E` (**nouvelle session Arena** → `adb uninstall com.melodix.music` d'abord, MEL-BUG-023). APK vérifié dans le tag. Suite 847/843/0/4.
+
+## MEL-BUG-052 — P2 : ligne « Diagnostic interne » dans Paramètres → Spotify (2026-11-07)
+
+- **Livré** : test.75 (vC 1075, tag `v1.2.2-test.75-preview`, sha256 `8ad4e31e…a2f4baacb5`, commit `35d6676`). Nouvelle ligne Paramètres → Spotify → « Diagnostic interne » avec le même compact `auth=… statut=… essais=N erreur=… bearer=0/1` que la carte d'accueil (MEL-BUG-050), y compris dans le JSON de secours natif (pas de WebView). Une capture de Paramètres suffit désormais comme preuve.
+- **Tests** : +1 test (ligne présente dans le shell + le fallback natif) ; suite 868/865/0/3 VERT.

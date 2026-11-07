@@ -43,9 +43,10 @@ transitoire avec retry borné au lieu d'un blocage permanent). La plus récente 
 | v1.2.2-test.72-preview (MEL-BUG-048/049) | 1072 | `523a036c69334b5e59464f2caa2377eefbedae1f75706fbe38e139162326fead` | `DF:6B:7C:…:0E:11` |
 | v1.2.2-test.73-preview (MEL-BUG-050) | 1073 | `03ca51ba3f8259b6631d8e44c1977dd01f8819a386146a297023cd03ea97ed28` | `DF:6B:7C:…:0E:11` |
 | v1.2.2-test.74-preview (MEL-BUG-051) | 1074 | `cf210402be8be8af9e8a253203f188ef719d67e52822a5b56a3389b369968651` | `DF:6B:7C:…:0E:11` |
+| v1.2.2-test.75-preview (MEL-BUG-052) | 1075 | `8ad4e31e836e7ec75773f76d7bf866689eeb3fa518a9ec692be438a2f4baacb5` | `DF:6B:7C:…:0E:11` |
 | v1.2.2-test.62-preview (MEL-BUG-035) | 1062 | `8c58d998d20fbca0c76622dda4b50c703a79d04abaf4a7a7cd1e9198a7f5d5f4` | `B0:B8:D5:…:6C:F5` |
 
-La plus récente est **test.74** (`Melodix-Test-v1.2.2-test74.apk` + `.sha256`, tag `v1.2.2-test.74-preview`, MEL-BUG-051).
+La plus récente est **test.75** (`Melodix-Test-v1.2.2-test75.apk` + `.sha256`, tag `v1.2.2-test.75-preview`, MEL-BUG-052).
 
 ⚠️ test.65 a l'empreinte `DF:6B:7C:…:0E:11` (nouvelle session Arena) → **`adb uninstall com.melodix.music` avant installation** (MEL-BUG-023). test.61/62 ont l'empreinte `B0:B8:D5:…:6C:F5` (session Arena courante) : **mise à jour directe test.61 → test.62 sans conflit**. Si conflit avec une preview d'une session antérieure (`DB:63:77:…:59:A2` ou `F9:A6:…:24:18` ou `C2:A9:…:EB:67`) → `adb uninstall com.melodix.music` d'abord (MEL-BUG-023 en haut). Previews test.53→55 partagent
 l'empreinte `DB:63:77:15:AA:DE:11:58:EF:AD:BF:16:4F:CD:E3:10:A5:8E:1F:AF:1B:E2:D5:A1:E5:2F:AE:DE:70:C8:59:A2`
