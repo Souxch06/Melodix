@@ -942,3 +942,9 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 
 - Revert de l'auto-ouverture du login depuis le callback « session non prouvée » (MEL-BUG-061) : ce saut couvrait le shell natif et a fait échouer la mesure émulateur « rendered shell » sur test.84. Conservés : **fallback token `get_access_token`** (web player officiel), **zoom login 140 %** (retour 100 % shell natif), **settings 16 dp**, login-first au démarrage froid (MEL-BUG-042) + bouton carte.
 - **Livré** : test.85 (vC 1085, tag `v1.2.2-test.85-preview`, sha256 `1b685e6a…39c75fa`, commit `eeeb626`, cert `DC:67:4C:…:A1:35` → maj directe). Suite 883/879/0/4 VERT.
+
+## MEL-BUG-062 — test.96 : vraies rangées de paramètres façon appli mobile, toggles ON/OFF stylés (2026-11-07)
+
+- **Demande** : « vraie amélioration des paramètres, style vraie appli mobile, avec des boutons on/off stylés ».
+- **Fix** : dans `NativeSettingsRowFactory`, une valeur **ON/OFF** ne s'affiche plus comme un badge texte mais comme un vrai **`Switch` Android stylé** : pouce `MelColors.accent`, piste `MelColors.glow`, `setChecked` selon ON/OFF. Le Switch est **non cliquable/non focusable** : c'est toute la rangée qui dispatche le toggle (comportement conservé). Les autres valeurs gardent la pilule texte.
+- **Livré** : test.96 (vC 1086, tag `v1.2.2-test.96-preview`, sha256 `1872652e…40e701`, commits `7125583` (code+test) / `db909e9` (APK), cert `DC:67:4C:…:A1:35` → **maj directe depuis test.85**). Suite **884/880/0/4 VERT**.
