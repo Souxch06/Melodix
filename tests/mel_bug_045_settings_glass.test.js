@@ -70,3 +70,16 @@ test('MEL-BUG-051: a heartbeat attempts the library proof every 45s unless signe
   const shellAsset = fs.readFileSync(path.join(repo, 'assets/native_ui_shell.js'), 'utf8');
   assert.ok(shellAsset.includes('__sfProofHeartbeatTimer'), 'assets/native_ui_shell.js must be regenerated');
 });
+
+// MEL-BUG-052: Settings also carries the compact self-diagnostic line
+// (auth/status/attempts/error/bearer) so one screenshot from either screen
+// (Home or Settings) is enough evidence.
+test('MEL-BUG-052: a Diagnostic interne row exists in the settings payload', () => {
+  const shellSrc = fs.readFileSync(path.join(repo, 'scripts/native_ui_shell.source.js'), 'utf8');
+  assert.match(shellSrc, /title: 'Diagnostic interne',[\s\S]*?auth=' \+ currentSpotifyAuthUiState\(\)[\s\S]*?mediaLibraryBearerSuffix\(\)/,
+    'the settings diagnostic row mirrors the home card line (incl. bearer flag)');
+  const mainSmali = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/MainActivity.smali'), 'utf8');
+  const at = mainSmali.indexOf('.method public final onNativeSettingsTimeout');
+  const body = mainSmali.slice(at, mainSmali.indexOf('.end method', at));
+  assert.ok(body.includes('Diagnostic interne'), 'the native fallback has the diagnostic row too');
+});

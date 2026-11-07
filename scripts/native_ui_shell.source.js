@@ -3094,6 +3094,18 @@
                 settingValue: status === 'ready' ? 'Résultat reçu' : status === 'loading' ? 'Chargement' : status === 'error' ? 'Erreur' : 'À vérifier'
             },
             {
+                // MEL-BUG-052: same compact self-diagnostic as the Home card,
+                // visible in Settings too — one screenshot is enough evidence.
+                section: 'Spotify',
+                title: 'Diagnostic interne',
+                subtitle: 'auth=' + currentSpotifyAuthUiState() + ' statut=' + status +
+                    ' essais=' + safeHomeTraceCount(window.__sfNativeUiHomeAttempt, 999999) +
+                    ' erreur=' + (libError || 'aucune') + mediaLibraryBearerSuffix(),
+                image: '',
+                uri: '',
+                settingValue: 'Interne'
+            },
+            {
                 section: 'Spotify',
                 title: 'Actualiser la bibliothèque',
                 subtitle: refreshAvailable
