@@ -836,6 +836,14 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 - Fallback natif `onNativeSettingsTimeout` enrichi : toutes les sections présentes (État, Compte et connexion + Autorisations, Spotify : état libraryV3 / Actualiser / Aléatoire / Répétition, Apparence, 3 toggles de lecture, Notifications) avec des actions réellement dispatchables (`open-login`, `retry-library`, `retry-settings`, `open-notifications`, `melodix:setting:*`). La section version reste ajoutée nativement par `appendNativeAboutRows` (versionName/versionCode du PackageManager) — pas de doublon.
 - Tests : `tests/mel_bug_045_settings_glass.test.js` (2 tests). Suite : **860/857/0/3**.
 
+## Previews publiées depuis Arena — test.65 à test.69 (2026-11-07, branche arena/6b935c3e-melodix, PR #8)
+- **test.65** (vC 1065, `356cf49`) : MEL-BUG-041 cool-down 120 s après budget de refus épuisé + flag booléen `bearer` dans le diagnostic. sha256 `4820e7b1…ce9847`.
+- **test.66** (vC 1066, `36498fa`) : MEL-BUG-042 écran de connexion officiel affiché directement au lancement. sha256 `d0ef93bf…9906f8`.
+- **test.67** (vC 1067, `6534812`) : MEL-BUG-043 plus de flash accueil au-dessus du login (flag login révoqué seulement sur vraie page non-login). sha256 `dd070a60…2dfb0`.
+- **test.68** (vC 1068, `e013138`) : MEL-BUG-044 `bearer=0/1` dans la ligne logcat `library-fetch`. sha256 `67ef3d0f…771389`.
+- **test.69** (vC 1069, `0b9b549`) : MEL-BUG-045 Paramètres en verre + fallback natif complet. sha256 `95221902…997049`.
+- Empreinte constante `DF:6B:7C:…:0E:11` sur test.65→69 (même session Arena) → updates directs. 20 previews au total (test.46→69), APK+sha256 vérifiés dans chaque tag. Suites : 851→854→857→858→860 tests, 0 échec. CI : job unitaire SUCCESS à chaque commit de code ; seul rouge = fail-loud volontaire build-only (conservé).
+
 ## Preview publiée depuis Arena — v1.2.2-test.64-preview (2026-11-07, commit 77afe52 + APK)
 - **Contenu** : MEL-BUG-037/038/039/040 (Paramètres remplis, accueil sans grille du milieu, UI verre Apple, 401 plus jamais coincé par époque).
 - APK `releases/Melodix-Test-v1.2.2-test64.apk` · sha256 `a7b87f4ebd2ce6d87d9ce743ad41be95841360207e43d26ba2c8ca6c7c183d56` · versionCode **1064** · empreinte `8B:93:8C:…:B7:1D:9E` (**nouvelle session Arena** → `adb uninstall com.melodix.music` d'abord, MEL-BUG-023). APK vérifié dans le tag. Suite 847/843/0/4.
