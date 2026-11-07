@@ -836,6 +836,9 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 - Fallback natif `onNativeSettingsTimeout` enrichi : toutes les sections présentes (État, Compte et connexion + Autorisations, Spotify : état libraryV3 / Actualiser / Aléatoire / Répétition, Apparence, 3 toggles de lecture, Notifications) avec des actions réellement dispatchables (`open-login`, `retry-library`, `retry-settings`, `open-notifications`, `melodix:setting:*`). La section version reste ajoutée nativement par `appendNativeAboutRows` (versionName/versionCode du PackageManager) — pas de doublon.
 - Tests : `tests/mel_bug_045_settings_glass.test.js` (2 tests). Suite : **860/857/0/3**.
 
+## MEL-BUG-046 — P1 : le flag bearer=0/1 visible dans l'app (Paramètres → Spotify → État de libraryV3) (2026-11-07)
+- La ligne « libraryV3 a répondu 401/403 » affiche désormais ` (bearer=0/1)` (booléen, jamais le token) : **une capture d'écran sur le téléphone suffit**, plus besoin d'adb logcat pour le diagnostic. Test : +1 dans `mel_bug_041_refusal_cooldown.test.js`. Suite : **861/858/0/3**.
+
 ## Previews publiées depuis Arena — test.65 à test.69 (2026-11-07, branche arena/6b935c3e-melodix, PR #8)
 - **test.65** (vC 1065, `356cf49`) : MEL-BUG-041 cool-down 120 s après budget de refus épuisé + flag booléen `bearer` dans le diagnostic. sha256 `4820e7b1…ce9847`.
 - **test.66** (vC 1066, `36498fa`) : MEL-BUG-042 écran de connexion officiel affiché directement au lancement. sha256 `d0ef93bf…9906f8`.

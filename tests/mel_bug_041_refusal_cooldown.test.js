@@ -77,3 +77,14 @@ test('MEL-BUG-044: the library-fetch trace line exposes a boolean bearer flag', 
   assert.ok(bridgeAsset.includes('bearer='), 'assets/spotify_bridge.js must be regenerated');
   assert.doesNotMatch(bridgeAsset, /TEST_TOKEN_036/);
 });
+
+// MEL-BUG-046: the in-app settings row "État de libraryV3" shows the boolean
+// bearer flag on 401/403, so a phone screenshot replaces adb logcat.
+test('MEL-BUG-046: the visible libraryV3 status text carries the bearer flag on refusals', () => {
+  const shellSrc = fs.readFileSync(path.join(repo, 'scripts/native_ui_shell.source.js'), 'utf8');
+  assert.match(shellSrc, /function mediaLibraryBearerSuffix\(\)/);
+  assert.match(shellSrc, /error === 'http-401'\) return 'libraryV3 a répondu 401; session non validée\.' \+ mediaLibraryBearerSuffix\(\)/);
+  assert.match(shellSrc, /' \(bearer=' \+ \(d\.bearer === true \? 1 : 0\) \+ '\)'/,
+    'booléen 0/1 uniquement, jamais la valeur du token');
+  assert.ok(shellAsset.includes('mediaLibraryBearerSuffix'), 'assets/native_ui_shell.js must be regenerated');
+});

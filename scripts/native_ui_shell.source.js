@@ -2944,6 +2944,16 @@
         return null;
     }
 
+    // MEL-BUG-046: expose the boolean bearer flag (never the token) in the
+    // in-app diagnostic text so a phone screenshot is enough — no adb needed.
+    function mediaLibraryBearerSuffix() {
+        var d = window.__sfMediaLibLastDiagnostic;
+        if (d && typeof d === 'object' && Object.prototype.hasOwnProperty.call(d, 'bearer')) {
+            return ' (bearer=' + (d.bearer === true ? 1 : 0) + ')';
+        }
+        return '';
+    }
+
     function mediaLibraryDiagnosticStatus() {
         var status = String(window.__sfMediaLibStatus || 'pending');
         var error = String(window.__sfMediaLibError || '');
@@ -2953,8 +2963,8 @@
                 : 'Réponse libraryV3 validée; bibliothèque vide.';
         }
         if (status === 'loading') return 'Requête libraryV3 en cours.';
-        if (error === 'http-401') return 'libraryV3 a répondu 401; session non validée.';
-        if (error === 'http-403') return 'libraryV3 a répondu 403; session non validée.';
+        if (error === 'http-401') return 'libraryV3 a répondu 401; session non validée.' + mediaLibraryBearerSuffix();
+        if (error === 'http-403') return 'libraryV3 a répondu 403; session non validée.' + mediaLibraryBearerSuffix();
         if (error === 'http-429') return 'libraryV3 a demandé de ralentir les requêtes.';
         if (status === 'error') return 'Dernière requête libraryV3 en échec; aucune synchronisation confirmée.';
         return 'Aucune réponse libraryV3 validée pour cette session.';
