@@ -924,3 +924,8 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 
 - **Fix** : `createMediaLibraryDiagnostic` hérite désormais du **dernier statut connu** de `/api/token` (`token: safeTokenFetchStatus(lastTokenFetchStatus)`) — une émission en phase `request` n'écrase plus la cause réelle par `token=none` (vu sur la capture 17:13 : `token=none` à côté de `bearer=0 erreur=http-401`).
 - **Commit** `87fd05d`, suite 881/877/0/4 VERT. **APK non signé** : le bac à sable a été reset et le keystore `melodix-test-release.p12` (hors dépôt) a disparu → plus de build signé possible avec l'empreinte `DF:6B:7C:…:0E:11`. La preview courante reste **test.82** (vC 1082). Un nouveau keystore changerait l'empreinte → désinstallation obligatoire → session Spotify perdue (contre-productif ici) : on ne le régénère pas tant que le diagnostic 401 est en cours.
+
+## MEL-BUG-060 livré en APK — test.83 (2026-11-07)
+
+- **Livré** : test.83 (vC 1083, tag `v1.2.2-test.83-preview`, sha256 `ca8bd6ea…947ba`, commit `87fd05d`). Le diagnostic `token=` hérite du dernier statut connu de `/api/token` (fini le `token=none` masquant).
+- **⚠️ Changement de certificat** : reset sandbox → keystore perdu → nouveau PKCS12, empreinte **`DC:67:4C:91:37:0F:BE:E5:51:5B:C6:7E:37:B0:F3:B2:3B:1D:8F:49:0C:AF:FD:D8:10:19:5A:A1:2F:BE:A1:35`**. Installation : `adb uninstall com.melodix.music` d'abord (MEL-BUG-023) — la session Spotify sera effacée, reconnexion via « Se connecter » nécessaire.
