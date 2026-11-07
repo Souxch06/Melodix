@@ -937,3 +937,8 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 - **Zoom login** : l'interface accounts.spotify.com est zoomée à **140 %** (lisible sans pinch-zoom) ; retour à 100 % quand le shell natif reprend.
 - **Settings plus sobres** : cartes 16 dp (style appli mobile native).
 - **Livré** : test.84 (vC 1084, tag `v1.2.2-test.84-preview`, sha256 `cb247258…39de4`, commit `cc29cac`, cert `DC:67:4C:…:A1:35` = même que test.83 → **mise à jour directe, pas de désinstallation**). Suite 883/879/0/4 VERT.
+
+## MEL-BUG-061b — test.85 (2026-11-07)
+
+- Revert de l'auto-ouverture du login depuis le callback « session non prouvée » (MEL-BUG-061) : ce saut couvrait le shell natif et a fait échouer la mesure émulateur « rendered shell » sur test.84. Conservés : **fallback token `get_access_token`** (web player officiel), **zoom login 140 %** (retour 100 % shell natif), **settings 16 dp**, login-first au démarrage froid (MEL-BUG-042) + bouton carte.
+- **Livré** : test.85 (vC 1085, tag `v1.2.2-test.85-preview`, sha256 `1b685e6a…39c75fa`, commit `eeeb626`, cert `DC:67:4C:…:A1:35` → maj directe). Suite 883/879/0/4 VERT.
