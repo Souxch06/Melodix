@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Additive: the default item is the original shape, byte for byte. Only the
+     disabled branch is new, so nothing changes for an enabled control. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_enabled="false">
+        <shape android:shape="oval">
+            <solid android:color="@color/mel_btn_disabled" />
+        </shape>
+    </item>
+    <item>
+        <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <gradient
+        android:angle="270"
+        android:startColor="@color/mel_btn_light_top"
+        android:endColor="@color/mel_btn_light_bottom" />
+</shape>
+    </item>
+</selector>

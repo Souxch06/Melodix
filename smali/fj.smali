@@ -433,7 +433,7 @@
 .end method
 
 .method public c(Landroid/view/View;Lkk1;)Lkk1;
-    .locals 5
+    .locals 7
 
     .line 1
     iget-object p0, p0, Lfj;->k:Ljava/lang/Object;
@@ -441,6 +441,7 @@
     .line 2
     .line 3
     check-cast p0, Lcom/melodix/music/MainActivity;
+    move-object v5, p0
 
     .line 4
     .line 5
@@ -473,10 +474,15 @@
     .line 18
     .line 19
     .line 20
-    iget v1, v0, Lne0;->b:I
+    # Preserve the bottom system-bar inset before v0 is reused for right.
+    iget v6, v0, Lne0;->d:I
 
     .line 21
     .line 22
+    iget v1, v0, Lne0;->b:I
+
+    .line 23
+    .line 24
     iget v2, v0, Lne0;->a:I
 
     .line 23
@@ -820,6 +826,7 @@
     .line 182
     .line 183
     :cond_8
+    const/4 v2, 0x0
     if-lez v1, :cond_9
 
     .line 184
@@ -857,11 +864,23 @@
     float-to-int p0, p1
 
     .line 200
+    move v2, p0
     sput p0, Lcom/melodix/music/AppSingleton;->U:I
 
     .line 201
     .line 202
     :cond_9
+    # Send both dp insets to the WebView. Keep system bar values separate from
+    # the Web safe-area env() so the CSS can choose the larger real inset.
+    int-to-float v6, v6
+    invoke-virtual {v5}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
+    move-result-object v0
+    invoke-virtual {v0}, Landroid/content/res/Resources;->getDisplayMetrics()Landroid/util/DisplayMetrics;
+    move-result-object v0
+    iget v0, v0, Landroid/util/DisplayMetrics;->density:F
+    div-float/2addr v6, v0
+    float-to-int v6, v6
+    invoke-virtual {v5, v2, v6}, Lcom/melodix/music/MainActivity;->updateNativeWebInsets(II)V
     return-object p2
 .end method
 

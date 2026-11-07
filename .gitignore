@@ -1,3 +1,6 @@
+# Node development dependencies for behavioral tests.
+node_modules/
+
 # Local Android/Apktool build outputs.
 .gradle/
 **/build/
@@ -14,3 +17,8 @@ local.properties
 .idea/
 .DS_Store
 Thumbs.db
+
+# Python bytecode from running the diagnostic scripts locally.
+__pycache__/
+*.pyc
+.local-keys/
