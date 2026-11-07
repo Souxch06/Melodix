@@ -49,9 +49,10 @@ transitoire avec retry borné au lieu d'un blocage permanent). La plus récente 
 | v1.2.2-test.78-preview (MEL-BUG-055) | 1078 | `b636e359f9b44187b03d2baec96ca9264cdd78405dbb9525129be31b05eaaa20` | `DF:6B:7C:…:0E:11` |
 | v1.2.2-test.79-preview (MEL-BUG-056) | 1079 | `99315211a4689f25afcae2eeb5f9f6d5cff7a0fa8f3051ddecaf5c3e622d5c52` | `DF:6B:7C:…:0E:11` |
 | v1.2.2-test.80-preview (MEL-BUG-057) | 1080 | `32904a937f163a5377b2edba78255f1d0b3e21f4f9bccaf2840dd2d492144337` | `DF:6B:7C:…:0E:11` |
+| v1.2.2-test.81-preview (MEL-BUG-058) | 1081 | `e26ae789b6759874cd31968b5d8b5850382f1276c21f03e18fb875461ff27833` | `DF:6B:7C:…:0E:11` |
 | v1.2.2-test.62-preview (MEL-BUG-035) | 1062 | `8c58d998d20fbca0c76622dda4b50c703a79d04abaf4a7a7cd1e9198a7f5d5f4` | `B0:B8:D5:…:6C:F5` |
 
-La plus récente est **test.80** (`Melodix-Test-v1.2.2-test80.apk` + `.sha256`, tag `v1.2.2-test.80-preview`, MEL-BUG-057).
+La plus récente est **test.81** (`Melodix-Test-v1.2.2-test81.apk` + `.sha256`, tag `v1.2.2-test.81-preview`, MEL-BUG-058).
 
 > Depuis test.75/test.76, les tags sont posés sur le commit qui **contient l’APK** : le lien raw épinglé sur le tag sert bien le binaire (vérifié via l’API GitHub).
 

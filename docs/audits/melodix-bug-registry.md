@@ -904,3 +904,11 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 - **Diagnostic définitif** : la ligne de la carte d'accueil gagne `token=ok|ko-httpXXX|ko-network|none` = statut du dernier appel à `open.spotify.com/api/token` (l'endpoint qui minte le token web-player, authentifié par cookies). Sanitisé en enum borné ; **la valeur du token n'est jamais stockée ni affichée**. Lecture : `token=ok` + `bearer=1` = requête signée ; `bearer=0` + `token=ko-http401` = la session cookie ne peut pas minter de token (pas de vraie session WebView) → seule une connexion via « Se connecter » débloque ; `token=ko-network` = problème réseau.
 - **Settings glass vibe** : cartes 28 dp, bordure `strokeAccent`, anneau accent 2 px autour des icônes, pills accent remplies (056), placeholders glyphés accent (054).
 - **Livré** : test.80 (vC 1080, tag `v1.2.2-test.80-preview`, sha256 `32904a93…144337`, commit `00441b3`). Suite 878/875/0/3 VERT ; asset shell sous le plafond 108867 o (108863).
+
+## MEL-BUG-058 — P2 : vibe pass global de l'interface (2026-11-07)
+
+- Onglet actif de la tab bar : **pilule douce accent (glow, 20 dp)** derrière icône+label ; onglets inactifs gardent le ripple.
+- Tab bar glass : **liseré supérieur accent** (`mel_stroke_accent`) au lieu du blanc neutre.
+- Carte d'état d'accueil : **liseré accent** (`strokeAccent`) au lieu du verre neutre.
+- (Déjà en place : boutons dégradé accent→accentDeep, mini-player liseré accent, cartes settings 28 dp + bordure accent + icônes anneau accent.)
+- **Livré** : test.81 (vC 1081, tag `v1.2.2-test.81-preview`, sha256 `e26ae789…f27833`, commit `a409ac5`). Suite 879/876/0/3 VERT.
