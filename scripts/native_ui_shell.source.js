@@ -3926,6 +3926,20 @@
 
         runUpdate();
         if (document.readyState === 'loading') scheduleReadinessRetry();
+        // MEL-BUG-051: guarantee periodic proof attempts even when the current
+        // page is not open.spotify.com (login page included) — the shell's own
+        // scheduler is route-gated, so without this heartbeat the Home can stay
+        // on "loading" forever without a single libraryV3 request being sent.
+        // Every attempt still passes the single-flight / refusal-budget /
+        // cool-down gates inside requestMediaLibraryProof.
+        if (!window.__sfProofHeartbeatTimer && typeof window.setInterval === 'function') {
+            window.__sfProofHeartbeatTimer = window.setInterval(function() {
+                try {
+                    if (currentSpotifyAuthUiState() === 'required') return;
+                    requestMediaLibraryProof('heartbeat', false);
+                } catch (_) {}
+            }, 45000);
+        }
     }
 
     try {

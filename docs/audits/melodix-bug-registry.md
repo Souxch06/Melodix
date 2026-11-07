@@ -851,6 +851,11 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 - La carte d'état « non confirmée » affiche désormais une ligne compacte interne : ` [auth=… statut=… essais=N erreur=… bearer=0/1]` → **une seule capture de l'accueil** dit si une requête libraryV3 est partie, l'état auth observé, la dernière erreur et si un Bearer était attaché. Fini les allers-retours sans preuve.
 - Test : +1 dans `mel_bug_041_refusal_cooldown.test.js`. Suite : **865/862/0/3**.
 
+## MEL-BUG-051 — P1 : icônes dans toutes les lignes Paramètres + heartbeat de preuve libraryV3 (2026-11-07)
+- `NativeSettingsRowFactory` : la case icône est toujours rendue ; image vide → glyphe muet `native_cover_placeholder` teinté (au lieu d'une case vide).
+- Heartbeat shell (45 s, défensif si `setInterval` absent) : tente `requestMediaLibraryProof('heartbeat')` même hors `open.spotify.com` (page login comprise), sauf sign-out confirmé `'required'` — l'accueil ne peut plus rester sur « chargement » sans qu'aucune requête ne parte. Toutes les tentatives passent quand même les gates single-flight / budget / cool-down.
+- Tests : +2 dans `mel_bug_045_settings_glass.test.js`. Suite : **867/864/0/3**.
+
 ## Previews publiées depuis Arena — test.65 à test.69 (2026-11-07, branche arena/6b935c3e-melodix, PR #8)
 - **test.65** (vC 1065, `356cf49`) : MEL-BUG-041 cool-down 120 s après budget de refus épuisé + flag booléen `bearer` dans le diagnostic. sha256 `4820e7b1…ce9847`.
 - **test.66** (vC 1066, `36498fa`) : MEL-BUG-042 écran de connexion officiel affiché directement au lancement. sha256 `d0ef93bf…9906f8`.

@@ -48,3 +48,25 @@ test('MEL-BUG-047: the libraryV3 status row forces a check when tapped', () => {
   assert.ok(body.includes('melodix:action:retry-library'),
     'the native fallback keeps the retry action too');
 });
+
+// MEL-BUG-051: settings rows always show an icon slot (muted glyph when no
+// image), and a shell heartbeat guarantees periodic libraryV3 proof attempts
+// even off open.spotify.com, so the Home cannot stay on "loading" forever.
+test('MEL-BUG-051: settings icon slot always rendered, placeholder glyph when empty', () => {
+  const createAt = factory.indexOf('.method public static create(');
+  const create = factory.slice(createAt, factory.indexOf('.end method', createAt));
+  assert.ok(!/if-eqz v0, :native_settings_no_avatar\n    new-instance v0, Landroid\/widget\/ImageView;/.test(create),
+    'the avatar slot is no longer skipped when image is empty');
+  assert.match(create, /:native_settings_icon_placeholder[\s\S]*?"native_cover_placeholder"[\s\S]*?setColorFilter\(I\)V/,
+    'empty image falls back to the muted glyph with a muted tint');
+});
+
+test('MEL-BUG-051: a heartbeat attempts the library proof every 45s unless signed out', () => {
+  const shellSrc = fs.readFileSync(path.join(repo, 'scripts/native_ui_shell.source.js'), 'utf8');
+  assert.match(shellSrc, /__sfProofHeartbeatTimer = window\.setInterval\(function\(\) \{[\s\S]*?requestMediaLibraryProof\('heartbeat', false\)[\s\S]*?\}, 45000\)/,
+    'periodic proof attempt exists');
+  assert.match(shellSrc, /currentSpotifyAuthUiState\(\) === 'required'\) return/,
+    'a definite sign-out still blocks the heartbeat');
+  const shellAsset = fs.readFileSync(path.join(repo, 'assets/native_ui_shell.js'), 'utf8');
+  assert.ok(shellAsset.includes('__sfProofHeartbeatTimer'), 'assets/native_ui_shell.js must be regenerated');
+});

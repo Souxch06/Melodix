@@ -58,9 +58,7 @@
     const-string v1, ""
     invoke-virtual {p1, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
     move-result-object v9
-    invoke-virtual {v9}, Ljava/lang/String;->isEmpty()Z
-    move-result v0
-    if-eqz v0, :native_settings_no_avatar
+    # MEL-BUG-051: always show the icon slot; empty image gets the muted glyph.
     new-instance v0, Landroid/widget/ImageView;
     invoke-direct {v0, p0}, Landroid/widget/ImageView;-><init>(Landroid/content/Context;)V
     sget-object v1, Landroid/widget/ImageView$ScaleType;->CENTER_CROP:Landroid/widget/ImageView$ScaleType;
@@ -82,8 +80,18 @@
     move-result v3
     iput v3, v1, Landroid/view/ViewGroup$MarginLayoutParams;->rightMargin:I
     invoke-virtual {v2, v0, v1}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    invoke-virtual {v9}, Ljava/lang/String;->isEmpty()Z
+    move-result v3
+    if-eqz v3, :native_settings_icon_placeholder
     const/16 v3, 0xb0
     invoke-static {v0, v9, v3}, Lcom/melodix/music/NativeImageLoader;->load(Landroid/widget/ImageView;Ljava/lang/String;I)V
+    goto :native_settings_no_avatar
+
+    :native_settings_icon_placeholder
+    const-string v3, "native_cover_placeholder"
+    invoke-static {p0, v0, v3}, Lcom/melodix/music/NativeUiRowFactory;->applyDrawableImage(Landroid/content/Context;Landroid/widget/ImageView;Ljava/lang/String;)V
+    sget v3, Lcom/melodix/music/MelColors;->textSecondary:I
+    invoke-virtual {v0, v3}, Landroid/widget/ImageView;->setColorFilter(I)V
 
     :native_settings_no_avatar
     new-instance v8, Landroid/widget/LinearLayout;
