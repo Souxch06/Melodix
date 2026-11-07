@@ -89,12 +89,15 @@ test('MEL-BUG-046: the visible libraryV3 status text carries the bearer flag on 
   assert.ok(shellAsset.includes('mediaLibraryBearerSuffix'), 'assets/native_ui_shell.js must be regenerated');
 });
 
-// MEL-BUG-048: the Home state card itself carries the boolean bearer flag on a
-// confirmed 401/403 — a home screenshot is enough, no settings detour, no adb.
-test('MEL-BUG-048: the home refusal card shows bearer=0/1', () => {
+// MEL-BUG-048 + MEL-BUG-054: the Home state card carries the boolean bearer flag
+// exactly ONCE, inside the diagLine (MEL-BUG-050) — the old standalone
+// "(bearer=…)" suffix was removed to avoid a duplicated "(bearer=0) […] bearer=0".
+test('MEL-BUG-048/054: the home refusal card shows bearer=0/1 exactly once', () => {
   const shellSrc = fs.readFileSync(path.join(repo, 'scripts/native_ui_shell.source.js'), 'utf8');
-  assert.match(shellSrc, /err === 'http-401' \|\| err === 'http-403'\) && subtitle\) \{\s*subtitle \+= mediaLibraryBearerSuffix\(\);/,
-    'the home card subtitle appends the bearer flag on refusals');
+  assert.doesNotMatch(shellSrc, /&& subtitle\) \{\s*subtitle \+= mediaLibraryBearerSuffix\(\);/,
+    'no standalone bearer suffix on the home card anymore (diagLine carries it)');
+  assert.match(shellSrc, /var diagLine = ' \[auth='[\s\S]*?bearer=' \+ diagBearer/,
+    'the diagLine carries the bearer flag');
   assert.ok(shellAsset.includes('mediaLibraryBearerSuffix'), 'assets/native_ui_shell.js must be regenerated');
 });
 

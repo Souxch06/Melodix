@@ -65,7 +65,11 @@
     invoke-virtual {v0, v1}, Landroid/widget/ImageView;->setScaleType(Landroid/widget/ImageView$ScaleType;)V
     new-instance v1, Landroid/graphics/drawable/GradientDrawable;
     invoke-direct {v1}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
-    sget v3, Lcom/melodix/music/MelColors;->glassFill:I
+    # MEL-BUG-054: accent-tinted icon slot (accent at ~25% alpha) instead of the
+    # flat glass fill — the placeholder glyph becomes clearly visible.
+    sget v3, Lcom/melodix/music/MelColors;->accent:I
+    const v4, 0x40000000
+    or-int/2addr v3, v4
     invoke-virtual {v1, v3}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
     const/high16 v3, 0x41b00000
     invoke-virtual {v1, v3}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
@@ -90,7 +94,8 @@
     :native_settings_icon_placeholder
     const-string v3, "native_cover_placeholder"
     invoke-static {p0, v0, v3}, Lcom/melodix/music/NativeUiRowFactory;->applyDrawableImage(Landroid/content/Context;Landroid/widget/ImageView;Ljava/lang/String;)V
-    sget v3, Lcom/melodix/music/MelColors;->textSecondary:I
+    # MEL-BUG-054: accent-colored glyph on the accent-tinted slot.
+    sget v3, Lcom/melodix/music/MelColors;->accent:I
     invoke-virtual {v0, v3}, Landroid/widget/ImageView;->setColorFilter(I)V
 
     :native_settings_no_avatar

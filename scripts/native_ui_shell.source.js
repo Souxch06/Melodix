@@ -1346,6 +1346,8 @@
         } else if (status === 'error') {
             subtitle = detail || 'La connexion à Spotify n’a pas pu être vérifiée.';
             subtitle = subtitle.replace(/\s*[—–]\s*(?:nouvel essai automatique en cours\.\s*)?Touchez pour réessayer(?: maintenant)?\.?$/i, '');
+            // the strip can leave a sentence without its final period ("…confirmée La cause…")
+            if (subtitle && !/[.!?…]$/.test(subtitle)) subtitle += '.';
             if (err === 'http-401' || err === 'http-403') subtitle += ' La cause n’est pas établie.';
             subtitle += ' Vos playlists restent masquées tant que la connexion n’est pas confirmée.';
             if (err === 'http-403') {
@@ -1371,11 +1373,9 @@
             // authentication is required; loading and unknown remain informational.
             primaryUri = '';
         }
-        // MEL-BUG-048: on a confirmed refusal, the Home card itself carries the
-        // boolean bearer flag — a home screenshot is enough, no settings detour.
-        if ((err === 'http-401' || err === 'http-403') && subtitle) {
-            subtitle += mediaLibraryBearerSuffix();
-        }
+        // MEL-BUG-054: the bearer flag is carried ONCE by the diagLine below
+        // (MEL-BUG-050); the old standalone (bearer=…) suffix is dropped to
+        // avoid a duplicated "(bearer=0) […] bearer=0" on the Home card.
         // MEL-BUG-050: make the test build self-diagnosing — the card carries a
         // compact internal state (auth state, library status, attempts sent,
         // last error, bearer flag) so one screenshot tells exactly what happens.
@@ -3112,6 +3112,24 @@
                 image: '',
                 uri: 'melodix:action:open-search',
                 settingValue: 'Ouvrir'
+            },
+            {
+                section: 'Spotify',
+                title: 'Compte Spotify en ligne',
+                subtitle: 'Ouvre la page compte Spotify dans le lecteur : réglages du compte, qualité audio et confidentialité gérés par Spotify.',
+                image: '',
+                uri: 'melodix:action:open-account',
+                settingValue: 'Ouvrir'
+            },
+            {
+                section: 'Spotify',
+                title: 'Se déconnecter de Spotify',
+                subtitle: sessionProven
+                    ? 'Termine la session Spotify de ce lecteur via le contrôle officiel.'
+                    : 'Disponible uniquement quand la session est confirmée par libraryV3.',
+                image: '',
+                uri: sessionProven ? 'spotify:settings:logout' : '',
+                settingValue: sessionProven ? 'Déconnexion' : 'Indisponible'
             },
             {
                 section: 'Spotify',

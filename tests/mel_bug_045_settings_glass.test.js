@@ -103,3 +103,40 @@ test('MEL-BUG-053: search action row exists in Settings and in the native fallba
   assert.ok(rows.some((r) => r.title === 'Rechercher sur Spotify' && r.uri === 'melodix:action:open-search'),
     'native fallback settings include the search row');
 });
+
+// MEL-BUG-054 (from the 2026-11-07 15:05 screenshots): no duplicated bearer
+// flag on the Home card, punctuation fixed after the retry-suffix strip, two
+// more REAL Spotify actions in Settings, accent-tinted icon slots.
+test('MEL-BUG-054: home card punctuation is repaired after the retry-suffix strip', () => {
+  const shellSrc = fs.readFileSync(path.join(repo, 'scripts/native_ui_shell.source.js'), 'utf8');
+  assert.match(shellSrc, /if \(subtitle && !\/\[\.!\?…\]\$\/\.test\(subtitle\)\) subtitle \+= '\.';/,
+    'a stripped sentence regains its final period before the next sentence');
+});
+
+test('MEL-BUG-054: Settings offers the online Spotify account page and a real logout action', () => {
+  const shellSrc = fs.readFileSync(path.join(repo, 'scripts/native_ui_shell.source.js'), 'utf8');
+  assert.match(shellSrc, /title: 'Compte Spotify en ligne',[\s\S]*?uri: 'melodix:action:open-account'/,
+    'account page row present');
+  assert.match(shellSrc, /title: 'Se déconnecter de Spotify',[\s\S]*?uri: sessionProven \? 'spotify:settings:logout' : ''/,
+    'logout row uses the real spotify:settings:logout control when the session is proven');
+  const mainSmali = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/MainActivity.smali'), 'utf8');
+  const at = mainSmali.indexOf('melodix:action:open-account');
+  assert.ok(at > 0, 'native dispatch knows open-account');
+  assert.match(mainSmali.slice(at, at + 700), /https:\/\/open\.spotify\.com\/account[\s\S]*?loadUrl/,
+    'open-account navigates the WebView to the official account page');
+  const line = mainSmali.split('\n').find((l) => l.includes('Rechercher sur Spotify') && l.includes('const-string'));
+  const raw = line.slice(line.indexOf('"') + 1, line.lastIndexOf('"')).replace(/\\"/g, '"');
+  const rows = JSON.parse(raw);
+  assert.ok(rows.some((r) => r.uri === 'melodix:action:open-account'), 'fallback has the account row');
+  assert.ok(rows.some((r) => r.uri === 'spotify:settings:logout'), 'fallback has the logout row');
+});
+
+test('MEL-BUG-054: settings icon slots are accent-tinted with an accent glyph', () => {
+  const smali = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/NativeSettingsRowFactory.smali'), 'utf8');
+  assert.match(smali, /MelColors;->accent:I\s*\n\s*const v4, 0x40000000\s*\n\s*or-int\/2addr v3, v4/,
+    'icon slot background = accent at 25% alpha');
+  const at = smali.indexOf('\n    :native_settings_icon_placeholder\n');
+  const block = smali.slice(at, smali.indexOf(':native_settings_no_avatar', at));
+  assert.match(block, /MelColors;->accent:I\s*\n\s*invoke-virtual \{v0, v3\}, Landroid\/widget\/ImageView;->setColorFilter/,
+    'placeholder glyph drawn in accent color');
+});
