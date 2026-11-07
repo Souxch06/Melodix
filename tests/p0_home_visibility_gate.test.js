@@ -601,8 +601,8 @@ test('[P0] the shell waits for confirmed player UI, retries once per auth epoch,
     'at most 3 attempts per epoch, then blocked (no 401/403 retry loop)');
   assert.match(gate, /previousError === 'http-429'[\s\S]*?now < window\.__sfMediaLibRetryAt/,
     'Retry-After/backoff remains authoritative even for explicit retries');
-  assert.match(shell, /addEventListener\('sf-spotify-auth-state-changed', scheduleUpdate\)/,
-    'a rendered sign-in transition triggers one new state derivation without timer polling');
+  assert.match(shell, /addEventListener\('sf-spotify-auth-state-changed', function\(\) \{[\s\S]*?__sfMediaLibRefusalEpoch = 0[\s\S]*?scheduleUpdate\(\)/,
+    'a rendered sign-in transition resets the refusal budget (MEL-BUG-040) and triggers one new state derivation without timer polling');
   assert.match(shell, /uri: refreshAvailable \? 'melodix:action:retry-library' : ''/,
     'the Settings refresh action uses the existing gated native retry path');
   assert.doesNotMatch(shell, /settings-resync|synchronisée ✓/,

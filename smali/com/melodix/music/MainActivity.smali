@@ -10696,7 +10696,9 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     iget v1, p0, Lcom/melodix/music/MainActivity;->nativeSettingsGeneration:I
     invoke-direct {v0, p0, v1}, Lcom/melodix/music/NativeSettingsTimeoutRunnable;-><init>(Lcom/melodix/music/MainActivity;I)V
     iget-object v2, p0, Lcom/melodix/music/MainActivity;->d0:Landroid/os/Handler;
-    const-wide/16 v3, 0x1194
+    # MEL-BUG-037: 2 s (0x7d0) instead of 4.5 s so the Settings screen never sits
+    # on "Chargement des paramètres…" for long when the WebView cannot answer.
+    const-wide/16 v3, 0x7d0
     invoke-virtual {v2, v0, v3, v4}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
     return-void
 .end method
@@ -10735,7 +10737,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     # No WebView answer (no session or slow bridge): render a REAL local fallback,
     # not a dead end. Every action is a real dispatch; the About section (version,
     # sensitive data) is appended like any settings payload.
-    const-string v2, "[{\"section\":\"État\",\"title\":\"Paramètres indisponibles\",\"subtitle\":\"Le module de réglages n’a pas répondu. Réessayez.\",\"settingValue\":\"Réessayer\",\"uri\":\"melodix:action:retry-settings\"},{\"section\":\"Compte et connexion\",\"title\":\"État de la connexion Spotify\",\"subtitle\":\"Aucune session confirmée par la WebView : touchez pour (re)connecter Spotify.\",\"settingValue\":\"Se connecter\",\"uri\":\"melodix:action:open-login\"},{\"section\":\"Notifications\",\"title\":\"Notifications de Melodix\",\"subtitle\":\"L’autorisation se gère dans les réglages système Android de l’application.\",\"settingValue\":\"Réglages système\",\"uri\":\"melodix:action:open-notifications\"}]"
+    const-string v2, "[{\"section\":\"État\",\"title\":\"Paramètres indisponibles\",\"subtitle\":\"Le module de réglages n’a pas répondu. Réessayez.\",\"settingValue\":\"Réessayer\",\"uri\":\"melodix:action:retry-settings\"},{\"section\":\"Compte et connexion\",\"title\":\"État de la connexion Spotify\",\"subtitle\":\"Aucune session confirmée par la WebView : touchez pour (re)connecter Spotify.\",\"settingValue\":\"Se connecter\",\"uri\":\"melodix:action:open-login\"},{\"section\":\"Apparence et thème\",\"title\":\"Thème actuel\",\"subtitle\":\"Identité sombre avec accent vert émeraude, définie par le thème de l’application.\",\"settingValue\":\"Sombre\",\"uri\":\"\"},{\"section\":\"Préférences de lecture\",\"title\":\"Lecture automatique après un titre\",\"subtitle\":\"Préférence locale Melodix.\",\"settingValue\":\"ON\",\"uri\":\"melodix:setting:autoplay\"},{\"section\":\"Préférences de lecture\",\"title\":\"Visuels Canvas\",\"subtitle\":\"Préférence locale d’affichage Melodix.\",\"settingValue\":\"ON\",\"uri\":\"melodix:setting:canvas\"},{\"section\":\"Préférences de lecture\",\"title\":\"Maintenir l’audio en arrière-plan\",\"subtitle\":\"Préférence locale de gestion de veille Melodix.\",\"settingValue\":\"ON\",\"uri\":\"melodix:setting:bg_audio\"},{\"section\":\"Notifications\",\"title\":\"Notifications de Melodix\",\"subtitle\":\"L’autorisation se gère dans les réglages système Android de l’application.\",\"settingValue\":\"Réglages système\",\"uri\":\"melodix:action:open-notifications\"}]"
     invoke-direct {p0, v2}, Lcom/melodix/music/MainActivity;->appendNativeAboutRows(Ljava/lang/String;)Ljava/lang/String;
     move-result-object v2
     invoke-virtual {p0, v1, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V

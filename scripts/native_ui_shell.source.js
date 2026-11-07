@@ -3851,7 +3851,15 @@
 
         window.addEventListener('popstate', scheduleUpdate);
         window.addEventListener('hashchange', scheduleUpdate);
-        window.addEventListener('sf-spotify-auth-state-changed', scheduleUpdate);
+        window.addEventListener('sf-spotify-auth-state-changed', function() {
+            // MEL-BUG-040: any real auth-state transition (fresh login, logout)
+            // must grant a fresh refusal budget, even if the epoch counter did
+            // not move. Otherwise a 401 seen during the login redirect could
+            // leave the Home stuck on the error card for the whole session.
+            window.__sfMediaLibRefusalEpoch = 0;
+            window.__sfMediaLibRefusalAttempts = 0;
+            scheduleUpdate();
+        });
         window.addEventListener('load', scheduleUpdate, { once: true });
         window.addEventListener('pageshow', refreshWhenVisible);
         window.addEventListener('focus', refreshWhenVisible);

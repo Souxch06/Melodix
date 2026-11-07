@@ -76,10 +76,9 @@
     invoke-static {p0, v13, v2}, Lcom/melodix/music/NativeHomeShelfRenderer;->renderHomeStatus(Lcom/melodix/music/MainActivity;Landroid/widget/LinearLayout;Lorg/json/JSONObject;)Z
     move-result v3
     if-eqz v3, :shelf_no_cards
-    # Visual rebuild, screen 1: the status card used to be the only thing on a
-    # signed-out home, leaving most of the screen blank. Offer real navigation
-    # instead. Only on this branch, so an authenticated home is untouched.
-    invoke-static {p0, v13}, Lcom/melodix/music/NativeShortcutGrid;->render(Lcom/melodix/music/MainActivity;Landroid/widget/LinearLayout;)V
+    # MEL-BUG-038: the "Explorer Melodix" shortcut grid under the status card was
+    # removed on user request — the signed-out Home now shows only the status
+    # card. Real navigation stays available via the bottom tab bar.
     const-string v4, "status"
     invoke-static {v4}, Lcom/melodix/music/NativeHomeShelfRenderer;->traceHomeModel(Ljava/lang/String;)V
     invoke-static {v1, p1, v4}, Lcom/melodix/music/NativeHomeShelfRenderer;->traceHomeRendered(IILjava/lang/String;)V
@@ -788,7 +787,8 @@
     invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->statusStroke(Landroid/content/Context;)I
 
     move-result v3
-    sget v4, Lcom/melodix/music/MelColors;->strokeAccent:I
+    # MEL-BUG-039: hairline glass stroke (light) instead of the accent stroke.
+    sget v4, Lcom/melodix/music/MelColors;->glassStroke:I
     invoke-virtual {v2, v3, v4}, Landroid/graphics/drawable/GradientDrawable;->setStroke(II)V
     return-object v2
 .end method
@@ -804,8 +804,13 @@
     invoke-direct {v1}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
     const/4 v2, 0x1
     invoke-virtual {v1, v2}, Landroid/graphics/drawable/GradientDrawable;->setShape(I)V
-    sget v2, Lcom/melodix/music/MelColors;->glow:I
+    # MEL-BUG-039: glass icon disc — translucent white fill + hairline light
+    # stroke, Apple-style, instead of the solid accent glow.
+    sget v2, Lcom/melodix/music/MelColors;->glassFill:I
     invoke-virtual {v1, v2}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
+    const/4 v2, 0x1
+    sget v3, Lcom/melodix/music/MelColors;->glassStroke:I
+    invoke-virtual {v1, v2, v3}, Landroid/graphics/drawable/GradientDrawable;->setStroke(II)V
     invoke-virtual {v0, v1}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
     invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->statusIconPad(Landroid/content/Context;)I
     move-result v2

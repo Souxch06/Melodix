@@ -75,14 +75,9 @@ test('dimensions come from tokens, and icons and colours resolve by name', () =>
   assert.ok(!/const v\d+, 0x7f0[0-9a-f]{5}/.test(grid), 'no hardcoded resource ids');
 });
 
-test('the grid is added only on the signed-out branch, leaving an authenticated home alone', () => {
+test('MEL-BUG-038: the "Explorer Melodix" shortcut grid is removed from Home on user request', () => {
   const renderer = read('smali/com/melodix/music/NativeHomeShelfRenderer.smali');
-  const at = renderer.indexOf('NativeShortcutGrid;->render');
-  assert.ok(at > 0, 'the grid must be wired in');
-  const before = renderer.slice(0, at);
-  assert.ok(before.includes('->renderHomeStatus('), 'it must follow the status render');
-  assert.ok(before.includes('if-eqz v3, :shelf_no_cards'), 'and only when a status card was attached');
-  assert.ok(at < renderer.indexOf('\n    :shelf_render_spotify_rows\n'),
-    'it must not be on the authenticated rows branch');
-  assert.equal([...renderer.matchAll(/NativeShortcutGrid;->render/g)].length, 1, 'one call site');
+  assert.equal(renderer.indexOf('NativeShortcutGrid;->render'), -1,
+    'the grid must no longer be rendered anywhere on Home (tab bar remains the navigation)');
+  assert.match(renderer, /MEL-BUG-038/, 'the removal is documented at the former call site');
 });

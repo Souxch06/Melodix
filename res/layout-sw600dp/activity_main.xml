@@ -98,7 +98,7 @@
                 android:clickable="true"
                 android:focusable="true"
                 android:contentDescription="Back"
-                android:background="@drawable/native_button_dark"
+                android:background="@drawable/native_icon_glass"
                 android:onClick="onNativeBackClick"
                 android:visibility="gone"
                 android:layout_width="@dimen/mel_header_action"
@@ -107,7 +107,7 @@
             <androidx.cardview.widget.CardView
                 android:layout_width="@dimen/mel_header_avatar"
                 android:layout_height="@dimen/mel_header_avatar"
-                app:cardBackgroundColor="@color/mel_surface_card"
+                app:cardBackgroundColor="@color/mel_glass_card"
                 app:cardCornerRadius="@dimen/mel_header_avatar_radius"
                 app:cardElevation="0.0dip">
                 <ImageView
@@ -139,7 +139,7 @@
                 android:clickable="true"
                 android:focusable="true"
                 android:contentDescription="Paramètres"
-                android:background="@drawable/native_button_dark"
+                android:background="@drawable/native_icon_glass"
                 android:onClick="onNativeSettingsClick"
                 android:layout_width="@dimen/mel_header_action"
                 android:layout_height="@dimen/mel_header_action"
@@ -718,11 +718,11 @@
                 android:gravity="center"
                 android:layout_width="fill_parent"
                 android:layout_height="wrap_content">
-                <ImageView android:id="@id/nativePlayerShuffleButton" android:src="@drawable/shuffle" android:tint="@color/mel_text_secondary" android:scaleType="centerInside" android:padding="@dimen/mel_player_side_pad" android:clickable="true" android:focusable="true" android:contentDescription="Lecture aléatoire" android:background="@drawable/native_button_dark" android:onClick="onNativePlayerShuffleClick" android:layout_width="@dimen/mel_player_side_control" android:layout_height="@dimen/mel_player_side_control" />
-                <ImageView android:id="@id/nativePlayerPreviousButton" android:src="@drawable/previous" android:scaleType="centerInside" android:padding="@dimen/mel_player_control_pad" android:clickable="true" android:focusable="true" android:contentDescription="Morceau précédent" android:background="@drawable/native_button_dark" android:onClick="onNativePlayerPreviousClick" android:layout_width="@dimen/mel_player_control" android:layout_height="@dimen/mel_player_control" android:layout_marginLeft="@dimen/mel_player_control_inset" />
+                <ImageView android:id="@id/nativePlayerShuffleButton" android:src="@drawable/shuffle" android:tint="@color/mel_text_secondary" android:scaleType="centerInside" android:padding="@dimen/mel_player_side_pad" android:clickable="true" android:focusable="true" android:contentDescription="Lecture aléatoire" android:background="@drawable/native_icon_glass" android:onClick="onNativePlayerShuffleClick" android:layout_width="@dimen/mel_player_side_control" android:layout_height="@dimen/mel_player_side_control" />
+                <ImageView android:id="@id/nativePlayerPreviousButton" android:src="@drawable/previous" android:scaleType="centerInside" android:padding="@dimen/mel_player_control_pad" android:clickable="true" android:focusable="true" android:contentDescription="Morceau précédent" android:background="@drawable/native_icon_glass" android:onClick="onNativePlayerPreviousClick" android:layout_width="@dimen/mel_player_control" android:layout_height="@dimen/mel_player_control" android:layout_marginLeft="@dimen/mel_player_control_inset" />
                 <ImageView android:id="@id/nativePlayerLargePlayPauseButton" android:src="@drawable/play" android:tint="@color/mel_text_dark" android:scaleType="centerInside" android:padding="@dimen/mel_player_play_pad" android:clickable="true" android:focusable="true" android:contentDescription="Lecture ou pause" android:background="@drawable/native_button_white" android:onClick="onNativePlayPauseClick" android:layout_width="@dimen/mel_player_play" android:layout_height="@dimen/mel_player_play" android:layout_marginLeft="@dimen/mel_player_control_gap" android:layout_marginRight="@dimen/mel_player_control_gap" />
-                <ImageView android:id="@id/nativePlayerNextButton" android:src="@drawable/next" android:scaleType="centerInside" android:padding="@dimen/mel_player_next_pad" android:clickable="true" android:focusable="true" android:contentDescription="Morceau suivant" android:background="@drawable/native_button_dark" android:onClick="onNativePlayerNextClick" android:layout_width="@dimen/mel_player_control" android:layout_height="@dimen/mel_player_control" android:layout_marginRight="@dimen/mel_player_control_inset" />
-                <ImageView android:id="@id/nativePlayerRepeatButton" android:src="@drawable/repoff" android:tint="@color/mel_text_secondary" android:scaleType="centerInside" android:padding="@dimen/mel_player_side_pad" android:clickable="true" android:focusable="true" android:contentDescription="Répéter" android:background="@drawable/native_button_dark" android:onClick="onNativePlayerRepeatClick" android:layout_width="@dimen/mel_player_side_control" android:layout_height="@dimen/mel_player_side_control" />
+                <ImageView android:id="@id/nativePlayerNextButton" android:src="@drawable/next" android:scaleType="centerInside" android:padding="@dimen/mel_player_next_pad" android:clickable="true" android:focusable="true" android:contentDescription="Morceau suivant" android:background="@drawable/native_icon_glass" android:onClick="onNativePlayerNextClick" android:layout_width="@dimen/mel_player_control" android:layout_height="@dimen/mel_player_control" android:layout_marginRight="@dimen/mel_player_control_inset" />
+                <ImageView android:id="@id/nativePlayerRepeatButton" android:src="@drawable/repoff" android:tint="@color/mel_text_secondary" android:scaleType="centerInside" android:padding="@dimen/mel_player_side_pad" android:clickable="true" android:focusable="true" android:contentDescription="Répéter" android:background="@drawable/native_icon_glass" android:onClick="onNativePlayerRepeatClick" android:layout_width="@dimen/mel_player_side_control" android:layout_height="@dimen/mel_player_side_control" />
             </LinearLayout>
             </LinearLayout>
             </LinearLayout>
@@ -830,11 +830,12 @@
         </LinearLayout>
 
         <View
-            android:background="@color/mel_scrim"
+            android:background="@android:color/transparent"
             android:layout_width="fill_parent"
             android:layout_height="@dimen/mel_tab_divider" />
         <LinearLayout
             android:id="@id/nativeTabBar"
+            android:background="@drawable/native_tabbar_glass"
             android:orientation="horizontal"
             android:gravity="center"
             android:paddingTop="@dimen/mel_tab_pad_v"

@@ -19,6 +19,10 @@
 .field public static stroke:I
 .field public static strokeAccent:I
 .field public static glow:I
+.field public static glassFill:I
+.field public static glassStroke:I
+.field public static glassTabbar:I
+.field public static glassCard:I
 
 .method static constructor <clinit>()V
     .locals 1
@@ -35,15 +39,15 @@
 
     sput v0, Lcom/melodix/music/MelColors;->background:I
 
-    const v0, 0xff10151a
+    const v0, 0xcc10151a
 
     sput v0, Lcom/melodix/music/MelColors;->surface:I
 
-    const v0, 0xff1a222a
+    const v0, 0xe01a222a
 
     sput v0, Lcom/melodix/music/MelColors;->surfaceHigh:I
 
-    const v0, 0xff232d36
+    const v0, 0xd9232d36
 
     sput v0, Lcom/melodix/music/MelColors;->surfaceBtn:I
 
@@ -59,7 +63,7 @@
 
     sput v0, Lcom/melodix/music/MelColors;->textTertiary:I
 
-    const v0, 0x2effffff
+    const v0, 0x33ffffff
 
     sput v0, Lcom/melodix/music/MelColors;->stroke:I
 
@@ -70,6 +74,22 @@
     const v0, 0x331ed760
 
     sput v0, Lcom/melodix/music/MelColors;->glow:I
+
+    const v0, 0x1affffff
+
+    sput v0, Lcom/melodix/music/MelColors;->glassFill:I
+
+    const v0, 0x40ffffff
+
+    sput v0, Lcom/melodix/music/MelColors;->glassStroke:I
+
+    const v0, 0xb3141a20
+
+    sput v0, Lcom/melodix/music/MelColors;->glassTabbar:I
+
+    const v0, 0x26ffffff
+
+    sput v0, Lcom/melodix/music/MelColors;->glassCard:I
 
     return-void
 .end method

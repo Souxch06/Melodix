@@ -2042,8 +2042,9 @@ test('the Home connection card is actionable in every state, not just on error',
     // The status renderer maps the action to a real label and dispatches it.
     const shelf = read('smali/com/melodix/music/NativeHomeShelfRenderer.smali');
     assert.match(shelf, /"melodix:action:open-login"[\s\S]*?"Se connecter"/);
-    // Local shortcuts stay rendered on the status branch (not blocked).
-    assert.match(shelf, /renderHomeStatus[\s\S]*?NativeShortcutGrid;->render/);
+    // MEL-BUG-038: the "Explorer Melodix" shortcut grid was removed on user
+    // request — the status branch must NOT render it anymore.
+    assert.doesNotMatch(shelf, /NativeShortcutGrid;->render/);
 });
 
 test('settings connection state covers the full incident scenario matrix', () => {

@@ -411,8 +411,8 @@ test('native Settings timeout replaces loading with a retryable error, and rejec
 
     assert.match(begin, /Chargement des paramètres/);
     assert.doesNotMatch(begin, /const-string v2, "\[\]"/);
-    assert.match(begin, /0x1194[\s\S]*?postDelayed\(Ljava\/lang\/Runnable;J\)Z/,
-        'the native watchdog has a fixed 4500ms deadline');
+    assert.match(begin, /0x7d0[\s\S]*?postDelayed\(Ljava\/lang\/Runnable;J\)Z/,
+        'the native watchdog has a fixed 2000ms deadline (MEL-BUG-037: never sit on the loading row)');
     assert.match(timeout, /nativeSettingsGeneration:I[\s\S]*?nativeSettingsLoading:Z[\s\S]*?"settings"/);
     assert.match(timeout, /Paramètres indisponibles[\s\S]*?melodix:action:retry-settings/);
     assert.match(applied, /nativeSettingsReadyGeneration:I[\s\S]*?nativeSettingsLoading:Z[\s\S]*?__sfNativeSettingsApplied/);
@@ -429,6 +429,10 @@ test('native Settings timeout replaces loading with a retryable error, and rejec
     assert.ok(errorRows.some((r) => r.uri === 'melodix:action:open-login'), 'fallback offers a real connect action');
     assert.ok(errorRows.some((r) => r.uri === 'melodix:action:open-notifications'), 'fallback offers the real notifications screen');
     assert.ok(errorRows.some((r) => r.title === 'État de la connexion Spotify' && r.settingValue === 'Se connecter'));
+    // MEL-BUG-037: the fallback always carries the real app-local sections too.
+    for (const frag of ['Apparence et thème', 'melodix:setting:autoplay', 'melodix:setting:canvas', 'melodix:setting:bg_audio']) {
+        assert.ok(errorRows.some((r) => (r.section === frag) || (r.uri === frag)), `fallback must include ${frag}`);
+    }
 
     const staleDeadline = executeSettingsTimeout(7, 6, true, 'settings');
     assert.equal(staleDeadline.nativeSettingsLoading, true);

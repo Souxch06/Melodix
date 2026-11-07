@@ -47,3 +47,11 @@ test('MEL-BUG-030: no infinite retry loop is possible', () => {
 test('MEL-BUG-030: minified asset carries the budget logic', () => {
   assert.ok(shellAsset.includes('__sfMediaLibRefusalAttempts'), 'assets/native_ui_shell.js must be regenerated');
 });
+
+test('MEL-BUG-040: a real auth-state transition resets the refusal budget', () => {
+  const m = shell.match(/addEventListener\('sf-spotify-auth-state-changed', function\(\) \{([\s\S]*?)\}\);/);
+  assert.ok(m, 'the auth-state-changed listener is a dedicated handler');
+  assert.match(m[1], /__sfMediaLibRefusalEpoch = 0;[\s\S]*?__sfMediaLibRefusalAttempts = 0;/,
+    'a fresh sign-in/logout always gets a fresh bounded budget');
+  assert.match(m[1], /scheduleUpdate\(\)/, 'the transition still triggers a UI update');
+});

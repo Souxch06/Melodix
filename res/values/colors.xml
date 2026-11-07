@@ -98,10 +98,10 @@
          ============================================================ -->
     <!-- base surfaces -->
     <color name="mel_background">#060809</color>
-    <color name="mel_surface">#10151a</color>
-    <color name="mel_surface_high">#1a222a</color>
-    <color name="mel_surface_btn">#232d36</color>
-    <color name="mel_surface_btn_top">#28323c</color>
+    <color name="mel_surface">#CC10151A</color>
+    <color name="mel_surface_high">#E01A222A</color>
+    <color name="mel_surface_btn">#D9232D36</color>
+    <color name="mel_surface_btn_top">#E628323C</color>
     <color name="mel_surface_alt">#2a2a2a</color>
     <!-- accents -->
     <color name="mel_accent">#1ed760</color>
@@ -114,9 +114,14 @@
     <color name="mel_text_dim">#aaaaaa</color>
     <color name="mel_icon_muted">#6e7684</color>
     <!-- strokes and technical masks -->
-    <color name="mel_stroke">#2effffff</color>
+    <color name="mel_stroke">#33FFFFFF</color>
     <color name="mel_stroke_accent">#2e1ed760</color>
     <color name="mel_mask">#ffffffff</color>
+    <!-- MEL-BUG-039: glass palette (Apple-like translucent surfaces + hairline strokes) -->
+    <color name="mel_glass_fill">#1AFFFFFF</color>
+    <color name="mel_glass_stroke">#40FFFFFF</color>
+    <color name="mel_glass_tabbar">#B3141A20</color>
+    <color name="mel_glass_card">#26FFFFFF</color>
     <!-- gradient roles -->
     <color name="mel_shell_top">#0c2019</color>
     <color name="mel_shell_mid">#0c1116</color>
