@@ -486,6 +486,12 @@
 
     :login_url
     const-string v1, "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&allow_signup=1"
+    # MEL-BUG-042: when no session is proven at load time (always true on a
+    # cold start: AppSingleton forces B=false at startup), show the official
+    # login screen directly instead of the native home. A valid persisted
+    # session cookie auto-continues to open.spotify.com via the continue
+    # parameter, so a saved login still lands on Home by itself.
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealLoginWebUi()V
 
     :have_url
     :try_start_load
