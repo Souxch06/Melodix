@@ -839,6 +839,9 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 ## MEL-BUG-046 — P1 : le flag bearer=0/1 visible dans l'app (Paramètres → Spotify → État de libraryV3) (2026-11-07)
 - La ligne « libraryV3 a répondu 401/403 » affiche désormais ` (bearer=0/1)` (booléen, jamais le token) : **une capture d'écran sur le téléphone suffit**, plus besoin d'adb logcat pour le diagnostic. Test : +1 dans `mel_bug_041_refusal_cooldown.test.js`. Suite : **861/858/0/3**.
 
+## MEL-BUG-047 — P1 : la ligne « État de libraryV3 » des Paramètres force la vérification au toucher (2026-11-07)
+- La ligne d'état n'était pas cliquable hors chargement : on ne pouvait pas provoquer la requête libraryV3 depuis le téléphone. Elle porte maintenant `melodix:action:retry-library` (sauf pendant un chargement), dans les lignes JS et dans le fallback natif → l'utilisateur force la vérification et lit le résultat (401 + `bearer=0/1`) directement dans l'app, sans adb. Test : +1 dans `mel_bug_045_settings_glass.test.js`. Suite : **862/859/0/3**.
+
 ## Previews publiées depuis Arena — test.65 à test.69 (2026-11-07, branche arena/6b935c3e-melodix, PR #8)
 - **test.65** (vC 1065, `356cf49`) : MEL-BUG-041 cool-down 120 s après budget de refus épuisé + flag booléen `bearer` dans le diagnostic. sha256 `4820e7b1…ce9847`.
 - **test.66** (vC 1066, `36498fa`) : MEL-BUG-042 écran de connexion officiel affiché directement au lancement. sha256 `d0ef93bf…9906f8`.

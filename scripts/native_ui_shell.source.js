@@ -3065,7 +3065,10 @@
                 title: 'État de libraryV3',
                 subtitle: mediaLibraryDiagnosticStatus(),
                 image: '',
-                uri: '',
+                // MEL-BUG-047: the status row is itself actionable (except while
+                // a check is running) so the user can force a libraryV3 check
+                // from the phone and read the resulting error + bearer flag here.
+                uri: status === 'loading' ? '' : 'melodix:action:retry-library',
                 settingValue: status === 'ready' ? 'Résultat reçu' : status === 'loading' ? 'Chargement' : status === 'error' ? 'Erreur' : 'À vérifier'
             },
             {

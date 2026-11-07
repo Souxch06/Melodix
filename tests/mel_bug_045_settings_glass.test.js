@@ -34,3 +34,17 @@ test('MEL-BUG-045: the native fallback lists every settings section with real ac
   assert.ok(!body.includes('À propos'), 'no duplicate À propos row in the fallback JSON');
   assert.match(body, /appendNativeAboutRows/);
 });
+
+// MEL-BUG-047: the "État de libraryV3" settings row is itself tappable (except
+// while loading) so a phone user can force a libraryV3 check and read the
+// resulting error + bearer=0/1 flag in-app, without adb.
+test('MEL-BUG-047: the libraryV3 status row forces a check when tapped', () => {
+  const shellSrc = fs.readFileSync(path.join(repo, 'scripts/native_ui_shell.source.js'), 'utf8');
+  assert.match(shellSrc, /title: 'État de libraryV3',[\s\S]*?uri: status === 'loading' \? '' : 'melodix:action:retry-library'/,
+    'the status row carries the retry action unless a check is running');
+  const mainSmali = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/MainActivity.smali'), 'utf8');
+  const at = mainSmali.indexOf('.method public final onNativeSettingsTimeout');
+  const body = mainSmali.slice(at, mainSmali.indexOf('.end method', at));
+  assert.ok(body.includes('melodix:action:retry-library'),
+    'the native fallback keeps the retry action too');
+});
