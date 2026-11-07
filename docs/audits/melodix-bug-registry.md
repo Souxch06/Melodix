@@ -892,3 +892,9 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 - **Cause** : le polish visuel 054 écrivait `const v4, 0x40000000` dans `NativeSettingsRowFactory` alors que **v4 contient le titre de la ligne** (utilisé ensuite par `setText(v4)`) → VerifyError au chargement de la classe → crash à l'ouverture des réglages.
 - **Corrigé** : masque alpha passé dans le registre libre **v11** ; test de régression ajouté (v4 jamais écrasé, `setText(v4)` intact). test.78 (vC 1078, tag `v1.2.2-test.78-preview`, sha256 `b636e359…eaaa20`, commit `b650077`). Suite 873/870/0/3 VERT.
 - **Capture 15:33** : `[auth=unknown statut=pending essais=1 erreur=aucune bearer=-]` → requête en cours, aucun bearer encore. Rappel preuve 15:05 : `essais=1 erreur=http-401 bearer=0` = requête partie SANS jeton → 401. L'accueil changera quand une vraie session sera connectée dans le lecteur (bouton « Se connecter » sur la carte en état d'erreur tranché).
+
+## MEL-BUG-056 — P1/P2 : bouton connexion sur accueil auth=unknown + vibe settings (2026-11-07)
+
+- **Accueil** : quand `auth=unknown` (carte `pending`), la carte affiche désormais **« Se connecter »** (primaire) + **« Réessayer »** (secondaire) — le filtre de payload autorise `open-login` sur les cartes loading non prouvées. Avant : aucun bouton, donc aucun changement possible sans aller dans les Paramètres.
+- **Paramètres plus vivants** : bordure des cartes en `strokeAccent` (vert), coins 24 dp, cases icônes accent (054), et **pills remplies accent à texte foncé** pour les valeurs actionnables (Ouvrir, Actualiser, Se connecter, Connecté, Renouveler la session).
+- **Livré** : test.79 (vC 1079, tag `v1.2.2-test.79-preview`, sha256 `99315211…d5c52`, commit `d85f5ba`). Suite 875/872/0/3 VERT.
