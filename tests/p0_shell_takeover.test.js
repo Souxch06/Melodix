@@ -691,8 +691,12 @@ test('a 403 Home state explains library access denial without presenting it as a
 test('native payload filtering permits login only after a settled unproven error', () => {
     const shell = fs.readFileSync(SHELL, 'utf8');
     assert.match(shell, /var allowedActions = \['melodix:action:open-settings', 'melodix:action:retry-library', 'melodix:action:open-login'\]/);
-    assert.doesNotMatch(shell, /status === 'loading' && stateUri === 'melodix:action:open-login'/,
-        'loading state rows cannot carry a login action');
+    // MEL-BUG-056: a pending/unproven (loading) card MAY carry the real login
+    // action so the user can connect from Home; retry stays error/unavailable-only.
+    assert.match(shell, /status === 'loading' && stateUri === 'melodix:action:open-login'/,
+        'loading (unproven) state rows can carry the login action (MEL-BUG-056)');
+    assert.doesNotMatch(shell, /status === 'loading' && stateUri === 'melodix:action:retry-library'/,
+        'loading state rows still cannot carry a retry action');
     assert.match(shell, /status === 'error' && allowedActions\.indexOf\(stateUri\) >= 0/,
         'primary actions are restricted to settled error states');
     assert.match(shell, /var allowedSecondaryAction = !secondaryUri[\s\S]{0,220}status === 'error'[\s\S]{0,180}item\.sessionUnproven === true[\s\S]{0,180}secondaryUri !== stateUri/);

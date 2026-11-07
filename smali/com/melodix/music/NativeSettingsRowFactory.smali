@@ -43,11 +43,13 @@
     # the Apple-glass UI (MEL-BUG-039) instead of the flat opaque gray.
     sget v0, Lcom/melodix/music/MelColors;->glassCard:I
     invoke-virtual {v3, v0}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
-    const/high16 v0, 0x41600000
+    # MEL-BUG-056: rounder cards (24dp).
+    const/high16 v0, 0x41c00000
     invoke-virtual {v3, v0}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
     invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->settingsStroke(Landroid/content/Context;)I
     move-result v0
-    sget v1, Lcom/melodix/music/MelColors;->glassStroke:I
+    # MEL-BUG-056: accent-tinted border (strokeAccent) for a livelier glass card.
+    sget v1, Lcom/melodix/music/MelColors;->strokeAccent:I
     invoke-virtual {v3, v0, v1}, Landroid/graphics/drawable/GradientDrawable;->setStroke(II)V
     invoke-virtual {v2, v3}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
     invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->settingsRowHeight(Landroid/content/Context;)I
@@ -188,8 +190,35 @@
     const-string v3, "Déconnexion"
     invoke-virtual {v6, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v3
-    if-eqz v3, :native_settings_pill_build
+    if-eqz v3, :native_settings_pill_accent
     const v1, -0xea194
+    goto :native_settings_pill_build
+
+    # MEL-BUG-056: actionable/positive values get a filled accent badge.
+    :native_settings_pill_accent
+    const-string v3, "Ouvrir"
+    invoke-virtual {v6, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v3
+    if-nez v3, :native_settings_pill_accent_fill
+    const-string v3, "Actualiser"
+    invoke-virtual {v6, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v3
+    if-nez v3, :native_settings_pill_accent_fill
+    const-string v3, "Se connecter"
+    invoke-virtual {v6, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v3
+    if-nez v3, :native_settings_pill_accent_fill
+    const-string v3, "Renouveler la session"
+    invoke-virtual {v6, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v3
+    if-nez v3, :native_settings_pill_accent_fill
+    const-string v3, "Connecté"
+    invoke-virtual {v6, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v3
+    if-eqz v3, :native_settings_pill_build
+    :native_settings_pill_accent_fill
+    sget v0, Lcom/melodix/music/MelColors;->accent:I
+    sget v1, Lcom/melodix/music/MelColors;->background:I
 
     :native_settings_pill_build
     new-instance v3, Landroid/graphics/drawable/GradientDrawable;

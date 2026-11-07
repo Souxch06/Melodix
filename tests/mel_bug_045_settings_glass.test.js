@@ -11,8 +11,8 @@ const main = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/MainActivi
 test('MEL-BUG-045: settings rows use the glass palette', () => {
   assert.match(factory, /sget v0, Lcom\/melodix\/music\/MelColors;->glassCard:I[\s\S]*?setColor\(I\)V/,
     'row fill = translucent glassCard');
-  assert.match(factory, /sget v1, Lcom\/melodix\/music\/MelColors;->glassStroke:I[\s\S]*?setStroke\(II\)V/,
-    'row stroke = glassStroke');
+  assert.match(factory, /sget v1, Lcom\/melodix\/music\/MelColors;->strokeAccent:I[\s\S]*?setStroke\(II\)V/,
+    'row stroke = strokeAccent (MEL-BUG-056 vibe)');
   assert.match(factory, /sget v0, Lcom\/melodix\/music\/MelColors;->glassFill:I[\s\S]*?"ON"/,
     'default pill fill = glassFill (ON keeps the green accent)');
   assert.ok(!factory.includes('-0xe7e7e8'), 'flat opaque row color is gone');
@@ -152,4 +152,28 @@ test('MEL-BUG-055: the accent-tint block never overwrites the title register v4'
     'alpha mask uses a free high register (v11)');
   assert.match(smali, /invoke-virtual \{v9, v4\}, Landroid\/widget\/TextView;->setText\(Ljava\/lang\/CharSequence;\)V/,
     'the title is still passed from v4 to setText');
+});
+
+// MEL-BUG-056: the Home card offers the real login action when the player auth
+// state is still unknown (pending card otherwise has no button at all), and the
+// settings rows get a livelier look (accent stroke, 24dp corners, accent pills).
+test('MEL-BUG-056: unknown-auth home card carries open-login + retry, filter allows it on loading', () => {
+  const shellSrc = fs.readFileSync(path.join(repo, 'scripts/native_ui_shell.source.js'), 'utf8');
+  assert.match(shellSrc, /if \(authState === 'unknown'\) \{\s*primaryUri = 'melodix:action:open-login';\s*secondaryUri = 'melodix:action:retry-library';/,
+    'unknown auth state shows the login button on the Home card');
+  assert.match(shellSrc, /\(status === 'loading' && stateUri === 'melodix:action:open-login'\)/,
+    'payload filter permits login on pending/unproven cards');
+});
+
+test('MEL-BUG-056: settings cards get accent stroke, 24dp radius and accent pills for actionable values', () => {
+  const smali = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/NativeSettingsRowFactory.smali'), 'utf8');
+  assert.match(smali, /MelColors;->strokeAccent:I\s*\n\s*invoke-virtual \{v3, v0, v1\}, Landroid\/graphics\/drawable\/GradientDrawable;->setStroke\(II\)V/,
+    'card stroke uses strokeAccent');
+  assert.match(smali, /const\/high16 v0, 0x41c00000\s*\n\s*invoke-virtual \{v3, v0\}, Landroid\/graphics\/drawable\/GradientDrawable;->setCornerRadius/,
+    'card corner radius is 24dp');
+  for (const val of ['Ouvrir', 'Actualiser', 'Se connecter', 'Connecté', 'Renouveler la session']) {
+    assert.ok(smali.includes('const-string v3, "' + val + '"'), `pill knows ${val}`);
+  }
+  assert.match(smali, /:native_settings_pill_accent_fill\s*\n\s*sget v0, Lcom\/melodix\/music\/MelColors;->accent:I\s*\n\s*sget v1, Lcom\/melodix\/music\/MelColors;->background:I/,
+    'actionable pills are filled accent with dark text');
 });

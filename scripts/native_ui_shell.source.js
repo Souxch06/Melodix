@@ -501,10 +501,16 @@
                 var allowedStatus = ['loading', 'empty', 'error', 'unavailable'].indexOf(status) >= 0;
                 var allowedAction = !stateUri ||
                     (status === 'error' && allowedActions.indexOf(stateUri) >= 0) ||
-                    (status === 'unavailable' && stateUri === 'melodix:action:retry-library');
+                    (status === 'unavailable' && stateUri === 'melodix:action:retry-library') ||
+                    // MEL-BUG-056: a pending/unproven card may carry the real login
+                    // action — without it the Home card has no button at all and
+                    // the user cannot start a session from Home.
+                    (status === 'loading' && stateUri === 'melodix:action:open-login');
                 var allowedSecondaryAction = !secondaryUri ||
                     (status === 'error' && item.sessionUnproven === true && allowedActions.indexOf(secondaryUri) >= 0 &&
-                        secondaryUri !== stateUri);
+                        secondaryUri !== stateUri) ||
+                    (status === 'loading' && item.sessionUnproven === true &&
+                        secondaryUri === 'melodix:action:retry-library' && secondaryUri !== stateUri);
                 if (!title || !allowedStatus || String(rawImage || '').trim() ||
                     !allowedAction || !allowedSecondaryAction) return null;
                 return {
@@ -1369,9 +1375,17 @@
                 : authState === 'in-progress'
                     ? 'La connexion du lecteur est en cours. Vos playlists restent masquées jusqu’à validation.'
                     : 'L’état de connexion du lecteur n’est pas encore confirmé. Vos playlists restent masquées.';
-            // A login action is offered only after the player UI reports that
-            // authentication is required; loading and unknown remain informational.
-            primaryUri = '';
+            // MEL-BUG-056: when the player auth state is still unknown, the Home
+            // card itself offers the real login action (with retry as secondary) —
+            // otherwise the card shows no button and nothing can ever change.
+            if (authState === 'unknown') {
+                primaryUri = 'melodix:action:open-login';
+                secondaryUri = 'melodix:action:retry-library';
+            } else {
+                // A login action stays informational while the player reports
+                // connected / in-progress.
+                primaryUri = '';
+            }
         }
         // MEL-BUG-054: the bearer flag is carried ONCE by the diagLine below
         // (MEL-BUG-050); the old standalone (bearer=…) suffix is dropped to
