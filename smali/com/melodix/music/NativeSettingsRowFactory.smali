@@ -39,13 +39,15 @@
 
     new-instance v3, Landroid/graphics/drawable/GradientDrawable;
     invoke-direct {v3}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
-    const v0, -0xe7e7e8
+    # MEL-BUG-045: glass card (translucent fill + light stroke) like the rest of
+    # the Apple-glass UI (MEL-BUG-039) instead of the flat opaque gray.
+    sget v0, Lcom/melodix/music/MelColors;->glassCard:I
     invoke-virtual {v3, v0}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
     const/high16 v0, 0x41600000
     invoke-virtual {v3, v0}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
     invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->settingsStroke(Landroid/content/Context;)I
     move-result v0
-    const v1, -0xd5d5d6
+    sget v1, Lcom/melodix/music/MelColors;->glassStroke:I
     invoke-virtual {v3, v0, v1}, Landroid/graphics/drawable/GradientDrawable;->setStroke(II)V
     invoke-virtual {v2, v3}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
     invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->settingsRowHeight(Landroid/content/Context;)I
@@ -65,7 +67,7 @@
     invoke-virtual {v0, v1}, Landroid/widget/ImageView;->setScaleType(Landroid/widget/ImageView$ScaleType;)V
     new-instance v1, Landroid/graphics/drawable/GradientDrawable;
     invoke-direct {v1}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
-    const v3, -0xd5d5d6
+    sget v3, Lcom/melodix/music/MelColors;->glassFill:I
     invoke-virtual {v1, v3}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
     const/high16 v3, 0x41b00000
     invoke-virtual {v1, v3}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
@@ -149,7 +151,7 @@
     move-result v1
     invoke-virtual {v11, v0, v1, v0, v1}, Landroid/view/View;->setPadding(IIII)V
 
-    const v0, -0xd0d0d1
+    sget v0, Lcom/melodix/music/MelColors;->glassFill:I
     const/4 v1, -0x1
     const-string v3, "ON"
     invoke-virtual {v6, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
@@ -164,7 +166,7 @@
     invoke-virtual {v6, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v3
     if-eqz v3, :native_settings_pill_not_off
-    const v0, -0xd5d5d6
+    sget v0, Lcom/melodix/music/MelColors;->glassFill:I
     sget v1, Lcom/melodix/music/MelColors;->textSecondary:I
     goto :native_settings_pill_build
 
