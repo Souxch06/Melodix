@@ -950,7 +950,12 @@
         var previousError = String(window.__sfMediaLibError || '');
         var explicitRetry = force === true;
         var attemptNumber;
-        if (authState !== 'connected') {
+        // MEL-BUG-049: only a DEFINITE sign-out ('required') blocks the proof.
+        // 'unknown'/'in-progress' must still attempt libraryV3 (bounded by the
+        // refusal budget + cool-down): if the player-DOM signals never confirm
+        // 'connected', the old gate left the Home stuck on "loading" forever
+        // without a single request ever being sent.
+        if (authState === 'required') {
             traceHomePipeline(correlationId, 'request', 'skipped-auth', 0, 0, 0, 0);
             return false;
         }
@@ -1365,6 +1370,11 @@
             // A login action is offered only after the player UI reports that
             // authentication is required; loading and unknown remain informational.
             primaryUri = '';
+        }
+        // MEL-BUG-048: on a confirmed refusal, the Home card itself carries the
+        // boolean bearer flag — a home screenshot is enough, no settings detour.
+        if ((err === 'http-401' || err === 'http-403') && subtitle) {
+            subtitle += mediaLibraryBearerSuffix();
         }
         return {
             kind: 'state',

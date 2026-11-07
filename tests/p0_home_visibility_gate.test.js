@@ -586,8 +586,8 @@ test('[P0] the shell waits for confirmed player UI, retries once per auth epoch,
   const end = shell.indexOf('\n    function ', at + 10);
   const gate = shell.slice(at, end);
   assert.match(gate, /var authState = currentSpotifyAuthUiState\(\)/);
-  assert.match(gate, /if \(authState !== 'connected'\) \{[\s\S]*?return false/,
-    'libraryV3 is not requested before the player UI reports a connected state');
+  assert.match(gate, /if \(authState === 'required'\) \{[\s\S]*?return false/,
+    'MEL-BUG-049: only a definite sign-out blocks the proof; unknown/in-progress still attempt (bounded)');
   assert.match(gate, /skipped-auth/,
     'an unauthenticated state is recorded without presenting an assumed cause');
   assert.match(gate, /window\.__sfMediaLibStatus === 'loading'/, 'single-flight state blocks concurrent requests');

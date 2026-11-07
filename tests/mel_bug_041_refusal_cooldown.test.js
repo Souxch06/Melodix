@@ -88,3 +88,25 @@ test('MEL-BUG-046: the visible libraryV3 status text carries the bearer flag on 
     'booléen 0/1 uniquement, jamais la valeur du token');
   assert.ok(shellAsset.includes('mediaLibraryBearerSuffix'), 'assets/native_ui_shell.js must be regenerated');
 });
+
+// MEL-BUG-048: the Home state card itself carries the boolean bearer flag on a
+// confirmed 401/403 — a home screenshot is enough, no settings detour, no adb.
+test('MEL-BUG-048: the home refusal card shows bearer=0/1', () => {
+  const shellSrc = fs.readFileSync(path.join(repo, 'scripts/native_ui_shell.source.js'), 'utf8');
+  assert.match(shellSrc, /err === 'http-401' \|\| err === 'http-403'\) && subtitle\) \{\s*subtitle \+= mediaLibraryBearerSuffix\(\);/,
+    'the home card subtitle appends the bearer flag on refusals');
+  assert.ok(shellAsset.includes('mediaLibraryBearerSuffix'), 'assets/native_ui_shell.js must be regenerated');
+});
+
+// MEL-BUG-049: the proof gate used to require authState === 'connected'; if the
+// player-DOM signals never confirmed (page version mismatch), no libraryV3
+// request was EVER sent and the Home stayed on "loading" forever.
+test('MEL-BUG-049: only a definite sign-out blocks the library proof', () => {
+  const shellSrc = fs.readFileSync(path.join(repo, 'scripts/native_ui_shell.source.js'), 'utf8');
+  const at = shellSrc.indexOf('function requestMediaLibraryProof(source, force)');
+  const gate = shellSrc.slice(at, shellSrc.indexOf('\n    function ', at + 10));
+  assert.match(gate, /if \(authState === 'required'\) \{[\s\S]*?skipped-auth[\s\S]*?return false/,
+    "only 'required' (definite sign-out) blocks; unknown/in-progress attempt the proof");
+  assert.ok(!/authState !== 'connected'/.test(gate), 'the old never-fire gate is gone');
+  assert.match(gate, /__sfMediaLibRefusalCooldownAt/, 'attempts stay bounded by budget + cool-down');
+});

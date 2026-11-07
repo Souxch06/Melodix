@@ -842,6 +842,11 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 ## MEL-BUG-047 — P1 : la ligne « État de libraryV3 » des Paramètres force la vérification au toucher (2026-11-07)
 - La ligne d'état n'était pas cliquable hors chargement : on ne pouvait pas provoquer la requête libraryV3 depuis le téléphone. Elle porte maintenant `melodix:action:retry-library` (sauf pendant un chargement), dans les lignes JS et dans le fallback natif → l'utilisateur force la vérification et lit le résultat (401 + `bearer=0/1`) directement dans l'app, sans adb. Test : +1 dans `mel_bug_045_settings_glass.test.js`. Suite : **862/859/0/3**.
 
+## MEL-BUG-048 + 049 — P0 : diagnostic bearer sur la carte d'accueil + la preuve libraryV3 part enfin même si l'état auth n'est pas confirmé (2026-11-07)
+- **049 (cause racine probable du « chargement » infini)** : la gate exigeait `authState === 'connected'` avant TOUTE requête libraryV3 ; si les signaux DOM du lecteur ne confirment jamais (page Spotify changeante), **aucune requête n'était jamais envoyée** → accueil bloqué sur « chargement », paramètres « À vérifier ». Seul un sign-out confirmé (`'required'`) bloque désormais ; `unknown`/`in-progress` tentent la preuve (toujours borné par budget + cool-down 041). Les lignes privées restent fail-closed sur la preuve réelle.
+- **048** : la carte d'état de l'accueil affiche directement ` (bearer=0/1)` sur un 401/403 confirmé — une capture de l'accueil suffit.
+- Tests : +2 dans `mel_bug_041_refusal_cooldown.test.js`, `p0_home_visibility_gate` mis à jour. Suite : **864/861/0/3**.
+
 ## Previews publiées depuis Arena — test.65 à test.69 (2026-11-07, branche arena/6b935c3e-melodix, PR #8)
 - **test.65** (vC 1065, `356cf49`) : MEL-BUG-041 cool-down 120 s après budget de refus épuisé + flag booléen `bearer` dans le diagnostic. sha256 `4820e7b1…ce9847`.
 - **test.66** (vC 1066, `36498fa`) : MEL-BUG-042 écran de connexion officiel affiché directement au lancement. sha256 `d0ef93bf…9906f8`.
