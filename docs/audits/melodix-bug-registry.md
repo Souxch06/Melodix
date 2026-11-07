@@ -826,6 +826,9 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 - Après MEL-BUG-042, `postNativeUiReady`/`postNativeUiRoute` effaçaient `nativeLoginWebRequested` sur n'importe quel callback JS arrivant **avant** que la WebView ait chargé une vraie page (`getUrl()` null/`about:blank`) → l'accueil natif recouvrait le formulaire de connexion avant la saisie. Le flag n'est plus effacé que quand une **vraie page non-login** est chargée (la sortie de login vers le player ferme toujours la surface login).
 - Tests : 3 tests MEL-BUG-043 dans `tests/mel_bug_042_launch_login.test.js`. Suite : **857/854/0/3**.
 
+## MEL-BUG-044 — P1 : le flag booléen bearer=0/1 rejoint la ligne logcat library-fetch (2026-11-07)
+- La ligne `library-fetch …` émise vers logcat se termine désormais par ` bearer=0/1` (booléen uniquement, jamais le token) : `adb logcat` suffit à savoir si un Bearer web-player était attaché à la requête refusée (401), sans ouvrir l'overlay. Tests : +1 test dans `mel_bug_041_refusal_cooldown.test.js`, 15 assertions de format mises à jour dans `p0_library_fetch`. Suite : **858/855/0/3**.
+
 ## Preview publiée depuis Arena — v1.2.2-test.64-preview (2026-11-07, commit 77afe52 + APK)
 - **Contenu** : MEL-BUG-037/038/039/040 (Paramètres remplis, accueil sans grille du milieu, UI verre Apple, 401 plus jamais coincé par époque).
 - APK `releases/Melodix-Test-v1.2.2-test64.apk` · sha256 `a7b87f4ebd2ce6d87d9ce743ad41be95841360207e43d26ba2c8ca6c7c183d56` · versionCode **1064** · empreinte `8B:93:8C:…:B7:1D:9E` (**nouvelle session Arena** → `adb uninstall com.melodix.music` d'abord, MEL-BUG-023). APK vérifié dans le tag. Suite 847/843/0/4.

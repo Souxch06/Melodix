@@ -3149,7 +3149,10 @@
         const duration = boundedMediaLibraryCount(elapsed, 999999);
         const line = 'library-fetch phase=' + safePhase + ' http=' + safeHttp +
             ' mime=' + mime + ' duration=' + duration + ' error=' + error +
-            ' auth=' + MEDIA_LIBRARY_AUTH_MODE + ' refresh=' + MEDIA_LIBRARY_REFRESH_MODE;
+            ' auth=' + MEDIA_LIBRARY_AUTH_MODE + ' refresh=' + MEDIA_LIBRARY_REFRESH_MODE +
+            // MEL-BUG-044: boolean only, so adb logcat alone shows whether a
+            // Bearer web-player token was attached to the refused request.
+            ' bearer=' + (state.bearer === true ? 1 : 0);
         try {
             // Only fixed source/mode enums, bounded request counts, HTTP class,
             // MIME class and timing are exported. No credential values, payload,

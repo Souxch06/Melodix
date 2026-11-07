@@ -216,7 +216,7 @@ test('checkMediaLib transforms a valid library response and sends cookies withou
     assert.equal(headers['spotify-app-version'], '1.2.40.0');
     assert.ok(!/authorization/i.test(Object.keys(headers).join(',')));
     assert.match(finalLibraryDiagnostic(win),
-        /^library-fetch phase=settle http=200 mime=json duration=[0-9]+ error=none auth=webview-session refresh=unsupported$/);
+        /^library-fetch phase=settle http=200 mime=json duration=[0-9]+ error=none auth=webview-session refresh=unsupported bearer=[01]$/);
     const diagnostic = win.__sfMediaLibLastDiagnostic;
     assert.equal(diagnostic.attempt, 1);
     assert.equal(diagnostic.source, 'unspecified');
@@ -311,7 +311,7 @@ test('the library paginates multiple playlist pages and deduplicates entries', a
     assert.equal(win.mediaLib.playlists.length, 51);
     const ids = Array.from(win.mediaLib.playlists, (item) => item.id);
     assert.equal(new Set(ids).size, ids.length);
-    assert.match(finalLibraryDiagnostic(win), /^library-fetch phase=settle http=200 mime=json duration=[0-9]+ error=none auth=webview-session refresh=unsupported$/);
+    assert.match(finalLibraryDiagnostic(win), /^library-fetch phase=settle http=200 mime=json duration=[0-9]+ error=none auth=webview-session refresh=unsupported bearer=[01]$/);
 });
 
 test('an absent session represented by HTTP 401 remains an unknown-cause refusal, not a fabricated login diagnosis', async () => {
@@ -325,7 +325,7 @@ test('an absent session represented by HTTP 401 remains an unknown-cause refusal
     assert.equal(win.__sfMediaLibSessionProofKnown, true);
     assert.equal(win.__sfMediaLibSessionProven, false);
     assert.match(finalLibraryDiagnostic(win),
-        /^library-fetch phase=response http=401 mime=json duration=[0-9]+ error=http-401 auth=webview-session refresh=unsupported$/);
+        /^library-fetch phase=response http=401 mime=json duration=[0-9]+ error=http-401 auth=webview-session refresh=unsupported bearer=[01]$/);
     const diagnostic = win.__sfMediaLibLastDiagnostic;
     assert.equal(diagnostic.phase, 'response');
     assert.equal(diagnostic.http, 401);
@@ -349,7 +349,7 @@ test('HTTP refusals and server responses retain their status-specific errors and
         assert.equal(win.__sfMediaLibSessionProven, proven,
             'a 403 invalidates library proof without claiming that the player login ended');
         assert.match(finalLibraryDiagnostic(win), new RegExp(
-            `^library-fetch phase=response http=${status} mime=json duration=[0-9]+ error=${diagnosticError} auth=webview-session refresh=unsupported$`));
+            `^library-fetch phase=response http=${status} mime=json duration=[0-9]+ error=${diagnosticError} auth=webview-session refresh=unsupported bearer=[01]$`));
         assert.equal(win.__sfMediaLibLastDiagnostic.http, status);
         assert.equal(win.__sfMediaLibLastDiagnostic.error, diagnosticError);
     }
@@ -415,7 +415,7 @@ test('a later-page 401 clears partial private rows and revokes the earlier page 
     assert.equal(win.mediaLib, null, 'the first page is discarded after the later 401');
     assert.equal(win.__sfMediaLibRawItemCount, 0);
     assert.match(finalLibraryDiagnostic(win),
-        /^library-fetch phase=response http=401 mime=json duration=[0-9]+ error=http-401 auth=webview-session refresh=unsupported$/);
+        /^library-fetch phase=response http=401 mime=json duration=[0-9]+ error=http-401 auth=webview-session refresh=unsupported bearer=[01]$/);
 });
 
 test('a 403 invalidates private library proof and clears stale rows without asserting player logout', async () => {
@@ -435,7 +435,7 @@ test('a 403 invalidates private library proof and clears stale rows without asse
     assert.equal(win.mediaLib, null, 'previous private rows are erased after an access refusal');
     assert.equal(win.__sfMediaLibRawItemCount, 0);
     assert.match(finalLibraryDiagnostic(win),
-        /^library-fetch phase=response http=403 mime=json duration=[0-9]+ error=http-403 auth=webview-session refresh=unsupported$/);
+        /^library-fetch phase=response http=403 mime=json duration=[0-9]+ error=http-403 auth=webview-session refresh=unsupported bearer=[01]$/);
     assert.doesNotMatch(finalLibraryDiagnostic(win), /Fixture stale data|spotify:playlist/);
 });
 
@@ -458,7 +458,7 @@ test('a later-page 403 discards partial private rows and invalidates the earlier
     assert.equal(win.mediaLib, null, 'partial rows from the valid first page are discarded');
     assert.equal(win.__sfMediaLibRawItemCount, 0);
     assert.match(finalLibraryDiagnostic(win),
-        /^library-fetch phase=response http=403 mime=json duration=[0-9]+ error=http-403 auth=webview-session refresh=unsupported$/);
+        /^library-fetch phase=response http=403 mime=json duration=[0-9]+ error=http-403 auth=webview-session refresh=unsupported bearer=[01]$/);
 });
 
 test('a 429 honours a bounded Retry-After delay without logging the header or response body', async () => {
@@ -504,7 +504,7 @@ test('network failure, invalid JSON and HTML response are distinguished', async 
         mime: network.__sfMediaLibLastDiagnostic.mime,
         error: network.__sfMediaLibLastDiagnostic.error
     }, { phase: 'request', http: 0, mime: 'missing', error: 'network' });
-    assert.match(finalLibraryDiagnostic(network), /^library-fetch phase=request http=0 mime=missing duration=[0-9]+ error=network auth=webview-session refresh=unsupported$/);
+    assert.match(finalLibraryDiagnostic(network), /^library-fetch phase=request http=0 mime=missing duration=[0-9]+ error=network auth=webview-session refresh=unsupported bearer=[01]$/);
 
     const malformed = loadBridge({
         fetchImpl: async () => ({
@@ -637,7 +637,7 @@ test('a valid empty library is distinct from a failed request and proves only th
         error: win.__sfMediaLibLastDiagnostic.error
     }, { phase: 'settle', http: 200, mime: 'json', error: 'empty' });
     assert.match(finalLibraryDiagnostic(win),
-        /^library-fetch phase=settle http=200 mime=json duration=[0-9]+ error=empty auth=webview-session refresh=unsupported$/);
+        /^library-fetch phase=settle http=200 mime=json duration=[0-9]+ error=empty auth=webview-session refresh=unsupported bearer=[01]$/);
 });
 
 test('unexpected JSON shape and GraphQL errors are not reported as an empty library', async () => {
@@ -655,7 +655,7 @@ test('unexpected JSON shape and GraphQL errors are not reported as an empty libr
         assert.equal(win.__sfMediaLibLastDiagnostic.error, diagnosticError);
         assert.deepEqual(Object.keys(win.__sfMediaLibLastDiagnostic).sort(),
             ['attempt', 'authMode', 'bearer', 'durationMs', 'error', 'http', 'mime', 'phase', 'refreshMode', 'requests', 'source'].sort());
-        assert.match(finalLibraryDiagnostic(win), new RegExp(`error=${diagnosticError} auth=webview-session refresh=unsupported$`));
+        assert.match(finalLibraryDiagnostic(win), new RegExp(`error=${diagnosticError} auth=webview-session refresh=unsupported bearer=[01]$`));
     }
 });
 
@@ -675,7 +675,7 @@ test('a successful API response with unsupported items is a transform error, not
     assert.deepEqual(Object.keys(win.__sfMediaLibLastDiagnostic).sort(),
         ['attempt', 'authMode', 'bearer', 'durationMs', 'error', 'http', 'mime', 'phase', 'refreshMode', 'requests', 'source'].sort());
     assert.match(finalLibraryDiagnostic(win),
-        /^library-fetch phase=transform http=200 mime=json duration=[0-9]+ error=transform auth=webview-session refresh=unsupported$/);
+        /^library-fetch phase=transform http=200 mime=json duration=[0-9]+ error=transform auth=webview-session refresh=unsupported bearer=[01]$/);
 });
 
 test('a transient network error preserves an earlier verified proof without asserting new auth', async () => {
@@ -686,7 +686,7 @@ test('a transient network error preserves an earlier verified proof without asse
     assert.equal(win.__sfMediaLibStatus, 'error');
     assert.equal(win.__sfMediaLibSessionProofKnown, true);
     assert.equal(win.__sfMediaLibSessionProven, true);
-    assert.match(finalLibraryDiagnostic(win), /^library-fetch phase=request http=0 mime=missing duration=[0-9]+ error=network auth=webview-session refresh=unsupported$/);
+    assert.match(finalLibraryDiagnostic(win), /^library-fetch phase=request http=0 mime=missing duration=[0-9]+ error=network auth=webview-session refresh=unsupported bearer=[01]$/);
 });
 
 test('partial real data remains available when a later page fails', async () => {
@@ -706,7 +706,7 @@ test('partial real data remains available when a later page fails', async () => 
     assert.equal(win.__sfMediaLibSessionProofKnown, true);
     assert.equal(win.__sfMediaLibSessionProven, true);
     assert.match(finalLibraryDiagnostic(win),
-        /^library-fetch phase=response http=503 mime=json duration=[0-9]+ error=http-other auth=webview-session refresh=unsupported$/);
+        /^library-fetch phase=response http=503 mime=json duration=[0-9]+ error=http-other auth=webview-session refresh=unsupported bearer=[01]$/);
 });
 
 test('parseLibrary handles missing fields, duplicate resources and Liked Songs', () => {
@@ -745,7 +745,7 @@ test('a stalled request times out, aborts where supported, and does not create f
     assert.equal(win.__sfMediaLibSessionProven, false);
     assert.equal(requestSignal.aborted, true);
     assert.match(finalLibraryDiagnostic(win),
-        /^library-fetch phase=request http=0 mime=missing duration=[0-9]+ error=timeout auth=webview-session refresh=unsupported$/);
+        /^library-fetch phase=request http=0 mime=missing duration=[0-9]+ error=timeout auth=webview-session refresh=unsupported bearer=[01]$/);
 });
 
 test('a stalled response body also uses the bounded request deadline', async () => {
@@ -762,7 +762,7 @@ test('a stalled response body also uses the bounded request deadline', async () 
     assert.equal(win.__sfMediaLibError, 'timeout');
     assert.equal(requestSignal.aborted, true);
     assert.match(finalLibraryDiagnostic(win),
-        /^library-fetch phase=parse http=200 mime=json duration=[0-9]+ error=timeout auth=webview-session refresh=unsupported$/);
+        /^library-fetch phase=parse http=200 mime=json duration=[0-9]+ error=timeout auth=webview-session refresh=unsupported bearer=[01]$/);
 });
 
 test('concurrent checkMediaLib calls do not double-fetch', async () => {

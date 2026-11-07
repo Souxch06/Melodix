@@ -65,3 +65,15 @@ test('MEL-BUG-041: the library diagnostic exports a boolean bearer flag', () => 
   assert.ok(bridgeAsset.includes('bearer:'), 'assets/spotify_bridge.js must be regenerated');
   assert.doesNotMatch(bridgeAsset + shellAsset, /TEST_TOKEN_036|accessToken["']?\s*:/);
 });
+
+// MEL-BUG-044: the library-fetch logcat line carries a boolean bearer=0/1 flag
+// (never the token), so `adb logcat` alone shows whether a Bearer web-player
+// token was attached to the refused request.
+test('MEL-BUG-044: the library-fetch trace line exposes a boolean bearer flag', () => {
+  assert.match(bridge, /' bearer=' \+ \(state\.bearer === true \? 1 : 0\)/,
+    'the log line ends with bearer=0/1');
+  assert.doesNotMatch(bridge, /bearer=' \+ (token|bearerToken|webPlayerTokenCache)/,
+    'the token value is never concatenated into the log line');
+  assert.ok(bridgeAsset.includes('bearer='), 'assets/spotify_bridge.js must be regenerated');
+  assert.doesNotMatch(bridgeAsset, /TEST_TOKEN_036/);
+});
