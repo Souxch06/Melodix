@@ -948,3 +948,11 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 - **Demande** : « vraie amélioration des paramètres, style vraie appli mobile, avec des boutons on/off stylés ».
 - **Fix** : dans `NativeSettingsRowFactory`, une valeur **ON/OFF** ne s'affiche plus comme un badge texte mais comme un vrai **`Switch` Android stylé** : pouce `MelColors.accent`, piste `MelColors.glow`, `setChecked` selon ON/OFF. Le Switch est **non cliquable/non focusable** : c'est toute la rangée qui dispatche le toggle (comportement conservé). Les autres valeurs gardent la pilule texte.
 - **Livré** : test.96 (vC 1086, tag `v1.2.2-test.96-preview`, sha256 `1872652e…40e701`, commits `7125583` (code+test) / `db909e9` (APK), cert `DC:67:4C:…:A1:35` → **maj directe depuis test.85**). Suite **884/880/0/4 VERT**.
+
+## MEL-BUG-063 — test.97 : polish UI demandé après capture 22:43 (2026-11-07)
+
+- **Diagnostic lisible** : la carte d'accueil découpe le suffixe ` [auth=… token=…]` du sous-titre et l'affiche en ligne dédiée **16 sp, gras, monospace, couleur `warning` (#FF6B6B)** — l'erreur réelle se lit directement sur la capture.
+- **Réglages réordonnés** façon appli mobile : Compte et connexion → Préférences de lecture (toggles Switch) → Apparence et thème → Notifications → actions Spotify, avec **Diagnostic interne en dernier** et le **doublon « Se déconnecter de Spotify » supprimé** (unique, section Compte). Même ordre dans le JSON de repli natif.
+- **Navigation/boutons assainis** : onglets peints via la palette (`textPrimary`/`textTertiary`/`accent`, pill glow conservée), boutons de la carte en 15 sp (secondaire en `textSecondary`), icône réglages du header teintée accent.
+- **Plafond shell respecté** : `assets/native_ui_shell.js` = **108 531 o ≤ 108 867**.
+- **Livré** : test.97 (vC 1087, tag `v1.2.2-test.97-preview`, sha256 `b3157e36…be38c9`, commits `f1ef576` (code+tests) / `b2bf122` (APK), cert `DC:67:4C:…:A1:35` → **maj directe depuis test.96**). Suite **892/888/0/4 VERT**.

@@ -55,9 +55,10 @@ transitoire avec retry borné au lieu d'un blocage permanent). La plus récente 
 | v1.2.2-test.84-preview (MEL-BUG-061) | 1084 | `cb2472588b357fbe17e6fc2a92c076905c3bc32ed8deccff899353bbf239de4` | `DC:67:4C:…:A1:35` (maj directe depuis test.83) |
 | v1.2.2-test.85-preview (MEL-BUG-061b) | 1085 | `1b685e6ad04f0badbde2c82a2b7f055b6684d6f5222c3ba7383a83f1539c75fa` | `DC:67:4C:…:A1:35` (maj directe) |
 | v1.2.2-test.96-preview (MEL-BUG-062) | 1086 | `1872652eff13a212bd246c413046c1e35cfe39673faae90043cb40ee7c40e701` | `DC:67:4C:…:A1:35` (maj directe) |
+| v1.2.2-test.97-preview (MEL-BUG-063) | 1087 | `b3157e3622ee2949cec3ad379abc596603e53f779d70e0baa4c4fe7233be38c9` | `DC:67:4C:…:A1:35` (maj directe) |
 | v1.2.2-test.62-preview (MEL-BUG-035) | 1062 | `8c58d998d20fbca0c76622dda4b50c703a79d04abaf4a7a7cd1e9198a7f5d5f4` | `B0:B8:D5:…:6C:F5` |
 
-La plus récente est **test.96** (`Melodix-Test-v1.2.2-test96.apk`, tag `v1.2.2-test.96-preview`, MEL-BUG-062 ; les numéros 86–95 étaient déjà pris par d'autres sessions, d'où le saut). ⚠️ **Nouveau certificat** `DC:67:4C:…:A1:35` (le keystore a disparu au reset du bac à sable) : `adb uninstall com.melodix.music` avant installation — la session Spotify sera perdue, reconnexion nécessaire.
+La plus récente est **test.97** (`Melodix-Test-v1.2.2-test97.apk`, tag `v1.2.2-test.97-preview`, MEL-BUG-063). ⚠️ **Nouveau certificat** `DC:67:4C:…:A1:35` (le keystore a disparu au reset du bac à sable) : `adb uninstall com.melodix.music` avant installation — la session Spotify sera perdue, reconnexion nécessaire.
 
 > Depuis test.75/test.76, les tags sont posés sur le commit qui **contient l’APK** : le lien raw épinglé sur le tag sert bien le binaire (vérifié via l’API GitHub).
 
