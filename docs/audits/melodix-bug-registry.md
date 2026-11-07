@@ -442,6 +442,8 @@ MEL-BUG-020 — P3 — mon assertion de sélection était un faux vert (corrigé
 
 ## MEL-BUG-023 — P0 : conflit de signature APK à la mise à jour (« Package en conflit »)
 
+> **2026-11-07 (différé par l'utilisateur)** : côté previews Arena, le keystore p12 est régénéré à chaque reset de sandbox → empreinte changeante (`8B:93:…` puis `DF:6B:7C:…:0E:11`) → `adb uninstall com.melodix.music` avant réinstall cross-session. **Correctif durable prévu avec le lot de fixes appli** : keystore de test stable détenu côté CI (secret `MELODIX_TEST_KEYSTORE_B64`) pour que l'empreinte ne change plus jamais entre previews. En attendant : uninstall d'abord (MEL-BUG-023).
+
 - **Constat** : installer `v1.2.2-test.45-preview` par-dessus `v1.2.2-test.44-preview` échoue.
 - **Diagnostic** :
   - applicationId constant `com.melodix.music` (asserté dans le job build) ; versionCode 27 constant
