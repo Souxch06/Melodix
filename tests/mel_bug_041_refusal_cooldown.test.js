@@ -153,3 +153,12 @@ test('MEL-BUG-057: home diag line includes the sanitized token status', () => {
   assert.doesNotMatch(shellSrc, /diagToken[\s\S]{0,200}TEST_TOKEN/, 'no token value in the diag line');
   assert.ok(shellAsset.includes('diagToken'), 'assets/native_ui_shell.js must be regenerated');
 });
+
+// MEL-BUG-060: a fresh diagnostic must seed token= with the LAST KNOWN /api/token
+// status, so a request-phase emit never masks the real cause with 'none'
+// (screenshot 17:13 showed token=none next to bearer=0 + http-401).
+test('MEL-BUG-060: new library diagnostics inherit the last known token-fetch status', () => {
+  assert.match(bridge, /token: safeTokenFetchStatus\(lastTokenFetchStatus\),/,
+    'createMediaLibraryDiagnostic seeds token from lastTokenFetchStatus');
+  assert.ok(bridgeAsset.includes('lastTokenFetchStatus'), 'assets/spotify_bridge.js must be regenerated');
+});

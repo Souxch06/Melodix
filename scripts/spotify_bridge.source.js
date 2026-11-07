@@ -3131,7 +3131,9 @@
             mime: 'missing',
             error: 'none',
             bearer: false,
-            token: 'none',
+            // MEL-BUG-060: seed with the LAST KNOWN token-endpoint status, so a
+            // request-phase emit never masks the real cause with 'none'.
+            token: safeTokenFetchStatus(lastTokenFetchStatus),
             received: 0,
             transformed: 0
         };
