@@ -814,6 +814,10 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 - Le listener `sf-spotify-auth-state-changed` reset `__sfMediaLibRefusalEpoch/Attempts` : une vraie reconnexion (même si l'epoch n'a pas bougé) redonne toujours un budget frais de 3 essais avec backoff — la carte 401 ne peut plus rester coincée pour toute la session à cause d'un 401 vu pendant la redirection de login. Cumul avec MEL-BUG-030/035/036 (budget borné + backoff + Bearer web-player token).
 - Suite : **847/843/0/4**.
 
+## MEL-BUG-041 — P0 : après épuisement du budget de refus, un cool-down lent auto-répare la carte 401 (2026-11-07)
+- Après 3 refus 401/403 dans une époque, la gate bloquait **définitivement** ; or aucun événement `sf-spotify-auth-state-changed` ne se redéclenche tant que la chaîne d'état UI ne change pas → un 401 tardif (settle cookie/token) laissait la carte 401 coincée toute la session. Fix : quand le budget est épuisé, une deadline de cool-down `__sfMediaLibRefusalCooldownAt` autorise un nouveau budget borné (3 essais) toutes les **120 s**, toujours rythme-limité par le backoff générique (`__sfMediaLibRetryAt`) — jamais de boucle infinie, jamais de succès fictif. Le cool-down est aussi remis à zéro avec le budget (époque auth, état prêt, transition auth). Le diagnostic `__sfMediaLibLastDiagnostic` exporte désormais un **booléen** `bearer` (le token n'y est jamais) pour voir si un Bearer web-player était attaché au moment du refus.
+- Tests : `tests/mel_bug_041_refusal_cooldown.test.js` (4 tests) + mises à jour `p0_library_fetch`/`mel_bug_030`. Suite : **851/847/0/4**.
+
 ## Preview publiée depuis Arena — v1.2.2-test.64-preview (2026-11-07, commit 77afe52 + APK)
 - **Contenu** : MEL-BUG-037/038/039/040 (Paramètres remplis, accueil sans grille du milieu, UI verre Apple, 401 plus jamais coincé par époque).
 - APK `releases/Melodix-Test-v1.2.2-test64.apk` · sha256 `a7b87f4ebd2ce6d87d9ce743ad41be95841360207e43d26ba2c8ca6c7c183d56` · versionCode **1064** · empreinte `8B:93:8C:…:B7:1D:9E` (**nouvelle session Arena** → `adb uninstall com.melodix.music` d'abord, MEL-BUG-023). APK vérifié dans le tag. Suite 847/843/0/4.

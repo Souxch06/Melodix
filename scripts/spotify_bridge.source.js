@@ -3114,6 +3114,7 @@
             http: 0,
             mime: 'missing',
             error: 'none',
+            bearer: false,
             received: 0,
             transformed: 0
         };
@@ -3157,7 +3158,11 @@
                 attempt: attempt, source: source, requests: requests,
                 phase: safePhase, http: safeHttp, mime: mime, durationMs: duration,
                 error: error, authMode: MEDIA_LIBRARY_AUTH_MODE,
-                refreshMode: MEDIA_LIBRARY_REFRESH_MODE
+                refreshMode: MEDIA_LIBRARY_REFRESH_MODE,
+                // MEL-BUG-041: boolean only — was a Bearer web-player token
+                // attached to the request that got refused? The token value
+                // itself never leaves this scope.
+                bearer: state.bearer === true
             };
         } catch (_) {}
         try {

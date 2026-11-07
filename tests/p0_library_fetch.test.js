@@ -229,7 +229,7 @@ test('checkMediaLib transforms a valid library response and sends cookies withou
     assert.equal(diagnostic.refreshMode, 'unsupported');
     assert.ok(Number.isInteger(diagnostic.durationMs) && diagnostic.durationMs >= 0 && diagnostic.durationMs <= 999999);
     assert.deepEqual(Object.keys(diagnostic).sort(),
-        ['attempt', 'authMode', 'durationMs', 'error', 'http', 'mime', 'phase', 'refreshMode', 'requests', 'source'].sort(),
+        ['attempt', 'authMode', 'bearer', 'durationMs', 'error', 'http', 'mime', 'phase', 'refreshMode', 'requests', 'source'].sort(),
         'the passive snapshot contains only a bounded sequence/source, HTTP/timing/error data and fixed authentication modes');
     assert.doesNotMatch(libraryDiagnostics(win).join('\n'),
         /Fixture|spotify:|Cookie|Authorization|Road trip|Focus|received|transformed|proof=|page=/i,
@@ -654,7 +654,7 @@ test('unexpected JSON shape and GraphQL errors are not reported as an empty libr
         assert.equal(win.mediaLib, undefined);
         assert.equal(win.__sfMediaLibLastDiagnostic.error, diagnosticError);
         assert.deepEqual(Object.keys(win.__sfMediaLibLastDiagnostic).sort(),
-            ['attempt', 'authMode', 'durationMs', 'error', 'http', 'mime', 'phase', 'refreshMode', 'requests', 'source'].sort());
+            ['attempt', 'authMode', 'bearer', 'durationMs', 'error', 'http', 'mime', 'phase', 'refreshMode', 'requests', 'source'].sort());
         assert.match(finalLibraryDiagnostic(win), new RegExp(`error=${diagnosticError} auth=webview-session refresh=unsupported$`));
     }
 });
@@ -673,7 +673,7 @@ test('a successful API response with unsupported items is a transform error, not
     assert.equal(win.__sfMediaLibLastDiagnostic.phase, 'transform');
     assert.equal(win.__sfMediaLibLastDiagnostic.error, 'transform');
     assert.deepEqual(Object.keys(win.__sfMediaLibLastDiagnostic).sort(),
-        ['attempt', 'authMode', 'durationMs', 'error', 'http', 'mime', 'phase', 'refreshMode', 'requests', 'source'].sort());
+        ['attempt', 'authMode', 'bearer', 'durationMs', 'error', 'http', 'mime', 'phase', 'refreshMode', 'requests', 'source'].sort());
     assert.match(finalLibraryDiagnostic(win),
         /^library-fetch phase=transform http=200 mime=json duration=[0-9]+ error=transform auth=webview-session refresh=unsupported$/);
 });
@@ -798,6 +798,8 @@ test('MEL-BUG-036: with a web-player token, libraryV3 sends Authorization: Beare
     assert.equal(calls[0].init.headers['app-platform'], 'WebPlayer');
     assert.doesNotMatch(win.__testDiagnostics.join('\n'), /TEST_TOKEN_036/,
         'the token value never reaches diagnostics');
-    assert.ok(!('bearer' in win.__sfMediaLibLastDiagnostic),
-        'the diagnostic snapshot stays a fixed allow-list: no bearer field at all (token never exposed)');
+    assert.equal(typeof win.__sfMediaLibLastDiagnostic.bearer, 'boolean',
+        'MEL-BUG-041: the diagnostic may carry a boolean bearer flag, never the token value');
+    assert.doesNotMatch(JSON.stringify(win.__sfMediaLibLastDiagnostic), /TEST_TOKEN_036/,
+        'the token value never appears in the diagnostic snapshot');
 });

@@ -968,6 +968,7 @@
             window.__sfMediaLibRetryDelayMs = 5000;
             window.__sfMediaLibRefusalEpoch = 0;
             window.__sfMediaLibRefusalAttempts = 0;
+            window.__sfMediaLibRefusalCooldownAt = 0;
             traceHomePipeline(correlationId, 'request', 'ready', 0, 0, 0, 0);
             return false;
         }
@@ -986,11 +987,24 @@
             if (authEpoch !== Number(window.__sfMediaLibRefusalEpoch || 0)) {
                 window.__sfMediaLibRefusalEpoch = authEpoch;
                 window.__sfMediaLibRefusalAttempts = 0;
+                window.__sfMediaLibRefusalCooldownAt = 0;
             }
             if (Number(window.__sfMediaLibRefusalAttempts || 0) >= 3) {
-                traceHomePipeline(correlationId, 'request', 'blocked', 0,
-                    previousError === 'http-401' ? 401 : 403, 0, 0);
-                return false;
+                // MEL-BUG-041: the per-epoch budget is spent, but a 401/403 can
+                // still be a late cookie/token settle with no further auth-state
+                // event to reset the budget (the UI state string is unchanged,
+                // so no sf-spotify-auth-state-changed fires). Instead of
+                // blocking forever, grant one slow cool-down budget (3 attempts)
+                // every 2 minutes; the generic backoff check below still
+                // rate-limits every single attempt.
+                var cooldownAt = Number(window.__sfMediaLibRefusalCooldownAt || 0);
+                if (!Number.isFinite(cooldownAt) || Date.now() < cooldownAt) {
+                    traceHomePipeline(correlationId, 'request', 'blocked', 0,
+                        previousError === 'http-401' ? 401 : 403, 0, 0);
+                    return false;
+                }
+                window.__sfMediaLibRefusalAttempts = 0;
+                window.__sfMediaLibRefusalCooldownAt = Date.now() + 120000;
             }
             // MEL-BUG-035: do NOT reset __sfMediaLibRetryAt here. The previous
             // attempt armed it (now + >=5s, doubling) when it started, and the
@@ -3858,6 +3872,7 @@
             // leave the Home stuck on the error card for the whole session.
             window.__sfMediaLibRefusalEpoch = 0;
             window.__sfMediaLibRefusalAttempts = 0;
+            window.__sfMediaLibRefusalCooldownAt = 0;
             scheduleUpdate();
         });
         window.addEventListener('load', scheduleUpdate, { once: true });
