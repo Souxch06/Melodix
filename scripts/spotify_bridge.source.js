@@ -2970,10 +2970,20 @@
     // with its expiry, NEVER logged (only a boolean reaches diagnostics), and
     // dropped on any 401/403 so the bounded retry refetches it.
     let webPlayerTokenCache = null; // { token, expMs }
+    // MEL-BUG-057: status of the LAST /api/token fetch (ok | ko-httpXXX |
+    // ko-network | none) — exported as a sanitized enum so a screenshot tells
+    // whether the cookie session itself can mint a web-player token. The
+    // token value is NEVER stored here.
+    let lastTokenFetchStatus = 'none';
+    function safeTokenFetchStatus(value) {
+        const v = String(value || '');
+        return /^(ok|none|ko-network|ko-http[1-5][0-9]{2})$/.test(v) ? v : 'unknown';
+    }
     async function fetchWebPlayerToken() {
         const nowMs = Date.now();
         if (webPlayerTokenCache && webPlayerTokenCache.token &&
             Number(webPlayerTokenCache.expMs) - 60000 > nowMs) {
+            lastTokenFetchStatus = 'ok';
             return webPlayerTokenCache.token;
         }
         try {
@@ -2991,10 +3001,16 @@
                         token: String(token),
                         expMs: Number.isFinite(expMs) && expMs > nowMs ? expMs : nowMs + 3600000
                     };
+                    lastTokenFetchStatus = 'ok';
                     return webPlayerTokenCache.token;
                 }
             }
-        } catch (_) {}
+            const status = tokenResp && Number(tokenResp.status);
+            lastTokenFetchStatus = safeTokenFetchStatus(
+                Number.isFinite(status) && status >= 100 && status <= 599 ? 'ko-http' + Math.floor(status) : 'ko-network');
+        } catch (_) {
+            lastTokenFetchStatus = 'ko-network';
+        }
         webPlayerTokenCache = null;
         return null;
     }
@@ -3115,6 +3131,7 @@
             mime: 'missing',
             error: 'none',
             bearer: false,
+            token: 'none',
             received: 0,
             transformed: 0
         };
@@ -3165,7 +3182,10 @@
                 // MEL-BUG-041: boolean only — was a Bearer web-player token
                 // attached to the request that got refused? The token value
                 // itself never leaves this scope.
-                bearer: state.bearer === true
+                bearer: state.bearer === true,
+                // MEL-BUG-057: sanitized token-endpoint status enum (ok /
+                // ko-httpXXX / ko-network / none) — never a token value.
+                token: safeTokenFetchStatus(state.token)
             };
         } catch (_) {}
         try {
@@ -3449,6 +3469,9 @@
         // token value itself must never reach diagnostics; only this flag does.
         const bearerToken = await fetchWebPlayerToken();
         trace.bearer = Boolean(bearerToken);
+        // MEL-BUG-057: remember WHY there is no bearer (token endpoint refused
+        // by the cookie session vs network failure) — status enum only.
+        trace.token = safeTokenFetchStatus(lastTokenFetchStatus);
 
         while (hasMore && offset < 1000 && requestGeneration === mediaLibraryRequestGeneration &&
             authEpoch === boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999)) {

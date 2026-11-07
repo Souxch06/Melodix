@@ -499,18 +499,14 @@
                 var secondaryUri = String(item.secondaryUri || '').trim();
                 var allowedActions = ['melodix:action:open-settings', 'melodix:action:retry-library', 'melodix:action:open-login'];
                 var allowedStatus = ['loading', 'empty', 'error', 'unavailable'].indexOf(status) >= 0;
+                // MEL-BUG-056: pending/unproven (loading) cards may also carry real
+                // actions (login/retry), not only settled error cards.
                 var allowedAction = !stateUri ||
-                    (status === 'error' && allowedActions.indexOf(stateUri) >= 0) ||
-                    (status === 'unavailable' && stateUri === 'melodix:action:retry-library') ||
-                    // MEL-BUG-056: a pending/unproven card may carry the real login
-                    // action — without it the Home card has no button at all and
-                    // the user cannot start a session from Home.
-                    (status === 'loading' && stateUri === 'melodix:action:open-login');
+                    ((status === 'error' || status === 'loading') && allowedActions.indexOf(stateUri) >= 0) ||
+                    (status === 'unavailable' && stateUri === 'melodix:action:retry-library');
                 var allowedSecondaryAction = !secondaryUri ||
-                    (status === 'error' && item.sessionUnproven === true && allowedActions.indexOf(secondaryUri) >= 0 &&
-                        secondaryUri !== stateUri) ||
-                    (status === 'loading' && item.sessionUnproven === true &&
-                        secondaryUri === 'melodix:action:retry-library' && secondaryUri !== stateUri);
+                    ((status === 'error' || status === 'loading') && item.sessionUnproven === true &&
+                        allowedActions.indexOf(secondaryUri) >= 0 && secondaryUri !== stateUri);
                 if (!title || !allowedStatus || String(rawImage || '').trim() ||
                     !allowedAction || !allowedSecondaryAction) return null;
                 return {
@@ -1375,15 +1371,11 @@
                 : authState === 'in-progress'
                     ? 'La connexion du lecteur est en cours. Vos playlists restent masquées jusqu’à validation.'
                     : 'L’état de connexion du lecteur n’est pas encore confirmé. Vos playlists restent masquées.';
-            // MEL-BUG-056: when the player auth state is still unknown, the Home
-            // card itself offers the real login action (with retry as secondary) —
-            // otherwise the card shows no button and nothing can ever change.
+            // MEL-BUG-056: unknown auth -> offer the real login action on the card.
             if (authState === 'unknown') {
                 primaryUri = 'melodix:action:open-login';
                 secondaryUri = 'melodix:action:retry-library';
             } else {
-                // A login action stays informational while the player reports
-                // connected / in-progress.
                 primaryUri = '';
             }
         }
@@ -1398,9 +1390,12 @@
         if (diag && typeof diag === 'object' && Object.prototype.hasOwnProperty.call(diag, 'bearer')) {
             diagBearer = diag.bearer === true ? '1' : '0';
         }
+        // MEL-BUG-057: token-endpoint status (ok/ko-httpXXX/ko-network).
+        var diagToken = safeDiagToken(diag && diag.token);
         var diagLine = ' [auth=' + authState + ' statut=' + status +
             ' essais=' + safeHomeTraceCount(window.__sfNativeUiHomeAttempt, 999999) +
-            ' erreur=' + (err || 'aucune') + ' bearer=' + diagBearer + ']';
+            ' erreur=' + (err || 'aucune') + ' bearer=' + diagBearer +
+            ' token=' + diagToken + ']';
         if (subtitle) subtitle += diagLine; else subtitle = diagLine;
         return {
             kind: 'state',
@@ -2988,6 +2983,12 @@
             return ' (bearer=' + (d.bearer === true ? 1 : 0) + ')';
         }
         return '';
+    }
+
+    // MEL-BUG-057: token-endpoint status suffix (enum only).
+    function safeDiagToken(v) {
+        v = String(v == null ? '' : v);
+        return /^[\w-]{2,12}$/.test(v) ? v : '-';
     }
 
     function mediaLibraryDiagnosticStatus() {

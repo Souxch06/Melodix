@@ -161,19 +161,26 @@ test('MEL-BUG-056: unknown-auth home card carries open-login + retry, filter all
   const shellSrc = fs.readFileSync(path.join(repo, 'scripts/native_ui_shell.source.js'), 'utf8');
   assert.match(shellSrc, /if \(authState === 'unknown'\) \{\s*primaryUri = 'melodix:action:open-login';\s*secondaryUri = 'melodix:action:retry-library';/,
     'unknown auth state shows the login button on the Home card');
-  assert.match(shellSrc, /\(status === 'loading' && stateUri === 'melodix:action:open-login'\)/,
-    'payload filter permits login on pending/unproven cards');
+  assert.match(shellSrc, /\(status === 'error' \|\| status === 'loading'\) && allowedActions\.indexOf\(stateUri\) >= 0/,
+    'payload filter permits real actions (incl. login) on pending/unproven cards');
 });
 
 test('MEL-BUG-056: settings cards get accent stroke, 24dp radius and accent pills for actionable values', () => {
   const smali = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/NativeSettingsRowFactory.smali'), 'utf8');
   assert.match(smali, /MelColors;->strokeAccent:I\s*\n\s*invoke-virtual \{v3, v0, v1\}, Landroid\/graphics\/drawable\/GradientDrawable;->setStroke\(II\)V/,
     'card stroke uses strokeAccent');
-  assert.match(smali, /const\/high16 v0, 0x41c00000\s*\n\s*invoke-virtual \{v3, v0\}, Landroid\/graphics\/drawable\/GradientDrawable;->setCornerRadius/,
-    'card corner radius is 24dp');
+  assert.match(smali, /const\/high16 v0, 0x41e00000\s*\n\s*invoke-virtual \{v3, v0\}, Landroid\/graphics\/drawable\/GradientDrawable;->setCornerRadius/,
+    'card corner radius is 28dp (MEL-BUG-057)');
   for (const val of ['Ouvrir', 'Actualiser', 'Se connecter', 'Connecté', 'Renouveler la session']) {
     assert.ok(smali.includes('const-string v3, "' + val + '"'), `pill knows ${val}`);
   }
   assert.match(smali, /:native_settings_pill_accent_fill\s*\n\s*sget v0, Lcom\/melodix\/music\/MelColors;->accent:I\s*\n\s*sget v1, Lcom\/melodix\/music\/MelColors;->background:I/,
     'actionable pills are filled accent with dark text');
+});
+
+// MEL-BUG-057: glass vibe — 28dp cards + thin accent ring on the icon slot.
+test('MEL-BUG-057: settings icon slot has a thin accent ring', () => {
+  const smali = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/NativeSettingsRowFactory.smali'), 'utf8');
+  assert.match(smali, /const\/high16 v3, 0x41b00000[\s\S]{0,240}?const\/4 v3, 0x2\s*\n\s*sget v11, Lcom\/melodix\/music\/MelColors;->strokeAccent:I\s*\n\s*invoke-virtual \{v1, v3, v11\}, Landroid\/graphics\/drawable\/GradientDrawable;->setStroke\(II\)V/,
+    'icon slot ring = 2px strokeAccent');
 });

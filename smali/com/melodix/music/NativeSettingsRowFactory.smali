@@ -43,8 +43,8 @@
     # the Apple-glass UI (MEL-BUG-039) instead of the flat opaque gray.
     sget v0, Lcom/melodix/music/MelColors;->glassCard:I
     invoke-virtual {v3, v0}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
-    # MEL-BUG-056: rounder cards (24dp).
-    const/high16 v0, 0x41c00000
+    # MEL-BUG-057: extra-round glass cards (28dp).
+    const/high16 v0, 0x41e00000
     invoke-virtual {v3, v0}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
     invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->settingsStroke(Landroid/content/Context;)I
     move-result v0
@@ -76,6 +76,10 @@
     invoke-virtual {v1, v3}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
     const/high16 v3, 0x41b00000
     invoke-virtual {v1, v3}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
+    # MEL-BUG-057: thin accent ring around the icon slot (glass vibe).
+    const/4 v3, 0x2
+    sget v11, Lcom/melodix/music/MelColors;->strokeAccent:I
+    invoke-virtual {v1, v3, v11}, Landroid/graphics/drawable/GradientDrawable;->setStroke(II)V
     invoke-virtual {v0, v1}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
     const/4 v3, 0x1
     invoke-virtual {v0, v3}, Landroid/view/View;->setClipToOutline(Z)V
