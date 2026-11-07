@@ -872,3 +872,9 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 
 - **Livré** : test.75 (vC 1075, tag `v1.2.2-test.75-preview`, sha256 `8ad4e31e…a2f4baacb5`, commit `35d6676`). Nouvelle ligne Paramètres → Spotify → « Diagnostic interne » avec le même compact `auth=… statut=… essais=N erreur=… bearer=0/1` que la carte d'accueil (MEL-BUG-050), y compris dans le JSON de secours natif (pas de WebView). Une capture de Paramètres suffit désormais comme preuve.
 - **Tests** : +1 test (ligne présente dans le shell + le fallback natif) ; suite 868/865/0/3 VERT.
+
+## MEL-BUG-053 — P2 : action « Rechercher sur Spotify » + correction du lien APK des releases (2026-11-07)
+
+- **Livré** : test.76 (vC 1076, tag `v1.2.2-test.76-preview`, sha256 `968dd430…a8ce663`, commit `88d8546`). Nouvelle action `melodix:action:open-search` : navigation simple de la WebView vers `https://open.spotify.com/search` (aucun changement de pont/transport/contrat Spotify). Ligne « Rechercher sur Spotify » dans Paramètres → Spotify et dans le JSON de secours natif.
+- **Correction release** : les tags test.75/test.76 sont posés sur le commit contenant l'APK — l'APK est désormais servi **au tag** (vérifié 200 via API, ex. `releases/Melodix-Test-v1.2.2-test76.apk?ref=v1.2.2-test.76-preview`). Cause du « pas d'APK téléchargeable » : le tag pointait auparavant sur le commit code, sans le binaire.
+- **Tests** : +1 test ; suite 869/866/0/3 VERT.
