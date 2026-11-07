@@ -800,3 +800,20 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 
 ## Preview publiée depuis Arena — v1.2.2-test.63-preview (2026-11-06, commit d7d253f + APK)
 - APK `releases/Melodix-Test-v1.2.2-test63.apk` · sha256 `dc2bef60cf7da96c2b33bccd6b8a8ba21d523157a33639f42b73ce48fcb84f83` · versionCode **1063** · empreinte `B0:B8:D5:…:6C:F5` (même session Arena que test.61/62 → **mise à jour directe**, pas de « Package en conflit »). APK vérifié présent dans le tag via l'API. Suite 840/836/0/4.
+
+## MEL-BUG-037 — P2 : section Paramètres vide / « Chargement… » interminable (2026-11-07)
+- **Correctif** : watchdog natif 4,5 s → **2 s** ; le fallback de timeout rend désormais les **vraies sections locales** (État + réessayer, Compte/connexion, Apparence, Préférences de lecture autoplay/canvas/bg_audio avec leurs vraies URIs `melodix:setting:*`, Notifications) + section À propos. Le Settings n'est plus jamais vide.
+
+## MEL-BUG-038 — P2 : grille « Explorer Melodix » au milieu de l'accueil supprimée (demande utilisateur, 2026-11-07)
+- Appel `NativeShortcutGrid;->render` retiré de `NativeHomeShelfRenderer` ; la navigation reste dans la barre d'onglets du bas. Tests mis à jour (0 call site).
+
+## MEL-BUG-039 — P2 : restyle « verre » façon Apple (2026-11-07)
+- Surfaces translucides (`mel_surface` #CC10151A, `mel_surface_high` #E01A222A, boutons translucides), nouvelle palette verre (`mel_glass_fill/stroke/tabbar/card`) miroir dans `MelColors.smali` ; **tab bar en panneau verre** (haut arrondi 24 dp + filet clair) dans les 4 layouts (phone/land/sw600dp/sw600dp-land) ; **icônes header en disques de verre** (back, engrenage, avatar) ; **carte d'état** avec hairline verre et **icône en disque verre** (smali). Tests de parité XML↔MelColors existants + nouveaux gardes.
+
+## MEL-BUG-040 — P0 : le budget de refus 401/403 est remis à zéro à chaque transition d'état auth (2026-11-07)
+- Le listener `sf-spotify-auth-state-changed` reset `__sfMediaLibRefusalEpoch/Attempts` : une vraie reconnexion (même si l'epoch n'a pas bougé) redonne toujours un budget frais de 3 essais avec backoff — la carte 401 ne peut plus rester coincée pour toute la session à cause d'un 401 vu pendant la redirection de login. Cumul avec MEL-BUG-030/035/036 (budget borné + backoff + Bearer web-player token).
+- Suite : **847/843/0/4**.
+
+## Preview publiée depuis Arena — v1.2.2-test.64-preview (2026-11-07, commit 77afe52 + APK)
+- **Contenu** : MEL-BUG-037/038/039/040 (Paramètres remplis, accueil sans grille du milieu, UI verre Apple, 401 plus jamais coincé par époque).
+- APK `releases/Melodix-Test-v1.2.2-test64.apk` · sha256 `a7b87f4ebd2ce6d87d9ce743ad41be95841360207e43d26ba2c8ca6c7c183d56` · versionCode **1064** · empreinte `8B:93:8C:…:B7:1D:9E` (**nouvelle session Arena** → `adb uninstall com.melodix.music` d'abord, MEL-BUG-023). APK vérifié dans le tag. Suite 847/843/0/4.
