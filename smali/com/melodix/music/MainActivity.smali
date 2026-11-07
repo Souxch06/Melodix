@@ -8172,14 +8172,10 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     const/4 v0, 0x1
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeSessionUnprovenStatusAttached:Z
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeSessionUnproven:Z
-    # MEL-BUG-061: not connected -> the official login screen comes FIRST,
-    # not the home shelf. Guarded against re-entry while login is already up.
-    iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginWebRequested:Z
-    if-nez v0, :native_session_status_attach_done
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->isNativeHomeScreen()Z
-    move-result v0
-    if-eqz v0, :native_session_status_attach_done
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->openSpotifyLogin()V
+    # MEL-BUG-061 reverted here: auto-opening the login WebView from this
+    # callback covered the native shell (broke the rendered-shell measurement
+    # and could fight the user mid-navigation). Login-first stays at cold
+    # start (MEL-BUG-042) and via the card button.
 
     :native_session_status_attach_done
     return-void

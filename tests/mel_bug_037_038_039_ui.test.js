@@ -116,7 +116,9 @@ test('MEL-BUG-061: login UI zoom + login-first when session unproven', () => {
   const show = main.slice(main.indexOf('.method public final showNativeUiFrom'), main.indexOf('.end method', main.indexOf('.method public final showNativeUiFrom')));
   assert.match(show, /const\/16 v1, 0x64\s*\n\s*invoke-virtual \{v0, v1\}, Landroid\/webkit\/WebSettings;->setTextZoom\(I\)V/,
     'native shell resets zoom to 100%');
+  // MEL-BUG-061: auto-opening login from the unproven callback was reverted
+  // (it covered the native shell and broke the rendered-shell measurement);
+  // login-first happens at cold start (MEL-BUG-042) and via the card button.
   const unproven = main.slice(main.indexOf('.method public final noteNativeHomeSessionUnprovenStatusAttached'), main.indexOf('.end method', main.indexOf('.method public final noteNativeHomeSessionUnprovenStatusAttached')));
-  assert.match(unproven, /nativeLoginWebRequested:Z\s*\n\s*if-nez v0[\s\S]*?isNativeHomeScreen[\s\S]*?openSpotifyLogin\(\)V/,
-    'unproven session on Home opens the official login first (guarded against loops)');
+  assert.doesNotMatch(unproven, /openSpotifyLogin\(\)V/, 'no auto login jump from the unproven callback');
 });
