@@ -886,3 +886,9 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 - **Nouveau** : lignes **« Compte Spotify en ligne »** (`melodix:action:open-account` → open.spotify.com/account) et **« Se déconnecter de Spotify »** (`spotify:settings:logout`, uniquement si session prouvée) dans Paramètres → Spotify + fallback natif.
 - **Visuel** : cases icônes des réglages teintées accent (25 %) avec glyphe accent (au lieu de gris muet).
 - **Livré** : test.77 (vC 1077, tag `v1.2.2-test.77-preview`, sha256 `50791561…cb32e1`, commit `27c01fd`). Suite 872/869/0/3 VERT.
+
+## MEL-BUG-055 — P0 : crash à l'ouverture des Paramètres (2026-11-07)
+
+- **Cause** : le polish visuel 054 écrivait `const v4, 0x40000000` dans `NativeSettingsRowFactory` alors que **v4 contient le titre de la ligne** (utilisé ensuite par `setText(v4)`) → VerifyError au chargement de la classe → crash à l'ouverture des réglages.
+- **Corrigé** : masque alpha passé dans le registre libre **v11** ; test de régression ajouté (v4 jamais écrasé, `setText(v4)` intact). test.78 (vC 1078, tag `v1.2.2-test.78-preview`, sha256 `b636e359…eaaa20`, commit `b650077`). Suite 873/870/0/3 VERT.
+- **Capture 15:33** : `[auth=unknown statut=pending essais=1 erreur=aucune bearer=-]` → requête en cours, aucun bearer encore. Rappel preuve 15:05 : `essais=1 erreur=http-401 bearer=0` = requête partie SANS jeton → 401. L'accueil changera quand une vraie session sera connectée dans le lecteur (bouton « Se connecter » sur la carte en état d'erreur tranché).
