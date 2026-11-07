@@ -51,3 +51,39 @@ test('MEL-BUG-042: the Se connecter action keeps the official login route', () =
     'openSpotifyLogin loads the same official login URL (no auth change)');
   assert.match(m[1], /revealLoginWebUi\(\)V/, 'and reveals the login Web UI');
 });
+
+// MEL-BUG-043: after MEL-BUG-042 the login screen flashed then the native home
+// came back before the user could sign in: postNativeUiReady/postNativeUiRoute
+// cleared nativeLoginWebRequested on any callback while the WebView had not
+// loaded a real page yet (getUrl() null/about:blank). The flag may now only be
+// cleared once a REAL non-login page is loaded.
+function methodBlock(name) {
+  const at = main.indexOf('.method public final ' + name + '(');
+  assert.ok(at >= 0, name + ' exists');
+  return main.slice(at, main.indexOf('.end method', at));
+}
+
+test('MEL-BUG-043: postNativeUiReady keeps the login surface while no real page is loaded', () => {
+  const m = methodBlock('postNativeUiReady');
+  const gate = m.slice(m.indexOf('nativeLoginWebRequested:Z'));
+  assert.match(gate, /isLoginWebPath\(\)Z[\s\S]*?getUrl\(\)Ljava\/lang\/String;[\s\S]*?"about:blank"[\s\S]*?nativeLoginWebRequested:Z/,
+    'the flag is only cleared after checking the real loaded URL (null/about:blank keep it)');
+  assert.ok(gate.indexOf('"about:blank"') < gate.lastIndexOf('iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginWebRequested:Z'),
+    'clearing happens only on the real-URL branch');
+});
+
+test('MEL-BUG-043: postNativeUiRoute keeps the login surface while no real page is loaded', () => {
+  const m = methodBlock('postNativeUiRoute');
+  const gate = m.slice(m.indexOf('nativeLoginWebRequested:Z'));
+  assert.match(gate, /isLoginWebPath\(\)Z[\s\S]*?getUrl\(\)Ljava\/lang\/String;[\s\S]*?"about:blank"[\s\S]*?nativeLoginWebRequested:Z/,
+    'same guard in the route callback');
+});
+
+test('MEL-BUG-043: leaving login for a real player page still closes the login surface', () => {
+  for (const name of ['postNativeUiReady', 'postNativeUiRoute']) {
+    const m = methodBlock(name);
+    assert.ok(m.includes('isLoginWebPath()Z'), name + ' still consults the login path');
+    assert.match(m, /iput-boolean v0, p0, Lcom\/melodix\/music\/MainActivity;->nativeLoginWebRequested:Z/,
+      name + ' can still clear the flag once a real non-login page loaded');
+  }
+});

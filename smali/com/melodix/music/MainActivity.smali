@@ -7188,6 +7188,23 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->isLoginWebPath()Z
     move-result v0
     if-nez v0, :native_ready_login_gate_done
+    # MEL-BUG-043: a ready callback arriving while the WebView has not loaded
+    # any real page yet (null or about:blank) must NOT revoke the login
+    # surface - otherwise the native home flashes back over the login form
+    # before the user can sign in.
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+    if-eqz v0, :native_ready_login_gate_done
+    invoke-virtual {v0}, Landroid/webkit/WebView;->getUrl()Ljava/lang/String;
+    move-result-object v1
+    if-eqz v1, :native_ready_url_loaded
+    goto :native_ready_login_gate_done
+    :native_ready_url_loaded
+    const-string v2, "about:blank"
+    invoke-virtual {v2, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-nez v0, :native_ready_clear_login
+    goto :native_ready_login_gate_done
+    :native_ready_clear_login
     const/4 v0, 0x0
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginWebRequested:Z
     :native_ready_login_gate_done
@@ -7893,6 +7910,21 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->isLoginWebPath()Z
     move-result v0
     if-nez v0, :native_route_login_gate_done
+    # MEL-BUG-043: same guard as postNativeUiReady - only a REAL non-login
+    # page (not null/about:blank mid-load) closes the login-only Web surface.
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+    if-eqz v0, :native_route_login_gate_done
+    invoke-virtual {v0}, Landroid/webkit/WebView;->getUrl()Ljava/lang/String;
+    move-result-object v1
+    if-eqz v1, :native_route_url_loaded
+    goto :native_route_login_gate_done
+    :native_route_url_loaded
+    const-string v2, "about:blank"
+    invoke-virtual {v2, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-nez v0, :native_route_clear_login
+    goto :native_route_login_gate_done
+    :native_route_clear_login
     const/4 v0, 0x0
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginWebRequested:Z
     :native_route_login_gate_done

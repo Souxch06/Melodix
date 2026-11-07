@@ -820,7 +820,11 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 
 ## MEL-BUG-042 — P0 : au lancement, l'écran de connexion s'affiche directement (plus l'accueil/401) (2026-11-07)
 - Au démarrage à froid, le marqueur de login persisté n'est jamais cru (`AppSingleton` force `B=false`), donc `ensureWebPageLoaded()` prenait la branche login mais laissait l'accueil natif (carte 401 « Se connecter ») au premier plan. La branche `:login_url` appelle maintenant `revealLoginWebUi()` : l'écran de connexion officiel `accounts.spotify.com/en/login?continue=…open.spotify.com/…` est affiché directement. Un cookie de session valide persisté auto-continue vers `open.spotify.com` via `continue`, donc une connexion sauvegardée atterrit quand même sur l'accueil. Le wipe de cookies (`A()`, `removeAllCookies`) reste strictement derrière le flag de déconnexion explicite `l0` — jamais au démarrage à froid, la session WebView persiste.
-- Contrat Spotify untouched : même URL de login officielle, mêmes paramètres (`openSpotifyLogin` inchangé). Tests : `tests/mel_bug_042_launch_login.test.js` (3 tests). Suite : **854/851/0/3**.
+- Contrat Spotify untouched : même URL de login officielle, mêmes paramètres (`openSpotifyLogin` inchangé). Tests : `tests/mel_bug_042_launch_login.test.js`. Suite : **854/851/0/3**.
+
+## MEL-BUG-043 — P0 : l'écran de connexion ne flash plus puis ne revient plus à l'accueil (2026-11-07)
+- Après MEL-BUG-042, `postNativeUiReady`/`postNativeUiRoute` effaçaient `nativeLoginWebRequested` sur n'importe quel callback JS arrivant **avant** que la WebView ait chargé une vraie page (`getUrl()` null/`about:blank`) → l'accueil natif recouvrait le formulaire de connexion avant la saisie. Le flag n'est plus effacé que quand une **vraie page non-login** est chargée (la sortie de login vers le player ferme toujours la surface login).
+- Tests : 3 tests MEL-BUG-043 dans `tests/mel_bug_042_launch_login.test.js`. Suite : **857/854/0/3**.
 
 ## Preview publiée depuis Arena — v1.2.2-test.64-preview (2026-11-07, commit 77afe52 + APK)
 - **Contenu** : MEL-BUG-037/038/039/040 (Paramètres remplis, accueil sans grille du milieu, UI verre Apple, 401 plus jamais coincé par époque).
