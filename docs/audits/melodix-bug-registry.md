@@ -919,3 +919,8 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 - **Header** : liseré accent 1 dp sous la barre de titre (nouveau drawable `native_header_glass.xml`, palette `mel_*` uniquement).
 - Capture 17:13 : `[auth=connected statut=error essais=1 erreur=http-401 bearer=0 token=none]` — toujours pas de jeton (bearer=0) → 401 ; déblocage = vraie connexion via « Se connecter ».
 - **Livré** : test.82 (vC 1082, tag `v1.2.2-test.82-preview`, sha256 `816876c5e0d1a32d22a18b3b48bde48f9fc2f5308e869ee86ae81e3d05f4c763`, commit `13d630d`). Suite 880/877/0/3 VERT.
+
+## MEL-BUG-060 — P1 : diagnostic token= fiable (2026-11-07)
+
+- **Fix** : `createMediaLibraryDiagnostic` hérite désormais du **dernier statut connu** de `/api/token` (`token: safeTokenFetchStatus(lastTokenFetchStatus)`) — une émission en phase `request` n'écrase plus la cause réelle par `token=none` (vu sur la capture 17:13 : `token=none` à côté de `bearer=0 erreur=http-401`).
+- **Commit** `87fd05d`, suite 881/877/0/4 VERT. **APK non signé** : le bac à sable a été reset et le keystore `melodix-test-release.p12` (hors dépôt) a disparu → plus de build signé possible avec l'empreinte `DF:6B:7C:…:0E:11`. La preview courante reste **test.82** (vC 1082). Un nouveau keystore changerait l'empreinte → désinstallation obligatoire → session Spotify perdue (contre-productif ici) : on ne le régénère pas tant que le diagnostic 401 est en cours.
