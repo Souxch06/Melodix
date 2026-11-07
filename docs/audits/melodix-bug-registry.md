@@ -878,3 +878,11 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 - **Livré** : test.76 (vC 1076, tag `v1.2.2-test.76-preview`, sha256 `968dd430…a8ce663`, commit `88d8546`). Nouvelle action `melodix:action:open-search` : navigation simple de la WebView vers `https://open.spotify.com/search` (aucun changement de pont/transport/contrat Spotify). Ligne « Rechercher sur Spotify » dans Paramètres → Spotify et dans le JSON de secours natif.
 - **Correction release** : les tags test.75/test.76 sont posés sur le commit contenant l'APK — l'APK est désormais servi **au tag** (vérifié 200 via API, ex. `releases/Melodix-Test-v1.2.2-test76.apk?ref=v1.2.2-test.76-preview`). Cause du « pas d'APK téléchargeable » : le tag pointait auparavant sur le commit code, sans le binaire.
 - **Tests** : +1 test ; suite 869/866/0/3 VERT.
+
+## MEL-BUG-054 — P1/P2 : corrections écrans du 2026-11-07 15:05 + réglages réels + polish (2026-11-07)
+
+- **Preuve 401 tranchée par la capture** : `[auth=connected statut=error essais=1 erreur=http-401 bearer=0]` → la requête libraryV3 **part bien** (essais=1) mais **sans jeton bearer** (bearer=0) → 401. Cause : aucun token web-player disponible au moment de la requête.
+- **Corrigé** : doublon `(bearer=0) […] bearer=0` sur la carte (le flag n'est plus porté que par la ligne diag) ; ponctuation cassée « …confirmée La cause… » (point final restauré après le strip du suffixe « Touchez pour réessayer »).
+- **Nouveau** : lignes **« Compte Spotify en ligne »** (`melodix:action:open-account` → open.spotify.com/account) et **« Se déconnecter de Spotify »** (`spotify:settings:logout`, uniquement si session prouvée) dans Paramètres → Spotify + fallback natif.
+- **Visuel** : cases icônes des réglages teintées accent (25 %) avec glyphe accent (au lieu de gris muet).
+- **Livré** : test.77 (vC 1077, tag `v1.2.2-test.77-preview`, sha256 `50791561…cb32e1`, commit `27c01fd`). Suite 872/869/0/3 VERT.
