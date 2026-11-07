@@ -929,3 +929,11 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 
 - **Livré** : test.83 (vC 1083, tag `v1.2.2-test.83-preview`, sha256 `ca8bd6ea…947ba`, commit `87fd05d`). Le diagnostic `token=` hérite du dernier statut connu de `/api/token` (fini le `token=none` masquant).
 - **⚠️ Changement de certificat** : reset sandbox → keystore perdu → nouveau PKCS12, empreinte **`DC:67:4C:91:37:0F:BE:E5:51:5B:C6:7E:37:B0:F3:B2:3B:1D:8F:49:0C:AF:FD:D8:10:19:5A:A1:2F:BE:A1:35`**. Installation : `adb uninstall com.melodix.music` d'abord (MEL-BUG-023) — la session Spotify sera effacée, reconnexion via « Se connecter » nécessaire.
+
+## MEL-BUG-061 — P0/P2 : vraie cause du 401 + login prioritaire + zoom login + settings sobres (2026-11-07)
+
+- **Cause racine affinée (capture 19:22)** : `token=ko-http400` → `/api/token` est rejeté en **400** sur cette WebView. **Fix** : fallback vers `open.spotify.com/get_access_token?reason=transport&productType=web_player` — l'endpoint que le web player officiel appelle lui-même, toujours cookie-authentifié (aucun paramètre OAuth modifié, token jamais loggé). Prochaine capture : `token=ok bearer=1` attendu si la session cookie est valide.
+- **Login d'abord quand pas connecté** : si la session est non prouvée sur l'accueil, l'écran de connexion officiel s'ouvre en premier (guard anti-boucle `nativeLoginWebRequested`).
+- **Zoom login** : l'interface accounts.spotify.com est zoomée à **140 %** (lisible sans pinch-zoom) ; retour à 100 % quand le shell natif reprend.
+- **Settings plus sobres** : cartes 16 dp (style appli mobile native).
+- **Livré** : test.84 (vC 1084, tag `v1.2.2-test.84-preview`, sha256 `cb247258…39de4`, commit `cc29cac`, cert `DC:67:4C:…:A1:35` = même que test.83 → **mise à jour directe, pas de désinstallation**). Suite 883/879/0/4 VERT.
