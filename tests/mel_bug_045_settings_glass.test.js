@@ -184,3 +184,36 @@ test('MEL-BUG-057: settings icon slot has a thin accent ring', () => {
   assert.match(smali, /const\/high16 v3, 0x41b00000[\s\S]{0,240}?const\/4 v3, 0x2\s*\n\s*sget v11, Lcom\/melodix\/music\/MelColors;->strokeAccent:I\s*\n\s*invoke-virtual \{v1, v3, v11\}, Landroid\/graphics\/drawable\/GradientDrawable;->setStroke\(II\)V/,
     'icon slot ring = 2px strokeAccent');
 });
+
+// MEL-BUG-062: ON/OFF settings render as a real styled Switch (accent thumb,
+// glow track, non-clickable so the row keeps the toggle action) — mobile-app
+// style — while other values keep the text pill.
+test('MEL-BUG-062: ON/OFF values render as a styled Switch in settings rows', () => {
+  const smali = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/NativeSettingsRowFactory.smali'), 'utf8');
+  // Anchor on label *definitions* ("\n    :label\n") — a bare indexOf also
+  // matches "goto :label" / "if-eqz ..., :label" references and slices the
+  // wrong window.
+  const label = (name) => {
+    const at = smali.indexOf('\n    :' + name + '\n');
+    assert.ok(at >= 0, 'label :' + name + ' is defined');
+    return at;
+  };
+  const pill = label('native_settings_pill');
+  const switchBuild = label('native_settings_switch_build');
+  const pillText = label('native_settings_pill_text');
+  assert.ok(pill < switchBuild && switchBuild < pillText,
+    'ON/OFF branch sits between the pill entry and the text-pill path');
+  const branch = smali.slice(pill, switchBuild);
+  assert.match(branch, /const-string v3, "ON"[\s\S]*?goto :native_settings_switch_build/,
+    'ON value branches to the switch builder');
+  assert.match(branch, /const-string v3, "OFF"[\s\S]*?:native_settings_pill_text/,
+    'OFF value also handled (checked state = false)');
+  const sw = smali.slice(switchBuild, pillText);
+  assert.match(sw, /new-instance v11, Landroid\/widget\/Switch;/);
+  assert.match(sw, /Switch;->setChecked\(Z\)V/);
+  assert.match(sw, /MelColors;->accent:I[\s\S]*?setThumbTintList/, 'thumb = accent');
+  assert.match(sw, /MelColors;->glow:I[\s\S]*?setTrackTintList/, 'track = accent glow');
+  assert.match(sw, /setClickable\(Z\)V\s*\n\s*invoke-virtual \{v11, v0\}, Landroid\/view\/View;->setFocusable\(Z\)V/,
+    'switch itself not clickable (the row dispatches the toggle)');
+  assert.match(sw, /goto :native_settings_row_tail/, 'switch path rejoins the common row tail');
+});

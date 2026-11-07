@@ -154,6 +154,48 @@
     invoke-direct {v0, v1, v3, v9}, Landroid/widget/LinearLayout$LayoutParams;-><init>(IIF)V
     invoke-virtual {v2, v8, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
+    # MEL-BUG-062: ON/OFF values render as a real styled Switch (mobile-app
+    # toggle) instead of a text pill. The switch itself is not clickable: the
+    # whole row keeps dispatching the toggle uri.
+    const-string v3, "ON"
+    invoke-virtual {v6, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v3
+    if-eqz v3, :native_settings_switch_check_off
+    const/4 v3, 0x1
+    goto :native_settings_switch_build
+
+    :native_settings_switch_check_off
+    const-string v3, "OFF"
+    invoke-virtual {v6, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v3
+    if-eqz v3, :native_settings_pill_text
+    const/4 v3, 0x0
+
+    :native_settings_switch_build
+    new-instance v11, Landroid/widget/Switch;
+    invoke-direct {v11, p0}, Landroid/widget/Switch;-><init>(Landroid/content/Context;)V
+    invoke-virtual {v11, v3}, Landroid/widget/Switch;->setChecked(Z)V
+    sget v0, Lcom/melodix/music/MelColors;->accent:I
+    invoke-static {v0}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
+    move-result-object v0
+    invoke-virtual {v11, v0}, Landroid/widget/Switch;->setThumbTintList(Landroid/content/res/ColorStateList;)V
+    sget v0, Lcom/melodix/music/MelColors;->glow:I
+    invoke-static {v0}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
+    move-result-object v0
+    invoke-virtual {v11, v0}, Landroid/widget/Switch;->setTrackTintList(Landroid/content/res/ColorStateList;)V
+    const/4 v0, 0x0
+    invoke-virtual {v11, v0}, Landroid/view/View;->setClickable(Z)V
+    invoke-virtual {v11, v0}, Landroid/view/View;->setFocusable(Z)V
+    new-instance v0, Landroid/widget/LinearLayout$LayoutParams;
+    const/4 v1, -0x2
+    invoke-direct {v0, v1, v1}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->settingsValueGap(Landroid/content/Context;)I
+    move-result v3
+    iput v3, v0, Landroid/view/ViewGroup$MarginLayoutParams;->leftMargin:I
+    invoke-virtual {v2, v11, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    goto :native_settings_row_tail
+
+    :native_settings_pill_text
     new-instance v11, Landroid/widget/TextView;
     invoke-direct {v11, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
     invoke-virtual {v11, v6}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
@@ -241,6 +283,7 @@
     iput v3, v0, Landroid/view/ViewGroup$MarginLayoutParams;->leftMargin:I
     invoke-virtual {v2, v11, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
+    :native_settings_row_tail
     new-instance v0, Landroid/widget/LinearLayout$LayoutParams;
     const/4 v1, -0x1
     const/4 v3, -0x2
