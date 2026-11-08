@@ -457,6 +457,10 @@
 
     move-result-object v1
 
+    # Keep the raw URL aside: v1 is reused as a flag below, and :force_login
+    # needs the URL to decide whether a login reload is actually necessary.
+    move-object v3, v1
+
     # Null means no navigation was ever requested. A real URL is already
     # usable; only about:blank is the other empty state. Compare from the
     # non-null constant so the null path never dereferences v1.
@@ -523,27 +527,28 @@
 
     if-nez v1, :force_login
 
+    # v3 keeps the raw URL; v2 + v1 are free scratch here (v1's flag is dead).
     invoke-static {}, Landroid/webkit/CookieManager;->getInstance()Landroid/webkit/CookieManager;
 
     move-result-object v2
 
     if-eqz v2, :force_login
 
-    const-string v3, "https://open.spotify.com/"
+    const-string v1, "https://open.spotify.com/"
 
-    invoke-virtual {v2, v3}, Landroid/webkit/CookieManager;->getCookie(Ljava/lang/String;)Ljava/lang/String;
+    invoke-virtual {v2, v1}, Landroid/webkit/CookieManager;->getCookie(Ljava/lang/String;)Ljava/lang/String;
 
     move-result-object v2
 
     if-eqz v2, :force_login
 
-    const-string v3, "sp_dc="
+    const-string v1, "sp_dc="
 
-    invoke-virtual {v2, v3}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    invoke-virtual {v2, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
 
-    move-result v2
+    move-result v1
 
-    if-eqz v2, :force_login
+    if-eqz v1, :force_login
 
     # Session proven and a real page already on screen: never reload (onResume
     # must not restart the player while the user is listening).
@@ -552,12 +557,12 @@
     :force_login
     # Unproven but a page is already loaded: reveal the login surface again,
     # and reload the login URL only if the current page is not already it
-    # (avoids a reload loop on every resume).
+    # (avoids a reload loop on every resume). v3 = the raw current URL.
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealLoginWebUi()V
 
     const-string v2, "accounts.spotify.com"
 
-    invoke-virtual {v1, v2}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    invoke-virtual {v3, v2}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
 
     move-result v2
 

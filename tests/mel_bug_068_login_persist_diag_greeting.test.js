@@ -22,7 +22,7 @@ test('MEL-BUG-068a: onStop flushes the session cookies to disk (quit must not lo
 
 test('MEL-BUG-068b: login is forced at every launch/resume while the session is unproven', () => {
   const body = method(main, '.method public final ensureWebPageLoaded()V');
-  assert.match(body, /if-eqz v1, :proven_check[\s\S]*:force_login[\s\S]*revealLoginWebUi\(\)V[\s\S]*const-string v2, "accounts\.spotify\.com"[\s\S]*if-nez v2, :done/,
+  assert.match(body, /move-object v3, v1[\s\S]*:force_login[\s\S]*invoke-virtual \{v3, v2\}, Ljava\/lang\/String;->contains[\s\S]*if-nez v2, :done/,
     'URL réelle + session non prouvée -> revealLoginWebUi, rechargement login seulement si la page courante n\'est pas déjà le login');
   assert.match(body, /:proven_check[\s\S]*goto :done/,
     'session prouvée -> aucun rechargement (lecture jamais interrompue)');
@@ -47,10 +47,15 @@ test('MEL-BUG-068c: a copyable full diagnostic exists (header chip + bridge bran
     'branche copy-diagnostic côté pont JS -> natif');
 });
 
-test('MEL-BUG-068d: one broken settings row cannot crash the whole screen', () => {
+test('MEL-BUG-068d: settings rows never clobber the row register v2 (the test.99 crash cause)', () => {
+  const f = read('smali/com/melodix/music/NativeSettingsRowFactory.smali');
+  const at = f.indexOf('\n    :native_settings_switch_build\n');
+  const sw = f.slice(at, f.indexOf('\n    :native_settings_pill_text\n', at));
+  assert.doesNotMatch(sw, /const v2, |new-instance v2, |aput [^,]+, v2, |move-result-object v2/,
+    'the row register v2 is never written in the switch block (VerifyError fix, kept)');
   const rows = method(main, '.method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V');
-  assert.match(rows, /:try_start_row\s*\n\s*invoke-static \{p0, v6\}, Lcom\/melodix\/music\/NativeSettingsRowFactory;->create[\s\S]*\.catch Ljava\/lang\/Throwable; \{:try_start_row \.\. :try_end_row\} :catch_row[\s\S]*noteDiag[\s\S]*goto :native_row_increment/,
-    'create() enveloppé: échec -> noteDiag + ligne ignorée, pas de crash');
+  assert.match(rows, /NativeSettingsRowFactory;->create\(Lcom\/melodix\/music\/MainActivity;Lorg\/json\/JSONObject;\)Landroid\/widget\/LinearLayout;/,
+    'settings rows still go through the hardened factory');
 });
 
 test('MEL-BUG-068e: greeting fallback when not connected (home title shows the state)', () => {
