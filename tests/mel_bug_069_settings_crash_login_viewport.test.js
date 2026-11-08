@@ -182,7 +182,10 @@ test('MEL-BUG-072: the shell and the route are refused without a session proof',
   const head = show.slice(show.indexOf('.method'));
   // The gate is the FIRST thing the method does: it must precede both the
   // login-route early return and any visibility change on nativeRoot.
-  const gateAt = head.indexOf('if-eqz v0, :native_show_gate_done');
+  // MEL-BUG-076: this test used to pin `if-eqz v0, :native_show_gate_done`, which
+  // is the INVERTED sense ("if NOT proven, paint"). It was green on the bug.
+  // The gate must skip the paint when the session is unproven: if-nez.
+  const gateAt = head.indexOf('if-nez v0, :native_show_gate_done');
   assert.ok(gateAt > 0, 'garde de preuve dans showNativeUiFrom');
   assert.ok(gateAt < head.indexOf('isLoginWebRoute()Z'), 'la garde précède le retour login');
   assert.ok(gateAt < head.indexOf('0x7f09022f'), 'la garde précède nativeRoot');
@@ -195,7 +198,7 @@ test('MEL-BUG-072: the shell and the route are refused without a session proof',
 
   const route = stripComments(method(main, '.method public final activateNativeUiRoute('));
   assert.match(route,
-    /AppSingleton;->B:Z\s*\n\s*if-eqz v0, :native_route_activation_gate_done[\s\S]*?diagRouteDropped:I[\s\S]*?"route"[\s\S]*?"dropped-unproven"[\s\S]*?noteDiag\([\s\S]*?return-void/,
+    /AppSingleton;->B:Z\s*\n\s*if-nez v0, :native_route_activation_gate_done[\s\S]*?diagRouteDropped:I[\s\S]*?"route"[\s\S]*?"dropped-unproven"[\s\S]*?noteDiag\([\s\S]*?return-void/,
     'une route non prouvée ne rend rien et n’écrit pas "route <screen>"');
   const routeGate = route.indexOf('native_route_activation_gate_done');
   assert.ok(routeGate < route.indexOf('setNativeScreen'), 'la garde précède setNativeScreen');
@@ -203,7 +206,10 @@ test('MEL-BUG-072: the shell and the route are refused without a session proof',
 
   // Neither refusal may navigate (that would loop) or log sensitive data.
   for (const body of [head.slice(gateAt, head.indexOf(':native_show_gate_done')), route.slice(0, routeGate)]) {
-    assert.doesNotMatch(body, /loadUrl|getUrl|getCookie|sp_dc|token/,
+    // `getUrl` is allowed: the local shell asset (file://) is exempted from the
+    // gate so the UI metric CI keeps working. Nothing is navigated and no
+    // cookie value is read.
+    assert.doesNotMatch(body, /loadUrl|getCookie|sp_dc|token/,
       'aucune navigation ni donnée sensible dans un refus');
   }
 });

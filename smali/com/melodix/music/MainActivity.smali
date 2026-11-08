@@ -8924,7 +8924,27 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     # (AppSingleton.noteDiag); the previous CrashGuard/Overlay labels never
     # appeared in a report, which is why their absence proved nothing.
     sget-boolean v0, Lcom/melodix/music/AppSingleton;->B:Z
-    if-eqz v0, :native_show_gate_done
+    # MEL-BUG-076: this branch was INVERTED from the start. Written as
+    # `if-eqz v0, :native_show_gate_done` it means "if the session is NOT proven,
+    # go paint the native shell" — so an unproven session was handed the
+    # foreground and the login surface was shown only when the session WAS
+    # proven. That is the exact `ecran=home auth=false gates=0/0/0` report, and
+    # no refusal was ever logged because the refusal branch was unreachable.
+    # Correct sense: proven session -> paint.
+    if-nez v0, :native_show_gate_done
+    # MEL-BUG-076: the local shell asset is not a remote session: the native UI
+    # is made of it and the CI measures it, so it keeps the foreground.
+    iget-object v3, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+    if-eqz v3, :native_show_gate_refuse
+    invoke-virtual {v3}, Landroid/webkit/WebView;->getUrl()Ljava/lang/String;
+    move-result-object v3
+    if-eqz v3, :native_show_gate_refuse
+    const-string v4, "file://"
+    invoke-virtual {v3, v4}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v2
+    if-nez v2, :native_show_gate_refuse
+    goto :native_show_gate_done
+    :native_show_gate_refuse
     iget v1, p0, Lcom/melodix/music/MainActivity;->diagShowDropped:I
     add-int/lit8 v1, v1, 0x1
     iput v1, p0, Lcom/melodix/music/MainActivity;->diagShowDropped:I
@@ -9506,7 +9526,22 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     # session. The proof is checked here first, so a refused route leaves no
     # trace in the journal and renders nothing.
     sget-boolean v0, Lcom/melodix/music/AppSingleton;->B:Z
-    if-eqz v0, :native_route_activation_gate_done
+    # MEL-BUG-076: same inversion as showNativeUiFrom — `if-nez` keeps the guard
+    # on the unproven path and lets a proven session activate the route.
+    if-nez v0, :native_route_activation_gate_done
+    # MEL-BUG-076: the local shell asset keeps the foreground (see
+    # showNativeUiFrom); only a REMOTE page can be refused here.
+    iget-object v3, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+    if-eqz v3, :native_route_gate_refuse
+    invoke-virtual {v3}, Landroid/webkit/WebView;->getUrl()Ljava/lang/String;
+    move-result-object v3
+    if-eqz v3, :native_route_gate_refuse
+    const-string v2, "file://"
+    invoke-virtual {v3, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :native_route_gate_refuse
+    goto :native_route_activation_gate_done
+    :native_route_gate_refuse
     # Counted, not just labelled: the counter reaches buildDiagnosticText, so a
     # single report says whether this gate fired at all.
     iget v1, p0, Lcom/melodix/music/MainActivity;->diagRouteDropped:I

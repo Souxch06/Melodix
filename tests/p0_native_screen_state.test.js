@@ -345,6 +345,54 @@ function executeNativeRouteActivation(activity, destination) {
             pc = labels.get(match[1]);
             continue;
         }
+        // MEL-BUG-076: the local shell asset (file:///android_asset) keeps the
+        // foreground: the native UI is made of it and the UI metric CI measures
+        // it. This emulator models no WebView, so no page is local and the
+        // refusal path is what gets exercised.
+        if (instruction === 'iget-object v3, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;') {
+            registers.v3 = null;
+            continue;
+        }
+        if (instruction === 'invoke-virtual {v3}, Landroid/webkit/WebView;->getUrl()Ljava/lang/String;') {
+            registers.v3 = null;
+            continue;
+        }
+        if ((match = /^const-string (\w+), "file:\/\/"$/.exec(instruction))) {
+            registers[match[1]] = 'file://';
+            continue;
+        }
+        if ((match = /^invoke-virtual \{(\w+), (\w+)\}, Ljava\/lang\/String;->startsWith\(Ljava\/lang\/String;\)Z$/.exec(instruction))) {
+            const haystack = registers[match[1]];
+            const needle = registers[match[2]];
+            registers.v1 = typeof haystack === 'string' && typeof needle === 'string' && haystack.startsWith(needle);
+            continue;
+        }
+        // MEL-BUG-073 counters: plain int fields, carried on the activity.
+        if ((match = /^iget (\w+), p0, .*->(diagRouteDropped|diagShowDropped|diagPayloadDropped|diagLoginRequested):I$/.exec(instruction))) {
+            registers[match[1]] = activity[match[2]] === undefined ? 0 : activity[match[2]];
+            continue;
+        }
+        if ((match = /^iput (\w+), p0, .*->(diagRouteDropped|diagShowDropped|diagPayloadDropped|diagLoginRequested):I$/.exec(instruction))) {
+            activity[match[2]] = registers[match[1]];
+            continue;
+        }
+        // MEL-BUG-075: a refusal clears the stale persisted marker. The emulator
+        // only needs the calls to be inert (no SharedPreferences here).
+        if (instruction === 'invoke-static {}, Lm9;->f()Landroid/content/SharedPreferences$Editor;') {
+            registers.v2 = null;
+            continue;
+        }
+        if ((match = /^invoke-interface \{(\w+), (\w+), (\w+)\}, Landroid\/content\/SharedPreferences\$Editor;->putBoolean\(Ljava\/lang\/String;Z\)Landroid\/content\/SharedPreferences\$Editor;$/.exec(instruction))) {
+            registers.v2 = null;
+            continue;
+        }
+        if ((match = /^invoke-interface \{(\w+)\}, Landroid\/content\/SharedPreferences\$Editor;->apply\(\)V$/.exec(instruction))) {
+            continue;
+        }
+        if ((match = /^add-int\/lit8 (\w+), (\w+), (0x[0-9a-f]+)$/.exec(instruction))) {
+            registers[match[1]] = registers[match[2]] + parseInt(match[3], 16);
+            continue;
+        }
         if ((match = /^invoke-virtual \{p0, (\w+), (\w+)\}, Lcom\/melodix\/music\/MainActivity;->renderNativeRows\(Ljava\/lang\/String;Ljava\/lang\/String;\)V$/.exec(instruction))) {
             activity.renderCalls = activity.renderCalls || [];
             activity.renderCalls.push({ title: registers[match[1]], json: registers[match[2]] });
@@ -466,8 +514,12 @@ function executeHomeReadinessGate(activity) {
 }
 
 test('D4 — Home route immediately shows native loading while the WebView remains mounted', () => {
+    // MEL-BUG-076: with the gate no longer inverted, only a PROVEN session may
+    // activate a route. This test covers the accepted path, so the session is
+    // explicitly proven here; the refused path has its own tests.
     const contentSentinel = { value: 'no-home-payload-yet' };
     const activity = {
+        sessionProven: true,
         nativeCurrentScreen: null,
         nativeFadeNextScreen: false,
         nativeHomeCardsAttached: false,
@@ -494,8 +546,11 @@ test('D4 — Home route immediately shows native loading while the WebView remai
 });
 
 test('D4c — accepted Search, Library, detail, and Player routes reveal the native shell', () => {
+    // MEL-BUG-076: an accepted route requires a proven session (the gate is no
+    // longer inverted). Refusals are covered by the MEL-BUG-076 tests.
     for (const screen of ['search', 'library', 'detail', 'player']) {
         const activity = {
+            sessionProven: true,
             nativeCurrentScreen: 'home',
             nativeFadeNextScreen: false,
             nativeHomeCardsAttached: true,
