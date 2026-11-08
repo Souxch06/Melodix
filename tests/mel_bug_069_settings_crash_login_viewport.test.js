@@ -101,3 +101,42 @@ test('MEL-BUG-069f: an unproven auto-continued page never revokes the login surf
   assert.doesNotMatch(finished, /getCookie|sp_dc/,
     'aucune lecture de cookie dans le chemin page-finished');
 });
+
+test('MEL-BUG-070: no payload branch can draw Home over an unproven login surface', () => {
+  // The real leak seen on device: auth=false + sp_dc=true, Spotify auto-continues
+  // to open.spotify.com/?flow_ctx=..., the shell emits Home rows and the payload
+  // path rendered them although the login surface was active
+  // ("route home | render native-rows" in the journal).
+  const home = stripComments(method(main, '.method public final applyNativeUiData('));
+  // Anchor on the LABEL definition (a bare indexOf would hit the `if-eqz`
+  // reference and slice the wrong window).
+  const def = /^\s*:apply_home_initial_route\s*$/m.exec(home);
+  assert.ok(def, 'branche home-rows présente');
+  const at = def.index;
+  const endDef = /^\s*:apply_home\s*$/m.exec(home.slice(at + 1));
+  assert.ok(endDef, 'label :apply_home présent');
+  const gate = home.slice(at, at + 1 + endDef.index);
+  assert.match(gate, /isLoginWebRoute\(\)Z[\s\S]*?if-eqz v4, :apply_home_unproven_drop[\s\S]*?AppSingleton;->B:Z[\s\S]*?if-nez v4, :apply_home_unproven_drop/,
+    'les lignes Home sont ignorées tant que la surface login est active et la session non prouvée');
+  // The drop label is defined after the render call, outside the gated window.
+  const dropDef = /^\s*:apply_home_unproven_drop\s*$/m.exec(home);
+  assert.ok(dropDef, 'sortie dédiée présente');
+  const endDrop = /^\s*:check_media\s*$/m.exec(home.slice(dropDef.index + 1));
+  assert.ok(endDrop, 'label :check_media présent');
+  const drop = home.slice(dropDef.index, dropDef.index + 1 + endDrop.index);
+  assert.match(drop, /home-rows-dropped-unproven-session[\s\S]*?return-void/,
+    'sortie dédiée, aucune navigation déclenchée (pas de boucle)');
+  assert.doesNotMatch(drop, /renderNativeRows|showNativeUiFrom|loadUrl/,
+    'le refus ne rend rien et ne navigue pas');
+
+  const rows = stripComments(method(main, '.method public final renderNativeRows('));
+  assert.match(rows,
+    /TextUtils;->isEmpty\(Ljava\/lang\/CharSequence;\)Z[\s\S]*?isLoginWebRoute\(\)Z[\s\S]*?AppSingleton;->B:Z[\s\S]*?:render_rows_unproven_drop/,
+    'renderNativeRows refuse un payload non vide quand la session n’est pas prouvée sur la surface login');
+  assert.match(rows, /:render_rows_unproven_drop[\s\S]*?native-rows-dropped-unproven-session[\s\S]*?return-void/);
+  // Empty payloads still proceed: they are the login flow's own placeholders.
+  assert.match(rows, /if-eqz v0, :render_rows_proof_gate/, 'les payloads vides sautent la porte et restent rendus');
+  // Diagnostic stays a fixed label: no cookie, no URL.
+  assert.doesNotMatch(rows.slice(rows.indexOf(':render_rows_unproven_drop')), /getUrl|getCookie|sp_dc/,
+    'aucune URL ni cookie dans le journal de refus');
+});

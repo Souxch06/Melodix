@@ -9711,6 +9711,19 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-direct {p0, v2, v3, v4}, Lcom/melodix/music/MainActivity;->traceNativeHomeStage(Ljava/lang/String;Ljava/lang/String;I)V
     goto :apply_done
     :apply_home_initial_route
+    # MEL-BUG-070 fix: the payload path bypassed every login gate. A browser-valid
+    # `sp_dc` cookie makes Spotify auto-continue the login URL to
+    # open.spotify.com/?flow_ctx=..., the shell script then emits its Home rows
+    # and this branch rendered them on top of the login surface — the report
+    # "ecran=home ... auth=false cookie_sp_dc=true | route home | render
+    # native-rows". While the session is unproven and the login surface is
+    # active, Home rows are dropped here (no state change, no reload): the rows
+    # are re-requested by the shell once the login surface is released.
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->isLoginWebRoute()Z
+    move-result v4
+    if-eqz v4, :apply_home_unproven_drop
+    sget-boolean v4, Lcom/melodix/music/AppSingleton;->B:Z
+    if-nez v4, :apply_home_unproven_drop
     # Home rows are deliberately queued before the ready signal. Establish the
     # Home route here if this is the first callback so renderNativeRows selects
     # the shelf renderer instead of the generic list renderer.
@@ -9720,6 +9733,13 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     const-string v2, "Accueil"
     invoke-virtual {p0, v2, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     invoke-direct {p0}, Lcom/melodix/music/MainActivity;->finishNativeHomePipelineRender()V
+    return-void
+
+    :apply_home_unproven_drop
+    # Same fixed label as the other gates: no URL, title or account data.
+    const-string v2, "home-rows-dropped-unproven-session"
+    invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v2}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     return-void
 
     :check_media
@@ -10089,6 +10109,24 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
     :md2_done
 
+    # MEL-BUG-070 fix: last line of defence for the login-first rule. Several
+    # payload branches reach renderNativeRows, and any of them could draw a
+    # Home/list screen over the login surface while the session is unproven
+    # (Spotify auto-continues the login URL with a browser-valid sp_dc cookie,
+    # the shell then emits rows and the native Home replaced the login form).
+    # Empty payloads still go through: they are the "Chargement…" placeholders
+    # the login flow itself uses. Nothing is logged beyond a fixed label and no
+    # navigation is triggered, so this cannot loop.
+    invoke-static {p2}, Landroid/text/TextUtils;->isEmpty(Ljava/lang/CharSequence;)Z
+    move-result v0
+    if-eqz v0, :render_rows_proof_gate
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->isLoginWebRoute()Z
+    move-result v0
+    if-eqz v0, :render_rows_unproven_drop
+    sget-boolean v0, Lcom/melodix/music/AppSingleton;->B:Z
+    if-nez v0, :render_rows_unproven_drop
+
+    :render_rows_proof_gate
     # MDXTRACE: native side received a rows payload (payload length only).
     new-instance v0, Ljava/lang/StringBuilder;
 
@@ -10412,6 +10450,14 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
     invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     :render_native_return
+    return-void
+
+    :render_rows_unproven_drop
+    # MEL-BUG-070: unproven session + login surface -> the payload is ignored.
+    # A fixed label only: no URL, no title, no payload content.
+    const-string v0, "native-rows-dropped-unproven-session"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     return-void
 .end method
 
