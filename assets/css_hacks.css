@@ -2686,3 +2686,77 @@ body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] button[data-testid="c
 body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] [data-testid="playback-progressbar"] {
     border-radius: var(--mel-radius-pill) !important;
 }
+
+/* --- 10.12 The library drawer ------------------------------------------ */
+/* The drawer keeps the geometry the touch shell gives it (fixed, full width,
+   bottom = the token stack, z-index 10005, safe-area aware). It is now a
+   sheet: glass surface, 28px top corners, and a grabber. Only present while
+   the drawer is open, so nothing is added to the closed state. */
+body.sf-library-open #Desktop_LeftSidebar_Id {
+    background-color: var(--mel-glass-scrim) !important;
+    border: 1px solid var(--mel-glass-border) !important;
+    border-radius: var(--mel-radius-sheet) var(--mel-radius-sheet) 0 0 !important;
+    box-shadow: var(--mel-glass-shadow), 0 -18px 48px var(--mel-scrim-40) !important;
+    -webkit-backdrop-filter: blur(var(--mel-glass-blur)) saturate(var(--mel-glass-saturate)) !important;
+    backdrop-filter: blur(var(--mel-glass-blur)) saturate(var(--mel-glass-saturate)) !important;
+    overscroll-behavior-y: contain !important;
+}
+
+/* The library panel inside the drawer is transparent: the sheet behind it
+   carries the glass, so the blur is paid once and not once per row. */
+body.sf-library-open #Desktop_LeftSidebar_Id .YourLibraryX {
+    background-color: transparent !important;
+}
+
+/* The grabber: a 36x4 hairline centred on the top edge, painted by the sheet
+   itself (no new element, so it cannot leak into other pages). */
+body.sf-library-open #Desktop_LeftSidebar_Id::before {
+    content: "";
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    width: 36px;
+    height: 4px;
+    margin-left: -18px;
+    border-radius: var(--mel-radius-pill);
+    background-color: var(--mel-glass-border);
+    pointer-events: none;
+    z-index: 3;
+}
+
+/* Header: the close button becomes a 44px glass pill, aligned with the
+   grabber, and the title keeps the drawer's own 56px row. */
+body.sf-library-open #Desktop_LeftSidebar_Id .sf-mobile-library-close {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    border-radius: var(--mel-radius-pill) !important;
+    background-color: var(--mel-glass-bg-strong) !important;
+    border: 1px solid var(--mel-glass-border) !important;
+    color: var(--mel-text) !important;
+    transition: transform var(--mel-dur) var(--mel-ease-out),
+                background-color var(--mel-dur) var(--mel-ease-out) !important;
+}
+
+body.sf-library-open #Desktop_LeftSidebar_Id .sf-mobile-library-close:active {
+    transform: translateY(-50%) scale(0.92) !important;
+}
+
+/* The drawer's rows: the same 56px touch row as the rest of the app, with a
+   rounded press state instead of a full-bleed highlight. */
+body.sf-library-open #Desktop_LeftSidebar_Id [role="row"],
+body.sf-library-open #Desktop_LeftSidebar_Id li {
+    border-radius: var(--mel-radius-art) !important;
+}
+
+/* Only one drawer at a time: the sheet gets a scrim over the content it
+   covers, and the content stays scrollable underneath (no pointer trap). */
+body.sf-library-open #main-view::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-color: var(--mel-scrim-40);
+    pointer-events: none;
+    z-index: 10004;
+}

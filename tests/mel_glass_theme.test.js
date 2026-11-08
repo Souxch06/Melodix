@@ -134,7 +134,7 @@ test('the frosted chrome only blurs where the brief allows it', () => {
     for (const selector of blurred) {
         assert.match(
             selector,
-            /#global-nav-bar|mel-glass-surface|#sf-fs-player|#sf-fs-bg|sf-mobile-nav|now-playing-bar|form\[role="search"\]|sf-fs-/,
+            /#global-nav-bar|mel-glass-surface|#sf-fs-player|#sf-fs-bg|sf-mobile-nav|now-playing-bar|Desktop_LeftSidebar_Id|form\[role="search"\]|sf-fs-/,
             `${selector} may not receive a backdrop blur`
         );
     }
@@ -244,4 +244,49 @@ test('the touch stack is driven by tokens, so the pocket, the drawer and the con
                 'every dock-derived offset spells the whole stack out, never a partial one');
         }
     }
+});
+
+test('the library drawer is a glass sheet that keeps its touch-shell geometry', () => {
+    // Two rules target the open drawer: the touch shell places it, the glass
+    // section repaints it. Pick the repaint (the one carrying the scrim).
+    const sheetRule = Array.from(CSS.matchAll(/body\.sf-library-open #Desktop_LeftSidebar_Id \{([^}]*)\}/g))
+        .find((match) => match[1].includes('--mel-glass-scrim'));
+    assert.ok(sheetRule, 'the open-drawer rule exists');
+    assert.match(sheetRule[0], /background-color: var\(--mel-glass-scrim\)/);
+    assert.match(sheetRule[0], /border-radius: var\(--mel-radius-sheet\) var\(--mel-radius-sheet\) 0 0/,
+        'a 28px sheet, square at the bottom edge');
+    assert.match(sheetRule[0], /backdrop-filter: blur/);
+    for (const geometry of ['position', 'bottom', 'top', 'left', 'right', 'height', 'width']) {
+        assert.ok(!new RegExp(`(?:^|\\s)${geometry}:`).test(sheetRule[0]),
+            `the drawer repaint must not move the drawer (${geometry})`);
+    }
+
+    // The touch shell still decides where the drawer sits.
+    const shell = CSS.slice(CSS.indexOf('SECTION 10: TOUCH APP SHELL'));
+    assert.match(shell, /body\.sf-library-open #Desktop_LeftSidebar_Id \{[^}]*bottom: calc\(var\(--sf-dock-h, 68px\)/);
+    assert.match(shell, /z-index: 10005/);
+    // And the closed state still hides it.
+    assert.match(shell, /body:not\(\.sf-library-open\) #Desktop_LeftSidebar_Id \{[^}]*visibility: hidden/);
+});
+
+test('the drawer layers stay ordered: content < drawer < dock < mini player', () => {
+    const z = (pattern) => {
+        const match = CSS.match(pattern);
+        assert.ok(match, `missing rule for ${pattern}`);
+        return Number(match[1]);
+    };
+    const drawer = z(/body\.sf-library-open #Desktop_LeftSidebar_Id \{[^}]*z-index: (10005)/);
+    const scrim = z(/body\.sf-library-open #main-view::after \{[^}]*z-index: (10004)/);
+    const dock = z(/#sf-mobile-nav \{(?:(?!\})[\s\S])*z-index: (10010)/);
+    const mini = z(/body:not\(\.sf-fs-open\) aside\[data-testid="now-playing-bar"\] \{(?:(?!\})[\s\S])*z-index: (10015)/);
+    assert.ok(scrim < drawer && drawer < dock && dock < mini,
+        `expected content ${scrim} < drawer ${drawer} < dock ${dock} < mini player ${mini}`);
+});
+
+test('the drawer scrim never swallows touches', () => {
+    const rule = CSS.match(/body\.sf-library-open #main-view::after \{[^}]*\}/);
+    assert.ok(rule);
+    assert.match(rule[0], /pointer-events: none/);
+    assert.match(rule[0], /background-color: var\(--mel-scrim-40\)/);
+    assert.doesNotMatch(rule[0], /display: none/, 'the scrim is invisible by stacking, not by hiding content');
 });
