@@ -193,31 +193,29 @@
     invoke-static {v0}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
     move-result-object v0
     invoke-virtual {v11, v0}, Landroid/widget/Switch;->setThumbTintList(Landroid/content/res/ColorStateList;)V
-    # MEL-BUG-066 fix: build the state list in v12/v13 (v2 is the row itself —
-    # clobbering it crashed Settings with a VerifyError).
-    const/4 v12, 0x2
-    new-array v12, v12, [I
-    const/4 v0, 0x1
-    new-array v0, v0, [I
-    const v13, 0x101009c
-    const/4 v1, 0x0
-    aput v13, v0, v1
-    aput v0, v12, v1
-    const/4 v0, 0x0
-    new-array v0, v0, [I
-    const/4 v1, 0x1
-    aput v0, v12, v1
     const/4 v0, 0x2
     new-array v0, v0, [I
-    sget v13, Lcom/melodix/music/MelColors;->accent:I
-    const/4 v1, 0x0
-    aput v13, v0, v1
-    sget v13, Lcom/melodix/music/MelColors;->surfaceBtn:I
     const/4 v1, 0x1
-    aput v13, v0, v1
-    new-instance v13, Landroid/content/res/ColorStateList;
-    invoke-direct {v13, v12, v0}, Landroid/content/res/ColorStateList;-><init>([[I[I)V
-    invoke-virtual {v11, v13}, Landroid/widget/Switch;->setTrackTintList(Landroid/content/res/ColorStateList;)V
+    new-array v1, v1, [I
+    const v2, 0x101009c
+    const/4 v3, 0x0
+    aput v2, v1, v3
+    aput v1, v0, v3
+    const/4 v1, 0x0
+    new-array v1, v1, [I
+    const/4 v3, 0x1
+    aput v1, v0, v3
+    const/4 v1, 0x2
+    new-array v1, v1, [I
+    sget v2, Lcom/melodix/music/MelColors;->accent:I
+    const/4 v3, 0x0
+    aput v2, v1, v3
+    sget v2, Lcom/melodix/music/MelColors;->surfaceBtn:I
+    const/4 v3, 0x1
+    aput v2, v1, v3
+    new-instance v2, Landroid/content/res/ColorStateList;
+    invoke-direct {v2, v0, v1}, Landroid/content/res/ColorStateList;-><init>([[I[I)V
+    invoke-virtual {v11, v2}, Landroid/widget/Switch;->setTrackTintList(Landroid/content/res/ColorStateList;)V
     const/4 v0, 0x0
     invoke-virtual {v11, v0}, Landroid/view/View;->setClickable(Z)V
     invoke-virtual {v11, v0}, Landroid/view/View;->setFocusable(Z)V
