@@ -77,17 +77,16 @@
     /* Backdrops mirror the native shell (res/values/colors.xml mel_background
        and mel_surface) so moving between the WebView - login, fallback home -
        and the native shell never flashes a different dark. */
-    --mel-bg: #060809;
     --mel-bg-2: #141222;
-    --mel-bg-3: #07110a;
-    --mel-grad-a: #ff9efc;
-    --mel-grad-a-strong: rgba(255, 158, 252, 0.85);
-    --mel-grad-b: #9e80ff;
-    --mel-grad-b-strong: rgba(158, 128, 255, 0.65);
-    --mel-overlay-1: rgba(24, 28, 25, 0.97);
-    --mel-overlay-2: rgba(16, 19, 17, 0.94);
-    --mel-overlay-3: rgba(14, 17, 15, 0.985);
-    --mel-overlay-4: rgba(13, 16, 14, 0.97);
+    --mel-bg-3: #0c0a18;
+    --mel-grad-a: #a78bfa;
+    --mel-grad-a-strong: rgba(167, 139, 250, 0.85);
+    --mel-grad-b: #db2777;
+    --mel-grad-b-strong: rgba(219, 39, 119, 0.65);
+    --mel-overlay-1: rgba(22, 20, 38, 0.97);
+    --mel-overlay-2: rgba(16, 15, 28, 0.94);
+    --mel-overlay-3: rgba(14, 13, 26, 0.985);
+    --mel-overlay-4: rgba(12, 12, 24, 0.97);
     --mel-scrim-24: rgba(0, 0, 0, 0.24);
     --mel-scrim-28: rgba(0, 0, 0, 0.28);
     --mel-scrim-40: rgba(0, 0, 0, 0.4);
@@ -97,18 +96,16 @@
     --mel-scrim-60: rgba(0, 0, 0, 0.6);
     --mel-scrim-70: rgba(0, 0, 0, 0.7);
     --mel-scrim-95: rgba(0, 0, 0, 0.95);
-    --mel-surface-dark: #282828;
-    --mel-surface-dark-2: #202622;
-    --mel-surface-dark-3: #171b18;
-    --mel-surface-dark-4: #141815;
-    --mel-surface-light: #f5f7f5;
-    --mel-surface-light-2: #f3f5f3;
-    --mel-surface-light-3: #f2f4f2;
-    --mel-text: #fff;
-    --mel-text-dim: #b3b3b3;
-    --mel-text-mute-a: #aab3ac;
-    --mel-text-mute-b: #a6ada8;
-    --mel-text-mute-c: #a2aaa4;
+    --mel-surface-dark: #241f36;
+    --mel-surface-dark-2: #1e1a2e;
+    --mel-surface-dark-3: #171327;
+    --mel-surface-dark-4: #141122;
+    --mel-surface-light: #f5f5fa;
+    --mel-surface-light-2: #eeeef7;
+    --mel-surface-light-3: #e4e2f0;
+    --mel-text-mute-a: #aeaec2;
+    --mel-text-mute-b: #a1a1b5;
+    --mel-text-mute-c: #a1a1b5;
     --mel-wash-025: rgba(255, 255, 255, 0.025);
     --mel-wash-035: rgba(255, 255, 255, 0.035);
     --mel-wash-055: rgba(255, 255, 255, 0.055);
