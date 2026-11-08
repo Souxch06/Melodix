@@ -22,6 +22,7 @@
     --mel-glow-b: #6B1A55;
     --mel-text: #F5F5FA;
     --mel-text-dim: #A1A1B5;
+    --mel-text-2: #A1A1B5;
     --mel-accent-a: #7C3AED;
     --mel-accent-b: #DB2777;
     --mel-accent: #a78bfa;
@@ -2282,4 +2283,104 @@ body.mx-glass-off #sf-mobile-nav {
     .mel-glass-surface {
         transition: none !important;
     }
+}
+
+/* --- 10.8 Home, lists and cards ---------------------------------------- */
+/* Every selector below is either a data-testid/data-encore-id, an aria-label,
+   or a well-known id. If Spotify renames one, the rule simply stops matching:
+   the app keeps working, just less styled (see docs/ui-design-system.md). */
+
+/* Titles: bigger, tighter, brighter. h1/h2 only exist inside content areas,
+   so this cannot leak into Spotify's own chrome. */
+#main-view h1,
+#main-view h2,
+[data-testid="home-page"] h1,
+[data-testid="home-page"] h2 {
+    color: var(--mel-text) !important;
+    letter-spacing: -0.02em !important;
+    font-weight: 800 !important;
+}
+
+/* Filter chips above the shelves */
+[data-testid="chip"],
+[data-encore-id="chip"],
+#main-view [role="tablist"] [role="tab"] {
+    background-color: var(--mel-glass-bg) !important;
+    border: 1px solid var(--mel-glass-border) !important;
+    border-radius: var(--mel-radius-pill) !important;
+    color: var(--mel-text-2) !important;
+    min-height: 44px !important;
+    padding: 0 16px !important;
+    transition: background-color var(--mel-dur) var(--mel-ease-out),
+                color var(--mel-dur) var(--mel-ease-out),
+                transform var(--mel-dur) var(--mel-ease-out) !important;
+}
+
+/* Selected chip: the gradient fill with white text */
+[data-testid="chip"][aria-selected="true"],
+[data-encore-id="chip"][aria-selected="true"],
+[data-testid="chip"][data-active="true"],
+#main-view [role="tablist"] [role="tab"][aria-selected="true"] {
+    background-image: var(--mel-accent-grad) !important;
+    background-color: transparent !important;
+    border-color: transparent !important;
+    color: var(--mel-text-on-accent) !important;
+}
+
+[data-testid="chip"]:active {
+    transform: scale(0.97) !important;
+}
+
+/* Cards: 24px radius, rounded artwork, coloured shadow */
+[data-testid="card"] {
+    background-color: var(--mel-glass-bg) !important;
+    border: 1px solid var(--mel-glass-border) !important;
+    border-radius: var(--mel-radius-card) !important;
+    box-shadow: var(--mel-shadow-card) !important;
+    overflow: hidden !important;
+    transition: transform var(--mel-dur) var(--mel-ease-out),
+                box-shadow var(--mel-dur) var(--mel-ease-out) !important;
+}
+
+[data-testid="card"] img,
+[data-testid="card"] [data-testid="card-image"] {
+    border-radius: var(--mel-radius-art) !important;
+}
+
+[data-testid="card"]:active {
+    transform: scale(0.97) !important;
+    box-shadow: var(--mel-shadow-accent) !important;
+}
+
+[data-testid="card"] [data-testid="card-title"] {
+    color: var(--mel-text) !important;
+    font-weight: 700 !important;
+}
+
+[data-testid="card"] [data-testid="card-subtitle"],
+[data-testid="card"] [data-encore-id="cardSubtitle"] {
+    color: var(--mel-text-dim) !important;
+}
+
+/* Track rows: comfortable height, rounded press state */
+[data-testid="tracklist-row"] {
+    border-radius: var(--mel-radius-art) !important;
+    min-height: 56px !important;
+    transition: background-color var(--mel-dur) var(--mel-ease-out) !important;
+}
+
+[data-testid="tracklist-row"]:hover {
+    background-color: var(--mel-glass-bg) !important;
+}
+
+[data-testid="tracklist-row"]:active {
+    background-color: var(--mel-accent-wash-11) !important;
+    transform: scale(0.995) !important;
+}
+
+/* Section headings inside shelves */
+[data-testid="component-shelf"] > div > h2,
+[data-encore-id="shelfHeader"] {
+    color: var(--mel-text) !important;
+    font-weight: 700 !important;
 }
