@@ -255,7 +255,7 @@ jobs:
             # app's own frames (class + method names, never argument values or
             # log message text, which can carry account data or tokens).
             if [[ "${fatal:-0}" -gt 0 ]]; then
-              stack="$(grep -A 40 -m1 'FATAL EXCEPTION' "$out/logcat.txt" 2>/dev/null | grep -E '^[A-Za-z.]*(Exception|Error)|\s+at com\.melodix\.' | head -12 | tr '\n' '|' || true)"
+              stack="$(grep -A 40 -m1 'FATAL EXCEPTION' "$out/logcat.txt" 2>/dev/null | grep -E 'FATAL EXCEPTION|[A-Za-z.]*(Exception|Error):|at com[.]melodix[.]' | head -12 | tr '\n' '|' || true)"
               [[ -n "$stack" ]] && echo "::error title=UI fatal stack $PROFILE::$stack"
             fi
             exit 1
