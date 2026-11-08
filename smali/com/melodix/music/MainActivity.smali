@@ -7801,16 +7801,16 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 .end method
 
 .method private final hasProvenSessionCookie()Z
-    .locals 2
+    .locals 3
 
     # MEL-BUG-067: real proof of a Spotify session = the sp_dc cookie on
     # open.spotify.com. Only its presence is tested; the value is never read,
     # logged or stored. No cookie (or no CookieManager) means unproven.
+    # Register discipline: v0 stays the CookieManager on every path that
+    # reaches :no_cookie, so no incompatible type merge can fail verification.
     invoke-static {}, Landroid/webkit/CookieManager;->getInstance()Landroid/webkit/CookieManager;
 
     move-result-object v0
-
-    const/4 v1, 0x0
 
     if-eqz v0, :no_cookie
 
@@ -7818,22 +7818,22 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
     invoke-virtual {v0, v1}, Landroid/webkit/CookieManager;->getCookie(Ljava/lang/String;)Ljava/lang/String;
 
-    move-result-object v0
+    move-result-object v1
 
-    if-eqz v0, :no_cookie
+    if-eqz v1, :no_cookie
 
-    const-string v1, "sp_dc="
+    const-string v2, "sp_dc="
 
-    invoke-virtual {v0, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    invoke-virtual {v1, v2}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
 
-    move-result v1
+    move-result v2
 
-    return v1
+    return v2
 
     :no_cookie
-    const/4 v1, 0x0
+    const/4 v2, 0x0
 
-    return v1
+    return v2
 .end method
 
 .method private final applyLoginWebUi(Ljava/lang/String;Ljava/lang/String;)V

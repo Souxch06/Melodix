@@ -91,8 +91,11 @@ test('MEL-BUG-067b: missing sp_dc cookie forces the login screen first, even wit
   assert.match(block, /const-string v1, "https:\/\/open\.spotify\.com\/"/, 'cookie present -> player URL as before');
   const helper = method(main, '.method private final hasProvenSessionCookie()Z');
   assert.match(helper, /CookieManager;->getInstance\(\)Landroid\/webkit\/CookieManager;/);
-  assert.match(helper, /const-string v1, "sp_dc="\s*\n\s*invoke-virtual \{v0, v1\}, Ljava\/lang\/String;->contains\(Ljava\/lang\/CharSequence;\)Z/,
+  assert.match(helper, /const-string v2, "sp_dc="\s*\n\s*invoke-virtual \{v1, v2\}, Ljava\/lang\/String;->contains\(Ljava\/lang\/CharSequence;\)Z/,
     'only the presence of the sp_dc cookie is tested');
+  assert.match(helper, /if-eqz v0, :no_cookie[\s\S]*?if-eqz v1, :no_cookie/,
+    'both no-cookie paths merge on v0=CookieManager only (no type conflict -> verifier-safe)');
+  assert.match(helper, /:no_cookie\s*\n\s*const\/4 v2, 0x0\s*\n\s*return v2/);
   assert.doesNotMatch(helper, /getAllCookies|getCookie\("[^"]*sp_dc|Log\.|println/,
     'the cookie value is never read, logged or stored');
 });
