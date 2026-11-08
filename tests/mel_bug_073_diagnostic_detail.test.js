@@ -25,6 +25,25 @@ test('MEL-BUG-073a: the diag journal is 1600 chars and keeps the startup head', 
     'tête de 512 caractères + marqueur d’élision + queue');
   assert.match(note, /:diag_store\n\s*sput-object v1, Lcom\/melodix\/music\/AppSingleton;->diagNative:Ljava\/lang\/String;/,
     'stockage inchangé (lecteurs existants préservés)');
+  // MEL-BUG-074: presence of the branch is not enough — its SENSE must be
+  // right. `if-gt v2, v0, :store` means "if v2 > 1600 then store", so a short
+  // journal (always the case at launch) entered the elision branch and ran
+  // substring(512) on a shorter string: StringIndexOutOfBoundsException,
+  // swallowed by the .catch, and diagNative stayed null forever. The user report
+  // showed `journal=` EMPTY while `loginN=1` proved the counters ran.
+  assert.match(noteCode, /if-le v2, v0, :diag_store/,
+    'la comparaison stocke le journal quand il tient dans le budget (v2 <= 1600)');
+  assert.doesNotMatch(noteCode, /if-gt v2, v0, :diag_store/,
+    'if-gt inversait la condition : le journal court partait dans l elision');
+  // And the elision branch must be unreachable unless the string is longer than
+  // the head it slices (512), which the budget check above guarantees.
+  assert.match(noteCode, /const\/16 v0, 0x640[\s\S]*?if-le v2, v0, :diag_store[\s\S]*?const\/16 v0, 0x200[\s\S]*?substring\(I\)/,
+    'le budget est teste AVANT toute découpe');
+
+  // MEL-BUG-074b: a silent writer failure must be visible in the report.
+  assert.match(noteCode, /:catch_0[\s\S]*?!diag-err/, 
+    'un echec interne du journal ecrit !diag-err au lieu de rester vide');
+
   // diagNative is only ever read outside this method.
   const writers = (main + fs.readFileSync(path.join(root, 'smali/com/melodix/music/RuntimeDiagnostic.smali'), 'utf8'))
     .match(/sput-object [^,]+, Lcom\/melodix\/music\/AppSingleton;->diagNative/g) || [];

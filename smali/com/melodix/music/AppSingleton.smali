@@ -2199,7 +2199,14 @@
 
     const/16 v0, 0x640
 
-    if-gt v2, v0, :diag_store
+    # MEL-BUG-074: `if-le` = "v2 <= 1600 -> store as-is". This was written
+    # `if-gt`, which jumped to the store when v2 > 1600 — so the *short* journal
+    # (always the case at launch) fell into the elision branch and ran
+    # substring(512) on a shorter string. StringIndexOutOfBoundsException was
+    # swallowed by the catch below, leaving diagNative permanently null: the
+    # user report showed `journal=` EMPTY while `loginN=1` proved the counters
+    # ran. Every noteDiag call was lost.
+    if-le v2, v0, :diag_store
 
     const/16 v0, 0x200
 
@@ -2240,6 +2247,19 @@
 
     :catch_0
     move-exception v0
+
+    # MEL-BUG-074: an internal failure must never masquerade as "nothing was
+    # logged". If the journal is still empty, mark it, so a single report shows
+    # that the WRITER broke instead of looking like a quiet startup. That is
+    # exactly what hid the if-gt inversion: `journal=` empty with `loginN=1`
+    # looked like "no event", while it meant "every event was thrown away".
+    sget-object v1, Lcom/melodix/music/AppSingleton;->diagNative:Ljava/lang/String;
+
+    if-eqz v1, :done
+
+    const-string v1, "!diag-err"
+
+    sput-object v1, Lcom/melodix/music/AppSingleton;->diagNative:Ljava/lang/String;
 
     :done
     return-void
