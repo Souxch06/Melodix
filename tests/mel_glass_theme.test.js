@@ -342,3 +342,40 @@ test('nothing else claims the dock offset: the lift is the only bottom anchor', 
     }
     assert.deepEqual(offenders, [], 'every dock bottom offset goes through --sf-dock-lift');
 });
+
+test('the backdrop glows are strong enough to be seen behind the frosted chrome', () => {
+    const glow = CSS.match(/body::before \{(?:(?!\})[\s\S])*\}/g).pop();
+    assert.match(glow, /radial-gradient\(90% 62% at -8% -6%, var\(--mel-glow-a\)/,
+        'a violet glow hugs the top-left corner');
+    assert.match(glow, /radial-gradient\(85% 58% at 104% 8%, var\(--mel-glow-b\)/,
+        'a magenta glow sits on the right edge');
+    assert.match(glow, /opacity: 0\.72/, 'deep enough to read through a 7% white surface');
+    assert.doesNotMatch(glow, /#[0-9a-fA-F]{3,8}\b/, 'still a token, no raw colour');
+
+    // The content veil that lets the glow show through the scrollable area.
+    const tokens = rootTokens();
+    assert.ok(tokens.has('--mel-view-wash'), 'the content veil is a token');
+    assert.match(CSS, /#main-view,\s*#main-view \[data-overlayscrollbars-viewport\],\s*#Desktop_LeftSidebar_Id \{\s*background-color: var\(--mel-view-wash\) !important;/);
+});
+
+test('cards and secondary buttons wear the glass material, without a blur over lists', () => {
+    const card = CSS.match(/\[data-testid="card"\] \{(?:(?!\})[\s\S])*\}/g).pop();
+    assert.match(card, /background-color: var\(--mel-glass-bg\) !important;/);
+    assert.match(card, /border: 1px solid var\(--mel-glass-border\) !important;/);
+    assert.match(card, /box-shadow: var\(--mel-glass-shadow\)/);
+    assert.doesNotMatch(card, /backdrop-filter/, 'a card in a scrolling shelf never gets a blur');
+
+    const button = CSS.match(/\[data-testid="card"\] button:not\(\[data-testid="control-button-playpause"\]\),(?:(?!\})[\s\S])*\}/);
+    assert.ok(button, 'the secondary button rule exists');
+    assert.match(button[0], /background-color: var\(--mel-glass-bg\) !important;/);
+    assert.match(button[0], /min-height: 44px !important;/, 'touch target kept');
+    assert.match(button[0], /border-radius: var\(--mel-radius-pill\) !important;/);
+    assert.doesNotMatch(button[0], /backdrop-filter/);
+});
+
+test('the primary play control never inherits the glass pill', () => {
+    const primary = CSS.match(/\[data-testid="card"\] button\.mel-accent-fill,\s*\[data-testid="card"\] \[data-testid="play-button"\] \{[^}]*\}/);
+    assert.ok(primary, 'the gradient override exists');
+    assert.match(primary[0], /background-image: var\(--mel-accent-grad\) !important;/);
+    assert.match(primary[0], /border: 0 !important;/);
+});

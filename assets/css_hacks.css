@@ -63,6 +63,12 @@
        over pure white still leaves #F5F5FA at 5.1:1, so the bar, the dock and
        the mini player keep AA whatever the album cover. */
     --mel-glass-scrim: rgba(11, 11, 20, 0.62);
+    /* The content sits on a barely-there veil so the background glows read
+       through it, and the top of the window gets a white hairline wash that
+       makes the first frosted surface legible. Both are tokens because the
+       stylesheet body may not carry a raw colour. */
+    --mel-view-wash: rgba(255, 255, 255, 0.04);
+    --mel-glass-wash-top: rgba(255, 255, 255, 0.05);
     --mel-glass-blur: 24px;
     --mel-glass-blur-sm: 16px;
     --mel-glass-saturate: 150%;
@@ -2774,4 +2780,88 @@ body.sf-library-open #main-view::after {
     background-color: var(--mel-scrim-40);
     pointer-events: none;
     z-index: 10004;
+}
+
+/* --- 10.13 Making the glass readable ------------------------------------ */
+/* A frosted surface can only show through when something colourful sits
+   behind it. Three moves, in order:
+     1. the backdrop glows get a stronger, larger presence;
+     2. the scrolling content is lifted onto its own translucent sheet so the
+        glows are visible *through* the app, not only around it;
+     3. cards and secondary buttons receive the glass recipe, which is what
+        makes their edges and highlights read as frosted rather than flat. */
+
+/* 1. Two fixed glows: violet top-left, magenta right. Deeper than a hint,
+   still far from a wash — the text contrast budget is measured with them on
+   (see the AA tests). */
+body::before {
+    background:
+        radial-gradient(90% 62% at -8% -6%, var(--mel-glow-a) 0%, transparent 62%),
+        radial-gradient(85% 58% at 104% 8%, var(--mel-glow-b) 0%, transparent 60%),
+        radial-gradient(70% 45% at 50% 108%, var(--mel-glow-a) 0%, transparent 68%) !important;
+    opacity: 0.72 !important;
+}
+
+body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: linear-gradient(180deg, var(--mel-glass-wash-top) 0%, transparent 34%);
+}
+
+/* 2. The scrolling surface becomes a very light veil, so the glows read
+   through the content itself. 4% white is invisible as a tint but enough for
+   a blurred surface on top of it to have something to diffuse. */
+#main-view,
+#main-view [data-overlayscrollbars-viewport],
+#Desktop_LeftSidebar_Id {
+    background-color: var(--mel-view-wash) !important;
+}
+
+/* 3a. Cards: the full recipe — translucent fill, hairline, inset highlight.
+   Radius, shadow and press feedback are already set by 10.8; this only adds
+   the material. */
+/* Cards scroll: they get the glass MATERIAL (translucent fill, hairline,
+   inset highlight) but never a backdrop-filter. Blurring every card in a
+   scrolling shelf is the one thing the brief rules out, and the veil behind
+   them already gives the same frosted read. */
+[data-testid="card"] {
+    background-color: var(--mel-glass-bg) !important;
+    border: 1px solid var(--mel-glass-border) !important;
+    box-shadow: var(--mel-glass-shadow), var(--mel-shadow-card) !important;
+}
+
+/* 3b. Secondary buttons: any control that is not the gradient primary. The
+   :not() list keeps play buttons, the gradient fill and the accent surfaces
+   out of the way, so nothing that was already readable changes colour. */
+[data-testid="card"] button:not([data-testid="control-button-playpause"]),
+#main-view button[data-encore-id="buttonSecondary"],
+#main-view [data-testid="action-bar-row"] button:not(.mel-accent-fill),
+#main-view [role="button"][data-encore-id="buttonSecondary"] {
+    background-color: var(--mel-glass-bg) !important;
+    border: 1px solid var(--mel-glass-border) !important;
+    box-shadow: var(--mel-glass-highlight) 0 1px 0 inset !important;
+    border-radius: var(--mel-radius-pill) !important;
+    min-height: 44px !important;
+    color: var(--mel-text) !important;
+    transition: background-color var(--mel-dur) var(--mel-ease-out),
+                transform var(--mel-dur) var(--mel-ease-out) !important;
+}
+
+[data-testid="card"] button:not([data-testid="control-button-playpause"]):active,
+#main-view button[data-encore-id="buttonSecondary"]:active,
+#main-view [data-testid="action-bar-row"] button:not(.mel-accent-fill):active {
+    transform: scale(0.97) !important;
+    background-color: var(--mel-glass-bg-strong) !important;
+}
+
+/* The primary action inside a card keeps its gradient and never picks up the
+   glass pill above: white on the gradient is 5.70:1, glass would lose it. */
+[data-testid="card"] button.mel-accent-fill,
+[data-testid="card"] [data-testid="play-button"] {
+    border: 0 !important;
+    background-color: transparent !important;
+    background-image: var(--mel-accent-grad) !important;
 }
