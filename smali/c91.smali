@@ -1007,7 +1007,7 @@
     .line 230
     # The CTA only signals the existing login marker; never activate it.
     # Its fallback navigation stays in native_ui_shell.js and this WebView.
-    const-string v2, "(function() {if(window.__sfPlayerCtaObserved)return;var l=document.querySelector('button[data-testid=web-player-link],a[data-testid=web-player-link]');if(!l)return;window.__sfPlayerCtaObserved=1;try{AndBridge.loginDetected();}catch(e){}try{AndBridge.logDiagEvent('player-cta observed; no auto-click');}catch(e){}})();"
+    const-string v2, "(function() {if(window.__sfPlayerCtaObserved)return;var l=document.querySelector('button[data-testid=web-player-link],a[data-testid=web-player-link]');if(!l)return;window.__sfPlayerCtaObserved=1;var c=document.querySelector('[data-testid=user-widget-link],[data-testid=user-widget-avatar],.main-userWidget-box,a[href^='/user/']');var s=c?'connected':(document.querySelector('[data-testid=login-button],a[href*=login]')?'required':'unknown');try{AndBridge.authUiSignal(s);}catch(e){}try{AndBridge.logDiagEvent('player-cta observed; no auto-click');}catch(e){}if(s!=='connected')return;try{AndBridge.loginDetected();}catch(e){}})();"
 
     .line 231
     .line 232

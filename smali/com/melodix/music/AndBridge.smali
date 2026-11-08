@@ -1583,6 +1583,15 @@
     .end annotation
 
     .locals 2
+    # MEL-BUG-075: this was the ONLY writer of AppSingleton.B = true in the whole
+    # DEX, and it left no trace in the journal the user copies. A single report
+    # showed `ensure warm proof` (so B was true) with `auth=false` at copy time
+    # and gates=0/0/0: the proof had flipped and nothing said so. Every flip is
+    # now journaled. Arg 3 is null: no page data, no cookie, no URL.
+    const-string v0, "proof"
+    const-string v1, "bridge-login"
+    const/4 p0, 0x0
+    invoke-static {v0, v1, p0}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
     .line 1
     const/4 p0, 0x1
 
@@ -1620,6 +1629,32 @@
     .line 17
     .line 18
     .line 19
+    return-void
+.end method
+
+.method public final authUiSignal(Ljava/lang/String;)V
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    # MEL-BUG-075: the page's auth-ui state, reported by the injected probe.
+    # Only the three fixed words are accepted and only a fixed label is
+    # journaled — no page text, no URL, no cookie reaches the journal. This is
+    # what makes "the proof is false" visible in ONE report instead of being
+    # inferred from the absence of labels.
+    .locals 3
+    const/4 v0, 0x0
+    const-string v1, "connected"
+    invoke-virtual {v1, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v2
+    if-eqz v2, :authui_have_state
+    const-string v1, "required"
+    invoke-virtual {v1, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v2
+    if-eqz v2, :authui_have_state
+    const-string v1, "unknown"
+    :authui_have_state
+    const-string v2, "auth-ui"
+    invoke-static {v2, v1, v0}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
     return-void
 .end method
 

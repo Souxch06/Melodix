@@ -8928,6 +8928,23 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     iget v1, p0, Lcom/melodix/music/MainActivity;->diagShowDropped:I
     add-int/lit8 v1, v1, 0x1
     iput v1, p0, Lcom/melodix/music/MainActivity;->diagShowDropped:I
+    # MEL-BUG-075: a refusal means the proof is false, so the persisted
+    # `LoggedIn` marker is stale by definition (only AndBridge.loginDetected or
+    # the settings logout ever write it — the logout is the only place it is
+    # cleared, so a user who logged out of Spotify anywhere else keeps it).
+    # Clearing it here stops a dead proof from being re-read on the next launch.
+    # Best effort, never fatal: guard, call, move-result, and the result is
+    # dropped. Same fix in activateNativeUiRoute below.
+    invoke-static {}, Lm9;->f()Landroid/content/SharedPreferences$Editor;
+    move-result-object v2
+    if-eqz v2, :show_gate_marker_cleared
+    const-string v4, "LoggedIn"
+    const/4 v5, 0x0
+    invoke-interface {v2, v4, v5}, Landroid/content/SharedPreferences$Editor;->putBoolean(Ljava/lang/String;Z)Landroid/content/SharedPreferences$Editor;
+    move-result-object v2
+    if-eqz v2, :show_gate_marker_cleared
+    invoke-interface {v2}, Landroid/content/SharedPreferences$Editor;->apply()V
+    :show_gate_marker_cleared
     const-string v1, "show-native"
     const-string v2, "dropped-unproven"
     iget-object v3, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
@@ -9495,6 +9512,17 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     iget v1, p0, Lcom/melodix/music/MainActivity;->diagRouteDropped:I
     add-int/lit8 v1, v1, 0x1
     iput v1, p0, Lcom/melodix/music/MainActivity;->diagRouteDropped:I
+    # MEL-BUG-075: same stale-marker clearing as the show gate above.
+    invoke-static {}, Lm9;->f()Landroid/content/SharedPreferences$Editor;
+    move-result-object v2
+    if-eqz v2, :route_gate_marker_cleared
+    const-string v4, "LoggedIn"
+    const/4 v5, 0x0
+    invoke-interface {v2, v4, v5}, Landroid/content/SharedPreferences$Editor;->putBoolean(Ljava/lang/String;Z)Landroid/content/SharedPreferences$Editor;
+    move-result-object v2
+    if-eqz v2, :route_gate_marker_cleared
+    invoke-interface {v2}, Landroid/content/SharedPreferences$Editor;->apply()V
+    :route_gate_marker_cleared
     const-string v1, "route"
     const-string v2, "dropped-unproven"
     invoke-static {v1, v2, p1}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V

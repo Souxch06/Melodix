@@ -551,8 +551,15 @@ test('the login-page CTA is observed without a synthetic click or duplicate navi
   const c91 = read('smali/c91.smali');
   const ctaLine = c91.split('\n').find((line) => line.includes('player-cta observed; no auto-click'));
   assert.ok(ctaLine, 'the CTA observer remains present');
-  assert.ok(ctaLine.includes('AndBridge.loginDetected();'),
-    'the existing login marker behavior is preserved');
+  // MEL-BUG-075: the CTA alone is NOT a login proof — the same control is on
+  // logged-out pages. The marker is now asserted only from a positive auth
+  // signal, and the observed state is journaled either way.
+  assert.ok(ctaLine.includes('AndBridge.authUiSignal(s)'),
+    'the observed auth state is journaled');
+  assert.ok(ctaLine.includes("if(s!=='connected')return;"),
+    'no proof without a positive auth signal');
+  assert.ok(ctaLine.indexOf('AndBridge.loginDetected();') > ctaLine.indexOf("if(s!=='connected')return;"),
+    'the login marker is guarded by the positive signal');
   assert.ok(ctaLine.includes('__sfPlayerCtaObserved'),
     'the marker only fires once per page');
   const embedded = ctaLine.match(/const-string v2, "([^"]+)"/);
