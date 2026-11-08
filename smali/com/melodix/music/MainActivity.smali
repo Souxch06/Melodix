@@ -7483,13 +7483,16 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     return-void
 
     :native_login_route_finished
-    # MEL-BUG-069 fix: this is the page-finished twin of the postNativeUiReady
-    # gate. A browser-valid `sp_dc` cookie makes Spotify auto-continue the login
-    # URL to open.spotify.com/?flow_ctx=... while AppSingleton.B is still false
-    # (no libraryV3 proof), and this branch used to release the login surface
-    # immediately — hence "ecran=home ... auth=false". An unproven remote page
-    # keeps the login surface; only a proven session (or the local shell asset,
-    # which the native UI needs) hands the foreground back.
+    # MEL-BUG-072 fix — the REAL path. Every journal from the device starts with
+    # "route home ..." BEFORE any "data native-payload": the native home is
+    # painted by onWebViewPageFinished -> showNativeUiFrom, and this branch
+    # released the login surface on the very first page that was not the login
+    # form (Spotify auto-continues the login URL to `/?flow_ctx=...` with a
+    # browser-valid sp_dc cookie while AppSingleton.B is still false).
+    # `route home` is written by showNativeUiFrom itself, so it appears even
+    # though nothing proved the session.
+    # Only a proven session (or the local shell asset, which the native UI
+    # needs for CI) may hand the foreground back.
     sget-boolean v0, Lcom/melodix/music/AppSingleton;->B:Z
     if-eqz v0, :native_login_route_proven
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
@@ -8849,6 +8852,28 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 .method public final showNativeUiFrom(Ljava/lang/String;Ljava/lang/String;)V
     .locals 5
 
+    # MEL-BUG-072 — the REAL leak. Every device journal begins with
+    # "route home ..." BEFORE any "data native-payload", so the native home was
+    # painted here (activateNativeUiRoute writes the "route" entry right after
+    # this call), not by the payload path. This is the single choke point every
+    # caller funnels through (route activation, ui-ready, page-finished), so the
+    # session proof is enforced once, here.
+    # Unproven session -> the request is refused, full stop: the login surface
+    # stays. The label is written to the SAME bounded journal the user copies
+    # (AppSingleton.noteDiag); the previous CrashGuard/Overlay labels never
+    # appeared in a report, which is why their absence proved nothing.
+    sget-boolean v0, Lcom/melodix/music/AppSingleton;->B:Z
+    if-eqz v0, :native_show_gate_done
+    const-string v1, "show-native"
+    const-string v2, "dropped-unproven-session"
+    iget-object v3, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    invoke-static {v1, v2, v3}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    # Unproven: (re)assert the login surface and return. No navigation happens
+    # here, so this can never loop.
+    invoke-direct {p0, p1, p2}, Lcom/melodix/music/MainActivity;->applyLoginWebUi(Ljava/lang/String;Ljava/lang/String;)V
+    return-void
+
+    :native_show_gate_done
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->isLoginWebRoute()Z
     move-result v0
     if-eqz v0, :native_show_not_login
@@ -9052,6 +9077,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
     invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     return-void
+
 .end method
 
 .method public final setNativeScreen(Ljava/lang/String;)V
@@ -9392,6 +9418,20 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 .method public final activateNativeUiRoute(Ljava/lang/String;)V
     .locals 4
 
+    # MEL-BUG-072b: a route activation is a claim on the native UI, and it used
+    # to run its whole body — writing "route <screen>" into the visible journal
+    # and rendering a placeholder — before showNativeUiFrom could refuse it.
+    # Every device report therefore started with "route home" on an unproven
+    # session. The proof is checked here first, so a refused route leaves no
+    # trace in the journal and renders nothing.
+    sget-boolean v0, Lcom/melodix/music/AppSingleton;->B:Z
+    if-eqz v0, :native_route_activation_gate_done
+    const-string v1, "route"
+    const-string v2, "dropped-unproven-session"
+    invoke-static {v1, v2, p1}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    return-void
+
+    :native_route_activation_gate_done
     if-eqz p1, :native_route_activation_done
     invoke-virtual {p0, p1}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
 

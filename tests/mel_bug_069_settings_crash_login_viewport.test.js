@@ -170,3 +170,39 @@ test('MEL-BUG-071: a warm start on the player URL still requests the login surfa
   assert.doesNotMatch(beforeReveal.slice(beforeReveal.indexOf('startsWith')), /goto :done|if-eqz v2, :done/,
     'aucune sortie :done entre le test https et revealLoginWebUi');
 });
+
+test('MEL-BUG-072: the shell and the route are refused without a session proof', () => {
+  // Every device journal starts with "route home" BEFORE any "data native-payload":
+  // the native home was painted by activateNativeUiRoute -> showNativeUiFrom,
+  // not by the payload path. Both are gated, and the label goes into the bounded
+  // journal the user actually copies (AppSingleton.noteDiag) — the earlier
+  // CrashGuard/Overlay labels never reached a report.
+  const show = stripComments(method(main, '.method public final showNativeUiFrom('));
+  const head = show.slice(show.indexOf('.method'));
+  // The gate is the FIRST thing the method does: it must precede both the
+  // login-route early return and any visibility change on nativeRoot.
+  const gateAt = head.indexOf('if-eqz v0, :native_show_gate_done');
+  assert.ok(gateAt > 0, 'garde de preuve dans showNativeUiFrom');
+  assert.ok(gateAt < head.indexOf('isLoginWebRoute()Z'), 'la garde précède le retour login');
+  assert.ok(gateAt < head.indexOf('0x7f09022f'), 'la garde précède nativeRoot');
+  assert.match(head.slice(0, gateAt),
+    /sget-boolean v0, Lcom\/melodix\/music\/AppSingleton;->B:Z/,
+    'la preuve testée est AppSingleton.B (libraryV3)');
+  assert.match(head,
+    /const-string v1, "show-native"\s*\n\s*const-string v2, "dropped-unproven-session"[\s\S]*?AppSingleton;->noteDiag\(Ljava\/lang\/String;Ljava\/lang\/String;Ljava\/lang\/String;\)V[\s\S]*?applyLoginWebUi[\s\S]*?return-void\n\s*\n\s*:native_show_gate_done/,
+    'refus journalisé dans noteDiag + surface login réaffirmée + retour immédiat');
+
+  const route = stripComments(method(main, '.method public final activateNativeUiRoute('));
+  assert.match(route,
+    /AppSingleton;->B:Z\s*\n\s*if-eqz v0, :native_route_activation_gate_done[\s\S]*?"route"[\s\S]*?"dropped-unproven-session"[\s\S]*?noteDiag\([\s\S]*?return-void/,
+    'une route non prouvée ne rend rien et n’écrit pas "route <screen>"');
+  const routeGate = route.indexOf('native_route_activation_gate_done');
+  assert.ok(routeGate < route.indexOf('setNativeScreen'), 'la garde précède setNativeScreen');
+  assert.ok(routeGate < route.indexOf('renderNativeRows'), 'la garde précède tout rendu');
+
+  // Neither refusal may navigate (that would loop) or log sensitive data.
+  for (const body of [head.slice(gateAt, head.indexOf(':native_show_gate_done')), route.slice(0, routeGate)]) {
+    assert.doesNotMatch(body, /loadUrl|getUrl|getCookie|sp_dc|token/,
+      'aucune navigation ni donnée sensible dans un refus');
+  }
+});

@@ -260,6 +260,18 @@ function executeNativeRouteActivation(activity, destination) {
         assert.ok(++steps <= 80, 'activateNativeUiRoute control flow must terminate');
         const instruction = instructions[pc++];
         let match;
+        // MEL-BUG-072: the route checks the session proof first and can refuse
+        // the whole activation, so no "route <screen>" is journaled and nothing
+        // is rendered on an unproven session.
+        if (instruction === 'sget-boolean v0, Lcom/melodix/music/AppSingleton;->B:Z') {
+            registers.v0 = Boolean(activity.sessionProven);
+            continue;
+        }
+        if ((match = /^invoke-static \{(\w+), (\w+), (\w+)\}, Lcom\/melodix\/music\/AppSingleton;->noteDiag\(Ljava\/lang\/String;Ljava\/lang\/String;Ljava\/lang\/String;\)V$/.exec(instruction))) {
+            activity.diagJournal = activity.diagJournal || [];
+            activity.diagJournal.push([registers[match[1]], registers[match[2]], registers[match[3]]].join(' '));
+            continue;
+        }
         if ((match = /^if-(eqz|nez) (\w+), :([\w$.-]+)$/.exec(instruction))) {
             const value = registers[match[2]];
             const zero = value == null || value === 0 || value === false;
