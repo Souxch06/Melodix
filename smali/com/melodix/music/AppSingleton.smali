@@ -2141,7 +2141,7 @@
 .end method
 
 .method public static noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
-    .locals 3
+    .locals 5
 
     # Journal natif borne (600 chars) : data/render/route + ecran courant.
     :try_start_0
@@ -2187,21 +2187,51 @@
 
     move-result-object v1
 
+    # MEL-BUG-073: the journal used to keep only its LAST 600 chars (0x258),
+    # which cut the startup events — the decisive ones — out of every report and
+    # left the text ending mid-entry. It now keeps up to 1600 chars: everything,
+    # or the FIRST 512 chars (launch sequence) + " ... " + the tail. `diagNative`
+    # is only read (MainActivity/RuntimeDiagnostic never write it), so the split
+    # view is safe. v0 = temp int, v1 = result, v2 = length/tail.
     invoke-virtual {v1}, Ljava/lang/String;->length()I
 
     move-result v2
 
-    const/16 v0, 0x258
+    const/16 v0, 0x640
 
-    if-le v2, v0, :keep
+    if-gt v2, v0, :diag_store
 
-    sub-int/2addr v2, v0
+    const/16 v0, 0x200
 
-    invoke-virtual {v1, v2}, Ljava/lang/String;->substring(I)Ljava/lang/String;
+    invoke-virtual {v1, v0}, Ljava/lang/String;->substring(I)Ljava/lang/String;
+
+    move-result-object v2
+
+    new-instance v0, Ljava/lang/StringBuilder;
+
+    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+
+    const/4 v3, 0x0
+
+    const/16 v4, 0x200
+
+    invoke-virtual {v1, v3, v4}, Ljava/lang/String;->substring(II)Ljava/lang/String;
+
+    move-result-object v3
+
+    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v3, " ... "
+
+    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
     move-result-object v1
 
-    :keep
+    :diag_store
     sput-object v1, Lcom/melodix/music/AppSingleton;->diagNative:Ljava/lang/String;
     :try_end_0
     .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0

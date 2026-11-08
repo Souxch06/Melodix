@@ -83,6 +83,10 @@
 .field private nativeHomeCardsAttached:Z
 .field private nativeHomeStatusAttached:Z
 .field private nativeHomeSessionUnprovenStatusAttached:Z
+.field private diagShowDropped:I
+.field private diagPayloadDropped:I
+.field private diagRouteDropped:I
+.field private diagLoginRequested:I
 .field private nativeSessionUnproven:Z
 .field private nativeHomeContentReady:Z
 .field private nativeHomeVisibilityDiagnosticReported:Z
@@ -474,6 +478,13 @@
     if-eqz v1, :proven_check
 
     :do_load
+    # MEL-BUG-073: no page at all -> this is the cold-start branch.
+    # NOTE: ensureWebPageLoaded() takes no parameter, so no p-register may be
+    # used here (v1/v2 only).
+    const-string v1, "ensure"
+    const-string v2, "cold"
+    const/4 v3, 0x0
+    invoke-static {v1, v2, v3}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
     # Same two targets the factory uses: the player once the session is proven,
     # the login form otherwise. The login flow itself is untouched.
     sget-boolean v1, Lcom/melodix/music/AppSingleton;->B:Z
@@ -515,6 +526,11 @@
     goto :have_url
 
     :proven_check
+    # MEL-BUG-073: a real page is already loaded -> warm branch, with the proof.
+    const-string v1, "ensure"
+    const-string v2, "warm"
+    const-string v3, "proof"
+    invoke-static {v1, v2, v3}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
     sget-boolean v1, Lcom/melodix/music/AppSingleton;->B:Z
 
     if-eqz v1, :force_login
@@ -8101,6 +8117,47 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     :diag_no_cookie
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Z)Ljava/lang/StringBuilder;
 
+    # MEL-BUG-073: lock telemetry. `gates=` says whether each refusal fired at
+    # least once (route: activateNativeUiRoute, show: showNativeUiFrom,
+    # rows: renderNativeRows); `loginN=` counts how many times the login surface
+    # was actually asserted. Together they answer, from one report, whether the
+    # native shell was ever allowed through and whether the login was ever shown
+    # — the two facts the three previous reports could not settle.
+    const-string v1, " gates="
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    iget v1, p0, Lcom/melodix/music/MainActivity;->diagRouteDropped:I
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v1, "/"
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    iget v1, p0, Lcom/melodix/music/MainActivity;->diagShowDropped:I
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v1, "/"
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    iget v1, p0, Lcom/melodix/music/MainActivity;->diagPayloadDropped:I
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v1, " loginN="
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    iget v1, p0, Lcom/melodix/music/MainActivity;->diagLoginRequested:I
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    # Which surface is visible right now: root=1 means the native shell is on
+    # screen, root=0 with loginN>0 means the login surface is.
+    const-string v1, " root="
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const v1, 0x7f09022f
+    invoke-virtual {p0, v1}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v5
+    const/4 v6, 0x0
+    if-eqz v5, :diag_root_checked
+    invoke-virtual {v5}, Landroid/view/View;->isShown()Z
+    move-result v6
+    :diag_root_checked
+    if-nez v6, :diag_root_one
+    const/4 v6, 0x0
+    goto :diag_root_done
+    :diag_root_one
+    const/4 v6, 0x1
+    :diag_root_done
+    invoke-virtual {v0, v6}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
     const-string v1, " journal="
 
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -8188,6 +8245,10 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     :login_owner_trace
     const/4 v0, 0x0
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->melodixWebHomeActive:Z
+    # MEL-BUG-073: count how many times the login surface was actually asserted.
+    iget v0, p0, Lcom/melodix/music/MainActivity;->diagLoginRequested:I
+    add-int/lit8 v0, v0, 0x1
+    iput v0, p0, Lcom/melodix/music/MainActivity;->diagLoginRequested:I
     # MEL-BUG-069: the accounts.spotify.com login form rendered in a narrow
     # desktop-column width: the shared WebView factory (m9.a) forces
     # setUseWideViewPort(false) + setLoadWithOverviewMode(false), so the page
@@ -8864,8 +8925,11 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     # appeared in a report, which is why their absence proved nothing.
     sget-boolean v0, Lcom/melodix/music/AppSingleton;->B:Z
     if-eqz v0, :native_show_gate_done
+    iget v1, p0, Lcom/melodix/music/MainActivity;->diagShowDropped:I
+    add-int/lit8 v1, v1, 0x1
+    iput v1, p0, Lcom/melodix/music/MainActivity;->diagShowDropped:I
     const-string v1, "show-native"
-    const-string v2, "dropped-unproven-session"
+    const-string v2, "dropped-unproven"
     iget-object v3, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
     invoke-static {v1, v2, v3}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
     # Unproven: (re)assert the login surface and return. No navigation happens
@@ -9426,8 +9490,13 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     # trace in the journal and renders nothing.
     sget-boolean v0, Lcom/melodix/music/AppSingleton;->B:Z
     if-eqz v0, :native_route_activation_gate_done
+    # Counted, not just labelled: the counter reaches buildDiagnosticText, so a
+    # single report says whether this gate fired at all.
+    iget v1, p0, Lcom/melodix/music/MainActivity;->diagRouteDropped:I
+    add-int/lit8 v1, v1, 0x1
+    iput v1, p0, Lcom/melodix/music/MainActivity;->diagRouteDropped:I
     const-string v1, "route"
-    const-string v2, "dropped-unproven-session"
+    const-string v2, "dropped-unproven"
     invoke-static {v1, v2, p1}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
     return-void
 
@@ -10506,11 +10575,16 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     return-void
 
     :render_rows_unproven_drop
-    # MEL-BUG-070: unproven session + login surface -> the payload is ignored.
-    # A fixed label only: no URL, no title, no payload content.
-    const-string v0, "native-rows-dropped-unproven-session"
-    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
-    invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
+    # MEL-BUG-073: same refusal, but now COUNTED and journaled in the bounded
+    # diag (AppSingleton.noteDiag) — the journal the user copies. The previous
+    # CrashGuard/Overlay label never reached a report, so its absence proved
+    # nothing. Fixed labels only: no URL, no title, no payload content.
+    iget v0, p0, Lcom/melodix/music/MainActivity;->diagPayloadDropped:I
+    add-int/lit8 v0, v0, 0x1
+    iput v0, p0, Lcom/melodix/music/MainActivity;->diagPayloadDropped:I
+    const-string v1, "rows"
+    const-string v2, "dropped-unproven"
+    invoke-static {v1, v2, p1}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
     return-void
 .end method
 
