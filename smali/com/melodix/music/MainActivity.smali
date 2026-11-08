@@ -483,10 +483,30 @@
 
     # MEL-BUG-067: a persisted marker is not a session — if the real sp_dc
     # session cookie is absent, show the login FIRST even on a warm start.
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->hasProvenSessionCookie()Z
-    move-result v1
+    # Inline on v2/v3 (v0 = WebView, v1 = flag): only the cookie's presence is
+    # tested, never its value. All paths into :login_url keep v2/v3 as
+    # references, so verification stays clean.
+    invoke-static {}, Landroid/webkit/CookieManager;->getInstance()Landroid/webkit/CookieManager;
 
-    if-eqz v1, :login_url
+    move-result-object v2
+
+    if-eqz v2, :login_url
+
+    const-string v3, "https://open.spotify.com/"
+
+    invoke-virtual {v2, v3}, Landroid/webkit/CookieManager;->getCookie(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v2
+
+    if-eqz v2, :login_url
+
+    const-string v3, "sp_dc="
+
+    invoke-virtual {v2, v3}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+
+    move-result v2
+
+    if-eqz v2, :login_url
 
     const-string v1, "https://open.spotify.com/"
 
@@ -7800,13 +7820,6 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     return-void
 .end method
 
-.method private final hasProvenSessionCookie()Z
-    .locals 1
-
-    const/4 v0, 0x1
-
-    return v0
-.end method
 
 .method private final applyLoginWebUi(Ljava/lang/String;Ljava/lang/String;)V
     .locals 2

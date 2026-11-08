@@ -86,16 +86,12 @@ test('MEL-BUG-067b: missing sp_dc cookie forces the login screen first, even wit
   const main = read('smali/com/melodix/music/MainActivity.smali');
   const at = main.indexOf('sget-boolean v1, Lcom/melodix/music/MainActivity;->l0:Z');
   const block = main.slice(at, main.indexOf(':have_url', at));
-  assert.match(block, /invoke-virtual \{p0\}, Lcom\/melodix\/music\/MainActivity;->hasProvenSessionCookie\(\)Z\s*\n\s*move-result v1\s*\n\s*if-eqz v1, :login_url/,
-    'no proven cookie -> login URL + revealLoginWebUi, regardless of persisted markers');
+  assert.match(block, /invoke-static \{\}, Landroid\/webkit\/CookieManager;->getInstance\(\)Landroid\/webkit\/CookieManager;/);
+  assert.match(block, /CookieManager;->getCookie\(Ljava\/lang\/String;\)Ljava\/lang\/String;\s*\n\s*move-result-object v2\s*\n\s*if-eqz v2, :login_url/,
+    'no cookie string -> login URL');
+  assert.match(block, /const-string v3, "sp_dc="\s*\n\s*invoke-virtual \{v2, v3\}, Ljava\/lang\/String;->contains\(Ljava\/lang\/CharSequence;\)Z\s*\n\s*move-result v2\s*\n\s*if-eqz v2, :login_url/,
+    'no sp_dc in the cookie string -> login URL + revealLoginWebUi, regardless of persisted markers');
   assert.match(block, /const-string v1, "https:\/\/open\.spotify\.com\/"/, 'cookie present -> player URL as before');
-  const helper = method(main, '.method private final hasProvenSessionCookie()Z');
-  assert.match(helper, /CookieManager;->getInstance\(\)Landroid\/webkit\/CookieManager;/);
-  assert.match(helper, /const-string v2, "sp_dc="\s*\n\s*invoke-virtual \{v1, v2\}, Ljava\/lang\/String;->contains\(Ljava\/lang\/CharSequence;\)Z/,
-    'only the presence of the sp_dc cookie is tested');
-  assert.match(helper, /if-eqz v0, :no_cookie[\s\S]*?if-eqz v1, :no_cookie/,
-    'both no-cookie paths merge on v0=CookieManager only (no type conflict -> verifier-safe)');
-  assert.match(helper, /:no_cookie\s*\n\s*const\/4 v2, 0x0\s*\n\s*return v2/);
-  assert.doesNotMatch(helper, /getAllCookies|getCookie\("[^"]*sp_dc|Log\.|println/,
-    'the cookie value is never read, logged or stored');
+  assert.doesNotMatch(block, /getAllCookies|Log\.|println/, 'the cookie value is never read, logged or stored');
+  assert.doesNotMatch(main, /hasProvenSessionCookie/, 'no helper method: the check is inline (a helper call here crashed the emulator build)');
 });

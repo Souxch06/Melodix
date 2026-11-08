@@ -151,7 +151,12 @@ test('ensureWebPageLoaded is idempotent, uses the same target and never hides a 
     assert.match(body, /const-string v1, "ensure-load-failed"/);
 
     // No cookie, cache or session manipulation: this only asks for a page.
-    assert.doesNotMatch(body, /CookieManager|clearCache|clearHistory|evaluateJavascript/);
+    assert.doesNotMatch(body, /clearCache|clearHistory|evaluateJavascript/);
+    // MEL-BUG-067: the cookie check is allowed but restricted to a PRESENCE test
+    // of sp_dc — the cookie value must never be read, logged or stored.
+    const cm = body.match(/CookieManager;->getInstance\(\)[\s\S]*?:login_url/);
+    assert.ok(cm, 'cookie check present on the proven path');
+    assert.doesNotMatch(cm[0], /getAllCookies|Log\.|println|sp_dc=[^=]/, 'only sp_dc presence is tested, value never read');
 });
 
 test('the load watchdog retries a WebView that never requested a page', () => {
