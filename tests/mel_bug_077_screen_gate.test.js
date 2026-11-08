@@ -39,9 +39,11 @@ test('MEL-BUG-077a: setNativeScreen refuses to paint without a session proof', (
 
 test('MEL-BUG-077b: the local shell asset still paints (CI measures it)', () => {
   const screen = code(method('.method public final setNativeScreen('));
-  assert.match(screen, /const-string v4, "file:\/\/"/, 'exception page locale');
-  assert.match(screen, /startsWith\(Ljava\/lang\/String;\)Z\s*\n\s*move-result v2\s*\n\s*if-nez v2, :native_screen_refuse/,
-    'une page locale n est pas refusee');
+  // MEL-BUG-079: only a REMOTE page is refused. An empty WebView (no url yet) is
+  // the launch state and must paint: refusing it broke both UI-metric jobs.
+  assert.match(screen, /const-string v4, "http"/, 'seule une page distante est refusee');
+  assert.match(screen, /startsWith\(Ljava\/lang\/String;\)Z\s*\n\s*move-result v2\s*\n\s*if-eqz v2, :native_screen_refuse/,
+    'une page non distante (vide ou locale) n est pas refusee');
 });
 
 test('MEL-BUG-077c: every painter now tests the proof, with the same sense', () => {

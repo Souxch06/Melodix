@@ -8987,10 +8987,14 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-virtual {v3}, Landroid/webkit/WebView;->getUrl()Ljava/lang/String;
     move-result-object v3
     if-eqz v3, :native_show_gate_refuse
-    const-string v4, "file://"
+    # MEL-BUG-079: only a REMOTE page may be refused. An empty WebView (no url
+    # yet) is the legitimate launch state: onCreate paints the shell before the
+    # first loadUrl, and the CI measures exactly that. Refusing it broke both
+    # phone and tablet metrics (run 42498928786).
+    const-string v4, "http"
     invoke-virtual {v3, v4}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
     move-result v2
-    if-nez v2, :native_show_gate_refuse
+    if-eqz v2, :native_show_gate_refuse
     goto :native_show_gate_done
     :native_show_gate_refuse
     iget v1, p0, Lcom/melodix/music/MainActivity;->diagShowDropped:I
@@ -9298,10 +9302,11 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-virtual {v3}, Landroid/webkit/WebView;->getUrl()Ljava/lang/String;
     move-result-object v3
     if-eqz v3, :native_screen_refuse
-    const-string v4, "file://"
+    # MEL-BUG-079: only a remote page may be refused (see showNativeUiFrom).
+    const-string v4, "http"
     invoke-virtual {v3, v4}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
     move-result v2
-    if-nez v2, :native_screen_refuse
+    if-eqz v2, :native_screen_refuse
     goto :native_screen_proven
     :native_screen_refuse
     iget v2, p0, Lcom/melodix/music/MainActivity;->diagRouteDropped:I
@@ -9623,10 +9628,11 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-virtual {v3}, Landroid/webkit/WebView;->getUrl()Ljava/lang/String;
     move-result-object v3
     if-eqz v3, :native_route_gate_refuse
-    const-string v2, "file://"
+    # MEL-BUG-079: only a remote page may be refused (see showNativeUiFrom).
+    const-string v2, "http"
     invoke-virtual {v3, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
     move-result v1
-    if-nez v1, :native_route_gate_refuse
+    if-eqz v1, :native_route_gate_refuse
     goto :native_route_activation_gate_done
     :native_route_gate_refuse
     # Counted, not just labelled: the counter reaches buildDiagnosticText, so a

@@ -42,9 +42,11 @@ test('MEL-BUG-076c: the local shell asset keeps the foreground (CI measures it)'
   // CI measures exactly that page. Only a REMOTE page may be refused.
   for (const sig of ['.method public final showNativeUiFrom(', '.method public final activateNativeUiRoute(']) {
     const body = code(method(sig));
-    assert.match(body, /const-string v[24], "file:\/\/"/, sig + ' : exception page locale');
-    assert.match(body, /startsWith\(Ljava\/lang\/String;\)Z\s*\n\s*move-result v[12]\s*\n\s*if-nez v[12], :native_(show|route)_gate_refuse/,
-      sig + ' : une page locale n est pas refusee');
+    // MEL-BUG-079: the exemption is "not a remote page" (empty launch state or
+    // file://), not "is a local file". Refusing an empty WebView broke the CI.
+    assert.match(body, /const-string v[24], "http"/, sig + ' : seule une page distante est refusee');
+    assert.match(body, /startsWith\(Ljava\/lang\/String;\)Z\s*\n\s*move-result v[12]\s*\n\s*if-eqz v[12], :native_(show|route)_gate_refuse/,
+      sig + ' : une page non distante n est pas refusee');
     // The WebView is read, never written, in the gate.
     assert.doesNotMatch(body.slice(0, body.indexOf('gate_refuse')), /iput-object/,
       sig + ' : la garde ne modifie pas la WebView');

@@ -415,7 +415,12 @@ function executeNativeRouteActivation(activity, destination) {
         if ((match = /^invoke-virtual \{(\w+), (\w+)\}, Ljava\/lang\/String;->startsWith\(Ljava\/lang\/String;\)Z$/.exec(instruction))) {
             const haystack = registers[match[1]];
             const needle = registers[match[2]];
-            registers.v1 = typeof haystack === 'string' && typeof needle === 'string' && haystack.startsWith(needle);
+            // MEL-BUG-079: the gate now asks "is this a REMOTE page?" (http).
+            // The result lands in v2 for the show/screen gates and v1 for the
+            // route gate; both are modelled.
+            const res = typeof haystack === 'string' && typeof needle === 'string' && haystack.startsWith(needle);
+            registers.v1 = res;
+            registers.v2 = res;
             continue;
         }
         // MEL-BUG-073 counters: plain int fields, carried on the activity.
