@@ -63,7 +63,7 @@ transitoire avec retry borné au lieu d'un blocage permanent). La plus récente 
 | v1.2.2-test.102-preview (MEL-BUG-067 inline, CI Measure VERT) | 1092 | `dc0373f3796681fc4e0381fc14bb2065db60e98a670b4feb55eb22ab2facf66a` | `10:C2:83:…:45:95` (maj directe) |
 | v1.2.2-test.62-preview (MEL-BUG-035) | 1062 | `8c58d998d20fbca0c76622dda4b50c703a79d04abaf4a7a7cd1e9198a7f5d5f4` | `B0:B8:D5:…:6C:F5` |
 
-La plus récente est **test.102** (`Melodix-Test-v1.2.2-test102.apk`, tag `v1.2.2-test.102-preview`) : MEL-BUG-067 (login-first sur cookie `sp_dc` + zoom login 180%) en version **inline** (vérifiée CI Measure phone+tablet VERT, run 42463835607) + fix crash réglages (registre `v2`). ⚠️ test.100/test.101 à NE PAS installer (crash au lancement). Même certificat `10:C2:83:…:45:95` que test.99 → **maj directe depuis test.99**.
+La plus récente est **test.102** (`Melodix-Test-v1.2.2-test102.apk`, tag `v1.2.2-test.102-preview`) — **téléchargement direct** : https://raw.githubusercontent.com/Souxch06/Melodix/v1.2.2-test.102-preview/releases/Melodix-Test-v1.2.2-test102.apk — : MEL-BUG-067 (login-first sur cookie `sp_dc` + zoom login 180%) en version **inline** (vérifiée CI Measure phone+tablet VERT, run 42463835607) + fix crash réglages (registre `v2`). ⚠️ test.100/test.101 à NE PAS installer (crash au lancement). Même certificat `10:C2:83:…:45:95` que test.99 → **maj directe depuis test.99**.
 
 > Depuis test.75/test.76, les tags sont posés sur le commit qui **contient l’APK** : le lien raw épinglé sur le tag sert bien le binaire (vérifié via l’API GitHub).
 

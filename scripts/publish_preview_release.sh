@@ -31,6 +31,7 @@ NOTES="$(mktemp)"
   echo
   echo "- **Commit testé** : \`${COMMIT}\` (branche \`${BR}\`, PR #8)"
   echo "- **APK** : [${APK}](https://github.com/${REPO}/blob/${BR}/releases/${APK}) (servie depuis le dépôt : uploads.github.com indisponible depuis l'environnement Arena)"
+  echo "- **Téléchargement direct** : https://raw.githubusercontent.com/${REPO}/${TAG}/releases/${APK}"
   echo "- **sha256** : \`${SHA256}\`"
   echo "- **Signature** : v1+v2+v3, empreinte certificat \`${FP}\` (stabilité prouvée : 2 signatures → même certificat)."
   echo "- ⚠️ « Package en conflit » à la mise à jour ? Désinstaller d'abord : \`adb uninstall com.melodix.music\` (ou Réglages → Applications → Melodix → Désinstaller). La désinstall efface la session Spotify (reconnexion nécessaire)."
