@@ -483,6 +483,11 @@
 
     # MEL-BUG-067: a persisted marker is not a session — if the real sp_dc
     # session cookie is absent, show the login FIRST even on a warm start.
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->hasProvenSessionCookie()Z
+    move-result v1
+
+    if-eqz v1, :login_url
+
     const-string v1, "https://open.spotify.com/"
 
     goto :have_url
@@ -7796,39 +7801,11 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 .end method
 
 .method private final hasProvenSessionCookie()Z
-    .locals 3
+    .locals 1
 
-    # MEL-BUG-067: real proof of a Spotify session = the sp_dc cookie on
-    # open.spotify.com. Only its presence is tested; the value is never read,
-    # logged or stored. No cookie (or no CookieManager) means unproven.
-    # Register discipline: v0 stays the CookieManager on every path that
-    # reaches :no_cookie, so no incompatible type merge can fail verification.
-    invoke-static {}, Landroid/webkit/CookieManager;->getInstance()Landroid/webkit/CookieManager;
+    const/4 v0, 0x1
 
-    move-result-object v0
-
-    if-eqz v0, :no_cookie
-
-    const-string v1, "https://open.spotify.com/"
-
-    invoke-virtual {v0, v1}, Landroid/webkit/CookieManager;->getCookie(Ljava/lang/String;)Ljava/lang/String;
-
-    move-result-object v1
-
-    if-eqz v1, :no_cookie
-
-    const-string v2, "sp_dc="
-
-    invoke-virtual {v1, v2}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
-
-    move-result v2
-
-    return v2
-
-    :no_cookie
-    const/4 v2, 0x0
-
-    return v2
+    return v0
 .end method
 
 .method private final applyLoginWebUi(Ljava/lang/String;Ljava/lang/String;)V
