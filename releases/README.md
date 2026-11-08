@@ -61,10 +61,13 @@ transitoire avec retry borné au lieu d'un blocage permanent). La plus récente 
 | v1.2.2-test.100-preview (MEL-BUG-067 + fix crash réglages) | 1090 | `72fe8e0307a5f7e740559e0117a06eb70c4955aa5d92c966a4427de25bd94ce9` | `10:C2:83:…:45:95` (maj directe depuis test.99) |
 | v1.2.2-test.101-preview (fix VerifyError test.100) | 1091 | `b0c4964017562ca1bbe2e5aaf4b9c112021fdc6571722ed9c0c2be428f7725a5` | `10:C2:83:…:45:95` (maj directe) |
 | v1.2.2-test.102-preview (MEL-BUG-067 inline, CI Measure VERT) | 1092 | `dc0373f3796681fc4e0381fc14bb2065db60e98a670b4feb55eb22ab2facf66a` | `10:C2:83:…:45:95` (maj directe) |
-| v1.2.2-test.103-preview (MEL-BUG-068) | 1093 | `f4cb8bcad1ca908e57b75837193695fa78d75f8a3bb71b21be7922ae745c6d89` | `10:C2:83:…:45:95` (maj directe) |
+| v1.2.2-test.103-preview (MEL-BUG-068) ⚠️ **NE PAS INSTALLER** (build apktool 2.9.3 KO + crash au lancement) — remplacé par test.104 | 1093 | `f4cb8bcad1ca908e57b75837193695fa78d75f8a3bb71b21be7922ae745c6d89` | `10:C2:83:…:45:95` (maj directe) |
+| v1.2.2-test.104-preview (MEL-BUG-068 livré proprement, CI VERTE) | 1094 | `12dc30ea438a43ac58bedcaf3f380600eb6e3135f83e4bf60c07990e629bdd48` | `10:C2:83:…:45:95` (maj directe) |
 | v1.2.2-test.62-preview (MEL-BUG-035) | 1062 | `8c58d998d20fbca0c76622dda4b50c703a79d04abaf4a7a7cd1e9198a7f5d5f4` | `B0:B8:D5:…:6C:F5` |
 
-La plus récente est **test.103** (`Melodix-Test-v1.2.2-test103.apk`, tag `v1.2.2-test.103-preview`) — **téléchargement direct** : https://raw.githubusercontent.com/Souxch06/Melodix/v1.2.2-test.103-preview/releases/Melodix-Test-v1.2.2-test103.apk — MEL-BUG-068 : login forcé tant que non connecté, cookies persistés (flush onStop), diag complet copiable (chip ⧉ dans le header), réglages sans crash, greeting Bonjour/Bonsoir [pseudo], polish UI. Même certificat `10:C2:83:…:45:95` → **maj directe depuis test.99+**.
+La plus récente est **test.104** (`Melodix-Test-v1.2.2-test104.apk`, tag `v1.2.2-test.104-preview`) — **téléchargement direct** : https://raw.githubusercontent.com/Souxch06/Melodix/v1.2.2-test.104-preview/releases/Melodix-Test-v1.2.2-test104.apk — MEL-BUG-068 livré proprement (CI verify-ui-metrics **VERTE** run 42475002370 : build + mesure phone/tablet OK) : login réaffiché tant que non connecté (uniquement si la page courante est distante non-login — pas de boucle, shell natif préservé), cookies persistés (flush onStop), diag complet copiable (chip ⧉ dans le header), réglages sans crash (registre v2), greeting Bonjour/Bonsoir/Bonne nuit invité, polish UI tokens `mel_*`. Même certificat `10:C2:83:…:45:95` → **maj directe depuis test.99+**.
+⚠️ **test.103 (vC 1093) est à NE PAS INSTALLER** : build CI apktool 2.9.3 rejeté (exit 22) puis crash au lancement (VerifyError) — **test.104 le remplace**.
+
 
 > Depuis test.75/test.76, les tags sont posés sur le commit qui **contient l’APK** : le lien raw épinglé sur le tag sert bien le binaire (vérifié via l’API GitHub).
 
