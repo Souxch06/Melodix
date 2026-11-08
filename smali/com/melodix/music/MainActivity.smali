@@ -109,6 +109,7 @@
 .field private nativeDisplayOwner:Ljava/lang/String;
 .field private nativeDisplayOwnerStartElapsed:J
 .field private nativeLoginWebRequested:Z
+.field private nativeLoginPageCommitted:Z
 .field private nativeSettingsGeneration:I
 .field private nativeSettingsReadyGeneration:I
 .field private nativeSettingsLoading:Z
@@ -7205,8 +7206,14 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     if-nez v0, :native_ready_clear_login
     goto :native_ready_login_gate_done
     :native_ready_clear_login
+    # MEL-BUG-066: never close the login surface before the login page itself
+    # has committed — a callback from the previous page mid-navigation would
+    # flash the native home over the loading login form.
+    iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginPageCommitted:Z
+    if-eqz v0, :native_login_gate_done_keep
     const/4 v0, 0x0
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginWebRequested:Z
+    :native_login_gate_done_keep
     :native_ready_login_gate_done
     new-instance v0, Lcom/melodix/music/NativeUiUpdateRunnable;
     const-string v1, ""
@@ -7310,6 +7317,10 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->isLoginWebPath()Z
     move-result v0
     if-eqz v0, :native_login_route_finished
+    # MEL-BUG-066: a login-path page really committed — from now on, a later
+    # real non-login page may close the login surface again.
+    const/4 v0, 0x1
+    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginPageCommitted:Z
     const-string v1, "page-finished-login"
     const-string v2, "webview"
     invoke-direct {p0, v1, v2}, Lcom/melodix/music/MainActivity;->applyLoginWebUi(Ljava/lang/String;Ljava/lang/String;)V
@@ -7839,6 +7850,8 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
     const/4 v0, 0x1
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginWebRequested:Z
+    const/4 v0, 0x0
+    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginPageCommitted:Z
     const-string v0, "login-action"
     const-string v1, "event"
     invoke-direct {p0, v0, v1}, Lcom/melodix/music/MainActivity;->applyLoginWebUi(Ljava/lang/String;Ljava/lang/String;)V
@@ -7935,8 +7948,14 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     if-nez v0, :native_route_clear_login
     goto :native_route_login_gate_done
     :native_route_clear_login
+    # MEL-BUG-066: never close the login surface before the login page itself
+    # has committed — a callback from the previous page mid-navigation would
+    # flash the native home over the loading login form.
+    iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginPageCommitted:Z
+    if-eqz v0, :native_login_gate_done_keep
     const/4 v0, 0x0
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginWebRequested:Z
+    :native_login_gate_done_keep
     :native_route_login_gate_done
     const-string v0, "native-route-requested"
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
@@ -10750,6 +10769,11 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     # WebView flow; this does not alter OAuth parameters or native session proof.
     const/4 v0, 0x1
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginWebRequested:Z
+    # MEL-BUG-066: the login page has NOT committed yet — JS callbacks fired by
+    # the previous page while the login navigation is in flight must not close
+    # the login surface (that was the one-frame flash).
+    const/4 v0, 0x0
+    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginPageCommitted:Z
     const/4 v0, 0x0
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeCardsAttached:Z
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeStatusAttached:Z

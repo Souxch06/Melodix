@@ -135,8 +135,8 @@ test('MEL-BUG-054: Settings offers the online Spotify account page and a real lo
 
 test('MEL-BUG-054: settings icon slots are accent-tinted with an accent glyph', () => {
   const smali = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/NativeSettingsRowFactory.smali'), 'utf8');
-  assert.match(smali, /MelColors;->accent:I[\s\S]{0,160}?const v11, 0x40000000[\s\S]{0,60}?or-int\/2addr v3, v11/,
-    'icon slot background = accent at 25% alpha');
+  assert.match(smali, /setShape\(I\)V[\s\S]{0,80}?MelColors;->glow:I[\s\S]{0,80}?setColor\(I\)V/,
+    'icon slot = soft glow circle (MEL-BUG-066), not a solid square');
   const at = smali.indexOf('\n    :native_settings_icon_placeholder\n');
   const block = smali.slice(at, smali.indexOf(':native_settings_no_avatar', at));
   assert.match(block, /MelColors;->accent:I\s*\n\s*invoke-virtual \{v0, v3\}, Landroid\/widget\/ImageView;->setColorFilter/,
@@ -148,10 +148,14 @@ test('MEL-BUG-054: settings icon slots are accent-tinted with an accent glyph', 
 // a VerifyError and a crash when opening Settings.
 test('MEL-BUG-055: the accent-tint block never overwrites the title register v4', () => {
   const smali = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/NativeSettingsRowFactory.smali'), 'utf8');
-  assert.doesNotMatch(smali, /const v4, 0x40000000|or-int\/2addr v3, v4/,
+  assert.doesNotMatch(smali, /const v4, |or-int\/2addr v3, v4|move-result-object v4\s*\n\s*invoke-virtual \{v1, v4\}/,
     'no int written into v4 (the title) in the settings row factory');
-  assert.match(smali, /const v11, 0x40000000\s*\n\s*or-int\/2addr v3, v11/,
-    'alpha mask uses a free high register (v11)');
+  // MEL-BUG-066: the slot block now paints a soft glow circle via setShape+glow
+  // and must not touch v4 either.
+  const at = smali.indexOf('new-instance v1, Landroid/graphics/drawable/GradientDrawable;');
+  const slot = smali.slice(at, smali.indexOf('setBackground', at));
+  assert.doesNotMatch(slot, /v4/, 'icon slot block leaves the title register v4 alone');
+  assert.match(slot, /setShape\(I\)V[\s\S]*?MelColors;->glow:I/, 'slot = glow circle');
   assert.match(smali, /invoke-virtual \{v9, v4\}, Landroid\/widget\/TextView;->setText\(Ljava\/lang\/CharSequence;\)V/,
     'the title is still passed from v4 to setText');
 });
@@ -213,8 +217,9 @@ test('MEL-BUG-062: ON/OFF values render as a styled Switch in settings rows', ()
   const sw = smali.slice(switchBuild, pillText);
   assert.match(sw, /new-instance v11, Landroid\/widget\/Switch;/);
   assert.match(sw, /Switch;->setChecked\(Z\)V/);
-  assert.match(sw, /MelColors;->accent:I[\s\S]*?setThumbTintList/, 'thumb = accent');
-  assert.match(sw, /MelColors;->glow:I[\s\S]*?setTrackTintList/, 'track = accent glow');
+  assert.match(sw, /MelColors;->textPrimary:I[\s\S]*?setThumbTintList/, 'thumb = white (readable)');
+  assert.match(sw, /const v2, 0x101009c[\s\S]*?MelColors;->accent:I[\s\S]*?MelColors;->surfaceBtn:I[\s\S]*?ColorStateList;-><init>\(\[\[I\[I\)V[\s\S]*?setTrackTintList/,
+    'track = state list: accent when checked, surfaceBtn when off (MEL-BUG-066)');
   assert.match(sw, /setClickable\(Z\)V\s*\n\s*invoke-virtual \{v11, v0\}, Landroid\/view\/View;->setFocusable\(Z\)V/,
     'switch itself not clickable (the row dispatches the toggle)');
   assert.match(sw, /goto :native_settings_row_tail/, 'switch path rejoins the common row tail');

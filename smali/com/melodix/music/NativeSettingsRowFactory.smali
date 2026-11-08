@@ -80,12 +80,11 @@
     invoke-virtual {v0, v1}, Landroid/widget/ImageView;->setScaleType(Landroid/widget/ImageView$ScaleType;)V
     new-instance v1, Landroid/graphics/drawable/GradientDrawable;
     invoke-direct {v1}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
-    # MEL-BUG-054: accent-tinted icon slot (accent at ~25% alpha) instead of the
-    # flat glass fill — the placeholder glyph becomes clearly visible.
-    sget v3, Lcom/melodix/music/MelColors;->accent:I
-    # v4 holds the row title further below — use a free high register (v11).
-    const v11, 0x40000000
-    or-int/2addr v3, v11
+    # MEL-BUG-066: soft accent-glow circle (like the home status icon) instead
+    # of a loud solid square — finished-app look.
+    const/4 v3, 0x1
+    invoke-virtual {v1, v3}, Landroid/graphics/drawable/GradientDrawable;->setShape(I)V
+    sget v3, Lcom/melodix/music/MelColors;->glow:I
     invoke-virtual {v1, v3}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
     const/high16 v3, 0x41b00000
     invoke-virtual {v1, v3}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
@@ -188,14 +187,35 @@
     new-instance v11, Landroid/widget/Switch;
     invoke-direct {v11, p0}, Landroid/widget/Switch;-><init>(Landroid/content/Context;)V
     invoke-virtual {v11, v3}, Landroid/widget/Switch;->setChecked(Z)V
-    sget v0, Lcom/melodix/music/MelColors;->accent:I
+    # MEL-BUG-066: readable switch — white thumb, track solid accent when ON,
+    # neutral surface when OFF (a state list, not one flat translucent tint).
+    sget v0, Lcom/melodix/music/MelColors;->textPrimary:I
     invoke-static {v0}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
     move-result-object v0
     invoke-virtual {v11, v0}, Landroid/widget/Switch;->setThumbTintList(Landroid/content/res/ColorStateList;)V
-    sget v0, Lcom/melodix/music/MelColors;->glow:I
-    invoke-static {v0}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
-    move-result-object v0
-    invoke-virtual {v11, v0}, Landroid/widget/Switch;->setTrackTintList(Landroid/content/res/ColorStateList;)V
+    const/4 v0, 0x2
+    new-array v0, v0, [I
+    const/4 v1, 0x1
+    new-array v1, v1, [I
+    const v2, 0x101009c
+    const/4 v3, 0x0
+    aput v2, v1, v3
+    aput v1, v0, v3
+    const/4 v1, 0x0
+    new-array v1, v1, [I
+    const/4 v3, 0x1
+    aput v1, v0, v3
+    const/4 v1, 0x2
+    new-array v1, v1, [I
+    sget v2, Lcom/melodix/music/MelColors;->accent:I
+    const/4 v3, 0x0
+    aput v2, v1, v3
+    sget v2, Lcom/melodix/music/MelColors;->surfaceBtn:I
+    const/4 v3, 0x1
+    aput v2, v1, v3
+    new-instance v2, Landroid/content/res/ColorStateList;
+    invoke-direct {v2, v0, v1}, Landroid/content/res/ColorStateList;-><init>([[I[I)V
+    invoke-virtual {v11, v2}, Landroid/widget/Switch;->setTrackTintList(Landroid/content/res/ColorStateList;)V
     const/4 v0, 0x0
     invoke-virtual {v11, v0}, Landroid/view/View;->setClickable(Z)V
     invoke-virtual {v11, v0}, Landroid/view/View;->setFocusable(Z)V
