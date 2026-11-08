@@ -28,7 +28,8 @@ const SITES = [
 
 const isComment = (l) => l.trim().startsWith('#');
 const isBlank = (l) => l.trim() === '';
-const INVOKE = 'invoke-static {}, Lcom/melodix/music/AppSingleton;->proof';
+const READERS = ['sget-boolean', 'sget-object', 'iget-boolean', 'iget-object'];
+const INVOKE = 'Lcom/melodix/music/AppSingleton;->proof';
 
 test('MEL-BUG-080a: each instrumentation site is exactly ONE instruction', () => {
   let total = 0;
@@ -37,13 +38,21 @@ test('MEL-BUG-080a: each instrumentation site is exactly ONE instruction', () =>
     let found = 0;
     for (let i = 0; i < lines.length; i += 1) {
       if (!(isComment(lines[i]) && lines[i].includes('MEL-BUG-080'))) continue;
-      if (!lines.slice(i + 1, i + 9).join('\n').includes(INVOKE)) continue;
+      if (!lines.slice(i + 1, i + 20).join('\n').includes(INVOKE)) continue;
       found += 1;
       let k = i + 1;
       while (k < lines.length && (isBlank(lines[k]) || isComment(lines[k]))) k += 1;
+      // MEL-BUG-081: the site may read ONE register first (the value being
+      // stored) and then invoke the helper. A READ cannot invalidate a frame:
+      // MEL-BUG-080 was caused by WRITING registers, so reads are allowed and
+      // writes are not. Any other instruction before the invoke is a failure.
+      if (READERS.some((r) => lines[k].trim().startsWith(r))) {
+        k += 1;
+        while (k < lines.length && (isBlank(lines[k]) || isComment(lines[k]))) k += 1;
+      }
       const site = lines[k].trim();
-      assert.ok(site.startsWith(INVOKE) && site.endsWith('()V'),
-        file + ' : le site est un appel sans argument, vu: ' + site);
+      assert.ok(site.startsWith('invoke-static {') && site.includes(INVOKE) && site.endsWith('(Z)V'),
+        file + ' : le site est un seul appel, vu: ' + site);
       let m = k + 1;
       while (m < lines.length && (isBlank(lines[m]) || isComment(lines[m]))) m += 1;
       const next = lines[m];

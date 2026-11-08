@@ -135,7 +135,7 @@
 
     .line 49
     # MEL-BUG-080: no local register touched (invoke only).
-    invoke-static {}, Lcom/melodix/music/AppSingleton;->proofClearLogout()V
+    invoke-static {p1}, Lcom/melodix/music/AppSingleton;->proofClearLogout(Z)V
 
     sput-boolean p1, Lcom/melodix/music/AppSingleton;->B:Z
 

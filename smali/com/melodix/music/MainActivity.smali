@@ -5501,7 +5501,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     .line 130
     .line 131
     # MEL-BUG-080: no local register touched (invoke only).
-    invoke-static {}, Lcom/melodix/music/AppSingleton;->proofClearResume()V
+    invoke-static {v3}, Lcom/melodix/music/AppSingleton;->proofClearResume(Z)V
     sput-boolean v3, Lcom/melodix/music/AppSingleton;->B:Z
 
     .line 132
@@ -5638,7 +5638,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     .line 193
     .line 194
     # MEL-BUG-080: no local register touched (invoke only).
-    invoke-static {}, Lcom/melodix/music/AppSingleton;->proofClearResume2()V
+    invoke-static {v3}, Lcom/melodix/music/AppSingleton;->proofClearResume2(Z)V
     sput-boolean v3, Lcom/melodix/music/AppSingleton;->B:Z
 
     .line 195

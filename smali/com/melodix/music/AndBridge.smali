@@ -1583,17 +1583,22 @@
     .end annotation
 
     .locals 2
-    # MEL-BUG-080: no local register touched (invoke only).
     # MEL-BUG-075: this is the ONLY writer of AppSingleton.B = true in the whole
     # DEX. Journaling it here used to clobber p0 (a PARAMETER) with "proof" and
     # null; the argument-less helper keeps every register intact. No page data,
     # no cookie, no URL reaches the journal.
-    invoke-static {}, Lcom/melodix/music/AppSingleton;->proofSetBridgeLogin()V
-    .line 1
     const/4 p0, 0x1
 
     .line 2
     sput-boolean p0, Lcom/melodix/music/AppSingleton;->B:Z
+
+    .line 3
+    # The helper only READS p0 and never writes a register (MEL-BUG-080). Called
+    # AFTER the store, reading the flag back, so the journal reports what is
+    # actually in AppSingleton.B: p0 at this point is the method parameter (a
+    # marker), not the stored value, and reading it earlier would have lied.
+    sget-boolean p0, Lcom/melodix/music/AppSingleton;->B:Z
+    invoke-static {p0}, Lcom/melodix/music/AppSingleton;->proofSetBridgeLogin(Z)V
 
     .line 3
     .line 4

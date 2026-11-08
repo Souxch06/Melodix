@@ -695,7 +695,7 @@
     if-eqz v2, :cond_3
 
     # MEL-BUG-080: no local register touched (invoke only).
-    invoke-static {}, Lcom/melodix/music/AppSingleton;->proofClearAccounts()V
+    invoke-static {v2}, Lcom/melodix/music/AppSingleton;->proofClearAccounts(Z)V
     const/4 v2, 0x0
 
     sput-boolean v2, Lcom/melodix/music/AppSingleton;->B:Z
@@ -732,7 +732,7 @@
     if-eqz v2, :cond_4
 
     # MEL-BUG-080: no local register touched (invoke only).
-    invoke-static {}, Lcom/melodix/music/AppSingleton;->proofClearLeftPlayer()V
+    invoke-static {v3}, Lcom/melodix/music/AppSingleton;->proofClearLeftPlayer(Z)V
     sput-boolean v3, Lcom/melodix/music/AppSingleton;->B:Z
 
     sget v2, Lcom/melodix/music/AppSingleton;->j:I

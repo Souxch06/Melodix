@@ -663,7 +663,7 @@
     # Startup never trusts a persisted login marker: auth always starts
     # unconfirmed and is confirmed later by the account and player UI.
     # MEL-BUG-080: no local register touched (invoke only).
-    invoke-static {}, Lcom/melodix/music/AppSingleton;->proofClearOncreate()V
+    invoke-static {v0}, Lcom/melodix/music/AppSingleton;->proofClearOncreate(Z)V
     const/4 v0, 0x0
 
     sput-boolean v0, Lcom/melodix/music/AppSingleton;->B:Z
@@ -2204,59 +2204,112 @@
     return-void
 .end method
 
-.method public static proofSetBridgeLogin()V
+.method public static proofSetBridgeLogin(Z)V
     .locals 1
 
+    # MEL-BUG-081: p0 is the value being stored, journaled verbatim.
     const-string v0, "set-bridge-login"
-    invoke-static {v0}, Lcom/melodix/music/AppSingleton;->proofTrace(Ljava/lang/String;)V
+    invoke-static {v0, p0}, Lcom/melodix/music/AppSingleton;->proofTraceValue(Ljava/lang/String;Z)V
     return-void
 .end method
 
-.method public static proofClearOncreate()V
+.method public static proofClearOncreate(Z)V
     .locals 1
 
+    # MEL-BUG-081: p0 is the value being stored, journaled verbatim.
     const-string v0, "clear-oncreate"
-    invoke-static {v0}, Lcom/melodix/music/AppSingleton;->proofTrace(Ljava/lang/String;)V
+    invoke-static {v0, p0}, Lcom/melodix/music/AppSingleton;->proofTraceValue(Ljava/lang/String;Z)V
     return-void
 .end method
 
-.method public static proofClearResume()V
+.method public static proofClearResume(Z)V
     .locals 1
 
+    # MEL-BUG-081: p0 is the value being stored, journaled verbatim.
     const-string v0, "clear-resume"
-    invoke-static {v0}, Lcom/melodix/music/AppSingleton;->proofTrace(Ljava/lang/String;)V
+    invoke-static {v0, p0}, Lcom/melodix/music/AppSingleton;->proofTraceValue(Ljava/lang/String;Z)V
     return-void
 .end method
 
-.method public static proofClearResume2()V
+.method public static proofClearResume2(Z)V
     .locals 1
 
+    # MEL-BUG-081: p0 is the value being stored, journaled verbatim.
     const-string v0, "clear-resume-2"
-    invoke-static {v0}, Lcom/melodix/music/AppSingleton;->proofTrace(Ljava/lang/String;)V
+    invoke-static {v0, p0}, Lcom/melodix/music/AppSingleton;->proofTraceValue(Ljava/lang/String;Z)V
     return-void
 .end method
 
-.method public static proofClearAccounts()V
+.method public static proofClearAccounts(Z)V
     .locals 1
 
+    # MEL-BUG-081: p0 is the value being stored, journaled verbatim.
     const-string v0, "clear-accounts"
-    invoke-static {v0}, Lcom/melodix/music/AppSingleton;->proofTrace(Ljava/lang/String;)V
+    invoke-static {v0, p0}, Lcom/melodix/music/AppSingleton;->proofTraceValue(Ljava/lang/String;Z)V
     return-void
 .end method
 
-.method public static proofClearLeftPlayer()V
+.method public static proofClearLeftPlayer(Z)V
     .locals 1
 
+    # MEL-BUG-081: p0 is the value being stored, journaled verbatim.
     const-string v0, "clear-left-player"
-    invoke-static {v0}, Lcom/melodix/music/AppSingleton;->proofTrace(Ljava/lang/String;)V
+    invoke-static {v0, p0}, Lcom/melodix/music/AppSingleton;->proofTraceValue(Ljava/lang/String;Z)V
     return-void
 .end method
 
-.method public static proofClearLogout()V
+.method public static proofClearLogout(Z)V
     .locals 1
 
+    # MEL-BUG-081: p0 is the value being stored, journaled verbatim.
     const-string v0, "clear-logout"
-    invoke-static {v0}, Lcom/melodix/music/AppSingleton;->proofTrace(Ljava/lang/String;)V
+    invoke-static {v0, p0}, Lcom/melodix/music/AppSingleton;->proofTraceValue(Ljava/lang/String;Z)V
+    return-void
+.end method
+
+.method public static proofTraceValue(Ljava/lang/String;Z)V
+    .locals 3
+
+    # MEL-BUG-081: the journal records the value that was actually stored, not a
+    # fixed label. "clear-accounts=T" and "clear-accounts=F" are now different
+    # lines, so a site that sets the proof true can no longer hide behind the
+    # name of the method it lives in.
+    :try_start_proof_value
+    new-instance v0, Ljava/lang/StringBuilder;
+
+    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+
+    invoke-virtual {v0, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v1, "="
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    if-eqz p1, :proof_value_true
+
+    const-string v1, "T"
+
+    goto :proof_value_append
+
+    :proof_value_true
+    const-string v1, "F"
+
+    :proof_value_append
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v2
+
+    const-string v1, "proof"
+
+    invoke-static {v1, v2, v0}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    :try_end_proof_value
+    .catch Ljava/lang/Throwable; {:try_start_proof_value .. :try_end_proof_value} :catch_proof_value
+    return-void
+
+    :catch_proof_value
+    move-exception v0
     return-void
 .end method
 

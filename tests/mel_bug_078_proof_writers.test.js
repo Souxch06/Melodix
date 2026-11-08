@@ -33,9 +33,9 @@ test('MEL-BUG-078a: every writer of the session proof is journaled', () => {
   ];
   for (const [key, helper] of writers) {
     assert.match(files[key], /AppSingleton;->B:Z/, key + ' : ecrit la preuve');
-    assert.match(files[key], new RegExp('AppSingleton;->' + helper + '\\(\\)V'),
+    assert.match(files[key], new RegExp('AppSingleton;->' + helper + '\\(Z\\)V'),
       key + ' : sa bascule passe par ' + helper);
-    assert.match(files.singleton, new RegExp('\\.method public static ' + helper + '\\(\\)V'),
+    assert.match(files.singleton, new RegExp('\\.method public static ' + helper + '\\(Z\\)V'),
       key + ' : le helper existe');
   }
 });

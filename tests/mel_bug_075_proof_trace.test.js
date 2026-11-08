@@ -29,12 +29,15 @@ test('MEL-BUG-075a: the single writer of the session proof journals every flip',
   // the two would leave an unexplained proof again.
   // MEL-BUG-078: the label now says WHICH writer flipped the proof.
   // MEL-BUG-080: le site n'ecrit plus rien, il appelle son helper.
-  const journalAt = login.indexOf('AppSingleton;->proofSetBridgeLogin()V');
+  const journalAt = login.indexOf('AppSingleton;->proofSetBridgeLogin(Z)V');
   const setAt = login.indexOf('sput-boolean p0, Lcom/melodix/music/AppSingleton;->B:Z');
   assert.ok(journalAt > 0, 'le flip de preuve est journalise');
-  assert.ok(setAt > journalAt, 'le journal precede l ecriture du drapeau');
+  // MEL-BUG-081: the trace now runs AFTER the store and reads the flag back, so
+  // the journal reports the value that is actually in AppSingleton.B. Logging
+  // before the store could only ever print a fixed label.
+  assert.ok(journalAt > setAt, 'le journal suit l ecriture du drapeau et relit la valeur');
   const single = read('smali/com/melodix/music/AppSingleton.smali');
-  assert.match(single, /proofSetBridgeLogin\(\)V[\s\S]*?const-string v0, "set-bridge-login"[\s\S]*?proofTrace\(/,
+  assert.match(single, /proofSetBridgeLogin\(Z\)V[\s\S]*?const-string v0, "set-bridge-login"[\s\S]*?proofTraceValue\(/,
     'le label de la bascule est porte par son helper');
   assert.match(single, /proofTrace\(Ljava\/lang\/String;\)V[\s\S]*?noteDiag\(/,
     'le flip part dans le journal que l utilisateur copie');
