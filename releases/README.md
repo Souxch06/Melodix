@@ -60,9 +60,10 @@ transitoire avec retry borné au lieu d'un blocage permanent). La plus récente 
 | v1.2.2-test.99-preview (MEL-BUG-066) | 1089 | `95694cddc116f2a57bb36bb02d5a66ece7e6834b803e8e6965e85853ec713e4b` | `10:C2:83:…:45:95` ⚠️ **nouveau cert (reset sandbox) : désinstaller d’abord** |
 | v1.2.2-test.100-preview (MEL-BUG-067 + fix crash réglages) | 1090 | `72fe8e0307a5f7e740559e0117a06eb70c4955aa5d92c966a4427de25bd94ce9` | `10:C2:83:…:45:95` (maj directe depuis test.99) |
 | v1.2.2-test.101-preview (fix VerifyError test.100) | 1091 | `b0c4964017562ca1bbe2e5aaf4b9c112021fdc6571722ed9c0c2be428f7725a5` | `10:C2:83:…:45:95` (maj directe) |
+| v1.2.2-test.102-preview (MEL-BUG-067 inline, CI Measure VERT) | 1092 | `dc0373f3796681fc4e0381fc14bb2065db60e98a670b4feb55eb22ab2facf66a` | `10:C2:83:…:45:95` (maj directe) |
 | v1.2.2-test.62-preview (MEL-BUG-035) | 1062 | `8c58d998d20fbca0c76622dda4b50c703a79d04abaf4a7a7cd1e9198a7f5d5f4` | `B0:B8:D5:…:6C:F5` |
 
-La plus récente est **test.101** (`Melodix-Test-v1.2.2-test101.apk`, tag `v1.2.2-test.101-preview`) : MEL-BUG-067 (login-first sur cookie `sp_dc` + zoom login 180%) + fix crash réglages + **fix VerifyError** du helper cookie (test.100 plantait au lancement — ne PAS l'installer). Même certificat `10:C2:83:…:45:95` que test.99/test.100 → **mise à jour directe depuis test.99** (si test.100 installé : désinstaller d'abord).
+La plus récente est **test.102** (`Melodix-Test-v1.2.2-test102.apk`, tag `v1.2.2-test.102-preview`) : MEL-BUG-067 (login-first sur cookie `sp_dc` + zoom login 180%) en version **inline** (vérifiée CI Measure phone+tablet VERT, run 42463835607) + fix crash réglages (registre `v2`). ⚠️ test.100/test.101 à NE PAS installer (crash au lancement). Même certificat `10:C2:83:…:45:95` que test.99 → **maj directe depuis test.99**.
 
 > Depuis test.75/test.76, les tags sont posés sur le commit qui **contient l’APK** : le lien raw épinglé sur le tag sert bien le binaire (vérifié via l’API GitHub).
 
