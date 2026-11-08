@@ -59,6 +59,10 @@
     --mel-glass-border: rgba(255, 255, 255, 0.14);
     --mel-glass-highlight: rgba(255, 255, 255, 0.18);
     --mel-glass-shadow: inset 0 1px 0 var(--mel-glass-highlight);
+    /* Floating chrome sits over artwork of any brightness. rgba(11,11,20,.62)
+       over pure white still leaves #F5F5FA at 5.1:1, so the bar, the dock and
+       the mini player keep AA whatever the album cover. */
+    --mel-glass-scrim: rgba(11, 11, 20, 0.62);
     --mel-glass-blur: 24px;
     --mel-glass-blur-sm: 16px;
     --mel-glass-saturate: 150%;
@@ -2524,4 +2528,78 @@ body.mx-glass-off #sf-mobile-nav {
         max-height: 240px !important;
         border-radius: 28px !important;
     }
+}
+
+/* --- 10.10 The top bar -------------------------------------------------- */
+/* One rule for the rail, one for the search pill, one for the buttons.
+   Nothing here changes layout: the hairline is an inset shadow, not a
+   border, so the fixed 48px + safe-area height set earlier cannot shift by a
+   pixel. The bar keeps its existing display/z-index rules untouched. */
+#global-nav-bar {
+    background-color: var(--mel-glass-scrim) !important;
+    box-shadow: var(--mel-glass-shadow), inset 0 -1px 0 var(--mel-glass-border) !important;
+    -webkit-backdrop-filter: blur(var(--mel-glass-blur)) saturate(var(--mel-glass-saturate)) !important;
+    backdrop-filter: blur(var(--mel-glass-blur)) saturate(var(--mel-glass-saturate)) !important;
+}
+
+/* Icon buttons: 44px touch target inside a round glass pill. */
+#global-nav-bar button,
+#global-nav-bar [role="button"] {
+    min-width: 44px !important;
+    min-height: 44px !important;
+    border-radius: var(--mel-radius-pill) !important;
+    color: var(--mel-text-2) !important;
+    background-color: transparent !important;
+    transition: color var(--mel-dur) var(--mel-ease-out),
+                background-color var(--mel-dur) var(--mel-ease-out),
+                transform var(--mel-dur) var(--mel-ease-out) !important;
+}
+
+#global-nav-bar button:hover,
+#global-nav-bar [role="button"]:hover {
+    color: var(--mel-text) !important;
+    background-color: var(--mel-glass-bg-strong) !important;
+}
+
+#global-nav-bar button:active,
+#global-nav-bar [role="button"]:active {
+    transform: scale(0.94) !important;
+}
+
+/* The current section keeps the readable accent plus a soft glass fill. */
+#global-nav-bar button[aria-current="page"],
+#global-nav-bar button[aria-pressed="true"],
+#global-nav-bar [role="button"][aria-current="page"] {
+    color: var(--mel-accent) !important;
+    background-color: var(--mel-accent-wash-11) !important;
+}
+
+/* Search: the pill. Radius, glass fill and a halo on focus — never a width,
+   a margin or a position, so the existing "avoid the back/forward buttons"
+   rule still decides where it sits. */
+#global-nav-bar form[role="search"] {
+    box-sizing: border-box !important;
+    min-height: 44px !important;
+    border: 1px solid var(--mel-glass-border) !important;
+    border-radius: var(--mel-radius-pill) !important;
+    background-color: var(--mel-glass-bg) !important;
+    transition: border-color var(--mel-dur) var(--mel-ease-out),
+                background-color var(--mel-dur) var(--mel-ease-out),
+                box-shadow var(--mel-dur) var(--mel-ease-out) !important;
+}
+
+#global-nav-bar form[role="search"]:focus-within {
+    border-color: var(--mel-accent) !important;
+    background-color: var(--mel-glass-bg-strong) !important;
+    box-shadow: 0 0 0 3px var(--mel-accent-wash-14) !important;
+}
+
+#global-nav-bar input[data-testid="search-input"] {
+    min-height: 40px !important;
+    color: var(--mel-text) !important;
+    font-size: 15px !important;
+}
+
+#global-nav-bar input[data-testid="search-input"]::placeholder {
+    color: var(--mel-text-dim) !important;
 }
