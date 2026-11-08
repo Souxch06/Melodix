@@ -956,3 +956,10 @@ Suite unitaire CI : **808/808/0/0 SUCCESS**. Seul rouge : fail-loud volontaire (
 - **Navigation/boutons assainis** : onglets peints via la palette (`textPrimary`/`textTertiary`/`accent`, pill glow conservée), boutons de la carte en 15 sp (secondaire en `textSecondary`), icône réglages du header teintée accent.
 - **Plafond shell respecté** : `assets/native_ui_shell.js` = **108 531 o ≤ 108 867**.
 - **Livré** : test.97 (vC 1087, tag `v1.2.2-test.97-preview`, sha256 `b3157e36…be38c9`, commits `f1ef576` (code+tests) / `b2bf122` (APK), cert `DC:67:4C:…:A1:35` → **maj directe depuis test.96**). Suite **892/888/0/4 VERT**.
+
+## MEL-BUG-064 — refonte UI « coup de jeune » + MEL-BUG-065 — diagnostic du 403 token (2026-11-08, capture 01:16)
+
+- **064 (UI)** : boutons pill (vert/dark/blanc) convertis en **ripple** (feedback au toucher) ; en-têtes de section **majuscules 12 sp accent avec letterSpacing 0.08** ; lignes de réglages avec **ripple glow** (la carte reste le contenu du ripple) ; onglet actif en **pill 24 dp** ; carte d'accueil **24 dp** ; chips à liseré accent.
+- **065 (problème token=ko-http403 bearer=0)** : `Accept: application/json` ajouté sur `/api/token` **et** `get_access_token` ; nouveau champ `cookieSession` (booléen = présence du **nom** `sp_dc`, valeur jamais lue/loggée) dans le diagnostic, affiché **`cookie=oui/non`** sur la carte d'accueil. Si `cookie=non` → pas de session cookie : le bouton « Se connecter » est la vraie correction. Si `cookie=oui` mais 403 → le endpoint refuse malgré la session. Aucun contrat auth/session modifié, bearer jamais forcé.
+- **Plafonds** : shell 108 588 o ≤ 108 867 ; bridge 122 473 o ≤ 147 456.
+- **Livré** : test.98 (vC 1088, tag `v1.2.2-test.98-preview`, sha256 `2124c105…8ed55`, commits `d77d8ec` (code+tests) / `74ddc89` (APK)). ⚠️ **Nouveau certificat `C7:B5:1F:AA:…:D0:95`** (keystore régénéré après reset sandbox) → **`adb uninstall com.melodix.music` avant install**. Suite **898/894/0/4 VERT**.
