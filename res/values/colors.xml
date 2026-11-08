@@ -63,8 +63,10 @@
     <color name="mtrl_textinput_disabled_color">#1f000000</color>
     <color name="mtrl_textinput_focused_box_stroke_color">#00000000</color>
     <color name="mtrl_textinput_hovered_box_stroke_color">#de000000</color>
-    <color name="notification_icon_bg_color">#ff9e9e9e</color>
-    <color name="notification_material_background_media_default_color">#ff424242</color>
+    <!-- Media notification chrome: the Melodix accent dot and the player sheet,
+         so the lock screen and the shaded notification read like the app. -->
+    <color name="notification_icon_bg_color">@color/mel_accent</color>
+    <color name="notification_material_background_media_default_color">@color/mel_player_mid</color>
     <color name="primary_dark_material_dark">@android:color/black</color>
     <color name="primary_dark_material_light">#ff757575</color>
     <color name="primary_material_dark">#ff212121</color>
@@ -82,10 +84,10 @@
     <color name="secondary_text_disabled_material_dark">#36ffffff</color>
     <color name="secondary_text_disabled_material_light">#24000000</color>
     <color name="spotify_black">#ff0a0c10</color>
-    <color name="spotify_green">#ff1db954</color>
+    <color name="spotify_green">#ff7c3aed</color>
     <color name="switch_thumb_material_dark">#ffbdbdbd</color>
     <color name="switch_thumb_material_light">#fff1f1f1</color>
-    <color name="teal_200">#ff1ed760</color>
+    <color name="teal_200">#ffa78bfa</color>
     <color name="teal_700">#ff018786</color>
     <color name="tooltip_background_dark">#e6616161</color>
     <color name="tooltip_background_light">#e6ffffff</color>
@@ -126,6 +128,9 @@
     <!-- gradient roles -->
     <color name="mel_shell_top">#150c2b</color>
     <color name="mel_shell_mid">#0B0B14</color>
+    <!-- Floor of the shell gradient: the background minus a touch of light, so
+         the launcher icon and the top glow fade into the same night. -->
+    <color name="mel_shell_floor">#07060F</color>
     <color name="mel_player_top">#2a1650</color>
     <color name="mel_player_mid">#120f22</color>
     <color name="mel_mini_top">#241a3a</color>
