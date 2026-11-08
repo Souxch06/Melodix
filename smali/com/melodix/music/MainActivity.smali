@@ -8079,6 +8079,28 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     :diag_url_done
+    # MEL-BUG-077: identify the build that produced this report. Without it a
+    # `gates=0/0/0` journal cannot be told apart from one written by an older
+    # APK, which is exactly how three "still broken" reports were misread.
+    const-string v1, " vC="
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    :try_start_vc
+    invoke-virtual {p0}, Landroid/content/Context;->getPackageManager()Landroid/content/pm/PackageManager;
+    move-result-object v7
+    invoke-virtual {p0}, Landroid/content/Context;->getPackageName()Ljava/lang/String;
+    move-result-object v1
+    const/4 v6, 0x0
+    invoke-virtual {v7, v1, v6}, Landroid/content/pm/PackageManager;->getPackageInfo(Ljava/lang/String;I)Landroid/content/pm/PackageInfo;
+    move-result-object v1
+    iget v1, v1, Landroid/content/pm/PackageInfo;->versionCode:I
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    :try_end_vc
+    .catch Ljava/lang/Throwable; {:try_start_vc .. :try_end_vc} :catch_vc
+    goto :vc_done
+    :catch_vc
+    const-string v1, "?"
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    :vc_done
     const-string v1, " auth="
 
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -9232,6 +9254,33 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     return-void
 
     :native_route_valid
+    # MEL-BUG-077: no native screen may be painted without a session proof.
+    # This is the only painter that was still unconditional, and `route home` is
+    # the first journal line of every device launch — before any payload. Local
+    # shell asset (file://) keeps the foreground: it IS the native UI and the UI
+    # metric CI measures it. Remote page + unproven session -> refuse, loudly.
+    sget-boolean v0, Lcom/melodix/music/AppSingleton;->B:Z
+    if-nez v0, :native_screen_proven
+    iget-object v3, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+    if-eqz v3, :native_screen_refuse
+    invoke-virtual {v3}, Landroid/webkit/WebView;->getUrl()Ljava/lang/String;
+    move-result-object v3
+    if-eqz v3, :native_screen_refuse
+    const-string v4, "file://"
+    invoke-virtual {v3, v4}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v2
+    if-nez v2, :native_screen_refuse
+    goto :native_screen_proven
+    :native_screen_refuse
+    iget v2, p0, Lcom/melodix/music/MainActivity;->diagRouteDropped:I
+    add-int/lit8 v2, v2, 0x1
+    iput v2, p0, Lcom/melodix/music/MainActivity;->diagRouteDropped:I
+    const-string v2, "screen"
+    const-string v3, "dropped-unproven"
+    invoke-static {v2, v3, p1}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealLoginWebUi()V
+    return-void
+    :native_screen_proven
     # Fade only when a non-null current screen genuinely changes. Repeated
     # feed updates do not animate, and the first Home route is initialized.
     const/4 v0, 0x0

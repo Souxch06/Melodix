@@ -38,6 +38,10 @@ function executeSetNativeScreen(
         ACTIVITY,
         '.method public final setNativeScreen(Ljava/lang/String;)V');
     const state = {
+        // MEL-BUG-077: setNativeScreen now refuses to paint without a session
+        // proof (or a local file:// page, which this emulator does not model).
+        // These tests cover the accepted path, so the session is proven.
+        sessionProven: true,
         nativeCurrentScreen: previousScreen,
         nativeFadeNextScreen: previousFade,
         nativeHomeCardsAttached: Boolean(previousHomeState.nativeHomeCardsAttached),
@@ -118,6 +122,53 @@ function executeSetNativeScreen(
         if ((match = /^goto :([\w$.-]+)$/.exec(instruction))) {
             assert.ok(labels.has(match[1]), `goto target exists: :${match[1]}`);
             pc = labels.get(match[1]);
+            continue;
+        }
+        // MEL-BUG-077: no native screen without a session proof. The local shell
+        // asset (file://) keeps the foreground because it IS the native UI and
+        // the UI metric CI measures it. This emulator models no WebView, so no
+        // page is local: the gate refuses unless the activity is declared proven.
+        if (instruction === 'sget-boolean v0, Lcom/melodix/music/AppSingleton;->B:Z') {
+            registers.v0 = Boolean(state.sessionProven);
+            continue;
+        }
+        if (instruction === 'iget-object v3, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;') {
+            registers.v3 = null;
+            continue;
+        }
+        if (instruction === 'invoke-virtual {v3}, Landroid/webkit/WebView;->getUrl()Ljava/lang/String;') {
+            registers.v3 = null;
+            continue;
+        }
+        if ((match = /^const-string (\w+), "file:\/\/"$/.exec(instruction))) {
+            registers[match[1]] = 'file://';
+            continue;
+        }
+        if ((match = /^invoke-virtual \{(\w+), (\w+)\}, Ljava\/lang\/String;->startsWith\(Ljava\/lang\/String;\)Z$/.exec(instruction))) {
+            const haystack = registers[match[1]];
+            const needle = registers[match[2]];
+            registers.v2 = typeof haystack === 'string' && typeof needle === 'string' && haystack.startsWith(needle);
+            continue;
+        }
+        if ((match = /^iget (\w+), p0, .*->(diagRouteDropped|diagShowDropped|diagPayloadDropped|diagLoginRequested):I$/.exec(instruction))) {
+            registers[match[1]] = state[match[2]] === undefined ? 0 : state[match[2]];
+            continue;
+        }
+        if ((match = /^iput (\w+), p0, .*->(diagRouteDropped|diagShowDropped|diagPayloadDropped|diagLoginRequested):I$/.exec(instruction))) {
+            state[match[2]] = registers[match[1]];
+            continue;
+        }
+        if ((match = /^add-int\/lit8 (\w+), (\w+), (0x[0-9a-f]+)$/.exec(instruction))) {
+            registers[match[1]] = registers[match[2]] + parseInt(match[3], 16);
+            continue;
+        }
+        if ((match = /^invoke-static \{(\w+), (\w+), (\w+)\}, Lcom\/melodix\/music\/AppSingleton;->noteDiag\(Ljava\/lang\/String;Ljava\/lang\/String;Ljava\/lang\/String;\)V$/.exec(instruction))) {
+            state.diagJournal = state.diagJournal || [];
+            state.diagJournal.push([registers[match[1]], registers[match[2]], registers[match[3]]].join(' '));
+            continue;
+        }
+        if (instruction === 'invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealLoginWebUi()V') {
+            state.loginReveals = (state.loginReveals || 0) + 1;
             continue;
         }
         if ((match = /^iput-boolean (\w+), p0, .*->nativeFadeNextScreen:Z$/.exec(instruction))) {
