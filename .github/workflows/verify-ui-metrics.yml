@@ -63,6 +63,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          trap 'rc=$?; echo "::error title=Build step failed::command failed at line $LINENO with exit code $rc"' ERR
           work="$RUNNER_TEMP/melodix-ui-project"
           framework="$RUNNER_TEMP/melodix-ui-framework"
           unsigned="$RUNNER_TEMP/melodix-ui-unsigned.apk"
