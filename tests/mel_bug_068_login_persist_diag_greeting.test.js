@@ -76,3 +76,11 @@ test('MEL-BUG-068f: visual polish added without touching pinned design tokens', 
   const colors = read('res/values/colors.xml');
   assert.match(colors, /<color name="mel_accent">#1ed760<\/color>/, 'mel_accent inchangé (épinglé par les tests)');
 });
+
+test('MEL-BUG-068e: private diag helpers are only called via invoke-direct (VerifyError fix)', () => {
+  const m = read('smali/com/melodix/music/MainActivity.smali');
+  assert.doesNotMatch(m, /invoke-virtual \{[^}]*\}, Lcom\/melodix\/music\/MainActivity;->(buildDiagnosticText|copyTextToClipboard)\(/,
+    'invoke-virtual sur méthode privée = VerifyError (vu CI 42472421314)');
+  assert.match(m, /invoke-direct \{p0, p2\}, Lcom\/melodix\/music\/MainActivity;->copyTextToClipboard\(Ljava\/lang\/String;\)V/,
+    'branche copy-diagnostic -> invoke-direct');
+});

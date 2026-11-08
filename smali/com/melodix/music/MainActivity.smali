@@ -7916,11 +7916,11 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     # MEL-BUG-068: header chip — copies the full internal diagnostic to the
     # clipboard so it can be pasted in a bug report. Only presence flags and
     # the internal journal are included; no token, cookie value or key ever is.
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->buildDiagnosticText()Ljava/lang/String;
+    invoke-direct {p0}, Lcom/melodix/music/MainActivity;->buildDiagnosticText()Ljava/lang/String;
 
     move-result-object v0
 
-    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->copyTextToClipboard(Ljava/lang/String;)V
+    invoke-direct {p0, v0}, Lcom/melodix/music/MainActivity;->copyTextToClipboard(Ljava/lang/String;)V
 
     const-string v0, "Diagnostic copié dans le presse-papiers"
 
@@ -9484,7 +9484,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     move-result v1
     if-eqz v1, :check_home_greeting
     # MEL-BUG-068: the page asks for the full diagnostic to be copied.
-    invoke-virtual {p0, p2}, Lcom/melodix/music/MainActivity;->copyTextToClipboard(Ljava/lang/String;)V
+    invoke-direct {p0, p2}, Lcom/melodix/music/MainActivity;->copyTextToClipboard(Ljava/lang/String;)V
     return-void
 
     :check_home_greeting
