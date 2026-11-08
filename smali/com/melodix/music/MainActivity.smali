@@ -10161,35 +10161,8 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     move-result v1
     # String.isEmpty() returns true for content rows; route them to NativeUiRowFactory.
     if-nez v1, :native_row_create_standard
-    # MEL-BUG-068: one malformed row must not crash the whole settings screen —
-    # a failing row is skipped (the diag journal keeps the failure visible).
-    :try_start_row
     invoke-static {p0, v6}, Lcom/melodix/music/NativeSettingsRowFactory;->create(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
     move-result-object v0
-    :try_end_row
-    .catch Ljava/lang/Throwable; {:try_start_row .. :try_end_row} :catch_row
-
-    goto :native_row_created
-
-    :catch_row
-    move-exception v0
-
-    const-string v0, "settings-row"
-
-    const-string v1, "row-create-failed"
-
-    invoke-static {}, Ljava/lang/System;->currentTimeMillis()J
-
-    move-result-wide v2
-
-    invoke-static {v2, v3}, Ljava/lang/Long;->toString(J)Ljava/lang/String;
-
-    move-result-object v2
-
-    invoke-static {v0, v1, v2}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
-
-    # skip the broken row (v0 is not used at the increment label)
-    goto :native_row_increment
     # MEL-BUG-001 diagnostic: read the real geometry after layout.
     const-string v1, "mel_settings_row_height"
     invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeRowGeometryProbe;->attach(Landroid/content/Context;Landroid/view/View;Ljava/lang/String;)V
