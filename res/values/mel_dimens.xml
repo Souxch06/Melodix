@@ -122,7 +122,7 @@
     <dimen name="mel_shelf_subtitle_gap">8.0dip</dimen>
     <dimen name="mel_shelf_title_gap">2.0dip</dimen>
     <dimen name="mel_shelf_spacer">16.0dip</dimen>
-    <dimen name="mel_status_radius">20.0dip</dimen>
+    <dimen name="mel_status_radius">24.0dip</dimen>
     <dimen name="mel_status_stroke">1.0dip</dimen>
     <dimen name="mel_status_width_inset">32.0dip</dimen>
     <dimen name="mel_status_max_width">560.0dip</dimen>

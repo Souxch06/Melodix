@@ -879,7 +879,7 @@
 
     const-string v0, "mel_status_radius"
 
-    const/16 v1, 0x14
+    const/16 v1, 0x18
 
     invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
 

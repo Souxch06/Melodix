@@ -9084,7 +9084,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-direct {v2}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
     sget v3, Lcom/melodix/music/MelColors;->glow:I
     invoke-virtual {v2, v3}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
-    const/high16 v3, 0x41a00000
+    const/high16 v3, 0x41c00000
     invoke-virtual {v2, v3}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
     invoke-virtual {v1, v2}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
     goto :native_tab_style_done

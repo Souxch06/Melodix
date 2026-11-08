@@ -2975,6 +2975,14 @@
     // whether the cookie session itself can mint a web-player token. The
     // token value is NEVER stored here.
     let lastTokenFetchStatus = 'none';
+    // MEL-BUG-065: boolean only — is a Spotify session cookie (sp_dc) present?
+    // Tells "not logged in at all" apart from "cookie present but the token
+    // endpoint refused". Only the cookie NAME is tested; the value never
+    // leaves this function.
+    function hasSpotifySessionCookie() {
+        try { return /(?:^|;\s*)sp_dc=/.test(String(document.cookie || '')); }
+        catch (_) { return false; }
+    }
     function safeTokenFetchStatus(value) {
         const v = String(value || '');
         return /^(ok|none|ko-network|ko-http[1-5][0-9]{2})$/.test(v) ? v : 'unknown';
@@ -2990,7 +2998,7 @@
             const tokenResp = await oriFetch('https://open.spotify.com/api/token', {
                 method: 'GET',
                 credentials: 'include',
-                headers: { 'app-platform': 'WebPlayer', 'spotify-app-version': '1.2.40.0' }
+                headers: { 'Accept': 'application/json', 'app-platform': 'WebPlayer', 'spotify-app-version': '1.2.40.0' }
             });
             if (tokenResp && tokenResp.ok) {
                 const tokenData = await tokenResp.json();
@@ -3015,7 +3023,7 @@
             const altResp = await oriFetch('https://open.spotify.com/get_access_token?reason=transport&productType=web_player', {
                 method: 'GET',
                 credentials: 'include',
-                headers: { 'app-platform': 'WebPlayer', 'spotify-app-version': '1.2.40.0' }
+                headers: { 'Accept': 'application/json', 'app-platform': 'WebPlayer', 'spotify-app-version': '1.2.40.0' }
             });
             if (altResp && altResp.ok) {
                 const altData = await altResp.json();
@@ -3159,6 +3167,7 @@
             // MEL-BUG-060: seed with the LAST KNOWN token-endpoint status, so a
             // request-phase emit never masks the real cause with 'none'.
             token: safeTokenFetchStatus(lastTokenFetchStatus),
+            cookieSession: hasSpotifySessionCookie(),
             received: 0,
             transformed: 0
         };
@@ -3212,7 +3221,9 @@
                 bearer: state.bearer === true,
                 // MEL-BUG-057: sanitized token-endpoint status enum (ok /
                 // ko-httpXXX / ko-network / none) — never a token value.
-                token: safeTokenFetchStatus(state.token)
+                token: safeTokenFetchStatus(state.token),
+                // MEL-BUG-065: boolean only — sp_dc cookie name present?
+                cookieSession: hasSpotifySessionCookie()
             };
         } catch (_) {}
         try {

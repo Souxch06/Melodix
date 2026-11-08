@@ -121,7 +121,7 @@ test('MEL-BUG-050: the home state card carries a compact diagnostic line', () =>
   const shellSrc = fs.readFileSync(path.join(repo, 'scripts/native_ui_shell.source.js'), 'utf8');
   assert.match(shellSrc, /var diagLine = ' \[auth=' \+ authState \+ ' statut=' \+ status \+/,
     'the card subtitle includes auth/status/attempts');
-  assert.match(shellSrc, /' erreur=' \+ \(err \|\| 'aucune'\) \+ ' bearer=' \+ diagBearer \+\s*' token=' \+ diagToken \+ '\]'/,
+  assert.match(shellSrc, /' erreur=' \+ \(err \|\| 'aucune'\) \+ ' bearer=' \+ diagBearer \+\s*' token=' \+ diagToken \+\s*' cookie=' \+ \(diag && diag\.cookieSession === true \? 'oui' : 'non'\) \+ '\]'/,
     'the card subtitle includes last error, the boolean bearer flag and the token-endpoint status');
   assert.doesNotMatch(shellSrc, /diagLine[\s\S]{0,200}TEST_TOKEN/, 'no token in the diagnostic line');
   assert.ok(shellAsset.includes('diagLine'), 'assets/native_ui_shell.js must be regenerated');
@@ -148,8 +148,8 @@ test('MEL-BUG-057: home diag line includes the sanitized token status', () => {
     'diagToken comes from the shared sanitizer');
   assert.match(shellSrc, /function safeDiagToken\(v\) \{\s*v = String\(v == null \? '' : v\);\s*return \/\^\[\\w-\]\{2,12\}\$\/\.test\(v\) \? v : '-';/,
     'diagToken is sanitized (bounded enum-shaped string only)');
-  assert.match(shellSrc, /' bearer=' \+ diagBearer \+\s*' token=' \+ diagToken \+ '\]'/,
-    'diagLine ends with bearer=… token=…');
+  assert.match(shellSrc, /' bearer=' \+ diagBearer \+\s*' token=' \+ diagToken \+\s*' cookie=' \+ \(diag && diag\.cookieSession === true \? 'oui' : 'non'\) \+ '\]'/,
+    'diagLine ends with bearer=… token=… cookie=…');
   assert.doesNotMatch(shellSrc, /diagToken[\s\S]{0,200}TEST_TOKEN/, 'no token value in the diag line');
   assert.ok(shellAsset.includes('diagToken'), 'assets/native_ui_shell.js must be regenerated');
 });

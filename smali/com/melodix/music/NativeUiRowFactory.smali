@@ -295,10 +295,17 @@
 
     new-instance v0, Landroid/widget/TextView;
     invoke-direct {v0, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
-    invoke-virtual {v0, p1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    # MEL-BUG-064: modern section header — uppercase, 12sp, accent, tracked out.
+    invoke-virtual {p1}, Ljava/lang/String;->toUpperCase()Ljava/lang/String;
+    move-result-object v1
+    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
     invoke-static {v0, p0}, Lcom/melodix/music/NativeUiMetrics;->applySectionTitle(Landroid/widget/TextView;Landroid/content/Context;)V
-    const v1, -0x1
+    const/high16 v1, 0x41400000
+    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextSize(F)V
+    sget v1, Lcom/melodix/music/MelColors;->accent:I
     invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextColor(I)V
+    const v1, 0x3d23d70a
+    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setLetterSpacing(F)V
     const/4 v1, 0x0
     const/4 v2, 0x1
     invoke-virtual {v0, v1, v2}, Landroid/widget/TextView;->setTypeface(Landroid/graphics/Typeface;I)V

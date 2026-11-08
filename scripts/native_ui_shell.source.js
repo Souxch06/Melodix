@@ -1395,7 +1395,8 @@
         var diagLine = ' [auth=' + authState + ' statut=' + status +
             ' essais=' + safeHomeTraceCount(window.__sfNativeUiHomeAttempt, 999999) +
             ' erreur=' + (err || 'aucune') + ' bearer=' + diagBearer +
-            ' token=' + diagToken + ']';
+            ' token=' + diagToken +
+            ' cookie=' + (diag && diag.cookieSession === true ? 'oui' : 'non') + ']';
         if (subtitle) subtitle += diagLine; else subtitle = diagLine;
         return {
             kind: 'state',

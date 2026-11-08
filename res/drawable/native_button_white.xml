@@ -1,18 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Additive: the default item is the original shape, byte for byte. Only the
-     disabled branch is new, so nothing changes for an enabled control. -->
-<selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:state_enabled="false">
+<!-- MEL-BUG-064: white round play button with accent ripple. -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="@color/mel_accent_glow">
+    <item android:id="@android:id/mask">
         <shape android:shape="oval">
-            <solid android:color="@color/mel_btn_disabled" />
+            <solid android:color="@color/mel_text_primary" />
         </shape>
     </item>
     <item>
-        <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
-    <gradient
-        android:angle="270"
-        android:startColor="@color/mel_btn_light_top"
-        android:endColor="@color/mel_btn_light_bottom" />
-</shape>
+        <shape android:shape="oval">
+            <gradient
+                android:angle="270"
+                android:startColor="@color/mel_btn_light_top"
+                android:endColor="@color/mel_btn_light_bottom" />
+        </shape>
     </item>
-</selector>
+</ripple>

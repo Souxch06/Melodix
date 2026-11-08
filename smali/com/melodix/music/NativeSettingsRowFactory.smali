@@ -5,7 +5,7 @@
 # explanation, and a rounded value pill (ON / OFF / current quality / action).
 
 .method public static create(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
-    .locals 12
+    .locals 14
 
     const-string v0, "title"
     const-string v1, ""
@@ -51,7 +51,20 @@
     # MEL-BUG-056: accent-tinted border (strokeAccent) for a livelier glass card.
     sget v1, Lcom/melodix/music/MelColors;->strokeAccent:I
     invoke-virtual {v3, v0, v1}, Landroid/graphics/drawable/GradientDrawable;->setStroke(II)V
-    invoke-virtual {v2, v3}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
+    # MEL-BUG-064: press feedback on the row — accent ripple masked to the card,
+    # the original card gradient stays as the ripple content.
+    sget v12, Lcom/melodix/music/MelColors;->glow:I
+    invoke-static {v12}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
+    move-result-object v12
+    new-instance v13, Landroid/graphics/drawable/GradientDrawable;
+    invoke-direct {v13}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
+    const/4 v0, -0x1
+    invoke-virtual {v13, v0}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
+    const/high16 v0, 0x41800000
+    invoke-virtual {v13, v0}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
+    new-instance v0, Landroid/graphics/drawable/RippleDrawable;
+    invoke-direct {v0, v12, v3, v13}, Landroid/graphics/drawable/RippleDrawable;-><init>(Landroid/content/res/ColorStateList;Landroid/graphics/drawable/Drawable;Landroid/graphics/drawable/Drawable;)V
+    invoke-virtual {v2, v0}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
     invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->settingsRowHeight(Landroid/content/Context;)I
     move-result v0
     invoke-virtual {v2, v0}, Landroid/view/View;->setMinimumHeight(I)V
@@ -320,10 +333,17 @@
 
     new-instance v0, Landroid/widget/TextView;
     invoke-direct {v0, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
-    invoke-virtual {v0, p1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    # MEL-BUG-064: modern section header — uppercase, 12sp, accent, tracked out.
+    invoke-virtual {p1}, Ljava/lang/String;->toUpperCase()Ljava/lang/String;
+    move-result-object v1
+    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
     invoke-static {v0, p0}, Lcom/melodix/music/NativeUiMetrics;->applySettingsSectionTitle(Landroid/widget/TextView;Landroid/content/Context;)V
-    const v1, -0x1
+    const/high16 v1, 0x41400000
+    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextSize(F)V
+    sget v1, Lcom/melodix/music/MelColors;->accent:I
     invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextColor(I)V
+    const v1, 0x3d23d70a
+    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setLetterSpacing(F)V
     const/4 v1, 0x0
     const/4 v2, 0x1
     invoke-virtual {v0, v1, v2}, Landroid/widget/TextView;->setTypeface(Landroid/graphics/Typeface;I)V

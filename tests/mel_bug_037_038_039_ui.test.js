@@ -93,7 +93,7 @@ test('MEL-BUG-058: tab bar hairline and active-tab pill use the accent palette',
   // tab stayed green) — the original ripple drawable is restored by id.
   assert.match(body, /:native_tab_restore_ripple[\s\S]{0,200}?const v2, 0x7f08013f[\s\S]{0,80}?invoke-virtual \{v1, v2\}, Landroid\/view\/View;->setBackgroundResource\(I\)V/,
     'inactive tab restores native_tab_ripple (0x7f08013f)');
-  assert.match(body, /const\/high16 v3, 0x41a00000/, 'pill radius = 20dp');
+  assert.match(body, /const\/high16 v3, 0x41c00000/, 'pill radius = 24dp (MEL-BUG-064)');
 });
 
 // MEL-BUG-059: header gets a 1dp accent hairline (glass vibe) via a palette-only
