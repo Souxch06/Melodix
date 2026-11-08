@@ -771,10 +771,15 @@ test('every interface color lives in the mel_* palette, mirrored by MelColors', 
     const layout = fs.readFileSync(path.join(repo, 'res/layout/activity_main.xml'), 'utf8');
     assert.ok(!/#[0-9a-fA-F]{6,8}/.test(layout), 'activity_main.xml carries no raw hex');
 
-    // The web stylesheet is tokenised the same way.
+    // The web stylesheet is tokenised the same way. MELODIX GLASS: the value is
+    // no longer pinned to the old green — what matters is that the accent is
+    // declared in the root AND equals the native palette checked above.
     const css = fs.readFileSync(path.join(repo, 'assets/css_hacks.css'), 'utf8');
     const rootEnd = css.indexOf('}', css.indexOf(':root {')) + 1;
-    assert.ok(css.slice(0, rootEnd).includes('--mel-accent: #1ed760;'), 'the css root defines the accent token');
+    const cssAccent = /--mel-accent: (#[0-9a-fA-F]{6});/.exec(css.slice(0, rootEnd));
+    assert.ok(cssAccent, 'the css root defines the accent token');
+    assert.equal(cssAccent[1].toLowerCase(), '#' + (mel('accent') & 0xffffff).toString(16).padStart(6, '0'),
+        'the css accent matches the native palette');
     const body = css.slice(rootEnd);
     assert.ok(body.includes('var(--mel-'), 'rules use the tokens');
     assert.ok(!/#[0-9a-fA-F]{3,8}\b|rgba?\(/.test(body), 'no raw color survives in the stylesheet body');

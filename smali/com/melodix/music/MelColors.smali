@@ -28,19 +28,19 @@
 .method static constructor <clinit>()V
     .locals 1
 
-    const v0, 0xff1ed760
+    const v0, 0xffa78bfa
 
     sput v0, Lcom/melodix/music/MelColors;->accent:I
 
-    const v0, 0xff0e8f47
+    const v0, 0xff8b5cf6
 
     sput v0, Lcom/melodix/music/MelColors;->accentDeep:I
 
-    const v0, 0xff060809
+    const v0, 0xff0b0b14
 
     sput v0, Lcom/melodix/music/MelColors;->background:I
 
-    const v0, 0xcc10151a
+    const v0, 0xcc141222
 
     sput v0, Lcom/melodix/music/MelColors;->surface:I
 
@@ -72,11 +72,11 @@
 
     sput v0, Lcom/melodix/music/MelColors;->stroke:I
 
-    const v0, 0x2e1ed760
+    const v0, 0x2ea78bfa
 
     sput v0, Lcom/melodix/music/MelColors;->strokeAccent:I
 
-    const v0, 0x331ed760
+    const v0, 0x33a78bfa
 
     sput v0, Lcom/melodix/music/MelColors;->glow:I
 
@@ -88,7 +88,7 @@
 
     sput v0, Lcom/melodix/music/MelColors;->glassStroke:I
 
-    const v0, 0xb3141a20
+    const v0, 0xb3141224
 
     sput v0, Lcom/melodix/music/MelColors;->glassTabbar:I
 

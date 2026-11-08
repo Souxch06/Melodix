@@ -34,18 +34,20 @@ test('MEL-BUG-038: no shortcut grid rendered on Home; tab bar keeps the navigati
 // glass tab bar + glass icon discs applied in every layout variant.
 test('MEL-BUG-039: glass palette exists in XML and is mirrored in MelColors', () => {
   const colors = read('res/values/colors.xml');
+  // MELODIX GLASS: the tab-bar tint follows the new violet backdrop; the value
+  // is asserted here so the XML and MelColors halves cannot drift apart.
   for (const [xmlName, hex] of [['mel_glass_fill', '1AFFFFFF'], ['mel_glass_stroke', '40FFFFFF'],
-      ['mel_glass_tabbar', 'B3141A20'], ['mel_glass_card', '26FFFFFF']]) {
+      ['mel_glass_tabbar', 'B3141224'], ['mel_glass_card', '26FFFFFF']]) {
     assert.ok(colors.includes(`<color name="${xmlName}">#${hex}</color>`), `${xmlName} defined`);
   }
   const mc = read('smali/com/melodix/music/MelColors.smali');
   for (const [field, hex] of [['glassFill', '0x1affffff'], ['glassStroke', '0x40ffffff'],
-      ['glassTabbar', '0xb3141a20'], ['glassCard', '0x26ffffff']]) {
+      ['glassTabbar', '0xb3141224'], ['glassCard', '0x26ffffff']]) {
     assert.ok(mc.includes(`.field public static ${field}:I`), `${field} field exists`);
     assert.ok(mc.includes(`const v0, ${hex}`), `${field} initialised to ${hex}`);
   }
   // surfaces are translucent (glass) now
-  assert.match(colors, /<color name="mel_surface">#[Cc][Cc]10151A<\/color>/);
+  assert.match(colors, /<color name="mel_surface">#[Cc][Cc]141222<\/color>/);
 });
 
 test('MEL-BUG-039: glass drawables applied in all 4 layout variants', () => {

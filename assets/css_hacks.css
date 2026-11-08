@@ -4,22 +4,75 @@
    rule below carries a raw color value anymore.
    ===================================================================== */
 :root {
-    --mel-accent: #1ed760;
-    --mel-accent-deep: #1db954;
-    --mel-accent-deep-strong: rgba(29, 185, 84, 0.5);
-    --mel-accent-deep-wash-08: rgba(29, 185, 84, 0.08);
-    --mel-accent-deep-wash-25: rgba(29, 185, 84, 0.25);
-    --mel-accent-deep-wash-30: rgba(29, 185, 84, 0.3);
-    --mel-accent-deep-wash-40: rgba(29, 185, 84, 0.4);
-    --mel-accent-strong: rgba(30, 215, 96, 0.58);
-    --mel-accent-wash-09: rgba(30, 215, 96, 0.09);
-    --mel-accent-wash-11: rgba(30, 215, 96, 0.11);
-    --mel-accent-wash-14: rgba(30, 215, 96, 0.14);
+    /* ---------------------------------------------------------------------
+       MELODIX GLASS: the green accent is gone. Two values, deliberately
+       different, because one colour cannot do both jobs:
+         - --mel-accent-a / -b  the violet to magenta brand gradient, used as a
+                                BACKGROUND. White on #7C3AED is 5.70:1 (AA).
+         - --mel-accent         the READABLE accent for text, icons and thin
+                                strokes on the dark background. #7C3AED only
+                                reaches 3.52:1 there, which fails AA, so the
+                                readable value is the lighter violet #A78BFA
+                                (7.20:1 on #0B0B14).
+       tests/css_theme_integrity.test.js asserts contrast(--mel-bg, --mel-accent)
+       and the retry-label pair, so these two must stay distinguishable.
+       --------------------------------------------------------------------- */
+    --mel-bg: #0b0b14;
+    --mel-glow-a: #3B1D7A;
+    --mel-glow-b: #6B1A55;
+    --mel-text: #F5F5FA;
+    --mel-text-dim: #A1A1B5;
+    --mel-accent-a: #7C3AED;
+    --mel-accent-b: #DB2777;
+    --mel-accent: #a78bfa;
+    --mel-accent-deep: #8b5cf6;
+    --mel-accent-fill-a: #7C3AED;
+    --mel-accent-fill-b: #DB2777;
+    /* gradient token: every "accent surface" reads this one value */
+    --mel-accent-grad: linear-gradient(135deg, var(--mel-accent-a), var(--mel-accent-b));
+    --mel-accent-deep-strong: rgba(139, 92, 246, 0.5);
+    --mel-accent-deep-wash-08: rgba(139, 92, 246, 0.08);
+    --mel-accent-deep-wash-25: rgba(139, 92, 246, 0.25);
+    --mel-accent-deep-wash-30: rgba(139, 92, 246, 0.3);
+    --mel-accent-deep-wash-40: rgba(139, 92, 246, 0.4);
+    --mel-accent-strong: rgba(167, 139, 250, 0.58);
+    --mel-accent-wash-09: rgba(167, 139, 250, 0.09);
+    --mel-accent-wash-11: rgba(167, 139, 250, 0.11);
+    --mel-accent-wash-14: rgba(167, 139, 250, 0.14);
+    --mel-magenta: #DB2777;
+    /* Text that sits ON the accent gradient. White clears AA on both ends
+       (5.70:1 on the violet, 4.60:1 on the magenta). */
+    --mel-text-on-accent: #ffffff;
+    --mel-magenta-strong: rgba(219, 39, 119, 0.55);
+    --mel-magenta-wash-10: rgba(219, 39, 119, 0.1);
+    --mel-magenta-wash-18: rgba(219, 39, 119, 0.18);
+    /* MELODIX GLASS: the frosted surfaces. One definition, used by the top
+       bar, the mini player, the tab bar and the full-screen player. */
+    --mel-glass-bg: rgba(255, 255, 255, 0.07);
+    --mel-glass-bg-strong: rgba(255, 255, 255, 0.11);
+    --mel-glass-border: rgba(255, 255, 255, 0.14);
+    --mel-glass-highlight: rgba(255, 255, 255, 0.18);
+    --mel-glass-shadow: inset 0 1px 0 var(--mel-glass-highlight);
+    --mel-glass-blur: 24px;
+    --mel-glass-blur-sm: 16px;
+    --mel-glass-saturate: 150%;
+    --mel-glass-fallback-bg: rgba(20, 20, 32, 0.92);
+    --mel-glass-fallback-bg-strong: rgba(20, 20, 32, 0.96);
+    --mel-radius-card: 24px;
+    --mel-radius-art: 16px;
+    --mel-radius-pill: 999px;
+    --mel-radius-sheet: 28px;
+    --mel-shadow-card: 0 18px 40px -18px rgba(0, 0, 0, 0.75);
+    --mel-shadow-accent: 0 12px 32px -12px rgba(124, 58, 237, 0.55);
+    --mel-shadow-accent-b: 0 12px 32px -12px rgba(219, 39, 119, 0.45);
+    --mel-halo: 0 0 0 3px rgba(167, 139, 250, 0.35);
+    --mel-ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+    --mel-dur: 220ms;
     /* Backdrops mirror the native shell (res/values/colors.xml mel_background
        and mel_surface) so moving between the WebView - login, fallback home -
        and the native shell never flashes a different dark. */
     --mel-bg: #060809;
-    --mel-bg-2: #10151a;
+    --mel-bg-2: #141222;
     --mel-bg-3: #07110a;
     --mel-grad-a: #ff9efc;
     --mel-grad-a-strong: rgba(255, 158, 252, 0.85);
@@ -236,9 +289,10 @@ div[data-testid=tracklist-row] button:not([data-testid=add-to-playlist-button]) 
     transform: scale(0.9);
 }
 
-/* Active/highlighted state — Spotify green tint */
+/* Active/highlighted state — MELODIX GLASS: readable accent, not a green tint */
 .npbtn.active {
-    color: var(--mel-accent-deep);
+    color: var(--mel-accent);
+    text-shadow: 0 0 12px var(--mel-accent-strong);
 }
 
 /* Constrain the SVG icon inside the custom button */
@@ -2122,4 +2176,110 @@ button[type="submit"]:active, input[type="submit"]:active {
 }
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { transition: none !important; animation: none !important; }
+}
+
+/* =========================================================================
+   SECTION 10: MELODIX GLASS THEME
+   -------------------------------------------------------------------------
+   This section comes last on purpose: the cascade makes it win over the
+   earlier rules without rewriting them. It adds NOTHING that removes an
+   existing mask, a safe-area rule or an sf-* mode; it only repaints.
+
+   Colour rules of the house, enforced by tests/css_theme_integrity.test.js:
+     - every colour comes from a --mel-* token declared in the single :root;
+     - --mel-accent is the READABLE accent (AA on the dark background), while
+       --mel-accent-grad is the brand gradient used as a background.
+   ========================================================================= */
+
+/* --- 10.1 The backdrop: flat dark base + two fixed glows ---------------- */
+html,
+body {
+    background-color: var(--mel-bg) !important;
+}
+
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+        radial-gradient(120% 80% at 0% 0%, var(--mel-glow-a) 0%, transparent 58%),
+        radial-gradient(110% 75% at 100% 12%, var(--mel-glow-b) 0%, transparent 55%);
+    opacity: 0.55;
+}
+
+/* --- 10.2 The glass recipe --------------------------------------------- */
+/* Applied only to the four surfaces that float above content: the top bar,
+   the mini player, the tab bar and the full-screen player. Never to a
+   scrolling area — backdrop-filter over a long list drops frames. */
+.mel-glass-surface {
+    background-color: var(--mel-glass-bg) !important;
+    border: 1px solid var(--mel-glass-border) !important;
+    box-shadow: var(--mel-glass-shadow) !important;
+    -webkit-backdrop-filter: blur(var(--mel-glass-blur)) saturate(var(--mel-glass-saturate));
+    backdrop-filter: blur(var(--mel-glass-blur)) saturate(var(--mel-glass-saturate));
+}
+
+/* --- 10.3 Accent surfaces ---------------------------------------------- */
+/* A single class for every place that used to be green: filled with the
+   gradient and carrying WHITE text (5.70:1 on the violet end, 4.60:1 on the
+   magenta end — both AA for normal text). */
+.mel-accent-fill,
+button[data-testid="control-button-playpause"].mel-accent-fill {
+    background-image: var(--mel-accent-grad) !important;
+    background-color: transparent !important;
+    color: var(--mel-text-on-accent) !important;
+    border: 0 !important;
+    box-shadow: var(--mel-shadow-accent), var(--mel-shadow-accent-b) !important;
+}
+
+/* --- 10.4 Focus and active states -------------------------------------- */
+/* :focus-visible keeps the d-pad / keyboard behaviour the TV mode relies on;
+   touch and mouse never see the ring. */
+a:focus-visible,
+button:focus-visible,
+[role="button"]:focus-visible,
+[role="link"]:focus-visible,
+[role="tab"]:focus-visible,
+[role="option"]:focus-visible,
+input:focus-visible,
+[tabindex]:focus-visible {
+    outline: 2px solid var(--mel-accent) !important;
+    outline-offset: 2px !important;
+}
+
+/* --- 10.5 The no-blur fallback ---------------------------------------- */
+/* WebView on API 24-28 has no backdrop-filter. The surfaces then use a
+   near-opaque fill so text stays readable — degraded, never broken. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .mel-glass-surface {
+        background-color: var(--mel-glass-fallback-bg) !important;
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+    }
+
+    body::before {
+        opacity: 0.35;
+    }
+}
+
+/* --- 10.6 The opt-out hook -------------------------------------------- */
+/* body.mx-glass-off turns every frosted surface opaque. Nothing toggles the
+   class yet; it exists so a future accessibility setting can, without
+   touching any rule above. */
+body.mx-glass-off .mel-glass-surface,
+body.mx-glass-off #global-nav-bar,
+body.mx-glass-off aside[data-testid="now-playing-bar"],
+body.mx-glass-off #sf-mobile-nav {
+    background-color: var(--mel-glass-fallback-bg-strong) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+}
+
+/* --- 10.7 Motion ------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+    .mel-glass-surface {
+        transition: none !important;
+    }
 }

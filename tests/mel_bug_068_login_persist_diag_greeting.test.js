@@ -77,7 +77,11 @@ test('MEL-BUG-068f: visual polish added without touching pinned design tokens', 
   assert.match(css, /border-radius: 999px/);
   assert.match(css, /prefers-reduced-motion: reduce/);
   const colors = read('res/values/colors.xml');
-  assert.match(colors, /<color name="mel_accent">#1ed760<\/color>/, 'mel_accent inchangé (épinglé par les tests)');
+  // MELODIX GLASS: the accent is no longer pinned to the old green. The
+  // invariant that matters is that the token EXISTS and stays a single source
+  // of truth — its value is asserted against the CSS root elsewhere.
+  assert.match(colors, /<color name="mel_accent">#[0-9a-fA-F]{6}<\/color>/,
+    'mel_accent reste la source unique de l accent');
 });
 
 test('MEL-BUG-068e: private diag helpers are only called via invoke-direct (VerifyError fix)', () => {
