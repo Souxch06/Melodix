@@ -154,7 +154,7 @@ test('the mini player is glass, keeps its dock geometry and hides nothing new', 
 
         // Geometry still comes from the touch shell, unchanged.
         const shell = CSS.slice(CSS.indexOf('SECTION 10: TOUCH APP SHELL'));
-        assert.match(shell, /bottom: calc\(var\(--sf-dock-h, 68px\) \+ var\(--sf-mini-gap, 10px\) \+ var\(--sf-safe-area-bottom, env\(safe-area-inset-bottom\)\)\) !important/);
+        assert.match(shell, /bottom: calc\(var\(--sf-dock-lift, 24px\) \+ var\(--sf-dock-h, 68px\) \+ var\(--sf-mini-gap, 10px\) \+ var\(--sf-safe-area-bottom, env\(safe-area-inset-bottom\)\)\) !important/);
         assert.match(shell, /height: var\(--sf-mini-h, 68px\) !important/);
 
         // No new display:none inside the mini-player step.
@@ -185,14 +185,19 @@ test('the bottom dock is a 68px glass pill with 34px tabs and a gradient active 
     // the real dock is the fixed one.
     const dock = CSS.match(/#sf-mobile-nav \{(?:(?!\})[\s\S])*position: fixed(?:(?!\})[\s\S])*\}/);
     assert.ok(dock, 'the fixed dock rule exists');
-    assert.match(dock[0], /height: calc\(var\(--sf-dock-h, 68px\)/);
-    assert.match(dock[0], /background: var\(--mel-glass-scrim\)/);
+    assert.match(dock[0], /height: var\(--sf-dock-h, 68px\) !important;/,
+        'the pill is exactly the dock token tall');
+    assert.match(dock[0], /bottom: calc\(var\(--sf-dock-lift, 24px\) \+ var\(--sf-safe-area-bottom/,
+        'it floats 24px above the safe area instead of touching the edge');
+    assert.match(dock[0], /max-width: 560px/, 'it stops growing on a tablet');
+    assert.match(dock[0], /border-radius: 34px/);
+    assert.match(dock[0], /background-color: var\(--mel-glass-scrim\)/);
     assert.match(dock[0], /backdrop-filter: blur/);
 
     const item = CSS.match(/#sf-mobile-nav \.sf-mobile-nav__item \{[^}]*\}/);
     assert.ok(item, 'the tab rule exists');
     assert.match(item[0], /border-radius: 34px/, 'a 34px radius on a 68px rail');
-    assert.match(item[0], /min-height: 52px/, 'comfortably above the 48dp target');
+    assert.match(item[0], /min-height: 44px/, 'the 44dp touch target is the floor');
 
     const active = CSS.match(/#sf-mobile-nav \.sf-mobile-nav__item\[aria-current="page"\] \{[^}]*\}/);
     assert.ok(active, 'the active tab rule exists');
@@ -263,7 +268,7 @@ test('the library drawer is a glass sheet that keeps its touch-shell geometry', 
 
     // The touch shell still decides where the drawer sits.
     const shell = CSS.slice(CSS.indexOf('SECTION 10: TOUCH APP SHELL'));
-    assert.match(shell, /body\.sf-library-open #Desktop_LeftSidebar_Id \{[^}]*bottom: calc\(var\(--sf-dock-h, 68px\)/);
+    assert.match(shell, /body\.sf-library-open #Desktop_LeftSidebar_Id \{[^}]*bottom: calc\(var\(--sf-dock-lift, 24px\) \+ var\(--sf-dock-h, 68px\)/);
     assert.match(shell, /z-index: 10005/);
     // And the closed state still hides it.
     assert.match(shell, /body:not\(\.sf-library-open\) #Desktop_LeftSidebar_Id \{[^}]*visibility: hidden/);
@@ -289,4 +294,51 @@ test('the drawer scrim never swallows touches', () => {
     assert.match(rule[0], /pointer-events: none/);
     assert.match(rule[0], /background-color: var\(--mel-scrim-40\)/);
     assert.doesNotMatch(rule[0], /display: none/, 'the scrim is invisible by stacking, not by hiding content');
+});
+
+test('the floating dock is a pill, not a rail: margins, lift, radius, glass', () => {
+    const dock = CSS.match(/#sf-mobile-nav \{(?:(?!\})[\s\S])*position: fixed(?:(?!\})[\s\S])*\}/)[0];
+    const tokens = rootTokens();
+    assert.equal(tokens.get('--sf-dock-lift'), '24px', 'the pill floats 24px above the inset');
+    assert.equal(tokens.get('--sf-dock-inset'), '16px', 'and keeps 16px on each side');
+
+    assert.match(dock, /left: 50% !important;/);
+    assert.match(dock, /transform: translateX\(-50%\) !important;/);
+    assert.match(dock, /width: calc\(100vw - \(2 \* var\(--sf-dock-inset, 16px\)\)\) !important;/);
+    assert.match(dock, /max-width: 560px !important;/, 'centred and capped on a tablet');
+    assert.match(dock, /height: var\(--sf-dock-h, 68px\) !important;/,
+        'the pill height no longer includes the safe area: the lift does');
+    assert.match(dock, /border: 1px solid var\(--mel-glass-border\) !important;/);
+    assert.match(dock, /border-radius: 34px !important;/);
+    assert.match(dock, /box-shadow: var\(--mel-glass-shadow\)/, 'the inset highlight is the glass reflection');
+    assert.match(dock, /backdrop-filter: blur\(var\(--mel-glass-blur\)\)/, 'WebView keeps the real blur');
+    assert.doesNotMatch(dock, /bottom: 0 !important;/);
+    assert.doesNotMatch(dock, /inset-inline: 0/);
+    assert.doesNotMatch(dock, /width: 100vw !important;/);
+});
+
+test('the opaque fallback keeps the pill shape when blur is unavailable', () => {
+    // The @supports-not block paints a near-opaque fill, but the shape must
+    // survive: same radius, same lift, same margins.
+    assert.match(CSS, /@supports not \(\(backdrop-filter: blur\(1px\)\) or \(-webkit-backdrop-filter: blur\(1px\)\)\) \{/,
+        'the no-blur fallback exists');
+    assert.match(CSS, /body\.mx-glass-off #sf-mobile-nav \{[^}]*backdrop-filter: none !important;/);
+    assert.match(CSS, /body\.mx-glass-off #sf-mobile-nav \{[^}]*background-color: var\(--mel-glass-fallback-bg-strong\)/);
+    // The geometry lives outside the opt-out rules, so it is never lost.
+    const dock = CSS.match(/#sf-mobile-nav \{(?:(?!\})[\s\S])*position: fixed(?:(?!\})[\s\S])*\}/)[0];
+    assert.match(dock, /border-radius: 34px/);
+});
+
+test('nothing else claims the dock offset: the lift is the only bottom anchor', () => {
+    // Any rule that positions the dock from the bottom must include the lift,
+    // otherwise the pill would drift away from the content above it.
+    const offenders = [];
+    for (const match of CSS.matchAll(/([^{}]*#sf-mobile-nav[^{}]*)\{([^}]*)\}/g)) {
+        const body = match[2];
+        const bottom = body.match(/(?:^|[\s;])bottom:\s*([^;]+);/);
+        if (!bottom) continue;
+        if (/var\(--sf-dock-lift, 24px\)/.test(bottom[1])) continue;
+        offenders.push(match[1].trim().split('\n').pop());
+    }
+    assert.deepEqual(offenders, [], 'every dock bottom offset goes through --sf-dock-lift');
 });

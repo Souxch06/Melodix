@@ -80,6 +80,11 @@
     --sf-mini-h: 68px;
     --sf-mini-gap: 10px;
     --sf-stack-gap: 4px;
+    /* The dock floats: it no longer touches the screen edges, so the air
+       beneath it and its side margins are part of every offset that used to
+       be measured from the bottom of the window. */
+    --sf-dock-inset: 16px;
+    --sf-dock-lift: 24px;
     --mel-radius-sheet: 28px;
     --mel-shadow-card: 0 18px 40px -18px rgba(0, 0, 0, 0.75);
     --mel-shadow-accent: 0 12px 32px -12px rgba(124, 58, 237, 0.55);
@@ -1668,19 +1673,28 @@ body.sf-tv-nav input:focus-visible {
         display: none !important;
     }
 
+    /* A floating glass pill: 16px side margins, 24px above the safe area,
+       68px tall, 34px radius (half its height). It is no longer a full-width
+       rail glued to the bottom edge. */
     #sf-mobile-nav {
         position: fixed !important;
-        inset-inline: 0 !important;
-        bottom: 0 !important;
+        left: 50% !important;
+        right: auto !important;
+        bottom: calc(var(--sf-dock-lift, 24px) + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+        transform: translateX(-50%) !important;
         box-sizing: border-box !important;
         display: grid !important;
         grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
         align-items: stretch !important;
-        width: 100vw !important;
-        height: calc(var(--sf-dock-h, 68px) + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
-        padding: 4px 16px calc(4px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
-        background: var(--mel-glass-scrim) !important;
-        border-top: 1px solid var(--mel-glass-border) !important;
+        width: calc(100vw - (2 * var(--sf-dock-inset, 16px))) !important;
+        min-width: 0 !important;
+        max-width: 560px !important;
+        height: var(--sf-dock-h, 68px) !important;
+        padding: 4px !important;
+        background-color: var(--mel-glass-scrim) !important;
+        border: 1px solid var(--mel-glass-border) !important;
+        border-radius: 34px !important;
+        box-shadow: var(--mel-glass-shadow), 0 18px 40px -18px var(--mel-scrim-70) !important;
         -webkit-backdrop-filter: blur(var(--mel-glass-blur)) saturate(var(--mel-glass-saturate)) !important;
         backdrop-filter: blur(var(--mel-glass-blur)) saturate(var(--mel-glass-saturate)) !important;
         z-index: 10010 !important;
@@ -1691,12 +1705,13 @@ body.sf-tv-nav input:focus-visible {
         flex-direction: column !important;
         align-items: center !important;
         justify-content: center !important;
-        gap: 3px !important;
+        gap: 2px !important;
         box-sizing: border-box !important;
         min-width: 44px !important;
-        min-height: 52px !important;
-        margin: 0 4px !important;
-        padding: 4px 8px !important;
+        min-height: 44px !important;
+        height: 100% !important;
+        margin: 0 2px !important;
+        padding: 6px 4px !important;
         color: var(--mel-text-2) !important;
         background: transparent !important;
         border: 0 !important;
@@ -1753,7 +1768,7 @@ body.sf-tv-nav input:focus-visible {
 
     /* Stop the library drawer above the mini-player and the fixed bottom dock. */
     body.sf-library-open #Desktop_LeftSidebar_Id {
-        bottom: calc(var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-mini-h, 68px) + var(--sf-stack-gap, 4px) + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+        bottom: calc(var(--sf-dock-lift, 24px) + var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-mini-h, 68px) + var(--sf-stack-gap, 4px) + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
         visibility: visible !important;
         opacity: 1 !important;
         pointer-events: auto !important;
@@ -1771,15 +1786,15 @@ body.sf-tv-nav input:focus-visible {
 
     #main-view,
     #main-view [data-overlayscrollbars-viewport] {
-        scroll-padding-bottom: calc(var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-mini-h, 68px) + var(--sf-stack-gap, 4px) + 6px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
-        padding-bottom: calc(var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-mini-h, 68px) + var(--sf-stack-gap, 4px) + 6px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+        scroll-padding-bottom: calc(var(--sf-dock-lift, 24px) + var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-mini-h, 68px) + var(--sf-stack-gap, 4px) + 6px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+        padding-bottom: calc(var(--sf-dock-lift, 24px) + var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-mini-h, 68px) + var(--sf-stack-gap, 4px) + 6px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
     }
 
     body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] {
         position: fixed !important;
         left: 10px !important;
         right: 10px !important;
-        bottom: calc(var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+        bottom: calc(var(--sf-dock-lift, 24px) + var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
         box-sizing: border-box !important;
         width: auto !important;
         min-width: 0 !important;
@@ -1895,7 +1910,7 @@ body.sf-tv-nav input:focus-visible {
 
     /* The phone mini-player shares neither the library drawer nor the bottom dock. */
     body.sf-library-open aside[data-testid="now-playing-bar"] {
-        bottom: calc(var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+        bottom: calc(var(--sf-dock-lift, 24px) + var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
     }
 
     body.sf-library-open #main-view {
@@ -1929,7 +1944,7 @@ body.sf-melodix-home-style-probe #sf-melodix-home {
 
 #sf-melodix-home {
     position: fixed !important;
-    inset: var(--sf-melodix-home-top, 0px) 0 calc(var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-mini-h, 68px) + var(--sf-stack-gap, 4px) + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+    inset: var(--sf-melodix-home-top, 0px) 0 calc(var(--sf-dock-lift, 24px) + var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-mini-h, 68px) + var(--sf-stack-gap, 4px) + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
     z-index: 10001 !important;
     box-sizing: border-box !important;
     overflow-x: hidden !important;

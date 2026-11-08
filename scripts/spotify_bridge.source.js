@@ -2258,20 +2258,23 @@
         style.textContent = `
     body.sf-mobile-shell #sf-mobile-nav {
         position: fixed !important;
-        left: 0 !important;
-        right: 0 !important;
-        bottom: 0 !important;
+        left: 50% !important;
+        right: auto !important;
+        bottom: calc(var(--sf-dock-lift, 24px) + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+        transform: translateX(-50%) !important;
         box-sizing: border-box !important;
         display: grid !important;
         grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
         align-items: stretch !important;
-        width: 100vw !important;
-        height: calc(var(--sf-dock-h, 68px) + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
-        padding: 4px 16px calc(4px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+        width: calc(100vw - (2 * var(--sf-dock-inset, 16px))) !important;
+        max-width: 560px !important;
+        height: var(--sf-dock-h, 68px) !important;
+        padding: 4px !important;
         background: rgba(11, 11, 20, 0.62) !important;
         -webkit-backdrop-filter: blur(24px) saturate(150%) !important;
         backdrop-filter: blur(24px) saturate(150%) !important;
-        border-top: 1px solid rgba(255, 255, 255, 0.09) !important;
+        border: 1px solid rgba(255, 255, 255, 0.14) !important;
+        border-radius: 34px !important;
         z-index: 10010 !important;
     }
     #sf-mobile-nav .sf-mobile-nav__item {
@@ -2281,14 +2284,15 @@
         justify-content: center !important;
         gap: 4px !important;
         min-width: 44px !important;
-        min-height: 54px !important;
-        margin: 0 4px !important;
-        padding: 5px 8px !important;
+        min-height: 44px !important;
+        height: 100% !important;
+        margin: 0 2px !important;
+        padding: 6px 4px !important;
         color: #a1a1b5 !important;
         background: transparent !important;
         border: 0 !important;
-        border-radius: 14px !important;
-        font: 600 10px/1.1 system-ui, sans-serif !important;
+        border-radius: 34px !important;
+        font: 600 11px/1.1 system-ui, sans-serif !important;
     }
     #sf-mobile-nav .sf-mobile-nav__item svg {
         display: block !important;
@@ -2322,7 +2326,7 @@
         top: calc(48px + env(safe-area-inset-top)) !important;
         left: 0 !important;
         right: 0 !important;
-        bottom: calc(var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-mini-h, 68px) + var(--sf-stack-gap, 4px) + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+        bottom: calc(var(--sf-dock-lift, 24px) + var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-mini-h, 68px) + var(--sf-stack-gap, 4px) + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
         width: 100% !important;
         overflow-y: auto !important;
         visibility: visible !important;
@@ -2360,8 +2364,8 @@
     }
     #main-view,
     #main-view [data-overlayscrollbars-viewport] {
-        scroll-padding-bottom: calc(var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-mini-h, 68px) + var(--sf-stack-gap, 4px) + 6px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
-        padding-bottom: calc(var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-mini-h, 68px) + var(--sf-stack-gap, 4px) + 6px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+        scroll-padding-bottom: calc(var(--sf-dock-lift, 24px) + var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-mini-h, 68px) + var(--sf-stack-gap, 4px) + 6px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+        padding-bottom: calc(var(--sf-dock-lift, 24px) + var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-mini-h, 68px) + var(--sf-stack-gap, 4px) + 6px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
     }
     body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] {
         position: fixed !important;
@@ -2431,7 +2435,7 @@
         display: none !important;
     }
     body.sf-library-open aside[data-testid="now-playing-bar"] {
-        bottom: calc(var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+        bottom: calc(var(--sf-dock-lift, 24px) + var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
     }
     @media screen and (orientation: landscape) {
         body.sf-mobile-shell #global-nav-bar {
@@ -2932,7 +2936,7 @@
                         // gap, the mini player and its gap are the same tokens
                         // the stylesheet uses (with the same literal fallbacks),
                         // so the drawer can never sit on the dock.
-                        const stack = 'var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-mini-h, 68px) + var(--sf-stack-gap, 4px)';
+                        const stack = 'var(--sf-dock-lift, 24px) + var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-mini-h, 68px) + var(--sf-stack-gap, 4px)';
                         ls.style.setProperty('position', 'fixed', 'important');
                         ls.style.setProperty('width', '100%', 'important');
                         ls.style.setProperty('height', `calc(100vh - ${drawerTop}px - (${stack}) - var(--sf-safe-area-top, env(safe-area-inset-top)) - var(--sf-safe-area-bottom, env(safe-area-inset-bottom)))`, 'important');
