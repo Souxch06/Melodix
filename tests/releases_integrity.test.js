@@ -25,8 +25,13 @@ test('every releases/*.apk has a valid matching .sha256 sidecar', () => {
 test('releases/README.md keeps the anti-conflict procedure and points at the latest preview', () => {
   const readme = fs.readFileSync(path.join(releasesDir, 'README.md'), 'utf8');
   assert.match(readme, /adb uninstall com\.melodix\.music/);
+  // Both naming schemes exist: Melodix-Test-v1.2.2-test118.apk (numbered
+  // previews) and Melodix-Test-v1.3.0-glass.apk (named milestones). Only the
+  // numbered ones carry an ordinal, so filter the misses out instead of letting
+  // Number(undefined) poison Math.max into NaN.
   const apks = fs.readdirSync(releasesDir).filter((f) => f.endsWith('.apk'))
-    .map((f) => Number((f.match(/test(\d+)\.apk$/) || [])[1]));
+    .map((f) => Number((f.match(/test(\d+)\.apk$/) || [])[1]))
+    .filter((n) => Number.isFinite(n));
   const latest = Math.max(...apks);
   assert.ok(readme.includes(`test.${latest}`), `README must reference the latest preview test.${latest}`);
 });
