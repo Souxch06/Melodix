@@ -71,6 +71,15 @@
     --mel-radius-card: 24px;
     --mel-radius-art: 16px;
     --mel-radius-pill: 999px;
+    /* The touch stack: dock height, mini-player height, the gap between the
+       two, and the breathing room above the mini player. Every offset of the
+       dock, the mini player, the drawer and the reserved content space below
+       is computed from these four values (and repeated in the bridge fallback
+       stylesheet with the same fallbacks), so the stack can never drift. */
+    --sf-dock-h: 68px;
+    --sf-mini-h: 68px;
+    --sf-mini-gap: 10px;
+    --sf-stack-gap: 4px;
     --mel-radius-sheet: 28px;
     --mel-shadow-card: 0 18px 40px -18px rgba(0, 0, 0, 0.75);
     --mel-shadow-accent: 0 12px 32px -12px rgba(124, 58, 237, 0.55);
@@ -1668,12 +1677,12 @@ body.sf-tv-nav input:focus-visible {
         grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
         align-items: stretch !important;
         width: 100vw !important;
-        height: calc(72px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
-        padding: 5px 16px calc(5px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
-        background: var(--mel-overlay-4) !important;
-        border-top: 1px solid var(--mel-wash-09) !important;
-        -webkit-backdrop-filter: blur(22px) saturate(150%) !important;
-        backdrop-filter: blur(22px) saturate(150%) !important;
+        height: calc(var(--sf-dock-h, 68px) + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+        padding: 4px 16px calc(4px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+        background: var(--mel-glass-scrim) !important;
+        border-top: 1px solid var(--mel-glass-border) !important;
+        -webkit-backdrop-filter: blur(var(--mel-glass-blur)) saturate(var(--mel-glass-saturate)) !important;
+        backdrop-filter: blur(var(--mel-glass-blur)) saturate(var(--mel-glass-saturate)) !important;
         z-index: 10010 !important;
     }
 
@@ -1682,23 +1691,32 @@ body.sf-tv-nav input:focus-visible {
         flex-direction: column !important;
         align-items: center !important;
         justify-content: center !important;
-        gap: 4px !important;
+        gap: 3px !important;
+        box-sizing: border-box !important;
         min-width: 44px !important;
-        min-height: 54px !important;
+        min-height: 52px !important;
         margin: 0 4px !important;
-        padding: 5px 8px !important;
-        color: var(--mel-text-mute-b) !important;
+        padding: 4px 8px !important;
+        color: var(--mel-text-2) !important;
         background: transparent !important;
         border: 0 !important;
-        border-radius: 14px !important;
-        font: 600 10px/1.1 system-ui, sans-serif !important;
+        border-radius: 34px !important;
+        font: 600 11px/1.1 system-ui, sans-serif !important;
         letter-spacing: 0.01em !important;
         -webkit-tap-highlight-color: transparent !important;
-        transition: color 160ms ease, background-color 160ms ease, transform 160ms ease !important;
+        transition: color 160ms ease, background-color 160ms ease,
+                    box-shadow 160ms ease, transform 160ms ease !important;
+    }
+
+    #sf-mobile-nav .sf-mobile-nav__item span {
+        max-width: 100% !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
     }
 
     #sf-mobile-nav .sf-mobile-nav__item:active {
-        transform: scale(0.96) !important;
+        transform: scale(0.95) !important;
     }
 
     #sf-mobile-nav .sf-mobile-nav__item svg {
@@ -1713,8 +1731,18 @@ body.sf-tv-nav input:focus-visible {
     }
 
     #sf-mobile-nav .sf-mobile-nav__item[aria-current="page"] {
-        color: var(--melodix-mobile-accent, var(--mel-accent)) !important;
-        background: var(--mel-accent-wash-09) !important;
+        color: var(--mel-text-on-accent) !important;
+        background-image: var(--mel-accent-grad) !important;
+        background-color: transparent !important;
+        box-shadow: var(--mel-shadow-accent) !important;
+    }
+
+    /* The keyboard opens over the dock: keep the tab bar reachable but out of
+       the way of the field the user is typing in. */
+    @media screen and (max-width: 820px) {
+        body.sf-keyboard-open #sf-mobile-nav {
+            display: none !important;
+        }
     }
 
     body:not(.sf-library-open) #Desktop_LeftSidebar_Id {
@@ -1725,7 +1753,7 @@ body.sf-tv-nav input:focus-visible {
 
     /* Stop the library drawer above the mini-player and the fixed bottom dock. */
     body.sf-library-open #Desktop_LeftSidebar_Id {
-        bottom: calc(154px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+        bottom: calc(var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-mini-h, 68px) + var(--sf-stack-gap, 4px) + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
         visibility: visible !important;
         opacity: 1 !important;
         pointer-events: auto !important;
@@ -1743,22 +1771,22 @@ body.sf-tv-nav input:focus-visible {
 
     #main-view,
     #main-view [data-overlayscrollbars-viewport] {
-        scroll-padding-bottom: calc(160px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
-        padding-bottom: calc(160px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+        scroll-padding-bottom: calc(var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-mini-h, 68px) + var(--sf-stack-gap, 4px) + 6px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+        padding-bottom: calc(var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-mini-h, 68px) + var(--sf-stack-gap, 4px) + 6px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
     }
 
     body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] {
         position: fixed !important;
         left: 10px !important;
         right: 10px !important;
-        bottom: calc(78px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+        bottom: calc(var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
         box-sizing: border-box !important;
         width: auto !important;
         min-width: 0 !important;
         max-width: calc(100vw - 20px) !important;
-        height: 68px !important;
-        min-height: 68px !important;
-        max-height: 68px !important;
+        height: var(--sf-mini-h, 68px) !important;
+        min-height: var(--sf-mini-h, 68px) !important;
+        max-height: var(--sf-mini-h, 68px) !important;
         display: flex !important;
         flex-direction: row !important;
         align-items: center !important;
@@ -1867,7 +1895,7 @@ body.sf-tv-nav input:focus-visible {
 
     /* The phone mini-player shares neither the library drawer nor the bottom dock. */
     body.sf-library-open aside[data-testid="now-playing-bar"] {
-        bottom: calc(78px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+        bottom: calc(var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
     }
 
     body.sf-library-open #main-view {
@@ -1901,7 +1929,7 @@ body.sf-melodix-home-style-probe #sf-melodix-home {
 
 #sf-melodix-home {
     position: fixed !important;
-    inset: var(--sf-melodix-home-top, 0px) 0 calc(154px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+    inset: var(--sf-melodix-home-top, 0px) 0 calc(var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-mini-h, 68px) + var(--sf-stack-gap, 4px) + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
     z-index: 10001 !important;
     box-sizing: border-box !important;
     overflow-x: hidden !important;

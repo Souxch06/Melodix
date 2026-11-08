@@ -11,13 +11,13 @@ test('touch layout keeps the bottom dock, mini-player, and drawer on one inset-a
     const css = read('assets/css_hacks.css');
     const shell = css.slice(css.indexOf('SECTION 10: TOUCH APP SHELL'));
 
-    assert.match(shell, /#sf-mobile-nav\s*\{[\s\S]*?bottom: 0 !important;[\s\S]*?height: calc\(72px \+ var\(--sf-safe-area-bottom, env\(safe-area-inset-bottom\)\)\)/);
+    assert.match(shell, /#sf-mobile-nav\s*\{[\s\S]*?bottom: 0 !important;[\s\S]*?height: calc\(var\(--sf-dock-h, 68px\) \+ var\(--sf-safe-area-bottom, env\(safe-area-inset-bottom\)\)\)/);
     assert.match(shell, /#sf-mobile-nav \.sf-mobile-nav__item\s*\{[\s\S]*?min-width: 44px/);
     assert.match(shell, /#sf-mobile-nav \.sf-mobile-nav__item\[aria-current="page"\]/);
-    assert.match(shell, /aside\[data-testid="now-playing-bar"\]\s*\{[\s\S]*?height: 68px/);
+    assert.match(shell, /aside\[data-testid="now-playing-bar"\]\s*\{[\s\S]*?height: var\(--sf-mini-h, 68px\)/);
     assert.match(shell, /body\.sf-library-open #Desktop_LeftSidebar_Id/);
-    assert.match(shell, /body\.sf-library-open #Desktop_LeftSidebar_Id\s*\{[\s\S]*?bottom: calc\(154px \+ var\(--sf-safe-area-bottom, env\(safe-area-inset-bottom\)\)\)[\s\S]*?z-index: 10005/);
-    assert.match(shell, /body\.sf-library-open aside\[data-testid="now-playing-bar"\]\s*\{\s*bottom: calc\(78px \+ var\(--sf-safe-area-bottom, env\(safe-area-inset-bottom\)\)\) !important;/,
+    assert.match(shell, /body\.sf-library-open #Desktop_LeftSidebar_Id\s*\{[\s\S]*?bottom: calc\(var\(--sf-dock-h, 68px\) \+ var\(--sf-mini-gap, 10px\) \+ var\(--sf-mini-h, 68px\) \+ var\(--sf-stack-gap, 4px\) \+ var\(--sf-safe-area-bottom, env\(safe-area-inset-bottom\)\)\)[\s\S]*?z-index: 10005/);
+    assert.match(shell, /body\.sf-library-open aside\[data-testid="now-playing-bar"\]\s*\{\s*bottom: calc\(var\(--sf-dock-h, 68px\) \+ var\(--sf-mini-gap, 10px\) \+ var\(--sf-safe-area-bottom, env\(safe-area-inset-bottom\)\)\) !important;/,
         'the mini-player stays above the dock while the library drawer is open');
     assert.doesNotMatch(shell, /@media screen and \(min-width: 640px\)/,
         'phones, tablets, and touch foldables share the same bottom-dock geometry');
@@ -28,7 +28,7 @@ test('touch layout keeps the bottom dock, mini-player, and drawer on one inset-a
     assert.doesNotMatch(shell, /body\.sf-expanded #sf-mobile-nav/);
     assert.match(shell, /body:not\(\.sf-fs-open\) aside\[data-testid="now-playing-bar"\]/);
     assert.match(css, /\.sf-mobile-library-close/);
-    assert.match(shell, /scroll-padding-bottom: calc\(160px \+ var\(--sf-safe-area-bottom, env\(safe-area-inset-bottom\)\)\)/);
+    assert.match(shell, /scroll-padding-bottom: calc\(var\(--sf-dock-h, 68px\) \+ var\(--sf-mini-gap, 10px\) \+ var\(--sf-mini-h, 68px\) \+ var\(--sf-stack-gap, 4px\) \+ 6px \+ var\(--sf-safe-area-bottom, env\(safe-area-inset-bottom\)\)\)/);
 });
 
 test('Android system-bar bottom inset is forwarded to CSS and reserved by both dock stylesheets', () => {
@@ -62,10 +62,11 @@ test('mobile dock reuses Spotify home, search, and library controls', () => {
     assert.match(bridge, /url\.pathname === '\/search'/);
     assert.match(bridge, /function mobileLibraryButton\(\)/);
     assert.match(bridge, /classList\.toggle\('sf-library-open', shouldOpen\)/);
-    assert.match(bridge, /const drawerTop = 48;[\s\S]*?const drawerBottom = 154;/);
-    assert.match(bridge, /calc\(100vh - \$\{drawerTop\}px - \$\{drawerBottom\}px/);
+    assert.match(bridge, /const drawerTop = 48;[\s\S]*?const stack = 'var\(--sf-dock-h, 68px\)/,
+        'the drawer bottom offset comes from the dock tokens, not from a literal');
+    assert.match(bridge, /calc\(100vh - \$\{drawerTop\}px - \(\$\{stack\}\)/);
     assert.match(bridge, /var\(--sf-safe-area-bottom, env\(safe-area-inset-bottom\)\)/);
-    assert.match(bridge, /bottom', `calc\(\$\{drawerBottom\}px \+ var\(--sf-safe-area-bottom, env\(safe-area-inset-bottom\)\)\)`/);
+    assert.match(bridge, /bottom', `calc\(\$\{stack\} \+ var\(--sf-safe-area-bottom, env\(safe-area-inset-bottom\)\)\)`/);
     assert.match(bridge, /z-index', '10005'/);
     assert.match(bridge, /installMobileNavigation\(\);/);
 });
@@ -83,8 +84,8 @@ test('touch tablets receive the mobile shell even when the viewport is wider tha
     assert.match(bridge, /config\.guiMode === "bigwindow" && !isCompactWindow && !hasTouch/);
     assert.ok(fallback, 'touch fallback stylesheet should be available');
     assert.match(fallback[1], /body\.sf-mobile-shell #sf-mobile-nav\s*\{[\s\S]*?display: grid !important/);
-    assert.match(fallback[1], /body\.sf-library-open #Desktop_LeftSidebar_Id\s*\{[\s\S]*?bottom: calc\(154px \+ var\(--sf-safe-area-bottom, env\(safe-area-inset-bottom\)\)\)/);
-    assert.match(fallback[1], /body\.sf-library-open aside\[data-testid="now-playing-bar"\]\s*\{\s*bottom: calc\(78px \+ var\(--sf-safe-area-bottom, env\(safe-area-inset-bottom\)\)\)/);
+    assert.match(fallback[1], /body\.sf-library-open #Desktop_LeftSidebar_Id\s*\{[\s\S]*?bottom: calc\(var\(--sf-dock-h, 68px\) \+ var\(--sf-mini-gap, 10px\) \+ var\(--sf-mini-h, 68px\) \+ var\(--sf-stack-gap, 4px\) \+ var\(--sf-safe-area-bottom, env\(safe-area-inset-bottom\)\)\)/);
+    assert.match(fallback[1], /body\.sf-library-open aside\[data-testid="now-playing-bar"\]\s*\{\s*bottom: calc\(var\(--sf-dock-h, 68px\) \+ var\(--sf-mini-gap, 10px\) \+ var\(--sf-safe-area-bottom, env\(safe-area-inset-bottom\)\)\)/);
     assert.doesNotMatch(fallback[1], /@media screen and \(max-width: 820px\)/);
     assert.doesNotMatch(fallback[1], /@media screen and \(min-width: 640px\)/);
     assert.match(bridge, /body\.sf-mobile-shell #global-nav-bar/);
@@ -170,7 +171,7 @@ test('phone dock is mounted outside CSS+JS mode and stale fullscreen state canno
     assert.match(bridge, /if \(isMobileViewport\) ensureMobileShellFallbackStyles\(\)/);
     assert.match(bridge, /function ensureMobileShellFallbackStyles\(\)/);
     assert.match(bridge, /sf-mobile-shell-fallback-style/);
-    assert.match(bridge, /#sf-mobile-nav\s*\{[\s\S]*?position: fixed !important;[\s\S]*?bottom: 0 !important;[\s\S]*?display: grid !important;[\s\S]*?height: calc\(72px \+ var\(--sf-safe-area-bottom, env\(safe-area-inset-bottom\)\)\)/);
+    assert.match(bridge, /#sf-mobile-nav\s*\{[\s\S]*?position: fixed !important;[\s\S]*?bottom: 0 !important;[\s\S]*?display: grid !important;[\s\S]*?height: calc\(var\(--sf-dock-h, 68px\) \+ var\(--sf-safe-area-bottom, env\(safe-area-inset-bottom\)\)\)/);
     assert.match(
         bridge,
         /classList\.contains\('sf-fs-open'\)[\s\S]*?getElementById\('sf-fs-player'\)[\s\S]*?classList\.remove\('sf-fs-open'\)/
@@ -207,9 +208,9 @@ test('mobile shell initializes before playback and library state can be forced o
 test('all touch widths keep the dock at the bottom and reserve player/content space', () => {
     const css = read('assets/css_hacks.css');
     const shell = css.slice(css.indexOf('SECTION 10: TOUCH APP SHELL'));
-    assert.match(shell, /#sf-mobile-nav\s*\{[\s\S]*?bottom: 0 !important;[\s\S]*?height: calc\(72px \+ var\(--sf-safe-area-bottom, env\(safe-area-inset-bottom\)\)\)/);
-    assert.match(shell, /body:not\(\.sf-fs-open\) aside\[data-testid="now-playing-bar"\]\s*\{[\s\S]*?bottom: calc\(78px \+ var\(--sf-safe-area-bottom, env\(safe-area-inset-bottom\)\)\)/);
-    assert.match(shell, /#main-view[\s\S]*?padding-bottom: calc\(160px \+ var\(--sf-safe-area-bottom, env\(safe-area-inset-bottom\)\)\)/);
+    assert.match(shell, /#sf-mobile-nav\s*\{[\s\S]*?bottom: 0 !important;[\s\S]*?height: calc\(var\(--sf-dock-h, 68px\) \+ var\(--sf-safe-area-bottom, env\(safe-area-inset-bottom\)\)\)/);
+    assert.match(shell, /body:not\(\.sf-fs-open\) aside\[data-testid="now-playing-bar"\]\s*\{[\s\S]*?bottom: calc\(var\(--sf-dock-h, 68px\) \+ var\(--sf-mini-gap, 10px\) \+ var\(--sf-safe-area-bottom, env\(safe-area-inset-bottom\)\)\)/);
+    assert.match(shell, /#main-view[\s\S]*?padding-bottom: calc\(var\(--sf-dock-h, 68px\) \+ var\(--sf-mini-gap, 10px\) \+ var\(--sf-mini-h, 68px\) \+ var\(--sf-stack-gap, 4px\) \+ 6px \+ var\(--sf-safe-area-bottom, env\(safe-area-inset-bottom\)\)\)/);
     assert.doesNotMatch(shell, /@media screen and \(min-width: 640px\)/,
         'tablet width cannot move the dock to the top or detach the player');
 });
@@ -219,8 +220,8 @@ test('the injected fallback matches the bottom-dock geometry at every touch widt
     const i = bridge.indexOf('style.textContent = `', bridge.indexOf('function ensureMobileShellFallbackStyles'));
     const j = bridge.indexOf('`;', i);
     const fallback = bridge.slice(i, j);
-    assert.match(fallback, /body\.sf-mobile-shell #sf-mobile-nav\s*\{[\s\S]*?bottom: 0 !important;[\s\S]*?height: calc\(72px \+ var\(--sf-safe-area-bottom, env\(safe-area-inset-bottom\)\)\)/);
-    assert.match(fallback, /body\.sf-library-open #Desktop_LeftSidebar_Id[\s\S]*?bottom: calc\(154px \+ var\(--sf-safe-area-bottom, env\(safe-area-inset-bottom\)\)\)/);
+    assert.match(fallback, /body\.sf-mobile-shell #sf-mobile-nav\s*\{[\s\S]*?bottom: 0 !important;[\s\S]*?height: calc\(var\(--sf-dock-h, 68px\) \+ var\(--sf-safe-area-bottom, env\(safe-area-inset-bottom\)\)\)/);
+    assert.match(fallback, /body\.sf-library-open #Desktop_LeftSidebar_Id[\s\S]*?bottom: calc\(var\(--sf-dock-h, 68px\) \+ var\(--sf-mini-gap, 10px\) \+ var\(--sf-mini-h, 68px\) \+ var\(--sf-stack-gap, 4px\) \+ var\(--sf-safe-area-bottom, env\(safe-area-inset-bottom\)\)\)/);
     assert.doesNotMatch(fallback, /@media screen and \(min-width: 640px\)/);
     assert.doesNotMatch(fallback, /@media screen and \(max-width: 820px\)/,
         'touch capability, not a phone-only width, controls the fallback shell');

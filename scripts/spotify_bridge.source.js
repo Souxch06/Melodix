@@ -2198,6 +2198,31 @@
         }
     }
 
+    function isEditableElement(element) {
+        if (!element || typeof element.tagName !== 'string') return false;
+        const tag = element.tagName.toLowerCase();
+        if (tag === 'textarea' || tag === 'select') return true;
+        if (tag === 'input') {
+            const type = String(element.getAttribute && element.getAttribute('type') || 'text').toLowerCase();
+            return !['button', 'checkbox', 'radio', 'submit', 'reset', 'range', 'color', 'file'].includes(type);
+        }
+        return element.isContentEditable === true;
+    }
+
+    // A phone keyboard never shrinks the WebView layout viewport, so the dock
+    // would sit on top of the search field instead of under it. Marking the
+    // body lets CSS lift the dock while the user types.
+    function installMobileNavKeyboardGuard() {
+        if (window._sfMobileNavKeyboardGuard) return;
+        window._sfMobileNavKeyboardGuard = true;
+        const sync = () => {
+            if (!document.body) return;
+            document.body.classList.toggle('sf-keyboard-open', isEditableElement(document.activeElement));
+        };
+        document.addEventListener('focusin', sync, true);
+        document.addEventListener('focusout', () => window.setTimeout(sync, 0), true);
+    }
+
     function hasTouchInput() {
         const config = window.SF_CONFIG || {};
         if (typeof config.touchInput === 'boolean') return config.touchInput;
@@ -2241,9 +2266,11 @@
         grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
         align-items: stretch !important;
         width: 100vw !important;
-        height: calc(72px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
-        padding: 5px 16px calc(5px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
-        background: rgba(13, 16, 14, 0.97) !important;
+        height: calc(var(--sf-dock-h, 68px) + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+        padding: 4px 16px calc(4px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+        background: rgba(11, 11, 20, 0.62) !important;
+        -webkit-backdrop-filter: blur(24px) saturate(150%) !important;
+        backdrop-filter: blur(24px) saturate(150%) !important;
         border-top: 1px solid rgba(255, 255, 255, 0.09) !important;
         z-index: 10010 !important;
     }
@@ -2257,7 +2284,7 @@
         min-height: 54px !important;
         margin: 0 4px !important;
         padding: 5px 8px !important;
-        color: #a6ada8 !important;
+        color: #a1a1b5 !important;
         background: transparent !important;
         border: 0 !important;
         border-radius: 14px !important;
@@ -2274,7 +2301,9 @@
         stroke-linejoin: round !important;
     }
     #sf-mobile-nav .sf-mobile-nav__item[aria-current="page"] {
-        color: #1ed760 !important;
+        color: #ffffff !important;
+        background-image: linear-gradient(135deg, #7c3aed, #db2777) !important;
+        box-shadow: 0 8px 20px -8px rgba(124, 58, 237, 0.75) !important;
     }
     body.sf-mobile-shell.sf-fs-open #sf-mobile-nav {
         display: grid !important;
@@ -2293,7 +2322,7 @@
         top: calc(48px + env(safe-area-inset-top)) !important;
         left: 0 !important;
         right: 0 !important;
-        bottom: calc(154px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+        bottom: calc(var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-mini-h, 68px) + var(--sf-stack-gap, 4px) + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
         width: 100% !important;
         overflow-y: auto !important;
         visibility: visible !important;
@@ -2331,8 +2360,8 @@
     }
     #main-view,
     #main-view [data-overlayscrollbars-viewport] {
-        scroll-padding-bottom: calc(160px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
-        padding-bottom: calc(160px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+        scroll-padding-bottom: calc(var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-mini-h, 68px) + var(--sf-stack-gap, 4px) + 6px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+        padding-bottom: calc(var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-mini-h, 68px) + var(--sf-stack-gap, 4px) + 6px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
     }
     body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] {
         position: fixed !important;
@@ -2402,7 +2431,7 @@
         display: none !important;
     }
     body.sf-library-open aside[data-testid="now-playing-bar"] {
-        bottom: calc(78px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+        bottom: calc(var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
     }
     @media screen and (orientation: landscape) {
         body.sf-mobile-shell #global-nav-bar {
@@ -2594,8 +2623,26 @@
             });
 
             document.body.appendChild(nav);
-            window.addEventListener('popstate', syncMobileNavigation);
+            // One listener feeds the dock from the real route. Spotify's client
+            // router uses pushState/replaceState, which fire no event of their
+            // own, so the shell also observes them instead of polling.
+            if (!window._sfMobileNavRouteHooked) {
+                window._sfMobileNavRouteHooked = true;
+                window.addEventListener('popstate', syncMobileNavigation);
+                window.addEventListener('sf-navigation', syncMobileNavigation);
+                ['pushState', 'replaceState'].forEach((method) => {
+                    const original = window.history && window.history[method];
+                    if (typeof original !== 'function') return;
+                    window.history[method] = function patchedHistoryMethod() {
+                        const result = original.apply(this, arguments);
+                        try { syncMobileNavigation(); } catch (_) {}
+                        return result;
+                    };
+                });
+            }
         }
+
+        installMobileNavKeyboardGuard();
 
         if (!window._sfMobileNavObserver) {
             window._sfMobileNavObserver = new MutationObserver(() => {
@@ -2881,12 +2928,16 @@
                         // stack at every touch viewport width. The drawer and
                         // player must never cross the always-bottom navigation.
                         const drawerTop = 48;
-                        const drawerBottom = 154;
+                        // Nothing below is a magic number: the dock height, the
+                        // gap, the mini player and its gap are the same tokens
+                        // the stylesheet uses (with the same literal fallbacks),
+                        // so the drawer can never sit on the dock.
+                        const stack = 'var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-mini-h, 68px) + var(--sf-stack-gap, 4px)';
                         ls.style.setProperty('position', 'fixed', 'important');
                         ls.style.setProperty('width', '100%', 'important');
-                        ls.style.setProperty('height', `calc(100vh - ${drawerTop}px - ${drawerBottom}px - var(--sf-safe-area-top, env(safe-area-inset-top)) - var(--sf-safe-area-bottom, env(safe-area-inset-bottom)))`, 'important');
+                        ls.style.setProperty('height', `calc(100vh - ${drawerTop}px - (${stack}) - var(--sf-safe-area-top, env(safe-area-inset-top)) - var(--sf-safe-area-bottom, env(safe-area-inset-bottom)))`, 'important');
                         ls.style.setProperty('top', `calc(${drawerTop}px + var(--sf-safe-area-top, env(safe-area-inset-top)))`, 'important');
-                        ls.style.setProperty('bottom', `calc(${drawerBottom}px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom)))`, 'important');
+                        ls.style.setProperty('bottom', `calc(${stack} + var(--sf-safe-area-bottom, env(safe-area-inset-bottom)))`, 'important');
                         ls.style.setProperty('left', '0px', 'important');
                         ls.style.setProperty('overflow-y', 'auto', 'important');
                         ls.style.setProperty('z-index', '10005', 'important');
