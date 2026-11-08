@@ -694,19 +694,8 @@
 
     if-eqz v2, :cond_3
 
-    # MEL-BUG-078: trace every flip of the session proof. Fixed label only —
-    # no value, no URL, no cookie: the journal stays copyable.
-    :try_start_clear-accounts
-    const-string v0, "proof"
-    const-string v1, "clear-accounts"
-    const/4 v2, 0x0
-    invoke-static {v0, v1, v2}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
-    :try_end_clear-accounts
-    .catch Ljava/lang/Throwable; {:try_start_clear-accounts .. :try_end_clear-accounts} :catch_clear-accounts
-    goto :clear-accounts_done
-    :catch_clear-accounts
-    move-exception v0
-    :clear-accounts_done
+    # MEL-BUG-080: no local register touched (invoke only).
+    invoke-static {}, Lcom/melodix/music/AppSingleton;->proofClearAccounts()V
     const/4 v2, 0x0
 
     sput-boolean v2, Lcom/melodix/music/AppSingleton;->B:Z
@@ -742,19 +731,8 @@
 
     if-eqz v2, :cond_4
 
-    # MEL-BUG-078: trace every flip of the session proof. Fixed label only —
-    # no value, no URL, no cookie: the journal stays copyable.
-    :try_start_clear-left-player
-    const-string v0, "proof"
-    const-string v1, "clear-left-player"
-    const/4 v2, 0x0
-    invoke-static {v0, v1, v2}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
-    :try_end_clear-left-player
-    .catch Ljava/lang/Throwable; {:try_start_clear-left-player .. :try_end_clear-left-player} :catch_clear-left-player
-    goto :clear-left-player_done
-    :catch_clear-left-player
-    move-exception v0
-    :clear-left-player_done
+    # MEL-BUG-080: no local register touched (invoke only).
+    invoke-static {}, Lcom/melodix/music/AppSingleton;->proofClearLeftPlayer()V
     sput-boolean v3, Lcom/melodix/music/AppSingleton;->B:Z
 
     sget v2, Lcom/melodix/music/AppSingleton;->j:I

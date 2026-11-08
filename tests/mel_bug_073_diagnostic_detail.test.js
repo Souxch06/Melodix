@@ -70,13 +70,13 @@ test('MEL-BUG-073c: refusals now reach the journal the user copies (noteDiag)', 
   const labelAt = show.search(/^\s*:native_show_gate_done\s*$/m);
   assert.ok(labelAt > 0, 'label :native_show_gate_done présent');
   const drop = show.slice(0, labelAt);
-  assert.match(drop, /AppSingleton;->noteDiag\(Ljava\/lang\/String;Ljava\/lang\/String;Ljava\/lang\/String;\)V/,
+  assert.match(drop, /AppSingleton;->noteDiagProof\(Ljava\/lang\/String;Ljava\/lang\/String;Ljava\/lang\/String;\)V/,
     'le refus de peinture écrit dans noteDiag');
   const route = method(main, '.method public final activateNativeUiRoute(');
-  assert.match(route, /noteDiag\(Ljava\/lang\/String;Ljava\/lang\/String;Ljava\/lang\/String;\)V/,
+  assert.match(route, /noteDiagProof\(Ljava\/lang\/String;Ljava\/lang\/String;Ljava\/lang\/String;\)V/,
     'le refus de route écrit dans noteDiag');
   const rows = method(main, '.method public final renderNativeRows(');
-  assert.match(rows, /:render_rows_unproven_drop[\s\S]*?noteDiag\(Ljava\/lang\/String;Ljava\/lang\/String;Ljava\/lang\/String;\)V/,
+  assert.match(rows, /:render_rows_unproven_drop[\s\S]*?noteDiagProof\(Ljava\/lang\/String;Ljava\/lang\/String;Ljava\/lang\/String;\)V/,
     'le refus de payload écrit dans noteDiag');
 });
 

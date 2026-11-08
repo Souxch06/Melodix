@@ -29,7 +29,7 @@ test('MEL-BUG-077a: setNativeScreen refuses to paint without a session proof', (
   assert.ok(refuse < proven, 'le refus est atteint avant la peinture');
   const between = screen.slice(refuse, proven);
   assert.match(between, /const-string v3, "dropped-unproven"/, 'refus journalise');
-  assert.match(between, /noteDiag\(/, 'le refus part dans le journal que l utilisateur copie');
+  assert.match(between, /noteDiagProof\(/, 'le refus part dans le journal que l utilisateur copie (via le helper)');
   assert.match(between, /revealLoginWebUi\(\)V/, 'le refus reaffirme la surface login');
   assert.match(between, /return-void/, 'le refus sort sans rien peindre');
   // The stored route must NOT be touched by the refusal.

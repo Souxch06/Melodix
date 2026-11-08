@@ -1583,15 +1583,12 @@
     .end annotation
 
     .locals 2
-    # MEL-BUG-075: this was the ONLY writer of AppSingleton.B = true in the whole
-    # DEX, and it left no trace in the journal the user copies. A single report
-    # showed `ensure warm proof` (so B was true) with `auth=false` at copy time
-    # and gates=0/0/0: the proof had flipped and nothing said so. Every flip is
-    # now journaled. Arg 3 is null: no page data, no cookie, no URL.
-    const-string v0, "proof"
-    const-string v1, "set bridge-login"
-    const/4 p0, 0x0
-    invoke-static {v0, v1, p0}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    # MEL-BUG-080: no local register touched (invoke only).
+    # MEL-BUG-075: this is the ONLY writer of AppSingleton.B = true in the whole
+    # DEX. Journaling it here used to clobber p0 (a PARAMETER) with "proof" and
+    # null; the argument-less helper keeps every register intact. No page data,
+    # no cookie, no URL reaches the journal.
+    invoke-static {}, Lcom/melodix/music/AppSingleton;->proofSetBridgeLogin()V
     .line 1
     const/4 p0, 0x1
 

@@ -662,19 +662,8 @@
     .line 247
     # Startup never trusts a persisted login marker: auth always starts
     # unconfirmed and is confirmed later by the account and player UI.
-    # MEL-BUG-078: trace every flip of the session proof. Fixed label only —
-    # no value, no URL, no cookie: the journal stays copyable.
-    :try_start_clear-oncreate
-    const-string v0, "proof"
-    const-string v1, "clear-oncreate"
-    const/4 v2, 0x0
-    invoke-static {v0, v1, v2}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
-    :try_end_clear-oncreate
-    .catch Ljava/lang/Throwable; {:try_start_clear-oncreate .. :try_end_clear-oncreate} :catch_clear-oncreate
-    goto :clear-oncreate_done
-    :catch_clear-oncreate
-    move-exception v0
-    :clear-oncreate_done
+    # MEL-BUG-080: no local register touched (invoke only).
+    invoke-static {}, Lcom/melodix/music/AppSingleton;->proofClearOncreate()V
     const/4 v0, 0x0
 
     sput-boolean v0, Lcom/melodix/music/AppSingleton;->B:Z
@@ -2150,6 +2139,124 @@
     .line 975
     .line 976
     .line 977
+    return-void
+.end method
+
+.method public static proofTrace(Ljava/lang/String;)V
+    .locals 2
+
+    # MEL-BUG-080: the only owner of the tracing registers.
+    :try_start_proof_trace
+    const-string v0, "proof"
+    const/4 v1, 0x0
+    invoke-static {v0, p0, v1}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    :try_end_proof_trace
+    .catch Ljava/lang/Throwable; {:try_start_proof_trace .. :try_end_proof_trace} :catch_proof_trace
+    return-void
+
+    :catch_proof_trace
+    move-exception v0
+    return-void
+.end method
+
+.method public static noteDiagProof(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    .locals 4
+
+    # MEL-BUG-080: MEL-BUG-078b without borrowing the caller's registers. The
+    # refusal keeps its own detail and carries the proof value it was decided
+    # with, e.g. "home|authF".
+    :try_start_proof_word
+    new-instance v0, Ljava/lang/StringBuilder;
+
+    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+
+    invoke-virtual {v0, p2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v1, "|auth"
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    sget-boolean v1, Lcom/melodix/music/AppSingleton;->B:Z
+
+    if-eqz v1, :proof_word_true
+
+    const-string v1, "F"
+
+    goto :proof_word_append
+
+    :proof_word_true
+    const-string v1, "T"
+
+    :proof_word_append
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v2
+
+    invoke-static {p0, p1, v2}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    :try_end_proof_word
+    .catch Ljava/lang/Throwable; {:try_start_proof_word .. :try_end_proof_word} :catch_proof_word
+    return-void
+
+    :catch_proof_word
+    move-exception v0
+    return-void
+.end method
+
+.method public static proofSetBridgeLogin()V
+    .locals 1
+
+    const-string v0, "set-bridge-login"
+    invoke-static {v0}, Lcom/melodix/music/AppSingleton;->proofTrace(Ljava/lang/String;)V
+    return-void
+.end method
+
+.method public static proofClearOncreate()V
+    .locals 1
+
+    const-string v0, "clear-oncreate"
+    invoke-static {v0}, Lcom/melodix/music/AppSingleton;->proofTrace(Ljava/lang/String;)V
+    return-void
+.end method
+
+.method public static proofClearResume()V
+    .locals 1
+
+    const-string v0, "clear-resume"
+    invoke-static {v0}, Lcom/melodix/music/AppSingleton;->proofTrace(Ljava/lang/String;)V
+    return-void
+.end method
+
+.method public static proofClearResume2()V
+    .locals 1
+
+    const-string v0, "clear-resume-2"
+    invoke-static {v0}, Lcom/melodix/music/AppSingleton;->proofTrace(Ljava/lang/String;)V
+    return-void
+.end method
+
+.method public static proofClearAccounts()V
+    .locals 1
+
+    const-string v0, "clear-accounts"
+    invoke-static {v0}, Lcom/melodix/music/AppSingleton;->proofTrace(Ljava/lang/String;)V
+    return-void
+.end method
+
+.method public static proofClearLeftPlayer()V
+    .locals 1
+
+    const-string v0, "clear-left-player"
+    invoke-static {v0}, Lcom/melodix/music/AppSingleton;->proofTrace(Ljava/lang/String;)V
+    return-void
+.end method
+
+.method public static proofClearLogout()V
+    .locals 1
+
+    const-string v0, "clear-logout"
+    invoke-static {v0}, Lcom/melodix/music/AppSingleton;->proofTrace(Ljava/lang/String;)V
     return-void
 .end method
 

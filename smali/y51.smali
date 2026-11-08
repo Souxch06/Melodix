@@ -134,10 +134,8 @@
     const/4 p1, 0x0
 
     .line 49
-    # MEL-BUG-078: trace every flip of the session proof (fixed label only).
-    const-string v0, "proof"
-    const-string v1, "clear-logout"
-    invoke-static {v0, v1, v0}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    # MEL-BUG-080: no local register touched (invoke only).
+    invoke-static {}, Lcom/melodix/music/AppSingleton;->proofClearLogout()V
 
     sput-boolean p1, Lcom/melodix/music/AppSingleton;->B:Z
 

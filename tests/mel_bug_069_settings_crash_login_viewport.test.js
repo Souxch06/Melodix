@@ -134,7 +134,7 @@ test('MEL-BUG-070: no payload branch can draw Home over an unproven login surfac
     /TextUtils;->isEmpty\(Ljava\/lang\/CharSequence;\)Z[\s\S]*?isLoginWebRoute\(\)Z[\s\S]*?AppSingleton;->B:Z[\s\S]*?:render_rows_unproven_drop/,
     'renderNativeRows refuse un payload non vide quand la session n’est pas prouvée sur la surface login');
   // MEL-BUG-073: the refusal is counted and written to the user-visible journal.
-  assert.match(rows, /:render_rows_unproven_drop[\s\S]*?diagPayloadDropped:I[\s\S]*?const-string v2, "dropped-unproven"[\s\S]*?noteDiag\([\s\S]*?return-void/);
+  assert.match(rows, /:render_rows_unproven_drop[\s\S]*?diagPayloadDropped:I[\s\S]*?const-string v2, "dropped-unproven"[\s\S]*?noteDiagProof\([\s\S]*?return-void/);
   // Empty payloads still proceed: they are the login flow's own placeholders.
   assert.match(rows, /if-eqz v0, :render_rows_proof_gate/, 'les payloads vides sautent la porte et restent rendus');
   // Diagnostic stays a fixed label: no cookie, no URL.
@@ -193,12 +193,12 @@ test('MEL-BUG-072: the shell and the route are refused without a session proof',
     /sget-boolean v0, Lcom\/melodix\/music\/AppSingleton;->B:Z/,
     'la preuve testée est AppSingleton.B (libraryV3)');
   assert.match(head,
-    /diagShowDropped:I[\s\S]*?const-string v1, "show-native"\s*\n\s*const-string v2, "dropped-unproven"[\s\S]*?AppSingleton;->noteDiag\(Ljava\/lang\/String;Ljava\/lang\/String;Ljava\/lang\/String;\)V[\s\S]*?applyLoginWebUi[\s\S]*?return-void\n\s*\n\s*:native_show_gate_done/,
+    /diagShowDropped:I[\s\S]*?const-string v1, "show-native"\s*\n\s*const-string v2, "dropped-unproven"[\s\S]*?AppSingleton;->noteDiagProof\(Ljava\/lang\/String;Ljava\/lang\/String;Ljava\/lang\/String;\)V[\s\S]*?applyLoginWebUi[\s\S]*?return-void\n\s*\n\s*:native_show_gate_done/,
     'refus journalisé dans noteDiag + surface login réaffirmée + retour immédiat');
 
   const route = stripComments(method(main, '.method public final activateNativeUiRoute('));
   assert.match(route,
-    /AppSingleton;->B:Z\s*\n\s*if-nez v0, :native_route_activation_gate_done[\s\S]*?diagRouteDropped:I[\s\S]*?"route"[\s\S]*?"dropped-unproven"[\s\S]*?noteDiag\([\s\S]*?return-void/,
+    /AppSingleton;->B:Z\s*\n\s*if-nez v0, :native_route_activation_gate_done[\s\S]*?diagRouteDropped:I[\s\S]*?"route"[\s\S]*?"dropped-unproven"[\s\S]*?noteDiagProof\([\s\S]*?return-void/,
     'une route non prouvée ne rend rien et n’écrit pas "route <screen>"');
   const routeGate = route.indexOf('native_route_activation_gate_done');
   assert.ok(routeGate < route.indexOf('setNativeScreen'), 'la garde précède setNativeScreen');
