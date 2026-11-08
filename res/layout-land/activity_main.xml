@@ -131,6 +131,20 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1.0" />
             <ImageView
+                android:id="@id/nativeDiagButton"
+                android:src="@drawable/abc_ic_menu_copy_mtrl_am_alpha"
+                android:tint="@color/mel_accent"
+                android:scaleType="centerInside"
+                android:padding="@dimen/mel_header_settings_pad"
+                android:clickable="true"
+                android:focusable="true"
+                android:contentDescription="Copier le diagnostic"
+                android:background="@drawable/native_icon_glass"
+                android:onClick="onNativeDiagCopyClick"
+                android:layout_width="@dimen/mel_header_action"
+                android:layout_height="@dimen/mel_header_action"
+                android:layout_marginLeft="@dimen/mel_space_2" />
+            <ImageView
                 android:id="@id/nativeSettingsButton"
                 android:src="@drawable/native_nav_settings"
                 android:tint="@color/mel_accent"

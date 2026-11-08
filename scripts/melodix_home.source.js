@@ -1305,3 +1305,32 @@ function initializeMelodixHome() {
         traceMelodixHome('home-web bootstrap-error ' + String(error && error.name || 'unknown').slice(0, 40));
     }
 })();
+
+/* MEL-BUG-068: greeting fallback — while no session is proven, the home title
+   still shows a greeting so the connection state is visible at a glance.
+   When a real session is proven, the shell sends the real "Bonjour, <pseudo>"
+   and this fallback stays silent. No secret material is
+   ever read or sent here. */
+;(function () {
+    function greetingPrefix() {
+        var h = new Date().getHours();
+        if (h >= 6 && h < 18) return 'Bonjour';
+        if (h >= 18 && h < 23) return 'Bonsoir';
+        return 'Bonne nuit';
+    }
+    function tick() {
+        try {
+            var bridge = window.AndBridge;
+            if (!bridge || typeof bridge.onNativeUiData !== 'function') return;
+            if (String(window.__sfNativeUiRoute || '') !== 'home') return;
+            var auth = String(window.__sfNativeUiHomeAuthState || '');
+            if (auth === 'connected') { window.__sfHomeFallbackGreetingSent = false; return; }
+            if (window.__sfHomeFallbackGreetingSent) return;
+            window.__sfHomeFallbackGreetingSent = true;
+            bridge.onNativeUiData('home-greeting',
+                greetingPrefix() + ', invité — non connecté (connectez-vous à Spotify)');
+        } catch (_) {}
+    }
+    if (typeof window.setInterval === 'function') window.setInterval(tick, 5000);
+    tick();
+})();

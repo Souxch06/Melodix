@@ -468,7 +468,10 @@
 
     move-result v1
 
-    if-eqz v1, :done
+    # MEL-BUG-068: a real URL only short-circuits when the session is PROVEN.
+    # Unproven (marker or sp_dc cookie missing) -> the login surface is forced
+    # back on top at every launch/resume, even if the WebView kept an old URL.
+    if-eqz v1, :proven_check
 
     :do_load
     # Same two targets the factory uses: the player once the session is proven,
@@ -484,8 +487,7 @@
     # MEL-BUG-067: a persisted marker is not a session — if the real sp_dc
     # session cookie is absent, show the login FIRST even on a warm start.
     # Inline on v2/v3 (v0 = WebView, v1 = flag): only the cookie's presence is
-    # tested, never its value. All paths into :login_url keep v2/v3 as
-    # references, so verification stays clean.
+    # tested, never its value.
     invoke-static {}, Landroid/webkit/CookieManager;->getInstance()Landroid/webkit/CookieManager;
 
     move-result-object v2
@@ -511,6 +513,57 @@
     const-string v1, "https://open.spotify.com/"
 
     goto :have_url
+
+    :proven_check
+    sget-boolean v1, Lcom/melodix/music/AppSingleton;->B:Z
+
+    if-eqz v1, :force_login
+
+    sget-boolean v1, Lcom/melodix/music/MainActivity;->l0:Z
+
+    if-nez v1, :force_login
+
+    invoke-static {}, Landroid/webkit/CookieManager;->getInstance()Landroid/webkit/CookieManager;
+
+    move-result-object v2
+
+    if-eqz v2, :force_login
+
+    const-string v3, "https://open.spotify.com/"
+
+    invoke-virtual {v2, v3}, Landroid/webkit/CookieManager;->getCookie(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v2
+
+    if-eqz v2, :force_login
+
+    const-string v3, "sp_dc="
+
+    invoke-virtual {v2, v3}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+
+    move-result v2
+
+    if-eqz v2, :force_login
+
+    # Session proven and a real page already on screen: never reload (onResume
+    # must not restart the player while the user is listening).
+    goto :done
+
+    :force_login
+    # Unproven but a page is already loaded: reveal the login surface again,
+    # and reload the login URL only if the current page is not already it
+    # (avoids a reload loop on every resume).
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealLoginWebUi()V
+
+    const-string v2, "accounts.spotify.com"
+
+    invoke-virtual {v1, v2}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+
+    move-result v2
+
+    if-nez v2, :done
+
+    const/4 v1, 0x0
 
     :login_url
     const-string v1, "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&allow_signup=1"
@@ -5840,6 +5893,34 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
     :selfupd_done
 
+    # MEL-BUG-068: persist the Spotify session cookies to disk when the app
+    # leaves the foreground — without flush(), quitting the app loses sp_dc
+    # and the next launch looks logged out. Presence is never logged, only
+    # the write itself is forced.
+    :try_start_flush
+    invoke-static {}, Landroid/webkit/CookieManager;->getInstance()Landroid/webkit/CookieManager;
+
+    move-result-object v0
+
+    if-eqz v0, :flush_ok
+
+    const/4 v1, 0x1
+
+    invoke-virtual {v0, v1}, Landroid/webkit/CookieManager;->setAcceptCookie(Z)V
+
+    invoke-virtual {v0}, Landroid/webkit/CookieManager;->flush()V
+
+    :flush_ok
+    :try_end_flush
+    .catch Ljava/lang/Throwable; {:try_start_flush .. :try_end_flush} :catch_flush
+
+    goto :flush_done
+
+    :catch_flush
+    move-exception v0
+
+    :flush_done
+
     .line 2
     .line 3
     .line 4
@@ -7821,6 +7902,178 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 .end method
 
 
+.method public final onNativeDiagCopyClick(Landroid/view/View;)V
+    .locals 2
+
+    # MEL-BUG-068: header chip — copies the full internal diagnostic to the
+    # clipboard so it can be pasted in a bug report. Only presence flags and
+    # the internal journal are included; no token, cookie value or key ever is.
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->buildDiagnosticText()Ljava/lang/String;
+
+    move-result-object v0
+
+    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->copyTextToClipboard(Ljava/lang/String;)V
+
+    const-string v0, "Diagnostic copié dans le presse-papiers"
+
+    const/4 v1, 0x0
+
+    invoke-static {p0, v0, v1}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Landroid/widget/Toast;->show()V
+
+    return-void
+.end method
+
+.method private final buildDiagnosticText()Ljava/lang/String;
+    .locals 8
+
+    new-instance v0, Ljava/lang/StringBuilder;
+
+    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+
+    const-string v1, "Melodix diagnostic t="
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-static {}, Ljava/lang/System;->currentTimeMillis()J
+
+    move-result-wide v2
+
+    invoke-virtual {v0, v2, v3}, Ljava/lang/StringBuilder;->append(J)Ljava/lang/StringBuilder;
+
+    const-string v1, " ecran="
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+
+    if-eqz v1, :diag_no_screen
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    :diag_no_screen
+    const-string v1, " url="
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    iget-object v1, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+
+    if-eqz v1, :diag_no_url
+
+    invoke-virtual {v1}, Landroid/webkit/WebView;->getUrl()Ljava/lang/String;
+
+    move-result-object v4
+
+    if-eqz v4, :diag_url_null
+
+    invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    goto :diag_url_done
+
+    :diag_url_null
+    const-string v4, "null"
+
+    invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    goto :diag_url_done
+
+    :diag_no_url
+    const-string v4, "sans-webview"
+
+    invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    :diag_url_done
+    const-string v1, " auth="
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    sget-boolean v1, Lcom/melodix/music/AppSingleton;->B:Z
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Z)Ljava/lang/StringBuilder;
+
+    const-string v1, " cookie_sp_dc="
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    # Presence only — the cookie value is never read, logged or copied.
+    invoke-static {}, Landroid/webkit/CookieManager;->getInstance()Landroid/webkit/CookieManager;
+
+    move-result-object v4
+
+    const/4 v1, 0x0
+
+    if-eqz v4, :diag_no_cookie
+
+    const-string v5, "https://open.spotify.com/"
+
+    invoke-virtual {v4, v5}, Landroid/webkit/CookieManager;->getCookie(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v4
+
+    if-eqz v4, :diag_no_cookie
+
+    const-string v5, "sp_dc="
+
+    invoke-virtual {v4, v5}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+
+    move-result v1
+
+    :diag_no_cookie
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Z)Ljava/lang/StringBuilder;
+
+    const-string v1, " journal="
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    sget-object v1, Lcom/melodix/music/AppSingleton;->diagNative:Ljava/lang/String;
+
+    if-eqz v1, :diag_no_journal
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    :diag_no_journal
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    return-object v0
+.end method
+
+.method private final copyTextToClipboard(Ljava/lang/String;)V
+    .locals 3
+
+    :try_start_clip
+    const-string v0, "clipboard"
+
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+
+    move-result-object v0
+
+    check-cast v0, Landroid/content/ClipboardManager;
+
+    const-string v1, "Melodix diagnostic"
+
+    invoke-static {v1, p1}, Landroid/content/ClipData;->newPlainText(Ljava/lang/CharSequence;Ljava/lang/CharSequence;)Landroid/content/ClipData;
+
+    move-result-object v1
+
+    invoke-virtual {v0, v1}, Landroid/content/ClipboardManager;->setPrimaryClip(Landroid/content/ClipData;)V
+
+    :try_end_clip
+    .catch Ljava/lang/Throwable; {:try_start_clip .. :try_end_clip} :catch_clip
+
+    goto :clip_done
+
+    :catch_clip
+    move-exception v0
+
+    :clip_done
+    return-void
+.end method
+
 .method private final applyLoginWebUi(Ljava/lang/String;Ljava/lang/String;)V
     .locals 2
 
@@ -9218,6 +9471,15 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
     :md1_done
 
+    const-string v0, "copy-diagnostic"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :check_home_greeting
+    # MEL-BUG-068: the page asks for the full diagnostic to be copied.
+    invoke-virtual {p0, p2}, Lcom/melodix/music/MainActivity;->copyTextToClipboard(Ljava/lang/String;)V
+    return-void
+
+    :check_home_greeting
     const-string v0, "home-greeting"
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
@@ -9899,8 +10161,35 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     move-result v1
     # String.isEmpty() returns true for content rows; route them to NativeUiRowFactory.
     if-nez v1, :native_row_create_standard
+    # MEL-BUG-068: one malformed row must not crash the whole settings screen —
+    # a failing row is skipped (the diag journal keeps the failure visible).
+    :try_start_row
     invoke-static {p0, v6}, Lcom/melodix/music/NativeSettingsRowFactory;->create(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
     move-result-object v0
+    :try_end_row
+    .catch Ljava/lang/Throwable; {:try_start_row .. :try_end_row} :catch_row
+
+    goto :native_row_created
+
+    :catch_row
+    move-exception v0
+
+    const-string v0, "settings-row"
+
+    const-string v1, "row-create-failed"
+
+    invoke-static {}, Ljava/lang/System;->currentTimeMillis()J
+
+    move-result-wide v2
+
+    invoke-static {v2, v3}, Ljava/lang/Long;->toString(J)Ljava/lang/String;
+
+    move-result-object v2
+
+    invoke-static {v0, v1, v2}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+
+    # skip the broken row (v0 is not used at the increment label)
+    goto :native_row_increment
     # MEL-BUG-001 diagnostic: read the real geometry after layout.
     const-string v1, "mel_settings_row_height"
     invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeRowGeometryProbe;->attach(Landroid/content/Context;Landroid/view/View;Ljava/lang/String;)V

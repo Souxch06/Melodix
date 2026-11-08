@@ -133,10 +133,12 @@ test('ensureWebPageLoaded is idempotent, uses the same target and never hides a 
     assert.match(body, /getUrl\(\)Ljava\/lang\/String;/);
     assert.match(body, /if-eqz v1, :do_load/,
         'getUrl()==null doit aller directement au chargement, pas dereferencer null');
-    assert.match(body, /const-string v2, "about:blank"[\s\S]*invoke-virtual \{v2, v1\}, Ljava\/lang\/String;->equals\(Ljava\/lang\/Object;\)Z[\s\S]*move-result v1[\s\S]*if-eqz v1, :done/,
-        'about:blank se charge, une URL reelle ne se recharge pas');
-    assert.doesNotMatch(body, /if-nez v1, :do_load/,
-        'une URL reelle ne doit pas provoquer un rechargement');
+    assert.match(body, /const-string v2, "about:blank"[\s\S]*invoke-virtual \{v2, v1\}, Ljava\/lang\/String;->equals\(Ljava\/lang\/Object;\)Z[\s\S]*move-result v1[\s\S]*if-eqz v1, :proven_check/,
+        'about:blank se charge; une URL reelle passe par le controle de session (MEL-BUG-068)');
+    assert.match(body, /:proven_check[\s\S]*goto :done/,
+        'session prouvée + URL reelle = aucun rechargement (onResume ne coupe jamais la lecture)');
+    assert.match(body, /:force_login[\s\S]*revealLoginWebUi\(\)V[\s\S]*accounts\.spotify\.com[\s\S]*if-nez v2, :done/,
+        'session non prouvée + URL reelle = surface login réaffichée, rechargement seulement si la page courante n\'est pas déjà le login (pas de boucle)');
     assert.doesNotMatch(body, /invoke-virtual \{v1, v2\}, Ljava\/lang\/String;->equals/,
         'le code ne doit jamais invoquer equals sur une URL potentiellement nulle');
     assert.match(body, /:do_load/);

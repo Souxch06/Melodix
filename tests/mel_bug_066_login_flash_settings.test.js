@@ -86,6 +86,7 @@ test('MEL-BUG-067b: missing sp_dc cookie forces the login screen first, even wit
   const main = read('smali/com/melodix/music/MainActivity.smali');
   const at = main.indexOf('sget-boolean v1, Lcom/melodix/music/MainActivity;->l0:Z');
   const block = main.slice(at, main.indexOf(':have_url', at));
+  assert.match(main, /:proven_check[\s\S]*:force_login[\s\S]*revealLoginWebUi/, 'force_login réaffiche la surface login même avec une URL déjà chargée');
   assert.match(block, /invoke-static \{\}, Landroid\/webkit\/CookieManager;->getInstance\(\)Landroid\/webkit\/CookieManager;/);
   assert.match(block, /CookieManager;->getCookie\(Ljava\/lang\/String;\)Ljava\/lang\/String;\s*\n\s*move-result-object v2\s*\n\s*if-eqz v2, :login_url/,
     'no cookie string -> login URL');

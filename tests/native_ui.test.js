@@ -1161,7 +1161,7 @@ test('native row dispatch branches on settingValue emptiness before selecting a 
     const activity = read('smali/com/melodix/music/MainActivity.smali');
     const start = activity.lastIndexOf(':native_row_build_card');
     assert.ok(start > 0, 'the row dispatch label should exist');
-    const dispatch = activity.slice(start, start + 1400);
+    const dispatch = activity.slice(start, start + 2600);
 
     assert.match(dispatch, /const-string v0, "settingValue"[\s\S]*?isEmpty\(\)Z[\s\S]*?move-result v1/);
     assert.match(dispatch, /if-nez v1, :native_row_create_standard/,

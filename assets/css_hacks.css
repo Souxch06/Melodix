@@ -2061,3 +2061,65 @@ body.sf-melodix-home-style-probe #sf-melodix-home {
         margin: 6px 0 !important;
     }
 }
+
+/* ===== MEL-BUG-068: polish pass (visual only, no behaviour change) ===== */
+/* Login page: centered glass feel on accounts.spotify.com */
+body.login-page, body:has(form[action*="login"]) {
+    background: radial-gradient(1200px 600px at 50% -10%, var(--mel-accent-wash-14), transparent 60%),
+                linear-gradient(180deg, var(--mel-bg-2) 0%, var(--mel-bg) 100%) !important;
+}
+form[action*="login"] input[type="text"],
+form[action*="login"] input[type="email"],
+form[action*="login"] input[type="password"] {
+    border-radius: 12px !important;
+    border: 1px solid var(--mel-scrim-24) !important;
+    background: var(--mel-accent-wash-09) !important;
+    transition: border-color .15s ease, box-shadow .15s ease !important;
+}
+form[action*="login"] input:focus {
+    border-color: var(--mel-accent) !important;
+    box-shadow: 0 0 0 3px var(--mel-accent-wash-25) !important;
+    outline: none !important;
+}
+button[type="submit"], input[type="submit"], [data-testid="login-button"] {
+    border-radius: 999px !important;
+    font-weight: 700 !important;
+    letter-spacing: .02em !important;
+    background: linear-gradient(135deg, var(--mel-accent), var(--mel-accent-deep)) !important;
+    box-shadow: 0 6px 18px var(--mel-accent-wash-40, var(--mel-accent-strong)) !important;
+    transition: transform .12s ease, box-shadow .12s ease, filter .12s ease !important;
+}
+button[type="submit"]:hover, input[type="submit"]:hover, [data-testid="login-button"]:hover {
+    filter: brightness(1.08) !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 10px 24px var(--mel-accent-strong) !important;
+}
+button[type="submit"]:active, input[type="submit"]:active {
+    transform: translateY(0) scale(.98) !important;
+}
+/* Web player: softer scrollbars, visible focus, livelier cards */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb {
+    background: var(--mel-scrim-28);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--mel-accent-wash-40, var(--mel-accent-strong)); background-clip: padding-box; border: 2px solid transparent; }
+::-webkit-scrollbar-track { background: transparent; }
+:focus-visible {
+    outline: 2px solid var(--mel-accent) !important;
+    outline-offset: 2px !important;
+    border-radius: 8px !important;
+}
+[class*="card"], [data-testid*="card"] {
+    border-radius: 16px !important;
+    transition: transform .15s ease, box-shadow .15s ease !important;
+}
+[class*="card"]:hover, [data-testid*="card"]:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 12px 32px var(--mel-scrim-60) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; animation: none !important; }
+}
