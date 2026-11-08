@@ -106,9 +106,18 @@ jobs:
           framework_apk="$GITHUB_WORKSPACE/android/apktool-framework/1.apk"
           [[ -s "$framework_apk" ]] || { echo "::error::Apktool framework is missing."; exit 1; }
 
-          curl --fail --silent --show-error --location \
-            "https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar" \
-            --output "$RUNNER_TEMP/apktool.jar"
+          # Release-asset downloads are occasionally throttled (HTTP error ->
+          # curl exit 22): retry a few times before giving up.
+          ok=""
+          for attempt in 1 2 3 4 5; do
+            if curl --fail --silent --show-error --location \
+              "https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar" \
+              --output "$RUNNER_TEMP/apktool.jar"; then ok=1; break; fi
+            echo "::warning title=apktool download::attempt $attempt failed, retrying"
+            sleep 20
+          done
+          [[ -n "$ok" && -s "$RUNNER_TEMP/apktool.jar" ]] || {
+            echo "::error::apktool 2.9.3 jar could not be downloaded after 5 attempts."; exit 1; }
           java -jar "$RUNNER_TEMP/apktool.jar" if --frame-path "$framework" "$framework_apk"
           java -jar "$RUNNER_TEMP/apktool.jar" b "$work" \
             --frame-path "$framework" --output "$unsigned" --force-all
