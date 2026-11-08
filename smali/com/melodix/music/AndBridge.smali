@@ -1589,7 +1589,7 @@
     # and gates=0/0/0: the proof had flipped and nothing said so. Every flip is
     # now journaled. Arg 3 is null: no page data, no cookie, no URL.
     const-string v0, "proof"
-    const-string v1, "bridge-login"
+    const-string v1, "set bridge-login"
     const/4 p0, 0x0
     invoke-static {v0, v1, p0}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
     .line 1

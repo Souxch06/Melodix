@@ -27,7 +27,8 @@ test('MEL-BUG-075a: the single writer of the session proof journals every flip',
   const login = method(bridge, '.method public final loginDetected()V');
   // The journal line must come BEFORE the flag is set, otherwise a crash between
   // the two would leave an unexplained proof again.
-  const journalAt = login.indexOf('const-string v1, "bridge-login"');
+  // MEL-BUG-078: the label now says WHICH writer flipped the proof.
+  const journalAt = login.indexOf('const-string v1, "set bridge-login"');
   const setAt = login.indexOf('sput-boolean p0, Lcom/melodix/music/AppSingleton;->B:Z');
   assert.ok(journalAt > 0, 'le flip de preuve est journalise');
   assert.ok(setAt > journalAt, 'le journal precede l ecriture du drapeau');

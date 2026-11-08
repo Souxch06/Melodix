@@ -5500,6 +5500,19 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
     .line 130
     .line 131
+    # MEL-BUG-078: trace every flip of the session proof. Fixed label only —
+    # no value, no URL, no cookie: the journal stays copyable.
+    :try_start_clear-resume
+    const-string v0, "proof"
+    const-string v1, "clear-resume"
+    const/4 v2, 0x0
+    invoke-static {v0, v1, v2}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    :try_end_clear-resume
+    .catch Ljava/lang/Throwable; {:try_start_clear-resume .. :try_end_clear-resume} :catch_clear-resume
+    goto :clear-resume_done
+    :catch_clear-resume
+    move-exception v0
+    :clear-resume_done
     sput-boolean v3, Lcom/melodix/music/AppSingleton;->B:Z
 
     .line 132
@@ -5635,6 +5648,19 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
     .line 193
     .line 194
+    # MEL-BUG-078: trace every flip of the session proof. Fixed label only —
+    # no value, no URL, no cookie: the journal stays copyable.
+    :try_start_clear-resume-2
+    const-string v0, "proof"
+    const-string v1, "clear-resume-2"
+    const/4 v2, 0x0
+    invoke-static {v0, v1, v2}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    :try_end_clear-resume-2
+    .catch Ljava/lang/Throwable; {:try_start_clear-resume-2 .. :try_end_clear-resume-2} :catch_clear-resume-2
+    goto :clear-resume-2_done
+    :catch_clear-resume-2
+    move-exception v0
+    :clear-resume-2_done
     sput-boolean v3, Lcom/melodix/music/AppSingleton;->B:Z
 
     .line 195
@@ -8989,7 +9015,13 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     :show_gate_marker_cleared
     const-string v1, "show-native"
     const-string v2, "dropped-unproven"
-    iget-object v3, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    # MEL-BUG-078b: carry the proof value this refusal was decided with, so the
+    # journal and the header can be reconciled instead of contradicting.
+    const-string v3, "authF"
+    sget-boolean v4, Lcom/melodix/music/AppSingleton;->B:Z
+    if-eqz v4, :show_gate_proof_word
+    const-string v3, "authT"
+    :show_gate_proof_word
     invoke-static {v1, v2, v3}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
     # Unproven: (re)assert the login surface and return. No navigation happens
     # here, so this can never loop.
@@ -9277,7 +9309,13 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     iput v2, p0, Lcom/melodix/music/MainActivity;->diagRouteDropped:I
     const-string v2, "screen"
     const-string v3, "dropped-unproven"
-    invoke-static {v2, v3, p1}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    # MEL-BUG-078b: same carried state as the other two gates.
+    const-string v4, "authF"
+    sget-boolean v5, Lcom/melodix/music/AppSingleton;->B:Z
+    if-eqz v5, :screen_gate_proof_word
+    const-string v4, "authT"
+    :screen_gate_proof_word
+    invoke-static {v2, v3, v4}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealLoginWebUi()V
     return-void
     :native_screen_proven
@@ -9609,7 +9647,13 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     :route_gate_marker_cleared
     const-string v1, "route"
     const-string v2, "dropped-unproven"
-    invoke-static {v1, v2, p1}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    # MEL-BUG-078b: same carried state as the show gate.
+    const-string v3, "authF"
+    sget-boolean v4, Lcom/melodix/music/AppSingleton;->B:Z
+    if-eqz v4, :route_gate_proof_word
+    const-string v3, "authT"
+    :route_gate_proof_word
+    invoke-static {v1, v2, v3}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
     return-void
 
     :native_route_activation_gate_done
@@ -10696,7 +10740,13 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     iput v0, p0, Lcom/melodix/music/MainActivity;->diagPayloadDropped:I
     const-string v1, "rows"
     const-string v2, "dropped-unproven"
-    invoke-static {v1, v2, p1}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    # MEL-BUG-078b: fourth refusal, same carried state as the three others.
+    const-string v3, "authF"
+    sget-boolean v0, Lcom/melodix/music/AppSingleton;->B:Z
+    if-eqz v0, :rows_gate_proof_word
+    const-string v3, "authT"
+    :rows_gate_proof_word
+    invoke-static {v1, v2, v3}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
     return-void
 .end method
 

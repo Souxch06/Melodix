@@ -662,6 +662,19 @@
     .line 247
     # Startup never trusts a persisted login marker: auth always starts
     # unconfirmed and is confirmed later by the account and player UI.
+    # MEL-BUG-078: trace every flip of the session proof. Fixed label only —
+    # no value, no URL, no cookie: the journal stays copyable.
+    :try_start_clear-oncreate
+    const-string v0, "proof"
+    const-string v1, "clear-oncreate"
+    const/4 v2, 0x0
+    invoke-static {v0, v1, v2}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    :try_end_clear-oncreate
+    .catch Ljava/lang/Throwable; {:try_start_clear-oncreate .. :try_end_clear-oncreate} :catch_clear-oncreate
+    goto :clear-oncreate_done
+    :catch_clear-oncreate
+    move-exception v0
+    :clear-oncreate_done
     const/4 v0, 0x0
 
     sput-boolean v0, Lcom/melodix/music/AppSingleton;->B:Z
