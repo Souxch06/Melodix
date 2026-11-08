@@ -22,7 +22,7 @@ test('MEL-BUG-068a: onStop flushes the session cookies to disk (quit must not lo
 
 test('MEL-BUG-068b: login is forced at every launch/resume while the session is unproven', () => {
   const body = method(main, '.method public final ensureWebPageLoaded()V');
-  assert.match(body, /move-object v3, v1[\s\S]*:force_login[\s\S]*invoke-virtual \{v3, v2\}, Ljava\/lang\/String;->contains[\s\S]*if-nez v2, :done/,
+  assert.match(body, /:force_login[\s\S]*WebView;->getUrl\(\)Ljava\/lang\/String;[\s\S]*invoke-virtual \{v1, v2\}, Ljava\/lang\/String;->contains[\s\S]*if-nez v2, :done/,
     'URL réelle + session non prouvée -> revealLoginWebUi, rechargement login seulement si la page courante n\'est pas déjà le login');
   assert.match(body, /:proven_check[\s\S]*goto :done/,
     'session prouvée -> aucun rechargement (lecture jamais interrompue)');
