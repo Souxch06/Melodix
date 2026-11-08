@@ -2603,3 +2603,58 @@ body.mx-glass-off #sf-mobile-nav {
 #global-nav-bar input[data-testid="search-input"]::placeholder {
     color: var(--mel-text-dim) !important;
 }
+
+/* --- 10.11 The mini player --------------------------------------------- */
+/* The phone mini player keeps the geometry the touch shell already gave it
+   (fixed, 10px side insets, 68px tall, 78px above the safe area, z-index
+   10015). This step only repaints it: glass recipe, 28px radius, artwork and
+   title tuned, and the progress bar becomes a 3px gradient hairline.
+   Nothing is hidden here that was visible before. */
+body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] {
+    border: 1px solid var(--mel-glass-border) !important;
+    border-radius: var(--mel-radius-sheet) !important;
+    background-color: var(--mel-glass-scrim) !important;
+    box-shadow: var(--mel-glass-shadow), var(--mel-shadow-card) !important;
+    -webkit-backdrop-filter: blur(var(--mel-glass-blur)) saturate(var(--mel-glass-saturate)) !important;
+    backdrop-filter: blur(var(--mel-glass-blur)) saturate(var(--mel-glass-saturate)) !important;
+}
+
+/* Cover: a 12px rounded tile, slightly inset from the pill edge. */
+body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] [data-testid="CoverSlotCollapsed__container"] {
+    border-radius: var(--mel-radius-art) !important;
+}
+
+/* Track title / artist: the hierarchy the rest of the app uses. */
+body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] [data-testid="now-playing-widget"] a,
+body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] [data-testid="now-playing-widget"] span {
+    color: var(--mel-text) !important;
+}
+
+body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] [data-testid="now-playing-widget"] a:hover {
+    color: var(--mel-text) !important;
+    text-decoration: underline !important;
+}
+
+/* Play / pause: the brand gradient, round, with a soft halo. */
+body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] button[data-testid="control-button-playpause"] {
+    background-image: var(--mel-accent-grad) !important;
+    background-color: transparent !important;
+    color: var(--mel-text-on-accent) !important;
+    box-shadow: var(--mel-shadow-accent) !important;
+    transition: transform var(--mel-dur) var(--mel-ease-out),
+                box-shadow var(--mel-dur) var(--mel-ease-out) !important;
+}
+
+body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] button[data-testid="control-button-playpause"]:active {
+    transform: scale(0.92) !important;
+}
+
+body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] button[data-testid="control-button-playpause"] svg {
+    fill: var(--mel-text-on-accent) !important;
+}
+
+/* The thin progress line under the pill, when Spotify renders it: gradient,
+   rounded, never taller than 3px so the row height cannot change. */
+body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] [data-testid="playback-progressbar"] {
+    border-radius: var(--mel-radius-pill) !important;
+}

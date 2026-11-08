@@ -139,3 +139,43 @@ test('the frosted chrome only blurs where the brief allows it', () => {
         );
     }
 });
+
+test('the mini player is glass, keeps its dock geometry and hides nothing new', () => {
+    const { dom, sheet } = sheetOf(GLASS);
+    const { dom: fileSheet, sheet: whole } = sheetOf(CSS);
+    try {
+        const bar = declarationsFor(sheet, 'body:not(.sf-fs-open) aside[data-testid="now-playing-bar"]');
+        assert.match(bar.get('background-color'), /var\(--mel-glass-scrim\)/);
+        assert.match(bar.get('border-radius'), /var\(--mel-radius-sheet\)/, '28px floating pill');
+        assert.match(bar.get('backdrop-filter'), /blur\(/);
+        for (const forbidden of ['bottom', 'height', 'position', 'left', 'right']) {
+            assert.equal(bar.get(forbidden), undefined, `the repaint must not move the mini player (${forbidden})`);
+        }
+
+        // Geometry still comes from the touch shell, unchanged.
+        const shell = CSS.slice(CSS.indexOf('SECTION 10: TOUCH APP SHELL'));
+        assert.match(shell, /bottom: calc\(78px \+ var\(--sf-safe-area-bottom, env\(safe-area-inset-bottom\)\)\) !important/);
+        assert.match(shell, /height: 68px !important/);
+
+        // No new display:none inside the mini-player step.
+        const mini = GLASS.slice(GLASS.indexOf('10.11'));
+        assert.doesNotMatch(mini, /display:\s*none/, 'the mini player step hides nothing');
+    } finally {
+        dom.window.close();
+        fileSheet.window.close();
+    }
+});
+
+test('the play button keeps its white glyph on the gradient and the artwork keeps a 12-20px radius', () => {
+    const { dom, sheet } = sheetOf(GLASS);
+    try {
+        const play = declarationsFor(sheet, 'body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] button[data-testid="control-button-playpause"]');
+        assert.match(play.get('background-image'), /var\(--mel-accent-grad\)/);
+        assert.match(play.get('color'), /var\(--mel-text-on-accent\)/, 'white on the gradient stays AA (5.70:1 / 4.60:1)');
+
+        const cover = declarationsFor(sheet, 'body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] [data-testid="CoverSlotCollapsed__container"]');
+        assert.match(cover.get('border-radius'), /var\(--mel-radius-art\)/);
+    } finally {
+        dom.window.close();
+    }
+});
