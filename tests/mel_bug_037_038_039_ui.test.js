@@ -111,8 +111,8 @@ test('MEL-BUG-059: header hairline drawable exists, palette-only, and is wired i
 test('MEL-BUG-061: login UI zoom + login-first when session unproven', () => {
   const main = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/MainActivity.smali'), 'utf8');
   const login = main.slice(main.indexOf('.method private final applyLoginWebUi'), main.indexOf('.end method', main.indexOf('.method private final applyLoginWebUi')));
-  assert.match(login, /const\/16 v1, 0x8c\s*\n\s*invoke-virtual \{v0, v1\}, Landroid\/webkit\/WebSettings;->setTextZoom\(I\)V/,
-    'login UI zoomed to 140%');
+  assert.match(login, /const\/16 v1, 0xb4\s*\n\s*invoke-virtual \{v0, v1\}, Landroid\/webkit\/WebSettings;->setTextZoom\(I\)V/,
+    'login UI zoomed to 180% (MEL-BUG-067)');
   const show = main.slice(main.indexOf('.method public final showNativeUiFrom'), main.indexOf('.end method', main.indexOf('.method public final showNativeUiFrom')));
   assert.match(show, /const\/16 v1, 0x64\s*\n\s*invoke-virtual \{v0, v1\}, Landroid\/webkit\/WebSettings;->setTextZoom\(I\)V/,
     'native shell resets zoom to 100%');

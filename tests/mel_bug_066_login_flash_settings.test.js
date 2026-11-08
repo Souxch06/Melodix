@@ -63,10 +63,36 @@ test('MEL-BUG-066b: ON/OFF switch renders a real two-state track', () => {
   const at = f.indexOf('\n    :native_settings_switch_build\n');
   assert.ok(at >= 0);
   const sw = f.slice(at, f.indexOf('\n    :native_settings_pill_text\n', at));
-  assert.match(sw, /const v2, 0x101009c/, 'state_checked in the state list');
+  assert.match(sw, /const v13, 0x101009c/, 'state_checked in the state list');
+  assert.doesNotMatch(sw, /const v2, |new-instance v2, |aput [^,]+, v2,/, 'the row register v2 is never clobbered (crash fix)');
   assert.match(sw, /MelColors;->accent:I[\s\S]*?MelColors;->surfaceBtn:I[\s\S]*?ColorStateList;-><init>\(\[\[I\[I\)V/,
     'track colors = [checked: accent, default: surfaceBtn]');
   assert.match(sw, /setTrackTintList/, 'track tinted from the state list');
   assert.match(sw, /MelColors;->textPrimary:I[\s\S]*?setThumbTintList/, 'thumb white for contrast');
   assert.match(sw, /Switch;->setChecked\(Z\)V/, 'checked state still driven by ON/OFF');
+});
+
+test('MEL-BUG-067a: login page zoom is 180% and reset stays 100% on the native shell', () => {
+  const main = read('smali/com/melodix/music/MainActivity.smali');
+  const login = method(main, '.method private final applyLoginWebUi(');
+  assert.match(login, /const\/16 v1, 0xb4\s*\n\s*invoke-virtual \{v0, v1\}, Landroid\/webkit\/WebSettings;->setTextZoom\(I\)V/,
+    'login zoom 180%');
+  const show = method(main, '.method public final showNativeUiFrom(');
+  assert.match(show, /const\/16 v1, 0x64\s*\n\s*invoke-virtual \{v0, v1\}, Landroid\/webkit\/WebSettings;->setTextZoom\(I\)V/,
+    'native shell still resets zoom to 100%');
+});
+
+test('MEL-BUG-067b: missing sp_dc cookie forces the login screen first, even with a persisted marker', () => {
+  const main = read('smali/com/melodix/music/MainActivity.smali');
+  const at = main.indexOf('sget-boolean v1, Lcom/melodix/music/MainActivity;->l0:Z');
+  const block = main.slice(at, main.indexOf(':have_url', at));
+  assert.match(block, /invoke-virtual \{p0\}, Lcom\/melodix\/music\/MainActivity;->hasProvenSessionCookie\(\)Z\s*\n\s*move-result v1\s*\n\s*if-eqz v1, :login_url/,
+    'no proven cookie -> login URL + revealLoginWebUi, regardless of persisted markers');
+  assert.match(block, /const-string v1, "https:\/\/open\.spotify\.com\/"/, 'cookie present -> player URL as before');
+  const helper = method(main, '.method private final hasProvenSessionCookie()Z');
+  assert.match(helper, /CookieManager;->getInstance\(\)Landroid\/webkit\/CookieManager;/);
+  assert.match(helper, /const-string v1, "sp_dc="\s*\n\s*invoke-virtual \{v0, v1\}, Ljava\/lang\/String;->contains\(Ljava\/lang\/CharSequence;\)Z/,
+    'only the presence of the sp_dc cookie is tested');
+  assert.doesNotMatch(helper, /getAllCookies|getCookie\("[^"]*sp_dc|Log\.|println/,
+    'the cookie value is never read, logged or stored');
 });

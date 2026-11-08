@@ -218,7 +218,7 @@ test('MEL-BUG-062: ON/OFF values render as a styled Switch in settings rows', ()
   assert.match(sw, /new-instance v11, Landroid\/widget\/Switch;/);
   assert.match(sw, /Switch;->setChecked\(Z\)V/);
   assert.match(sw, /MelColors;->textPrimary:I[\s\S]*?setThumbTintList/, 'thumb = white (readable)');
-  assert.match(sw, /const v2, 0x101009c[\s\S]*?MelColors;->accent:I[\s\S]*?MelColors;->surfaceBtn:I[\s\S]*?ColorStateList;-><init>\(\[\[I\[I\)V[\s\S]*?setTrackTintList/,
+  assert.match(sw, /const v13, 0x101009c[\s\S]*?MelColors;->accent:I[\s\S]*?MelColors;->surfaceBtn:I[\s\S]*?ColorStateList;-><init>\(\[\[I\[I\)V[\s\S]*?setTrackTintList/,
     'track = state list: accent when checked, surfaceBtn when off (MEL-BUG-066)');
   assert.match(sw, /setClickable\(Z\)V\s*\n\s*invoke-virtual \{v11, v0\}, Landroid\/view\/View;->setFocusable\(Z\)V/,
     'switch itself not clickable (the row dispatches the toggle)');
