@@ -12,6 +12,31 @@ La Preview est une application d'essai séparée, d'identifiant `com.melodix.mus
 
 La compilation et la vérification de signature/package ont réussi pour la test.3; aucun appareil ni émulateur n'a été testé pour cette version. Sur Android, ouvre la release test.3, télécharge l'APK puis touche le fichier téléchargé pour l'installer.
 
+## Refonte visuelle « liquid glass » (v1.3.1)
+
+Le thème de l'application est défini en fin de `assets/css_hacks.css`, dans la
+**SECTION 10: MELODIX GLASS THEME** : elle arrive après toutes les autres
+règles, donc la cascade la fait gagner sans réécrire l'existant, et elle ne
+supprime aucune règle de masquage, de safe-area ou de mode `sf-*`.
+
+- violet/magenta (`#7C3AED` → `#DB2777`) en dégradé, accent lisible `#A78BFA` ;
+- fond `#0B0B14` avec deux lueurs radiales, verre dépoli sur la barre du haut,
+  le mini-lecteur, la barre d'onglets, le tiroir bibliothèque et le lecteur
+  plein écran — et nulle part ailleurs ;
+- la pile tactile du bas est calculée à partir de quatre tokens
+  (`--sf-dock-h`, `--sf-mini-gap`, `--sf-mini-h`, `--sf-stack-gap`) ;
+- côté natif, `colors.xml` et `MelColors.smali` portent la même palette, les
+  barres système utilisent `mel_background`, et l'icône adaptative est dérivée
+  de `android/branding/melodix-icon-master.png`.
+
+Les tokens, la recette du verre, la table composant → sélecteurs et la
+fragilité de chaque sélecteur sont documentés dans
+[`docs/ui-design-system.md`](docs/ui-design-system.md). Les tests
+`tests/mel_glass_theme.test.js`, `tests/css_theme_integrity.test.js`,
+`tests/smali_sanity.test.js` et `tests/mel_design_system.test.js` verrouillent
+la palette unique, la parité CSS ↔ natif, les contrastes AA et le fait que le
+flou reste confiné aux surfaces autorisées.
+
 ## Arborescence
 
 - `source/SpotiDuck-v1.2.2-3d2c473.zip` : archive originale, **inchangée**.
