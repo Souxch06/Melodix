@@ -2148,8 +2148,10 @@
     # MEL-BUG-080: the only owner of the tracing registers.
     :try_start_proof_trace
     const-string v0, "proof"
-    const/4 v1, 0x0
-    invoke-static {v0, p0, v1}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    # MEL-BUG-082: pass the String parameter itself as the 3rd argument. A
+    # `const/4 0x0` is typed *int* by the verifier, so handing it to a String
+    # parameter is a type error — that mistake rejected the whole class twice.
+    invoke-static {v0, p0, p0}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
     :try_end_proof_trace
     .catch Ljava/lang/Throwable; {:try_start_proof_trace .. :try_end_proof_trace} :catch_proof_trace
     return-void
@@ -2303,7 +2305,10 @@
 
     const-string v1, "proof"
 
-    invoke-static {v1, v2, v0}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    # MEL-BUG-082: v0 still holds the StringBuilder here, and v1 becomes an int
+    # after the append. The only register that is certainly a String is p0, the
+    # label itself — pass it as the 3rd argument.
+    invoke-static {v1, v2, p0}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
     :try_end_proof_value
     .catch Ljava/lang/Throwable; {:try_start_proof_value .. :try_end_proof_value} :catch_proof_value
     return-void
