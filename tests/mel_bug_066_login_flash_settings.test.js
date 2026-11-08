@@ -41,8 +41,11 @@ test('MEL-BUG-066a: JS-driven callbacks cannot close the login surface before it
   const main = read('smali/com/melodix/music/MainActivity.smali');
   for (const name of ['postNativeUiReady', 'postNativeUiRoute']) {
     const m = method(main, '.method public final ' + name + '(');
-    assert.match(m, /iget-boolean v0, p0, Lcom\/melodix\/music\/MainActivity;->nativeLoginPageCommitted:Z\s*\n\s*if-eqz v0, :native_login_gate_done_keep\s*\n\s*const\/4 v0, 0x0\s*\n\s*iput-boolean v0, p0, Lcom\/melodix\/music\/MainActivity;->nativeLoginWebRequested:Z/,
-      name + ' clears the login flag only after the login page committed');
+    // MEL-BUG-069: the committed marker is still required, and it is no longer
+    // sufficient — the session must also be proven (or the page must be the
+    // local shell asset) before the login surface is released.
+    assert.match(m, /iget-boolean v0, p0, Lcom\/melodix\/music\/MainActivity;->nativeLoginPageCommitted:Z\s*\n\s*if-eqz v0, :native_login_gate_done_keep[\s\S]*?sget-boolean v0, Lcom\/melodix\/music\/AppSingleton;->B:Z\s*\n\s*if-nez v0, :native_login_gate_done_keep[\s\S]*?const\/4 v0, 0x0\s*\n\s*iput-boolean v0, p0, Lcom\/melodix\/music\/MainActivity;->nativeLoginWebRequested:Z/,
+      name + ' clears the login flag only after the login page committed AND the session is proven');
   }
   // page-finished still closes the surface on a real non-login page (post-login redirect)
   const fin = method(main, '.method public final onWebViewPageFinished(');
@@ -63,7 +66,9 @@ test('MEL-BUG-066b: ON/OFF switch renders a real two-state track', () => {
   const at = f.indexOf('\n    :native_settings_switch_build\n');
   assert.ok(at >= 0);
   const sw = f.slice(at, f.indexOf('\n    :native_settings_pill_text\n', at));
-  assert.match(sw, /const v13, 0x101009c/, 'state_checked in the state list');
+  // MEL-BUG-069: the state attribute lives in a scalar (v1) that is stored into
+  // the int[] states element, because the int[] arrays must receive ints.
+  assert.match(sw, /const v1, 0x101009c[\s\S]*?aput v1, v0, v3/, 'state_checked in the state list');
   assert.doesNotMatch(sw, /const v2, |new-instance v2, |aput [^,]+, v2,/, 'the row register v2 is never clobbered (crash fix)');
   assert.match(sw, /MelColors;->accent:I[\s\S]*?MelColors;->surfaceBtn:I[\s\S]*?ColorStateList;-><init>\(\[\[I\[I\)V/,
     'track colors = [checked: accent, default: surfaceBtn]');
@@ -72,11 +77,13 @@ test('MEL-BUG-066b: ON/OFF switch renders a real two-state track', () => {
   assert.match(sw, /Switch;->setChecked\(Z\)V/, 'checked state still driven by ON/OFF');
 });
 
-test('MEL-BUG-067a: login page zoom is 180% and reset stays 100% on the native shell', () => {
+test('MEL-BUG-067a: login page zoom is mobile-sized and reset stays 100% on the native shell', () => {
   const main = read('smali/com/melodix/music/MainActivity.smali');
   const login = method(main, '.method private final applyLoginWebUi(');
-  assert.match(login, /const\/16 v1, 0xb4\s*\n\s*invoke-virtual \{v0, v1\}, Landroid\/webkit\/WebSettings;->setTextZoom\(I\)V/,
-    'login zoom 180%');
+  // MEL-BUG-069: the login surface now uses a mobile viewport with a light
+  // 125% text zoom instead of the 180% blow-up on a desktop-width column.
+  assert.match(login, /const\/16 v1, 0x7d\s*\n\s*invoke-virtual \{v0, v1\}, Landroid\/webkit\/WebSettings;->setTextZoom\(I\)V/,
+    'login zoom 125% + viewport mobile');
   const show = method(main, '.method public final showNativeUiFrom(');
   assert.match(show, /const\/16 v1, 0x64\s*\n\s*invoke-virtual \{v0, v1\}, Landroid\/webkit\/WebSettings;->setTextZoom\(I\)V/,
     'native shell still resets zoom to 100%');

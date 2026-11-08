@@ -7329,12 +7329,31 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     move-result v0
     if-nez v0, :native_ready_clear_login
     goto :native_ready_login_gate_done
+    # MEL-BUG-069 fix (login must stay first while the session is unproven):
+    # the old gate closed the login surface as soon as a real page loaded and
+    # the login page had committed. A browser-valid `sp_dc` cookie makes Spotify
+    # auto-continue the login URL to open.spotify.com/?flow_ctx=... while
+    # AppSingleton.B stays false (session never PROVEN by libraryV3), so the
+    # native home was revealed over an unproven session — the exact report
+    # "ecran=home ... auth=false cookie_sp_dc=true". The login surface now
+    # survives an unproven auto-continue: it is only released once the session
+    # is proven (AppSingleton.B set by the real libraryV3 proof) or once the
+    # shell itself runs on the player host (the native UI needs the shell page).
     :native_ready_clear_login
     # MEL-BUG-066: never close the login surface before the login page itself
     # has committed — a callback from the previous page mid-navigation would
     # flash the native home over the loading login form.
     iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginPageCommitted:Z
     if-eqz v0, :native_login_gate_done_keep
+    # MEL-BUG-069: keep the login surface unless the session is proven.
+    sget-boolean v0, Lcom/melodix/music/AppSingleton;->B:Z
+    if-nez v0, :native_login_gate_done_keep
+    # A local shell page (file:///android_asset) is not a remote login flow: the
+    # native UI needs it, so ownership is handed back for that page only.
+    const-string v2, "file://"
+    invoke-virtual {v1, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v0
+    if-nez v0, :native_login_gate_done_keep
     const/4 v0, 0x0
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginWebRequested:Z
     :native_login_gate_done_keep
@@ -7451,6 +7470,32 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     return-void
 
     :native_login_route_finished
+    # MEL-BUG-069 fix: this is the page-finished twin of the postNativeUiReady
+    # gate. A browser-valid `sp_dc` cookie makes Spotify auto-continue the login
+    # URL to open.spotify.com/?flow_ctx=... while AppSingleton.B is still false
+    # (no libraryV3 proof), and this branch used to release the login surface
+    # immediately — hence "ecran=home ... auth=false". An unproven remote page
+    # keeps the login surface; only a proven session (or the local shell asset,
+    # which the native UI needs) hands the foreground back.
+    sget-boolean v0, Lcom/melodix/music/AppSingleton;->B:Z
+    if-eqz v0, :native_login_route_proven
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+    if-eqz v0, :native_login_route_proven
+    invoke-virtual {v0}, Landroid/webkit/WebView;->getUrl()Ljava/lang/String;
+    move-result-object v1
+    if-eqz v1, :native_login_route_proven
+    const-string v2, "file://"
+    invoke-virtual {v1, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v0
+    if-eqz v0, :native_login_route_proven
+    # Unproven remote page: keep (and re-assert) the login surface. No reload
+    # happens here, so this cannot loop.
+    const-string v1, "page-finished-unproven-keep-login"
+    const-string v2, "webview"
+    invoke-direct {p0, v1, v2}, Lcom/melodix/music/MainActivity;->applyLoginWebUi(Ljava/lang/String;Ljava/lang/String;)V
+    return-void
+
+    :native_login_route_proven
     const/4 v0, 0x0
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginWebRequested:Z
 
@@ -8127,15 +8172,31 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     :login_owner_trace
     const/4 v0, 0x0
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->melodixWebHomeActive:Z
-    # MEL-BUG-061: the accounts.spotify.com login form renders tiny in the
-    # WebView — zoom it so it is usable without pinch-zoom.
+    # MEL-BUG-069: the accounts.spotify.com login form rendered in a narrow
+    # desktop-column width: the shared WebView factory (m9.a) forces
+    # setUseWideViewPort(false) + setLoadWithOverviewMode(false), so the page
+    # kept its desktop layout scaled down inside the phone width. The login
+    # surface is the one place that needs a mobile viewport: enable the wide
+    # viewport + overview mode so Spotify serves its mobile layout at 100%,
+    # and keep only a light text zoom (125%) instead of the old 180% blow-up.
+    # The native shell path restores both flags to false (see the shell branch).
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
     if-eqz v0, :login_zoom_done
     invoke-virtual {v0}, Landroid/webkit/WebView;->getSettings()Landroid/webkit/WebSettings;
     move-result-object v0
     if-eqz v0, :login_zoom_done
-    const/16 v1, 0xb4
+    const/4 v1, 0x1
+    invoke-virtual {v0, v1}, Landroid/webkit/WebSettings;->setUseWideViewPort(Z)V
+    invoke-virtual {v0, v1}, Landroid/webkit/WebSettings;->setLoadWithOverviewMode(Z)V
+    const/16 v1, 0x7d
     invoke-virtual {v0, v1}, Landroid/webkit/WebSettings;->setTextZoom(I)V
+    # Mobile-width layout: the login page must be measured against the phone
+    # width, not the desktop 980px default viewport.
+    const/4 v1, 0x1
+    invoke-virtual {v0, v1}, Landroid/webkit/WebSettings;->setSupportZoom(Z)V
+    invoke-virtual {v0, v1}, Landroid/webkit/WebSettings;->setBuiltInZoomControls(Z)V
+    const/4 v1, 0x0
+    invoke-virtual {v0, v1}, Landroid/webkit/WebSettings;->setDisplayZoomControls(Z)V
     :login_zoom_done
     const-string v1, "pending"
     invoke-virtual {p0, p1, p2, v1}, Lcom/melodix/music/MainActivity;->traceNativeDisplayOwner(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
@@ -8250,6 +8311,16 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     # flash the native home over the loading login form.
     iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginPageCommitted:Z
     if-eqz v0, :native_login_gate_done_keep
+    # MEL-BUG-069 fix: third twin of the same gate. An auto-continued
+    # open.spotify.com/?flow_ctx=... page (valid sp_dc cookie, no libraryV3
+    # proof) must not take the foreground away from the login surface, so the
+    # same proof rule applies here: proven session, or the local shell asset.
+    sget-boolean v0, Lcom/melodix/music/AppSingleton;->B:Z
+    if-nez v0, :native_login_gate_done_keep
+    const-string v2, "file://"
+    invoke-virtual {v1, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v0
+    if-nez v0, :native_login_gate_done_keep
     const/4 v0, 0x0
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginWebRequested:Z
     :native_login_gate_done_keep
@@ -8773,7 +8844,10 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
     :native_show_not_login
     const/4 v4, 0x0
-    # MEL-BUG-061: native shell visible again -> normal text zoom.
+    # MEL-BUG-069: restore the WebView viewport flags the login surface switched
+    # on (wide viewport + overview mode), otherwise the native shell asset page
+    # would be laid out at the desktop default viewport instead of the CSS
+    # width the shell was measured against (CI ui-metrics depends on it).
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
     if-eqz v0, :native_zoom_done
     invoke-virtual {v0}, Landroid/webkit/WebView;->getSettings()Landroid/webkit/WebSettings;
@@ -8781,6 +8855,9 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     if-eqz v0, :native_zoom_done
     const/16 v1, 0x64
     invoke-virtual {v0, v1}, Landroid/webkit/WebSettings;->setTextZoom(I)V
+    const/4 v1, 0x0
+    invoke-virtual {v0, v1}, Landroid/webkit/WebSettings;->setUseWideViewPort(Z)V
+    invoke-virtual {v0, v1}, Landroid/webkit/WebSettings;->setLoadWithOverviewMode(Z)V
     :native_zoom_done
     const-string v0, "native-shell-show-requested"
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V

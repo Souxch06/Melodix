@@ -218,8 +218,10 @@ test('MEL-BUG-062: ON/OFF values render as a styled Switch in settings rows', ()
   assert.match(sw, /new-instance v11, Landroid\/widget\/Switch;/);
   assert.match(sw, /Switch;->setChecked\(Z\)V/);
   assert.match(sw, /MelColors;->textPrimary:I[\s\S]*?setThumbTintList/, 'thumb = white (readable)');
-  assert.match(sw, /const v13, 0x101009c[\s\S]*?MelColors;->accent:I[\s\S]*?MelColors;->surfaceBtn:I[\s\S]*?ColorStateList;-><init>\(\[\[I\[I\)V[\s\S]*?setTrackTintList/,
-    'track = state list: accent when checked, surfaceBtn when off (MEL-BUG-066)');
+  // MEL-BUG-069: the state list is built with dedicated registers — v12 is the
+  // [[I states array, v13 the int[] colors, v0/v1/v3 scalars (v2 stays the row).
+  assert.match(sw, /new-array v12, v12, \[\[I[\s\S]*?const v1, 0x101009c[\s\S]*?aput-object v0, v12, v3[\s\S]*?MelColors;->accent:I[\s\S]*?MelColors;->surfaceBtn:I[\s\S]*?ColorStateList;-><init>\(\[\[I\[I\)V[\s\S]*?setTrackTintList/,
+    'track = state list: accent when checked, surfaceBtn when off (MEL-BUG-066/069)');
   assert.match(sw, /setClickable\(Z\)V\s*\n\s*invoke-virtual \{v11, v0\}, Landroid\/view\/View;->setFocusable\(Z\)V/,
     'switch itself not clickable (the row dispatches the toggle)');
   assert.match(sw, /goto :native_settings_row_tail/, 'switch path rejoins the common row tail');

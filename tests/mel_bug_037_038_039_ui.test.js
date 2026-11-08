@@ -111,8 +111,13 @@ test('MEL-BUG-059: header hairline drawable exists, palette-only, and is wired i
 test('MEL-BUG-061: login UI zoom + login-first when session unproven', () => {
   const main = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/MainActivity.smali'), 'utf8');
   const login = main.slice(main.indexOf('.method private final applyLoginWebUi'), main.indexOf('.end method', main.indexOf('.method private final applyLoginWebUi')));
-  assert.match(login, /const\/16 v1, 0xb4\s*\n\s*invoke-virtual \{v0, v1\}, Landroid\/webkit\/WebSettings;->setTextZoom\(I\)V/,
-    'login UI zoomed to 180% (MEL-BUG-067)');
+  // MEL-BUG-069: the 180% text zoom was the workaround for a narrow desktop
+  // column; the login surface now switches the WebView to a mobile viewport
+  // (wide viewport + overview mode) and keeps a light 125% text zoom.
+  assert.match(login, /const\/4 v1, 0x1\s*\n\s*invoke-virtual \{v0, v1\}, Landroid\/webkit\/WebSettings;->setUseWideViewPort\(Z\)V\s*\n\s*invoke-virtual \{v0, v1\}, Landroid\/webkit\/WebSettings;->setLoadWithOverviewMode\(Z\)V/,
+    'login surface uses the mobile viewport (MEL-BUG-069)');
+  assert.match(login, /const\/16 v1, 0x7d\s*\n\s*invoke-virtual \{v0, v1\}, Landroid\/webkit\/WebSettings;->setTextZoom\(I\)V/,
+    'login UI keeps a light 125% text zoom (MEL-BUG-069)');
   const show = main.slice(main.indexOf('.method public final showNativeUiFrom'), main.indexOf('.end method', main.indexOf('.method public final showNativeUiFrom')));
   assert.match(show, /const\/16 v1, 0x64\s*\n\s*invoke-virtual \{v0, v1\}, Landroid\/webkit\/WebSettings;->setTextZoom\(I\)V/,
     'native shell resets zoom to 100%');
