@@ -137,8 +137,13 @@ test('ensureWebPageLoaded is idempotent, uses the same target and never hides a 
         'about:blank se charge; une URL reelle passe par le controle de session (MEL-BUG-068)');
     assert.match(body, /:proven_check[\s\S]*goto :done/,
         'session prouvée + URL reelle = aucun rechargement (onResume ne coupe jamais la lecture)');
-    assert.match(body, /:force_login[\s\S]*startsWith[\s\S]*if-eqz v2, :done[\s\S]*accounts\.spotify\.com[\s\S]*if-nez v2, :done[\s\S]*revealLoginWebUi\(\)V/,
-        'session non prouvée + page distante non-login = login réaffiché + rechargé; page locale ou déjà login = inchangé (pas de boucle, shell natif préservé)');
+    // MEL-BUG-071: every remote page re-asserts the login surface (the old
+    // guard only did it for accounts.spotify.com and let open.spotify.com fall
+    // through, which is how the native Home was painted over an unproven
+    // session on a warm start). A local shell asset stays untouched, and an
+    // accounts.spotify.com page is only revealed, never reloaded.
+    assert.match(body, /:force_login[\s\S]*startsWith[\s\S]*if-nez v2, :done[\s\S]*revealLoginWebUi\(\)V[\s\S]*accounts\.spotify\.com[\s\S]*if-eqz v2, :done/,
+        'session non prouvée + page distante = login réaffiché (rechargé sauf si la page est déjà le login); page locale = inchangé (pas de boucle, shell natif préservé)');
     assert.doesNotMatch(body, /invoke-virtual \{v1, v2\}, Ljava\/lang\/String;->equals/,
         'le code ne doit jamais invoquer equals sur une URL potentiellement nulle');
     assert.match(body, /:do_load/);

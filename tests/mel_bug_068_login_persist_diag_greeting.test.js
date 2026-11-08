@@ -22,8 +22,11 @@ test('MEL-BUG-068a: onStop flushes the session cookies to disk (quit must not lo
 
 test('MEL-BUG-068b: login is forced at every launch/resume while the session is unproven', () => {
   const body = method(main, '.method public final ensureWebPageLoaded()V');
-  assert.match(body, /:force_login[\s\S]*WebView;->getUrl\(\)Ljava\/lang\/String;[\s\S]*startsWith[\s\S]*if-eqz v2, :done[\s\S]*contains[\s\S]*if-nez v2, :done[\s\S]*revealLoginWebUi\(\)V/,
-    'URL réelle + session non prouvée -> revealLoginWebUi, rechargement login seulement si la page courante n\'est pas déjà le login');
+  // MEL-BUG-071: the reveal now covers every remote page (not only
+  // accounts.spotify.com); the reload still happens only when the current page
+  // is not already the login form, so there is no loop.
+  assert.match(body, /:force_login[\s\S]*WebView;->getUrl\(\)Ljava\/lang\/String;[\s\S]*startsWith[\s\S]*if-nez v2, :done[\s\S]*revealLoginWebUi\(\)V[\s\S]*contains[\s\S]*if-eqz v2, :done/,
+    'URL réelle + session non prouvée -> revealLoginWebUi sur toute page distante, rechargement login seulement si la page courante n\'est pas déjà le login');
   assert.match(body, /:proven_check[\s\S]*goto :done/,
     'session prouvée -> aucun rechargement (lecture jamais interrompue)');
 });

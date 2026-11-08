@@ -550,11 +550,11 @@
     goto :done
 
     :force_login
-    # Unproven but a page is already loaded. Only a REMOTE page that is not
-    # already the login form is forced back to login (a reload loop on every
-    # resume is avoided; a local shell asset is left alone so the native UI
-    # stays measurable). The URL is re-read from the WebView (v0, still live)
-    # because v1 was reused as a flag above.
+    # Unproven but a page is already loaded. A local shell asset is left alone
+    # (the native UI stays measurable — CI ui-metrics depends on it), so only a
+    # REMOTE page is handled here.
+    # The URL is re-read from the WebView (v0, still live) because v1 was
+    # reused as a flag above.
     invoke-virtual {v0}, Landroid/webkit/WebView;->getUrl()Ljava/lang/String;
 
     move-result-object v1
@@ -567,7 +567,22 @@
 
     move-result v2
 
-    if-eqz v2, :done
+    # A local shell asset (file:///android_asset) leaves the native shell
+    # measurable, so it is the only page that stops here.
+    if-nez v2, :done
+
+    # MEL-BUG-071 fix — THE leak seen on device. A warm start left the WebView
+    # on open.spotify.com/?flow_ctx=... (Spotify auto-continued the login with a
+    # browser-valid sp_dc cookie). The old guard only revealed the login surface
+    # for accounts.spotify.com and fell through to :done for anything else, so
+    # for the player URL the login surface was NEVER requested:
+    # nativeLoginWebRequested stayed false, every navigation gate and payload
+    # lock was satisfied, and the native Home was painted over an unproven
+    # session ("ecran=home ... auth=false cookie_sp_dc=true", journal
+    # "route home | render native-rows" with no *-dropped-unproven label).
+    # Every REMOTE page now re-asserts the login surface; an accounts.spotify.com
+    # page is already the login form, so it is only revealed, never reloaded.
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealLoginWebUi()V
 
     const-string v2, "accounts.spotify.com"
 
@@ -575,9 +590,7 @@
 
     move-result v2
 
-    if-nez v2, :done
-
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealLoginWebUi()V
+    if-eqz v2, :done
 
     const/4 v1, 0x0
 

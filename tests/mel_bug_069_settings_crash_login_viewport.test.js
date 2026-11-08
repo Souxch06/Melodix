@@ -140,3 +140,33 @@ test('MEL-BUG-070: no payload branch can draw Home over an unproven login surfac
   assert.doesNotMatch(rows.slice(rows.indexOf(':render_rows_unproven_drop')), /getUrl|getCookie|sp_dc/,
     'aucune URL ni cookie dans le journal de refus');
 });
+
+test('MEL-BUG-071: a warm start on the player URL still requests the login surface', () => {
+  // Second device report after test.106: still "ecran=home auth=false sp_dc=true"
+  // but with NO *-dropped-unproven label, i.e. the payload locks were never hit
+  // because isLoginWebRoute() was false — the login surface had never been
+  // requested. Cause: :force_login only revealed it for accounts.spotify.com and
+  // did goto :done for open.spotify.com, so a warm start kept the player URL.
+  const body = stripComments(method(main, '.method public final ensureWebPageLoaded()V'));
+  const def = /^\s*:force_login\s*$/m.exec(body);
+  assert.ok(def, ':force_login présent');
+  const next = /^\s*:login_url\s*$/m.exec(body.slice(def.index + 1));
+  assert.ok(next, ':login_url présent');
+  const block = body.slice(def.index, def.index + 1 + next.index);
+
+  // Local shell asset is the only URL that short-circuits.
+  assert.match(block, /startsWith\(Ljava\/lang\/String;\)Z[\s\S]*?if-nez v2, :done/,
+    'une page locale (file://) reste seule exclue');
+  // Every remote page re-asserts the login surface, before the host check.
+  const revealAt = block.indexOf('revealLoginWebUi()V');
+  const accountsAt = block.indexOf('const-string v2, "accounts.spotify.com"');
+  assert.ok(revealAt > 0, 'revealLoginWebUi appelé sur le chemin distant');
+  assert.ok(accountsAt > revealAt,
+    'revealLoginWebUi couvre TOUTE page distante, pas seulement accounts.spotify.com');
+  // accounts.spotify.com is only revealed (already the login form), never reloaded.
+  assert.match(block.slice(accountsAt), /if-eqz v2, :done/, 'accounts.spotify.com -> pas de rechargement');
+  // The player URL must not reach :done before revealLoginWebUi.
+  const beforeReveal = block.slice(0, revealAt);
+  assert.doesNotMatch(beforeReveal.slice(beforeReveal.indexOf('startsWith')), /goto :done|if-eqz v2, :done/,
+    'aucune sortie :done entre le test https et revealLoginWebUi');
+});
