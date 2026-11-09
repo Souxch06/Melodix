@@ -54,3 +54,9 @@ Fond #0B0B14, halos violet/magenta statiques sans blur, verre 7%/bordure14%, bou
 Le header du formulaire Spotify reste compact et séparé : pas de carte/logo de80dp au-dessus du clavier. Les changements de raison rafraîchissent aussi le titre dans un même état. Copie volontaire limitée au diagnostic de la garde (raisons fixes/codes/compteur), pas au diagnostic global WebView.
 
 Fichiers : ressources `session_*`, `native_session_surface`, `native_session_login_header`, helpers `NativeSessionCard`, `NativeSessionSurface*`. Risques restants à vérifier sur Android : inflation custom View, mesure petite hauteur/grande police, padding du formulaire, cycle de vie/Retour. Pas de changement des autres écrans.
+
+### Étape QA (instrumentation)
+
+La matrice reconstruit124 et125 avec la même instrumentation, sur téléphone1080×1920/densité420 et tablette1920×1200/densité160. L’avant reproduit l’erreur rapportée ; l’après affiche la session probable via état synthétique. Cette comparaison vérifie la présentation, pas une authentification. Les cookies ne sont ni injectés ni supprimés ; le compteur pur utilise deux identités factices, et `canClear` reste faux en CI sans cookie.
+
+L’instrumentation après vérifie réseau/401isolé, deadline, preuve valide, ancien callback, compteur borné/changement d’identité, disclosure/copie, rotation, recréation et vrai arrière-plan. Les captures supplémentaires tentent un clavier réel (champ technique vide1px, uniquement dans le test) et une petite hauteur avec police1,6. Les fichiers géométriques indiquent la hauteur réellement disponible ; une demande d’ouverture clavier seule n’est pas une preuve de son affichage. Les nombres gfxinfo sont des mesures émulateur de quelques frames de statut, pas une promesse60fps sur téléphone. Les traces MDXPERF exportées sont limitées aux transitions fixes.

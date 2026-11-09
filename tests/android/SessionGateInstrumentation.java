@@ -13,6 +13,14 @@ import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.TextView;
+import android.graphics.Bitmap;
+import android.graphics.Rect;
+import android.widget.EditText;
+import android.widget.FrameLayout;
+import android.view.inputmethod.InputMethodManager;
+import android.content.Context;
+import java.io.File;
+import java.io.FileOutputStream;
 import org.json.JSONObject;
 import java.io.ByteArrayInputStream;
 import java.lang.reflect.Field;
@@ -24,8 +32,11 @@ public final class SessionGateInstrumentation extends Instrumentation {
     private Class<?> gate;
     private final AtomicReference<Activity> current = new AtomicReference<>();
     private String phase = "launch";
+    private Bundle arguments;
+    private int attempt;
+    private Class<?> evidence;
     private static final String PACKAGE = "com.melodix.music.preview";
-    @Override public void onCreate(Bundle args) { super.onCreate(args); start(); }
+    @Override public void onCreate(Bundle args) { super.onCreate(args); arguments = args; start(); }
     private Object field(String name) throws Exception { return gate.getField(name).get(null); }
     private void set(String name, Object value) throws Exception { gate.getField(name).set(null, value); }
     private void call(String name, Class<?>[] types, Object... values) throws Exception {
@@ -62,12 +73,44 @@ public final class SessionGateInstrumentation extends Instrumentation {
     }
     private void result(boolean token, boolean library, boolean refused, int http) throws Exception {
         JSONObject proof = new JSONObject().put("generation", field("generation"))
-            .put("attempt", 1).put("completed", true).put("token", token)
+            .put("attempt", ++attempt).put("completed", true).put("token", token)
             .put("libraryOk", library).put("tokenRefused", refused).put("libraryHttp", http)
             .put("tokenApiHttp", refused ? 400 : 200).put("tokenFallbackHttp", refused ? 403 : 0);
         call("result", new Class<?>[]{activity().getClass(), String.class}, activity(), proof.toString());
     }
     private void note() { Bundle b = new Bundle(); b.putString("phase", phase); b.putString("result", "passed"); sendStatus(1, b); }
+    private void paintFixture(boolean baseline) throws Exception {
+        set("loginActive", false);set("freshLogin",false);set("expiredEvidence",!baseline);
+        set("tokenApiHttp",400);set("tokenFallbackHttp",403);set("libraryHttp",401);
+        if(evidence!=null) { evidence.getMethod("reset").invoke(null);
+            evidence.getMethod("record",String.class).invoke(null,"synthetic-A");
+            evidence.getMethod("record",String.class).invoke(null,"synthetic-A"); }
+        call("transition",new Class<?>[]{int.class,String.class},baseline?4:2,
+            baseline?"verification-failed-no-logout":"repeated-refusal-cookie-present");
+        call("paint",new Class<?>[]{activity().getClass()},activity());
+    }
+    private void capture(String name) throws Exception {
+        Bitmap bitmap=getUiAutomation().takeScreenshot();check(bitmap!=null);
+        File dir=new File(getTargetContext().getFilesDir(),"session-captures");check(dir.exists()||dir.mkdirs());
+        try(FileOutputStream out=new FileOutputStream(new File(dir,name+".png"))) { bitmap.compress(Bitmap.CompressFormat.PNG,100,out); }
+        bitmap.recycle();
+        ui(() -> {
+            View root=(View)field("overlay");int[] xy=new int[2];root.getLocationOnScreen(xy);
+            View card=activity().findViewById(activity().getResources().getIdentifier("sessionCard","id",PACKAGE));
+            Bundle metric=new Bundle();metric.putString("phase","geometry");
+            metric.putInt("viewport_height",root.getHeight());metric.putInt("viewport_width",root.getWidth());
+            metric.putInt("action_height",view("sessionAction").getHeight());
+            if(card!=null) {
+                int[] c=new int[2];card.getLocationOnScreen(c);metric.putInt("card_height",card.getHeight());metric.putInt("card_width",card.getWidth());
+                metric.putInt("center_delta",Math.abs((2*c[1]+card.getHeight())-(2*xy[1]+root.getHeight())));
+                // When the card fits, centering must be real, not inferred from XML.
+                if(card.getHeight()+40*activity().getResources().getDisplayMetrics().density<root.getHeight())
+                    check(Math.abs((2*c[1]+card.getHeight())-(2*xy[1]+root.getHeight()))<=4);
+                check(card.getWidth()<=481*activity().getResources().getDisplayMetrics().density);
+            }
+            sendStatus(1,metric);
+        });
+    }
     @Override public void onStart() {
         Application app = (Application) getTargetContext().getApplicationContext();
         Application.ActivityLifecycleCallbacks observer = new Application.ActivityLifecycleCallbacks() {
@@ -83,11 +126,35 @@ public final class SessionGateInstrumentation extends Instrumentation {
         Bundle outcome = new Bundle();
         try {
             gate = getTargetContext().getClassLoader().loadClass("com.melodix.music.NativeSessionGate");
+            try { evidence=getTargetContext().getClassLoader().loadClass("com.melodix.music.NativeSessionEvidence"); }
+            catch(ClassNotFoundException beforePhase1) { /* baseline capture only */ }
             Intent launch = getTargetContext().getPackageManager().getLaunchIntentForPackage(PACKAGE);
             check(launch != null);
             launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             current.set(startActivitySync(launch));
             ui(() -> { freezeNetwork(); check((Boolean) field("autoUsed")); check((Integer) field("state") != 3); });
+            if ("true".equals(arguments.getString("capture_only"))) {
+                phase="capture_synthetic";
+                boolean baseline="true".equals(arguments.getString("baseline"));
+                ui(() -> paintFixture(baseline));
+                SystemClock.sleep(350);
+                if ("true".equals(arguments.getString("keyboard"))) {
+                    ui(() -> {
+                        EditText input=new EditText(activity());
+                        input.setSingleLine(true);
+                        FrameLayout.LayoutParams lp=new FrameLayout.LayoutParams(1,1);
+                        activity().addContentView(input,lp);input.requestFocus();
+                        ((InputMethodManager)activity().getSystemService(Context.INPUT_METHOD_SERVICE)).showSoftInput(input,InputMethodManager.SHOW_IMPLICIT);
+                    });
+                    SystemClock.sleep(1000);
+                }
+                capture("status");
+                if (!baseline) {
+                    ui(() -> view("sessionDisclosure").performClick());
+                    SystemClock.sleep(350);capture("details");
+                }
+                note();outcome.putString("overall","passed");finish(Activity.RESULT_OK,outcome);return;
+            }
             phase = "first_launch_login_before_home";
             ui(() -> check(view("sessionTitle") != null && view("sessionTitle").isShown())); note();
 
@@ -95,7 +162,7 @@ public final class SessionGateInstrumentation extends Instrumentation {
             ui(() -> { set("freshLogin", false); begin(); state(0); });
             SystemClock.sleep(3300);
             ui(() -> { state(4); check(!(Boolean) field("expiredEvidence")); check(view("sessionAction").isShown());
-                check(view("sessionDetails").getVisibility() == View.GONE); }); note();
+                check(!view("sessionDetails").isShown()); }); note();
 
             phase = "valid_token_and_library";
             ui(() -> { begin(); result(true, true, false, 200); state(3); check(field("overlay") == null); }); note();
@@ -103,14 +170,40 @@ public final class SessionGateInstrumentation extends Instrumentation {
             phase = "network_and_isolated_401";
             ui(() -> { begin(); result(false, false, false, 401); state(4); check(!(Boolean) field("expiredEvidence")); }); note();
 
-            phase = "completed_expiry_single_redirect";
-            ui(() -> { set("autoUsed", false); begin(); result(false, false, true, 401); state(2);
-                check((Boolean) field("autoUsed")); check((Boolean) field("loginActive"));
-                check(!(Boolean) gate.getMethod("canReconnect").invoke(null)); }); note();
+            phase = "missing_cookie_is_not_expiry";
+            ui(() -> { set("autoUsed", true); begin(); result(false, false, true, 401); state(4);
+                check(!(Boolean) field("expiredEvidence")); check(!(Boolean) field("loginActive")); }); note();
+
+            phase = "same_digest_bounded_accumulator";
+            ui(() -> {
+                evidence.getMethod("reset").invoke(null);
+                check((Integer)evidence.getMethod("record", String.class).invoke(null, "synthetic-A") == 1);
+                check((Integer)evidence.getMethod("record", String.class).invoke(null, "synthetic-A") == 2);
+                check((Integer)evidence.getMethod("record", String.class).invoke(null, "synthetic-B") == 1);
+                check(!(Boolean)evidence.getMethod("canClear").invoke(null));
+                evidence.getMethod("reset").invoke(null);
+            }); note();
+
+            phase = "probable_expiry_surface_synthetic";
+            ui(() -> { paintFixture(false);
+                check(view("sessionTitle").getText().toString().equals("Ta session Spotify semble expirée"));
+                check(view("sessionAction").isShown()); check(view("sessionSecondary").isShown());
+                check(!view("sessionDetails").isShown()); view("sessionDisclosure").performClick();
+                check(view("sessionDetails").isShown()); view("sessionCopy").performClick();
+                android.content.ClipboardManager cb=(android.content.ClipboardManager)activity().getSystemService(Context.CLIPBOARD_SERVICE);
+                check(cb.getPrimaryClip().getItemAt(0).getText().toString().equals(gate.getMethod("details").invoke(null)));
+                view("sessionDisclosure").performClick(); check(!view("sessionDetails").isShown());
+                // No real cookie in the CI fixture: the destructive path must stay blocked.
+                check(!(Boolean)gate.getMethod("canReconnect").invoke(null));
+            }); note();
 
             phase = "fresh_login_refusal_no_loop";
             ui(() -> { set("freshLogin", true); begin(); result(false, false, true, 401); state(4);
-                check(!(Boolean) field("loginActive")); check(!(Boolean) field("expiredEvidence")); }); note();
+                check(!(Boolean) field("loginActive")); check(!(Boolean) field("expiredEvidence"));
+                call("transition",new Class<?>[]{int.class,String.class},4,"fresh-account-refused");
+                call("paint",new Class<?>[]{activity().getClass()},activity());
+                check(view("sessionTitle").getText().toString().equals("Spotify refuse l’accès avec ce compte"));
+            }); note();
 
             phase = "stale_result_ignored";
             ui(() -> { begin(); int old = (Integer) field("generation"); begin();

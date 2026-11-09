@@ -18,14 +18,28 @@ jobs:
   build:
     uses: ./.github/workflows/preview-apk.yml
     with:
-      release_tag: v1.3.2-test.124-preview
+      release_tag: v1.3.2-test.125-preview
       source_ref: ${{ inputs.source_ref }}
       build_only: true
       target_debuggable: true
       apk_suffix: '-session-instrumentation'
     secrets: inherit
+  build-before:
+    uses: ./.github/workflows/preview-apk.yml
+    with:
+      release_tag: v1.3.2-test.124-preview
+      source_ref: 5acef50b23f1c8d5968a43bea6995e28343d6790
+      build_only: true
+      target_debuggable: true
+      apk_suffix: '-session-before'
+    secrets: inherit
   android:
-    needs: build
+    needs: [build, build-before]
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [before, after]
+        form: [phone, tablet]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -39,7 +53,7 @@ jobs:
       - uses: android-actions/setup-android@v4.0.4
       - uses: actions/download-artifact@v4.3.0
         with:
-          name: ${{ needs.build.outputs.apk_name }}
+          name: ${{ matrix.variant == 'before' && needs.build-before.outputs.apk_name || needs.build.outputs.apk_name }}
           path: target-apk
       - name: Compile and sign synthetic session instrumentation
         env:
@@ -100,20 +114,46 @@ jobs:
           disable-animations: true
           emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
           script: |
+            set -euo pipefail
             mkdir -p session-evidence
             adb install -r "$(find target-apk -name '*.apk' | head -n 1)"
             adb install -r "$RUNNER_TEMP/session-test.apk"
             adb shell pm grant com.melodix.music.preview android.permission.POST_NOTIFICATIONS
             adb shell pm grant com.melodix.music.preview android.permission.BLUETOOTH_CONNECT
-            timeout 180s adb shell am instrument -w -r com.melodix.music.preview.test/com.melodix.test.SessionGateInstrumentation > session-evidence/result.txt
+            if [[ '${{ matrix.form }}' == tablet ]]; then adb shell wm size 1920x1200; adb shell wm density 160; else adb shell wm size 1080x1920; adb shell wm density 420; fi
+            if [[ '${{ matrix.variant }}' == after && '${{ matrix.form }}' == phone ]]; then
+              timeout 240s adb shell am instrument -w -r com.melodix.music.preview.test/com.melodix.test.SessionGateInstrumentation > session-evidence/result.txt
+              cat session-evidence/result.txt
+              grep -Fq 'INSTRUMENTATION_RESULT: overall=passed' session-evidence/result.txt
+            fi
+            baseline=false
+            if [[ '${{ matrix.variant }}' == before ]]; then baseline=true; fi
+            capture() {
+              name="$1"; shift
+              adb shell am force-stop com.melodix.music.preview
+              adb shell dumpsys gfxinfo com.melodix.music.preview reset > /dev/null
+              timeout 90s adb shell am instrument -w -r -e capture_only true -e baseline "$baseline" "$@" com.melodix.music.preview.test/com.melodix.test.SessionGateInstrumentation > "session-evidence/$name.txt"
+              cat "session-evidence/$name.txt"
+              grep -Fq 'INSTRUMENTATION_RESULT: overall=passed' "session-evidence/$name.txt"
+              adb exec-out run-as com.melodix.music.preview cat files/session-captures/status.png > "session-evidence/$name-status.png"
+              if [[ "$baseline" == false ]]; then adb exec-out run-as com.melodix.music.preview cat files/session-captures/details.png > "session-evidence/$name-details.png"; fi
+              adb shell dumpsys gfxinfo com.melodix.music.preview | grep -E 'Total frames rendered:|Janky frames:|50th percentile:|90th percentile:|95th percentile:|99th percentile:|Number Missed Vsync:' > "session-evidence/$name-perf.txt" || true
+            }
+            capture '${{ matrix.form }}'
+            if [[ '${{ matrix.variant }}' == after && '${{ matrix.form }}' == phone ]]; then
+              adb shell wm size 1080x1000
+              adb shell settings put system font_scale 1.6
+              capture small-large-font
+              adb shell wm size 1080x1920
+              adb shell settings put system font_scale 1.0
+              capture keyboard -e keyboard true
+            fi
+            adb logcat -d -v brief -s MDXPERF:I | grep -E 'sid=[0-9a-f]{8} t=[0-9]+ session-state from=[a-z-]+ state=[a-z-]+ reason=[a-z-]+$' > session-evidence/mdxperf.txt || true
             adb logcat -d -v brief -s AndroidRuntime:E | python3 -c 'import re,sys; t=sys.stdin.read(); names=sorted(set(re.findall(r"(?:[A-Za-z_$][\w$]*\.)*[A-Za-z_$][\w$]*(?:Exception|Error)",t))); [print("::error title=Session Android runtime::exception_class="+n) for n in names[:12]]'
-            cat session-evidence/result.txt
-            grep -E '^INSTRUMENTATION_(RESULT|STATUS): (phase=[a-z0-9_]+|result=passed|overall=(passed|failed)|error_class=[A-Za-z]+)$' session-evidence/result.txt | while IFS= read -r line; do echo "::notice title=Session gate synthetic result::$line"; done
-            grep -Fq 'INSTRUMENTATION_RESULT: overall=passed' session-evidence/result.txt
       - name: Upload bounded synthetic-only test outcomes
         if: always()
         uses: actions/upload-artifact@v4.6.2
         with:
-          name: session-gate-results
-          path: session-evidence/result.txt
+          name: session-gate-${{ matrix.variant }}-${{ matrix.form }}
+          path: session-evidence/
           if-no-files-found: warn
