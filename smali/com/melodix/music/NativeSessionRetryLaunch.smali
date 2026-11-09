@@ -93,7 +93,7 @@
     invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     iget v2, p0, Lcom/melodix/music/NativeSessionRetryLaunch;->generation:I
     invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
-    const-string v2, ";if(g!==expected){if(typeof g!=='number'||!Number.isInteger(g))return 'session-probe result=generation-type';return g<expected?'session-probe result=generation-older':'session-probe result=generation-newer';}if(typeof window.__sfRequestSessionVerification!=='function'){if(!window.__sfNativeUiShellStarted)return 'session-probe result=shell';if(typeof window.__sfLoadBundledBridge!=='function')return 'session-probe result=loader';if(!window.__sfSessionRetryLoaderCalled){window.__sfSessionRetryLoaderCalled=true;window.__sfLoadBundledBridge('spotify_bridge.js');}if(typeof window.__sfRequestSessionVerification!=='function')return 'session-probe result=hook';}window.__sfSessionRetrySnapshot=null;var r=window.__sfRequestSessionVerification();return r===false?'verification-bloquee':'verification-dispatched';}catch(e){return 'verification-erreur';}})();"
+    const-string v2, ";if(g!==expected){if(g===null)return 'session-probe result=generation-null';if(typeof g==='undefined')return 'session-probe result=generation-undefined';if(typeof g==='string')return 'session-probe result=generation-string';if(typeof g==='boolean')return 'session-probe result=generation-boolean';if(typeof g!=='number')return 'session-probe result=generation-other';if(!Number.isInteger(g))return 'session-probe result=generation-number-invalid';return g<expected?'session-probe result=generation-older':'session-probe result=generation-newer';}if(typeof window.__sfRequestSessionVerification!=='function'){if(!window.__sfNativeUiShellStarted)return 'session-probe result=shell';if(typeof window.__sfLoadBundledBridge!=='function')return 'session-probe result=loader';if(!window.__sfSessionRetryLoaderCalled){window.__sfSessionRetryLoaderCalled=true;window.__sfLoadBundledBridge('spotify_bridge.js');}if(typeof window.__sfRequestSessionVerification!=='function')return 'session-probe result=hook';}window.__sfSessionRetrySnapshot=null;var r=window.__sfRequestSessionVerification();return r===false?'verification-bloquee':'verification-dispatched';}catch(e){return 'verification-erreur';}})();"
     invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
     move-result-object v1
@@ -160,7 +160,7 @@
     instance-of v0, p1, Ljava/lang/String;
     if-eqz v0, :error
     check-cast p1, Ljava/lang/String;
-    const-string v0, "\"session-probe result=(page|interface|generation-(type|older|newer)|shell|loader|hook)\""
+    const-string v0, "\"session-probe result=(page|interface|generation-(type|older|newer|null|undefined|string|boolean|other|number-invalid)|shell|loader|hook)\""
     invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
     move-result v0
     if-eqz v0, :not_probe

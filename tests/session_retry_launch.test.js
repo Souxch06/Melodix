@@ -80,7 +80,7 @@ test('probe distinguishes page, missing native interface, shell, loader, hook, a
 });
 test('closed timing grammar admits retry and probe labels, rejects arbitrary content',()=>{
  const s=fs.readFileSync('smali/com/melodix/music/NativeStartupTiming.smali','utf8'),a=s.indexOf('.method public static sessionMark('),b=s.indexOf('.end method',a);const literal=s.slice(a,b).match(/const-string v0, "(session-history stage=.*)"/)[1],re=new RegExp('^(?:'+literal+')$');
- for(const x of ['session-verify result=waiting','session-verify result=dispatched','session-verify result=document-changed','session-probe result=interface','session-probe result=shell','session-probe result=generation-type','session-probe result=generation-older','session-probe result=generation-newer'])assert.ok(re.test(x),x);
+ for(const x of ['session-verify result=waiting','session-verify result=dispatched','session-verify result=document-changed','session-probe result=interface','session-probe result=shell','session-probe result=generation-type','session-probe result=generation-older','session-probe result=generation-newer','session-probe result=generation-null','session-probe result=generation-undefined','session-probe result=generation-string','session-probe result=generation-boolean','session-probe result=generation-other','session-probe result=generation-number-invalid'])assert.ok(re.test(x),x);
  for(const x of ['session-probe result=token','session-probe result=interface url=private','session-verify result=private'])assert.equal(re.test(x),false);
 });
 test('login return waits for an actual player start rather than getUrl changing on an earlier finish',()=>{
@@ -129,7 +129,7 @@ test('actual login-return method waits across the observed stale finish, then la
 });
 
 test('generation mismatch diagnosis remains strict and emits only fixed categories',()=>{
- for(const [value,want] of [[8,'generation-older'],[10,'generation-newer'],['9','generation-type'],[null,'generation-type'],[NaN,'generation-type']]){
+ for(const [value,want] of [[8,'generation-older'],[10,'generation-newer'],['9','generation-string'],['secret','generation-string'],[null,'generation-null'],[undefined,'generation-undefined'],[true,'generation-boolean'],[{},'generation-other'],[NaN,'generation-number-invalid'],[1.5,'generation-number-invalid']]){
   const f=harness();let calls=0;f.window.AndBridge.getSessionGeneration=()=>value;f.window.__sfRequestSessionVerification=()=>{calls++;return true;};f.start();
   const label='session-probe result='+want;assert.equal(f.evaluate(),label);f.reply(JSON.stringify(label));assert.equal(calls,0);assert.ok(f.events.includes(label));
  }
