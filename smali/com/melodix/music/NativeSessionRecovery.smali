@@ -47,6 +47,26 @@
     return-void
 .end method
 
+
+# Fail closed before committing an APK replacement if cookie flush fails.
+.method public static flushForUpdate()Z
+    .locals 2
+    :try_start
+    invoke-static {}, Landroid/webkit/CookieManager;->getInstance()Landroid/webkit/CookieManager;
+    move-result-object v0
+    if-eqz v0, :failed
+    invoke-virtual {v0}, Landroid/webkit/CookieManager;->flush()V
+    const/4 v1, 0x1
+    return v1
+    :try_end
+    .catch Ljava/lang/Throwable; {:try_start .. :try_end} :error
+    :error
+    move-exception v0
+    :failed
+    const/4 v1, 0x0
+    return v1
+.end method
+
 .method public static verify(Lcom/melodix/music/MainActivity;)V
     .locals 4
     :verify_try

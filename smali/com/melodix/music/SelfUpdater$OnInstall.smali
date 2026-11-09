@@ -33,6 +33,16 @@
 
     if-eqz p2, :done
 
+    invoke-static {}, Lcom/melodix/music/NativeSessionRecovery;->flushForUpdate()Z
+    move-result v0
+    if-nez v0, :flush_ok
+    const-string p2, "Mise à jour reportée : impossible de sauvegarder la session. Réessaie."
+    const/4 v0, 0x1
+    invoke-static {p1, p2, v0}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
+    move-result-object p2
+    invoke-virtual {p2}, Landroid/widget/Toast;->show()V
+    goto :done
+    :flush_ok
     invoke-static {p1, p2}, Lcom/melodix/music/SelfUpdater;->install(Landroid/content/Context;Ljava/io/File;)V
 
     :done

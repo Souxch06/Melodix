@@ -39,3 +39,9 @@ test('upgrade emulator fixture exercises synthetic cookie and WebStorage through
  assert.match(script,/adb install "\$old"[\s\S]*?-e mode seed[\s\S]*?adb install -r "\$new"[\s\S]*?-e mode verify/);assert.doesNotMatch(script,/pm clear|adb uninstall/);
  assert.match(workflow,/update-persistence:[\s\S]*?update_persistence_emulator\.sh/);
 });
+test('manual and background installer must flush before PackageInstaller; manual failure is shown',()=>{
+ const recovery=read('smali/com/melodix/music/NativeSessionRecovery.smali'),flush=method(recovery,'.method public static flushForUpdate()Z');
+ assert.match(flush,/CookieManager;->flush\(\)V[\s\S]*?const\/4 v1, 0x1[\s\S]*?return v1/);assert.match(flush,/\.catch Ljava\/lang\/Throwable/);assert.doesNotMatch(flush,/remove|delete|getCookie|setCookie/);
+ const install=method(read('smali/com/melodix/music/SelfUpdater.smali'),'.method public static install(');assert.match(install,/:do_install[\s\S]*?flushForUpdate\(\)Z[\s\S]*?if-nez v1, :cookie_flush_ok[\s\S]*?goto(?:\/16)? :done[\s\S]*?:cookie_flush_ok[\s\S]*?getPackageInstaller/);
+ const manual=read('smali/com/melodix/music/SelfUpdater$OnInstall.smali');assert.match(manual,/flushForUpdate\(\)Z[\s\S]*?Toast;->show\(\)V[\s\S]*?:flush_ok[\s\S]*?SelfUpdater;->install/);
+});

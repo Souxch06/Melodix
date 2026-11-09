@@ -1151,9 +1151,18 @@
 
     invoke-virtual {p0}, Landroid/widget/Toast;->show()V
 
-    goto :done
+    goto/16 :done
 
     :do_install
+    # All install entry points (manual and background) must flush before the
+    # system can replace the process. Never delete or copy WebView data.
+    invoke-static {}, Lcom/melodix/music/NativeSessionRecovery;->flushForUpdate()Z
+    move-result v1
+    if-nez v1, :cookie_flush_ok
+    const-string v1, "update-cookie-flush-failed"
+    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    goto/16 :done
+    :cookie_flush_ok
     invoke-virtual {v0}, Landroid/content/pm/PackageManager;->getPackageInstaller()Landroid/content/pm/PackageInstaller;
 
     move-result-object v0
