@@ -140,7 +140,7 @@ public final class BridgeNavigationInstrumentation extends Instrumentation {
             // Synthetic in-memory HTTP responses: hold the first token request
             // until a queued retry has been invalidated, then return 400/403/401.
             phase="synthetic_refusal_fetch";
-            check("true".equals(js("window.fixtureFetches=0;window.fetch=function(){var n=++window.fixtureFetches;if(n===1)return new Promise(function(resolve){window.fixtureResolve=function(){resolve(new Response('{}',{status:400,headers:{'Content-Type':'application/json'}}))}});return Promise.resolve(new Response('{}',{status:n===2?403:401,headers:{'Content-Type':'application/json'}}))};true")));
+            check("true".equals(js("window.fixtureFetches=0;window.fixtureHoldNext=true;window.fetch=function(){var n=++window.fixtureFetches;if(window.fixtureHoldNext){window.fixtureHoldNext=false;return new Promise(function(resolve){window.fixtureResolve=function(){resolve(new Response('{}',{status:400,headers:{'Content-Type':'application/json'}}))}})}return Promise.resolve(new Response('{}',{status:n%3===1?400:n%3===2?403:401,headers:{'Content-Type':'application/json'}}))};true")));
             phase="bundled_runtime_injection";
             js(asset("runtime_state.js"));
             phase="bundled_shell_injection";
@@ -156,12 +156,24 @@ public final class BridgeNavigationInstrumentation extends Instrumentation {
             for(int i=0;i<50;i++){if("1".equals(js("window.fixtureFetches")))break;Thread.sleep(100);}
             check("true".equals(js("window.fixtureFetches===1 && typeof window.fixtureResolve==='function'")));
             phase="queued_real_retry_invalidation";
-            check("true".equals(js("window.__sfRequestSessionVerification();true")));
+            check("true".equals(js("(function(){var p=window.__sfRequestSessionVerification();return !!p && typeof p.then==='function'})()")));
             ui(()->{try{gate.getField("generation").setInt(null,11);}catch(Exception e){throw new RuntimeException(e);}});
             check("true".equals(js("window.fixtureResolve();true")));
             for(int i=0;i<80;i++){if("true".equals(js("window.fixtureFetches===3 && window.__sfMediaLibStatus==='error'")))break;Thread.sleep(100);}
             Thread.sleep(300);
             check("true".equals(js("window.fixtureFetches===3 && window.__sfMediaLibStatus==='error'")));
+            // Positive control: a still-current, active queued retry must run
+            // exactly once once the preceding synthetic refusal completes.
+            phase="queued_real_retry_current";
+            ui(()->{try{gate.getField("generation").setInt(null,12);flight.getMethod("start").invoke(null);}catch(Exception e){throw new RuntimeException(e);}});
+            check("true".equals(js("window.fixtureHoldNext=true;window.checkMediaLib(true,'shell-update');true")));
+            for(int i=0;i<50;i++){if("4".equals(js("window.fixtureFetches")))break;Thread.sleep(100);}
+            check("true".equals(js("window.fixtureFetches===4 && typeof window.fixtureResolve==='function'")));
+            check("true".equals(js("(function(){var p=window.__sfRequestSessionVerification();return !!p && typeof p.then==='function'})()")));
+            check("true".equals(js("window.fixtureResolve();true")));
+            for(int i=0;i<80;i++){if("true".equals(js("window.fixtureFetches===9 && window.__sfMediaLibStatus==='error'")))break;Thread.sleep(100);}
+            Thread.sleep(300);
+            check("true".equals(js("window.fixtureFetches===9 && window.__sfMediaLibStatus==='error'")));
             ui(()->{try{gate.getField("generation").setInt(null,10);}catch(Exception e){throw new RuntimeException(e);}});
             // Let the shell's scheduled updates run, as in the reported trace.
             Thread.sleep(3000);
