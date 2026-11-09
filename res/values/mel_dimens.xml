@@ -135,7 +135,7 @@
     <dimen name="mel_player_pad_top">10.0dip</dimen>
     <dimen name="mel_player_pad_bottom">18.0dip</dimen>
     <dimen name="mel_player_art">272.0dip</dimen>
-    <dimen name="mel_player_art_radius">8.0dip</dimen>
+    <dimen name="mel_player_art_radius">16.0dip</dimen>
     <dimen name="mel_player_art_elevation">18.0dip</dimen>
     <dimen name="mel_player_art_margin_top">8.0dip</dimen>
     <dimen name="mel_player_art_margin_bottom">22.0dip</dimen>
@@ -161,7 +161,8 @@
     <dimen name="mel_mini_pad_h">10.0dip</dimen>
     <dimen name="mel_mini_pad_v">6.0dip</dimen>
     <dimen name="mel_mini_art">46.0dip</dimen>
-    <dimen name="mel_mini_art_radius">10.0dip</dimen>
+    <dimen name="mel_mini_container_radius">16.0dip</dimen>
+    <dimen name="mel_mini_art_radius">12.0dip</dimen>
     <dimen name="mel_mini_art_gap">10.0dip</dimen>
     <dimen name="mel_mini_text_pad">6.0dip</dimen>
     <dimen name="mel_mini_title">14.5sp</dimen>
