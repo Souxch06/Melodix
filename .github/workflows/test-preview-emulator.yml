@@ -6,6 +6,11 @@ on:
       - arena/7142700d-melodix
   workflow_dispatch:
     inputs:
+      session_evidence_run:
+        description: Existing synthetic session matrix run to re-export (0 builds and tests normally)
+        required: false
+        type: number
+        default: 0
       session_gate_only:
         description: Run isolated login-first synthetic Android instrumentation (not live authentication)
         required: false
@@ -42,6 +47,7 @@ jobs:
     uses: ./.github/workflows/test-session-gate.yml
     with:
       source_ref: ${{ inputs.source_ref || github.sha }}
+      evidence_run: ${{ inputs.session_evidence_run || 0 }}
     secrets: inherit
   build-preview:
     if: (github.event_name != 'workflow_dispatch' || inputs.replay_original_launch_path != true) && inputs.session_gate_only != true
