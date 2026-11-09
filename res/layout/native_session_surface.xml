@@ -9,7 +9,7 @@
         <com.melodix.music.NativeSessionCard android:id="@+id/sessionCard" android:layout_width="match_parent" android:layout_height="wrap_content"
             android:layout_gravity="center" android:orientation="vertical" android:gravity="center"
             android:padding="@dimen/session_card_padding" android:background="@drawable/session_glass_card" android:elevation="6dp">
-            <ImageView android:id="@+id/sessionLogo" android:layout_width="80dp" android:layout_height="80dp" android:src="@drawable/session_brand" android:scaleType="fitCenter" android:importantForAccessibility="no" />
+            <ImageView android:id="@+id/sessionLogo" android:layout_width="80dp" android:layout_height="80dp" android:src="@drawable/session_brand" android:tint="@color/session_text" android:scaleType="fitCenter" android:importantForAccessibility="no" />
             <TextView android:id="@+id/sessionBrand" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp"
                 android:text="M E L O D I X" android:textSize="12sp" android:textStyle="bold" android:textColor="@color/session_secondary" android:gravity="center" />
             <TextView android:id="@+id/sessionTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp"
