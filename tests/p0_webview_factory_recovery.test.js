@@ -130,7 +130,7 @@ test('ensureWebPageLoaded is idempotent, uses the same target and never hides a 
     assert.match(body, /NativeSessionGate;->initialUrl/);
     assert.match(body, /recordWebViewConfigFailure/);
     assert.doesNotMatch(body, /clearCache|clearHistory|removeAllCookies|revealLoginWebUi/);
-    assert.match(gate, /autoUsed:Z[\s\S]*?about:blank/);
+    assert.match(gate, /initialNavigationIssued:Z[\s\S]*?:already[\s\S]*?const\/4 v0, 0x0/);
 });
 
 test('the load watchdog retries a WebView that never requested a page', () => {

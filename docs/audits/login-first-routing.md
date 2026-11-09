@@ -90,3 +90,5 @@ Le hook de resynchronisation reste sous le plafond historique de taille du shell
 6. Arrière-plan, Retour, portrait/paysage et recréation : budget conservé, aucun accueil privé avant preuve, Retour ne découvre pas une liste cachée, aucune boucle.
 
 Risques résiduels à mesurer : comportement réel des redirections SSO, latence réseau >3 s, dimensions du bandeau login avec grande police/clavier, authentification privée et playlists réelles. Les preuves synthétiques/CI ne doivent pas être présentées comme une validation de ces points.
+
+Dernière revue de cold start : `WebView.getUrl()` peut rester nul juste après `loadUrl` dans la factory. La décision initiale est désormais émise une seule fois ; un second appel d’ensure retourne sans naviguer (sentinelle nulle, jamais `about:blank`), pour ne pas annuler le login en vol. Test d’instructions ajouté pour les deux présences de cookie. Le budget est remis à zéro uniquement quand le lancement se termine, pas sur rotation/reprise.

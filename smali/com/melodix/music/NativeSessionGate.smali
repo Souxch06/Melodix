@@ -9,6 +9,7 @@
 .field public static activeLaunch:Z
 .field public static state:I
 .field public static generation:I
+.field public static initialNavigationIssued:Z
 .field public static autoUsed:Z
 .field public static freshLogin:Z
 .field public static loginActive:Z
@@ -124,6 +125,10 @@
 
 .method public static initialUrl()Ljava/lang/String;
     .locals 2
+    sget-boolean v0, Lcom/melodix/music/NativeSessionGate;->initialNavigationIssued:Z
+    if-nez v0, :already
+    const/4 v0, 0x1
+    sput-boolean v0, Lcom/melodix/music/NativeSessionGate;->initialNavigationIssued:Z
     invoke-static {}, Lcom/melodix/music/NativeSessionRecovery;->hasCookie()Z
     move-result v0
     if-nez v0, :player
@@ -137,7 +142,7 @@
     const-string v0, "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&allow_signup=1"
     return-object v0
     :already
-    const-string v0, "about:blank"
+    const/4 v0, 0x0
     return-object v0
     :player
     const-string v0, "https://open.spotify.com/"
@@ -375,6 +380,7 @@
     sput v0, Lcom/melodix/music/NativeSessionGate;->generation:I
     const/4 v0, 0x0
     sput v0, Lcom/melodix/music/NativeSessionGate;->state:I
+    sput-boolean v0, Lcom/melodix/music/NativeSessionGate;->initialNavigationIssued:Z
     sput-boolean v0, Lcom/melodix/music/NativeSessionGate;->autoUsed:Z
     sput-boolean v0, Lcom/melodix/music/NativeSessionGate;->freshLogin:Z
     sput-boolean v0, Lcom/melodix/music/NativeSessionGate;->loginActive:Z

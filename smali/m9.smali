@@ -1616,6 +1616,7 @@
 
     invoke-static {}, Lcom/melodix/music/NativeSessionGate;->initialUrl()Ljava/lang/String;
     move-result-object v0
+    if-eqz v0, :goto_3
 
     .line 288
     .line 289
@@ -1645,6 +1646,7 @@
 
     invoke-static {}, Lcom/melodix/music/NativeSessionGate;->initialUrl()Ljava/lang/String;
     move-result-object v0
+    if-eqz v0, :goto_3
 
     .line 294
     .line 295

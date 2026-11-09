@@ -449,6 +449,7 @@
     if-nez v1, :done
     invoke-static {}, Lcom/melodix/music/NativeSessionGate;->initialUrl()Ljava/lang/String;
     move-result-object v1
+    if-eqz v1, :done
     invoke-static {v1}, Lcom/melodix/music/NativeSessionTrace;->ensure(Ljava/lang/String;)V
     const-string v2, "webview-load-start"
     invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->perfMark(Ljava/lang/String;)V

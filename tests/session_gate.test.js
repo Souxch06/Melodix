@@ -52,7 +52,7 @@ function machine(overrides={}) {
 
 test('case 1: no cookie chooses login once, never player/home or cookie deletion',()=>{
  const m=machine({cookie:false});assert.match(m.run('initialUrl'),/^https:\/\/accounts/);assert.equal(m.fields.state,1);
- assert.equal(m.run('initialUrl'),'about:blank');assert.equal(m.fields.autoUsed,1);
+ assert.equal(m.run('initialUrl'),0);assert.equal(m.fields.autoUsed,1);
  assert.doesNotMatch(gate,/removeAllCookies|deleteAllData|UserAgent|spotify-app-version/);
 });
 test('case 2: cookie merely routes to hidden player; only token AND validated library unlock home',()=>{
@@ -162,4 +162,15 @@ test('unverified content is hidden visually and from accessibility, not just cov
  assert.match(protect,/"nativeRoot"/);assert.match(protect,/setVisibility\(I\)V/);
  assert.match(protect,/const\/4 v1, 0x4[\s\S]*?setImportantForAccessibility/);
  assert.match(protect,/:valid[\s\S]*?const\/4 v1, 0x0[\s\S]*?setImportantForAccessibility/);
+});
+
+test('factory pending load cannot be cancelled by ensure while WebView.getUrl is still null',()=>{
+ for(const cookie of [true,false]) {
+  const m=machine({cookie});const first=m.run('initialUrl');assert.match(first,/^https:/);
+  assert.equal(m.run('initialUrl'),0,'second router must issue no navigation');
+ }
+ const main=read('smali/com/melodix/music/MainActivity.smali');
+ const start=main.indexOf('.method public final ensureWebPageLoaded');const ensure=main.slice(start,main.indexOf('.end method',start));
+ assert.match(ensure,/initialUrl[\s\S]*?move-result-object v1\s+if-eqz v1, :done/);
+ assert.doesNotMatch(ensure,/about:blank/);
 });
