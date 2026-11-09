@@ -65,3 +65,11 @@ Résultat local : `npm test` — **1019 tests, 1015 pass, 0 fail, 4 skip**. `sma
 ### Déclenchement CI
 
 Le nouveau fichier de workflow n’est pas encore enregistré sur la branche par défaut : son dispatch direct retourne 404 (aucun problème d’authentification GitHub). Il est donc exposé via une option explicite `session_gate_only=true` du workflow existant `test-preview-emulator.yml`, qui appelle le nouveau workflow réutilisable. Les jobs historiques restent inchangés lorsqu’on ne choisit pas cette option ; ils ne sont ni déclarés réussis ni utilisés comme preuve de cette mission.
+
+### Première exécution CI (limites explicites)
+
+- Build initial `42595754746`, source `41455f19` : succès, APK signé vC1021454. Ce fichier est **intermédiaire**, pas le candidat final : une revue a ensuite repéré la déduplication JS d’un payload déjà envoyé mais refusé pendant verifying.
+- CI session `42595817944`, source `c9369a89` : build instrumentation réussi, mais échec dans la préparation du runner Android **avant lancement de l’émulateur**. Aucun scénario appareil n’est donc validé par cette exécution. Les nouveaux diagnostics de setup distinguent compilation, manifest, signature et SDK sans exposer de secret.
+- Correctif de revue : hook `__sfNativeSessionVerified` réémet les présentations après preuve existante (signatures/route invalidées), sans navigation, nouvelle requête ou changement de garde privée. Le receiver natif rejette aussi les combinaisons contradictoires (libraryOk avec HTTP401, ou tokenRefused sans les deux réponses de refus) ; le flag de présentation unproven est libéré même pour une bibliothèque réellement vide.
+
+Le hook de resynchronisation reste sous le plafond historique de taille du shell : simplification de textes de statut redondants et invalidation de signatures en chaîne, sans relever la limite ni supprimer les diagnostics/contrôles. Les codes HTTP exportés sont bornés ; le natif recoupe succès avec 2xx et expiration avec les deux codes de refus. La première assertion de plafond a précisément empêché d’ajouter le hook sans cette réduction.

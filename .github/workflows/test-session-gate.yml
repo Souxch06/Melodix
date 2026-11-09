@@ -48,20 +48,30 @@ jobs:
           MELODIX_PREVIEW_KEY_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEY_PASSWORD || secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
         run: |
           set -euo pipefail
+          phase=checkout
+          trap 'rc=$?; if (( rc != 0 )); then echo "::error title=Session instrumentation setup::phase=$phase exit=$rc"; fi; rm -f "$RUNNER_TEMP/session-signing.jks"' EXIT
           [[ "$(git rev-parse HEAD)" == '${{ inputs.source_ref }}' ]]
+          phase=sdk
           sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
           android_jar="$ANDROID_HOME/platforms/android-36/android.jar"
           tools="$ANDROID_HOME/build-tools/35.0.0"
           mkdir -p "$RUNNER_TEMP/session-classes" "$RUNNER_TEMP/session-dex"
-          javac --release 8 -classpath "$android_jar" -d "$RUNNER_TEMP/session-classes" tests/android/SessionGateInstrumentation.java
+          phase=javac
+          javac --release 8 -classpath "$android_jar" -d "$RUNNER_TEMP/session-classes" tests/android/SessionGateInstrumentation.java 2> "$RUNNER_TEMP/session-javac-errors.txt" || {
+            while IFS= read -r line; do echo "::error title=Session instrumentation compiler::$line"; done < "$RUNNER_TEMP/session-javac-errors.txt"
+            exit 1
+          }
           mapfile -t classes < <(find "$RUNNER_TEMP/session-classes" -name '*.class')
+          phase=dex
           "$tools/d8" --lib "$android_jar" --min-api 24 --output "$RUNNER_TEMP/session-dex" "${classes[@]}"
           sed 's/HomeRenderInstrumentation/SessionGateInstrumentation/g' tests/android/AndroidManifest.xml > "$RUNNER_TEMP/SessionManifest.xml"
+          phase=manifest
           "$tools/aapt" package -f -M "$RUNNER_TEMP/SessionManifest.xml" -I "$android_jar" -F "$RUNNER_TEMP/session-unsigned.apk"
           (cd "$RUNNER_TEMP/session-dex" && zip -q "$RUNNER_TEMP/session-unsigned.apk" classes.dex)
+          phase=align
           "$tools/zipalign" -f 4 "$RUNNER_TEMP/session-unsigned.apk" "$RUNNER_TEMP/session-aligned.apk"
           printf '%s' "$MELODIX_PREVIEW_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/session-signing.jks"
-          trap 'rm -f "$RUNNER_TEMP/session-signing.jks"' EXIT
+          phase=sign
           "$tools/apksigner" sign --ks "$RUNNER_TEMP/session-signing.jks" --ks-key-alias MELODIX_PREVIEW \
             --ks-pass env:MELODIX_PREVIEW_KEYSTORE_PASSWORD --key-pass env:MELODIX_PREVIEW_KEY_PASSWORD \
             --out "$RUNNER_TEMP/session-test.apk" "$RUNNER_TEMP/session-aligned.apk"
@@ -70,7 +80,9 @@ jobs:
           [[ -s "$target" ]]
           "$tools/apksigner" verify --print-certs "$target" > "$RUNNER_TEMP/target-cert.txt"
           "$tools/apksigner" verify --print-certs "$RUNNER_TEMP/session-test.apk" > "$RUNNER_TEMP/test-cert.txt"
+          phase=certificate-match
           diff <(grep '^Signer #1 certificate SHA-256 digest:' "$RUNNER_TEMP/target-cert.txt") <(grep '^Signer #1 certificate SHA-256 digest:' "$RUNNER_TEMP/test-cert.txt")
+          phase=kvm
           sudo chmod 666 /dev/kvm
       - name: Execute actual native state decisions on fresh emulator (not Spotify authentication)
         uses: reactivecircus/android-emulator-runner@v2

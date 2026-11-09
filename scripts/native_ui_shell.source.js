@@ -1330,9 +1330,7 @@
             primaryUri = 'melodix:action:open-login';
             secondaryUri = 'melodix:action:retry-library';
         } else if (confirmed403) {
-            subtitle = 'Spotify a refusé la lecture de votre bibliothèque. La cause n’est pas établie : ' +
-                'vérifiez les autorisations de l’application et l’accès du compte, puis réessayez. ' +
-                'Ce refus ne prouve pas une déconnexion. Vos playlists restent masquées jusqu’à validation.';
+            subtitle = 'Spotify refuse l’accès. Cause inconnue ; réessayez. Ce refus ne prouve pas une déconnexion. Les playlists restent masquées.';
             // A 403 is an access decision, not evidence that the user is logged out.
             // Keep recovery explicit without sending the user through the unrelated player login.
             primaryUri = 'melodix:action:retry-library';
@@ -1343,8 +1341,7 @@
             primaryUri = 'melodix:action:retry-library';
             secondaryUri = '';
         } else if (authState === 'required') {
-            subtitle = 'Connectez-vous dans le lecteur Spotify pour vérifier votre bibliothèque. ' +
-                'Vos playlists restent masquées jusqu’à validation.';
+            subtitle = 'Connectez-vous à Spotify. Les playlists restent masquées avant validation.';
             primaryUri = 'melodix:action:open-login';
             secondaryUri = '';
         } else if (status === 'error') {
@@ -1369,10 +1366,10 @@
             }
         } else {
             subtitle = authState === 'connected'
-                ? 'La bibliothèque est en cours de vérification. Vos playlists restent masquées jusqu’à une réponse valide.'
+                ? 'Vérification de la bibliothèque ; playlists masquées avant validation.'
                 : authState === 'in-progress'
-                    ? 'La connexion du lecteur est en cours. Vos playlists restent masquées jusqu’à validation.'
-                    : 'L’état de connexion du lecteur n’est pas encore confirmé. Vos playlists restent masquées.';
+                    ? 'Connexion en cours ; playlists masquées avant validation.'
+                    : 'L’état de connexion du lecteur n’est pas encore confirmé.';
             // MEL-BUG-056: unknown auth -> offer the real login action on the card.
             if (authState === 'unknown') {
                 primaryUri = 'melodix:action:open-login';
@@ -3346,6 +3343,18 @@
         } catch (_) {
             return false;
         }
+    };
+
+    // Native ingress may have dropped an earlier payload while verifying.
+    // Re-emit only after the existing library proof; never navigate or fetch here.
+    window.__sfNativeSessionVerified = function() {
+        if (!libraryProvesSession()) return false;
+        lastHomeSignature = lastSearchSignature = lastLibrarySignature = lastInitialDetailSignature = null;
+        lastInitialDetailTitle = '';
+        window.__sfNativeUiLastRouteSent = '';
+        window.__sfNativeUiReadyNotified = false;
+        runUpdate();
+        return true;
     };
 
     window.__sfNativeUiRefresh = function() {

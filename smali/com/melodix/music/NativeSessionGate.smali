@@ -242,15 +242,21 @@
     invoke-virtual {v0, v1}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;)Z
     move-result v1
     if-eqz v1, :not_valid
+    sget v1, Lcom/melodix/music/NativeSessionGate;->libraryHttp:I
+    const/16 v2, 0xc8
+    if-lt v1, v2, :not_valid
+    const/16 v2, 0x12b
+    if-gt v1, v2, :not_valid
     const/4 v1, 0x3
     const-string v2, "token-and-library-ok"
     invoke-static {v1, v2}, Lcom/melodix/music/NativeSessionGate;->transition(ILjava/lang/String;)V
     const/4 v1, 0x0
     sput-boolean v1, Lcom/melodix/music/NativeSessionGate;->expiredEvidence:Z
     iput-boolean v1, p0, Lcom/melodix/music/MainActivity;->nativeLoginWebRequested:Z
+    iput-boolean v1, p0, Lcom/melodix/music/MainActivity;->nativeSessionUnproven:Z
     invoke-static {p0}, Lcom/melodix/music/NativeSessionGate;->paint(Lcom/melodix/music/MainActivity;)V
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->showNativeUi()V
-    const-string v1, "if(window.__sfNativeUiRefresh)window.__sfNativeUiRefresh();"
+    const-string v1, "if(window.__sfNativeSessionVerified)window.__sfNativeSessionVerified();else if(window.__sfNativeUiRefresh)window.__sfNativeUiRefresh();"
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     goto :done
     :not_valid
@@ -262,6 +268,14 @@
     if-nez v1, :failed
     const-string v1, "tokenRefused"
     invoke-virtual {v0, v1}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;)Z
+    move-result v1
+    if-eqz v1, :failed
+    sget v1, Lcom/melodix/music/NativeSessionGate;->tokenApiHttp:I
+    invoke-static {v1}, Lcom/melodix/music/NativeSessionGate;->refused(I)Z
+    move-result v1
+    if-eqz v1, :failed
+    sget v1, Lcom/melodix/music/NativeSessionGate;->tokenFallbackHttp:I
+    invoke-static {v1}, Lcom/melodix/music/NativeSessionGate;->refused(I)Z
     move-result v1
     if-eqz v1, :failed
     const-string v1, "libraryHttp"
@@ -469,4 +483,19 @@
     invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
     move-result-object v0
     return-object v0
+.end method
+
+.method public static refused(I)Z
+    .locals 1
+    const/16 v0, 0x190
+    if-eq p0, v0, :yes
+    const/16 v0, 0x191
+    if-eq p0, v0, :yes
+    const/16 v0, 0x193
+    if-eq p0, v0, :yes
+    const/4 v0, 0x0
+    return v0
+    :yes
+    const/4 v0, 0x1
+    return v0
 .end method

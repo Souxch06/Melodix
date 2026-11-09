@@ -63,7 +63,8 @@ public final class SessionGateInstrumentation extends Instrumentation {
     private void result(boolean token, boolean library, boolean refused, int http) throws Exception {
         JSONObject proof = new JSONObject().put("generation", field("generation"))
             .put("attempt", 1).put("completed", true).put("token", token)
-            .put("libraryOk", library).put("tokenRefused", refused).put("libraryHttp", http);
+            .put("libraryOk", library).put("tokenRefused", refused).put("libraryHttp", http)
+            .put("tokenApiHttp", refused ? 400 : 200).put("tokenFallbackHttp", refused ? 403 : 0);
         call("result", new Class<?>[]{activity().getClass(), String.class}, activity(), proof.toString());
     }
     private void note() { Bundle b = new Bundle(); b.putString("phase", phase); b.putString("result", "passed"); sendStatus(1, b); }

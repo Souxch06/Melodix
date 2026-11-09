@@ -25,6 +25,7 @@ function machine(overrides={}) {
     const a=m[1]?m[1].split(', ').map(r=>regs[r]):[], c=m[2];
     if(c.includes('JSONObject;-><init>')) Object.assign(a[0],JSON.parse(a[1]));
     else if(c.includes('NativeSessionGate;->http')) { const n=Number(a[0][a[1]]);result=n>=100&&n<=599?n:0; }
+    else if(c.includes('NativeSessionGate;->refused')) result=[400,401,403].includes(a[0]);
     else if(c.includes('->optInt')) result=Number(a[0][a[1]])||0;
     else if(c.includes('->optBoolean')) result=a[0][a[1]]===true;
     else if(c.includes('->transition')) {transitions.push({from:fields.state,to:a[0],reason:a[1]});fields.state=a[0];}
@@ -38,7 +39,7 @@ function machine(overrides={}) {
    if((m=l.match(/^move-result(?:-object)? (\w+)/))) {regs[m[1]]=result;continue;}
    if((m=l.match(/^iput-boolean (\w+), (\w+), .*;->(\w+):/))) {regs[m[2]][m[3]]=regs[m[1]];continue;}
    if((m=l.match(/^if-(eqz|nez) (\w+), (:\w+)/))) {if(m[1]==='eqz'?!regs[m[2]]:!!regs[m[2]])pc=labels[m[3]];continue;}
-   if((m=l.match(/^if-(eq|ne|le) (\w+), (\w+), (:\w+)/))) {const a=regs[m[2]], b=regs[m[3]];if(m[1]==='eq'?a===b:m[1]==='ne'?a!==b:a<=b)pc=labels[m[4]];continue;}
+   if((m=l.match(/^if-(eq|ne|le|lt|gt) (\w+), (\w+), (:\w+)/))) {const a=regs[m[2]], b=regs[m[3]];if(m[1]==='eq'?a===b:m[1]==='ne'?a!==b:m[1]==='lt'?a<b:m[1]==='gt'?a>b:a<=b)pc=labels[m[4]];continue;}
    if((m=l.match(/^goto (:\w+)/))) {pc=labels[m[1]];continue;}
    if((m=l.match(/^return(?:-object)? (\w+)/)))return regs[m[1]];
    if(l==='return-void')return;
@@ -46,7 +47,7 @@ function machine(overrides={}) {
   }
   assert.fail('did not return');
  }
- return {fields,calls,transitions,run,send:payload=>run('result',{},JSON.stringify({generation:fields.generation,attempt:1,completed:true,...payload}))};
+ return {fields,calls,transitions,run,send:payload=>run('result',{},JSON.stringify({generation:fields.generation,attempt:1,completed:true,libraryHttp:payload.libraryOk?200:0,tokenApiHttp:payload.tokenRefused?400:0,tokenFallbackHttp:payload.tokenRefused?403:0,...payload}))};
 }
 
 test('case 1: no cookie chooses login once, never player/home or cookie deletion',()=>{
@@ -134,4 +135,23 @@ test('new helpers never illegally access private MainActivity fields',()=>{
   const src=read('smali/com/melodix/music/'+name+'.smali');
   for(const match of src.matchAll(/MainActivity;->(\w+):/g)) assert.match(fields.get(match[1])||'',/public/,name+' field '+match[1]);
  }
+});
+
+test('inconsistent HTTP/proof claims never unlock home or trigger expiry',()=>{
+ for(const payload of [{token:true,libraryOk:true,libraryHttp:401},{token:true,libraryOk:true,libraryHttp:0},
+   {tokenRefused:true,libraryHttp:401,tokenApiHttp:0},{tokenRefused:true,libraryHttp:401,tokenFallbackHttp:500}]) {
+  const m=machine();m.send(payload);assert.equal(m.fields.state,4);assert.ok(!m.calls.includes('login'));
+ }
+});
+test('post-verification resend resets presentation dedup only after existing library proof',()=>{
+ const src=read('scripts/native_ui_shell.source.js');const fn=src.match(/window\.__sfNativeSessionVerified = function\(\) \{[\s\S]*?\n    \};/)[0];
+ for(const proven of [false,true]) {
+  const context={window:{},libraryProvesSession:()=>proven,runUpdate:()=>context.updates++,updates:0,
+   lastHomeSignature:'old',lastSearchSignature:'old',lastLibrarySignature:'old',lastInitialDetailSignature:'old'};
+  vm.runInNewContext(fn,context);assert.equal(context.window.__sfNativeSessionVerified(),proven);
+  assert.equal(context.updates,proven?1:0);assert.equal(context.lastHomeSignature,proven?null:'old');
+  assert.equal(context.lastLibrarySignature,proven?null:'old');
+ }
+ assert.doesNotMatch(fn,/navigate|checkMediaLib|fetch\(|removeAllCookies/);
+ assert.match(gate,/__sfNativeSessionVerified/);
 });

@@ -1090,9 +1090,9 @@ test("targeted P0 replay uses only the verified historical ec6 APK and preserves
   const jobStart = emulatorWorkflow.indexOf("  p0-verify-replay:");
   assert.ok(jobStart >= 0, "the dedicated P0 replay job must exist");
   const p0Replay = emulatorWorkflow.slice(jobStart);
-  assert.match(emulatorWorkflow, /build-preview:\n    if: github\.event_name != 'workflow_dispatch' \|\| inputs\.replay_original_launch_path != true/);
-  assert.match(emulatorWorkflow, /build-release-candidate:\n    if: github\.event_name != 'workflow_dispatch' \|\| inputs\.replay_original_launch_path != true/);
-  assert.match(emulatorWorkflow, /install-and-launch:\n    if: github\.event_name != 'workflow_dispatch' \|\| inputs\.replay_original_launch_path != true/);
+  assert.match(emulatorWorkflow, /build-preview:\n    if: \(github\.event_name != 'workflow_dispatch' \|\| inputs\.replay_original_launch_path != true\) && inputs\.session_gate_only != true/);
+  assert.match(emulatorWorkflow, /build-release-candidate:\n    if: \(github\.event_name != 'workflow_dispatch' \|\| inputs\.replay_original_launch_path != true\) && inputs\.session_gate_only != true/);
+  assert.match(emulatorWorkflow, /install-and-launch:\n    if: \(github\.event_name != 'workflow_dispatch' \|\| inputs\.replay_original_launch_path != true\) && inputs\.session_gate_only != true/);
   assert.match(p0Replay, /if: github\.event_name == 'workflow_dispatch' && inputs\.replay_original_launch_path == true/);
   assert.match(p0Replay, /PUBLISH_PREVIEW: \$\{\{ inputs\.publish_preview \}\}[\s\S]*?\[\[ "\$\{PUBLISH_PREVIEW,,\}" == "false" \]\]/);
   assert.match(p0Replay, /EXPECTED_SOURCE_REF: ec6ef63f9d6638a70bb8e7877d7b798598c250a2/);
