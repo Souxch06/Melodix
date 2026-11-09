@@ -234,6 +234,10 @@ function executeOpenNativeRow(uri, title = 'Test collection') {
             state.opensSettings += 1;
             continue;
         }
+        if (instruction === 'invoke-static {p0}, Lcom/melodix/music/NativeSessionRecovery;->verify(Lcom/melodix/music/MainActivity;)V') {
+            state.verifications = (state.verifications || 0) + 1;
+            continue;
+        }
         if (instruction === 'return-void') return state;
         throw new Error(`unreviewed openNativeRow instruction: ${instruction}`);
     }
@@ -247,11 +251,11 @@ test('renderNativeRows routes empty settingValue to content and nonempty setting
         'a true setting row with settingValue receives the settings renderer');
 });
 
-test('retry-library keeps its Javascript retry action', () => {
+test('retry-library dispatches cookie-preserving verification with Javascript recovery', () => {
     const result = executeOpenNativeRow('melodix:action:retry-library');
-    assert.deepEqual(result.javascript, [
-        'window.__sfNativeRetryLibrary && window.__sfNativeRetryLibrary();'
-    ]);
+    assert.equal(result.verifications, 1);
+    assert.deepEqual(result.javascript, []);
+    assert.match(fs.readFileSync(path.join(ROOT, 'smali/com/melodix/music/NativeSessionRecovery.smali'), 'utf8'), /__sfNativeRetryLibrary/);
     assert.equal(result.functions.length, 0);
     assert.equal(result.renders.length, 0);
 });

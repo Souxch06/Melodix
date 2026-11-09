@@ -71,6 +71,7 @@
     const-string v1, "session-verify result=player-navigation"
     invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
     const-string v1, "https://open.spotify.com/"
+    invoke-static {v1}, Lcom/melodix/music/NativeSessionTrace;->recovery(Ljava/lang/String;)V
     invoke-virtual {v0, v1}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
     :verify_done
     :verify_end

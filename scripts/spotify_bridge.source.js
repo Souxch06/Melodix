@@ -3044,19 +3044,30 @@
         const v = String(value || '');
         return /^(ok|none|ko-network|ko-http[1-5][0-9]{2})$/.test(v) ? v : 'unknown';
     }
+    function traceTokenEndpoint(endpoint, phase, http, duration) {
+        traceLibraryEvent('token-http endpoint=' + endpoint + ' phase=' + phase +
+            ' http=' + boundedMediaLibraryCount(http, 599) +
+            ' duration=' + boundedMediaLibraryCount(duration, 999999));
+    }
     async function fetchWebPlayerToken() {
         const nowMs = Date.now();
+        const tokenStarted = mediaLibraryNow();
+        let endpointStarted = tokenStarted;
+        let tokenEndpoint = 'api';
         if (webPlayerTokenCache && webPlayerTokenCache.token &&
             Number(webPlayerTokenCache.expMs) - 60000 > nowMs) {
             lastTokenFetchStatus = 'ok';
+            traceTokenEndpoint('cache', 'end', 0, 0);
             return webPlayerTokenCache.token;
         }
         try {
+            traceTokenEndpoint('api', 'start', 0, 0);
             const tokenResp = await oriFetch('https://open.spotify.com/api/token', {
                 method: 'GET',
                 credentials: 'include',
                 headers: { 'Accept': 'application/json', 'app-platform': 'WebPlayer', 'spotify-app-version': '1.2.40.0' }
             });
+            traceTokenEndpoint('api', 'end', tokenResp && tokenResp.status, mediaLibraryNow() - endpointStarted);
             if (tokenResp && tokenResp.ok) {
                 const tokenData = await tokenResp.json();
                 const token = tokenData && tokenData.accessToken;
@@ -3077,11 +3088,15 @@
             const status = tokenResp && Number(tokenResp.status);
             lastTokenFetchStatus = safeTokenFetchStatus(
                 Number.isFinite(status) && status >= 100 && status <= 599 ? 'ko-http' + Math.floor(status) : 'ko-network');
+            tokenEndpoint = 'fallback';
+            endpointStarted = mediaLibraryNow();
+            traceTokenEndpoint('fallback', 'start', 0, 0);
             const altResp = await oriFetch('https://open.spotify.com/get_access_token?reason=transport&productType=web_player', {
                 method: 'GET',
                 credentials: 'include',
                 headers: { 'Accept': 'application/json', 'app-platform': 'WebPlayer', 'spotify-app-version': '1.2.40.0' }
             });
+            traceTokenEndpoint('fallback', 'end', altResp && altResp.status, mediaLibraryNow() - endpointStarted);
             if (altResp && altResp.ok) {
                 const altData = await altResp.json();
                 const altToken = altData && altData.accessToken;
@@ -3100,6 +3115,10 @@
                 Number.isFinite(altStatus) && altStatus >= 100 && altStatus <= 599 ? 'ko-http' + Math.floor(altStatus) : 'ko-network');
         } catch (_) {
             lastTokenFetchStatus = 'ko-network';
+            traceTokenEndpoint(tokenEndpoint, 'error', 0, mediaLibraryNow() - endpointStarted);
+        } finally {
+            traceLibraryEvent('token-result status=' + safeTokenFetchStatus(lastTokenFetchStatus) +
+                ' duration=' + boundedMediaLibraryCount(mediaLibraryNow() - tokenStarted, 999999));
         }
         webPlayerTokenCache = null;
         return null;
@@ -3386,15 +3405,18 @@
         // may verify against Spotify; neither a cookie nor a DOM signal proves
         // private-library access. Only the validated response can do that.
         if (!mediaLibraryAuthReady()) {
+            traceLibraryEvent('proof-guard decision=blocked reason=auth-required');
             traceHomeLibraryStage(traceContext, 'request', 'skipped-auth', 0, 0, 0);
             syncMediaLibraryUiState();
             return Promise.resolve(false);
         }
         if (mediaLibraryCheckPromise) {
+            traceLibraryEvent('proof-guard decision=deferred reason=in-flight');
             traceHomeLibraryStage(traceContext, 'request', 'in-flight', 0, 0, 0);
             return mediaLibraryCheckPromise;
         }
 
+        traceLibraryEvent('proof-guard decision=allowed reason=dom-' + spotifyAuthUiState());
         const diagnostic = createMediaLibraryDiagnostic(source, safeCorrelationId);
         traceHomeLibraryStage(diagnostic, 'request', 'started', 0, 0, 0);
         const requestGeneration = mediaLibraryRequestGeneration;

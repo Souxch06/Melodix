@@ -618,6 +618,7 @@
     .line 10
     .line 11
     invoke-super/range {p0 .. p2}, Landroid/webkit/WebViewClient;->onPageFinished(Landroid/webkit/WebView;Ljava/lang/String;)V
+    invoke-static/range {p2 .. p2}, Lcom/melodix/music/NativeSessionTrace;->finish(Ljava/lang/String;)V
 
     # Diagnostics: without this mark the stage chain cannot tell "the page never
     # finished loading" from "the shell never ran". Values only, no page data.
@@ -702,11 +703,10 @@
 
     if-eqz v2, :cond_3
 
-    # MEL-BUG-080: no local register touched (invoke only).
-    invoke-static {v2}, Lcom/melodix/music/AppSingleton;->proofClearAccounts(Z)V
     const/4 v2, 0x0
 
     sput-boolean v2, Lcom/melodix/music/AppSingleton;->B:Z
+    invoke-static {v2}, Lcom/melodix/music/AppSingleton;->proofClearAccounts(Z)V
 
     const-string v4, "LoggedIn"
 
@@ -1791,6 +1791,7 @@
 
     .line 1
     invoke-super {p0, p1, p2, p3}, Landroid/webkit/WebViewClient;->onPageStarted(Landroid/webkit/WebView;Ljava/lang/String;Landroid/graphics/Bitmap;)V
+    invoke-static {p2}, Lcom/melodix/music/NativeSessionTrace;->start(Ljava/lang/String;)V
 
     # P0 trace: the top-level WebView navigation has begun.
     const-string v0, "page-started"
@@ -2484,6 +2485,8 @@
 .method public final shouldOverrideUrlLoading(Landroid/webkit/WebView;Landroid/webkit/WebResourceRequest;)Z
     .locals 6
 
+    invoke-static {p2}, Lcom/melodix/music/NativeSessionTrace;->request(Landroid/webkit/WebResourceRequest;)V
+
     .line 1
     const/4 v0, 0x0
 
@@ -2572,4 +2575,15 @@
     move-result v0
 
     return v0
+.end method
+
+.method public final doUpdateVisitedHistory(Landroid/webkit/WebView;Ljava/lang/String;Z)V
+    .locals 0
+    invoke-super {p0, p1, p2, p3}, Landroid/webkit/WebViewClient;->doUpdateVisitedHistory(Landroid/webkit/WebView;Ljava/lang/String;Z)V
+    if-eqz p3, :history_changed
+    invoke-static {p2}, Lcom/melodix/music/NativeSessionTrace;->historyReload(Ljava/lang/String;)V
+    return-void
+    :history_changed
+    invoke-static {p2}, Lcom/melodix/music/NativeSessionTrace;->historyChange(Ljava/lang/String;)V
+    return-void
 .end method

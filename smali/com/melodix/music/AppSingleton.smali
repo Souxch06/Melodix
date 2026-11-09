@@ -2180,7 +2180,7 @@
 
     sget-boolean v1, Lcom/melodix/music/AppSingleton;->B:Z
 
-    if-eqz v1, :proof_word_true
+    if-nez v1, :proof_word_true
 
     const-string v1, "F"
 
@@ -2197,6 +2197,15 @@
     move-result-object v2
 
     invoke-static {p0, p1, v2}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    new-instance v0, Ljava/lang/StringBuilder;
+    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v1, "proof-native decision=blocked reason=unproven site="
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v0
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+
     :try_end_proof_word
     .catch Ljava/lang/Throwable; {:try_start_proof_word .. :try_end_proof_word} :catch_proof_word
     return-void
@@ -2309,6 +2318,15 @@
     # after the append. The only register that is certainly a String is p0, the
     # label itself — pass it as the 3rd argument.
     invoke-static {v1, v2, p0}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    new-instance v0, Ljava/lang/StringBuilder;
+    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v1, "proof "
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v0
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+
     :try_end_proof_value
     .catch Ljava/lang/Throwable; {:try_start_proof_value .. :try_end_proof_value} :catch_proof_value
     return-void

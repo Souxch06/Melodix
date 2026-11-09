@@ -30,7 +30,7 @@ test('every launch milestone the review asked for is emitted by the app itself',
     'activity-create anchors the whole table');
   assert.match(activity, /const-string v1, "content-view"[\s\S]{0,200}perfMark/);
   assert.match(activity, /const-string v1, "webview-created"[\s\S]{0,120}perfMark/);
-  assert.match(activity, /"webview-load-start"[\s\S]{0,160}loadUrl/,
+  assert.match(activity, /"webview-load-start"[\s\S]{0,320}loadUrl/,
     'the load mark sits immediately before the navigation that starts the wait');
 
   const webClient = read('smali/c91.smali');
@@ -242,8 +242,8 @@ test('phone copy has a bounded independent measurement section at both diagnosti
   assert.match(recorder, /if-gt v2, v3, :record_drop/);
   assert.doesNotMatch(recorder, /SharedPreferences|CookieManager|WebView;|URL;|HttpURLConnection|setImage|setVisibility/);
   assert.match(method(activity, '.method public final onResume()'), /NativeStartupTiming;->resume/);
-  assert.match(method(recorder, '.method public static resume()'), /if-eqz v0, :resume_first[\s\S]*reset\(\)V/,
-    'initial onResume must not discard cold-start events');
+  assert.doesNotMatch(method(recorder, '.method public static resume()'), /->reset\(\)V/,
+    'SSO resumes must not discard pre-login proof and navigation evidence');
 });
 
 test('the phone measurement grammar accepts real events and rejects account content', () => {

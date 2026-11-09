@@ -97,3 +97,28 @@ test('unproven loading has a fixed 15s deadline, then an error with safe retry a
   assert.match(timeout, /hasNativeHomeCardsAttached\(\)Z\s+move-result v1\s+if-nez v1, :timeout_done/, 'never replace successful cards');
   assert.match(timeout, /WeakReference/);
 });
+
+test('navigation, guard, token outcome and bounded image observations survive one diagnostic copy', () => {
+  const src = read('smali/com/melodix/music/NativeStartupTiming.smali');
+  const literal = src.match(/const-string v0, "(\^sid=[^"\n]+)"/)[1];
+  const rule = new RegExp(JSON.parse('"' + literal + '"'));
+  for (const event of ['navigation source=redirect route=accounts', 'navigation source=history-reload route=player',
+    'navigation source=button route=accounts', 'proof clear-accounts=F',
+    'proof-native decision=blocked reason=unproven site=rows',
+    'proof-guard decision=blocked reason=auth-required', 'token-http endpoint=api phase=end http=403 duration=23',
+    'token-result status=ko-http403 duration=40', 'image result=loaded', 'stage shell-asset-loaded']) {
+    assert.ok(rule.test('sid=1234abcd t=1000 ' + event), event);
+  }
+  for (const event of ['navigation source=redirect route=https://private',
+    'token-result status=TOKEN_SECRET duration=2', 'image result=https://private']) {
+    assert.ok(!rule.test('sid=1234abcd t=1000 ' + event));
+  }
+  const resume = method(src, '.method public static resume()');
+  assert.doesNotMatch(resume, /->reset\(\)V/, 'SSO return must retain pre-login history');
+  const client = read('smali/c91.smali');
+  assert.match(client, /WebResourceRequest;->isRedirect\(\)Z|NativeSessionTrace;->request/);
+  assert.match(client, /doUpdateVisitedHistory/);
+  const singleton = read('smali/com/melodix/music/AppSingleton.smali');
+  assert.match(method(singleton, '.method public static noteDiagProof'), /if-nez v1, :proof_word_true/);
+  assert.match(client, /sput-boolean v2, [^\n]*->B:Z\s+invoke-static \{v2\}[^\n]*proofClearAccounts/);
+});

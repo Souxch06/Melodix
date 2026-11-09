@@ -624,6 +624,7 @@
     :try_start_load
     const-string v2, "webview-load-start"
     invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->perfMark(Ljava/lang/String;)V
+    invoke-static {v1}, Lcom/melodix/music/NativeSessionTrace;->ensure(Ljava/lang/String;)V
     invoke-virtual {v0, v1}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
     :try_end_load
     .catchall {:try_start_load .. :try_end_load} :load_failed
@@ -11500,6 +11501,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     if-eqz v1, :native_login_surface
     const-string v2, "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&allow_signup=1"
     :try_start_native_login
+    invoke-static {v2}, Lcom/melodix/music/NativeSessionTrace;->button(Ljava/lang/String;)V
     invoke-virtual {v1, v2}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
     :try_end_native_login
     .catch Ljava/lang/Throwable; {:try_start_native_login .. :try_end_native_login} :native_login_failed

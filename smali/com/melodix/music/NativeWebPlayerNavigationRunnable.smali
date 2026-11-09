@@ -23,6 +23,7 @@
     if-eqz v1, :done
 
     :try_start_load
+    invoke-static {v1}, Lcom/melodix/music/NativeSessionTrace;->bridge(Ljava/lang/String;)V
     invoke-virtual {v0, v1}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
     :try_end_load
     .catch Ljava/lang/Throwable; {:try_start_load .. :try_end_load} :load_failed

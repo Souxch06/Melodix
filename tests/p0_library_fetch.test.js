@@ -30,7 +30,7 @@ function fakeElement() {
 
 // Loads the real bridge into its own sandbox. `fetchImpl` replaces page fetch
 // captured as oriFetch. Long production deadlines are shortened only in tests.
-function loadBridge({ fetchImpl, tokenResponse = null, profileSignal = true, playerSignal = true, loginSignal = false,
+function loadBridge({ fetchImpl, tokenResponse = null, tokenStatus = 404, profileSignal = true, playerSignal = true, loginSignal = false,
     pathname = '/', hostname = 'open.spotify.com' } = {}) {
     const listeners = {};
     const dispatchedEvents = [];
@@ -92,7 +92,7 @@ function loadBridge({ fetchImpl, tokenResponse = null, profileSignal = true, pla
                 // MEL-BUG-061: the fallback token endpoint shares the same mock.
                 return tokenResponse
                     ? jsonResponse(200, tokenResponse)
-                    : jsonResponse(404, {});
+                    : jsonResponse(tokenStatus, {});
             }
             return (fetchImpl || (async () => libraryPage([])))(url, init);
         }),
@@ -804,4 +804,21 @@ test('MEL-BUG-036: with a web-player token, libraryV3 sends Authorization: Beare
         'MEL-BUG-041: the diagnostic may carry a boolean bearer flag, never the token value');
     assert.doesNotMatch(JSON.stringify(win.__sfMediaLibLastDiagnostic), /TEST_TOKEN_036/,
         'the token value never appears in the diagnostic snapshot');
+});
+
+
+test('session diagnostics record actual token endpoint codes without credential values', async () => {
+    const win = loadBridge({ tokenStatus: 403, profileSignal: false, playerSignal: false,
+        fetchImpl: async () => jsonResponse(401, {}) });
+    await win.checkMediaLib(true);
+    const trace = win.__testDiagnostics.join('\n');
+    assert.match(trace, /proof-guard decision=allowed reason=dom-unknown/);
+    assert.match(trace, /token-http endpoint=api phase=start http=0 duration=0/);
+    assert.match(trace, /token-http endpoint=api phase=end http=403 duration=[0-9]+/);
+    assert.match(trace, /token-http endpoint=fallback phase=end http=403 duration=[0-9]+/);
+    assert.match(trace, /token-result status=ko-http403 duration=[0-9]+/);
+    assert.match(trace, /library.request.started/);
+    assert.match(trace, /library.request.response .*http=401/);
+    assert.equal(win.__sfMediaLibSessionProven, false);
+    assert.doesNotMatch(trace, /accessToken|TEST_TOKEN|sp_dc=/);
 });

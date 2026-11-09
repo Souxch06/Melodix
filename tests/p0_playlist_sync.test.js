@@ -363,6 +363,6 @@ test('the native side dispatches the state-row actions without a new bridge meth
     assert.ok(start > 0, 'openNativeRow existe');
     const body = activity.slice(start, activity.indexOf('.end method', start));
     assert.match(body, /const-string v2, "melodix:action:open-settings"[\s\S]{0,220}openNativeSettings\(\)V/);
-    assert.match(body, /const-string v2, "melodix:action:retry-library"[\s\S]{0,220}__sfNativeRetryLibrary/);
+    assert.match(body, /const-string v2, "melodix:action:retry-library"[\s\S]{0,360}NativeSessionRecovery;->verify/);
     assert.doesNotMatch(body, /JavascriptInterface/, 'no new JavaScript bridge surface');
 });

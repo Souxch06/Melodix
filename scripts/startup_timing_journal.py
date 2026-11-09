@@ -120,13 +120,18 @@ def first_hits(entries):
     return hits, counts, t0
 
 
-def build_report(entries):
+def build_report(entries, from_launch=False):
     # Select the latest launch, never combine clocks/counters across sessions.
     anchors = [i for i, e in enumerate(entries)
                if stamp(e)[0] is not None and stamp(e)[1] in ('perf activity-create', 'perf activity-resume')]
     if not anchors:
         return None
-    entries = entries[anchors[-1]:]
+    if from_launch:
+        launches = [i for i in anchors if stamp(entries[i])[1] == 'perf activity-create']
+        selected = launches[-1] if launches else anchors[-1]
+    else:
+        selected = anchors[-1]
+    entries = entries[selected:]
     session = re.match(r'^sid=(\S+) ', entries[0])
     if session:
         entries = [e for e in entries if e.startswith('sid=' + session.group(1) + ' ')]
@@ -172,6 +177,9 @@ def build_report(entries):
             'native_payloads_all_screens': sum(stamp(e)[1] == 'perf native-payload' for e in entries),
             'native_rows_all_screens': sum(stamp(e)[1] == 'perf native-rows' for e in entries),
         },
+        'session_events': [dict(offset_ms=stamp(e)[0] - t0, event=stamp(e)[1])
+            for e in entries if stamp(e)[0] is not None and allowed_entry(e)
+            and re.match(r'^(navigation |proof |proof-guard |proof-native |token-http |token-result |session-verify |stage |image )', stamp(e)[1])][:120],
         'entries': len(entries),
         'observed_until_ms': max([stamp(e)[0] for e in entries if stamp(e)[0] is not None], default=t0) - t0,
         'durations': [dict(event='token-attempt', duration_ms=int(m.group(1)))
@@ -203,6 +211,8 @@ def print_table(report):
     print('native-payload / native-rows (tous écrans) : %s / %s' % (
         counters['native_payloads_all_screens'], counters['native_rows_all_screens']))
     print('fenêtre observée : %s ms' % report['observed_until_ms'])
+    for event in report['session_events']:
+        print('%7s ms  %s' % (event['offset_ms'], event['event']))
     for duration in report['durations']:
         print('%s : %s ms' % (duration['event'], duration['duration_ms']))
 
@@ -229,7 +239,7 @@ def main(argv):
         print('NOT MEASURED: timing capture overflowed; repeat a shorter scenario.', file=sys.stderr)
         return 2
     entries = parse_entries(text)
-    report = build_report(entries)
+    report = build_report(entries, from_launch='--from-launch' in argv)
     if report is None:
         print('NOT MEASURED: no "activity-create" or "activity-resume" marker in this journal, so no '
               'startup timeline can be anchored. Paste a journal captured from a '

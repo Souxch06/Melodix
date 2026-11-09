@@ -21,6 +21,9 @@
 .method public final onSuccess()V
     .locals 2
 
+    const/4 v0, 0x1
+    invoke-static {v0}, Lcom/melodix/music/NativeSessionTrace;->image(Z)V
+
     sget-boolean v0, Lcom/melodix/music/NativeImageLoader$FirstImageMark;->reported:Z
 
     if-nez v0, :done
@@ -39,7 +42,10 @@
 
 
 .method public final onError()V
-    .locals 0
+    .locals 1
+
+    const/4 v0, 0x0
+    invoke-static {v0}, Lcom/melodix/music/NativeSessionTrace;->image(Z)V
 
     # A failed image is not "displayed": report nothing rather than a fake mark.
     return-void

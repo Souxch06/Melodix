@@ -37,6 +37,12 @@ test('MEL-BUG-080a: each instrumentation site is exactly ONE instruction', () =>
     const lines = read(file).split('\n');
     let found = 0;
     for (let i = 0; i < lines.length; i += 1) {
+      if (lines[i].includes('AppSingleton;->proofClearAccounts(Z)V')) {
+        assert.match(lines[i - 1], /sput-boolean v2, .*AppSingleton;->B:Z/,
+          'accounts trace reads the value AFTER the store with no extra register write');
+        found += 1;
+        continue;
+      }
       if (!(isComment(lines[i]) && lines[i].includes('MEL-BUG-080'))) continue;
       if (!lines.slice(i + 1, i + 20).join('\n').includes(INVOKE)) continue;
       found += 1;

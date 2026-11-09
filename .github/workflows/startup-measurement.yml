@@ -16,7 +16,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[startup-measure]')
     uses: ./.github/workflows/preview-apk.yml
     with:
-      release_tag: v1.3.2-test.120-preview
+      release_tag: v1.3.2-test.121-preview
       source_ref: ${{ github.sha }}
       build_only: true
       target_debuggable: false
