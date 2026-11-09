@@ -43,12 +43,20 @@ permissions:
 
 jobs:
   session-gate:
-    if: github.event_name == 'workflow_dispatch' && inputs.session_gate_only == true
+    if: github.event_name == 'workflow_dispatch' && inputs.session_gate_only == true && inputs.source_ref != 'webview-discovery'
     uses: ./.github/workflows/test-session-gate.yml
     with:
       source_ref: ${{ inputs.source_ref || github.sha }}
       evidence_run: ${{ inputs.session_evidence_run || '0' }}
     secrets: inherit
+  webview-discovery:
+    if: github.event_name == 'workflow_dispatch' && inputs.session_gate_only == true && inputs.source_ref == 'webview-discovery'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Discover official Chromium Android x64 snapshots near milestone 156
+        run: bash scripts/explore_webview156.sh
   build-preview:
     if: (github.event_name != 'workflow_dispatch' || inputs.replay_original_launch_path != true) && inputs.session_gate_only != true
     name: Build debuggable APK for UI instrumentation

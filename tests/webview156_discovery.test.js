@@ -1,6 +1,7 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs');
-test('Chromium snapshot discovery never downloads, installs, executes or publishes an APK',()=>{
- const w=fs.readFileSync('.github/workflows/explore-webview156.yml','utf8');
- assert.match(w,/workflow_dispatch/);assert.match(w,/storage\.googleapis\.com\/storage\/v1/);assert.match(w,/AndroidDesktop_x64\/1706000/);assert.doesNotMatch(w,/adb install|unzip|actions\/upload-artifact|\.apk\b/);
+test('Chromium snapshot discovery is metadata only and isolated from the session-gate run',()=>{
+ const w=fs.readFileSync('.github/workflows/test-preview-emulator.yml','utf8'),s=fs.readFileSync('scripts/explore_webview156.sh','utf8');
+ assert.match(w,/session_gate_only == true && inputs.source_ref != 'webview-discovery'/);assert.match(w,/session_gate_only == true && inputs.source_ref == 'webview-discovery'/);
+ assert.match(s,/storage\.googleapis\.com\/storage\/v1/);assert.match(s,/AndroidDesktop_x64\/1706000/);assert.doesNotMatch(s,/adb install|unzip|actions\/upload-artifact|\.apk\b/);
 });
