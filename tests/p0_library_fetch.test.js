@@ -588,20 +588,20 @@ test('login navigation aborts an in-flight request and rejects its late private 
     }
 });
 
-test('a profile widget alone never authorizes a library request', async () => {
+test('unknown DOM may verify with Spotify but a profile alone never proves private access', async () => {
     let fetchCount = 0;
     const win = loadBridge({
         profileSignal: true,
         playerSignal: false,
         fetchImpl: async () => { fetchCount += 1; return jsonResponse(401, {}); }
     });
-    const result = await win.checkMediaLib(true);
-    assert.equal(result, false);
-    assert.equal(fetchCount, 0);
+    await win.checkMediaLib(true);
+    assert.equal(fetchCount, 1);
     assert.equal(win.__sfSpotifyAuthUiState, 'unknown');
-    assert.equal(win.__sfMediaLibStatus, 'pending');
+    assert.equal(win.__sfMediaLibStatus, 'error');
     assert.equal(win.__sfMediaLibSessionProven, false);
-    assert.equal(libraryDiagnostics(win).length, 0, 'no request diagnostic is emitted when the player UI is not confirmed');
+    assert.ok(win.mediaLib == null);
+    assert.ok(libraryDiagnostics(win).length > 0, 'the refused request is diagnosed, not inferred from the DOM');
 });
 
 test('a confirmed player UI permits one libraryV3 check and records a separate proof epoch', async () => {
@@ -609,14 +609,15 @@ test('a confirmed player UI permits one libraryV3 check and records a separate p
     const win = loadBridge({
         profileSignal: true,
         playerSignal: false,
-        fetchImpl: async () => { fetchCount += 1; return libraryPage([]); }
+        fetchImpl: async () => { fetchCount += 1; return fetchCount === 1 ? jsonResponse(401, {}) : libraryPage([]); }
     });
-    assert.equal(await win.checkMediaLib(), false);
-    assert.equal(fetchCount, 0);
+    await win.checkMediaLib();
+    assert.equal(win.__sfMediaLibSessionProven, false);
+    assert.equal(fetchCount, 1);
     win.__testSetAuthSignals({ playerSignal: true });
     assert.equal(win.__sfGetSpotifyAuthUiState(), 'connected');
     await win.checkMediaLib();
-    assert.equal(fetchCount, 1);
+    assert.equal(fetchCount, 2);
     assert.equal(win.__sfMediaLibStatus, 'ready');
     assert.equal(win.__sfMediaLibSessionProven, true);
     assert.equal(win.__sfMediaLibProofAuthEpoch, win.__sfSpotifyAuthEpoch);

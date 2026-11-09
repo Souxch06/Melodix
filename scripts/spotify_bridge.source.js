@@ -2987,7 +2987,9 @@
     }
 
     function mediaLibraryAuthReady() {
-        return spotifyAuthUiState() === 'connected';
+        // Unknown DOM evidence is not a logout: let the server verify it.
+        // Private rows still require a valid libraryV3 response below.
+        return spotifyAuthUiState() !== 'required';
     }
 
     function traceLibraryEvent(line) {
@@ -3380,8 +3382,9 @@
             correlationId || window.__sfNativeUiHomeCorrelationId, 999999);
         const traceContext = { correlationId: safeCorrelationId, attempt: 0 };
         window.__sfMediaLibCorrelationId = safeCorrelationId;
-        // Fail closed until the same WebView has positive player/profile UI
-        // evidence. A previous native marker or cached library is not enough.
+        // A definite signed-out UI blocks this attempt. Unknown/in-progress
+        // may verify against Spotify; neither a cookie nor a DOM signal proves
+        // private-library access. Only the validated response can do that.
         if (!mediaLibraryAuthReady()) {
             traceHomeLibraryStage(traceContext, 'request', 'skipped-auth', 0, 0, 0);
             syncMediaLibraryUiState();
