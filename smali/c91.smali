@@ -1814,6 +1814,15 @@
 
     if-eqz v0, :bridge_detach
 
+    # Never attach to an HTTP page that merely has the Spotify hostname.
+    invoke-virtual {v0}, Landroid/net/Uri;->getScheme()Ljava/lang/String;
+    move-result-object v1
+    const-string v2, "https"
+    invoke-virtual {v2, v1}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
+    move-result v1
+    if-eqz v1, :bridge_detach
+    const-string v2, "open.spotify.com"
+
     invoke-virtual {v0}, Landroid/net/Uri;->getHost()Ljava/lang/String;
 
     move-result-object v1
@@ -2516,6 +2525,14 @@
     invoke-interface {p2}, Landroid/webkit/WebResourceRequest;->isForMainFrame()Z
 
     move-result v3
+
+    # The interface is committed for the next document. Prepare only for a
+    # top-level destination, before policy/redirect starts the next load.
+    if-eqz v3, :bridge_nav_prepared
+    invoke-virtual {v1}, Landroid/net/Uri;->toString()Ljava/lang/String;
+    move-result-object v4
+    invoke-static {p1, v4}, Lcom/melodix/music/NativeBridgeNavigation;->prepare(Landroid/webkit/WebView;Ljava/lang/String;)V
+    :bridge_nav_prepared
 
     invoke-static {p1, v1, v3}, Lcom/melodix/music/SpotifyNavigationPolicy;->handle(Landroid/webkit/WebView;Landroid/net/Uri;Z)Z
 

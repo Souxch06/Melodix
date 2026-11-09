@@ -389,6 +389,7 @@
     if-eqz v0, :done
     const-string v1, "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&allow_signup=1"
     invoke-static {v1}, Lcom/melodix/music/NativeSessionTrace;->button(Ljava/lang/String;)V
+    invoke-static {v0, v1}, Lcom/melodix/music/NativeBridgeNavigation;->prepare(Landroid/webkit/WebView;Ljava/lang/String;)V
     invoke-virtual {v0, v1}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
     :done
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->applySessionLoginSurface()V

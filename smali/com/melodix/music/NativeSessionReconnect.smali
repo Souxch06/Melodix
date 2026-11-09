@@ -29,6 +29,7 @@
     if-eqz v0, :reconnect_clear
     invoke-virtual {v0}, Landroid/webkit/WebView;->stopLoading()V
     const-string v1, "about:blank"
+    invoke-static {v0, v1}, Lcom/melodix/music/NativeBridgeNavigation;->prepare(Landroid/webkit/WebView;Ljava/lang/String;)V
     invoke-virtual {v0, v1}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
     :reconnect_clear
     # Recheck identity immediately before destructive work; a replaced cookie is preserved.

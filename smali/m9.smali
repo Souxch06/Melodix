@@ -1621,6 +1621,7 @@
     .line 288
     .line 289
     invoke-static {v0}, Lcom/melodix/music/NativeSessionTrace;->factory(Ljava/lang/String;)V
+    invoke-static {p0, v0}, Lcom/melodix/music/NativeBridgeNavigation;->prepare(Landroid/webkit/WebView;Ljava/lang/String;)V
     invoke-virtual {p0, v0}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
 
     const-string v1, "factory-load"
@@ -1651,6 +1652,7 @@
     .line 294
     .line 295
     invoke-static {v0}, Lcom/melodix/music/NativeSessionTrace;->factory(Ljava/lang/String;)V
+    invoke-static {p0, v0}, Lcom/melodix/music/NativeBridgeNavigation;->prepare(Landroid/webkit/WebView;Ljava/lang/String;)V
     invoke-virtual {p0, v0}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
 
     const-string v1, "factory-load"
@@ -1719,6 +1721,7 @@
     const-string v2, "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&allow_signup=1"
 
     invoke-static {v2}, Lcom/melodix/music/NativeSessionTrace;->factory(Ljava/lang/String;)V
+    invoke-static {v1, v2}, Lcom/melodix/music/NativeBridgeNavigation;->prepare(Landroid/webkit/WebView;Ljava/lang/String;)V
     invoke-virtual {v1, v2}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
     :try_end_retry
     .catchall {:try_start_retry .. :try_end_retry} :retry_failed

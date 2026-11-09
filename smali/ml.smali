@@ -557,6 +557,7 @@
 
     .line 30
     .line 31
+    invoke-static {v0, p0}, Lcom/melodix/music/NativeBridgeNavigation;->prepare(Landroid/webkit/WebView;Ljava/lang/String;)V
     invoke-virtual {v0, p0}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
 
     .line 32

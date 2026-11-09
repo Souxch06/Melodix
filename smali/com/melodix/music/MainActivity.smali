@@ -453,6 +453,7 @@
     invoke-static {v1}, Lcom/melodix/music/NativeSessionTrace;->ensure(Ljava/lang/String;)V
     const-string v2, "webview-load-start"
     invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->perfMark(Ljava/lang/String;)V
+    invoke-static {v0, v1}, Lcom/melodix/music/NativeBridgeNavigation;->prepare(Landroid/webkit/WebView;Ljava/lang/String;)V
     invoke-virtual {v0, v1}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
     :done
     :ensure_end
@@ -11137,6 +11138,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     if-eqz v1, :native_row_click_done
     const-string v2, "https://open.spotify.com/search"
     :try_start_native_search
+    invoke-static {v1, v2}, Lcom/melodix/music/NativeBridgeNavigation;->prepare(Landroid/webkit/WebView;Ljava/lang/String;)V
     invoke-virtual {v1, v2}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
     :try_end_native_search
     .catch Ljava/lang/Throwable; {:try_start_native_search .. :try_end_native_search} :native_search_failed
@@ -11158,6 +11160,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     if-eqz v1, :native_row_click_done
     const-string v2, "https://open.spotify.com/account"
     :try_start_native_account
+    invoke-static {v1, v2}, Lcom/melodix/music/NativeBridgeNavigation;->prepare(Landroid/webkit/WebView;Ljava/lang/String;)V
     invoke-virtual {v1, v2}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
     :try_end_native_account
     .catch Ljava/lang/Throwable; {:try_start_native_account .. :try_end_native_account} :native_account_failed

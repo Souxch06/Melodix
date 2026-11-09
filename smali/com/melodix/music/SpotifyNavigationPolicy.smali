@@ -62,6 +62,7 @@
 
     :load_in_webview
     :try_start_load
+    invoke-static {p0, v0}, Lcom/melodix/music/NativeBridgeNavigation;->prepare(Landroid/webkit/WebView;Ljava/lang/String;)V
     invoke-virtual {p0, v0}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
     :try_end_load
     .catch Ljava/lang/Throwable; {:try_start_load .. :try_end_load} :load_failed

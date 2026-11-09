@@ -105,6 +105,7 @@
 
     const-string v1, "https://open.spotify.com/app"
 
+    invoke-static {v0, v1}, Lcom/melodix/music/NativeBridgeNavigation;->prepare(Landroid/webkit/WebView;Ljava/lang/String;)V
     invoke-virtual {v0, v1}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
 
     const-string v1, "native-nav late"

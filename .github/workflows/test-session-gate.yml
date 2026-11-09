@@ -136,6 +136,57 @@ jobs:
           name: session-gate-${{ matrix.variant }}-${{ matrix.form }}
           path: session-evidence/
           if-no-files-found: warn
+  bridge-navigation:
+    needs: [build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.source_ref }}
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4.0.4
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: ${{ needs.build.outputs.apk_name }}
+          path: target-apk
+      - name: Compile and sign offline WebView bridge fixture
+        env:
+          MELODIX_PREVIEW_KEYSTORE_B64: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_B64 }}
+          MELODIX_PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
+          MELODIX_PREVIEW_KEY_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEY_PASSWORD || secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          trap 'rm -f "$RUNNER_TEMP/bridge-signing.jks"' EXIT
+          [[ "$(git rev-parse HEAD)" == '${{ inputs.source_ref }}' ]]
+          sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
+          jar="$ANDROID_HOME/platforms/android-36/android.jar"
+          tools="$ANDROID_HOME/build-tools/35.0.0"
+          mkdir -p "$RUNNER_TEMP/bridge-classes" "$RUNNER_TEMP/bridge-dex" "$RUNNER_TEMP/bridge-manifest"
+          javac --release 8 -classpath "$jar" -d "$RUNNER_TEMP/bridge-classes" tests/android/BridgeNavigationInstrumentation.java
+          mapfile -t classes < <(find "$RUNNER_TEMP/bridge-classes" -name '*.class')
+          "$tools/d8" --lib "$jar" --min-api 24 --output "$RUNNER_TEMP/bridge-dex" "${classes[@]}"
+          sed 's/HomeRenderInstrumentation/BridgeNavigationInstrumentation/g' tests/android/AndroidManifest.xml > "$RUNNER_TEMP/bridge-manifest/AndroidManifest.xml"
+          "$tools/aapt" package -f -M "$RUNNER_TEMP/bridge-manifest/AndroidManifest.xml" -I "$jar" --min-sdk-version 24 --target-sdk-version 36 --version-code 1 --version-name bridge-fixture -F "$RUNNER_TEMP/bridge-unsigned.apk"
+          (cd "$RUNNER_TEMP/bridge-dex" && zip -q "$RUNNER_TEMP/bridge-unsigned.apk" classes.dex)
+          "$tools/zipalign" -f 4 "$RUNNER_TEMP/bridge-unsigned.apk" "$RUNNER_TEMP/bridge-aligned.apk"
+          printf '%s' "$MELODIX_PREVIEW_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/bridge-signing.jks"
+          "$tools/apksigner" sign --ks "$RUNNER_TEMP/bridge-signing.jks" --ks-key-alias MELODIX_PREVIEW --ks-pass env:MELODIX_PREVIEW_KEYSTORE_PASSWORD --key-pass env:MELODIX_PREVIEW_KEY_PASSWORD --out "$RUNNER_TEMP/bridge-test.apk" "$RUNNER_TEMP/bridge-aligned.apk"
+          "$tools/apksigner" verify "$RUNNER_TEMP/bridge-test.apk"
+          sudo chmod 666 /dev/kvm
+      - name: Check real WebView interface visibility on offline navigation
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
+          script: bash scripts/bridge_navigation_emulator.sh
   update-before:
     if: inputs.evidence_run == '0'
     uses: ./.github/workflows/preview-apk.yml

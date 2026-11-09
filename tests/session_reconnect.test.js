@@ -39,6 +39,7 @@ function run(name, obj, state, value) {
       else if(c.includes('Reference;->get()')) result=a[0].referent;
       else if(c.includes('->isFinishing()')) result=!!a[0].finishing;
       else if(c.includes('->isDestroyed()')) result=!!a[0].destroyed;
+      else if(c.includes('NativeBridgeNavigation;->prepare')) { state.events.push('prepare:'+a[1]); }
       else if(c.includes('->stopLoading()')) state.events.push('stop');
       else if(c.includes('->loadUrl(')) state.events.push(a[1]);
       else if(c.includes('->render(')) state.rows.push(JSON.parse(a[1]));
@@ -66,13 +67,13 @@ function fixture() {return {activity:{G:{},nativeVerificationStart:123},state:{c
 test('explicit reconnect waits for deletion callback, checks cookie absence, then opens existing login',()=>{
   const {activity,state}=fixture();
   run('start',activity,state);
-  assert.deepEqual(state.events,['stop','about:blank','clear-request']);
+  assert.deepEqual(state.events,['stop','prepare:about:blank','about:blank','clear-request']);
   assert.equal(activity.nativeVerificationStart,0);
   run('start',activity,state);
   assert.equal(state.events.filter(x=>x==='clear-request').length,1,'double tap does not race clears');
   state.cookie=false;
   run('onReceiveValue',state.callback,state,true);
-  assert.deepEqual(state.events.slice(3),['flush','storage-clear','proof-clear','login']);
+  assert.deepEqual(state.events.slice(4),['flush','storage-clear','proof-clear','login']);
   assert.equal(state.proof,false);
   assert.equal(state.loggedIn,false);
   assert.equal(activity.nativeReconnectPending,0);
