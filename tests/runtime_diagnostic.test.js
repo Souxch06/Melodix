@@ -770,3 +770,24 @@ test('result dialog is selectable and its copy button writes the JSON once', () 
     assert.match(copySmali, /ClipData;->newPlainText/);
     assert.match(copySmali, /ClipboardManager;->setPrimaryClip/);
 });
+
+test('collapsed main layout chain is bounded, anonymous, numeric and does not export arbitrary CSS', () => {
+    const run=executeDiagnostic();installGeometryFixture(run);
+    const main=run.nodes.get('#main-view');
+    const parent={id:'private-user-id',className:'private-class',children:[main],
+        computed:{display:'grid',position:'relative',gridTemplateColumns:'72px 0px 312px',columnGap:'8px',flexGrow:'1',flexShrink:'1',minWidth:'0px',maxWidth:'none',flexBasis:'auto'},
+        getBoundingClientRect:()=>({left:0,right:384,top:0,bottom:700,width:384,height:700})};
+    main.parentElement=parent;parent.parentElement=run.body;
+    main.computed.gridTemplateColumns='url(https://private.invalid/secret)';
+    run.runScheduledSamples();
+    const chain=run.samples[0].layoutGeometry.spotifyMainLayoutChain;
+    assert.equal(chain.length,3);assert.equal(chain[0].indexInParent,0);assert.equal(chain[0].gridColumnsPx,null);
+    assert.equal(chain[1].display,'grid');assert.deepEqual(chain[1].gridColumnsPx,[72,0,312]);assert.equal(chain[1].columnGapPx,8);
+    assert.doesNotMatch(JSON.stringify(chain),/private|url|secret/i);
+});
+test('layout chain fails closed when main is absent and caps pathological ancestry',()=>{
+    const missing=executeDiagnostic();missing.runScheduledSamples();assert.deepEqual(missing.samples[0].layoutGeometry.spotifyMainLayoutChain,[]);
+    const run=executeDiagnostic();installGeometryFixture(run);let current=run.nodes.get('#main-view');
+    for(let i=0;i<12;i++){const parent={children:[current],computed:{display:'grid',gridTemplateColumns:'1fr repeat(2, 20px)'},getBoundingClientRect:()=>({left:0,top:0,right:2,bottom:2,width:2,height:2})};current.parentElement=parent;current=parent;}
+    run.runScheduledSamples();const chain=run.samples[0].layoutGeometry.spotifyMainLayoutChain;assert.equal(chain.length,6);assert.equal(chain[1].gridColumnsPx,null);
+});

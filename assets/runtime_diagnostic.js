@@ -366,6 +366,46 @@
     };
   };
 
+  // Anonymous, bounded layout chain only: no tags, IDs, classes, text,
+  // selectors, URLs or arbitrary CSS strings leave the page.
+  const readMainLayoutChain = () => {
+    let element = document.querySelector('#main-view');
+    const chain = [];
+    const tracks = (value) => {
+      if (typeof value !== 'string' || value.length > 200) return null;
+      const parts = value.trim().split(/\s+/);
+      if (!parts.length || parts.length > 8 || !parts.every(part => /^\d+(?:\.\d+)?px$/.test(part))) return null;
+      return parts.map(cssPixelValue);
+    };
+    while (element && chain.length < 6) {
+      const style = readComputedStyle(element);
+      const children = element.children;
+      let index = null;
+      if (element.parentElement && element.parentElement.children) {
+        const siblings = element.parentElement.children;
+        for (let i = 0; i < siblings.length && i < 32; i += 1) {
+          if (siblings[i] === element) { index = i; break; }
+        }
+      }
+      chain.push({
+        box: readBox(element),
+        display: safeStyleSummary(style)?.display || null,
+        position: safeStyleSummary(style)?.position || null,
+        minWidthPx: style ? cssPixelValue(style.minWidth) : null,
+        maxWidthPx: style ? cssPixelValue(style.maxWidth) : null,
+        flexGrow: style && /^\d+(?:\.\d+)?$/.test(style.flexGrow || '') ? finiteMetric(style.flexGrow, 0, 100) : null,
+        flexShrink: style && /^\d+(?:\.\d+)?$/.test(style.flexShrink || '') ? finiteMetric(style.flexShrink, 0, 100) : null,
+        flexBasisPx: style ? cssPixelValue(style.flexBasis) : null,
+        gridColumnsPx: style ? tracks(style.gridTemplateColumns) : null,
+        columnGapPx: style ? cssPixelValue(style.columnGap) : null,
+        childCount: children ? Math.min(children.length, 32) : null,
+        indexInParent: index
+      });
+      element = element.parentElement;
+    }
+    return chain;
+  };
+
   const readLayoutGeometry = () => {
     const selectors = {
       globalNavigation: '#global-nav-bar',
@@ -425,6 +465,7 @@
       viewport: visualViewport,
       safeArea: readSafeAreaGeometry(navigationElement, playerElement),
       surfaces,
+      spotifyMainLayoutChain: readMainLayoutChain(),
       overlap: {
         navigationPlayerHorizontalPx: intersectingPixels(navigationBox, playerBox, 'x'),
         navigationPlayerVerticalPx: intersectingPixels(navigationBox, playerBox, 'y'),
