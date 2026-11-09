@@ -25,7 +25,7 @@ for path in sorted(root.glob('*.png'))[:8]:
         buffer = io.BytesIO()
         image.save(buffer, format='JPEG', quality=quality, optimize=True)
         data = base64.b64encode(buffer.getvalue()).decode('ascii')
-        if len(data) <= 32400:
+        if len(data) <= 18000:
             break
         if quality > 40:
             quality -= 10
@@ -37,7 +37,7 @@ for path in sorted(root.glob('*.png'))[:8]:
     # bounded below that limit; the receiver requires ALL fragments + SHA256.
     import hashlib
     chunks = [data[i:i+3600] for i in range(0,len(data),3600)]
-    if len(chunks) > 9:
+    if len(chunks) > 5:
         raise ValueError('thumbnail too large for bounded annotation step')
     digest=hashlib.sha256(buffer.getvalue()).hexdigest()
     for index,chunk in enumerate(chunks):
