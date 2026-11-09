@@ -3345,6 +3345,12 @@
     // Notify both the native shell and the Web Home renderer when collection
     // state changes; the Web renderer does not depend on unrelated DOM churn.
     // No token, account content, resource IDs, or error text is sent by this event.
+    // Startup timing: page-side durations in ms, never account data. The native
+    // side accepts only `perf <fixed-label>=<digits>` and timestamps receipt.
+    function perfMarkBridge(label, value) {
+        traceLibraryEvent('perf ' + label + '=' + Math.max(0, Math.min(999999, value | 0)));
+    }
+
     function notifyMediaLibUiChange() {
         syncMediaLibraryUiState();
         try {
@@ -3560,7 +3566,10 @@
         let hasMore = true;
         // MEL-BUG-036: attach the Bearer web-player token when available. The
         // token value itself must never reach diagnostics; only this flag does.
+        const tokenWaitStartedAt = mediaLibraryNow();
+        perfMarkBridge('token-request', 0);
         const bearerToken = await fetchWebPlayerToken();
+        perfMarkBridge('token-ready', Math.max(0, mediaLibraryNow() - tokenWaitStartedAt));
         trace.bearer = Boolean(bearerToken);
         // MEL-BUG-057: remember WHY there is no bearer (token endpoint refused
         // by the cookie session vs network failure) — status enum only.
@@ -3657,6 +3666,9 @@
                 traceHomeLibraryStage(trace, 'response',
                     trace.http >= 200 && trace.http < 300 ? 'valid' : 'error',
                     responseDuration, trace.http, trace.requests);
+                if (Number(trace.requests) === 1) {
+                    perfMarkBridge('library-response', responseDuration);
+                }
                 if (trace.http === 401 || trace.http === 403) {
                     // A 401/403 invalidates this library proof and all previously
                     // accepted private rows. A 403 may mean insufficient scope,

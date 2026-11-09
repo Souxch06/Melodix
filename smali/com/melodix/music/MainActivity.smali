@@ -621,6 +621,8 @@
 
     :have_url
     :try_start_load
+    const-string v2, "webview-load-start"
+    invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->perfMark(Ljava/lang/String;)V
     invoke-virtual {v0, v1}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
     :try_end_load
     .catchall {:try_start_load .. :try_end_load} :load_failed
@@ -669,6 +671,9 @@
 
     .line 7
     iput-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+
+    const-string v1, "webview-created"
+    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->perfMark(Ljava/lang/String;)V
 
     # The factory is not the only way a WebView reaches the screen: a cached
     # singleton re-bound to a new activity never loads a page. Guarantee one
@@ -2797,6 +2802,12 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     const-string v1, "activity-create"
 
     invoke-static/range {v1 .. v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+
+    invoke-static {}, Lcom/melodix/music/NativeStartupTiming;->reset()V
+
+    # Startup timing anchor: this is the first mark every launch emits, so the
+    # whole table is expressed relative to it.
+    invoke-static/range {v1 .. v1}, Lcom/melodix/music/NativeCrashGuard;->perfMark(Ljava/lang/String;)V
     :try_end_stage
     .catch Ljava/lang/Throwable; {:try_start_stage .. :try_end_stage} :catch_stage
 
@@ -3056,6 +3067,8 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     const-string v1, "content-view"
 
     invoke-static/range {v1 .. v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+
+    invoke-static/range {v1 .. v1}, Lcom/melodix/music/NativeCrashGuard;->perfMark(Ljava/lang/String;)V
 
     .line 154
     .line 155
@@ -5214,6 +5227,8 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
     .line 1
     invoke-super {p0}, Landroidx/activity/a;->onResume()V
+
+    invoke-static {}, Lcom/melodix/music/NativeStartupTiming;->resume()V
 
     # Mise a jour silencieuse : de retour en avant-plan, plus aucune
     # installation ne doit pouvoir tuer la session en cours.
@@ -8009,6 +8024,9 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
     move-result-object v0
 
+    invoke-static {v0}, Lcom/melodix/music/NativeStartupTiming;->appendTo(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v0
+
     invoke-direct {p0, v0}, Lcom/melodix/music/MainActivity;->copyTextToClipboard(Ljava/lang/String;)V
 
     const-string v0, "Diagnostic copié dans le presse-papiers"
@@ -9799,6 +9817,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     move-result-object v9
 
     const-string v7, "native-payload"
+    invoke-static {v7}, Lcom/melodix/music/NativeCrashGuard;->perfMark(Ljava/lang/String;)V
     invoke-static {v8, v7, v9}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
     :try_end_md1
     .catch Ljava/lang/Throwable; {:try_start_md1 .. :try_end_md1} :catch_md1
@@ -9815,6 +9834,8 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     move-result v1
     if-eqz v1, :check_home_greeting
     # MEL-BUG-068: the page asks for the full diagnostic to be copied.
+    invoke-static {p2}, Lcom/melodix/music/NativeStartupTiming;->appendTo(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object p2
     invoke-direct {p0, p2}, Lcom/melodix/music/MainActivity;->copyTextToClipboard(Ljava/lang/String;)V
     return-void
 
@@ -10344,6 +10365,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     move-result-object v9
 
     const-string v7, "native-rows"
+    invoke-static {v7}, Lcom/melodix/music/NativeCrashGuard;->perfMark(Ljava/lang/String;)V
     invoke-static {v8, v7, v9}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
     :try_end_md2
     .catch Ljava/lang/Throwable; {:try_start_md2 .. :try_end_md2} :catch_md2

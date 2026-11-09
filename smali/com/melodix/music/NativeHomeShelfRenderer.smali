@@ -524,6 +524,11 @@
     :shelf_done
     const-string v0, "rendered"
     invoke-static {v1, p1, v0}, Lcom/melodix/music/NativeHomeShelfRenderer;->traceHomeRendered(IILjava/lang/String;)V
+    # Startup timing: the cards exist in the view tree and are attached. This is
+    # "first paint" in the only sense the renderer can attest to; the measured
+    # visible rect is recorded later by completeNativeUiVisibility().
+    const-string v0, "home-first-paint"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->perfMark(Ljava/lang/String;)V
     # This is attached-view evidence only. Pixel-visible readiness is recorded
     # later by completeNativeUiVisibility() after a measured global rect.
     const-string v0, "native-home-cards-attached"

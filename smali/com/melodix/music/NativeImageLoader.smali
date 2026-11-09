@@ -26,7 +26,12 @@
     move-result-object v1
     invoke-virtual {v1}, Lcom/squareup/picasso/RequestCreator;->centerCrop()Lcom/squareup/picasso/RequestCreator;
     move-result-object v1
-    invoke-virtual {v1, p0}, Lcom/squareup/picasso/RequestCreator;->into(Landroid/widget/ImageView;)V
+    # Timing: the first cover that actually reaches an ImageView ends the
+    # "empty grey squares" period. The listener reports once per process.
+    new-instance v2, Lcom/melodix/music/NativeImageLoader$FirstImageMark;
+    invoke-direct {v2}, Lcom/melodix/music/NativeImageLoader$FirstImageMark;-><init>()V
+    # receiver + ImageView (p0) + callback: three registers, not two.
+    invoke-virtual {v1, p0, v2}, Lcom/squareup/picasso/RequestCreator;->into(Landroid/widget/ImageView;Lcom/squareup/picasso/Callback;)V
     goto :image_load_end
 
     :clear_native_image

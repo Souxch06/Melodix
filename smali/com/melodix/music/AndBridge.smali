@@ -674,6 +674,13 @@
     move-result v1
     if-nez v1, :structured_safe
 
+    # Startup timing marks from the page. Fixed enum + bounded 1-6 digit value,
+    # nothing else: the label set is closed, so a page cannot log free text.
+    const-string v0, "^perf (css-ready|token-request|token-ready|library-request|library-response|home-payload|home-first-paint|home-first-image|home-cache-hit|home-cache-miss)=[0-9]{1,6}$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
     const-string v0, "^home-rows sent$"
     invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
     move-result v1

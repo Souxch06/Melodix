@@ -628,6 +628,14 @@
     const-string v2, "webview-page-finished"
     invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
 
+    # Startup timing: the page the user waits for is now loaded. Marked here —
+    # not in the JS shell — so the value survives even when the shell throws
+    # before it can log anything.
+    # A range invoke keeps this measurement from borrowing a live local: this
+    # method is register-tight and every v0-v23 is already in use further down.
+    const-string v23, "page-loaded"
+    invoke-static/range {v23 .. v23}, Lcom/melodix/music/NativeCrashGuard;->perfMark(Ljava/lang/String;)V
+
     # Page-finished is a state recheck, not permission to transfer ownership.
     # MainActivity keeps native routes foregrounded and allows Web ownership
     # only while an explicit native login request is active.

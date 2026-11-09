@@ -1,0 +1,69 @@
+name: Measure startup instrumentation
+
+# This branch cannot register a new dispatch workflow on the default branch.
+# The explicit commit marker is opt-in and never publishes a release or tag.
+on:
+  push:
+    branches: [arena/6b935c3e-melodix]
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  build:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[startup-measure]')
+    uses: ./.github/workflows/preview-apk.yml
+    with:
+      release_tag: v1.3.2-test.120-preview
+      source_ref: ${{ github.sha }}
+      build_only: true
+      target_debuggable: false
+      apk_suffix: -startup-measurement
+    secrets: inherit
+
+  measure:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4.0.4
+      - name: Install the Android 16 emulator
+        run: sdkmanager --install 'platform-tools' 'emulator' 'build-tools;35.0.0' 'platforms;android-36' 'system-images;android-36;google_apis;x86_64'
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: ${{ needs.build.outputs.apk_name }}
+          path: ${{ runner.temp }}/startup-apk
+      - name: Boot clean phone (no account, no session injection)
+        run: bash scripts/p0_display_boot_avd.sh phone MelodixDisplayStartup 'system-images;android-36;google_apis;x86_64' "$RUNNER_TEMP/startup-state"
+      - name: Measure cold, warm and background return
+        env:
+          APK_NAME: ${{ needs.build.outputs.apk_name }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/startup-apk"
+          sha256sum -c "$APK_NAME.sha256"
+          cd "$GITHUB_WORKSPACE"
+          bash scripts/capture_startup_ci.sh \
+            "$(cat "$RUNNER_TEMP/startup-state/emulator.device")" \
+            "$RUNNER_TEMP/startup-apk/$APK_NAME" \
+            "$RUNNER_TEMP/startup-results"
+      - name: Upload redacted timing results even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: startup-measurement-${{ github.sha }}
+          path: ${{ runner.temp }}/startup-results
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Stop only this emulator
+        if: always()
+        run: bash scripts/p0_display_stop_avd.sh "$RUNNER_TEMP/startup-state"

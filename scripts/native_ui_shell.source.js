@@ -3990,6 +3990,7 @@
         install();
         window.__sfNativeUiShellCompleted = true;
         diagTrace('js-shell end ok screen=' + diagnosticScreen());
+        diagTrace('perf css-ready=0');
     } catch (err) {
         var installError = recordNativeUiShellError('install', err && err.name, err, {
             phase: 'install', callback: 'install'

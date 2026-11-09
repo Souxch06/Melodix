@@ -1205,6 +1205,79 @@
     return-void
 .end method
 
+.method public static perfMark(Ljava/lang/String;)V
+    .locals 6
+
+    # Startup timing mark, anchored by an `elapsedRealtime` stamp so the table
+    # can be rebuilt months later without a clock offset.
+    #
+    # The label is NOT free text: the allowlist below is the only way in, so a
+    # page-side caller can never smuggle a URL, a title, an id or a token into
+    # the diagnostic the user pastes into a bug report. Unknown labels are
+    # dropped silently (never recorded as "unknown"), which keeps the journal
+    # free of caller-controlled text.
+    if-eqz p0, :perf_done
+
+    const-string v0, "|activity-create|activity-resume|capture-end|native-payload|native-rows|content-view|webview-created|webview-load-start|page-loaded|css-ready|token-request|token-ready|library-request|library-response|home-payload|home-first-paint|home-first-image|home-cache-hit|home-cache-miss|"
+
+    new-instance v1, Ljava/lang/StringBuilder;
+
+    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
+
+    const-string v2, "|"
+
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v1, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v2, "|"
+
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v1
+
+    invoke-virtual {v0, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+
+    move-result v1
+
+    if-eqz v1, :perf_done
+
+    const-string v1, "t="
+
+    invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
+
+    move-result-wide v2
+
+    invoke-static {v2, v3}, Ljava/lang/Long;->toString(J)Ljava/lang/String;
+
+    move-result-object v2
+
+    new-instance v3, Ljava/lang/StringBuilder;
+
+    invoke-direct {v3}, Ljava/lang/StringBuilder;-><init>()V
+
+    invoke-virtual {v3, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v3, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v4, " perf "
+
+    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v3, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v3}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v3
+
+    invoke-static {v3}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+
+    :perf_done
+    return-void
+.end method
+
 .method public static stageLoadedAsset(Ljava/lang/String;Ljava/lang/String;)V
     .locals 2
 
@@ -1495,7 +1568,7 @@
 # phone report can show where the web side stopped - logcat is unreachable on
 # a user device. Tail-bounded: a chatty caller cannot flood the prefs.
 .method public static diagLine(Ljava/lang/String;)V
-    .locals 6
+    .locals 8
 
     if-eqz p0, :done
 
@@ -1519,8 +1592,29 @@
     move-result-object v4
     invoke-virtual {p0, v4}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
     move-result v5
-    if-eqz v5, :prefix_diagnostic_id
-    goto :diagnostic_id_ready
+    if-eqz v5, :diag_stamp
+    # Normalize an existing session prefix before adding the shared clock.
+    invoke-virtual {v4}, Ljava/lang/String;->length()I
+    move-result v5
+    invoke-virtual {p0, v5}, Ljava/lang/String;->substring(I)Ljava/lang/String;
+    move-result-object p0
+
+    :diag_stamp
+    const-string v1, "t="
+    invoke-virtual {p0, v1}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v5
+    if-nez v5, :prefix_diagnostic_id
+    new-instance v5, Ljava/lang/StringBuilder;
+    invoke-direct {v5}, Ljava/lang/StringBuilder;-><init>()V
+    invoke-virtual {v5, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
+    move-result-wide v6
+    invoke-virtual {v5, v6, v7}, Ljava/lang/StringBuilder;->append(J)Ljava/lang/StringBuilder;
+    const-string v1, " "
+    invoke-virtual {v5, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v5, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v5}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object p0
 
     :prefix_diagnostic_id
     new-instance v5, Ljava/lang/StringBuilder;
@@ -1531,6 +1625,11 @@
     move-result-object p0
 
     :diagnostic_id_ready
+    invoke-static {p0}, Lcom/melodix/music/NativeStartupTiming;->record(Ljava/lang/String;)V
+    # Logcat is the complete measurement trail. The phone's 1 KiB prefs tail
+    # is intentionally unchanged and can evict activity-create during startup.
+    const-string v1, "MDXTRACE"
+    invoke-static {v1, p0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
     const-string v1, "melodix_native"
 
     const/4 v2, 0x0
