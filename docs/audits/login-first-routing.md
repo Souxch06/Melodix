@@ -73,3 +73,20 @@ Le nouveau fichier de workflow n’est pas encore enregistré sur la branche par
 - Correctif de revue : hook `__sfNativeSessionVerified` réémet les présentations après preuve existante (signatures/route invalidées), sans navigation, nouvelle requête ou changement de garde privée. Le receiver natif rejette aussi les combinaisons contradictoires (libraryOk avec HTTP401, ou tokenRefused sans les deux réponses de refus) ; le flag de présentation unproven est libéré même pour une bibliothèque réellement vide.
 
 Le hook de resynchronisation reste sous le plafond historique de taille du shell : simplification de textes de statut redondants et invalidation de signatures en chaîne, sans relever la limite ni supprimer les diagnostics/contrôles. Les codes HTTP exportés sont bornés ; le natif recoupe succès avec 2xx et expiration avec les deux codes de refus. La première assertion de plafond a précisément empêché d’ajouter le hook sans cette réduction.
+
+### Durcissement final et protocole utilisateur
+
+- CI `42596432397` : l’annotation identifie `phase=manifest` (compilation Java et DEX déjà franchies), avant émulateur. Le runner reprend désormais le nom `AndroidManifest.xml` et les paramètres aapt du harness existant ; les erreurs de compilation du manifest sont remontées en annotations sûres. Ce n’est toujours pas une preuve de fonctionnement Android.
+- Sous la surface non validée, `nativeRoot` est réellement masqué et retiré de l’arbre d’accessibilité ; la WebView reste montée pour vérifier mais son accessibilité n’est ouverte que pour le login. Cela empêche aussi de lire d’anciennes playlists via TalkBack pendant une revérification.
+- Le hook de réémission réinitialise aussi le titre de détail, pas seulement ses lignes, pour ne pas perdre un payload refusé avant validation.
+
+À vérifier sur la preview **sans désinstaller ni effacer les données** :
+
+1. Premier lancement sans cookie : login officiel avant tout accueil ; jamais de carte 401 ou de liste vide.
+2. Session valide conservée : vérification native ≤~3 s, puis playlists/pochettes réelles après preuve ; si la réponse dépasse le budget, Réessayer, aucune purge.
+3. Cookie refusé : seulement après fin de la même tentative (jeton refusé + library401), « Session expirée, reconnecte-toi » et une ouverture automatique du login. Aucune suppression automatique ; aucune reconnexion destructive pendant le login.
+4. Hors ligne / délai / 403 isolé : message sobre + Réessayer, détails repliés, cookie conservé, pas de login automatique.
+5. Login terminé : retour player → nouvelle vérification → accueil si validé ; si le refus persiste après ce login frais, error sans deuxième ouverture automatique.
+6. Arrière-plan, Retour, portrait/paysage et recréation : budget conservé, aucun accueil privé avant preuve, Retour ne découvre pas une liste cachée, aucune boucle.
+
+Risques résiduels à mesurer : comportement réel des redirections SSO, latence réseau >3 s, dimensions du bandeau login avec grande police/clavier, authentification privée et playlists réelles. Les preuves synthétiques/CI ne doivent pas être présentées comme une validation de ces points.

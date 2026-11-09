@@ -155,3 +155,11 @@ test('post-verification resend resets presentation dedup only after existing lib
  assert.doesNotMatch(fn,/navigate|checkMediaLib|fetch\(|removeAllCookies/);
  assert.match(gate,/__sfNativeSessionVerified/);
 });
+
+test('unverified content is hidden visually and from accessibility, not just covered',()=>{
+ const src=read('smali/com/melodix/music/NativeSessionSurface.smali');
+ const protect=body(src,'protectUnderlyingViews');
+ assert.match(protect,/"nativeRoot"/);assert.match(protect,/setVisibility\(I\)V/);
+ assert.match(protect,/const\/4 v1, 0x4[\s\S]*?setImportantForAccessibility/);
+ assert.match(protect,/:valid[\s\S]*?const\/4 v1, 0x0[\s\S]*?setImportantForAccessibility/);
+});

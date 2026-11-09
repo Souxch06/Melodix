@@ -26,6 +26,7 @@
 .end method
 .method public static paint(Lcom/melodix/music/MainActivity;)V
     .locals 8
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionSurface;->protectUnderlyingViews(Lcom/melodix/music/MainActivity;)V
     sget-object v0, Lcom/melodix/music/NativeSessionGate;->overlay:Landroid/view/View;
     sget v1, Lcom/melodix/music/NativeSessionGate;->state:I
     sget-boolean v2, Lcom/melodix/music/NativeSessionGate;->loginActive:Z
@@ -177,5 +178,44 @@
     if-eqz v3, :done
     const/4 v4, 0x0
     invoke-virtual {v3, v4, v4, v4, v4}, Landroid/view/View;->setPadding(IIII)V
+    return-void
+.end method
+
+.method public static protectUnderlyingViews(Lcom/melodix/music/MainActivity;)V
+    .locals 5
+    const-string v0, "nativeRoot"
+    const-string v1, "id"
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeSessionSurface;->id(Landroid/content/Context;Ljava/lang/String;Ljava/lang/String;)I
+    move-result v0
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v0
+    sget v1, Lcom/melodix/music/NativeSessionGate;->state:I
+    const/4 v2, 0x3
+    if-eq v1, v2, :valid
+    if-eqz v0, :web
+    const/16 v1, 0x8
+    invoke-virtual {v0, v1}, Landroid/view/View;->setVisibility(I)V
+    const/4 v1, 0x4
+    invoke-virtual {v0, v1}, Landroid/view/View;->setImportantForAccessibility(I)V
+    :web
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->N:Landroid/widget/FrameLayout;
+    if-eqz v0, :done
+    const/4 v1, 0x4
+    sget-boolean v2, Lcom/melodix/music/NativeSessionGate;->loginActive:Z
+    if-eqz v2, :set_web
+    const/4 v1, 0x0
+    :set_web
+    invoke-virtual {v0, v1}, Landroid/view/View;->setImportantForAccessibility(I)V
+    return-void
+    :valid
+    if-eqz v0, :restore_web
+    const/4 v1, 0x0
+    invoke-virtual {v0, v1}, Landroid/view/View;->setImportantForAccessibility(I)V
+    :restore_web
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->N:Landroid/widget/FrameLayout;
+    if-eqz v0, :done
+    const/4 v1, 0x0
+    invoke-virtual {v0, v1}, Landroid/view/View;->setImportantForAccessibility(I)V
+    :done
     return-void
 .end method

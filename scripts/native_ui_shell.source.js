@@ -1330,7 +1330,7 @@
             primaryUri = 'melodix:action:open-login';
             secondaryUri = 'melodix:action:retry-library';
         } else if (confirmed403) {
-            subtitle = 'Spotify refuse l’accès. Cause inconnue ; réessayez. Ce refus ne prouve pas une déconnexion. Les playlists restent masquées.';
+            subtitle = 'Accès refusé, cause inconnue : vérifiez les autorisations de l’application et l’accès du compte. Ce refus ne prouve pas une déconnexion. Playlists masquées.';
             // A 403 is an access decision, not evidence that the user is logged out.
             // Keep recovery explicit without sending the user through the unrelated player login.
             primaryUri = 'melodix:action:retry-library';

@@ -64,9 +64,15 @@ jobs:
           mapfile -t classes < <(find "$RUNNER_TEMP/session-classes" -name '*.class')
           phase=dex
           "$tools/d8" --lib "$android_jar" --min-api 24 --output "$RUNNER_TEMP/session-dex" "${classes[@]}"
-          sed 's/HomeRenderInstrumentation/SessionGateInstrumentation/g' tests/android/AndroidManifest.xml > "$RUNNER_TEMP/SessionManifest.xml"
+          mkdir -p "$RUNNER_TEMP/session-manifest"
+          sed 's/HomeRenderInstrumentation/SessionGateInstrumentation/g' tests/android/AndroidManifest.xml > "$RUNNER_TEMP/session-manifest/AndroidManifest.xml"
           phase=manifest
-          "$tools/aapt" package -f -M "$RUNNER_TEMP/SessionManifest.xml" -I "$android_jar" -F "$RUNNER_TEMP/session-unsigned.apk"
+          "$tools/aapt" package -f -M "$RUNNER_TEMP/session-manifest/AndroidManifest.xml" -I "$android_jar" \
+            --min-sdk-version 24 --target-sdk-version 36 --version-code 1 --version-name session-fixture \
+            -F "$RUNNER_TEMP/session-unsigned.apk" 2> "$RUNNER_TEMP/session-manifest-errors.txt" || {
+            while IFS= read -r line; do echo "::error title=Session instrumentation manifest::$line"; done < "$RUNNER_TEMP/session-manifest-errors.txt"
+            exit 1
+          }
           (cd "$RUNNER_TEMP/session-dex" && zip -q "$RUNNER_TEMP/session-unsigned.apk" classes.dex)
           phase=align
           "$tools/zipalign" -f 4 "$RUNNER_TEMP/session-unsigned.apk" "$RUNNER_TEMP/session-aligned.apk"
