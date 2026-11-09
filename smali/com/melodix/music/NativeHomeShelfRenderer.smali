@@ -52,6 +52,7 @@
     invoke-virtual {v0}, Lorg/json/JSONArray;->length()I
 
     move-result v1
+    invoke-static {v0}, Lcom/melodix/music/NativeImageTrace;->payload(Lorg/json/JSONArray;)V
     invoke-static {v1}, Lcom/melodix/music/NativeHomeShelfRenderer;->traceHomeParsed(I)V
 
     if-lez v1, :shelf_no_cards

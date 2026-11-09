@@ -55,7 +55,7 @@ test('every launch milestone the review asked for is emitted by the app itself',
     'it reports exactly once per process: 24 cards must not flood the journal');
   assert.match(mark, /sget-boolean[^\n]*reported:Z\s+if-nez v0, :done/,
     'the initial false flag must allow the first success, not suppress it');
-  assert.doesNotMatch(method(mark, '.method public final onError()V'), /perfMark/,
+  assert.doesNotMatch(method(mark, '.method public final onError(Ljava/lang/Exception;)V'), /perfMark/,
     'a failed image is never reported as "displayed"');
 });
 
