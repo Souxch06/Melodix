@@ -395,6 +395,7 @@
     sput-boolean v0, Lcom/melodix/music/NativeSessionGate;->freshLogin:Z
     sput-boolean v0, Lcom/melodix/music/NativeSessionGate;->loginActive:Z
     sput-boolean v0, Lcom/melodix/music/NativeSessionGate;->expiredEvidence:Z
+    invoke-static {}, Lcom/melodix/music/NativeSessionEvidence;->reset()V
     :done
     return-void
 .end method

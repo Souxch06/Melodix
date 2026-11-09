@@ -93,6 +93,8 @@ public final class SessionGateInstrumentation extends Instrumentation {
         Bitmap bitmap=getUiAutomation().takeScreenshot();check(bitmap!=null);
         File dir=new File(getTargetContext().getFilesDir(),"session-captures");check(dir.exists()||dir.mkdirs());
         try(FileOutputStream out=new FileOutputStream(new File(dir,name+".png"))) { bitmap.compress(Bitmap.CompressFormat.PNG,100,out); }
+        String journal=(String)getTargetContext().getClassLoader().loadClass("com.melodix.music.NativeStartupTiming").getMethod("appendTo",String.class).invoke(null,"");
+        try(FileOutputStream out=new FileOutputStream(new File(dir,"mdxperf.txt"))) { out.write(journal.getBytes("UTF-8")); }
         bitmap.recycle();
         ui(() -> {
             View root=(View)field("overlay");int[] xy=new int[2];root.getLocationOnScreen(xy);

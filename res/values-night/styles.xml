@@ -2,7 +2,7 @@
 <resources>
     <style name="Theme.MaterialComponents.DayNight" parent="@style/Theme.MaterialComponents" />
     <style name="Theme.Spotifuck" parent="@style/Theme.MaterialComponents.NoActionBar">
-        <item name="android:windowBackground">@color/spotify_black</item>
+        <item name="android:windowBackground">@drawable/mel_launch_background</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
         <item name="android:statusBarColor">@color/mel_background</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>

@@ -231,8 +231,8 @@ test('the launch theme paints the brand before the first line of Java', () => {
   assert.match(windowBackground[1], /@drawable\/mel_launch_background/);
 
   const drawable = fs.readFileSync(path.join(root, 'res', 'drawable', 'mel_launch_background.xml'), 'utf8');
-  assert.match(drawable, /@color\/mel_background/, 'le fond reprend la couleur de l application');
-  assert.match(drawable, /melodix_launcher_foreground/, 'le logo est visible des la premiere image');
+  assert.match(drawable, /@drawable\/session_glass_background/, 'le fond reprend la couleur de l application');
+  assert.match(drawable, /session_brand/, 'le logo est visible des la premiere image');
   assert.match(drawable, /android:gravity="center"/, 'le logo est centre, comme sur le splash');
 });
 
@@ -242,7 +242,7 @@ test('the launch background uses only resources that already exist', () => {
   assert.match(colors, /<color name="mel_background">/, 'mel_background existe');
   const logoCandidates = ['drawable', 'drawable-nodpi', 'mipmap-anydpi-v26']
     .flatMap((dir) => ['xml', 'png', 'webp'].map((ext) =>
-      path.join(root, 'res', dir, `melodix_launcher_foreground.${ext}`)));
+      path.join(root, 'res', dir, `session_brand.${ext}`)));
   assert.ok(logoCandidates.some((file) => fs.existsSync(file)),
     'le logo reference existe deja (aucune nouvelle image)');
 });

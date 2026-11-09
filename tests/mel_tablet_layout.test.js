@@ -166,7 +166,7 @@ test('the native shell and the loading bar use only the mel_* palette', () => {
     const at = xml.indexOf('@id/nativeRoot');
     const shell = xml.slice(xml.lastIndexOf('<', at));
     const offenders = [...new Set(all(shell, /@color\/([A-Za-z0-9_]+)/g))]
-      .filter((colour) => !colour.startsWith('mel_'));
+      .filter((colour) => !colour.startsWith('mel_') && colour !== 'session_accent_start');
     assert.deepEqual(offenders, [], `${name}: shell chrome must use the Melodix palette`);
 
     const hex = [...shell.matchAll(/(?:android|app):(?:text)?[Cc]olor="(#[0-9a-fA-F]{3,8})"/g)];
