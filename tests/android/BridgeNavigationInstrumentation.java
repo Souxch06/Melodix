@@ -92,6 +92,19 @@ public final class BridgeNavigationInstrumentation extends Instrumentation {
             Runnable stale=(Runnable)launch.getConstructor(WebView.class,int.class).newInstance(view[0],9);
             ui(stale::run);
             check("2".equals(js("window.fixtureCount")));
+            // The production onPageStarted attaches a new object even when
+            // one is already visible in the active document. Exercise this
+            // explicitly; the previous fixture only attached before load.
+            phase="repeat_attach_active_document";
+            ui(()->prepare(view[0],PLAYER));
+            phase="repeat_attach_active_document_type";
+            String bridgeType=js("(function(){try{var x=AndBridge.getSessionGeneration();return x===null?'null':typeof x}catch(e){return 'exception'}})()");
+            outcome.putString("repeat_attach_type",bridgeType.replace("\"",""));
+            phase="repeat_attach_active_document_generation";
+            check("true".equals(js("AndBridge.getSessionGeneration()===10")));
+            Runnable again=(Runnable)launch.getConstructor(WebView.class,int.class).newInstance(view[0],10);
+            ui(again::run);
+            check("3".equals(js("window.fixtureCount")));
             phase="return_login";
             await(LOGIN,()->view[0].evaluateJavascript("document.getElementById('next').click()",null));
             phase="return_login_bridge_absent";
