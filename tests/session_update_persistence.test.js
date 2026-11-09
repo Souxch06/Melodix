@@ -23,10 +23,13 @@ test('cold-start cleanup flag is initialized false and set true only in the expl
  assert.match(read('smali/y51.smali'),/:pswitch_0[\s\S]*?const\/4 p1, 0x1[\s\S]*?sput-boolean p1, Lcom\/melodix\/music\/MainActivity;->l0:Z/);
  assert.match(method(read('smali/com/melodix/music/MainActivity.smali'),'.method public final A()V'),/sget-boolean v1, Lcom\/melodix\/music\/MainActivity;->l0:Z[\s\S]*?if-eqz v1, :cond_0[\s\S]*?removeAllCookies[\s\S]*?:cond_0/);
 });
-test('Preview builds compare their package, version and signer against the exact installed reference before uploading',()=>{
- const w=read('.github/workflows/preview-apk.yml'),download=w.indexOf('Download installed Preview compatibility reference'),check=w.indexOf('Check update compatibility with Preview137'),upload=w.indexOf('Upload APK as workflow artifact');
- assert.ok(download>0&&check>download&&upload>check);const s=w.slice(download,upload);
- assert.match(s,/run-id: 42659601759/);assert.match(s,/65736a870192dfab10101912002d77c731cb64bf1fd0ee095bf9b4046a3a9122/);
- assert.match(s,/apksigner" verify --print-certs "\$reference"/);assert.match(s,/\$old_cert" == "\$new_cert/);
- assert.match(s,/\$new_package" == "\$old_package/);assert.match(s,/new_version > old_version/);assert.doesNotMatch(s,/pm clear|uninstall/);
+test('user-facing builds gate upload on the pinned public signer, exact package and version floor',()=>{
+ const w=read('.github/workflows/preview-apk.yml'),check=w.indexOf('Check Preview update identity and version'),upload=w.indexOf('Upload APK as workflow artifact');
+ assert.ok(check>0&&upload>check);const s=w.slice(check,upload);assert.match(s,/inputs.target_debuggable != true/);assert.match(s,/apksigner" verify --print-certs/);assert.match(s,/verify_preview_update.py/);assert.doesNotMatch(s,/pm clear|uninstall/);
+});
+test('actual verifier rejects incompatible keys, packages, versions, ambiguity and malformed data',()=>{
+ const {execFileSync,spawnSync}=require('node:child_process'),os=require('node:os'),path=require('node:path');const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'mel-update-'));
+ const cert=path.join(tmp,'cert'),badging=path.join(tmp,'badging'),digest='e3ceb66f4f67ccbd53d92272f5c6422c3b10664aa57a28512bbafdb89657802f';
+ const goodcert=`Signer #1 certificate SHA-256 digest: ${digest}\n`,goodpkg="package: name='com.melodix.music.preview' versionCode='1021474' versionName='test'\n";
+ try {for(const [c,b,pass] of [[goodcert,goodpkg,true],[goodcert.toUpperCase(),goodpkg,false],[goodcert.replace(digest,'f'.repeat(64)),goodpkg,false],[goodcert+goodcert,goodpkg,false],[goodcert,goodpkg.replace('1021474','1021473'),false],[goodcert,goodpkg.replace('com.melodix.music.preview','com.melodix.music'),false],[goodcert,goodpkg+goodpkg,false],['',goodpkg,false]]){fs.writeFileSync(cert,c);fs.writeFileSync(badging,b);const r=spawnSync('python3',['scripts/verify_preview_update.py',cert,badging],{encoding:'utf8'});assert.equal(r.status===0,pass,`${c.slice(0,55)} ${b.slice(0,80)}`);}}finally{fs.rmSync(tmp,{recursive:true,force:true});}
 });

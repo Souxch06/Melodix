@@ -52,7 +52,6 @@ on:
 
 permissions:
   contents: read
-  actions: read
 
 jobs:
   build-and-release-preview:
@@ -479,41 +478,20 @@ jobs:
             echo "- SHA-256: \`$apk_sha256\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # Compare with the exact Preview137 supplied to users, not another build
-      # of the same source/key. Fail closed if the reference cannot be read.
-      - name: Download installed Preview compatibility reference
-        if: ${{ inputs.target_debuggable != true }}
-        uses: actions/download-artifact@v4.3.0
-        with:
-          name: Melodix-Preview-v1.2.2-test137.apk
-          run-id: 42659601759
-          github-token: ${{ github.token }}
-          path: preview-reference
-      - name: Check update compatibility with Preview137
+      # Preview137's public signing certificate and installed version were
+      # extracted from the exact artifact (run 42661869818). No private key or
+      # session data is stored in the repository. Fail closed on key rotation.
+      - name: Check Preview update identity and version
         if: ${{ inputs.target_debuggable != true }}
         env:
           APK_NAME: ${{ steps.release.outputs.apk_name }}
         run: |
           set -euo pipefail
-          reference=preview-reference/Melodix-Preview-v1.2.2-test137.apk
           candidate="preview-output/$APK_NAME"
           tools="$ANDROID_HOME/build-tools/35.0.0"
-          actual_sha="$(sha256sum "$reference" | awk '{print $1}')"
-          [[ "$actual_sha" == 65736a870192dfab10101912002d77c731cb64bf1fd0ee095bf9b4046a3a9122 ]] || { echo "::error::Preview137 reference digest mismatch"; exit 1; }
-          "$tools/apksigner" verify --print-certs "$reference" > "$RUNNER_TEMP/update-reference-cert.txt"
           "$tools/apksigner" verify --print-certs "$candidate" > "$RUNNER_TEMP/update-candidate-cert.txt"
-          old_cert="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/update-reference-cert.txt")"
-          new_cert="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/update-candidate-cert.txt")"
-          [[ "$old_cert" =~ ^[0-9a-f]{64}$ && "$old_cert" == "$new_cert" ]] || { echo "::error::Preview signing certificate changed; refusing incompatible update"; exit 1; }
-          "$tools/aapt" dump badging "$reference" > "$RUNNER_TEMP/update-reference-badging.txt"
           "$tools/aapt" dump badging "$candidate" > "$RUNNER_TEMP/update-candidate-badging.txt"
-          old_package="$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" "$RUNNER_TEMP/update-reference-badging.txt")"
-          new_package="$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" "$RUNNER_TEMP/update-candidate-badging.txt")"
-          old_version="$(sed -n "s/^package:.*versionCode='\([^']*\)'.*/\1/p" "$RUNNER_TEMP/update-reference-badging.txt")"
-          new_version="$(sed -n "s/^package:.*versionCode='\([^']*\)'.*/\1/p" "$RUNNER_TEMP/update-candidate-badging.txt")"
-          [[ "$old_package" == com.melodix.music.preview && "$new_package" == "$old_package" && "$old_version" =~ ^[0-9]+$ && "$new_version" =~ ^[0-9]+$ ]] || { echo "::error::Preview package or version is invalid"; exit 1; }
-          (( new_version > old_version )) || { echo "::error::Preview versionCode is not newer than the reference"; exit 1; }
-          echo "::notice title=Preview update compatibility::reference=137 signer_sha256=$old_cert versionCode=$old_version candidate_versionCode=$new_version"
+          python3 scripts/verify_preview_update.py "$RUNNER_TEMP/update-candidate-cert.txt" "$RUNNER_TEMP/update-candidate-badging.txt"
 
       # This reusable build only emits a short-lived artifact. Public releases
       # are handled after the separate emulator workflow validates the exact
