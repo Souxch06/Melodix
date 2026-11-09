@@ -33,3 +33,9 @@ test('actual verifier rejects incompatible keys, packages, versions, ambiguity a
  const goodcert=`Signer #1 certificate SHA-256 digest: ${digest}\n`,goodpkg="package: name='com.melodix.music.preview' versionCode='1021474' versionName='test'\n";
  try {for(const [c,b,pass] of [[goodcert,goodpkg,true],[goodcert.toUpperCase(),goodpkg,false],[goodcert.replace(digest,'f'.repeat(64)),goodpkg,false],[goodcert+goodcert,goodpkg,false],[goodcert,goodpkg.replace('1021474','1021473'),false],[goodcert,goodpkg.replace('com.melodix.music.preview','com.melodix.music'),false],[goodcert,goodpkg+goodpkg,false],['',goodpkg,false]]){fs.writeFileSync(cert,c);fs.writeFileSync(badging,b);const r=spawnSync('python3',['scripts/verify_preview_update.py',cert,badging],{encoding:'utf8'});assert.equal(r.status===0,pass,`${c.slice(0,55)} ${b.slice(0,80)}`);}}finally{fs.rmSync(tmp,{recursive:true,force:true});}
 });
+test('upgrade emulator fixture exercises synthetic cookie and WebStorage through install -r without clearing data',()=>{
+ const fixture=read('tests/android/UpdatePersistenceInstrumentation.java'),script=read('scripts/update_persistence_emulator.sh'),workflow=read('.github/workflows/test-session-gate.yml');
+ assert.match(fixture,/melodix-update-fixture\.invalid/);assert.match(fixture,/cookies\.setCookie[\s\S]*?cookies\.flush/);assert.match(fixture,/cookies\.getCookie/);assert.match(fixture,/localStorage\.setItem[\s\S]*?localStorage\.getItem/);assert.doesNotMatch(fixture,/open\.spotify\.com|sp_dc|authorization|Bearer/i);
+ assert.match(script,/adb install "\$old"[\s\S]*?-e mode seed[\s\S]*?adb install -r "\$new"[\s\S]*?-e mode verify/);assert.doesNotMatch(script,/pm clear|adb uninstall/);
+ assert.match(workflow,/update-persistence:[\s\S]*?update_persistence_emulator\.sh/);
+});
