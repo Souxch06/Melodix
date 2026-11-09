@@ -3650,6 +3650,12 @@
             reason: /^(abandon=(requete-perimee|contexte-auth-perime)|token-source=cache)$/.test(observation.reason || '')
                 ? observation.reason : ''
         };
+        // A diagnostic-only, sanitized snapshot for native polling when the
+        // JavascriptInterface observation channel fails. Never feeds proof.
+        // Keep the observed generation; do not infer it from the retry tap.
+        try {
+            if (result.source === 'native-retry') window.__sfSessionRetrySnapshot = result;
+        } catch (_) {}
         try {
             if (window.AndBridge && typeof window.AndBridge.onSessionAttemptDiagnostic === 'function') {
                 window.AndBridge.onSessionAttemptDiagnostic(JSON.stringify(result));

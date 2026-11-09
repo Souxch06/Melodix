@@ -26,16 +26,24 @@
     :try_start
     iget-object v0, p0, Lcom/melodix/music/NativeSessionAttemptDiagnostic;->payload:Ljava/lang/String;
     invoke-static {v0}, Lcom/melodix/music/NativeSessionAttemptDiagnostic;->record(Ljava/lang/String;)V
+    const-string v0, "session-history stage=record-returned"
+    invoke-static {v0}, Lcom/melodix/music/NativeStartupTiming;->sessionMark(Ljava/lang/String;)V
     # Refresh details only: never paint/navigate/reclassify from diagnostic events.
     sget-object v0, Lcom/melodix/music/NativeSessionGate;->overlay:Landroid/view/View;
-    if-eqz v0, :done
+    if-eqz v0, :view_missing
     const-string v1, "sessionDetails"
     invoke-static {v0, v1}, Lcom/melodix/music/NativeSessionSurface;->text(Landroid/view/View;Ljava/lang/String;)Landroid/widget/TextView;
     move-result-object v0
-    if-eqz v0, :done
+    if-eqz v0, :view_missing
     invoke-static {}, Lcom/melodix/music/NativeSessionGate;->details()Ljava/lang/String;
     move-result-object v1
     invoke-virtual {v0, v1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    const-string v0, "session-history stage=view-updated"
+    invoke-static {v0}, Lcom/melodix/music/NativeStartupTiming;->sessionMark(Ljava/lang/String;)V
+    goto :try_end
+    :view_missing
+    const-string v0, "session-history stage=view-missing"
+    invoke-static {v0}, Lcom/melodix/music/NativeStartupTiming;->sessionMark(Ljava/lang/String;)V
     :try_end
     .catch Ljava/lang/Exception; {:try_start .. :try_end} :error
     :done

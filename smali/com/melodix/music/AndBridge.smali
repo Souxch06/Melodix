@@ -3858,6 +3858,8 @@
     .end annotation
     .locals 3
     :diagnostic_try
+    const-string v2, "session-history stage=detail-received"
+    invoke-static {v2}, Lcom/melodix/music/NativeStartupTiming;->sessionMark(Ljava/lang/String;)V
     if-eqz p1, :done
     invoke-virtual {p1}, Ljava/lang/String;->length()I
     move-result v2
@@ -3892,7 +3894,9 @@
 .method public final onSessionAttemptStarted(II)V
     .annotation runtime Landroid/webkit/JavascriptInterface;
     .end annotation
-    .locals 0
+    .locals 1
+    const-string v0, "session-history stage=start-received"
+    invoke-static {v0}, Lcom/melodix/music/NativeStartupTiming;->sessionMark(Ljava/lang/String;)V
     invoke-static {p1, p2}, Lcom/melodix/music/NativeSessionAttemptDiagnostic;->started(II)V
     return-void
 .end method

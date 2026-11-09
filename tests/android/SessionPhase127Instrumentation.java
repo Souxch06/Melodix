@@ -55,6 +55,27 @@ public final class SessionPhase127Instrumentation extends Instrumentation {
             set("loginActive",false);set("freshLogin",false);set("autoUsed",true);evidence.getMethod("reset").invoke(null);
         });
         cookie("synthetic-phase127-A");
+        // A separate local-only WebView exercises the actual evaluateJavascript
+        // callback and the fallback merger, without a Spotify request or bridge.
+        phase="diagnostic_pull_real_webview";
+        final WebView[] local={null};
+        final java.util.concurrent.CountDownLatch loaded=new java.util.concurrent.CountDownLatch(1);
+        final int[] observedGeneration={0},beforeCount={0};
+        ui(()->{begin();observedGeneration[0]=gate.getField("generation").getInt(null);beforeCount[0]=count();
+            local[0]=new WebView(activity);local[0].getSettings().setJavaScriptEnabled(true);
+            local[0].setWebViewClient(new WebViewClient(){@Override public void onPageFinished(WebView v,String u){loaded.countDown();}});
+            String snapshot="{generation:"+observedGeneration[0]+",attempt:2,source:'native-retry',apiHttp:400,fallbackHttp:403,libraryHttp:401,completed:true,tokenResult:'refused',reason:''}";
+            local[0].loadDataWithBaseURL(null,"<html><script>window.__sfSessionRetrySnapshot="+snapshot+";</script></html>","text/html","UTF-8",null);
+        });
+        check(loaded.await(10,java.util.concurrent.TimeUnit.SECONDS));
+        ui(()->{Class<?> pull=getTargetContext().getClassLoader().loadClass("com.melodix.music.NativeSessionDiagnosticPull");
+            Runnable task=(Runnable)pull.getConstructor(WebView.class,int.class).newInstance(local[0],observedGeneration[0]);task.run();});
+        // evaluateJavascript is asynchronous; no sleeping on the main thread.
+        SystemClock.sleep(1500);
+        ui(()->{String details=(String)gate.getMethod("details").invoke(null);
+            check(details.contains("Tentative "+observedGeneration[0]+"/2"));check(details.contains("bibliothèque=401"));
+            check(details.contains("terminée=oui"));check(count()==beforeCount[0]);
+            local[0].destroy();});note();
         phase="one_complete_refusal";ui(()->{begin();refusal(1);check(count()==1&&state()==4);});note();
         // Start the same native begin used by Retry, without real network work.
         phase="slow_retry_deadline_retains_one";ui(()->begin());SystemClock.sleep(3400);

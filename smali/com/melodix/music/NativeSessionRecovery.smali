@@ -78,11 +78,15 @@
     invoke-static {v1}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
     move-result-object v1
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
-    const-string v1, "(function(){(window.__sfLoadBundledBridge||function(){} )('spotify_bridge.js');if(typeof window.__sfRequestSessionVerification!=='function')return 'fonction-js-indisponible';window.__sfRequestSessionVerification();return 'verification-dispatched';})();"
+    const-string v1, "(function(){window.__sfSessionRetrySnapshot=null;(window.__sfLoadBundledBridge||function(){} )('spotify_bridge.js');if(typeof window.__sfRequestSessionVerification!=='function')return 'fonction-js-indisponible';window.__sfRequestSessionVerification();return 'verification-dispatched';})();"
     sget v2, Lcom/melodix/music/NativeSessionGate;->generation:I
     new-instance v3, Lcom/melodix/music/NativeSessionRetryDiagnosticCallback;
     invoke-direct {v3, v2}, Lcom/melodix/music/NativeSessionRetryDiagnosticCallback;-><init>(I)V
     invoke-virtual {v0, v1, v3}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
+    # Independent readback of the sanitized observation, bounded to 30 polls.
+    new-instance v1, Lcom/melodix/music/NativeSessionDiagnosticPull;
+    invoke-direct {v1, v0, v2}, Lcom/melodix/music/NativeSessionDiagnosticPull;-><init>(Landroid/webkit/WebView;I)V
+    invoke-virtual {v1}, Lcom/melodix/music/NativeSessionDiagnosticPull;->run()V
     goto :verify_done
     :verify_navigate
     const-string v1, "session-verify result=player-navigation"

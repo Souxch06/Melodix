@@ -78,6 +78,7 @@ const APP_CLASSES = {
   'Lcom/melodix/music/AppSingleton;': classMembers(read('smali/com/melodix/music/AppSingleton.smali')),
   'Lcom/melodix/music/MainActivity;': classMembers(read('smali/com/melodix/music/MainActivity.smali')),
   'Lcom/melodix/music/NativeCrashGuard;': classMembers(read('smali/com/melodix/music/NativeCrashGuard.smali')),
+  'Lcom/melodix/music/NativeStartupTiming;': classMembers(read('smali/com/melodix/music/NativeStartupTiming.smali')),
   'Lcom/melodix/music/NativeLogoutRunnable;': classMembers(read('smali/com/melodix/music/NativeLogoutRunnable.smali')),
   'Lcom/melodix/music/NativeWebPlayerNavigationRunnable;': classMembers(read('smali/com/melodix/music/NativeWebPlayerNavigationRunnable.smali')),
   'Lcom/melodix/music/WebService;': classMembers(read('smali/com/melodix/music/WebService.smali')),
