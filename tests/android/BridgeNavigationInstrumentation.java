@@ -46,6 +46,14 @@ public final class BridgeNavigationInstrumentation extends Instrumentation {
     @Override public void onStart(){
         Bundle outcome=new Bundle();
         try{
+            // Browser major only: compare the emulator engine with a reported
+            // device without recording user-agent strings or package metadata.
+            if(android.os.Build.VERSION.SDK_INT>=26){
+                android.content.pm.PackageInfo provider=WebView.getCurrentWebViewPackage();
+                String version=provider==null?null:provider.versionName;
+                String major=version==null?"unknown":version.split("\\.")[0];
+                outcome.putString("webview_major",major.matches("[0-9]{1,4}")?major:"unknown");
+            }
             prepare=getTargetContext().getClassLoader().loadClass("com.melodix.music.NativeBridgeNavigation").getMethod("prepare",WebView.class,String.class);
             policy=getTargetContext().getClassLoader().loadClass("com.melodix.music.SpotifyNavigationPolicy").getMethod("handle",WebView.class,Uri.class,boolean.class);
             ui(()->{
