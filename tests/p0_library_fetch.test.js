@@ -845,3 +845,30 @@ test('400 then 403 presentation metadata preserves the exact existing token requ
     await win.checkMediaLib(true);
     assert.equal(win.__testTokenRequests.length,2,'required guard and retry policy unchanged');
 });
+
+test('manual session retry runs a new API, fallback and library request after a complete refusal', async () => {
+    const calls=[];const payloads=[];
+    const win=loadBridge({tokenStatus:400,fallbackTokenStatus:403,profileSignal:false,playerSignal:false,
+        fetchImpl:async (url,init)=>{calls.push({url,init});return jsonResponse(401,{});}});
+    win.AndBridge.getSessionGeneration=()=>7;
+    win.AndBridge.onSessionVerification=s=>payloads.push(JSON.parse(s));
+    await win.checkMediaLib(true,'shell-update');
+    await win.__sfRequestSessionVerification();
+    assert.equal(win.__testTokenRequests.length,4);assert.equal(calls.length,2);
+    assert.deepEqual(win.__testTokenRequests.map(x=>x.url),[
+        'https://open.spotify.com/api/token','https://open.spotify.com/get_access_token?reason=transport&productType=web_player',
+        'https://open.spotify.com/api/token','https://open.spotify.com/get_access_token?reason=transport&productType=web_player']);
+    assert.equal(payloads.length,2);assert.notEqual(payloads[0].attempt,payloads[1].attempt);
+    for(const p of payloads)assert.deepEqual([p.generation,p.completed,p.tokenApiHttp,p.tokenFallbackHttp,p.libraryHttp],[7,true,400,403,401]);
+    const trace=win.__testDiagnostics.join('\n');assert.match(trace,/token-http endpoint=api phase=start/);assert.match(trace,/token-http endpoint=fallback phase=end/);
+    assert.doesNotMatch(trace,/accessToken|sp_dc=/);
+});
+
+test('manual retry requests a fresh token even if a valid synthetic bearer was cached',async()=>{
+    let libraries=0;
+    const win=loadBridge({tokenResponse:{accessToken:'SYNTHETIC',accessTokenExpirationTimestampMs:Date.now()+3600000},
+        fetchImpl:async()=>{libraries++;return libraryPage([]);}});
+    await win.checkMediaLib(true,'shell-update');await win.__sfRequestSessionVerification();
+    assert.equal(win.__testTokenRequests.length,2);assert.equal(libraries,2);
+    assert.ok(win.__testTokenRequests.every(x=>x.url.endsWith('/api/token')));
+});
