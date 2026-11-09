@@ -1792,6 +1792,7 @@
     .line 1
     invoke-super {p0, p1, p2, p3}, Landroid/webkit/WebViewClient;->onPageStarted(Landroid/webkit/WebView;Ljava/lang/String;Landroid/graphics/Bitmap;)V
     invoke-static {p2}, Lcom/melodix/music/NativeSessionTrace;->start(Ljava/lang/String;)V
+    invoke-static {p2}, Lcom/melodix/music/NativeSessionGate;->navigationStarted(Ljava/lang/String;)V
 
     # P0 trace: the top-level WebView navigation has begun.
     const-string v0, "page-started"
@@ -2095,10 +2096,17 @@
 .end method
 
 .method public final onReceivedError(Landroid/webkit/WebView;Landroid/webkit/WebResourceRequest;Landroid/webkit/WebResourceError;)V
-    .locals 0
+    .locals 1
 
     .line 1
     invoke-super {p0, p1, p2, p3}, Landroid/webkit/WebViewClient;->onReceivedError(Landroid/webkit/WebView;Landroid/webkit/WebResourceRequest;Landroid/webkit/WebResourceError;)V
+
+    if-eqz p2, :session_network_checked
+    invoke-interface {p2}, Landroid/webkit/WebResourceRequest;->isForMainFrame()Z
+    move-result v0
+    if-eqz v0, :session_network_checked
+    invoke-static {}, Lcom/melodix/music/NativeSessionGate;->webFailure()V
+    :session_network_checked
 
     .line 2
     .line 3

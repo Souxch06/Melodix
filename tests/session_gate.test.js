@@ -97,3 +97,23 @@ test('publication exports only closed, same-attempt observations at completion',
  }
  assert.ok(source.indexOf('publishSessionVerification(diagnostic)')>source.indexOf('} finally {\n            if (requestGeneration'));
 });
+test('native glass surface has named resources, real 48dp actions, collapsed details and no Spotify CSS',()=>{
+ const xml=read('res/layout/native_session_surface.xml');
+ assert.match(xml,/<ScrollView/);assert.match(xml,/@drawable\/session_glass_background/);
+ for(const id of ['sessionAction','sessionDisclosure'])assert.match(xml,new RegExp('android:id="@\\+id/'+id+'"[^>]*android:layout_height="48dp"'));
+ assert.match(xml,/android:id="@\+id\/sessionDetails"[^>]*android:visibility="gone"/);
+ const ui=read('smali/com/melodix/music/NativeSessionSurface.smali');
+ assert.doesNotMatch(ui,/0x7f[0-9a-f]+|evaluateJavascript|backdrop-filter|loadUrl/);
+ assert.match(ui,/getIdentifier/);assert.match(ui,/NativeSessionSurfaceLayout/);
+ assert.match(read('smali/com/melodix/music/NativeSessionSurfaceLayout.smali'),/getPaddingTop/);
+ const main=read('smali/com/melodix/music/MainActivity.smali');assert.match(main,/onBackPressed\(\)V[\s\S]*?->finish\(\)V/);
+ for(const sig of ['showNativeUiFrom','activateNativeUiRoute','applyNativeUiData','renderNativeRows']) {
+  const start=main.indexOf('.method public final '+sig+'(');assert.ok(start>=0);const method=main.slice(start,main.indexOf('.end method',start));
+  assert.ok(method.indexOf('NativeSessionGate;->blocked')<method.indexOf(':session_'),'ingress gated '+sig);
+ }
+});
+test('MDXPERF accepts fixed state transitions but rejects private reasons',()=>{
+ const src=read('smali/com/melodix/music/NativeStartupTiming.smali');const literal=src.match(/const-string v0, "(\^sid=[^"\n]+)"/)[1];const rule=new RegExp(JSON.parse('"'+literal+'"'));
+ assert.ok(rule.test('sid=1234abcd t=1 session-state from=verifying state=error reason=presentation-deadline-not-expiration'));
+ assert.ok(!rule.test('sid=1234abcd t=1 session-state from=verifying state=error reason=https://private'));
+});

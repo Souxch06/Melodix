@@ -39,3 +39,13 @@ La publication de fin de pipeline dans `spotify_bridge.source.js` exporte huit c
 `NativeSessionReconnect.start` vérifie `canReconnect` avant toute suppression ; le simple couple 400/403 n’autorise plus la reconnexion destructive. L’ancien timer 15 s ne peut plus remplacer la surface de cette machine. Le timer natif 3 s est non destructif et accepte encore une preuve tardive courante.
 
 Tests ciblés : `node --test tests/session_gate.test.js` (9 cas, interprétation des instructions smali de décision et exécution réelle de la publication JS). Contrôle registres des nouveaux helpers. La surface graphique est l’étape suivante ; cette étape ne constitue pas une validation Android/appareil.
+
+## Étape 3 : surfaces natives et cycle de vie
+
+`native_session_surface.xml` et `NativeSessionSurface*` : fond sombre violet/magenta en dégradé avec bordure, bouton dégradé 48 dp, textes d’erreur sobres, détails techniques repliés (animation existante 120 ms). Aucune modification de la page accounts. La barre de login réserve sa hauteur mesurée au-dessus du conteneur WebView ; les autres états couvrent la totalité du contenu. La rotation remesure, sans nouvelle navigation.
+
+Les quatre entrées show/route/payload/rows sont désormais bloquées avant valid : aucun accueil privé n’est rendu derrière le splash. Retour quitte l’activité non validée sans découvrir l’accueil ni recharger accounts. Les erreurs réseau de page principale deviennent error non destructif ; les erreurs de sous-ressources ne sont pas des preuves d’expiration. La génération reste monotone entre fermetures et relancements afin qu’un ancien callback ne puisse pas appartenir au nouveau lancement. Le début de navigation accounts est observé pour gérer aussi les auto-continues SSO sans commit du formulaire.
+
+MDXPERF admet explicitement les transitions et raisons fixes, et le diagnostic copiable contient `sessionState`. Aucun corps de réponse, URL ni identifiant de compte n’est ajouté au journal.
+
+Tests ciblés : 11 tests session-gate et contrôles registres des helpers. Première suite globale : 1012 tests, 983 réussites, 25 échecs, 4 ignorés. Les échecs comprennent des contrats historiques exigeant le login à chaque resume et l’accueil dès page-finished (désormais explicitement interdits), ainsi que les interpréteurs de tests qui ne connaissent pas encore la nouvelle garde ; ils doivent être migrés à l’étape 4, pas désactivés. Aucune validation de pixels/appareil à ce stade.

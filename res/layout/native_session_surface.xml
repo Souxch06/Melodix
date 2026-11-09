@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:fillViewport="true" android:background="@drawable/session_glass_background"
+    android:clickable="true" android:focusable="true" android:importantForAccessibility="yes"
+    android:contentDescription="Connexion Melodix">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:gravity="center" android:padding="20dp">
+        <TextView android:id="@+id/sessionTitle" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="Melodix" android:textColor="#FAF5FF" android:textSize="24sp" android:textStyle="bold"
+            android:gravity="center" android:accessibilityLiveRegion="polite" />
+        <TextView android:id="@+id/sessionSubtitle" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="8dp" android:textColor="#D7C9E5" android:textSize="14sp" android:gravity="center" />
+        <TextView android:id="@+id/sessionAction" android:layout_width="match_parent" android:layout_height="48dp"
+            android:layout_marginTop="16dp" android:background="@drawable/session_glass_button" android:gravity="center"
+            android:textColor="#FFFFFF" android:textSize="16sp" android:textStyle="bold"
+            android:clickable="true" android:focusable="true" android:visibility="gone" />
+        <TextView android:id="@+id/sessionDisclosure" android:layout_width="match_parent" android:layout_height="48dp"
+            android:layout_marginTop="8dp" android:gravity="center" android:text="Détails techniques"
+            android:textSize="14sp" android:textColor="#D7B6FF" android:clickable="true" android:focusable="true" android:visibility="gone" />
+        <TextView android:id="@+id/sessionDetails" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:textSize="12sp" android:textColor="#C1B4CE" android:visibility="gone" />
+    </LinearLayout>
+</ScrollView>

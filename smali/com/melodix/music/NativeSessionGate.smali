@@ -2,6 +2,8 @@
 .super Ljava/lang/Object;
 # Process-scoped launch budget survives Activity recreation; UI refs are weak.
 # 0 verifying, 1 no-session, 2 session-expired, 3 valid, 4 error.
+.field public static lastReason:Ljava/lang/String;
+.field public static activeLaunch:Z
 .field public static state:I
 .field public static generation:I
 .field public static autoUsed:Z
@@ -19,8 +21,10 @@ new-instance v0, Ljava/lang/ref/WeakReference;
     sput-object v0, Lcom/melodix/music/NativeSessionGate;->owner:Ljava/lang/ref/WeakReference;
     const/4 v0, 0x0
     sput-object v0, Lcom/melodix/music/NativeSessionGate;->overlay:Landroid/view/View;
-    sget v0, Lcom/melodix/music/NativeSessionGate;->generation:I
+    sget-boolean v0, Lcom/melodix/music/NativeSessionGate;->activeLaunch:Z
     if-nez v0, :bound
+    const/4 v0, 0x1
+    sput-boolean v0, Lcom/melodix/music/NativeSessionGate;->activeLaunch:Z
     invoke-static {p0}, Lcom/melodix/music/NativeSessionGate;->begin(Lcom/melodix/music/MainActivity;)V
     invoke-static {}, Lcom/melodix/music/NativeSessionRecovery;->hasCookie()Z
     move-result v0
@@ -37,6 +41,7 @@ new-instance v0, Ljava/lang/ref/WeakReference;
     .locals 3
 sget v0, Lcom/melodix/music/NativeSessionGate;->state:I
     sput p0, Lcom/melodix/music/NativeSessionGate;->state:I
+    sput-object p1, Lcom/melodix/music/NativeSessionGate;->lastReason:Ljava/lang/String;
     new-instance v1, Ljava/lang/StringBuilder;
     invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
     const-string v2, "session-state from="
@@ -93,6 +98,9 @@ sget v0, Lcom/melodix/music/NativeSessionGate;->generation:I
     sput v1, Lcom/melodix/music/NativeSessionGate;->lastAttempt:I
     sput-boolean v1, Lcom/melodix/music/NativeSessionGate;->expiredEvidence:Z
     sput-boolean v1, Lcom/melodix/music/NativeSessionGate;->loginActive:Z
+    const/4 v1, 0x1
+    iput-boolean v1, p0, Lcom/melodix/music/MainActivity;->nativeSessionUnproven:Z
+    const/4 v1, 0x0
     const-string v2, "verification-start"
     invoke-static {v1, v2}, Lcom/melodix/music/NativeSessionGate;->transition(ILjava/lang/String;)V
     new-instance v1, Lcom/melodix/music/NativeSessionGateTask;
@@ -326,7 +334,11 @@ const/4 v0, 0x0
     move-result v0
     if-eqz v0, :done
     const/4 v0, 0x0
+    sput-boolean v0, Lcom/melodix/music/NativeSessionGate;->activeLaunch:Z
+    sget v0, Lcom/melodix/music/NativeSessionGate;->generation:I
+    add-int/lit8 v0, v0, 0x1
     sput v0, Lcom/melodix/music/NativeSessionGate;->generation:I
+    const/4 v0, 0x0
     sput v0, Lcom/melodix/music/NativeSessionGate;->state:I
     sput-boolean v0, Lcom/melodix/music/NativeSessionGate;->autoUsed:Z
     sput-boolean v0, Lcom/melodix/music/NativeSessionGate;->freshLogin:Z
@@ -339,5 +351,54 @@ const/4 v0, 0x0
 .method public static paint(Lcom/melodix/music/MainActivity;)V
     .locals 0
 invoke-static {p0}, Lcom/melodix/music/NativeSessionSurface;->paint(Lcom/melodix/music/MainActivity;)V
+    return-void
+.end method
+
+.method public static navigationStarted(Ljava/lang/String;)V
+    .locals 3
+    sget-boolean v0, Lcom/melodix/music/NativeSessionGate;->loginActive:Z
+    if-eqz v0, :done
+    if-eqz p0, :done
+    invoke-static {p0}, Landroid/net/Uri;->parse(Ljava/lang/String;)Landroid/net/Uri;
+    move-result-object v0
+    invoke-virtual {v0}, Landroid/net/Uri;->getHost()Ljava/lang/String;
+    move-result-object v0
+    const-string v1, "accounts.spotify.com"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-eqz v0, :done
+    :owner_lookup
+    sget-object v0, Lcom/melodix/music/NativeSessionGate;->owner:Ljava/lang/ref/WeakReference;
+    if-eqz v0, :done
+    invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+    move-result-object v0
+    check-cast v0, Lcom/melodix/music/MainActivity;
+    if-eqz v0, :done
+    const/4 v1, 0x1
+    iput-boolean v1, v0, Lcom/melodix/music/MainActivity;->nativeLoginPageCommitted:Z
+    :done
+    return-void
+.end method
+
+.method public static webFailure()V
+    .locals 3
+    sget v0, Lcom/melodix/music/NativeSessionGate;->state:I
+    const/4 v1, 0x3
+    if-eq v0, v1, :done
+    const/4 v0, 0x0
+    sput-boolean v0, Lcom/melodix/music/NativeSessionGate;->loginActive:Z
+    sput-boolean v0, Lcom/melodix/music/NativeSessionGate;->expiredEvidence:Z
+    const/4 v0, 0x4
+    const-string v1, "network-error-no-logout"
+    invoke-static {v0, v1}, Lcom/melodix/music/NativeSessionGate;->transition(ILjava/lang/String;)V
+    :owner_lookup
+    sget-object v0, Lcom/melodix/music/NativeSessionGate;->owner:Ljava/lang/ref/WeakReference;
+    if-eqz v0, :done
+    invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+    move-result-object v0
+    check-cast v0, Lcom/melodix/music/MainActivity;
+    if-eqz v0, :done
+    invoke-static {v0}, Lcom/melodix/music/NativeSessionGate;->paint(Lcom/melodix/music/MainActivity;)V
+    :done
     return-void
 .end method

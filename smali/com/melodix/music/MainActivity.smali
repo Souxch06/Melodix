@@ -87,7 +87,7 @@
 .field private diagPayloadDropped:I
 .field private diagRouteDropped:I
 .field private diagLoginRequested:I
-.field private nativeSessionUnproven:Z
+.field public nativeSessionUnproven:Z
 .field public nativeVerificationStart:J
 
 .field public nativeReconnectPending:Z
@@ -115,8 +115,8 @@
 .field private nativeSearchWatcherAttached:Z
 .field private nativeDisplayOwner:Ljava/lang/String;
 .field private nativeDisplayOwnerStartElapsed:J
-.field private nativeLoginWebRequested:Z
-.field private nativeLoginPageCommitted:Z
+.field public nativeLoginWebRequested:Z
+.field public nativeLoginPageCommitted:Z
 .field private nativeSettingsGeneration:I
 .field private nativeSettingsReadyGeneration:I
 .field private nativeSettingsLoading:Z
@@ -439,6 +439,9 @@
 
 .method public final ensureWebPageLoaded()V
     .locals 3
+    :ensure_try
+    const-string v1, "ensure-check"
+    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
     if-eqz v0, :done
     invoke-virtual {v0}, Landroid/webkit/WebView;->getUrl()Ljava/lang/String;
@@ -447,8 +450,17 @@
     invoke-static {}, Lcom/melodix/music/NativeSessionGate;->initialUrl()Ljava/lang/String;
     move-result-object v1
     invoke-static {v1}, Lcom/melodix/music/NativeSessionTrace;->ensure(Ljava/lang/String;)V
+    const-string v2, "webview-load-start"
+    invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->perfMark(Ljava/lang/String;)V
     invoke-virtual {v0, v1}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
     :done
+    :ensure_end
+    .catch Ljava/lang/RuntimeException; {:ensure_try .. :ensure_end} :ensure_failed
+    return-void
+    :ensure_failed
+    move-exception v0
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->recordWebViewConfigFailure(Ljava/lang/Throwable;)V
+    invoke-static {}, Lcom/melodix/music/NativeSessionGate;->webFailure()V
     return-void
 .end method
 
@@ -7921,6 +7933,12 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     # was actually asserted. Together they answer, from one report, whether the
     # native shell was ever allowed through and whether the login was ever shown
     # — the two facts the three previous reports could not settle.
+    const-string v1, " sessionState="
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    sget v1, Lcom/melodix/music/NativeSessionGate;->state:I
+    invoke-static {v1}, Lcom/melodix/music/NativeSessionGate;->name(I)Ljava/lang/String;
+    move-result-object v1
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     const-string v1, " gates="
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     iget v1, p0, Lcom/melodix/music/MainActivity;->diagRouteDropped:I
@@ -9564,6 +9582,12 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
 .method public final applyNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
     .locals 10
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionGate;->blocked(Lcom/melodix/music/MainActivity;)Z
+    move-result v0
+    if-eqz v0, :session_data_allowed
+    return-void
+    :session_data_allowed
+
 
     # The bridge is reachable from the page itself: a null screen or a null
     # body used to reach String.equals/length and crash the activity. Nothing
@@ -10119,6 +10143,12 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
 .method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     .locals 10
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionGate;->blocked(Lcom/melodix/music/MainActivity;)Z
+    move-result v0
+    if-eqz v0, :session_data_allowed
+    return-void
+    :session_data_allowed
+
 
     # Diag natif : le rendu a-t-il ete atteint et avec quelle charge.
     :try_start_md2
@@ -11667,5 +11697,18 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     const-string v0, "session-login"
     const-string v1, "state-machine"
     invoke-direct {p0, v0, v1}, Lcom/melodix/music/MainActivity;->applyLoginWebUi(Ljava/lang/String;Ljava/lang/String;)V
+    return-void
+.end method
+
+.method public onBackPressed()V
+    .locals 2
+    sget v0, Lcom/melodix/music/NativeSessionGate;->state:I
+    const/4 v1, 0x3
+    if-eq v0, v1, :normal_back
+    # Leave login/error without revealing an unverified native home or reloading accounts.
+    invoke-virtual {p0}, Landroid/app/Activity;->finish()V
+    return-void
+    :normal_back
+    invoke-super {p0}, Le6;->onBackPressed()V
     return-void
 .end method
