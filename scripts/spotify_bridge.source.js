@@ -3300,6 +3300,8 @@
             // URL, account or resource metadata are recorded.
             window.__sfMediaLibLastDiagnostic = {
                 attempt: attempt, source: source, requests: requests,
+                // Diagnostic correlation only: never influences requests or proof.
+                nativeGeneration: boundedMediaLibraryCount(state.nativeGeneration, 2147483647),
                 phase: safePhase, http: safeHttp, mime: mime, durationMs: duration,
                 error: error, authMode: MEDIA_LIBRARY_AUTH_MODE,
                 refreshMode: MEDIA_LIBRARY_REFRESH_MODE,

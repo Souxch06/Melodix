@@ -1,6 +1,6 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-const {diagnosticVm}=require('./helpers/session_diagnostic_vm');
+const {diagnosticVm,evidenceVm}=require('./helpers/session_diagnostic_vm');
 const root='smali/com/melodix/music/';
 const read=p=>fs.readFileSync(p,'utf8');
 const js=read('scripts/spotify_bridge.source.js');
@@ -68,7 +68,7 @@ test('JS stores only bounded sanitized retry snapshots even if detailed bridge t
  const snapshot=c.window.__sfSessionRetrySnapshot;diag.source='shell-update';c.publishSessionAttemptDiagnostic(diag,false);assert.equal(c.window.__sfSessionRetrySnapshot,snapshot);
 });
 test('actual pull smali records and updates a 2/2 row without the bridge; duplicates do not regress completion',()=>{
- const p=pullVm();p.run('run');assert.equal(p.evaluations.length,1);assert.equal(p.self.remaining,29);
+ const p=pullVm();p.run('run');assert.equal(p.evaluations.length,1);assert.equal(p.self.remaining,29);assert.equal(p.scheduled.length,1);
  p.run('onReceiveValue',payload());assert.match(p.d.text(),/Tentative 2\/2/);assert.match(p.d.text(),/terminée=non/);assert.equal(p.scheduled.length,1);
  p.run('onReceiveValue',payload(2,2,{completed:true,apiHttp:400,fallbackHttp:403,libraryHttp:401}));assert.match(p.d.text(),/bibliothèque=401/);assert.match(p.d.text(),/terminée=oui/);
  p.run('onReceiveValue',payload());assert.match(p.d.text(),/terminée=oui/);assert.match(p.d.text(),/bibliothèque=401/);
@@ -88,7 +88,7 @@ test('polling is bounded, weakly holds WebView, stops on generation change and c
 test('snapshot and telemetry do not modify requests, proof or export sensitive data',()=>{
  const native=read(root+'NativeSessionRecovery.smali'),pull=read(root+'NativeSessionDiagnosticPull.smali'),pattern=read(root+'NativeStartupTiming.smali');
  assert.match(native,/__sfSessionRetrySnapshot=null/);assert.match(native,/NativeSessionDiagnosticPull;->run\(\)V/);
- assert.match(pattern,/session-pull result=\(accepted\|empty\|invalid\|generation-mismatch\|exception\)/);
+ assert.match(pattern,/session-pull result=\(started\|accepted\|empty\|invalid\|generation-mismatch\|exception\|post-failed\)/);
  assert.doesNotMatch(pull,/cookie|https?:\/\/|authorization|printStackTrace|->getMessage\(/i);
  const previous=require('node:child_process').execFileSync('git',['show','04a26c8131691c9d0814254053ab359f024c342c:scripts/spotify_bridge.source.js'],{encoding:'utf8'});
  const start=s=>s.slice(s.indexOf('    async function fetchAllLibrary('),s.indexOf('    function ',s.indexOf('    async function fetchAllLibrary(')+10));
@@ -118,4 +118,57 @@ test('session telemetry is in-memory, bounded by a closed grammar, and does not 
  const m=body.match(/const-string v0, "(session-history stage=.*)"/);assert.ok(m);const re=new RegExp('^(?:'+m[1]+')$');
  for(const v of ['session-history stage=start-received','session-history stage=view-updated','session-pull result=accepted','session-pull result=generation-mismatch'])assert.ok(re.test(v),v);
  for(const v of ['session-pull result=secret','session-history stage=view-updated url=https://secret','session-history stage=PRIVATE'])assert.equal(re.test(v),false);
+});
+
+function pullExpression(){
+ const source=read(root+'NativeSessionDiagnosticPull.smali');
+ const match=source.match(/^    const-string v0, ("\(function\(\).*__sfMediaLibLastDiagnostic.*)$/m);
+ assert.ok(match);return JSON.parse(match[1]);
+}
+test('library observation alone restores an incomplete row without attributing a cookie, a tap or a proof',()=>{
+ const c={window:{__sfMediaLibLastDiagnostic:{nativeGeneration:2,attempt:2,source:'native-retry',phase:'response',requests:1,http:401}}};
+ vm.createContext(c);const value=vm.runInContext(pullExpression(),c);
+ assert.equal(value.libraryHttp,401);assert.equal(value.apiHttp,null);assert.equal(value.fallbackHttp,null);
+ assert.equal(value.tokenResult,'unknown');assert.equal(Object.hasOwn(value,'completed'),false);
+ const p=pullVm(),e=evidenceVm();p.d.record({generation:2,attempt:0,reason:'relance-demandee'});
+ const before=e.fields.count;p.run('onReceiveValue',JSON.stringify(value));
+ const text=p.d.text();assert.match(text,/Tentative 2\/2.*token API=inconnu.*repli=inconnu.*bibliothèque=401.*terminée=inconnu.*cookie=inconnu.*token=inconnu/);
+ assert.match(text,/Relance 2\/0.*démarrage réseau=inconnu/);assert.equal(e.fields.count,before);
+});
+test('fallback never imports uncorrelated generations, arbitrary fields, phases or stale attempts',()=>{
+ const obs={nativeGeneration:2,attempt:2,source:'native-retry',phase:'response',requests:1,http:401,tokenApiHttp:400,tokenFallbackHttp:403,token:'refused',completed:true,private:'secret'};
+ const c={window:{__sfMediaLibLastDiagnostic:obs}};vm.createContext(c);
+ const evaluate=()=>vm.runInContext(pullExpression(),c);
+ assert.doesNotMatch(JSON.stringify(evaluate()),/secret|tokenApiHttp|tokenFallbackHttp|completed/);
+ for(const change of [{nativeGeneration:0},{nativeGeneration:'2'},{attempt:0},{source:'shell-update'},{phase:'request'},{requests:0},{http:0},{http:'401'}]){
+  c.window.__sfMediaLibLastDiagnostic={...obs,...change};assert.equal(evaluate(),null,JSON.stringify(change));
+ }
+ c.window.__sfMediaLibLastDiagnostic={...obs,nativeGeneration:1};const p=pullVm();p.run('onReceiveValue',JSON.stringify(evaluate()));assert.equal(p.d.rows.size,0);
+ c.window.__sfMediaLibLastDiagnostic=obs;
+ c.window.__sfSessionRetrySnapshot={generation:2,attempt:3,source:'native-retry',libraryHttp:null,completed:false};
+ assert.equal(evaluate().attempt,3);assert.equal(evaluate().libraryHttp,null);
+ c.window.__sfSessionRetrySnapshot={generation:1,attempt:1,source:'native-retry',libraryHttp:403,completed:true};
+ const newer=evaluate();assert.equal(newer.generation,2);assert.equal(newer.libraryHttp,401);assert.equal(Object.hasOwn(newer,'completed'),false);
+ c.window.__sfSessionRetrySnapshot={generation:2,attempt:2,source:'native-retry',libraryHttp:null,completed:false};
+ assert.equal(evaluate().libraryHttp,401);
+ c.window.__sfSessionRetrySnapshot.generation=3;assert.equal(evaluate().generation,3);assert.equal(evaluate().libraryHttp,null);
+});
+test('actual JS emitter preserves the generation captured at attempt start',()=>{
+ const c={window:{},mediaLibraryNow:()=>500,safeMediaLibraryCheckSource:v=>v,boundedMediaLibraryCount:(v,max)=>Math.max(0,Math.min(max,Number(v)||0)),MEDIA_LIBRARY_AUTH_MODE:'webview-session',MEDIA_LIBRARY_REFRESH_MODE:'unsupported',safeTokenFetchStatus:()=> 'none',hasSpotifySessionCookie:()=>false};
+ vm.createContext(c);vm.runInContext(fn('emitMediaLibraryDiagnostic'),c);
+ const state={startedAt:100,nativeGeneration:2,attempt:2,source:'native-retry',requests:1,http:401,mime:'json',error:'http-401'};
+ c.emitMediaLibraryDiagnostic(state,'response');assert.equal(c.window.__sfMediaLibLastDiagnostic.nativeGeneration,2);
+ const value=vm.runInContext(pullExpression(),c);assert.equal(value.libraryHttp,401);assert.equal(value.generation,2);
+});
+test('poll schedule is independent of callbacks and remains bounded when callbacks never arrive',()=>{
+ const p=pullVm();for(let i=0;i<30;i++){p.at(i*1000);p.run('run');}
+ assert.equal(p.evaluations.length,30);assert.equal(p.scheduled.length,29);assert.equal(p.self.remaining,0);
+ p.run('run');p.at(30000);p.run('onReceiveValue',payload());assert.equal(p.d.rows.size,0);
+ const body=read(root+'NativeSessionDiagnosticPull.smali');const callback=body.slice(body.indexOf('.method public final onReceiveValue'));
+ assert.doesNotMatch(callback,/postDelayed/);assert.match(body,/post-failed/);
+});
+test('existing copy actions include only bounded in-memory timing journal',()=>{
+ for(const file of ['NativeSessionSurfaceExtras.smali','RuntimeDiagnostic$CopyListener.smali'])assert.match(read(root+file),/NativeStartupTiming;->appendTo\(Ljava\/lang\/String;\)Ljava\/lang\/String;/);
+ const timing=read(root+'NativeStartupTiming.smali');const a=timing.indexOf('.method public static sessionMark('),b=timing.indexOf('.end method',a);
+ assert.doesNotMatch(timing.slice(a,b),/getCookie|getUrl|printStackTrace|getMessage|SharedPreferences/);
 });

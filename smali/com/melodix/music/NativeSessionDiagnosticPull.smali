@@ -25,6 +25,8 @@
     const-wide/16 v2, 0x7530
     add-long/2addr v0, v2
     iput-wide v0, p0, Lcom/melodix/music/NativeSessionDiagnosticPull;->deadline:J
+    const-string v0, "session-pull result=started"
+    invoke-static {v0}, Lcom/melodix/music/NativeStartupTiming;->sessionMark(Ljava/lang/String;)V
     return-void
 .end method
 
@@ -68,8 +70,20 @@
     add-int/lit8 v0, v0, -0x1
     iput v0, p0, Lcom/melodix/music/NativeSessionDiagnosticPull;->remaining:I
     :try_start
-    const-string v0, "(function(){var d=window.__sfSessionRetrySnapshot;if(!d||d.source!=='native-retry')return null;function n(v,max){return Number.isInteger(v)&&v>=0&&v<=max?v:-1;}function h(v){return Number.isInteger(v)&&v>=100&&v<=599?v:null;}var t=['obtained','refused','not-attempted'];var r=['abandon=requete-perimee','abandon=contexte-auth-perime','token-source=cache'];return {generation:n(d.generation,2147483647),attempt:n(d.attempt,999999),source:'native-retry',apiHttp:h(d.apiHttp),fallbackHttp:h(d.fallbackHttp),libraryHttp:h(d.libraryHttp),completed:d.completed===true,tokenResult:t.indexOf(d.tokenResult)>=0?d.tokenResult:'unknown',reason:r.indexOf(d.reason)>=0?d.reason:''};})()"
+    const-string v0, "(function(){var d=window.__sfSessionRetrySnapshot,f=window.__sfMediaLibLastDiagnostic;function n(v,max){return Number.isInteger(v)&&v>=0&&v<=max?v:-1;}function h(v){return Number.isInteger(v)&&v>=100&&v<=599?v:null;}var fg=f&&f.source==='native-retry'?n(f.nativeGeneration,2147483647):-1;var fa=f&&f.source==='native-retry'?n(f.attempt,999999):-1;var fh=f&&f.source==='native-retry'&&f.phase==='response'&&n(f.requests,1000)>0?h(f.http):null;var dg=d&&d.source==='native-retry'?n(d.generation,2147483647):-1;var da=d&&d.source==='native-retry'?n(d.attempt,999999):-1;if(fg>0&&fa>0&&fh!==null&&(dg<=0||da<=0||fg>dg||(fg===dg&&fa>da))) return {generation:fg,attempt:fa,source:'native-retry',apiHttp:null,fallbackHttp:null,libraryHttp:fh,tokenResult:'unknown',reason:''};if(dg<=0||da<=0)return null;var library=h(d.libraryHttp);if(library===null&&fg===dg&&fa===da&&fh!==null)library=fh;var t=['obtained','refused','not-attempted'];var r=['abandon=requete-perimee','abandon=contexte-auth-perime','token-source=cache'];return {generation:dg,attempt:da,source:'native-retry',apiHttp:h(d.apiHttp),fallbackHttp:h(d.fallbackHttp),libraryHttp:library,completed:d.completed===true,tokenResult:t.indexOf(d.tokenResult)>=0?d.tokenResult:'unknown',reason:r.indexOf(d.reason)>=0?d.reason:''};})()"
     invoke-virtual {v1, v0, p0}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
+    iget v0, p0, Lcom/melodix/music/NativeSessionDiagnosticPull;->remaining:I
+    if-lez v0, :try_end
+    new-instance v0, Landroid/os/Handler;
+    invoke-static {}, Landroid/os/Looper;->getMainLooper()Landroid/os/Looper;
+    move-result-object v1
+    invoke-direct {v0, v1}, Landroid/os/Handler;-><init>(Landroid/os/Looper;)V
+    const-wide/16 v1, 0x3e8
+    invoke-virtual {v0, p0, v1, v2}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
+    move-result v0
+    if-nez v0, :try_end
+    const-string v0, "post-failed"
+    invoke-direct {p0, v0}, Lcom/melodix/music/NativeSessionDiagnosticPull;->status(Ljava/lang/String;)V
     :try_end
     .catch Ljava/lang/Exception; {:try_start .. :try_end} :error
     :done
@@ -148,14 +162,6 @@
     const-string v0, "invalid"
     invoke-direct {p0, v0}, Lcom/melodix/music/NativeSessionDiagnosticPull;->status(Ljava/lang/String;)V
     :schedule
-    iget v0, p0, Lcom/melodix/music/NativeSessionDiagnosticPull;->remaining:I
-    if-lez v0, :done
-    new-instance v0, Landroid/os/Handler;
-    invoke-static {}, Landroid/os/Looper;->getMainLooper()Landroid/os/Looper;
-    move-result-object v1
-    invoke-direct {v0, v1}, Landroid/os/Handler;-><init>(Landroid/os/Looper;)V
-    const-wide/16 v1, 0x3e8
-    invoke-virtual {v0, p0, v1, v2}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
     :try_end
     .catch Ljava/lang/Exception; {:try_start .. :try_end} :error
     :done

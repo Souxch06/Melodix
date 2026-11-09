@@ -23,6 +23,9 @@
     if-eqz v0, :return
     iget-object v1, p0, Lcom/melodix/music/RuntimeDiagnostic$CopyListener;->json:Ljava/lang/String;
     if-eqz v1, :return
+    # The runtime copy already used by the tester also carries the bounded session trail.
+    invoke-static {v1}, Lcom/melodix/music/NativeStartupTiming;->appendTo(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v1
 
     const-string v2, "clipboard"
     invoke-virtual {v0, v2}, Landroid/content/Context;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
@@ -34,7 +37,7 @@
     move-result-object v3
     invoke-virtual {v2, v3}, Landroid/content/ClipboardManager;->setPrimaryClip(Landroid/content/ClipData;)V
 
-    const-string v2, "JSON copié dans le presse-papiers"
+    const-string v2, "Diagnostic copié dans le presse-papiers"
     const/4 v3, 0x0
     invoke-static {v0, v2, v3}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
     move-result-object v2

@@ -143,6 +143,9 @@
     const-string v1, "Diagnostic session Melodix"
     invoke-static {}, Lcom/melodix/music/NativeSessionGate;->details()Ljava/lang/String;
     move-result-object v2
+    # Include the bounded in-memory trail even while the underlying header is inaccessible.
+    invoke-static {v2}, Lcom/melodix/music/NativeStartupTiming;->appendTo(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v2
     invoke-static {v1, v2}, Landroid/content/ClipData;->newPlainText(Ljava/lang/CharSequence;Ljava/lang/CharSequence;)Landroid/content/ClipData;
     move-result-object v1
     invoke-virtual {v0, v1}, Landroid/content/ClipboardManager;->setPrimaryClip(Landroid/content/ClipData;)V

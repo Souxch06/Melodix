@@ -76,6 +76,25 @@ public final class SessionPhase127Instrumentation extends Instrumentation {
             check(details.contains("Tentative "+observedGeneration[0]+"/2"));check(details.contains("bibliothèque=401"));
             check(details.contains("terminée=oui"));check(count()==beforeCount[0]);
             local[0].destroy();});note();
+        // Fallback when the retry snapshot/bridge is absent: only the directly
+        // observed library response may be displayed, not cookie or completion.
+        phase="library_observation_real_webview";
+        final java.util.concurrent.CountDownLatch fallbackLoaded=new java.util.concurrent.CountDownLatch(1);
+        ui(()->{begin();observedGeneration[0]=gate.getField("generation").getInt(null);beforeCount[0]=count();
+            local[0]=new WebView(activity);local[0].getSettings().setJavaScriptEnabled(true);
+            local[0].setWebViewClient(new WebViewClient(){@Override public void onPageFinished(WebView v,String u){fallbackLoaded.countDown();}});
+            String observation="{nativeGeneration:"+observedGeneration[0]+",attempt:7,source:'native-retry',phase:'response',requests:1,http:401}";
+            local[0].loadDataWithBaseURL(null,"<html><script>window.__sfMediaLibLastDiagnostic="+observation+";</script></html>","text/html","UTF-8",null);
+        });
+        check(fallbackLoaded.await(10,java.util.concurrent.TimeUnit.SECONDS));
+        ui(()->{Class<?> pull=getTargetContext().getClassLoader().loadClass("com.melodix.music.NativeSessionDiagnosticPull");
+            ((Runnable)pull.getConstructor(WebView.class,int.class).newInstance(local[0],observedGeneration[0])).run();});
+        SystemClock.sleep(1500);
+        ui(()->{String details=(String)gate.getMethod("details").invoke(null);
+            check(details.contains("Tentative "+observedGeneration[0]+"/7"));
+            check(details.contains("bibliothèque=401 · terminée=inconnu · cookie=inconnu"));
+            check(details.contains("token API=inconnu · repli=inconnu"));check(count()==beforeCount[0]);
+            local[0].destroy();});note();
         phase="one_complete_refusal";ui(()->{begin();refusal(1);check(count()==1&&state()==4);});note();
         // Start the same native begin used by Retry, without real network work.
         phase="slow_retry_deadline_retains_one";ui(()->begin());SystemClock.sleep(3400);
