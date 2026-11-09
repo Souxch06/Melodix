@@ -11294,8 +11294,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-virtual {p1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v3
     if-eqz v3, :native_row_check_settings_uri
-    const-string v2, "window.__sfNativeRetryLibrary && window.__sfNativeRetryLibrary();"
-    invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionRecovery;->verify(Lcom/melodix/music/MainActivity;)V
     return-void
 
     :native_row_check_notifications
@@ -11467,6 +11466,16 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
 .method public final openSpotifyLogin()V
     .locals 3
+
+    # A session cookie is NOT proof, but it must never be sent to account
+    # navigation before a verification attempt. Explicit logout is separate.
+    invoke-static {}, Lcom/melodix/music/NativeSessionRecovery;->hasCookie()Z
+    move-result v0
+    if-eqz v0, :native_login_without_cookie
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionRecovery;->verify(Lcom/melodix/music/MainActivity;)V
+    return-void
+
+    :native_login_without_cookie
 
     # Reuse the Activity's existing official login URL and cookie-backed
     # WebView flow; this does not alter OAuth parameters or native session proof.

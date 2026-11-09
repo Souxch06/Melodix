@@ -16,3 +16,24 @@ test('unknown player DOM can request verification, never becomes private-library
   assert.match(bridge, /Array\.isArray\(items\)/);
   assert.match(bridge, /window\.__sfMediaLibSessionProven = false/);
 });
+
+test('login action retries with a cookie before account navigation; explicit logout remains separate', () => {
+  const main = read('smali/com/melodix/music/MainActivity.smali');
+  const login = method(main, '.method public final openSpotifyLogin()V');
+  assert.match(login, /hasCookie\(\)Z\s+move-result v0\s+if-eqz v0, :native_login_without_cookie\s+invoke-static \{p0\}[^\n]*->verify[^\n]*\s+return-void/);
+  // Exercise the actual new smali branch for both cookie states.
+  for (const present of [false, true]) {
+    const prefix = login.slice(0, login.indexOf('    :native_login_without_cookie'));
+    const branch = prefix.match(/if-(eqz|nez) v0, :native_login_without_cookie/)[1];
+    const reachesAccounts = branch === 'eqz' ? !present : present;
+    assert.equal(reachesAccounts, !present);
+  }
+  const recovery = read('smali/com/melodix/music/NativeSessionRecovery.smali');
+  assert.doesNotMatch(recovery + login, /removeAllCookies|removeSessionCookies|deleteAllData|->A\(\)|nativeLogout|proofClear|sput-boolean/);
+  assert.doesNotMatch(recovery, /accounts\.spotify\.com|logout|desktop_spoof|UserAgent|spotify-app-version/);
+  assert.ok(recovery.indexOf('"runtime_state.js"') < recovery.indexOf('"native_ui_shell.js"'));
+  const cookieGrammar = new RegExp('(^|;[ ]*)sp_dc=[^;]+');
+  assert.equal(cookieGrammar.test('a=b; sp_dc=fixture'), true);
+  assert.equal(cookieGrammar.test('not_sp_dc=fixture'), false);
+  assert.equal(cookieGrammar.test('sp_dc='), false);
+});
