@@ -3,6 +3,8 @@
 .field public static imageCount:I
 # Main-frame document generation, updated only from WebView onPageStarted.
 .field public static documentGeneration:I
+# Last top-level start, reduced to an origin category; no URL is retained.
+.field public static lastStartedPlayer:Z
 
 # URL exists only transiently here. Only a closed category reaches the journal.
 .method public static navigation(Ljava/lang/String;Ljava/lang/String;)V
@@ -85,11 +87,47 @@
     return-void
 .end method
 
+# Exact player origin only, to avoid accepting an old onPageFinished callback
+# whose getUrl has already moved to a player navigation not yet started.
+.method public static playerOrigin(Ljava/lang/String;)Z
+    .locals 3
+    if-eqz p0, :no
+    invoke-static {p0}, Landroid/net/Uri;->parse(Ljava/lang/String;)Landroid/net/Uri;
+    move-result-object v0
+    invoke-virtual {v0}, Landroid/net/Uri;->getScheme()Ljava/lang/String;
+    move-result-object v1
+    const-string v2, "https"
+    invoke-virtual {v2, v1}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
+    move-result v1
+    if-eqz v1, :no
+    invoke-virtual {v0}, Landroid/net/Uri;->getHost()Ljava/lang/String;
+    move-result-object v1
+    const-string v2, "open.spotify.com"
+    invoke-virtual {v2, v1}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
+    move-result v1
+    if-eqz v1, :no
+    invoke-virtual {v0}, Landroid/net/Uri;->getPort()I
+    move-result v1
+    const/4 v2, -0x1
+    if-eq v1, v2, :yes
+    const/16 v2, 0x1bb
+    if-ne v1, v2, :no
+    :yes
+    const/4 v0, 0x1
+    return v0
+    :no
+    const/4 v0, 0x0
+    return v0
+.end method
+
 .method public static start(Ljava/lang/String;)V
     .locals 1
     sget v0, Lcom/melodix/music/NativeSessionTrace;->documentGeneration:I
     add-int/lit8 v0, v0, 0x1
     sput v0, Lcom/melodix/music/NativeSessionTrace;->documentGeneration:I
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionTrace;->playerOrigin(Ljava/lang/String;)Z
+    move-result v0
+    sput-boolean v0, Lcom/melodix/music/NativeSessionTrace;->lastStartedPlayer:Z
     const-string v0, "start"
     invoke-static {p0, v0}, Lcom/melodix/music/NativeSessionTrace;->navigation(Ljava/lang/String;Ljava/lang/String;)V
     return-void

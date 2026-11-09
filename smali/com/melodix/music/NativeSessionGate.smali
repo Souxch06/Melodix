@@ -197,6 +197,14 @@
     invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
     if-eqz v0, :done
+    # A stale finish can report getUrl=player before onPageStarted(player).
+    # Keep login active until a player main-frame start actually occurred.
+    sget-boolean v0, Lcom/melodix/music/NativeSessionTrace;->lastStartedPlayer:Z
+    if-nez v0, :player_started
+    const-string v0, "session-verify result=await-player-start"
+    invoke-static {v0}, Lcom/melodix/music/NativeStartupTiming;->sessionMark(Ljava/lang/String;)V
+    goto :done
+    :player_started
     # Persist cookies at the login return, before an update can kill the process.
     # This is not proof of a fresh or valid Spotify session.
     invoke-static {}, Lcom/melodix/music/NativeSessionRecovery;->flushCookies()V

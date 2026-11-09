@@ -11,6 +11,7 @@
 .field private final deadline:J
 .field private pending:Z
 .field private finished:Z
+.field private lastProbe:Ljava/lang/String;
 
 .method public constructor <init>(Landroid/webkit/WebView;I)V
     .locals 4
@@ -88,11 +89,11 @@
     # a request was launched before another evaluation can be made.
     new-instance v1, Ljava/lang/StringBuilder;
     invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
-    const-string v2, "(function(){try{if(location.protocol!=='https:'||location.hostname!=='open.spotify.com'||!window.AndBridge||typeof window.AndBridge.getSessionGeneration!=='function'||window.AndBridge.getSessionGeneration()!=="
+    const-string v2, "(function(){try{if(location.protocol!=='https:'||location.hostname!=='open.spotify.com')return 'session-probe result=page';if(!window.AndBridge||typeof window.AndBridge.getSessionGeneration!=='function')return 'session-probe result=interface';if(window.AndBridge.getSessionGeneration()!=="
     invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     iget v2, p0, Lcom/melodix/music/NativeSessionRetryLaunch;->generation:I
     invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
-    const-string v2, ")return 'fonction-js-indisponible';if(typeof window.__sfRequestSessionVerification!=='function'){if(!window.__sfSessionRetryLoaderCalled&&typeof window.__sfLoadBundledBridge==='function'){window.__sfSessionRetryLoaderCalled=true;window.__sfLoadBundledBridge('spotify_bridge.js');}if(typeof window.__sfRequestSessionVerification!=='function')return 'fonction-js-indisponible';}window.__sfSessionRetrySnapshot=null;var r=window.__sfRequestSessionVerification();return r===false?'verification-bloquee':'verification-dispatched';}catch(e){return 'verification-erreur';}})();"
+    const-string v2, ")return 'session-probe result=generation';if(typeof window.__sfRequestSessionVerification!=='function'){if(!window.__sfNativeUiShellStarted)return 'session-probe result=shell';if(typeof window.__sfLoadBundledBridge!=='function')return 'session-probe result=loader';if(!window.__sfSessionRetryLoaderCalled){window.__sfSessionRetryLoaderCalled=true;window.__sfLoadBundledBridge('spotify_bridge.js');}if(typeof window.__sfRequestSessionVerification!=='function')return 'session-probe result=hook';}window.__sfSessionRetrySnapshot=null;var r=window.__sfRequestSessionVerification();return r===false?'verification-bloquee':'verification-dispatched';}catch(e){return 'verification-erreur';}})();"
     invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
     move-result-object v1
@@ -115,6 +116,8 @@
     :done
     return-void
     :document_changed
+    const-string v0, "session-verify result=document-changed"
+    invoke-static {v0}, Lcom/melodix/music/NativeStartupTiming;->sessionMark(Ljava/lang/String;)V
     const-string v0, "retry-launch-failed"
     invoke-direct {p0, v0}, Lcom/melodix/music/NativeSessionRetryLaunch;->fail(Ljava/lang/String;)V
     return-void
@@ -153,10 +156,28 @@
     if-nez v0, :done
     const/4 v0, 0x0
     iput-boolean v0, p0, Lcom/melodix/music/NativeSessionRetryLaunch;->pending:Z
-    const-string v0, "\"fonction-js-indisponible\""
-    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    # Only a closed enum from the evaluated script reaches the journal.
+    instance-of v0, p1, Ljava/lang/String;
+    if-eqz v0, :error
+    check-cast p1, Ljava/lang/String;
+    const-string v0, "\"session-probe result=(page|interface|generation|shell|loader|hook)\""
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
     move-result v0
-    if-nez v0, :done
+    if-eqz v0, :not_probe
+    invoke-virtual {p1}, Ljava/lang/String;->length()I
+    move-result v0
+    add-int/lit8 v0, v0, -0x1
+    const/4 v1, 0x1
+    invoke-virtual {p1, v1, v0}, Ljava/lang/String;->substring(II)Ljava/lang/String;
+    move-result-object v0
+    iget-object v1, p0, Lcom/melodix/music/NativeSessionRetryLaunch;->lastProbe:Ljava/lang/String;
+    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-nez v1, :done
+    iput-object v0, p0, Lcom/melodix/music/NativeSessionRetryLaunch;->lastProbe:Ljava/lang/String;
+    invoke-static {v0}, Lcom/melodix/music/NativeStartupTiming;->sessionMark(Ljava/lang/String;)V
+    return-void
+    :not_probe
     const-string v0, "\"verification-dispatched\""
     invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
@@ -180,6 +201,8 @@
     :done
     return-void
     :document_changed
+    const-string v0, "session-verify result=document-changed"
+    invoke-static {v0}, Lcom/melodix/music/NativeStartupTiming;->sessionMark(Ljava/lang/String;)V
     const-string v0, "retry-launch-failed"
     invoke-direct {p0, v0}, Lcom/melodix/music/NativeSessionRetryLaunch;->fail(Ljava/lang/String;)V
     return-void
