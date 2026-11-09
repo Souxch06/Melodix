@@ -9506,6 +9506,8 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     move-result-object v1
     if-eqz v1, :native_tab_style_done
     check-cast v1, Landroid/widget/TextView;
+    # Expose the current tab to accessibility services without changing routing.
+    invoke-virtual {v1, v0}, Landroid/view/View;->setSelected(Z)V
     if-eqz v0, :native_tab_inactive
     sget v2, Lcom/melodix/music/MelColors;->textPrimary:I
     sget v4, Lcom/melodix/music/MelColors;->accent:I

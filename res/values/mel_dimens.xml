@@ -177,6 +177,12 @@
     <dimen name="mel_tab_pad_v">3.0dip</dimen>
     <dimen name="mel_tab_drawable_pad">2.0dip</dimen>
     <dimen name="mel_tab_divider">1.0dip</dimen>
+    <!-- Floating navigation geometry: shared with all native shell layouts. -->
+    <dimen name="mel_tab_side_inset">16.0dip</dimen>
+    <dimen name="mel_tab_bottom_lift">10.0dip</dimen>
+    <dimen name="mel_tab_radius">32.0dip</dimen>
+    <dimen name="mel_tab_stroke_width">1.0dip</dimen>
+    <dimen name="mel_tab_tablet_max_width">560.0dip</dimen>
     <!-- ===== settings and profile rows ===== -->
     <dimen name="mel_settings_pad_h">14.0dip</dimen>
     <dimen name="mel_settings_pad_v">11.0dip</dimen>

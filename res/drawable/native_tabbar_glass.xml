@@ -1,15 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- MEL-BUG-039: glass tab bar — translucent dark panel, rounded top, hairline light top edge. -->
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item>
-        <shape android:shape="rectangle">
-            <solid android:color="@color/mel_glass_tabbar" />
-            <corners android:topLeftRadius="24.0dip" android:topRightRadius="24.0dip" />
-        </shape>
-    </item>
-    <item android:gravity="top" android:height="1.0dip">
-        <shape android:shape="rectangle">
-            <solid android:color="@color/mel_stroke_accent" />
-        </shape>
-    </item>
-</layer-list>
+<!-- Compact, rounded opaque-fallback glass; no blur over scrolling content. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/mel_glass_tabbar" />
+    <corners android:radius="@dimen/mel_tab_radius" />
+    <stroke android:width="@dimen/mel_tab_stroke_width" android:color="@color/mel_stroke_accent" />
+</shape>

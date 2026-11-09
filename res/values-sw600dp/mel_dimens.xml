@@ -157,6 +157,7 @@
     <dimen name="mel_mini_play_pad">15.0dip</dimen>
     <dimen name="mel_mini_progress_inset">10.0dip</dimen>
     <!-- ===== bottom navigation ===== -->
+    <dimen name="mel_tab_radius">38.0dip</dimen>
     <dimen name="mel_tab_bar_height">76.0dip</dimen>
     <dimen name="mel_tab_height">68.0dip</dimen>
     <dimen name="mel_tab_label">13.0sp</dimen>

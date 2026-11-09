@@ -853,8 +853,12 @@
             android:orientation="horizontal"
             android:gravity="center"
             android:paddingTop="@dimen/mel_tab_pad_v"
-            android:layout_width="fill_parent"
-            android:layout_height="@dimen/mel_tab_bar_height">
+            android:layout_width="@dimen/mel_tab_tablet_max_width"
+            android:layout_height="@dimen/mel_tab_bar_height"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginLeft="@dimen/mel_tab_side_inset"
+            android:layout_marginRight="@dimen/mel_tab_side_inset"
+            android:layout_marginBottom="@dimen/mel_tab_bottom_lift">
             <TextView android:id="@id/nativeHomeTab" android:text="Accueil" android:textSize="@dimen/mel_tab_label" android:textStyle="bold" android:textColor="@color/mel_text_primary" android:gravity="center" android:clickable="true" android:focusable="true" android:drawableTop="@drawable/native_nav_home" android:drawablePadding="@dimen/mel_tab_drawable_pad" android:background="@drawable/native_tab_ripple" android:paddingTop="@dimen/mel_tab_pad_v" android:paddingBottom="@dimen/mel_tab_pad_v" android:contentDescription="Accueil" android:onClick="onNativeHomeClick" android:layout_width="0.0dip" android:layout_height="@dimen/mel_tab_height" android:layout_weight="1.0" />
             <TextView android:id="@id/nativeSearchTab" android:text="Rechercher" android:textSize="@dimen/mel_tab_label" android:textStyle="bold" android:textColor="@color/mel_text_tertiary" android:gravity="center" android:clickable="true" android:focusable="true" android:drawableTop="@drawable/native_nav_search" android:drawablePadding="@dimen/mel_tab_drawable_pad" android:background="@drawable/native_tab_ripple" android:paddingTop="@dimen/mel_tab_pad_v" android:paddingBottom="@dimen/mel_tab_pad_v" android:contentDescription="Rechercher" android:onClick="onNativeSearchClick" android:layout_width="0.0dip" android:layout_height="@dimen/mel_tab_height" android:layout_weight="1.0" />
             <TextView android:id="@id/nativeLibraryTab" android:text="Bibliothèque" android:textSize="@dimen/mel_tab_label" android:textStyle="bold" android:textColor="@color/mel_text_tertiary" android:gravity="center" android:clickable="true" android:focusable="true" android:drawableTop="@drawable/native_nav_library" android:drawablePadding="@dimen/mel_tab_drawable_pad" android:background="@drawable/native_tab_ripple" android:paddingTop="@dimen/mel_tab_pad_v" android:paddingBottom="@dimen/mel_tab_pad_v" android:contentDescription="Bibliothèque" android:onClick="onNativeLibraryClick" android:layout_width="0.0dip" android:layout_height="@dimen/mel_tab_height" android:layout_weight="1.0" />
