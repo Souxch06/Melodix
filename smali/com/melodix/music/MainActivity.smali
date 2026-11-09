@@ -5757,22 +5757,6 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     .line 1
     invoke-super {p0}, Le6;->onStop()V
 
-    # Mise a jour silencieuse : l'APK telecharge et verifie s'installe quand
-    # l'app part en arriere-plan - le lancement suivant est deja a jour.
-    :try_start_selfupd
-    invoke-static {}, Lcom/melodix/music/SelfUpdater;->noteStopped()V
-
-    invoke-static {p0}, Lcom/melodix/music/SelfUpdater;->installPending(Landroid/content/Context;)V
-    :try_end_selfupd
-    .catch Ljava/lang/Throwable; {:try_start_selfupd .. :try_end_selfupd} :catch_selfupd
-
-    goto :selfupd_done
-
-    :catch_selfupd
-    move-exception v0
-
-    :selfupd_done
-
     # MEL-BUG-068: persist the Spotify session cookies to disk when the app
     # leaves the foreground — without flush(), quitting the app loses sp_dc
     # and the next launch looks logged out. Presence is never logged, only
@@ -5782,7 +5766,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
     move-result-object v0
 
-    if-eqz v0, :flush_ok
+    if-eqz v0, :flush_failed
 
     const/4 v1, 0x1
 
@@ -5799,7 +5783,27 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     :catch_flush
     move-exception v0
 
+    :flush_failed
+    # Do not permit automatic replacement if cookie persistence failed.
+    goto :selfupd_done
+
     :flush_done
+
+    # Mise a jour silencieuse : l'APK telecharge et verifie s'installe quand
+    # l'app part en arriere-plan - le lancement suivant est deja a jour.
+    :try_start_selfupd
+    invoke-static {}, Lcom/melodix/music/SelfUpdater;->noteStopped()V
+
+    invoke-static {p0}, Lcom/melodix/music/SelfUpdater;->installPending(Landroid/content/Context;)V
+    :try_end_selfupd
+    .catch Ljava/lang/Throwable; {:try_start_selfupd .. :try_end_selfupd} :catch_selfupd
+
+    goto :selfupd_done
+
+    :catch_selfupd
+    move-exception v0
+
+    :selfupd_done
 
     .line 2
     .line 3

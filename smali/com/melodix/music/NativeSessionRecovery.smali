@@ -29,6 +29,24 @@
     return v2
 .end method
 
+
+# Commit WebView cookies on a recognized login return; never read or copy them.
+.method public static flushCookies()V
+    .locals 1
+    :try_start
+    invoke-static {}, Landroid/webkit/CookieManager;->getInstance()Landroid/webkit/CookieManager;
+    move-result-object v0
+    if-eqz v0, :done
+    invoke-virtual {v0}, Landroid/webkit/CookieManager;->flush()V
+    :try_end
+    .catch Ljava/lang/RuntimeException; {:try_start .. :try_end} :error
+    :done
+    return-void
+    :error
+    move-exception v0
+    return-void
+.end method
+
 .method public static verify(Lcom/melodix/music/MainActivity;)V
     .locals 4
     :verify_try

@@ -197,6 +197,9 @@
     invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
     if-eqz v0, :done
+    # Persist cookies at the login return, before an update can kill the process.
+    # This is not proof of a fresh or valid Spotify session.
+    invoke-static {}, Lcom/melodix/music/NativeSessionRecovery;->flushCookies()V
     # A page return is not proof of a freshly cleared/re-authenticated session.
     const/4 v0, 0x0
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginWebRequested:Z
