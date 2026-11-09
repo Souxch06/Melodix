@@ -1,5 +1,7 @@
 # Session : audit test120 → test121
 
+> Mise à jour après retour utilisateur : des réponses token400/403 sont maintenant rapportées sur téléphone ; l’ancienne app ne charge pas non plus les playlists. Voir [le suivi test122](session-preview-test122.md). Les conclusions ci-dessous décrivent les preuves disponibles avant ce retour.
+
 ## Conclusion et limites de preuve
 
 **Un défaut client est reproduit et corrigé ; la cause complète sur le téléphone n'est pas encore établie.** La coquille pouvait demander une vérification avec un DOM `unknown`, mais le bridge la refusait tant que ce DOM n'était pas `connected`. Cela peut produire zéro requête token/library malgré un cookie présent. Le test exécute le vrai bridge dans une VM ; il ne simule pas une connexion Spotify réussie sur téléphone.
