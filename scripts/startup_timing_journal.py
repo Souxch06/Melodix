@@ -236,6 +236,12 @@ def main(argv):
               'launch that reached onCreate.', file=sys.stderr)
         return 2
     print_table(report)
+    if '--github-notice' in argv:
+        # GitHub-hosted annotation: readable even when artifact downloads are
+        # blocked by the caller's network. No raw event bodies are included.
+        compact = json.dumps(report, ensure_ascii=False, separators=(',', ':'))
+        compact = compact.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+        print('::notice title=Startup measurement ' + Path(argv[1]).stem + '::' + compact)
     if '--json' in argv:
         out = argv[argv.index('--json') + 1]
         with open(out, 'w', encoding='utf-8') as handle:

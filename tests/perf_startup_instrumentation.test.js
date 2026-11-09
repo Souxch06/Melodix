@@ -300,4 +300,7 @@ test('measurement CI is opt-in, same-source, artifact-only and never injects a s
   assert.doesNotMatch(capture.replace(/^#.*$/gm, ''), /evaluateJavascript|setCookie|removeAllCookies|Bearer |--es .*token|fixture/i);
   for (const scenario of ['cold', 'warm', 'background']) assert.match(capture, new RegExp('capture ' + scenario + ' '));
   assert.match(capture, /--filter-log -/);
+  assert.match(capture, /package="com\.melodix\.music\.preview"/);
+  assert.match(capture, /activity="com\.melodix\.music\.MainActivity"/);
+  assert.match(capture, /--github-notice/);
 });

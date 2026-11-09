@@ -1,7 +1,9 @@
 # Test téléphone — preview instrumentée test.120
 
-**Avant :** installer la preview test.120 par-dessus l'application (sans effacer
-les données ni désinstaller), terminer les éventuelles demandes de permission,
+**Avant :** mettre à jour **Melodix Preview** avec test.120, sans effacer les
+données ni désinstaller. Le paquet `com.melodix.music.preview` est séparé de
+Melodix production : utiliser la Preview pour les trois essais. Terminer les
+éventuelles demandes de permission,
 se connecter normalement si nécessaire, puis revenir à l'accueil. Garder le même
 réseau et ne pas lancer de lecture pendant les trois essais. Si Android refuse
 la mise à jour, ne pas désinstaller : signaler le message.

@@ -6,6 +6,8 @@ set -euo pipefail
 device="$1"
 apk="$2"
 out="$3"
+package="com.melodix.music.preview"
+activity="com.melodix.music.MainActivity"
 [[ "$device" =~ ^emulator-[0-9]+$ && -s "$apk" ]] || exit 2
 mkdir -p "$out"
 printf 'source=%s\napk_sha256=%s\naccount=none\n' \
@@ -14,11 +16,11 @@ adb -s "$device" install -r -g "$apk" > "$out/install.txt"
 
 capture() {
   local scenario="$1" wait_seconds="$2"
-  adb -s "$device" shell am start -W -n com.melodix.music/.MainActivity \
+  adb -s "$device" shell am start -W -n "$package/$activity" \
     | tr -d '\r' > "$out/$scenario-am-start.txt"
   sleep "$wait_seconds"
   local pid
-  pid="$(adb -s "$device" shell pidof com.melodix.music | tr -d '\r')"
+  pid="$(adb -s "$device" shell pidof "$package" | tr -d '\r')"
   [[ "$pid" =~ ^[0-9]+$ ]] || { echo "::error::App did not survive $scenario"; return 1; }
   printf '%s\n' "$pid" > "$out/$scenario-pid.txt"
   # Only the closed measurement grammar is persisted/uploaded. Old duplicate
@@ -26,11 +28,11 @@ capture() {
   adb -s "$device" logcat -d -v brief -s MDXTRACE:I \
     | python3 scripts/startup_timing_journal.py --filter-log - "$out/$scenario.log"
   python3 scripts/startup_timing_journal.py "$out/$scenario.log" \
-    --json "$out/$scenario.json" > "$out/$scenario-table.txt"
+    --json "$out/$scenario.json" --github-notice > "$out/$scenario-table.txt"
   cat "$out/$scenario-table.txt"
 }
 
-adb -s "$device" shell am force-stop com.melodix.music
+adb -s "$device" shell am force-stop "$package"
 adb -s "$device" logcat -c
 capture cold 35
 # Back/launcher: Android may recreate the Activity or restart the process. The
