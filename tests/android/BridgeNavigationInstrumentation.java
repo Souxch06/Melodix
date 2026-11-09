@@ -68,6 +68,30 @@ public final class BridgeNavigationInstrumentation extends Instrumentation {
             await(PLAYER,()->view[0].evaluateJavascript("document.getElementById('next').click()",null));
             phase="player_bridge_visible";
             check("\"function\"".equals(js("typeof window.AndBridge.getSessionGeneration")));
+            // Exercise the actual retry poller and JavaScriptInterface after
+            // changing generations on the UI thread without reloading the page.
+            // Synthetic hook counts dispatches and makes no network requests.
+            Class<?> gate=getTargetContext().getClassLoader().loadClass("com.melodix.music.NativeSessionGate");
+            Class<?> launch=getTargetContext().getClassLoader().loadClass("com.melodix.music.NativeSessionRetryLaunch");
+            phase="generation_before";
+            ui(()->{try{gate.getField("state").setInt(null,0);gate.getField("loginActive").setBoolean(null,false);gate.getField("generation").setInt(null,9);}catch(Exception e){throw new RuntimeException(e);}});
+            check("true".equals(js("typeof AndBridge.getSessionGeneration()==='number' && AndBridge.getSessionGeneration()===9")));
+            check("true".equals(js("window.fixtureCount=0;window.__sfRequestSessionVerification=function(){window.fixtureCount++;return true};true")));
+            phase="retry_first_generation";
+            Runnable first=(Runnable)launch.getConstructor(WebView.class,int.class).newInstance(view[0],9);
+            ui(first::run);
+            check("1".equals(js("window.fixtureCount")));
+            phase="generation_after";
+            ui(()->{try{gate.getField("generation").setInt(null,10);}catch(Exception e){throw new RuntimeException(e);}});
+            check("true".equals(js("typeof AndBridge.getSessionGeneration()==='number' && AndBridge.getSessionGeneration()===10")));
+            phase="retry_next_generation";
+            Runnable second=(Runnable)launch.getConstructor(WebView.class,int.class).newInstance(view[0],10);
+            ui(second::run);
+            check("2".equals(js("window.fixtureCount")));
+            phase="retry_stale_generation";
+            Runnable stale=(Runnable)launch.getConstructor(WebView.class,int.class).newInstance(view[0],9);
+            ui(stale::run);
+            check("2".equals(js("window.fixtureCount")));
             phase="return_login";
             await(LOGIN,()->view[0].evaluateJavascript("document.getElementById('next').click()",null));
             phase="return_login_bridge_absent";

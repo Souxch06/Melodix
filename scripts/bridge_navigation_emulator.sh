@@ -9,4 +9,4 @@ phase=fixture
 timeout 120s adb shell am instrument -w -r com.melodix.music.preview.test/com.melodix.test.BridgeNavigationInstrumentation > "$RUNNER_TEMP/bridge-timing.txt"
 cat "$RUNNER_TEMP/bridge-timing.txt"
 grep -Fq 'INSTRUMENTATION_RESULT: overall=passed' "$RUNNER_TEMP/bridge-timing.txt"
-echo '::notice title=Synthetic bridge navigation::account interface absent; player interface available; account return interface absent; no real Spotify requests'
+echo '::notice title=Synthetic bridge navigation::account interface absent; player interface available; account return interface absent; actual retry generation checked without network; no real Spotify requests'

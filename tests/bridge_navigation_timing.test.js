@@ -24,6 +24,6 @@ test('existing WebView API remains not origin isolated for subframes; no new cre
 });
 test('Android fixture covers offline account to player and back with the real preparation helper and policy',()=>{
  const f=read('tests/android/BridgeNavigationInstrumentation.java'),s=read('scripts/bridge_navigation_emulator.sh'),w=read('.github/workflows/test-session-gate.yml');
- for(const token of ['shouldInterceptRequest','NativeBridgeNavigation','SpotifyNavigationPolicy','login_bridge_absent','player_bridge_visible','return_login_bridge_absent'])assert.ok(f.includes(token),token);
+ for(const token of ['shouldInterceptRequest','NativeBridgeNavigation','SpotifyNavigationPolicy','login_bridge_absent','player_bridge_visible','return_login_bridge_absent','retry_first_generation','retry_next_generation','retry_stale_generation'])assert.ok(f.includes(token),token);
  assert.doesNotMatch(f,/CookieManager|setCookie|sp_dc|authorization/i);assert.match(s,/overall=passed/);assert.match(w,/bridge-navigation:[\s\S]*?bridge_navigation_emulator\.sh/);
 });
