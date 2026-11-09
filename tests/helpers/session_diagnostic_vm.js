@@ -27,7 +27,7 @@ function smaliVm(className){
    if(l==='return-void')return;
    if((m=l.match(/^invoke-\S+ \{([^}]*)\}, (L[^;]+;)->([^ (]+)\((.*)$/))){
     const a=m[1]?m[1].split(', ').map(k=>r[k]):[],cls=m[2],method=m[3];
-    if(cls.includes(className)){result=run(method,...a);continue;}
+    if(cls.includes(className)){result=run(method==='enqueue'?'record':method,...a);continue;}
     if(cls==='Lorg/json/JSONObject;'){
      const obj=a[0];assert.ok(obj,'json object');if(method==='<init>'){obj.data=a.length>1?JSON.parse(a[1]):{};result=undefined;}
      else if(method==='has')result=Object.hasOwn(obj.data,a[1]);

@@ -49,6 +49,7 @@
     invoke-static {}, Lcom/melodix/music/NativeSessionGate;->details()Ljava/lang/String;
     move-result-object v4
     invoke-virtual {v3, v4}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    invoke-static {}, Lcom/melodix/music/NativeSessionSurfaceExtras;->retryState()V
     invoke-virtual {v0}, Landroid/view/View;->bringToFront()V
     return-void
     :remove_old

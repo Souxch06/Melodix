@@ -3439,6 +3439,9 @@
                 ? boundedMediaLibraryCount(window.AndBridge.getSessionGeneration(), 2147483647) : 0;
         } catch (_) { diagnostic.nativeGeneration = 0; }
         diagnostic.sessionObservation = { apiHttp: null, fallbackHttp: null, libraryHttp: null, tokenResult: 'not-attempted' };
+        // Independent acknowledgement before queuing work: the detailed channel
+        // may fail, but this attempt must still be visible with unknown observations.
+        if (source === 'native-retry') acknowledgeSessionAttemptStart(diagnostic);
         const requestGeneration = mediaLibraryRequestGeneration;
         const authEpoch = boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999);
         window.__sfMediaLibLastAuthAttemptEpoch = authEpoch;
@@ -3609,6 +3612,29 @@
         }
     }
     // Phase 1 diagnostics only. Never read credentials or feed this channel to the gate.
+    function reportSessionDiagnosticFailure(diagnostic, reason) {
+        if (!/^canal=(exception-js|indisponible|demarrage-indisponible)$/.test(reason)) return;
+        try {
+            const bridge = window.AndBridge;
+            if (bridge && typeof bridge.onSessionDiagnosticFailure === 'function') {
+                bridge.onSessionDiagnosticFailure(
+                    boundedMediaLibraryCount(diagnostic && diagnostic.nativeGeneration, 2147483647),
+                    boundedMediaLibraryCount(diagnostic && diagnostic.attempt, 999999), reason);
+            }
+        } catch (_) {} // The fallback channel itself is best effort; never recurse.
+    }
+    function acknowledgeSessionAttemptStart(diagnostic) {
+        try {
+            const bridge = window.AndBridge;
+            if (bridge && typeof bridge.onSessionAttemptStarted === 'function') {
+                bridge.onSessionAttemptStarted(
+                    boundedMediaLibraryCount(diagnostic.nativeGeneration, 2147483647),
+                    boundedMediaLibraryCount(diagnostic.attempt, 999999));
+            } else {
+                reportSessionDiagnosticFailure(diagnostic, 'canal=demarrage-indisponible');
+            }
+        } catch (_) { reportSessionDiagnosticFailure(diagnostic, 'canal=exception-js'); }
+    }
     function publishSessionAttemptDiagnostic(diagnostic, completed) {
         const observation = diagnostic && diagnostic.sessionObservation;
         if (!observation) return;
@@ -3627,21 +3653,26 @@
         try {
             if (window.AndBridge && typeof window.AndBridge.onSessionAttemptDiagnostic === 'function') {
                 window.AndBridge.onSessionAttemptDiagnostic(JSON.stringify(result));
+            } else {
+                reportSessionDiagnosticFailure(diagnostic, 'canal=indisponible');
             }
-        } catch (_) {}
+        } catch (_) { reportSessionDiagnosticFailure(diagnostic, 'canal=exception-js'); }
     }
     // A blocked request has no network attempt ID. Do not fabricate a completed attempt.
     function publishSessionRelanceDiagnostic(source, reason) {
         if (source !== 'native-retry') return;
         if (!/^(blocage=(dom-auth-required|attente-429))$/.test(reason)) return;
+        const diagnostic = { nativeGeneration: 0, attempt: 0 };
         try {
+            diagnostic.nativeGeneration = window.AndBridge && typeof window.AndBridge.getSessionGeneration === 'function'
+                ? boundedMediaLibraryCount(window.AndBridge.getSessionGeneration(), 2147483647) : 0;
             if (window.AndBridge && typeof window.AndBridge.onSessionAttemptDiagnostic === 'function') {
-                const generation = typeof window.AndBridge.getSessionGeneration === 'function'
-                    ? boundedMediaLibraryCount(window.AndBridge.getSessionGeneration(), 2147483647) : 0;
-                window.AndBridge.onSessionAttemptDiagnostic(JSON.stringify({ generation: generation,
+                window.AndBridge.onSessionAttemptDiagnostic(JSON.stringify({ generation: diagnostic.nativeGeneration,
                     attempt: 0, source: 'native-retry', reason: reason }));
+            } else {
+                reportSessionDiagnosticFailure(diagnostic, 'canal=indisponible');
             }
-        } catch (_) {}
+        } catch (_) { reportSessionDiagnosticFailure(diagnostic, 'canal=exception-js'); }
     }
     function observeSessionAttempt(diagnostic, field, value) {
         if (!diagnostic || !diagnostic.sessionObservation) return;

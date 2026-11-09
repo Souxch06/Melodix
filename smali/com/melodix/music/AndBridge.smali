@@ -3857,20 +3857,49 @@
     .annotation runtime Landroid/webkit/JavascriptInterface;
     .end annotation
     .locals 3
+    :diagnostic_try
     if-eqz p1, :done
     invoke-virtual {p1}, Ljava/lang/String;->length()I
-    move-result v0
+    move-result v2
     const/16 v1, 0x200
-    if-gt v0, v1, :done
+    if-gt v2, v1, :done
     sget-object v0, Lcom/melodix/music/NativeSessionGate;->owner:Ljava/lang/ref/WeakReference;
-    if-eqz v0, :done
+    if-eqz v0, :no_owner
     invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
     move-result-object v0
     check-cast v0, Lcom/melodix/music/MainActivity;
-    if-eqz v0, :done
+    if-eqz v0, :no_owner
     new-instance v1, Lcom/melodix/music/NativeSessionAttemptDiagnostic;
     invoke-direct {v1, p1}, Lcom/melodix/music/NativeSessionAttemptDiagnostic;-><init>(Ljava/lang/String;)V
     invoke-virtual {v0, v1}, Landroid/app/Activity;->runOnUiThread(Ljava/lang/Runnable;)V
+    goto :done
+    :no_owner
+    const-string v0, "session-diagnostic motif=canal-sans-activity"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {p1}, Lcom/melodix/music/NativeSessionAttemptDiagnostic;->enqueue(Ljava/lang/String;)V
+    :diagnostic_end
+    .catch Ljava/lang/Exception; {:diagnostic_try .. :diagnostic_end} :diagnostic_error
     :done
+    return-void
+    :diagnostic_error
+    move-exception v0
+    const-string v0, "session-diagnostic motif=canal-exception-native"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    return-void
+.end method
+
+# Independent bounded start acknowledgement; contains no HTTP or credential values.
+.method public final onSessionAttemptStarted(II)V
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+    .locals 0
+    invoke-static {p1, p2}, Lcom/melodix/music/NativeSessionAttemptDiagnostic;->started(II)V
+    return-void
+.end method
+.method public final onSessionDiagnosticFailure(IILjava/lang/String;)V
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+    .locals 0
+    invoke-static {p1, p2, p3}, Lcom/melodix/music/NativeSessionAttemptDiagnostic;->failure(IILjava/lang/String;)V
     return-void
 .end method

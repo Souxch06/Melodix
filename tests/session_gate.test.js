@@ -3,7 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-const {evidenceVm}=require('./helpers/session_diagnostic_vm');
+const {evidenceVm,diagnosticVm}=require('./helpers/session_diagnostic_vm');
 const read = f => fs.readFileSync(require('node:path').join(__dirname, '..', f), 'utf8');
 const gate = read('smali/com/melodix/music/NativeSessionGate.smali');
 function body(src, name) { const a = src.indexOf('.method public static '+name+'('); assert.ok(a>=0,name); return src.slice(a,src.indexOf('.end method',a)); }
@@ -223,4 +223,22 @@ test('actual gate plus actual evidence: first refusal, slow retry deadline, seco
 });
 test('deadline with no evidence never reaches probable expiry, including repeated deadlines',()=>{
  const m=machine();for(let i=0;i<4;i++)assert.equal(m.retainDeadline(),0);assert.equal(m.evidence.fields.count,0);assert.equal(m.fields.state,0);assert.equal(m.run('canReconnect'),0);
+});
+
+
+test('incomplete or unknown diagnostic rows can never add a session refusal',()=>{
+ const m=machine(),d=diagnosticVm(),refused={tokenRefused:true,libraryHttp:401};
+ m.send(refused);assert.equal(m.evidence.fields.count,1);
+ d.run('started',m.fields.generation,2);
+ d.record({generation:m.fields.generation,attempt:2,completed:false,apiHttp:400,fallbackHttp:403,libraryHttp:401,tokenResult:'refused'});
+ d.record({generation:m.fields.generation,attempt:3,completed:true,apiHttp:null,fallbackHttp:null,libraryHttp:null,tokenResult:'unknown'});
+ assert.match(d.text(),/Tentative 1\/2.*terminée=non/);
+ assert.match(d.text(),/Tentative 1\/3.*token API=inconnu · repli=inconnu · bibliothèque=inconnu/);
+ assert.equal(m.evidence.fields.count,1,'even diagnostic rows with all three refusal HTTPs are observational');
+ assert.equal(m.fields.lastAttempt,1);assert.equal(m.fields.state,4);
+ // Defense in depth: even on the PROOF channel, an incomplete full triple is ignored.
+ m.send({attempt:2,completed:false,...refused});assert.equal(m.evidence.fields.count,1);assert.equal(m.fields.lastAttempt,1);
+ // Unknown proof HTTPs must not turn into a refusal (existing classifier resets the chain).
+ m.send({attempt:3,completed:true,token:false,tokenApiHttp:0,tokenFallbackHttp:0,libraryHttp:0});
+ assert.equal(m.evidence.fields.count,0);assert.equal(m.fields.state,4);
 });

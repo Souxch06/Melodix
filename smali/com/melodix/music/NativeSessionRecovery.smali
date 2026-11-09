@@ -32,6 +32,15 @@
 .method public static verify(Lcom/melodix/music/MainActivity;)V
     .locals 4
     :verify_try
+    invoke-static {}, Lcom/melodix/music/NativeSessionVerificationFlight;->busy()Z
+    move-result v0
+    if-eqz v0, :verify_begin
+    sget v0, Lcom/melodix/music/NativeSessionGate;->generation:I
+    const/4 v1, 0x0
+    const-string v2, "relance=ignoree-verification-en-cours"
+    invoke-static {v0, v1, v2}, Lcom/melodix/music/NativeSessionAttemptDiagnostic;->note(IILjava/lang/String;)V
+    goto :verify_done
+    :verify_begin
     invoke-static {p0}, Lcom/melodix/music/NativeSessionGate;->begin(Lcom/melodix/music/MainActivity;)V
     sget v0, Lcom/melodix/music/NativeSessionGate;->generation:I
     const/4 v1, 0x0

@@ -77,6 +77,7 @@
     move-result-object v1
     invoke-virtual {v0, v1}, Landroid/view/View;->startAnimation(Landroid/view/animation/Animation;)V
     :done
+    invoke-static {}, Lcom/melodix/music/NativeSessionSurfaceExtras;->retryState()V
     return-void
 .end method
 .method public static motion(Landroid/content/Context;)Z
@@ -150,5 +151,41 @@
     invoke-static {p0, v0, v1}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
     move-result-object v0
     invoke-virtual {v0}, Landroid/widget/Toast;->show()V
+    return-void
+.end method
+
+# Presentation-only: only Retry, never reconnect/login/copy/disclosure actions.
+.method public static retryState()V
+    .locals 4
+    sget-boolean v0, Lcom/melodix/music/NativeSessionGate;->loginActive:Z
+    if-nez v0, :done
+    sget-object v0, Lcom/melodix/music/NativeSessionGate;->overlay:Landroid/view/View;
+    if-eqz v0, :done
+    sget v1, Lcom/melodix/music/NativeSessionGate;->state:I
+    const/4 v2, 0x4
+    if-eq v1, v2, :primary
+    const/4 v2, 0x2
+    if-ne v1, v2, :done
+    const-string v1, "sessionSecondary"
+    goto :button
+    :primary
+    const-string v1, "sessionAction"
+    :button
+    invoke-static {v0, v1}, Lcom/melodix/music/NativeSessionSurface;->text(Landroid/view/View;Ljava/lang/String;)Landroid/widget/TextView;
+    move-result-object v0
+    if-eqz v0, :done
+    invoke-static {}, Lcom/melodix/music/NativeSessionVerificationFlight;->busy()Z
+    move-result v1
+    const/4 v2, 0x1
+    if-eqz v1, :ready
+    const-string v3, "Vérification en cours…"
+    const/4 v2, 0x0
+    goto :apply
+    :ready
+    const-string v3, "Réessayer"
+    :apply
+    invoke-virtual {v0, v3}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    invoke-virtual {v0, v2}, Landroid/view/View;->setEnabled(Z)V
+    :done
     return-void
 .end method

@@ -100,6 +100,7 @@
     sget v0, Lcom/melodix/music/NativeSessionGate;->generation:I
     add-int/lit8 v0, v0, 0x1
     sput v0, Lcom/melodix/music/NativeSessionGate;->generation:I
+    invoke-static {}, Lcom/melodix/music/NativeSessionVerificationFlight;->start()V
     const/4 v1, 0x0
     sput v1, Lcom/melodix/music/NativeSessionGate;->lastAttempt:I
     sput v1, Lcom/melodix/music/NativeSessionGate;->tokenApiHttp:I

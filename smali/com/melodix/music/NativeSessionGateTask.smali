@@ -32,6 +32,7 @@
     iget-object v1, p0, Lcom/melodix/music/NativeSessionGateTask;->payload:Ljava/lang/String;
     if-eqz v1, :deadline
     invoke-static {v0, v1}, Lcom/melodix/music/NativeSessionGate;->result(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+    invoke-static {v1}, Lcom/melodix/music/NativeSessionVerificationFlight;->finish(Ljava/lang/String;)V
     goto :done
     :deadline
     iget v1, p0, Lcom/melodix/music/NativeSessionGateTask;->generation:I

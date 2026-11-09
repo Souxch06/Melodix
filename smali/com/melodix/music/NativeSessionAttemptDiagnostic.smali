@@ -42,6 +42,8 @@
     return-void
     :error
     move-exception v0
+    const-string v0, "session-diagnostic motif=canal-exception-native"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
     return-void
 .end method
 .method public static reset()V
@@ -241,7 +243,7 @@
     const-string v1, "reason"
     invoke-virtual {v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;)Ljava/lang/String;
     move-result-object v7
-    const-string v2, "rejet=(generation-perimee|tentative-deja-traitee-ou-ancienne)|abandon=(requete-perimee|contexte-auth-perime)|blocage=(dom-auth-required|attente-429|fonction-js-indisponible)|token-source=cache"
+    const-string v2, "rejet=(generation-perimee|tentative-deja-traitee-ou-ancienne)|abandon=(requete-perimee|contexte-auth-perime)|blocage=(dom-auth-required|attente-429|fonction-js-indisponible)|token-source=cache|relance=ignoree-verification-en-cours|canal=(exception-js|indisponible|demarrage-indisponible)"
     invoke-virtual {v7, v2}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
     move-result v2
     if-eqz v2, :no_reason
@@ -491,4 +493,71 @@
     invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
     move-result-object v0
     return-object v0
+.end method
+
+# These entry points are queued on the main looper, even without an Activity.
+.method public static enqueue(Ljava/lang/String;)V
+    .locals 3
+    new-instance v0, Landroid/os/Handler;
+    invoke-static {}, Landroid/os/Looper;->getMainLooper()Landroid/os/Looper;
+    move-result-object v1
+    invoke-direct {v0, v1}, Landroid/os/Handler;-><init>(Landroid/os/Looper;)V
+    new-instance v1, Lcom/melodix/music/NativeSessionAttemptDiagnostic;
+    invoke-direct {v1, p0}, Lcom/melodix/music/NativeSessionAttemptDiagnostic;-><init>(Ljava/lang/String;)V
+    invoke-virtual {v0, v1}, Landroid/os/Handler;->post(Ljava/lang/Runnable;)Z
+    return-void
+.end method
+.method public static started(II)V
+    .locals 3
+    :try_start
+    new-instance v0, Lorg/json/JSONObject;
+    invoke-direct {v0}, Lorg/json/JSONObject;-><init>()V
+    const-string v1, "generation"
+    invoke-virtual {v0, v1, p0}, Lorg/json/JSONObject;->put(Ljava/lang/String;I)Lorg/json/JSONObject;
+    const-string v1, "attempt"
+    invoke-virtual {v0, v1, p1}, Lorg/json/JSONObject;->put(Ljava/lang/String;I)Lorg/json/JSONObject;
+    const-string v1, "source"
+    const-string v2, "native-retry"
+    invoke-virtual {v0, v1, v2}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
+    const-string v1, "completed"
+    const/4 v2, 0x0
+    invoke-virtual {v0, v1, v2}, Lorg/json/JSONObject;->put(Ljava/lang/String;Z)Lorg/json/JSONObject;
+    invoke-virtual {v0}, Lorg/json/JSONObject;->toString()Ljava/lang/String;
+    move-result-object v0
+    invoke-static {v0}, Lcom/melodix/music/NativeSessionAttemptDiagnostic;->enqueue(Ljava/lang/String;)V
+    :try_end
+    .catch Ljava/lang/Exception; {:try_start .. :try_end} :bad
+    return-void
+    :bad
+    move-exception v0
+    const-string v0, "session-diagnostic motif=canal-demarrage-exception"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    return-void
+.end method
+.method public static failure(IILjava/lang/String;)V
+    .locals 2
+    # Explicit closed enums only; never log exception messages or arbitrary JS text.
+    const-string v0, "canal=(exception-js|indisponible|demarrage-indisponible)"
+    invoke-virtual {p2, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v0
+    if-eqz v0, :done
+    :try_start
+    new-instance v0, Lorg/json/JSONObject;
+    invoke-direct {v0}, Lorg/json/JSONObject;-><init>()V
+    const-string v1, "generation"
+    invoke-virtual {v0, v1, p0}, Lorg/json/JSONObject;->put(Ljava/lang/String;I)Lorg/json/JSONObject;
+    const-string v1, "attempt"
+    invoke-virtual {v0, v1, p1}, Lorg/json/JSONObject;->put(Ljava/lang/String;I)Lorg/json/JSONObject;
+    const-string v1, "reason"
+    invoke-virtual {v0, v1, p2}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
+    invoke-virtual {v0}, Lorg/json/JSONObject;->toString()Ljava/lang/String;
+    move-result-object v0
+    invoke-static {v0}, Lcom/melodix/music/NativeSessionAttemptDiagnostic;->enqueue(Ljava/lang/String;)V
+    :try_end
+    .catch Ljava/lang/Exception; {:try_start .. :try_end} :bad
+    :done
+    return-void
+    :bad
+    move-exception v0
+    return-void
 .end method
