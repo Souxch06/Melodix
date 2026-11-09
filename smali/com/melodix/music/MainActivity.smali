@@ -7991,6 +7991,8 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
     move-result-object v0
 
+    invoke-static {v0}, Lcom/melodix/music/NativeSessionAttemptDiagnostic;->appendTo(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v0
     return-object v0
 .end method
 

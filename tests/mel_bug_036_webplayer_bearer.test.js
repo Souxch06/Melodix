@@ -20,7 +20,7 @@ const vm = require('node:vm');
 // drop the cache on 401/403 so the bounded retry refetches it. Token value is
 // never logged.
 test('MEL-BUG-036: the bridge fetches and caches a web-player token from /api/token', () => {
-  assert.match(bridge, /async function fetchWebPlayerToken\(\)/);
+  assert.match(bridge, /async function fetchWebPlayerToken\(observation\)/);
   assert.match(bridge, /open\.spotify\.com\/api\/token/);
   assert.match(bridge, /credentials:\s*'include'/);
   assert.match(bridge, /accessTokenExpirationTimestampMs/);
@@ -29,7 +29,7 @@ test('MEL-BUG-036: the bridge fetches and caches a web-player token from /api/to
 
 test('MEL-BUG-036: libraryV3 carries Authorization: Bearer only when a token exists', () => {
   const fetchBlock = bridge.slice(bridge.indexOf('async function fetchAllLibrary'));
-  assert.match(fetchBlock, /const bearerToken = await fetchWebPlayerToken\(\);/);
+  assert.match(fetchBlock, /const bearerToken = await fetchWebPlayerToken\(trace\);/);
   assert.match(fetchBlock, /bearerToken \? \{ 'Authorization': 'Bearer ' \+ bearerToken \} : \{\}/,
     'header is conditional: no token -> no header (legacy cookie-only request preserved)');
   assert.match(fetchBlock, /credentials:\s*'include'/, 'cookies are still sent');

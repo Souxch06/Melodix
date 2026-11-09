@@ -3851,3 +3851,26 @@
     :done
     return-void
 .end method
+
+# Observation channel, deliberately separate from onSessionVerification.
+.method public final onSessionAttemptDiagnostic(Ljava/lang/String;)V
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+    .locals 3
+    if-eqz p1, :done
+    invoke-virtual {p1}, Ljava/lang/String;->length()I
+    move-result v0
+    const/16 v1, 0x200
+    if-gt v0, v1, :done
+    sget-object v0, Lcom/melodix/music/NativeSessionGate;->owner:Ljava/lang/ref/WeakReference;
+    if-eqz v0, :done
+    invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+    move-result-object v0
+    check-cast v0, Lcom/melodix/music/MainActivity;
+    if-eqz v0, :done
+    new-instance v1, Lcom/melodix/music/NativeSessionAttemptDiagnostic;
+    invoke-direct {v1, p1}, Lcom/melodix/music/NativeSessionAttemptDiagnostic;-><init>(Ljava/lang/String;)V
+    invoke-virtual {v0, v1}, Landroid/app/Activity;->runOnUiThread(Ljava/lang/Runnable;)V
+    :done
+    return-void
+.end method

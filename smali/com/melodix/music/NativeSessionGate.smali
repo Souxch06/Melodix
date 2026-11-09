@@ -30,6 +30,7 @@
     const/4 v0, 0x1
     invoke-static {}, Lcom/melodix/music/NativeSessionEvidence;->reset()V
     sput-boolean v0, Lcom/melodix/music/NativeSessionGate;->activeLaunch:Z
+    invoke-static {}, Lcom/melodix/music/NativeSessionAttemptDiagnostic;->reset()V
     invoke-static {p0}, Lcom/melodix/music/NativeSessionGate;->begin(Lcom/melodix/music/MainActivity;)V
     invoke-static {}, Lcom/melodix/music/NativeSessionRecovery;->hasCookie()Z
     move-result v0
@@ -504,6 +505,8 @@
     sget v2, Lcom/melodix/music/NativeSessionGate;->libraryHttp:I
     invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
     invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v0
+    invoke-static {v0}, Lcom/melodix/music/NativeSessionAttemptDiagnostic;->appendTo(Ljava/lang/String;)Ljava/lang/String;
     move-result-object v0
     return-object v0
 .end method

@@ -65,7 +65,7 @@ test('page-side timings observe every token attempt without relying on shell ins
   assert.match(shell, /diagTrace\('perf css-ready=0'\)/);
   assert.match(shell, /if \(window\.__sfNativeUiShellStarted\) return;/,
     'install marks remain one-shot per page');
-  assert.match(bridge, /perfMarkBridge\('token-request', 0\);\s+const bearerToken = await fetchWebPlayerToken\(\);/);
+  assert.match(bridge, /perfMarkBridge\('token-request', 0\);\s+const bearerToken = await fetchWebPlayerToken\(trace\);/);
   assert.match(bridge, /perfMarkBridge\('token-ready'/);
   assert.match(bridge, /perfMarkBridge\('library-response'/);
   const helper = bridge.slice(bridge.indexOf('function perfMarkBridge('), bridge.indexOf('function notifyMediaLibUiChange'));

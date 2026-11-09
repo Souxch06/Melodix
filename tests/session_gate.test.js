@@ -103,7 +103,7 @@ test('publication exports only closed, same-attempt observations at completion',
   assert.equal(sent.tokenRefused,expected);assert.equal(sent.generation,7);assert.equal(sent.attempt,8);assert.equal(sent.completed,true);
   assert.deepEqual(Object.keys(sent),['generation','attempt','completed','token','tokenApiHttp','tokenFallbackHttp','tokenRefused','libraryHttp','libraryOk']);
  }
- assert.ok(source.indexOf('publishSessionVerification(diagnostic)')>source.indexOf('} finally {\n            if (requestGeneration'));
+ assert.ok(source.indexOf('publishSessionVerification(diagnostic)')>source.indexOf('} finally {\n            publishSessionAttemptDiagnostic(diagnostic, true);\n            if (requestGeneration'));
 });
 test('native glass surface has named resources, real 48dp actions, collapsed details and no Spotify CSS',()=>{
  const xml=read('res/layout/native_session_surface.xml');

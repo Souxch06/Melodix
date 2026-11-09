@@ -3052,13 +3052,14 @@
             ' http=' + boundedMediaLibraryCount(http, 599) +
             ' duration=' + boundedMediaLibraryCount(duration, 999999));
     }
-    async function fetchWebPlayerToken() {
+    async function fetchWebPlayerToken(observation) {
         const nowMs = Date.now();
         const tokenStarted = mediaLibraryNow();
         let endpointStarted = tokenStarted;
         let tokenEndpoint = 'api';
         if (webPlayerTokenCache && webPlayerTokenCache.token &&
             Number(webPlayerTokenCache.expMs) - 60000 > nowMs) {
+            observeSessionAttempt(observation, 'tokenResult', 'obtained');
             lastTokenFetchStatus = 'ok';
             traceTokenEndpoint('cache', 'end', 0, 0);
             return webPlayerTokenCache.token;
@@ -3066,6 +3067,7 @@
         tokenApiHttp = 0;
         tokenFallbackHttp = 0;
         try {
+            observeSessionAttempt(observation, 'tokenResult', 'unknown');
             traceTokenEndpoint('api', 'start', 0, 0);
             const tokenResp = await oriFetch('https://open.spotify.com/api/token', {
                 method: 'GET',
@@ -3073,6 +3075,7 @@
                 headers: { 'Accept': 'application/json', 'app-platform': 'WebPlayer', 'spotify-app-version': '1.2.40.0' }
             });
             tokenApiHttp = boundedMediaLibraryCount(tokenResp && tokenResp.status, 599);
+            observeSessionAttempt(observation, 'apiHttp', tokenApiHttp);
             traceTokenEndpoint('api', 'end', tokenResp && tokenResp.status, mediaLibraryNow() - endpointStarted);
             if (tokenResp && tokenResp.ok) {
                 const tokenData = await tokenResp.json();
@@ -3103,6 +3106,7 @@
                 headers: { 'Accept': 'application/json', 'app-platform': 'WebPlayer', 'spotify-app-version': '1.2.40.0' }
             });
             tokenFallbackHttp = boundedMediaLibraryCount(altResp && altResp.status, 599);
+            observeSessionAttempt(observation, 'fallbackHttp', tokenFallbackHttp);
             traceTokenEndpoint('fallback', 'end', altResp && altResp.status, mediaLibraryNow() - endpointStarted);
             if (altResp && altResp.ok) {
                 const altData = await altResp.json();
@@ -3432,6 +3436,7 @@
             diagnostic.nativeGeneration = window.AndBridge && typeof window.AndBridge.getSessionGeneration === 'function'
                 ? boundedMediaLibraryCount(window.AndBridge.getSessionGeneration(), 2147483647) : 0;
         } catch (_) { diagnostic.nativeGeneration = 0; }
+        diagnostic.sessionObservation = { apiHttp: null, fallbackHttp: null, libraryHttp: null, tokenResult: 'not-attempted' };
         const requestGeneration = mediaLibraryRequestGeneration;
         const authEpoch = boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999);
         window.__sfMediaLibLastAuthAttemptEpoch = authEpoch;
@@ -3439,6 +3444,7 @@
         // Install the lock before notifying observers; a synchronous UI callback
         // or forced retry now joins this request rather than starting another.
         mediaLibraryCheckPromise = pending;
+        publishSessionAttemptDiagnostic(diagnostic, false);
         if (force === true) {
             window.__sfMediaLibRetryAt = 0;
             if (window.__sfMediaLibError !== 'http-429') window.__sfMediaLibRetryDelayMs = 5000;
@@ -3549,6 +3555,7 @@
             diagnostic.error = 'transform';
             notifyMediaLibSettled('transform-error');
         } finally {
+            publishSessionAttemptDiagnostic(diagnostic, true);
             if (requestGeneration !== mediaLibraryRequestGeneration ||
                 authEpoch !== boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999)) {
                 diagnostic.phase = 'settle';
@@ -3592,6 +3599,31 @@
                 window.__sfMediaLibRetryDelayMs = 5000;
             }
         }
+    }
+    // Phase 1 diagnostics only. Never read credentials or feed this channel to the gate.
+    function publishSessionAttemptDiagnostic(diagnostic, completed) {
+        const observation = diagnostic && diagnostic.sessionObservation;
+        if (!observation) return;
+        const http = value => Number.isInteger(value) && value >= 100 && value <= 599 ? value : null;
+        const token = ['obtained', 'refused', 'not-attempted'].indexOf(observation.tokenResult) >= 0
+            ? observation.tokenResult : 'unknown';
+        const result = {
+            generation: boundedMediaLibraryCount(diagnostic.nativeGeneration, 2147483647),
+            attempt: boundedMediaLibraryCount(diagnostic.attempt, 999999),
+            source: safeMediaLibraryCheckSource(diagnostic.source),
+            apiHttp: http(observation.apiHttp), fallbackHttp: http(observation.fallbackHttp),
+            libraryHttp: http(observation.libraryHttp), completed: completed === true, tokenResult: token
+        };
+        try {
+            if (window.AndBridge && typeof window.AndBridge.onSessionAttemptDiagnostic === 'function') {
+                window.AndBridge.onSessionAttemptDiagnostic(JSON.stringify(result));
+            }
+        } catch (_) {}
+    }
+    function observeSessionAttempt(diagnostic, field, value) {
+        if (!diagnostic || !diagnostic.sessionObservation) return;
+        diagnostic.sessionObservation[field] = value;
+        publishSessionAttemptDiagnostic(diagnostic, false);
     }
     function publishSessionVerification(diagnostic) {
         const refusal = code => code === 400 || code === 401 || code === 403;
@@ -3640,7 +3672,7 @@
         // token value itself must never reach diagnostics; only this flag does.
         const tokenWaitStartedAt = mediaLibraryNow();
         perfMarkBridge('token-request', 0);
-        const bearerToken = await fetchWebPlayerToken();
+        const bearerToken = await fetchWebPlayerToken(trace);
         perfMarkBridge('token-ready', Math.max(0, mediaLibraryNow() - tokenWaitStartedAt));
         trace.bearer = Boolean(bearerToken);
         // MEL-BUG-057: remember WHY there is no bearer (token endpoint refused
@@ -3648,6 +3680,11 @@
         trace.token = safeTokenFetchStatus(lastTokenFetchStatus);
         trace.tokenApiHttp = tokenApiHttp;
         trace.tokenFallbackHttp = tokenFallbackHttp;
+        // Only this attempt's observations, never the seeded/stale global HTTP fields.
+        const observed = trace.sessionObservation;
+        const refused = code => code === 400 || code === 401 || code === 403;
+        observeSessionAttempt(trace, 'tokenResult', bearerToken ? 'obtained' :
+            observed && refused(observed.apiHttp) && refused(observed.fallbackHttp) ? 'refused' : 'unknown');
 
         while (hasMore && offset < 1000 && requestGeneration === mediaLibraryRequestGeneration &&
             authEpoch === boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999)) {
@@ -3729,6 +3766,7 @@
                 if (requestGeneration !== mediaLibraryRequestGeneration ||
                     authEpoch !== boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999)) break;
                 trace.http = mediaLibraryHttpStatus(resp);
+                observeSessionAttempt(trace, 'libraryHttp', trace.http);
                 trace.mime = mediaLibraryResponseMime(resp);
                 trace.phase = 'response';
                 const responseDuration = boundedMediaLibraryCount(mediaLibraryNow() - requestStartedAt, 999999);
