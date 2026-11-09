@@ -209,13 +209,14 @@ spec = importlib.util.spec_from_file_location('startup', sys.argv[1])
 m = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(m)
 old = '11-04 12:00:00.000 I MDXTRACE: sid=old t=100 perf activity-create'
-new = '11-04 12:00:01.000 I MDXTRACE: sid=new t=1000 perf activity-create'
+new = 'I/MDXTRACE( 1234): sid=new t=1000 perf activity-create'
 sent = 'home-data stage=web-to-android result=sent'
 log = '\\n'.join([old, 'I MDXTRACE: sid=old t=200 ' + sent, new,
     'I MDXTRACE: sid=new ' + sent, 'I MDXTRACE: sid=new t=1100 ' + sent,
     'I MDXTRACE: sid=new t=1200 home-data stage=android-render-start result=started',
     'I MDXTRACE: sid=new t=1300 perf home-first-image'])
 r = m.build_report(m.parse_entries(log))
+assert len(m.parse_entries('I/MDXTRACE( 1234): sid=new t=1000 perf activity-create')) == 1
 assert r['counters']['home_payloads'] == 1
 assert r['counters']['home_renders'] == 1
 assert next(x for x in r['milestones'] if x['marker'] == 'home-first-image')['offset_ms'] == 300

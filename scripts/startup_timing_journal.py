@@ -89,9 +89,9 @@ def parse_entries(text):
         text = match.group(1)
     # Full logcat includes Android prefixes and older, unstamped duplicate JS
     # lines. Keep only the new complete trail written centrally by diagLine.
-    if re.search(r'MDXTRACE\s*:', text):
+    if re.search(r'MDXTRACE(?:\(\s*\d+\s*\))?\s*:', text):
         return [m.group(1).strip() for line in text.splitlines()
-                if (m := re.search(r'MDXTRACE\s*:\s*(sid=\S+ t=\d+ .*)$', line))]
+                if (m := re.search(r'MDXTRACE(?:\(\s*\d+\s*\))?\s*:\s*(sid=\S+ t=\d+ .*)$', line))]
     return [e.strip() for e in re.split(r'\s\|\s|[\r\n]+', text) if e.strip()]
 
 

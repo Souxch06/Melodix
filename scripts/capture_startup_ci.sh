@@ -27,9 +27,14 @@ capture() {
   # unstamped lines and all unrelated logcat content are discarded.
   adb -s "$device" logcat -d -v brief -s MDXTRACE:I \
     | python3 scripts/startup_timing_journal.py --filter-log - "$out/$scenario.log"
-  python3 scripts/startup_timing_journal.py "$out/$scenario.log" \
-    --json "$out/$scenario.json" --github-notice > "$out/$scenario-table.txt"
-  cat "$out/$scenario-table.txt"
+  echo "::notice title=Startup capture $scenario::pid=$pid; entries=$(wc -l < "$out/$scenario.log")"
+  if python3 scripts/startup_timing_journal.py "$out/$scenario.log" \
+    --json "$out/$scenario.json" --github-notice > "$out/$scenario-table.txt"; then
+    cat "$out/$scenario-table.txt"
+  else
+    echo "::error title=Startup capture $scenario::No usable clock anchor; no timing is claimed."
+    return 1
+  fi
 }
 
 adb -s "$device" shell am force-stop "$package"
