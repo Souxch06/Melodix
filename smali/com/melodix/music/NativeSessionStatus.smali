@@ -5,6 +5,9 @@
 .method public static prepare(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)V
     .locals 7
     :status_try
+    invoke-static {p0, p1}, Lcom/melodix/music/NativeAccessRefusal;->prepare(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Z
+    move-result v0
+    if-nez v0, :status_done
     const-string v0, "sessionUnproven"
     invoke-virtual {p1, v0}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;)Z
     move-result v0

@@ -40,8 +40,8 @@ test('login action retries with a cookie before account navigation; explicit log
 
 // Execute the status helper's smali instructions against fake Android/JSON APIs.
 // This tests the actual branches and mutations, not a second implementation.
-function prepareStatus(payload, { cookie, now, started = 0 }) {
-  const code = method(read('smali/com/melodix/music/NativeSessionStatus.smali'), '.method public static prepare(').split('\n').map(l => l.trim());
+function prepareStatus(payload, { cookie, now, started = 0 }, refusalOnly = false) {
+  const code = method(read('smali/com/melodix/music/' + (refusalOnly ? 'NativeAccessRefusal' : 'NativeSessionStatus') + '.smali'), '.method public static prepare(').split('\n').map(l => l.trim());
   const regs = { p0: { started }, p1: structuredClone(payload) };
   const labels = Object.fromEntries(code.map((l, i) => [l, i]));
   let result;
@@ -49,11 +49,17 @@ function prepareStatus(payload, { cookie, now, started = 0 }) {
     const l = code[pc]; let m;
     if (!l || /^[.#:]/.test(l)) continue;
     if ((m = l.match(/^const-string (\w+), (.*)$/))) { regs[m[1]] = JSON.parse(m[2]); continue; }
+    if ((m = l.match(/^const(?:\/4|\/16) (\w+), (.*)$/))) { regs[m[1]] = Number(m[2]); continue; }
     if ((m = l.match(/^const-wide\/16 (\w+), (.*)$/))) { regs[m[1]] = Number(m[2]); continue; }
     if ((m = l.match(/^invoke-\S+ \{([^}]*)\}, (.*)$/))) {
       const args = m[1] ? m[1].split(', ').map(r => regs[r]) : [];
       const call = m[2];
-      if (call.includes('->optBoolean')) result = args[0][args[1]] === true;
+      if (call.includes('NativeAccessRefusal;->prepare')) {
+        const r = prepareStatus(args[1], {cookie, now, started: args[0].started}, true);
+        Object.assign(args[1], r.p1); args[0].started = r.p0.started; result = r.returnValue;
+      }
+      else if (call.includes('->optInt')) result = Number(args[0][args[1]]) || 0;
+      else if (call.includes('->optBoolean')) result = args[0][args[1]] === true;
       else if (call.includes('->optString')) result = args[0][args[1]] || '';
       else if (call.includes('->put(')) { args[0][args[1]] = args[2]; result = args[0]; }
       else if (call.includes('->equals(')) result = args[0] === args[1];
@@ -67,8 +73,11 @@ function prepareStatus(payload, { cookie, now, started = 0 }) {
     if ((m = l.match(/^iget-wide (\w+), (\w+), .*nativeVerificationStart/))) { regs[m[1]] = regs[m[2]].started; continue; }
     if ((m = l.match(/^sub-long\/2addr (\w+), (\w+)/))) { regs[m[1]] -= regs[m[2]]; continue; }
     if ((m = l.match(/^cmp-long (\w+), (\w+), (\w+)/))) { regs[m[1]] = Math.sign(regs[m[2]] - regs[m[3]]); continue; }
-    if ((m = l.match(/^if-(eqz|gez) (\w+), (:\w+)/))) { if (m[1] === 'eqz' ? !regs[m[2]] : regs[m[2]] >= 0) pc = labels[m[3]]; continue; }
+    if ((m = l.match(/^iput-wide (\w+), (\w+), .*nativeVerificationStart/))) { regs[m[2]].started = regs[m[1]]; continue; }
+    if ((m = l.match(/^if-ne (\w+), (\w+), (:\w+)/))) { if (regs[m[1]] !== regs[m[2]]) pc = labels[m[3]]; continue; }
+    if ((m = l.match(/^if-(eqz|nez|gez) (\w+), (:\w+)/))) { if (m[1] === 'eqz' ? !regs[m[2]] : m[1] === 'nez' ? !!regs[m[2]] : regs[m[2]] >= 0) pc = labels[m[3]]; continue; }
     if ((m = l.match(/^goto (:\w+)/))) { pc = labels[m[1]]; continue; }
+    if ((m = l.match(/^return (\w+)$/))) { regs.returnValue = regs[m[1]]; return regs; }
     if (l === 'return-void') return regs;
     assert.fail('unsupported instruction: ' + l);
   }
@@ -121,4 +130,23 @@ test('navigation, guard, token outcome and bounded image observations survive on
   const singleton = read('smali/com/melodix/music/AppSingleton.smali');
   assert.match(method(singleton, '.method public static noteDiagProof'), /if-nez v1, :proof_word_true/);
   assert.match(client, /sput-boolean v2, [^\n]*->B:Z\s+invoke-static \{v2\}[^\n]*proofClearAccounts/);
+});
+
+
+test('actual 400/403 token pair renders a refusal with retry and explicit reconnect, not a timeout', () => {
+  for (const cookie of [false, true]) {
+    const input = {kind:'state', state:'error', sessionUnproven:true, tokenApiHttp:400, tokenFallbackHttp:403};
+    const r = prepareStatus(input, {cookie, now:20000, started:19000});
+    assert.equal(r.p1.title, 'Spotify refuse la demande d’accès (400/403)');
+    assert.equal(r.p1.uri, 'melodix:action:retry-library');
+    assert.equal(r.p1.secondaryUri, 'melodix:action:reconnect');
+    assert.equal(r.p0.started, 0, 'old loading deadline is invalidated');
+    assert.match(r.p1.subtitle, / \[auth=/, 'technical details use the collapsed disclosure');
+  }
+  for (const input of [{state:'loading', tokenApiHttp:400, tokenFallbackHttp:403},
+    {state:'error', tokenApiHttp:200, tokenFallbackHttp:403},
+    {state:'error', token:'ko-http403'}, {state:'error', tokenApiHttp:400}]) {
+    assert.equal(prepareStatus(input, {cookie:true, now:20000}, true).returnValue, 0,
+      'never invent a 400 from only the final 403 or stale/loading data');
+  }
 });

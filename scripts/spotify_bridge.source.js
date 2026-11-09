@@ -3032,6 +3032,9 @@
     // whether the cookie session itself can mint a web-player token. The
     // token value is NEVER stored here.
     let lastTokenFetchStatus = 'none';
+    // Presentation metadata only: no request, credential, or retry decisions.
+    let tokenApiHttp = 0;
+    let tokenFallbackHttp = 0;
     // MEL-BUG-065: boolean only — is a Spotify session cookie (sp_dc) present?
     // Tells "not logged in at all" apart from "cookie present but the token
     // endpoint refused". Only the cookie NAME is tested; the value never
@@ -3060,6 +3063,8 @@
             traceTokenEndpoint('cache', 'end', 0, 0);
             return webPlayerTokenCache.token;
         }
+        tokenApiHttp = 0;
+        tokenFallbackHttp = 0;
         try {
             traceTokenEndpoint('api', 'start', 0, 0);
             const tokenResp = await oriFetch('https://open.spotify.com/api/token', {
@@ -3067,6 +3072,7 @@
                 credentials: 'include',
                 headers: { 'Accept': 'application/json', 'app-platform': 'WebPlayer', 'spotify-app-version': '1.2.40.0' }
             });
+            tokenApiHttp = boundedMediaLibraryCount(tokenResp && tokenResp.status, 599);
             traceTokenEndpoint('api', 'end', tokenResp && tokenResp.status, mediaLibraryNow() - endpointStarted);
             if (tokenResp && tokenResp.ok) {
                 const tokenData = await tokenResp.json();
@@ -3096,6 +3102,7 @@
                 credentials: 'include',
                 headers: { 'Accept': 'application/json', 'app-platform': 'WebPlayer', 'spotify-app-version': '1.2.40.0' }
             });
+            tokenFallbackHttp = boundedMediaLibraryCount(altResp && altResp.status, 599);
             traceTokenEndpoint('fallback', 'end', altResp && altResp.status, mediaLibraryNow() - endpointStarted);
             if (altResp && altResp.ok) {
                 const altData = await altResp.json();
@@ -3298,6 +3305,8 @@
                 // MEL-BUG-057: sanitized token-endpoint status enum (ok /
                 // ko-httpXXX / ko-network / none) — never a token value.
                 token: safeTokenFetchStatus(state.token),
+                tokenApiHttp: boundedMediaLibraryCount(state.tokenApiHttp, 599),
+                tokenFallbackHttp: boundedMediaLibraryCount(state.tokenFallbackHttp, 599),
                 // MEL-BUG-065: boolean only — sp_dc cookie name present?
                 cookieSession: hasSpotifySessionCookie()
             };
@@ -3599,6 +3608,8 @@
         // MEL-BUG-057: remember WHY there is no bearer (token endpoint refused
         // by the cookie session vs network failure) — status enum only.
         trace.token = safeTokenFetchStatus(lastTokenFetchStatus);
+        trace.tokenApiHttp = tokenApiHttp;
+        trace.tokenFallbackHttp = tokenFallbackHttp;
 
         while (hasMore && offset < 1000 && requestGeneration === mediaLibraryRequestGeneration &&
             authEpoch === boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999)) {
