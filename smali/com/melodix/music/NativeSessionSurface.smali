@@ -96,7 +96,52 @@
     invoke-virtual {v5, v7}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v7
     const-string v5, "Connexion Spotify indisponible"
+    if-nez v7, :fresh_labels
+    sget-object v7, Lcom/melodix/music/NativeSessionGate;->lastReason:Ljava/lang/String;
+    const-string v5, "retry-js-unavailable"
+    invoke-virtual {v5, v7}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v7
+    const-string v5, "Connexion Spotify indisponible"
+    if-eqz v7, :retry_other
+    const-string v6, "La vérification n’a pas démarré : interface indisponible. Réessaie."
+    goto :labels
+    :retry_other
+    sget-object v7, Lcom/melodix/music/NativeSessionGate;->lastReason:Ljava/lang/String;
+    const-string v5, "presentation-deadline-not-expiration"
+    invoke-virtual {v5, v7}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v7
+    const-string v5, "Connexion Spotify indisponible"
+    if-eqz v7, :retry_blocked
+    const-string v6, "La vérification prend trop de temps. Réessaie."
+    goto :labels
+    :retry_blocked
+    sget-object v7, Lcom/melodix/music/NativeSessionGate;->lastReason:Ljava/lang/String;
+    const-string v5, "retry-blocked"
+    invoke-virtual {v5, v7}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v7
+    const-string v5, "Connexion Spotify indisponible"
+    if-eqz v7, :retry_launch
+    const-string v6, "La vérification est temporairement bloquée. Réessaie plus tard."
+    goto :labels
+    :retry_launch
+    sget-object v7, Lcom/melodix/music/NativeSessionGate;->lastReason:Ljava/lang/String;
+    const-string v5, "retry-webview-unavailable"
+    invoke-virtual {v5, v7}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v7
+    const-string v5, "Connexion Spotify indisponible"
+    if-eqz v7, :retry_exception
+    const-string v6, "La vérification n’a pas démarré : page indisponible. Réessaie."
+    goto :labels
+    :retry_exception
+    sget-object v7, Lcom/melodix/music/NativeSessionGate;->lastReason:Ljava/lang/String;
+    const-string v5, "retry-launch-failed"
+    invoke-virtual {v5, v7}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v7
+    const-string v5, "Connexion Spotify indisponible"
     if-eqz v7, :labels
+    const-string v6, "La vérification n’a pas démarré. Réessaie."
+    goto :labels
+    :fresh_labels
     const-string v5, "Spotify refuse l’accès avec ce compte"
     const-string v6, "Même après ta reconnexion, Spotify refuse l’accès. Consulte les détails ou réessaie plus tard."
     goto :labels

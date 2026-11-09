@@ -328,6 +328,41 @@
     return-void
 .end method
 
+.method public static retryFailed(ILjava/lang/String;)V
+    .locals 3
+    # Called only with fixed reasons. Stale callbacks cannot change a newer screen.
+    sget v0, Lcom/melodix/music/NativeSessionGate;->generation:I
+    if-ne p0, v0, :done
+    sget v0, Lcom/melodix/music/NativeSessionGate;->state:I
+    if-eqz v0, :owner
+    const/4 v1, 0x4
+    if-ne v0, v1, :done
+    sget-object v0, Lcom/melodix/music/NativeSessionGate;->lastReason:Ljava/lang/String;
+    const-string v1, "presentation-deadline-not-expiration"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-eqz v0, :done
+    :owner
+    sget-object v0, Lcom/melodix/music/NativeSessionGate;->owner:Ljava/lang/ref/WeakReference;
+    if-eqz v0, :done
+    invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+    move-result-object v0
+    check-cast v0, Lcom/melodix/music/MainActivity;
+    if-eqz v0, :done
+    invoke-virtual {v0}, Landroid/app/Activity;->isFinishing()Z
+    move-result v1
+    if-nez v1, :done
+    invoke-virtual {v0}, Landroid/app/Activity;->isDestroyed()Z
+    move-result v1
+    if-nez v1, :done
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionVerificationFlight;->fail(I)V
+    const/4 v1, 0x4
+    invoke-static {v1, p1}, Lcom/melodix/music/NativeSessionGate;->transition(ILjava/lang/String;)V
+    invoke-static {v0}, Lcom/melodix/music/NativeSessionGate;->paint(Lcom/melodix/music/MainActivity;)V
+    :done
+    return-void
+.end method
+
 .method public static navigateLogin(Lcom/melodix/music/MainActivity;)V
     .locals 2
     const/4 v0, 0x1

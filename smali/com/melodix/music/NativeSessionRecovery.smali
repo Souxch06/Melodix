@@ -55,7 +55,7 @@
     if-nez v0, :verify_webview
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->C()V
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
-    if-eqz v0, :verify_done
+    if-eqz v0, :verify_missing_webview
     :verify_webview
     invoke-virtual {v0}, Landroid/webkit/WebView;->getUrl()Ljava/lang/String;
     move-result-object v1
@@ -78,7 +78,7 @@
     invoke-static {v1}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
     move-result-object v1
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
-    const-string v1, "(function(){window.__sfSessionRetrySnapshot=null;(window.__sfLoadBundledBridge||function(){} )('spotify_bridge.js');if(typeof window.__sfRequestSessionVerification!=='function')return 'fonction-js-indisponible';window.__sfRequestSessionVerification();return 'verification-dispatched';})();"
+    const-string v1, "(function(){window.__sfSessionRetrySnapshot=null;(window.__sfLoadBundledBridge||function(){} )('spotify_bridge.js');if(typeof window.__sfRequestSessionVerification!=='function')return 'fonction-js-indisponible';var r=window.__sfRequestSessionVerification();return r===false?'verification-bloquee':'verification-dispatched';})();"
     sget v2, Lcom/melodix/music/NativeSessionGate;->generation:I
     new-instance v3, Lcom/melodix/music/NativeSessionRetryDiagnosticCallback;
     invoke-direct {v3, v2}, Lcom/melodix/music/NativeSessionRetryDiagnosticCallback;-><init>(I)V
@@ -94,6 +94,11 @@
     const-string v1, "https://open.spotify.com/"
     invoke-static {v1}, Lcom/melodix/music/NativeSessionTrace;->recovery(Ljava/lang/String;)V
     invoke-virtual {v0, v1}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
+    goto :verify_done
+    :verify_missing_webview
+    sget v1, Lcom/melodix/music/NativeSessionGate;->generation:I
+    const-string v2, "retry-webview-unavailable"
+    invoke-static {v1, v2}, Lcom/melodix/music/NativeSessionGate;->retryFailed(ILjava/lang/String;)V
     :verify_done
     :verify_end
     .catch Ljava/lang/RuntimeException; {:verify_try .. :verify_end} :verify_error
@@ -102,5 +107,8 @@
     move-exception v0
     const-string v1, "session-verify result=failed"
     invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    sget v1, Lcom/melodix/music/NativeSessionGate;->generation:I
+    const-string v2, "retry-launch-failed"
+    invoke-static {v1, v2}, Lcom/melodix/music/NativeSessionGate;->retryFailed(ILjava/lang/String;)V
     return-void
 .end method

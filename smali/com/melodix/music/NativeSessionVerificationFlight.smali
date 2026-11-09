@@ -80,6 +80,19 @@
     return-void
 .end method
 
+.method public static fail(I)V
+    .locals 2
+    sget v0, Lcom/melodix/music/NativeSessionVerificationFlight;->generation:I
+    if-ne p0, v0, :done
+    sget v0, Lcom/melodix/music/NativeSessionGate;->generation:I
+    if-ne p0, v0, :done
+    const-wide/16 v0, 0x0
+    sput-wide v0, Lcom/melodix/music/NativeSessionVerificationFlight;->until:J
+    invoke-static {}, Lcom/melodix/music/NativeSessionSurfaceExtras;->retryState()V
+    :done
+    return-void
+.end method
+
 .method public final run()V
     .locals 2
     iget v0, p0, Lcom/melodix/music/NativeSessionVerificationFlight;->expectedGeneration:I

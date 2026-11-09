@@ -17,9 +17,9 @@ test('native diagnostic aliases change with identity; reasons cannot sample a hi
  d.record({generation:1,attempt:2,reason:'https://PRIVATE'});assert.doesNotMatch(d.text(),/PRIVATE/);
  for(let i=4;i<40;i++)d.record({generation:1,attempt:i,completed:false});assert.equal(d.rows.size,16);
 });
-test('late native JS availability callback is observational and captures its original generation',()=>{
+test('native JS availability callback records a closed failure for its original generation',()=>{
  const s=fs.readFileSync('smali/com/melodix/music/NativeSessionRetryDiagnosticCallback.smali','utf8');
- assert.match(s,/->generation:I/);assert.match(s,/blocage=fonction-js-indisponible/);assert.doesNotMatch(s,/->transition|->begin|->verify|Evidence|sput|loadUrl|removeAllCookies/);
+ assert.match(s,/->generation:I/);assert.match(s,/blocage=fonction-js-indisponible/);assert.match(s,/->retryFailed/);assert.doesNotMatch(s,/->transition|->begin|->verify|Evidence|sput|loadUrl|removeAllCookies/);
 });
 test('DOM/429 diagnostic events have attempt 0 and never call proof publication',()=>{
  const s=fs.readFileSync('scripts/spotify_bridge.source.js','utf8');const a=s.indexOf('    function publishSessionRelanceDiagnostic('),b=s.indexOf('\n    }',a)+6,notes=[];

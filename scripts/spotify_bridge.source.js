@@ -3716,6 +3716,13 @@
                 publishSessionRelanceDiagnostic('native-retry', 'blocage=attente-429');
                 return false;
             }
+            // A manual verification must observe a new token response rather than
+            // reuse a prior successful bearer. Requests, headers and auth guards stay unchanged.
+            if (!mediaLibraryAuthReady()) {
+                publishSessionRelanceDiagnostic('native-retry', 'blocage=dom-auth-required');
+                return false;
+            }
+            dropWebPlayerToken();
             return checkMediaLib(true, 'native-retry');
         };
         if (mediaLibraryCheckPromise) return mediaLibraryCheckPromise.then(request, request);
