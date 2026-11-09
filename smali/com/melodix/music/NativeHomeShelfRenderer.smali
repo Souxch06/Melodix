@@ -95,6 +95,7 @@
     return-void
 
     :shelf_render_spotify_rows
+    invoke-static {p0, v0}, Lcom/melodix/music/NativeImageLoader;->prefetch(Landroid/content/Context;Lorg/json/JSONArray;)V
     invoke-static {p0, v13, v0}, Lcom/melodix/music/NativeHomeShelfRenderer;->renderQuickGrid(Lcom/melodix/music/MainActivity;Landroid/widget/LinearLayout;Lorg/json/JSONArray;)V
 
     const-string v2, ""
@@ -309,14 +310,8 @@
 
     move-result-object v10
 
-    invoke-virtual {v10}, Ljava/lang/String;->isEmpty()Z
-
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->shelfArtHeight(Landroid/content/Context;)I
     move-result v11
-
-    if-nez v11, :shelf_title
-
-    const/16 v11, 0xb0
-
     invoke-static {v8, v10, v11}, Lcom/melodix/music/NativeImageLoader;->load(Landroid/widget/ImageView;Ljava/lang/String;I)V
 
     :shelf_title
@@ -1314,12 +1309,6 @@
     invoke-direct {v5, v6, v6}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
 
     invoke-virtual {v3, v4, v5}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
-
-    invoke-virtual {v1}, Ljava/lang/String;->isEmpty()Z
-
-    move-result v5
-
-    if-nez v5, :quick_tile_title
 
     invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->quickArt(Landroid/content/Context;)I
 

@@ -169,4 +169,8 @@
          playback is untouched. The state exists so a future disabled control
          looks inert instead of merely unresponsive. -->
     <color name="mel_btn_disabled">#2a343d</color>
+    <color name="mel_artwork_start">#25143D</color>
+    <color name="mel_artwork_center">#351B4E</color>
+    <color name="mel_artwork_end">#45172F</color>
+    <color name="mel_artwork_stroke">#58405F</color>
 </resources>

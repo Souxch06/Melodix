@@ -22,6 +22,7 @@ function loaderPath(url) {
    const a=m[1]?m[1].split(', ').map(x=>r[x]):[], c=m[2];
    if(c.includes('Picasso;->load(')) return 'load';
    if(c.includes('->setImageDrawable')) return 'clear';
+   if(c.includes('->getContext()') || c.includes('NativeArtworkPlaceholder;->get')) {result={};continue;}
    if(c.includes('->isEmpty()')) result=a[0].length===0;
    else if(c.includes('->startsWith(')) result=a[0].startsWith(a[1]);
    else if(c.includes('Picasso;->get()')) result={};
@@ -64,4 +65,22 @@ test('every artwork stage is accepted by the actual clipboard grammar, never raw
  const net=read('smali/com/squareup/picasso/NetworkRequestHandler.smali');
  assert.match(net,/downloader;->load|Downloader;->load/);
  assert.match(net,/move-result-object p2\s+invoke-static \{p1, p2, v5, v6\}.*NativeImageTrace;->http/);
+});
+
+
+test('shared memory/disk caches, bounded prefetch and identical pending/error placeholder remain in the native path',()=>{
+ const loader=read('smali/com/melodix/music/NativeImageLoader.smali');
+ assert.match(loader,/const\/16 v6, 0xc/);
+ assert.match(loader,/HashSet;->add/);
+ assert.match(loader,/RequestCreator;->fetch\(\)V/);
+ assert.doesNotMatch(loader,/memoryPolicy|networkPolicy|noFade/);
+ assert.match(loader,/RequestCreator;->placeholder\(Landroid\/graphics\/drawable\/Drawable;\)/);
+ assert.match(loader,/RequestCreator;->error\(Landroid\/graphics\/drawable\/Drawable;\)/);
+ assert.match(loader,/image_load_error[\s\S]*?\{p0, v5\}.*setImageDrawable/);
+ assert.match(read('smali/com/squareup/picasso/Picasso$Builder.smali'),/new-instance v0, Lcom\/squareup\/picasso\/LruCache/);
+ assert.match(read('smali/com/squareup/picasso/OkHttp3Downloader.smali'),/calculateDiskCacheSize/);
+ assert.match(read('res/drawable/native_artwork_placeholder.xml'),/<gradient/);
+ assert.match(read('res/drawable/native_artwork_placeholder.xml'),/@drawable\/native_cover_placeholder/);
+ const helper=read('smali/com/melodix/music/NativeArtworkPlaceholder.smali');
+ assert.match(helper,/getIdentifier/); assert.doesNotMatch(helper,/0x7f/);
 });
