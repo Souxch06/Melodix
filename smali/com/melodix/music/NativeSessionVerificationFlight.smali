@@ -8,10 +8,10 @@
     iput p1, p0, Lcom/melodix/music/NativeSessionVerificationFlight;->expectedGeneration:I
     return-void
 .end method
-# UI-thread-only admission lock, independent of the 3s presentation state.
+# Admission is UI-thread controlled; volatile fields permit safe readback by the JS bridge.
 # Expiration is checked on admission. It does not abort requests or create evidence.
-.field private static generation:I = -0x1
-.field private static until:J
+.field private static volatile generation:I = -0x1
+.field private static volatile until:J
 .method public static start()V
     .locals 4
     sget v0, Lcom/melodix/music/NativeSessionGate;->generation:I

@@ -128,6 +128,19 @@ public final class BridgeNavigationInstrumentation extends Instrumentation {
             // Real generated scripts plus the actual AndBridge and poller on a
             // synthetic document. All network is disabled on the disposable
             // emulator; no Spotify account or cookie is present in this test.
+            phase="native_flight_guard";
+            Class<?> flight=getTargetContext().getClassLoader().loadClass("com.melodix.music.NativeSessionVerificationFlight");
+            ui(()->{try{flight.getMethod("start").invoke(null);}catch(Exception e){throw new RuntimeException(e);}});
+            check("true".equals(js("AndBridge.isSessionRetryActive(10)===true && AndBridge.isSessionRetryActive(9)===false")));
+            phase="native_flight_expired";
+            java.lang.reflect.Field until=flight.getDeclaredField("until");until.setAccessible(true);
+            ui(()->{try{until.setLong(null,0);}catch(Exception e){throw new RuntimeException(e);}});
+            check("true".equals(js("AndBridge.isSessionRetryActive(10)===false")));
+            ui(()->{try{flight.getMethod("start").invoke(null);}catch(Exception e){throw new RuntimeException(e);}});
+            // Synthetic in-memory HTTP responses: hold the first token request
+            // until a queued retry has been invalidated, then return 400/403/401.
+            phase="synthetic_refusal_fetch";
+            check("true".equals(js("window.fixtureFetches=0;window.fetch=function(){var n=++window.fixtureFetches;if(n===1)return new Promise(function(resolve){window.fixtureResolve=function(){resolve(new Response('{}',{status:400,headers:{'Content-Type':'application/json'}}))}});return Promise.resolve(new Response('{}',{status:n===2?403:401,headers:{'Content-Type':'application/json'}}))};true")));
             phase="bundled_runtime_injection";
             js(asset("runtime_state.js"));
             phase="bundled_shell_injection";
@@ -138,6 +151,18 @@ public final class BridgeNavigationInstrumentation extends Instrumentation {
             check("true".equals(js("!!window.__sfMelodixBridgeCompleted")));
             phase="bundled_generation_immediate";
             check("true".equals(js("typeof AndBridge.getSessionGeneration()==='number' && AndBridge.getSessionGeneration()===10")));
+            phase="queued_real_refusal_start";
+            check("true".equals(js("window.checkMediaLib(true,'shell-update');true")));
+            for(int i=0;i<50;i++){if("1".equals(js("window.fixtureFetches")))break;Thread.sleep(100);}
+            check("true".equals(js("window.fixtureFetches===1 && typeof window.fixtureResolve==='function'")));
+            phase="queued_real_retry_invalidation";
+            check("true".equals(js("window.__sfRequestSessionVerification();true")));
+            ui(()->{try{gate.getField("generation").setInt(null,11);}catch(Exception e){throw new RuntimeException(e);}});
+            check("true".equals(js("window.fixtureResolve();true")));
+            for(int i=0;i<80;i++){if("true".equals(js("window.fixtureFetches===3 && window.__sfMediaLibStatus==='error'")))break;Thread.sleep(100);}
+            Thread.sleep(300);
+            check("true".equals(js("window.fixtureFetches===3 && window.__sfMediaLibStatus==='error'")));
+            ui(()->{try{gate.getField("generation").setInt(null,10);}catch(Exception e){throw new RuntimeException(e);}});
             // Let the shell's scheduled updates run, as in the reported trace.
             Thread.sleep(3000);
             phase="bundled_generation_delayed";

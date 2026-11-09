@@ -3725,7 +3725,30 @@
             dropWebPlayerToken();
             return checkMediaLib(true, 'native-retry');
         };
-        if (mediaLibraryCheckPromise) return mediaLibraryCheckPromise.then(request, request);
+        if (mediaLibraryCheckPromise) {
+            // The previous flight may finish after this retry timed out, after a
+            // newer retry, or after login navigation. Never start an old queued
+            // request without a fresh native generation/flight check.
+            let queuedGeneration;
+            try {
+                const bridge = window.AndBridge;
+                if (!bridge || typeof bridge.getSessionGeneration !== 'function' ||
+                    typeof bridge.isSessionRetryActive !== 'function') return false;
+                queuedGeneration = bridge.getSessionGeneration();
+                if (!Number.isInteger(queuedGeneration) || queuedGeneration <= 0) return false;
+            } catch (_) { return false; }
+            const requestIfCurrent = () => {
+                try {
+                    const bridge = window.AndBridge;
+                    if (!bridge || typeof bridge.getSessionGeneration !== 'function' ||
+                        typeof bridge.isSessionRetryActive !== 'function' ||
+                        bridge.getSessionGeneration() !== queuedGeneration ||
+                        bridge.isSessionRetryActive(queuedGeneration) !== true) return false;
+                } catch (_) { return false; }
+                return request();
+            };
+            return mediaLibraryCheckPromise.then(requestIfCurrent, requestIfCurrent);
+        }
         return request();
     };
     window.checkMediaLib = checkMediaLib;

@@ -73,6 +73,7 @@ const FRAMEWORK_FIELDS = new Set([
 const APP_CLASSES = {
   'Lcom/melodix/music/NativeSessionAttemptDiagnostic;': classMembers(read('smali/com/melodix/music/NativeSessionAttemptDiagnostic.smali')),
   'Lcom/melodix/music/NativeSessionGate;': classMembers(read('smali/com/melodix/music/NativeSessionGate.smali')),
+  'Lcom/melodix/music/NativeSessionVerificationFlight;': classMembers(read('smali/com/melodix/music/NativeSessionVerificationFlight.smali')),
   'Lcom/melodix/music/NativeSessionGateTask;': classMembers(read('smali/com/melodix/music/NativeSessionGateTask.smali')),
   'Lcom/melodix/music/AndBridge;': classMembers(read('smali/com/melodix/music/AndBridge.smali')),
   'Lcom/melodix/music/AppSingleton;': classMembers(read('smali/com/melodix/music/AppSingleton.smali')),

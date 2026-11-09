@@ -3828,6 +3828,23 @@
     return v0
 .end method
 
+# Read-only validity check for a queued manual retry. Does not authorize a
+# session, touch storage, or launch any request. JS-interface thread observes
+# volatile state and bounded monotonic flight time.
+.method public final isSessionRetryActive(I)Z
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+    .locals 1
+    sget v0, Lcom/melodix/music/NativeSessionGate;->generation:I
+    if-ne p1, v0, :no
+    invoke-static {}, Lcom/melodix/music/NativeSessionVerificationFlight;->busy()Z
+    move-result v0
+    return v0
+    :no
+    const/4 v0, 0x0
+    return v0
+.end method
+
 .method public final onSessionVerification(Ljava/lang/String;)V
     .annotation runtime Landroid/webkit/JavascriptInterface;
     .end annotation

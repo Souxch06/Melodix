@@ -8,11 +8,11 @@
 .field public static lastReason:Ljava/lang/String;
 .field public static activeLaunch:Z
 .field public static state:I
-.field public static generation:I
+.field public static volatile generation:I
 .field public static initialNavigationIssued:Z
 .field public static autoUsed:Z
 .field public static freshLogin:Z
-.field public static loginActive:Z
+.field public static volatile loginActive:Z
 .field public static expiredEvidence:Z
 .field public static lastAttempt:I
 .field public static owner:Ljava/lang/ref/WeakReference;
