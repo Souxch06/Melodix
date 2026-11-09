@@ -51,8 +51,8 @@ test('MEL-BUG-064c: settings rows get a glow ripple over the card (press feedbac
   assert.match(create, /\.locals 14/, 'register budget raised for the ripple wrap');
   assert.match(create, /sget v12, Lcom\/melodix\/music\/MelColors;->glow:I[\s\S]*?ColorStateList;->valueOf\(I\)[\s\S]*?new-instance v13, Landroid\/graphics\/drawable\/GradientDrawable;[\s\S]*?new-instance v0, Landroid\/graphics\/drawable\/RippleDrawable;[\s\S]*?RippleDrawable;-><init>\(Landroid\/content\/res\/ColorStateList;Landroid\/graphics\/drawable\/Drawable;Landroid\/graphics\/drawable\/Drawable;\)V/,
     'row background = RippleDrawable(glow, card, mask)');
-  assert.match(create, /const\/high16 v0, 0x41800000\s*\n\s*invoke-virtual \{v13, v0\}, Landroid\/graphics\/drawable\/GradientDrawable;->setCornerRadius\(F\)V/,
-    'mask radius matches the 16dp card');
+  assert.match(create, /invoke-static \{p0\}, Lcom\/melodix\/music\/NativeUiMetrics;->settingsCardRadius\(Landroid\/content\/Context;\)I\s*\n\s*move-result v0\s*\n\s*int-to-float v0, v0\s*\n\s*invoke-virtual \{v13, v0\}, Landroid\/graphics\/drawable\/GradientDrawable;->setCornerRadius\(F\)V/,
+    'mask radius resolves the same density-aware token as the card');
 });
 
 test('MEL-BUG-064d: active tab pill 24dp, status card 24dp, chips accent-stroked', () => {

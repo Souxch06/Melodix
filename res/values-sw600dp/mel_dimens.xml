@@ -166,6 +166,7 @@
     <!-- ===== settings and profile rows ===== -->
     <dimen name="mel_settings_pad_h">20.0dip</dimen>
     <dimen name="mel_settings_pad_v">14.0dip</dimen>
+    <dimen name="mel_settings_card_radius">18.0dip</dimen>
     <dimen name="mel_settings_row_height">76.0dip</dimen>
     <dimen name="mel_settings_icon">52.0dip</dimen>
     <dimen name="mel_settings_icon_gap">16.0dip</dimen>

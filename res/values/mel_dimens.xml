@@ -187,6 +187,7 @@
     <dimen name="mel_settings_pad_h">14.0dip</dimen>
     <dimen name="mel_settings_pad_v">11.0dip</dimen>
     <dimen name="mel_settings_stroke">1.0dip</dimen>
+    <dimen name="mel_settings_card_radius">16.0dip</dimen>
     <dimen name="mel_settings_row_height">64.0dip</dimen>
     <dimen name="mel_settings_icon">44.0dip</dimen>
     <dimen name="mel_settings_icon_gap">12.0dip</dimen>

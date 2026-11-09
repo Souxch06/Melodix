@@ -272,6 +272,20 @@
     return v0
 .end method
 
+.method public static settingsCardRadius(Landroid/content/Context;)I
+    .locals 2
+
+    const-string v0, "mel_settings_card_radius"
+
+    const/16 v1, 0x10
+
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+
+    move-result v0
+
+    return v0
+.end method
+
 .method public static settingsRowHeight(Landroid/content/Context;)I
     .locals 2
 

@@ -43,8 +43,10 @@
     # the Apple-glass UI (MEL-BUG-039) instead of the flat opaque gray.
     sget v0, Lcom/melodix/music/MelColors;->glassCard:I
     invoke-virtual {v3, v0}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
-    # MEL-BUG-061: 16dp — sobre, plus proche d'une vraie appli mobile.
-    const/high16 v0, 0x41800000
+    # Resolve dp to pixels for both the card and its matching ripple mask.
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->settingsCardRadius(Landroid/content/Context;)I
+    move-result v0
+    int-to-float v0, v0
     invoke-virtual {v3, v0}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
     invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->settingsStroke(Landroid/content/Context;)I
     move-result v0
@@ -60,7 +62,9 @@
     invoke-direct {v13}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
     const/4 v0, -0x1
     invoke-virtual {v13, v0}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
-    const/high16 v0, 0x41800000
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->settingsCardRadius(Landroid/content/Context;)I
+    move-result v0
+    int-to-float v0, v0
     invoke-virtual {v13, v0}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
     new-instance v0, Landroid/graphics/drawable/RippleDrawable;
     invoke-direct {v0, v12, v3, v13}, Landroid/graphics/drawable/RippleDrawable;-><init>(Landroid/content/res/ColorStateList;Landroid/graphics/drawable/Drawable;Landroid/graphics/drawable/Drawable;)V
