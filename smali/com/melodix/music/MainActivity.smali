@@ -4707,19 +4707,8 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 .end method
 
 .method public final onKeyDown(ILandroid/view/KeyEvent;)Z
-    .locals 2
+    .locals 1
 
-    # The inherited onBackPressed is final. Keep gesture dispatch untouched;
-    # a hardware Back on an unverified surface exits without revealing Home.
-    const/4 v0, 0x4
-    if-ne p1, v0, :session_back_checked
-    sget v0, Lcom/melodix/music/NativeSessionGate;->state:I
-    const/4 v1, 0x3
-    if-eq v0, v1, :session_back_checked
-    invoke-virtual {p0}, Landroid/app/Activity;->finish()V
-    const/4 v0, 0x1
-    return v0
-    :session_back_checked
     .line 1
     const/16 v0, 0x52
 
@@ -11635,6 +11624,17 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
 .method public final handleNativeSystemBack()Z
     .locals 2
+
+    # Session surface is handled on the existing final AndroidX dispatch path.
+    # No new framework override or dead hardware interception.
+    sget v0, Lcom/melodix/music/NativeSessionGate;->state:I
+    const/4 v1, 0x3
+    if-eq v0, v1, :session_back_valid
+    invoke-virtual {p0}, Landroid/app/Activity;->finish()V
+    const/4 v0, 0x1
+    return v0
+    :session_back_valid
+
 
     # MEL-BUG-002. Called by the back dispatcher before any WebView logic.
     # Returns true only when a native pushed screen is on screen, identified by

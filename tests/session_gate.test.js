@@ -108,7 +108,7 @@ test('native glass surface has named resources, real 48dp actions, collapsed det
  assert.doesNotMatch(ui,/0x7f[0-9a-f]+|evaluateJavascript|backdrop-filter|loadUrl/);
  assert.match(ui,/getIdentifier/);assert.match(ui,/NativeSessionSurfaceLayout/);
  assert.match(read('smali/com/melodix/music/NativeSessionSurfaceLayout.smali'),/getPaddingTop/);
- const main=read('smali/com/melodix/music/MainActivity.smali');assert.match(main,/onKeyDown\([\s\S]*?->finish\(\)V/);
+ const main=read('smali/com/melodix/music/MainActivity.smali');assert.match(main,/handleNativeSystemBack\(\)Z[\s\S]*?->finish\(\)V/);
  for(const sig of ['showNativeUiFrom','activateNativeUiRoute','applyNativeUiData','renderNativeRows']) {
   const start=main.indexOf('.method public final '+sig+'(');assert.ok(start>=0);const method=main.slice(start,main.indexOf('.end method',start));
   assert.ok(method.indexOf('NativeSessionGate;->blocked')<method.indexOf(':session_'),'ingress gated '+sig);
