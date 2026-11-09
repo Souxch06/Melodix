@@ -1,6 +1,8 @@
 .class public final Lcom/melodix/music/NativeSessionTrace;
 .super Ljava/lang/Object;
 .field public static imageCount:I
+# Main-frame document generation, updated only from WebView onPageStarted.
+.field public static documentGeneration:I
 
 # URL exists only transiently here. Only a closed category reaches the journal.
 .method public static navigation(Ljava/lang/String;Ljava/lang/String;)V
@@ -85,6 +87,9 @@
 
 .method public static start(Ljava/lang/String;)V
     .locals 1
+    sget v0, Lcom/melodix/music/NativeSessionTrace;->documentGeneration:I
+    add-int/lit8 v0, v0, 0x1
+    sput v0, Lcom/melodix/music/NativeSessionTrace;->documentGeneration:I
     const-string v0, "start"
     invoke-static {p0, v0}, Lcom/melodix/music/NativeSessionTrace;->navigation(Ljava/lang/String;Ljava/lang/String;)V
     return-void

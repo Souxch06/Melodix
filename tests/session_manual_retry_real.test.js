@@ -20,5 +20,5 @@ test('native launch failure has fixed reasons, releases lock and cannot mutate a
  const gate=fs.readFileSync('smali/com/melodix/music/NativeSessionGate.smali','utf8');const a=gate.indexOf('.method public static retryFailed('),b=gate.indexOf('.end method',a),m=gate.slice(a,b);
  assert.match(m,/generation:I[\s\S]*?if-ne p0, v0, :done/);assert.match(m,/->fail\(I\)V[\s\S]*?->transition/);
  const cb=fs.readFileSync('smali/com/melodix/music/NativeSessionRetryDiagnosticCallback.smali','utf8');for(const reason of ['retry-js-unavailable','retry-blocked','retry-launch-failed'])assert.ok(cb.includes(reason));
- const rec=fs.readFileSync('smali/com/melodix/music/NativeSessionRecovery.smali','utf8');assert.match(rec,/r===false\?'verification-bloquee':'verification-dispatched'/);assert.match(rec,/retry-webview-unavailable/);
+ const rec=fs.readFileSync('smali/com/melodix/music/NativeSessionRecovery.smali','utf8');assert.match(fs.readFileSync('smali/com/melodix/music/NativeSessionRetryLaunch.smali','utf8'),/r===false\?'verification-bloquee':'verification-dispatched'/);assert.match(rec,/retry-webview-unavailable/);
 });

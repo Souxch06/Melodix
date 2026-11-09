@@ -87,7 +87,7 @@ test('polling is bounded, weakly holds WebView, stops on generation change and c
 });
 test('snapshot and telemetry do not modify requests, proof or export sensitive data',()=>{
  const native=read(root+'NativeSessionRecovery.smali'),pull=read(root+'NativeSessionDiagnosticPull.smali'),pattern=read(root+'NativeStartupTiming.smali');
- assert.match(native,/__sfSessionRetrySnapshot=null/);assert.match(native,/NativeSessionDiagnosticPull;->run\(\)V/);
+ assert.match(read(root+'NativeSessionRetryLaunch.smali'),/__sfSessionRetrySnapshot=null/);assert.match(native,/NativeSessionDiagnosticPull;->run\(\)V/);
  assert.match(pattern,/session-pull result=\(started\|accepted\|empty\|invalid\|generation-mismatch\|exception\|post-failed\)/);
  assert.doesNotMatch(pull,/cookie|https?:\/\/|authorization|printStackTrace|->getMessage\(/i);
  const previous=require('node:child_process').execFileSync('git',['show','04a26c8131691c9d0814254053ab359f024c342c:scripts/spotify_bridge.source.js'],{encoding:'utf8'});

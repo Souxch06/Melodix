@@ -259,7 +259,8 @@ test('retry-library dispatches cookie-preserving verification with Javascript re
     const result = executeOpenNativeRow('melodix:action:retry-library');
     assert.equal(result.verifications, 1);
     assert.deepEqual(result.javascript, []);
-    assert.match(fs.readFileSync(path.join(ROOT, 'smali/com/melodix/music/NativeSessionRecovery.smali'), 'utf8'), /__sfRequestSessionVerification/);
+    assert.match(fs.readFileSync(path.join(ROOT, 'smali/com/melodix/music/NativeSessionRecovery.smali'), 'utf8'), /NativeSessionRetryLaunch;->run/);
+    assert.match(fs.readFileSync(path.join(ROOT, 'smali/com/melodix/music/NativeSessionRetryLaunch.smali'), 'utf8'), /__sfRequestSessionVerification/);
     assert.equal(result.functions.length, 0);
     assert.equal(result.renders.length, 0);
 });
