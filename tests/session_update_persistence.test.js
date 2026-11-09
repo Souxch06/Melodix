@@ -45,3 +45,10 @@ test('manual and background installer must flush before PackageInstaller; manual
  const install=method(read('smali/com/melodix/music/SelfUpdater.smali'),'.method public static install(');assert.match(install,/:do_install[\s\S]*?flushForUpdate\(\)Z[\s\S]*?if-nez v1, :cookie_flush_ok[\s\S]*?goto(?:\/16)? :done[\s\S]*?:cookie_flush_ok[\s\S]*?getPackageInstaller/);
  const manual=read('smali/com/melodix/music/SelfUpdater$OnInstall.smali');assert.match(manual,/flushForUpdate\(\)Z[\s\S]*?Toast;->show\(\)V[\s\S]*?:flush_ok[\s\S]*?SelfUpdater;->install/);
 });
+
+test('upgrade failure controls use distinct offline origins and do not weaken the strict replacement assertion',()=>{
+ const fixture=read('tests/android/UpdatePersistenceInstrumentation.java'),script=read('scripts/update_persistence_emulator.sh');
+ for(const marker of ['melodix-restart-fixture.invalid','melodix-force-stop-fixture.invalid','melodix-update-fixture.invalid'])assert.ok(fixture.includes(marker));
+ assert.match(script,/run_probe restart[\s\S]*?run_probe force_stop[\s\S]*?phase=seed[\s\S]*?adb install -r "\$new"[\s\S]*?grep -Fq 'INSTRUMENTATION_RESULT: overall=passed'/);
+ assert.doesNotMatch(script,/pm clear|adb uninstall/);assert.doesNotMatch(fixture,/open\.spotify\.com|sp_dc|authorization|Bearer/i);
+});

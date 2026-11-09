@@ -15,6 +15,28 @@ adb install "$old"
 phase=install_runner
 adb install "$RUNNER_TEMP/update-test.apk"
 fixture=com.melodix.music.preview.test/com.melodix.test.UpdatePersistenceInstrumentation
+# Independent synthetic origins distinguish instrumentation restart and force
+# stop from an APK replacement. The strict primary upgrade test below remains
+# unchanged and its origin is never pre-seeded by these probes.
+run_probe() {
+  local kind="$1" seed_file="$RUNNER_TEMP/update-probe-$1-seed.txt" verify_file="$RUNNER_TEMP/update-probe-$1-verify.txt"
+  if ! timeout 90s adb shell am instrument -w -r -e origin_case "$kind" -e mode seed "$fixture" > "$seed_file" || ! grep -Fq 'INSTRUMENTATION_RESULT: overall=passed' "$seed_file"; then
+    echo "::warning title=Synthetic storage control::case=$kind seed=failed"
+    return
+  fi
+  if [[ "$kind" == force_stop ]]; then adb shell am force-stop com.melodix.music.preview; fi
+  if timeout 90s adb shell am instrument -w -r -e origin_case "$kind" -e mode verify "$fixture" > "$verify_file" && grep -Fq 'INSTRUMENTATION_RESULT: overall=passed' "$verify_file"; then
+    echo "::notice title=Synthetic storage control::case=$kind verify=passed"
+  else
+    local failure_phase
+    failure_phase="$(sed -nE 's/^INSTRUMENTATION_RESULT: phase=(verify_cookie|verify_storage_callback|verify_storage_value)$/\1/p' "$verify_file" | head -1)"
+    [[ -n "$failure_phase" ]] || failure_phase=unknown
+    echo "::warning title=Synthetic storage control::case=$kind verify=failed phase=$failure_phase"
+  fi
+}
+phase=controls
+run_probe restart
+run_probe force_stop
 phase=seed
 timeout 90s adb shell am instrument -w -r -e mode seed "$fixture" > "$RUNNER_TEMP/update-seed.txt"
 cat "$RUNNER_TEMP/update-seed.txt"

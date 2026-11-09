@@ -23,6 +23,14 @@ public final class UpdatePersistenceInstrumentation extends Instrumentation {
         WebView[] view = new WebView[1];
         String phase = "setup";
         try {
+            String originCase = arguments.getString("origin_case", "upgrade");
+            final String origin;
+            switch (originCase) {
+                case "upgrade": origin = ORIGIN; break;
+                case "restart": origin = "https://melodix-restart-fixture.invalid/"; break;
+                case "force_stop": origin = "https://melodix-force-stop-fixture.invalid/"; break;
+                default: throw new AssertionError();
+            }
             boolean seed = "seed".equals(arguments.getString("mode"));
             check(seed || "verify".equals(arguments.getString("mode")));
             CookieManager cookies = CookieManager.getInstance();
@@ -32,7 +40,7 @@ public final class UpdatePersistenceInstrumentation extends Instrumentation {
                 AtomicReference<Boolean> accepted = new AtomicReference<>(false);
                 runOnMainSync(() -> {
                     cookies.setAcceptCookie(true);
-                    cookies.setCookie(ORIGIN, COOKIE + "; Path=/; Max-Age=86400; Secure; SameSite=None", value -> {
+                    cookies.setCookie(origin, COOKIE + "; Path=/; Max-Age=86400; Secure; SameSite=None", value -> {
                         accepted.set(value); cookieSet.countDown();
                     });
                 });
@@ -41,7 +49,7 @@ public final class UpdatePersistenceInstrumentation extends Instrumentation {
                 cookies.flush();
             } else {
                 phase = "verify_cookie";
-                String found = cookies.getCookie(ORIGIN);
+                String found = cookies.getCookie(origin);
                 check(found != null && found.contains(COOKIE));
             }
             phase = "load_local_fixture";
@@ -54,7 +62,7 @@ public final class UpdatePersistenceInstrumentation extends Instrumentation {
                 view[0].setWebViewClient(new WebViewClient() {
                     @Override public void onPageFinished(WebView v, String url) { loaded.countDown(); }
                 });
-                view[0].loadDataWithBaseURL(ORIGIN, "<html><body>synthetic local test</body></html>", "text/html", "UTF-8", null);
+                view[0].loadDataWithBaseURL(origin, "<html><body>synthetic local test</body></html>", "text/html", "UTF-8", null);
             });
             check(loaded.await(15, TimeUnit.SECONDS));
             phase = seed ? "seed_storage_callback" : "verify_storage_callback";
