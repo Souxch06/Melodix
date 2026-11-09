@@ -110,3 +110,29 @@
     sput v0, Lcom/melodix/music/NativeSessionEvidence;->count:I
     return-void
 .end method
+
+# Presentation deadlines never create evidence. Unknown/changed identity fails closed.
+.method public static retainIfCurrent()Z
+    .locals 1
+    invoke-static {}, Lcom/melodix/music/NativeSessionEvidence;->current()Ljava/lang/String;
+    move-result-object v0
+    invoke-static {v0}, Lcom/melodix/music/NativeSessionEvidence;->retain(Ljava/lang/String;)Z
+    move-result v0
+    return v0
+.end method
+.method private static retain(Ljava/lang/String;)Z
+    .locals 2
+    sget v0, Lcom/melodix/music/NativeSessionEvidence;->count:I
+    if-lez v0, :clear
+    if-eqz p0, :clear
+    sget-object v1, Lcom/melodix/music/NativeSessionEvidence;->fingerprint:Ljava/lang/String;
+    invoke-virtual {p0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-eqz v0, :clear
+    const/4 v0, 0x1
+    return v0
+    :clear
+    invoke-static {}, Lcom/melodix/music/NativeSessionEvidence;->reset()V
+    const/4 v0, 0x0
+    return v0
+.end method

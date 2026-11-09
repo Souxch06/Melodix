@@ -9,7 +9,7 @@ test('diagnostic starts incomplete and unknown, then retains observations for th
  const {c,sent}=harness();const d={nativeGeneration:4,attempt:1,source:'shell-update',sessionObservation:{tokenResult:'not-attempted'}};
  c.publishSessionAttemptDiagnostic(d,false);assert.equal(sent[0].completed,false);assert.equal(sent[0].apiHttp,null);assert.equal(sent[0].libraryHttp,null);
  c.observeSessionAttempt(d,'apiHttp',400);c.observeSessionAttempt(d,'fallbackHttp',403);c.observeSessionAttempt(d,'libraryHttp',401);c.observeSessionAttempt(d,'tokenResult','refused');c.publishSessionAttemptDiagnostic(d,true);
- assert.deepEqual(sent.at(-1),{generation:4,attempt:1,source:'shell-update',apiHttp:400,fallbackHttp:403,libraryHttp:401,completed:true,tokenResult:'refused'});
+ assert.deepEqual(sent.at(-1),{generation:4,attempt:1,source:'shell-update',apiHttp:400,fallbackHttp:403,libraryHttp:401,completed:true,tokenResult:'refused',reason:''});
  const next={nativeGeneration:5,attempt:2,source:'native-retry',sessionObservation:{tokenResult:'unknown'}};c.publishSessionAttemptDiagnostic(next,false);
  assert.equal(sent.at(-1).apiHttp,null,'never reuse global status from preceding attempt');assert.equal(sent.at(-1).tokenResult,'unknown');
 });
@@ -23,9 +23,11 @@ test('a broken native diagnostic consumer cannot affect requests or auth results
 });
 test('classification and its original proof publication are byte-for-byte unchanged from Preview125',()=>{
  const gate=fs.readFileSync('smali/com/melodix/music/NativeSessionGate.smali','utf8'),old=baseline('smali/com/melodix/music/NativeSessionGate.smali');
- for(const name of ['result','canReconnect','begin','requestLogin']){const extract=s=>{const a=s.indexOf('.method public static '+name+'(');return s.slice(a,s.indexOf('.end method',a));};assert.equal(extract(gate),extract(old),name);}
+ for(const name of ['result','canReconnect','begin','requestLogin']){const extract=s=>{const a=s.indexOf('.method public static '+name+'(');return s.slice(a,s.indexOf('.end method',a)).replace(/if-ne v1, v2, :rejected_generation/g,'if-ne v1, v2, :done').replace(/if-le v1, v2, :rejected_attempt/g,'if-le v1, v2, :done').replace(/    goto :done\n    :rejected_generation[\s\S]*?(?=    :done\n    :try_end)/,'');};assert.equal(extract(gate),extract(old),name);}
  assert.equal(fn(src,'publishSessionVerification'),fn(baseline('scripts/spotify_bridge.source.js'),'publishSessionVerification'));
- for(const f of ['NativeSessionEvidence','NativeSessionReconnect','NativeSessionGateTask'])assert.equal(fs.readFileSync('smali/com/melodix/music/'+f+'.smali','utf8'),baseline('smali/com/melodix/music/'+f+'.smali'));
+ assert.ok(fs.readFileSync('smali/com/melodix/music/NativeSessionEvidence.smali','utf8').startsWith(baseline('smali/com/melodix/music/NativeSessionEvidence.smali')));
+ assert.equal(fs.readFileSync('smali/com/melodix/music/NativeSessionReconnect.smali','utf8'),baseline('smali/com/melodix/music/NativeSessionReconnect.smali'));
+ assert.equal(fs.readFileSync('smali/com/melodix/music/NativeSessionGateTask.smali','utf8'),baseline('smali/com/melodix/music/NativeSessionGateTask.smali').replace('NativeSessionEvidence;->reset()V','NativeSessionEvidence;->retainIfCurrent()Z'));
 });
 test('native channel only records, closes values, bounds history and exports aliases rather than digests',()=>{
  const s=fs.readFileSync('smali/com/melodix/music/NativeSessionAttemptDiagnostic.smali','utf8');

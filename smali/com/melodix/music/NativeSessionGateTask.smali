@@ -40,7 +40,7 @@
     sget v1, Lcom/melodix/music/NativeSessionGate;->state:I
     if-nez v1, :done
     const/4 v1, 0x4
-    invoke-static {}, Lcom/melodix/music/NativeSessionEvidence;->reset()V
+    invoke-static {}, Lcom/melodix/music/NativeSessionEvidence;->retainIfCurrent()Z
     const-string v2, "presentation-deadline-not-expiration"
     invoke-static {v1, v2}, Lcom/melodix/music/NativeSessionGate;->transition(ILjava/lang/String;)V
     invoke-static {v0}, Lcom/melodix/music/NativeSessionGate;->paint(Lcom/melodix/music/MainActivity;)V

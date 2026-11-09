@@ -3,15 +3,17 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
+const {evidenceVm}=require('./helpers/session_diagnostic_vm');
 const read = f => fs.readFileSync(require('node:path').join(__dirname, '..', f), 'utf8');
 const gate = read('smali/com/melodix/music/NativeSessionGate.smali');
 function body(src, name) { const a = src.indexOf('.method public static '+name+'('); assert.ok(a>=0,name); return src.slice(a,src.indexOf('.end method',a)); }
 // Execute actual decision instructions, not a duplicate JS state machine.
 function machine(overrides={}) {
  const fields = {state:0,generation:1,lastAttempt:0,autoUsed:false,freshLogin:false,loginActive:false,expiredEvidence:false,...overrides};
- const calls=[], transitions=[]; let refusalCount=0, refusalCookie=null;
- function resetEvidence(){refusalCount=0;refusalCookie=null;}
- function recordEvidence(){if(fields.cookie===false){resetEvidence();return 0;} const id=fields.cookieId||'digest-A';refusalCount=id===refusalCookie?Math.min(2,refusalCount+1):1;refusalCookie=id;return refusalCount;}
+ const calls=[], transitions=[], evidence=evidenceVm();
+ function syncEvidence(){evidence.cookie(fields.cookie===false?null:(fields.cookieId||'digest-A'));}
+ function resetEvidence(){evidence.run('reset');}
+ function recordEvidence(){syncEvidence();return evidence.run('recordCurrentCookie');}
  function run(name, ...args) {
   const lines=body(gate,name).split('\n').map(l=>l.trim()), labels=Object.fromEntries(lines.map((l,i)=>[l,i]));
   const regs=Object.fromEntries(args.map((a,i)=>['p'+i,a])); let result;
@@ -28,9 +30,10 @@ function machine(overrides={}) {
     if(c.includes('JSONObject;-><init>')) Object.assign(a[0],JSON.parse(a[1]));
     else if(c.includes('NativeSessionGate;->http')) { const n=Number(a[0][a[1]]);result=n>=100&&n<=599?n:0; }
     else if(c.includes('NativeSessionGate;->refused')) result=[400,401,403].includes(a[0]);
+    else if(c.includes('NativeSessionAttemptDiagnostic;->reason')) {}
     else if(c.includes('NativeSessionEvidence;->recordCurrentCookie')) result=recordEvidence();
     else if(c.includes('NativeSessionEvidence;->reset')) resetEvidence();
-    else if(c.includes('NativeSessionEvidence;->canClear')) result=refusalCount>=2&&fields.cookie!==false&&refusalCookie===(fields.cookieId||'digest-A');
+    else if(c.includes('NativeSessionEvidence;->canClear')) {syncEvidence();result=!!evidence.run('canClear');}
     else if(c.includes('->optInt')) result=Number(a[0][a[1]])||0;
     else if(c.includes('->optBoolean')) result=a[0][a[1]]===true;
     else if(c.includes('->transition')) {transitions.push({from:fields.state,to:a[0],reason:a[1]});fields.state=a[0];}
@@ -52,7 +55,7 @@ function machine(overrides={}) {
   }
   assert.fail('did not return');
  }
- return {fields,calls,transitions,run,send:payload=>run('result',{},JSON.stringify({generation:fields.generation,attempt:1,completed:true,libraryHttp:payload.libraryOk?200:0,tokenApiHttp:payload.tokenRefused?400:0,tokenFallbackHttp:payload.tokenRefused?403:0,...payload}))};
+ return {fields,calls,transitions,run,evidence,retainDeadline:()=>{syncEvidence();return evidence.run('retainIfCurrent');},send:payload=>run('result',{},JSON.stringify({generation:fields.generation,attempt:1,completed:true,libraryHttp:payload.libraryOk?200:0,tokenApiHttp:payload.tokenRefused?400:0,tokenFallbackHttp:payload.tokenRefused?403:0,...payload}))};
 }
 
 test('case 1: no cookie chooses login once, never player/home or cookie deletion',()=>{
@@ -207,4 +210,17 @@ test('missing/changed cookie and network break the repeated-refusal proof, fresh
  m.send({attempt:3,libraryHttp:0});m.send({attempt:4,...refusal});assert.equal(m.fields.state,4);
  const fresh=machine({freshLogin:true});fresh.send(refusal);assert.equal(fresh.fields.state,4);assert.equal(fresh.transitions.at(-1).reason,'fresh-account-refused');
  assert.ok(!fresh.calls.includes('login'));assert.equal(fresh.run('canReconnect'),0);
+});
+
+test('actual gate plus actual evidence: first refusal, slow retry deadline, second distinct refusal',()=>{
+ const m=machine(),refused={tokenRefused:true,libraryHttp:401};m.send(refused);assert.equal(m.evidence.fields.count,1);assert.equal(m.fields.state,4);
+ // Model a new native begin; run the exact evidence operation used by its deadline.
+ m.fields.generation++;m.fields.lastAttempt=0;m.fields.state=0;
+ assert.equal(m.retainDeadline(),1);assert.equal(m.evidence.fields.count,1);assert.equal(m.fields.state,0,'retention itself cannot transition to expiry');
+ m.fields.state=4;m.send({attempt:2,...refused});assert.equal(m.fields.state,2);assert.equal(m.evidence.fields.count,2);
+ m.send({attempt:2,...refused});assert.equal(m.evidence.fields.count,2,'duplicate completion cannot add evidence');
+ m.fields.cookieId='digest-B';assert.equal(m.retainDeadline(),0);assert.equal(m.evidence.fields.count,0);assert.equal(m.run('canReconnect'),false);
+});
+test('deadline with no evidence never reaches probable expiry, including repeated deadlines',()=>{
+ const m=machine();for(let i=0;i<4;i++)assert.equal(m.retainDeadline(),0);assert.equal(m.evidence.fields.count,0);assert.equal(m.fields.state,0);assert.equal(m.run('canReconnect'),0);
 });

@@ -33,6 +33,10 @@
     .locals 4
     :verify_try
     invoke-static {p0}, Lcom/melodix/music/NativeSessionGate;->begin(Lcom/melodix/music/MainActivity;)V
+    sget v0, Lcom/melodix/music/NativeSessionGate;->generation:I
+    const/4 v1, 0x0
+    const-string v2, "relance-demandee"
+    invoke-static {v0, v1, v2}, Lcom/melodix/music/NativeSessionAttemptDiagnostic;->note(IILjava/lang/String;)V
     const-wide/16 v0, 0x0
     iput-wide v0, p0, Lcom/melodix/music/MainActivity;->nativeVerificationStart:J
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->scheduleNativeSessionTimeout()V
@@ -65,8 +69,11 @@
     invoke-static {v1}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
     move-result-object v1
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
-    const-string v1, "(window.__sfLoadBundledBridge||function(){} )('spotify_bridge.js');if(window.__sfRequestSessionVerification)window.__sfRequestSessionVerification();"
-    invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+    const-string v1, "(function(){(window.__sfLoadBundledBridge||function(){} )('spotify_bridge.js');if(typeof window.__sfRequestSessionVerification!=='function')return 'fonction-js-indisponible';window.__sfRequestSessionVerification();return 'verification-dispatched';})();"
+    sget v2, Lcom/melodix/music/NativeSessionGate;->generation:I
+    new-instance v3, Lcom/melodix/music/NativeSessionRetryDiagnosticCallback;
+    invoke-direct {v3, v2}, Lcom/melodix/music/NativeSessionRetryDiagnosticCallback;-><init>(I)V
+    invoke-virtual {v0, v1, v3}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
     goto :verify_done
     :verify_navigate
     const-string v1, "session-verify result=player-navigation"

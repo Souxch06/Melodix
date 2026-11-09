@@ -214,7 +214,7 @@
     invoke-virtual {v0, v1}, Lorg/json/JSONObject;->optInt(Ljava/lang/String;)I
     move-result v1
     sget v2, Lcom/melodix/music/NativeSessionGate;->generation:I
-    if-ne v1, v2, :done
+    if-ne v1, v2, :rejected_generation
     sget-boolean v1, Lcom/melodix/music/NativeSessionGate;->loginActive:Z
     if-nez v1, :done
     const-string v1, "completed"
@@ -225,7 +225,7 @@
     invoke-virtual {v0, v1}, Lorg/json/JSONObject;->optInt(Ljava/lang/String;)I
     move-result v1
     sget v2, Lcom/melodix/music/NativeSessionGate;->lastAttempt:I
-    if-le v1, v2, :done
+    if-le v1, v2, :rejected_attempt
     sput v1, Lcom/melodix/music/NativeSessionGate;->lastAttempt:I
     const-string v1, "tokenApiHttp"
     invoke-static {v0, v1}, Lcom/melodix/music/NativeSessionGate;->http(Lorg/json/JSONObject;Ljava/lang/String;)I
@@ -313,6 +313,14 @@
     invoke-static {v1, v2}, Lcom/melodix/music/NativeSessionGate;->transition(ILjava/lang/String;)V
     :paint
     invoke-static {p0}, Lcom/melodix/music/NativeSessionGate;->paint(Lcom/melodix/music/MainActivity;)V
+    goto :done
+    :rejected_generation
+    const-string v1, "rejet=generation-perimee"
+    invoke-static {v0, v1}, Lcom/melodix/music/NativeSessionAttemptDiagnostic;->reason(Lorg/json/JSONObject;Ljava/lang/String;)V
+    goto :done
+    :rejected_attempt
+    const-string v1, "rejet=tentative-deja-traitee-ou-ancienne"
+    invoke-static {v0, v1}, Lcom/melodix/music/NativeSessionAttemptDiagnostic;->reason(Lorg/json/JSONObject;Ljava/lang/String;)V
     :done
     :try_end
     .catch Lorg/json/JSONException; {:try_start .. :try_end} :bad

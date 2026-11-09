@@ -3060,6 +3060,7 @@
         if (webPlayerTokenCache && webPlayerTokenCache.token &&
             Number(webPlayerTokenCache.expMs) - 60000 > nowMs) {
             observeSessionAttempt(observation, 'tokenResult', 'obtained');
+            observeSessionAttempt(observation, 'reason', 'token-source=cache');
             lastTokenFetchStatus = 'ok';
             traceTokenEndpoint('cache', 'end', 0, 0);
             return webPlayerTokenCache.token;
@@ -3418,6 +3419,7 @@
         // may verify against Spotify; neither a cookie nor a DOM signal proves
         // private-library access. Only the validated response can do that.
         if (!mediaLibraryAuthReady()) {
+            publishSessionRelanceDiagnostic(source, 'blocage=dom-auth-required');
             traceLibraryEvent('proof-guard decision=blocked reason=auth-required');
             traceHomeLibraryStage(traceContext, 'request', 'skipped-auth', 0, 0, 0);
             syncMediaLibraryUiState();
@@ -3555,6 +3557,12 @@
             diagnostic.error = 'transform';
             notifyMediaLibSettled('transform-error');
         } finally {
+            if (requestGeneration !== mediaLibraryRequestGeneration) {
+                observeSessionAttempt(diagnostic, 'reason', 'abandon=requete-perimee');
+            }
+            if (authEpoch !== boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999)) {
+                observeSessionAttempt(diagnostic, 'reason', 'abandon=contexte-auth-perime');
+            }
             publishSessionAttemptDiagnostic(diagnostic, true);
             if (requestGeneration !== mediaLibraryRequestGeneration ||
                 authEpoch !== boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999)) {
@@ -3612,11 +3620,26 @@
             attempt: boundedMediaLibraryCount(diagnostic.attempt, 999999),
             source: safeMediaLibraryCheckSource(diagnostic.source),
             apiHttp: http(observation.apiHttp), fallbackHttp: http(observation.fallbackHttp),
-            libraryHttp: http(observation.libraryHttp), completed: completed === true, tokenResult: token
+            libraryHttp: http(observation.libraryHttp), completed: completed === true, tokenResult: token,
+            reason: /^(abandon=(requete-perimee|contexte-auth-perime)|token-source=cache)$/.test(observation.reason || '')
+                ? observation.reason : ''
         };
         try {
             if (window.AndBridge && typeof window.AndBridge.onSessionAttemptDiagnostic === 'function') {
                 window.AndBridge.onSessionAttemptDiagnostic(JSON.stringify(result));
+            }
+        } catch (_) {}
+    }
+    // A blocked request has no network attempt ID. Do not fabricate a completed attempt.
+    function publishSessionRelanceDiagnostic(source, reason) {
+        if (source !== 'native-retry') return;
+        if (!/^(blocage=(dom-auth-required|attente-429))$/.test(reason)) return;
+        try {
+            if (window.AndBridge && typeof window.AndBridge.onSessionAttemptDiagnostic === 'function') {
+                const generation = typeof window.AndBridge.getSessionGeneration === 'function'
+                    ? boundedMediaLibraryCount(window.AndBridge.getSessionGeneration(), 2147483647) : 0;
+                window.AndBridge.onSessionAttemptDiagnostic(JSON.stringify({ generation: generation,
+                    attempt: 0, source: 'native-retry', reason: reason }));
             }
         } catch (_) {}
     }
@@ -3650,7 +3673,10 @@
     // Existing auth guard, single-flight lock and Retry-After still apply.
     window.__sfRequestSessionVerification = function () {
         const request = () => {
-            if (window.__sfMediaLibError === 'http-429' && Number(window.__sfMediaLibRetryAt) > Date.now()) return false;
+            if (window.__sfMediaLibError === 'http-429' && Number(window.__sfMediaLibRetryAt) > Date.now()) {
+                publishSessionRelanceDiagnostic('native-retry', 'blocage=attente-429');
+                return false;
+            }
             return checkMediaLib(true, 'native-retry');
         };
         if (mediaLibraryCheckPromise) return mediaLibraryCheckPromise.then(request, request);
