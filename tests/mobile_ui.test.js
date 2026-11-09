@@ -284,3 +284,10 @@ test('the pill geometry holds on phone portrait, phone landscape and both tablet
         'no media query may hide the dock on a touch device: it is the primary navigation');
     dom.window.close();
 });
+
+
+test('normal mobile shell does not allocate an entire viewport to the adjacent side-panel grid track', () => {
+    const css = read('assets/css_hacks.css');
+    assert.match(css, /#main-view\+div>div>div>div:nth-child\(2\)>div\s*\{\s*width:\s*100vw\s*!important/);
+    assert.match(css, /body\.sf-mobile-shell:not\(\.sf-expanded\):not\(\.sf-fs-open\) #main-view\+div>div>div>div:nth-child\(2\)>div\s*\{\s*width:\s*100%\s*!important/);
+});

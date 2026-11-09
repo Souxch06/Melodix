@@ -189,6 +189,13 @@ div[data-testid=root] {
     width: 100vw !important;
 }
 
+/* In the normal mobile shell this panel is a sibling grid item. Forcing its
+   child to 100vw can consume the whole grid and leave #main-view at 0–20px.
+   Keep the legacy full-viewport behavior on desktop and expanded players. */
+body.sf-mobile-shell:not(.sf-expanded):not(.sf-fs-open) #main-view+div>div>div>div:nth-child(2)>div {
+    width: 100% !important;
+}
+
 /* --- Hide all unwanted UI elements in one block ---
    Covers: GDPR/cookie banners, tooltips, shuffle mode submenu,
    nav bar junk (Download, Upgrade, Premium, Explore buttons),

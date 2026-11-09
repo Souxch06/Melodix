@@ -101,20 +101,30 @@ public final class BridgeNavigationInstrumentation extends Instrumentation {
             // No login, session storage or network is involved.
             phase="synthetic_grid_load";
             final String layoutUrl="https://layout-fixture.invalid/";
+            byte[] cssBytes;
+            try (java.io.InputStream input=getTargetContext().getAssets().open("css_hacks.css"); java.io.ByteArrayOutputStream out=new java.io.ByteArrayOutputStream()) {
+                byte[] buffer=new byte[8192];for(int n;(n=input.read(buffer))!=-1;)out.write(buffer,0,n);cssBytes=out.toByteArray();
+            }
+            String css=new String(cssBytes,StandardCharsets.UTF_8);
             String html="<!doctype html><html><head><meta name='viewport' content='width=device-width, initial-scale=1'>"+
                 "<style>html,body{margin:0}#fixture-grid{display:grid;grid-template-columns:0px minmax(0,1fr) auto;width:100%;height:500px}"+
-                "#main-view{grid-column:2;min-width:0}#main-view+div{grid-column:3;overflow:hidden}"+
-                "#main-view+div>div>div>div:nth-child(2)>div{width:100vw!important}</style></head>"+
-                "<body><div id='fixture-grid'><div id='main-view'></div><div><div><div><div></div><div><div id='fixture-wide'></div></div></div></div></div></div></body></html>";
+                "#main-view{grid-column:2;min-width:0}#main-view+div{grid-column:3;overflow:hidden}</style><style>"+css+"</style></head>"+
+                "<body class='sf-mobile-shell'><div id='fixture-grid'><div id='main-view'></div><div><div><div><div></div><div><div id='fixture-wide'></div></div></div></div></div></div></body></html>";
             await(layoutUrl,()->{
                 view[0].measure(android.view.View.MeasureSpec.makeMeasureSpec(1080,android.view.View.MeasureSpec.EXACTLY),android.view.View.MeasureSpec.makeMeasureSpec(1800,android.view.View.MeasureSpec.EXACTLY));
                 view[0].layout(0,0,1080,1800);
                 view[0].loadDataWithBaseURL(layoutUrl,html,"text/html","UTF-8",null);
             });
             phase="synthetic_grid_baseline";
-            check("true".equals(js("document.getElementById('main-view').getBoundingClientRect().width<innerWidth*0.1")));
+            check("true".equals(js("(function(){document.getElementById('fixture-wide').style.setProperty('width','100vw','important');return document.getElementById('main-view').getBoundingClientRect().width<innerWidth*0.1})()")));
             phase="synthetic_grid_scoped_width";
-            check("true".equals(js("(function(){document.getElementById('fixture-wide').style.setProperty('width','100%','important');return document.getElementById('main-view').getBoundingClientRect().width>innerWidth*0.8})()")));
+            check("true".equals(js("(function(){document.getElementById('fixture-wide').style.removeProperty('width');return document.getElementById('main-view').getBoundingClientRect().width>innerWidth*0.8})()")));
+            phase="synthetic_grid_expanded_legacy";
+            check("true".equals(js("(function(){document.body.classList.add('sf-expanded');return Math.abs(document.getElementById('fixture-wide').getBoundingClientRect().width-innerWidth)<2})()")));
+            phase="synthetic_grid_fullscreen_legacy";
+            check("true".equals(js("(function(){document.body.classList.remove('sf-expanded');document.body.classList.add('sf-fs-open');return Math.abs(document.getElementById('fixture-wide').getBoundingClientRect().width-innerWidth)<2})()")));
+            phase="synthetic_grid_desktop_legacy";
+            check("true".equals(js("(function(){document.body.classList.remove('sf-mobile-shell','sf-fs-open');return Math.abs(document.getElementById('fixture-wide').getBoundingClientRect().width-innerWidth)<2})()")));
             outcome.putString("overall","passed");
         }catch(Throwable t){outcome.putString("overall","failed");outcome.putString("phase",phase);outcome.putString("error_class",t.getClass().getSimpleName());}
         finally{if(view[0]!=null)ui(()->view[0].destroy());finish(Activity.RESULT_OK,outcome);}
