@@ -662,11 +662,12 @@
     .line 247
     # Startup never trusts a persisted login marker: auth always starts
     # unconfirmed and is confirmed later by the account and player UI.
-    # MEL-BUG-080: no local register touched (invoke only).
-    invoke-static {v0}, Lcom/melodix/music/AppSingleton;->proofClearOncreate(Z)V
     const/4 v0, 0x0
 
     sput-boolean v0, Lcom/melodix/music/AppSingleton;->B:Z
+    # MEL-BUG-080: no local register touched (invoke only).
+    # Log the value just stored, not the preceding ServiceOn preference.
+    invoke-static {v0}, Lcom/melodix/music/AppSingleton;->proofClearOncreate(Z)V
 
     .line 258
     .line 259
