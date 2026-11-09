@@ -236,3 +236,51 @@ test('the dock highlights localized Home, Search, and Library routes correctly',
     assert.match(sync, /pathname === '\/search' \|\| pathname\.startsWith\('\/search\/'\)/);
     assert.match(sync, /nav\.querySelectorAll\('\[data-sf-mobile-action\]'\)/);
 });
+
+test('the pill geometry holds on phone portrait, phone landscape and both tablets', () => {
+    const { JSDOM } = require('jsdom');
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const css = fs.readFileSync(path.join(__dirname, '..', 'assets', 'css_hacks.css'), 'utf8');
+    const dom = new JSDOM(`<style>${css}</style>`, { pretendToBeVisual: true });
+    const sheet = dom.window.document.styleSheets[0];
+
+    // Collect the media conditions that style the dock. Every one of them must
+    // keep the pill centred and capped; none may hide it on a touch device.
+    const dockRules = [];
+    const hidden = [];
+    (function walk(rules, media) {
+        for (const rule of rules) {
+            if (rule.media) { walk(rule.cssRules, rule.conditionText || rule.media.mediaText); continue; }
+            if (!rule.selectorText || !rule.selectorText.includes('#sf-mobile-nav')) continue;
+            if (rule.style.getPropertyValue('display') === 'none') {
+                // The only legitimate hide is the keyboard guard; the base
+                // `#sf-mobile-nav { display:none }` parks the element before
+                // the shell exists and is not inside a media query.
+                hidden.push({ media: media || '(base)', selector: rule.selectorText });
+            }
+            if (rule.style.getPropertyValue('position') === 'fixed') dockRules.push({ media, rule });
+        }
+    })(sheet.cssRules, null);
+
+    assert.ok(dockRules.length >= 1, 'the fixed pill rule exists');
+    // jsdom only exposes declarations through getPropertyValue (camelCase
+    // accessors come back undefined), so read them by property name.
+    for (const { media, rule } of dockRules) {
+        const get = (name) => rule.style.getPropertyValue(name);
+        assert.match(get('transform'), /translateX\(-50%\)/, `centred (${media})`);
+        assert.match(get('max-width'), /560px/, `capped on a wide window (${media})`);
+        // The width must SUBTRACT the two insets. `100vw` alone is the old
+        // full-bleed rail; `calc(100vw - 2 * inset)` is the pill.
+        assert.match(get('width'), /calc\(100vw - \(?2 \* var\(--sf-dock-inset/,
+            `the two side margins come from the single inset token (${media})`);
+        assert.doesNotMatch(get('width'), /^\s*100vw\s*$/,
+            `never a full-bleed rail (${media})`);
+        assert.match(get('border-radius'), /34px/, `a pill, not a rectangle (${media})`);
+    }
+
+    const touchHides = hidden.filter((h) => h.media !== '(base)' && !/sf-keyboard-open/.test(h.selector));
+    assert.deepEqual(touchHides, [],
+        'no media query may hide the dock on a touch device: it is the primary navigation');
+    dom.window.close();
+});

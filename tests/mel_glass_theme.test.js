@@ -367,7 +367,9 @@ test('cards and secondary buttons wear the glass material, without a blur over l
 
     const button = CSS.match(/\[data-testid="card"\] button:not\(\[data-testid="control-button-playpause"\]\),(?:(?!\})[\s\S])*\}/);
     assert.ok(button, 'the secondary button rule exists');
-    assert.match(button[0], /background-color: var\(--mel-glass-bg\) !important;/);
+    assert.match(button[0], /background-color: var\(--mel-glass-bg\) !important;/, 'the buttons are glass, not glyphs on nothing');
+    assert.match(button[0], /border: 1px solid var\(--mel-glass-border\) !important;/);
+    assert.match(button[0], /box-shadow: var\(--mel-glass-highlight\) 0 1px 0 inset !important;/);
     assert.match(button[0], /min-height: 44px !important;/, 'touch target kept');
     assert.match(button[0], /border-radius: var\(--mel-radius-pill\) !important;/);
     assert.doesNotMatch(button[0], /backdrop-filter/);
@@ -391,12 +393,16 @@ test('secondary buttons are built like the native ones: fill, hairline, reflecti
 });
 
 test('the header keeps 44dp round glass buttons and a glow that never covers content', () => {
-    const button = CSS.match(/\[data-testid="global-nav-bar"\] button,\s*\[data-testid="top-bar"\] button \{[^}]*\}/);
+    // The rule that actually wins on the nav bar is the id selector: an
+    // attribute selector would be overridden and the test would lie.
+    const button = CSS.match(/#global-nav-bar button,\s*#global-nav-bar \[role="button"\] \{[^}]*\}/);
     assert.ok(button, 'the header-button rule exists');
     assert.match(button[0], /min-width: 44px !important;/);
     assert.match(button[0], /min-height: 44px !important;/, 'the 44dp target is the floor, and a longer icon cannot clip it');
     assert.match(button[0], /border-radius: var\(--mel-radius-pill\) !important;/);
-    assert.match(button[0], /background-color: var\(--mel-glass-bg\) !important;/);
+    assert.match(button[0], /background-color: var\(--mel-glass-bg\) !important;/, 'the buttons are glass, not glyphs on nothing');
+    assert.match(button[0], /border: 1px solid var\(--mel-glass-border\) !important;/);
+    assert.match(button[0], /box-shadow: var\(--mel-glass-highlight\) 0 1px 0 inset !important;/);
 
     const glow = CSS.match(/\[data-testid="global-nav-bar"\]::before,(?:(?!\})[\s\S])*\{[^}]*\}/);
     assert.ok(glow);

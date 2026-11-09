@@ -2594,14 +2594,19 @@ body.mx-glass-off #sf-mobile-nav {
     backdrop-filter: blur(var(--mel-glass-blur)) saturate(var(--mel-glass-saturate)) !important;
 }
 
-/* Icon buttons: 44px touch target inside a round glass pill. */
+/* Icon buttons: 44px touch target inside a round glass pill. The fill is a
+   translucent wash with a hairline and a top reflection — the same
+   construction the native header uses — so the buttons read as glass instead
+   of as invisible glyphs. */
 #global-nav-bar button,
 #global-nav-bar [role="button"] {
     min-width: 44px !important;
     min-height: 44px !important;
     border-radius: var(--mel-radius-pill) !important;
     color: var(--mel-text-2) !important;
-    background-color: transparent !important;
+    background-color: var(--mel-glass-bg) !important;
+    border: 1px solid var(--mel-glass-border) !important;
+    box-shadow: var(--mel-glass-highlight) 0 1px 0 inset !important;
     transition: color var(--mel-dur) var(--mel-ease-out),
                 background-color var(--mel-dur) var(--mel-ease-out),
                 transform var(--mel-dur) var(--mel-ease-out) !important;
@@ -2801,11 +2806,60 @@ body.sf-library-open #main-view::after {
     box-shadow: var(--mel-glass-shadow) !important;
 }
 
+/* --- 10.17 Portrait and landscape: same pill, no stretching ------------- */
+/* The dock rule is scoped to portrait phones, but its second half — `(hover:
+   none) and (pointer: coarse)` — has no max-width, so it also matches a
+   landscape tablet. That is intentional: the app-style dock stays the primary
+   navigation in both orientations, and it cannot stretch, because it is
+   centred and capped at 560px while its width tracks the viewport minus the
+   two insets. What has to be checked is the content it floats over, and that
+   is what these two rules do — they never remove a control. */
+@media screen and (orientation: landscape) and (hover: none) and (pointer: coarse) {
+    /* The library drawer and the mini player are lifted by the same stack on a
+       tablet as on a phone; on a wide window that lift is what keeps them off
+       the pill instead of sliding under it. */
+    body.sf-library-open #Desktop_LeftSidebar_Id {
+        max-width: min(420px, 42vw) !important;
+    }
+
+    /* A landscape tablet keeps its desktop side rail, so the content column
+       gets a symmetric gutter rather than hugging the rail. */
+    #main-view .contentSpacing {
+        padding-left: 24px !important;
+        padding-right: 24px !important;
+    }
+}
+
+/* A short phone in landscape (a 360x640 handset rotated) has ~300px of height:
+   the full-screen player's two-column grid would clip the metadata. It falls
+   back to the stacked phone layout, artwork capped, nothing cut off. */
+@media screen and (orientation: landscape) and (max-height: 400px) {
+    #sf-fs-player {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+    }
+
+    #sf-fs-art {
+        max-width: 38vh !important;
+        max-height: 38vh !important;
+    }
+}
+
+/* Tablets in portrait keep the pill (it is centred and capped), but the
+   content gutter grows so the pill never looks pinched. */
+@media screen and (min-width: 600px) and (orientation: portrait) {
+    #main-view .contentSpacing {
+        padding-left: 24px !important;
+        padding-right: 24px !important;
+    }
+}
+
 /* --- 10.16 The header: glow on top, round glass buttons ------------------ */
 /* 44dp round buttons with a glass fill. `min-width`/`min-height` (not width)
    so a longer icon never clips, and the radius stays a circle because the box
    is square. The glow sits behind the whole bar, never over the content. */
-[data-testid="global-nav-bar"] button,
 [data-testid="top-bar"] button {
     min-width: 44px !important;
     min-height: 44px !important;
