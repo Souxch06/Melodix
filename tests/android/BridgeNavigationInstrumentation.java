@@ -105,6 +105,13 @@ public final class BridgeNavigationInstrumentation extends Instrumentation {
             Runnable again=(Runnable)launch.getConstructor(WebView.class,int.class).newInstance(view[0],10);
             ui(again::run);
             check("3".equals(js("window.fixtureCount")));
+            // Exercise stale-object collection after replacement as an
+            // additional hypothesis, not proof that GC occurred.
+            phase="repeat_attach_gc";
+            System.gc();System.runFinalization();System.gc();
+            String afterGc=js("(function(){try{var x=AndBridge.getSessionGeneration();return x===null?'null':typeof x}catch(e){return 'exception'}})()");
+            outcome.putString("repeat_attach_after_gc_type",afterGc.replace("\"",""));
+            check("true".equals(js("AndBridge.getSessionGeneration()===10")));
             phase="return_login";
             await(LOGIN,()->view[0].evaluateJavascript("document.getElementById('next').click()",null));
             phase="return_login_bridge_absent";
