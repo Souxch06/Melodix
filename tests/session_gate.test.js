@@ -108,8 +108,8 @@ test('publication exports only closed, same-attempt observations at completion',
 test('native glass surface has named resources, real 48dp actions, collapsed details and no Spotify CSS',()=>{
  const xml=read('res/layout/native_session_surface.xml');
  assert.match(xml,/<ScrollView/);assert.match(xml,/@drawable\/session_glass_background/);
- for(const id of ['sessionAction','sessionDisclosure'])assert.match(xml,new RegExp('android:id="@\\+id/'+id+'"[^>]*android:layout_height="48dp"'));
- assert.match(xml,/android:id="@\+id\/sessionDetails"[^>]*android:visibility="gone"/);
+ for(const id of ['sessionAction','sessionDisclosure'])assert.match(xml,new RegExp('android:id="@\\+id/'+id+'"[^>]*android:layout_height="wrap_content"[^>]*android:minHeight="48dp"'));
+ assert.match(xml,/android:id="@\+id\/sessionDetailPanel"[^>]*android:visibility="gone"/);
  const ui=read('smali/com/melodix/music/NativeSessionSurface.smali');
  assert.doesNotMatch(ui,/0x7f[0-9a-f]+|evaluateJavascript|backdrop-filter|loadUrl/);
  assert.match(ui,/getIdentifier/);assert.match(ui,/NativeSessionSurfaceLayout/);

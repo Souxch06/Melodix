@@ -22,7 +22,15 @@
     invoke-virtual {v0}, Landroid/app/Activity;->isFinishing()Z
     move-result v1
     if-nez v1, :done
+    iget-boolean v1, v0, Lcom/melodix/music/MainActivity;->nativeReconnectPending:Z
+    if-nez v1, :done
+    const/4 v1, 0x1
+    invoke-virtual {p1, v1}, Landroid/view/View;->performHapticFeedback(I)Z
     iget v1, p0, Lcom/melodix/music/NativeSessionSurfaceAction;->action:I
+    const/4 v2, 0x3
+    if-eq v1, v2, :toggle
+    const/4 v2, 0x4
+    if-eq v1, v2, :copy
     const/4 v2, 0x2
     if-eq v1, v2, :reconnect
     const/4 v2, 0x1
@@ -37,6 +45,12 @@
     goto :done
     :reconnect
     invoke-static {v0}, Lcom/melodix/music/NativeSessionReconnect;->start(Lcom/melodix/music/MainActivity;)V
+    goto :done
+    :toggle
+    invoke-static {v0, p1}, Lcom/melodix/music/NativeSessionSurfaceExtras;->toggle(Lcom/melodix/music/MainActivity;Landroid/view/View;)V
+    goto :done
+    :copy
+    invoke-static {v0}, Lcom/melodix/music/NativeSessionSurfaceExtras;->copy(Landroid/content/Context;)V
     :done
     return-void
 .end method

@@ -35,8 +35,6 @@
     invoke-static {}, Lcom/melodix/music/NativeSessionEvidence;->canClear()Z
     move-result v0
     if-eqz v0, :reconnect_error_stale
-    const-string v0, "[{\"kind\":\"state\",\"state\":\"loading\",\"title\":\"Reconnexion Spotify\",\"subtitle\":\"Suppression de la session avant ouverture de la connexion…\",\"uri\":\"\"}]"
-    invoke-static {p0, v0}, Lcom/melodix/music/NativeHomeShelfRenderer;->render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
     new-instance v1, Lcom/melodix/music/NativeSessionReconnect;
     invoke-direct {v1, p0}, Lcom/melodix/music/NativeSessionReconnect;-><init>(Lcom/melodix/music/MainActivity;)V
     invoke-static {}, Landroid/webkit/CookieManager;->getInstance()Landroid/webkit/CookieManager;

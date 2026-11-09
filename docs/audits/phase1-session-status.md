@@ -46,3 +46,11 @@ Ne pas désinstaller ni lancer clear-data pour tester sur le téléphone. Les é
 `NativeSessionEvidence` conserve uniquement un digest éphémère du sp_dc et un compteur saturé à deux ; le natif filtre auparavant génération, complétion et numéro de tentative. Le même callback ne peut donc pas ajouter deux observations. Un cookie remplacé invalide la suppression, même si les deux anciens refus étaient vrais. Le retour SSO ne positionne plus freshLogin ; seul le callback de suppression volontaire confirmée l’arme. Le statut probable ne navigue pas automatiquement : il rend possible le choix explicite Se reconnecter.
 
 Tests ciblés de décision, compteur et callback de reconnexion exécutés avant le commit. Relance de cette étape : commandes test125 en tête du document (l’UI de l’étape suivante n’est pas encore appliquée). Aucune preuve appareil/capture après ne doit être déduite de ces seuls tests.
+
+### Étape surfaces (implémentée, validation Android à venir)
+
+Fond #0B0B14, halos violet/magenta statiques sans blur, verre 7%/bordure14%, boutons pilules violet→magenta, carte24dp plafonnée à480dp, grille4/marges20. Les boutons font au minimum48dp et grandissent avec la police. ScrollView fillViewport + carte centrée ; défilement si hauteur insuffisante. Logo dérivé du master existant (silhouette recolorée, pas de nouvelle marque), pulse décorative seulement pendant verifying, désactivée si l’échelle d’animation système vaut0. Disclosure250ms sans animation de hauteur ni blocage du tap.
+
+Le header du formulaire Spotify reste compact et séparé : pas de carte/logo de80dp au-dessus du clavier. Les changements de raison rafraîchissent aussi le titre dans un même état. Copie volontaire limitée au diagnostic de la garde (raisons fixes/codes/compteur), pas au diagnostic global WebView.
+
+Fichiers : ressources `session_*`, `native_session_surface`, `native_session_login_header`, helpers `NativeSessionCard`, `NativeSessionSurface*`. Risques restants à vérifier sur Android : inflation custom View, mesure petite hauteur/grande police, padding du formulaire, cycle de vie/Retour. Pas de changement des autres écrans.

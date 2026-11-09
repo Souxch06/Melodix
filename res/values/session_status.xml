@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Scoped phase-1 tokens; the shared application design system is phase 2. -->
+    <color name="session_bg">#0B0B14</color>
+    <color name="session_text">#F5F5FA</color>
+    <color name="session_secondary">#A1A1B5</color>
+    <color name="session_accent_start">#7C3AED</color>
+    <color name="session_accent_end">#DB2777</color>
+    <color name="session_glass">#12FFFFFF</color>
+    <color name="session_border">#24FFFFFF</color>
+    <dimen name="session_margin">20dp</dimen>
+    <dimen name="session_card_padding">24dp</dimen>
+</resources>

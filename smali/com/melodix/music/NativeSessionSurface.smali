@@ -2,6 +2,7 @@
 .super Ljava/lang/Object;
 .field private static renderedState:I
 .field private static renderedLogin:Z
+.field private static renderedReason:Ljava/lang/String;
 .method public static id(Landroid/content/Context;Ljava/lang/String;Ljava/lang/String;)I
     .locals 2
     invoke-virtual {p0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
@@ -37,6 +38,11 @@
     if-ne v1, v3, :remove_old
     sget-boolean v3, Lcom/melodix/music/NativeSessionSurface;->renderedLogin:Z
     if-ne v2, v3, :remove_old
+    sget-object v3, Lcom/melodix/music/NativeSessionSurface;->renderedReason:Ljava/lang/String;
+    sget-object v4, Lcom/melodix/music/NativeSessionGate;->lastReason:Ljava/lang/String;
+    invoke-static {v3, v4}, Ljava/util/Objects;->equals(Ljava/lang/Object;Ljava/lang/Object;)Z
+    move-result v3
+    if-eqz v3, :remove_old
     const-string v3, "sessionDetails"
     invoke-static {v0, v3}, Lcom/melodix/music/NativeSessionSurface;->text(Landroid/view/View;Ljava/lang/String;)Landroid/widget/TextView;
     move-result-object v3
@@ -52,9 +58,14 @@
     if-eqz v3, :inflate
     invoke-virtual {v3, v0}, Landroid/view/ViewGroup;->removeView(Landroid/view/View;)V
     :inflate
+    sget-object v3, Lcom/melodix/music/NativeSessionGate;->lastReason:Ljava/lang/String;
+    sput-object v3, Lcom/melodix/music/NativeSessionSurface;->renderedReason:Ljava/lang/String;
     sput v1, Lcom/melodix/music/NativeSessionSurface;->renderedState:I
     sput-boolean v2, Lcom/melodix/music/NativeSessionSurface;->renderedLogin:Z
     const-string v3, "native_session_surface"
+    if-eqz v2, :layout_name
+    const-string v3, "native_session_login_header"
+    :layout_name
     const-string v4, "layout"
     invoke-static {p0, v3, v4}, Lcom/melodix/music/NativeSessionSurface;->id(Landroid/content/Context;Ljava/lang/String;Ljava/lang/String;)I
     move-result v3
@@ -79,14 +90,22 @@
     if-eq v1, v7, :expired_labels
     const-string v5, "Connexion Spotify indisponible"
     const-string v6, "La vérification n’a pas abouti. Réessaie sans effacer ta session."
+    sget-object v7, Lcom/melodix/music/NativeSessionGate;->lastReason:Ljava/lang/String;
+    const-string v5, "fresh-account-refused"
+    invoke-virtual {v5, v7}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v7
+    const-string v5, "Connexion Spotify indisponible"
+    if-eqz v7, :labels
+    const-string v5, "Spotify refuse l’accès avec ce compte"
+    const-string v6, "Même après ta reconnexion, Spotify refuse l’accès. Consulte les détails ou réessaie plus tard."
     goto :labels
     :login_labels
     const-string v5, "Bienvenue sur Melodix"
     const-string v6, "Connecte-toi sur la page officielle Spotify pour retrouver tes playlists."
     goto :labels
     :expired_labels
-    const-string v5, "Session expirée, reconnecte-toi"
-    const-string v6, "La session a été refusée. La connexion officielle est ouverte sans effacer tes cookies."
+    const-string v5, "Ta session Spotify semble expirée"
+    const-string v6, "Spotify a refusé deux vérifications. Reconnecte-toi pour retrouver tes playlists."
     :labels
     invoke-virtual {v3, v5}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
     invoke-virtual {v4, v6}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
@@ -108,10 +127,7 @@
     const/4 v5, 0x0
     goto :action
     :reconnect_action
-    invoke-static {}, Lcom/melodix/music/NativeSessionGate;->canReconnect()Z
-    move-result v4
-    if-eqz v4, :action_done
-    const-string v4, "Se reconnecter — effacer la session"
+    const-string v4, "Se reconnecter"
     const/4 v5, 0x2
     :action
     invoke-virtual {v3, v4}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
@@ -121,22 +137,7 @@
     invoke-direct {v4, p0, v5}, Lcom/melodix/music/NativeSessionSurfaceAction;-><init>(Lcom/melodix/music/MainActivity;I)V
     invoke-virtual {v3, v4}, Landroid/view/View;->setOnClickListener(Landroid/view/View$OnClickListener;)V
     :action_done
-    const/4 v3, 0x4
-    if-ne v1, v3, :attach
-    const-string v3, "sessionDisclosure"
-    invoke-static {v0, v3}, Lcom/melodix/music/NativeSessionSurface;->text(Landroid/view/View;Ljava/lang/String;)Landroid/widget/TextView;
-    move-result-object v3
-    const/4 v4, 0x0
-    invoke-virtual {v3, v4}, Landroid/view/View;->setVisibility(I)V
-    const-string v4, "sessionDetails"
-    invoke-static {v0, v4}, Lcom/melodix/music/NativeSessionSurface;->text(Landroid/view/View;Ljava/lang/String;)Landroid/widget/TextView;
-    move-result-object v4
-    invoke-static {}, Lcom/melodix/music/NativeSessionGate;->details()Ljava/lang/String;
-    move-result-object v5
-    invoke-virtual {v4, v5}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-    new-instance v5, Lcom/melodix/music/NativeHomeShelfRenderer$DetailsToggle;
-    invoke-direct {v5, v3, v4}, Lcom/melodix/music/NativeHomeShelfRenderer$DetailsToggle;-><init>(Landroid/widget/TextView;Landroid/widget/TextView;)V
-    invoke-virtual {v3, v5}, Landroid/view/View;->setOnClickListener(Landroid/view/View$OnClickListener;)V
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeSessionSurfaceExtras;->bind(Lcom/melodix/music/MainActivity;Landroid/view/View;I)V
     :attach
     const/4 v3, -0x1
     const/4 v4, -0x1
