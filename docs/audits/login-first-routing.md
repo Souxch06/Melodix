@@ -100,3 +100,12 @@ Le runner Android final `42596800499` n’a pas réussi (résultat sauvegardé, 
 Le contrat historique Retour fournit déjà un adaptateur `handleNativeSystemBack` appelé par le dispatcher final (et mesure que `onKeyDown` ne reçoit pas BACK). Le comportement des surfaces non validées est donc ajouté à cet **adaptateur existant**, pas à onKeyDown ; les payloads fullscreen/history et leurs empreintes de protection restent inchangés. La suite Retour a détecté et fait retirer l’interception matérielle redondante avant livraison finale.
 
 CI après retrait de la redéfinition finale (`42597347997`, source9f79d39d) : le chargement ART et les scénarios **premier lancement, deadline, succès simulé, expiration simulée, refus frais** ont produit des statuts passed. Le job global reste en échec avant les dernières étapes : ne pas l’annoncer vert. Le protocole remonte désormais les classes d’exception AndroidRuntime uniquement (aucun message ni stack contenant une donnée de page) afin de distinguer un arrêt de processus d’une assertion de scénario. La suite locale a aussi relevé l’ancien contrat qui interdit l’interception onKeyDown ; le nouvel adaptateur existant le respecte.
+
+### Résultats après correction Retour
+
+- `42597934736`, source **5acef50b** : **succès Android**, tous les contrôles du runner atteignent `overall=passed` (dont résultats périmés, rotation, recréation et Retour).
+- `42598072180`, source **8552a917** : **succès Android** également ; par rapport à 5acef50b, seuls le workflow de collecte et ce document diffèrent, aucun code applicatif.
+- `npm test` final : **1024 tests, 1020 réussis, 0 échec, 4 ignorés** ; contrôles registres des 10 helpers : 0 problème.
+- APK candidat final source applicative **5acef50b23f1c8d5968a43bea6995e28343d6790**, build **42597941924**, vC**1021459**, versionName **1.2.2-5acef50**, SHA256 **cd7483fb5082df5ed778072a77628e1a64db92525c488bc1066e80060b05191c**. Les builds test124 précédents ne sont pas le candidat final.
+
+Le contrôle background initial appelait seulement l’adaptateur resume. Le runner est renforcé pour effectuer maintenant un vrai `moveTaskToBack`, puis remettre la tâche au premier plan sans clear-task/data ; ce complément doit être exécuté séparément avant d’annoncer le passage arrière-plan OS comme validé. Aucun changement au code de l’APK candidat dans cette étape.

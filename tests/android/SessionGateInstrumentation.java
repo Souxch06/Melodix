@@ -133,7 +133,15 @@ public final class SessionGateInstrumentation extends Instrumentation {
                 check(view("sessionTitle") != null && view("sessionTitle").isShown()); }); note();
 
             phase = "background_resume_no_extra_redirect";
-            ui(() -> { call("resume", new Class<?>[]{activity().getClass()}, activity()); check((Boolean) field("autoUsed")); state(4); }); note();
+            ui(() -> check(activity().moveTaskToBack(true)));
+            SystemClock.sleep(700);
+            Intent foreground = getTargetContext().getPackageManager().getLaunchIntentForPackage(PACKAGE);
+            check(foreground != null);
+            foreground.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+            getTargetContext().startActivity(foreground);
+            SystemClock.sleep(1200);
+            ui(() -> { check((Boolean) field("autoUsed")); state(4);
+                check(view("sessionTitle") != null && view("sessionTitle").isShown()); }); note();
 
             phase = "back_exits_without_revealing_home";
             final Activity ending = activity();
