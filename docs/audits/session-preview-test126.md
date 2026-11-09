@@ -32,7 +32,38 @@ Le dernier test125 ne peut pas être enrichi rétroactivement : les deux401 rapp
 
 ## Tests / livraison
 
-Tests ciblés : snapshots partiels/finaux, séparation des tentatives, valeurs absentes/malformées, absence de secrets, consommateur diagnostic défaillant, fonctions réelles de récupération token avec réponses synthétiques400/403, succès200/cache et erreur réseau ; vérification des requêtes inchangées. Résultats finaux et lien de l’unique build126 à compléter après exécution.
+Tests ciblés : snapshots partiels/finaux, séparation des tentatives, valeurs absentes/malformées, absence de secrets, consommateur diagnostic défaillant, fonctions réelles de récupération token avec réponses synthétiques400/403, succès200/cache et erreur réseau ; vérification des requêtes inchangées. Suite complète : **1039 tests,1035 réussis,0 échec,4 ignorés**. Tests ciblés39/39 réussis ; checker registres0problème sur les2helpers contrôlés (diagnostic ajouté et garde).
+
+### Unique build126 terminé
+
+- [Build42611760443 : SUCCESS](https://github.com/Souxch06/Melodix/actions/runs/42611760443).
+- [APK126 signé à télécharger](https://github.com/Souxch06/Melodix/actions/runs/42611760443/artifacts/13669414928).
+- Package `com.melodix.music.preview`, **versionCode1021462**, versionName `1.2.2-250efda`.
+- Source `250efda32b8669fe078be5897bfa22acce48b126`, parent direct `70429cb8` : le commit local de sauvegarde ne fait pas partie de cette livraison.
+- SHA256 APK `fdb57aa4a05fdb063525cd75c159c4221973ddc300b1459bd17e424a20c2b03c`.
+- Une seule construction Preview a été déclenchée ; aucun second build de matrice ou d’instrumentation.
+- Commit `00c743af` et bundle revérifiés après le build ; aucun conflit en cours et working tree propre avant cette mise à jour documentaire.
+
+### État montré avant le build
+
+`git status --short` a été communiqué avant le déclenchement :9 fichiers suivis modifiés et3 nouveaux fichiers. Liste complète :
+
+```text
+ M assets/spotify_bridge.js
+ M scripts/spotify_bridge.source.js
+ M smali/com/melodix/music/AndBridge.smali
+ M smali/com/melodix/music/MainActivity.smali
+ M smali/com/melodix/music/NativeSessionGate.smali
+ M tests/mel_bug_036_webplayer_bearer.test.js
+ M tests/p0_smali_refs.test.js
+ M tests/perf_startup_instrumentation.test.js
+ M tests/session_gate.test.js
+?? docs/audits/session-preview-test126.md
+?? smali/com/melodix/music/NativeSessionAttemptDiagnostic.smali
+?? tests/session_attempt_diagnostic.test.js
+```
+
+Le changement de la garde se limite à l’effacement du journal de diagnostic au nouveau lancement et à son ajout au texte des détails. Le classificateur reste identique. L’asset bridge est régénéré depuis sa source ; les requêtes existantes restent identiques.
 
 Pas de nouveau build de matrice/instrumentation : une seule construction Preview126 est autorisée. Les tests locaux ne constituent pas une validation ART, d’authentification Spotify ou de pixels réels.
 
