@@ -20,15 +20,13 @@ test('MEL-BUG-068a: onStop flushes the session cookies to disk (quit must not lo
     'le flush est protégé par un catch (jamais de crash au stop)');
 });
 
-test('MEL-BUG-068b: login is forced at every launch/resume while the session is unproven', () => {
+test('session gate: resume preserves navigation instead of forcing repeated login', () => {
+  const gate = fs.readFileSync(require('node:path').join(__dirname, '..', 'smali/com/melodix/music/NativeSessionGate.smali'), 'utf8');
   const body = method(main, '.method public final ensureWebPageLoaded()V');
-  // MEL-BUG-071: the reveal now covers every remote page (not only
-  // accounts.spotify.com); the reload still happens only when the current page
-  // is not already the login form, so there is no loop.
-  assert.match(body, /:force_login[\s\S]*WebView;->getUrl\(\)Ljava\/lang\/String;[\s\S]*startsWith[\s\S]*if-nez v2, :done[\s\S]*revealLoginWebUi\(\)V[\s\S]*contains[\s\S]*if-eqz v2, :done/,
-    'URL réelle + session non prouvée -> revealLoginWebUi sur toute page distante, rechargement login seulement si la page courante n\'est pas déjà le login');
-  assert.match(body, /:proven_check[\s\S]*goto :done/,
-    'session prouvée -> aucun rechargement (lecture jamais interrompue)');
+  assert.match(body, /getUrl\(\)Ljava\/lang\/String;\s+move-result-object v1\s+if-nez v1, :done/);
+  assert.doesNotMatch(body, /revealLoginWebUi|accounts.spotify.com|AppSingleton;->B/);
+  assert.match(gate, /autoUsed:Z[\s\S]*?already/);
+  assert.match(method(main, '.method public final showNativeUiFrom('), /NativeSessionGate;->blocked/);
 });
 
 test('MEL-BUG-068c: a copyable full diagnostic exists (header chip + bridge branch)', () => {

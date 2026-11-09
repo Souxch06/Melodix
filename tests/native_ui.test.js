@@ -1824,61 +1824,20 @@ test('the launch marker leaves the branded window alone instead of painting debu
     assert.match(body, /if-eqz p0, :done/, 'la garde d argument reste la premiere instruction');
 });
 
-test('page-finished callbacks keep native ownership unless an explicit login action owns Web', () => {
-    const client = read('smali/c91.smali');
-    const finished = client.slice(client.indexOf('.method public final onPageFinished'));
-    const body = finished.slice(0, finished.indexOf('.end method'));
-    assert.match(body, /MainActivity;->onWebViewPageFinished\(\)V/,
-        'page completion asks MainActivity to re-evaluate the existing owner');
-    assert.doesNotMatch(body, /MainActivity;->revealWebUi\(\)V/,
-        'a host/path or late WebView callback cannot reveal Spotify Web by itself');
-
+test('page-finished delegates to verification, never unlocks native home on a path alone', () => {
     const activity = read('smali/com/melodix/music/MainActivity.smali');
-    const explicitRoute = activity.slice(activity.indexOf('.method public final isLoginWebRoute()Z'));
-    const explicitRouteBody = explicitRoute.slice(0, explicitRoute.indexOf('.end method'));
-    assert.match(explicitRouteBody, /nativeLoginWebRequested:Z[\s\S]*?return v0/,
-        'Web ownership requires the explicit native login request, not a host heuristic');
-    const pathStart = activity.indexOf('.method public final isLoginWebPath()Z');
-    const pathBody = activity.slice(pathStart, activity.indexOf('.end method', pathStart));
-    assert.match(pathBody, /accounts\.spotify\.com[\s\S]*?open\.spotify\.com[\s\S]*?\/login/,
-        'the private URL classifier is used only to detect leaving the login route');
-
-    const loginStart = activity.indexOf('.method public final revealLoginWebUi()V');
-    const loginBody = activity.slice(loginStart, activity.indexOf('.end method', loginStart));
-    assert.match(loginBody, /nativeLoginWebRequested:Z[\s\S]*?applyLoginWebUi/,
-        'the explicit login action sets the owner intent before showing the existing WebView');
-    const finishedStart = activity.indexOf('.method public final onWebViewPageFinished()V');
-    const finishedBody = activity.slice(finishedStart, activity.indexOf('.end method', finishedStart));
-    assert.match(finishedBody, /isLoginWebPath\(\)Z[\s\S]*?nativeLoginWebRequested:Z[\s\S]*?showNativeUiFrom/,
-        'leaving login returns the foreground to the native shell without clearing WebView state');
-    assert.doesNotMatch(finishedBody, /loadUrl|CookieManager|clearCache|clearHistory|removeAllCookies/,
-        'the owner transition leaves navigation, cookies, and session storage untouched');
+    const gate = read('smali/com/melodix/music/NativeSessionGate.smali');
+    assert.match(activity, /onWebViewPageFinished\(\)V[\s\S]*?NativeSessionGate;->pageFinished/);
+    assert.match(gate, /pageFinished\([\s\S]*?open.spotify.com[\s\S]*?freshLogin:Z[\s\S]*?->verify/);
+    assert.match(activity, /showNativeUiFrom\([\s\S]*?NativeSessionGate;->blocked/);
+    assert.doesNotMatch(gate, /removeAllCookies|deleteAllData/);
 });
 
-
-test('login Web ownership ends only when the primary SPA leaves the login path', () => {
-    const activity = read('smali/com/melodix/music/MainActivity.smali');
-    const method = (signature) => {
-        const start = activity.indexOf(signature);
-        assert.ok(start >= 0, `missing method ${signature}`);
-        return activity.slice(start, activity.indexOf('.end method', start));
-    };
-    const route = method('.method public final postNativeUiRoute(Ljava/lang/String;)V');
-    const ready = method('.method public final postNativeUiReady()V');
-    const finished = method('.method public final onWebViewPageFinished()V');
-    const reveal = method('.method public final revealWebUiFrom(Ljava/lang/String;Ljava/lang/String;)V');
-    const update = read('smali/com/melodix/music/NativeUiUpdateRunnable.smali');
-    assert.match(route, /nativeLoginWebRequested:Z[\s\S]*?isLoginWebPath\(\)Z[\s\S]*?iput-boolean v0, p0, Lcom\/melodix\/music\/MainActivity;->nativeLoginWebRequested:Z[\s\S]*?new-instance v0, Lcom\/melodix\/music\/NativeUiUpdateRunnable/,
-        'a route callback clears the login-only owner after the actual page path exits login, then applies the whitelisted native route');
-    assert.match(update, /if-ne v1, v2, :check_home_fallback[\s\S]*?activateNativeUiRoute/);
-    assert.match(ready, /nativeLoginWebRequested:Z[\s\S]*?isLoginWebPath\(\)Z[\s\S]*?iput-boolean v0, p0, Lcom\/melodix\/music\/MainActivity;->nativeLoginWebRequested:Z[\s\S]*?NativeUiUpdateRunnable/,
-        'readiness cannot keep the login WebView foregrounded after the SPA has left login');
-    assert.match(finished, /if-eqz v0, :native_web_page_native_owner[\s\S]*?isLoginWebPath\(\)Z[\s\S]*?applyLoginWebUi[\s\S]*?iput-boolean v0, p0, Lcom\/melodix\/music\/MainActivity;->nativeLoginWebRequested:Z[\s\S]*?showNativeUiFrom/,
-        'page finish preserves a real login route but returns native ownership after login-SPA exit');
-    assert.match(reveal, /isLoginWebRoute\(\)Z[\s\S]*?applyLoginWebUi[\s\S]*?showNativeUiFrom/,
-        'late generic reveal callbacks stay behind the login guard');
-    assert.doesNotMatch(route + ready + finished, /CookieManager|clearCache|clearHistory|removeAllCookies|loadUrl/,
-        'login-owner exit never clears cookies or changes the existing SPA navigation');
+test('login Web ownership is explicit and verification must complete before private home', () => {
+    const gate = read('smali/com/melodix/music/NativeSessionGate.smali');
+    assert.match(gate, /blocked\([\s\S]*?loginActive:Z[\s\S]*?applySessionLoginSurface/);
+    assert.match(gate, /result\([\s\S]*?"token"[\s\S]*?"libraryOk"[\s\S]*?token-and-library-ok/);
+    assert.match(gate, /navigateLogin\([\s\S]*?nativeLoginPageCommitted:Z/);
 });
 
 test('settings page distinguishes connecté / expirée / réseau / non connecté, honestly', () => {

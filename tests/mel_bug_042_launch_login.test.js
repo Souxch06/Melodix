@@ -20,15 +20,11 @@ function ensureBlock() {
 // valid persisted session cookie auto-continues to open.spotify.com thanks to
 // the continue parameter, so a saved login still lands on Home.
 test('MEL-BUG-042: an unproven load reveals the login screen, not the native home', () => {
-  const block = ensureBlock();
-  const loginBranch = block.slice(block.indexOf(':login_url'));
-  assert.ok(loginBranch.includes('const-string v1, "' + LOGIN_URL + '"'),
-    'the official login URL is unchanged (auth contract untouched)');
-  assert.match(loginBranch, /invoke-virtual \{p0\}, Lcom\/melodix\/music\/MainActivity;->revealLoginWebUi\(\)V/,
-    'the login branch reveals the login Web UI (login screen shown directly)');
-  // the home branch must still exist for a proven session on warm resume
-  assert.ok(block.includes('const-string v1, "https://open.spotify.com/"'),
-    'a proven session still loads the player');
+  const gate = fs.readFileSync(require('node:path').join(__dirname, '..', 'smali/com/melodix/music/NativeSessionGate.smali'), 'utf8');
+  assert.match(ensureBlock(), /NativeSessionGate;->initialUrl/);
+  assert.ok(gate.includes(LOGIN_URL), 'official accounts URL unchanged');
+  assert.match(gate, /hasCookie\(\)Z[\s\S]*?autoUsed:Z[\s\S]*?cookie-absent-auto-login/);
+  assert.match(main, /showNativeUiFrom\([\s\S]*?NativeSessionGate;->blocked/);
 });
 
 test('MEL-BUG-042: cold start never wipes the persisted session cookies', () => {
@@ -45,11 +41,11 @@ test('MEL-BUG-042: cold start never wipes the persisted session cookies', () => 
 });
 
 test('MEL-BUG-042: the Se connecter action keeps the official login route', () => {
-  const m = main.match(/\.method public final openSpotifyLogin\(\)V([\s\S]*?)\.end method/);
-  assert.ok(m, 'openSpotifyLogin exists');
-  assert.ok(m[1].includes('const-string v2, "' + LOGIN_URL + '"'),
-    'openSpotifyLogin loads the same official login URL (no auth change)');
-  assert.match(m[1], /revealLoginWebUi\(\)V/, 'and reveals the login Web UI');
+  const gate = fs.readFileSync(require('node:path').join(__dirname, '..', 'smali/com/melodix/music/NativeSessionGate.smali'), 'utf8');
+  assert.match(main, /openSpotifyLogin\(\)V[\s\S]*?NativeSessionGate;->requestLogin/);
+  assert.ok(gate.includes(LOGIN_URL));
+  assert.match(gate, /requestLogin\([\s\S]*?expiredEvidence:Z[\s\S]*?hasCookie\(\)Z[\s\S]*?->verify[\s\S]*?->navigateLogin/);
+  assert.doesNotMatch(gate, /removeAllCookies|deleteAllData/);
 });
 
 // MEL-BUG-043: after MEL-BUG-042 the login screen flashed then the native home

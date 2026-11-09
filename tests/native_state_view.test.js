@@ -154,7 +154,7 @@ test('the state system is really wired into the screen, and reuses the real list
 test('MEL-BUG-024: isNativeSessionUnproven reads a PERSISTENT flag that survives screen changes', () => {
   const activity = read('smali/com/melodix/music/MainActivity.smali');
   // The persistent field exists exactly once.
-  assert.equal((activity.match(/\.field private nativeSessionUnproven:Z/g) || []).length, 1);
+  assert.equal((activity.match(/\.field public nativeSessionUnproven:Z/g) || []).length, 1);
   // The accessor reads the persistent flag, not the home-scoped one.
   const at = activity.indexOf('.method public final isNativeSessionUnproven()Z');
   const acc = activity.slice(at, activity.indexOf('.end method', at));
@@ -169,7 +169,9 @@ test('MEL-BUG-024: isNativeSessionUnproven reads a PERSISTENT flag that survives
   assert.match(unproven, /iput-boolean v0, p0, .*->nativeSessionUnproven:Z/);
   const login = activity.slice(activity.indexOf('.method public final openSpotifyLogin'),
     activity.indexOf('.end method', activity.indexOf('.method public final openSpotifyLogin')));
-  assert.match(login, /const\/4 v0, 0x1\s+iput-boolean v0, p0, .*->nativeSessionUnproven:Z/);
+  assert.match(login, /NativeSessionGate;->requestLogin/);
+  const gate = read('smali/com/melodix/music/NativeSessionGate.smali');
+  assert.match(gate, /const\/4 v1, 0x1\s+iput-boolean v1, p0, .*->nativeSessionUnproven:Z/);
   // Screen changes and home re-renders must NOT reset the persistent flag.
   for (const m of ['beginNativeHomeRender', 'setNativeScreen']) {
     const i = activity.indexOf(`.method public final ${m}(`);

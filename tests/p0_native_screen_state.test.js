@@ -467,6 +467,10 @@ function executeNativeRouteActivation(activity, destination) {
             continue;
         }
         if (instruction === 'return-void') return activity;
+        if (/^invoke-static \{p0\}, .*NativeSessionGate;->blocked/.test(instruction)) {
+            pendingResult = false; // This route interpreter starts after server validation.
+            continue;
+        }
         throw new Error(`Unreviewed opcode in activateNativeUiRoute: ${instruction}`);
     }
     throw new Error('activateNativeUiRoute completed without return-void');

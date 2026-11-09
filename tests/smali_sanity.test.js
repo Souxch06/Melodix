@@ -376,44 +376,13 @@ test('[model] an authenticated player page keeps B=true and reaches the existing
         'the historical inverse guard is not reintroduced');
 });
 
-test('[model] page-finished callbacks keep native Home foregrounded unless login was explicitly requested', () => {
-    const webViewClient = fs.readFileSync(path.join(repo, 'smali/c91.smali'), 'utf8');
-    const pageFinished = webViewClient.match(
-        /\.method public final onPageFinished\(Landroid\/webkit\/WebView;Ljava\/lang\/String;\)V([\s\S]*?)\.end method/
-    );
-    assert.ok(pageFinished, 'WebView page-finished callback should exist');
-    const body = pageFinished[1];
-    const start = body.indexOf('# Page-finished is a state recheck');
-    const end = body.indexOf('\n    :page_finished_reveal_done', start);
-    assert.ok(start >= 0 && end > start, 'the guarded page-finished owner callback exists');
-    const gate = body.slice(start, end);
-    assert.match(gate, /MainActivity;->onWebViewPageFinished\(\)V/,
-        'the callback delegates ownership to MainActivity rather than directly revealing WebView');
-    assert.doesNotMatch(gate, /revealWebUi|revealLoginWebUi|setNativeScreen/,
-        'page-finished does not auto-reveal Spotify Web or replace the native screen');
-
-    const mainActivity = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/MainActivity.smali'), 'utf8');
-    const ownerCallback = mainActivity.match(
-        /\.method public final onWebViewPageFinished\(\)V([\s\S]*?)\.end method/
-    );
-    assert.ok(ownerCallback, 'MainActivity page-finished owner callback should exist');
-    assert.match(ownerCallback[1], /nativeLoginWebRequested[\s\S]*?isLoginWebPath\(\)Z[\s\S]*?applyLoginWebUi[\s\S]*?showNativeUiFrom/,
-        'only the explicit login request on a login path yields Web ownership; other paths stay native');
-
-    function modeledOwner(url, loginRequested) {
-        const value = String(url);
-        const isLoginPath = value.includes('accounts.spotify.com') ||
-            (value.includes('open.spotify.com') && /\/(login|signin|oauth|auth)(\/|$)/.test(new URL(value).pathname));
-        return Boolean(loginRequested && isLoginPath) ? 'login' : 'native';
-    }
-    assert.equal(modeledOwner('https://open.spotify.com/', false), 'native',
-        'an unconfirmed cold start stays on native Home');
-    assert.equal(modeledOwner('https://accounts.spotify.com/login', false), 'native',
-        'a page-finished callback cannot request login ownership by itself');
-    assert.equal(modeledOwner('https://accounts.spotify.com/login', true), 'login',
-        'an explicit login action can show the real account form');
-    assert.equal(modeledOwner('https://open.spotify.com/', true), 'native',
-        'a non-login SPA path returns ownership to native Home');
+test('[structure] page-finished cannot replace server verification with a route heuristic', () => {
+  const gate = fs.readFileSync(require('node:path').join(__dirname, '..', 'smali/com/melodix/music/NativeSessionGate.smali'), 'utf8');
+    const main = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/MainActivity.smali'), 'utf8');
+    assert.match(main, /onWebViewPageFinished\(\)V[\s\S]*?NativeSessionGate;->pageFinished/);
+    assert.match(main, /showNativeUiFrom\([\s\S]*?NativeSessionGate;->blocked/);
+    assert.match(gate, /pageFinished\([\s\S]*?->verify/);
+    assert.match(gate, /"token"[\s\S]*?"libraryOk"[\s\S]*?token-and-library-ok/);
 });
 
 test('a stalled Spotify page load leaves the splash and exposes retry after 30 seconds', () => {

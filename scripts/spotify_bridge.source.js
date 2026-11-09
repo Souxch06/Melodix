@@ -3600,6 +3600,8 @@
             attempt: boundedMediaLibraryCount(diagnostic.attempt, 999999),
             completed: true,
             token: diagnostic.bearer === true,
+            tokenApiHttp: boundedMediaLibraryCount(diagnostic.tokenApiHttp, 599),
+            tokenFallbackHttp: boundedMediaLibraryCount(diagnostic.tokenFallbackHttp, 599),
             tokenRefused: diagnostic.bearer !== true && refusal(diagnostic.tokenApiHttp) &&
                 refusal(diagnostic.tokenFallbackHttp),
             libraryHttp: boundedMediaLibraryCount(diagnostic.http, 599),

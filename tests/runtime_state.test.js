@@ -162,9 +162,9 @@ test('Spotify WebView desktop UA and client hints follow the installed Chromium 
     const factory = webViewFactory[1];
     const defaultUserAgentIndex = factory.indexOf('WebSettings;->getDefaultUserAgent(Landroid/content/Context;)Ljava/lang/String;');
     const playerProfileIndex = factory.indexOf('BrowserProfile;->desktopUserAgent(Landroid/content/Context;)Ljava/lang/String;');
-    const playerLoadIndex = factory.indexOf('https://open.spotify.com/');
+    const playerLoadIndex = factory.indexOf('NativeSessionGate;->initialUrl()');
     const accountsProfileIndex = factory.lastIndexOf('BrowserProfile;->desktopUserAgent(Landroid/content/Context;)Ljava/lang/String;');
-    const accountsLoadIndex = factory.indexOf('https://accounts.spotify.com/en/login');
+    const accountsLoadIndex = factory.lastIndexOf('NativeSessionGate;->initialUrl()');
 
     assert.ok(defaultUserAgentIndex >= 0 && defaultUserAgentIndex < playerProfileIndex,
         'the runtime WebView version is the source for the desktop UA');

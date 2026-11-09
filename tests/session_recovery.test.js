@@ -17,30 +17,17 @@ test('unknown player DOM can request verification, never becomes private-library
   assert.match(bridge, /window\.__sfMediaLibSessionProven = false/);
 });
 
-test('login action retries with a cookie before account navigation; explicit logout remains separate', () => {
+test('login action delegates to central verification/expiry-aware routing without deleting cookies', () => {
   const main = read('smali/com/melodix/music/MainActivity.smali');
-  const login = method(main, '.method public final openSpotifyLogin()V');
-  assert.match(login, /hasCookie\(\)Z\s+move-result v0\s+if-eqz v0, :native_login_without_cookie\s+invoke-static \{p0\}[^\n]*->verify[^\n]*\s+return-void/);
-  // Exercise the actual new smali branch for both cookie states.
-  for (const present of [false, true]) {
-    const prefix = login.slice(0, login.indexOf('    :native_login_without_cookie'));
-    const branch = prefix.match(/if-(eqz|nez) v0, :native_login_without_cookie/)[1];
-    const reachesAccounts = branch === 'eqz' ? !present : present;
-    assert.equal(reachesAccounts, !present);
-  }
-  const recovery = read('smali/com/melodix/music/NativeSessionRecovery.smali');
-  assert.doesNotMatch(recovery + login, /removeAllCookies|removeSessionCookies|deleteAllData|->A\(\)|nativeLogout|proofClear|sput-boolean/);
-  assert.doesNotMatch(recovery, /accounts\.spotify\.com|logout|desktop_spoof|UserAgent|spotify-app-version/);
-  assert.ok(recovery.indexOf('"runtime_state.js"') < recovery.indexOf('"native_ui_shell.js"'));
-  const cookieGrammar = new RegExp('(^|;[ ]*)sp_dc=[^;]+');
-  assert.equal(cookieGrammar.test('a=b; sp_dc=fixture'), true);
-  assert.equal(cookieGrammar.test('not_sp_dc=fixture'), false);
-  assert.equal(cookieGrammar.test('sp_dc='), false);
+  assert.match(method(main, '.method public final openSpotifyLogin()V'), /NativeSessionGate;->requestLogin/);
+  const gate = read('smali/com/melodix/music/NativeSessionGate.smali');
+  assert.match(method(gate, '.method public static requestLogin('), /expiredEvidence:Z[\s\S]*?hasCookie[\s\S]*?->verify[\s\S]*?->navigateLogin/);
+  assert.doesNotMatch(gate, /removeAllCookies|deleteAllData/);
 });
 
 // Execute the status helper's smali instructions against fake Android/JSON APIs.
 // This tests the actual branches and mutations, not a second implementation.
-function prepareStatus(payload, { cookie, now, started = 0 }, refusalOnly = false) {
+function prepareStatus(payload, { cookie, now, started = 0, expired = false }, refusalOnly = false) {
   const code = method(read('smali/com/melodix/music/' + (refusalOnly ? 'NativeAccessRefusal' : 'NativeSessionStatus') + '.smali'), '.method public static prepare(').split('\n').map(l => l.trim());
   const regs = { p0: { started }, p1: structuredClone(payload) };
   const labels = Object.fromEntries(code.map((l, i) => [l, i]));
@@ -54,8 +41,9 @@ function prepareStatus(payload, { cookie, now, started = 0 }, refusalOnly = fals
     if ((m = l.match(/^invoke-\S+ \{([^}]*)\}, (.*)$/))) {
       const args = m[1] ? m[1].split(', ').map(r => regs[r]) : [];
       const call = m[2];
-      if (call.includes('NativeAccessRefusal;->prepare')) {
-        const r = prepareStatus(args[1], {cookie, now, started: args[0].started}, true);
+      if (call.includes('NativeSessionGate;->canReconnect')) result = expired;
+      else if (call.includes('NativeAccessRefusal;->prepare')) {
+        const r = prepareStatus(args[1], {cookie, now, started: args[0].started, expired}, true);
         Object.assign(args[1], r.p1); args[0].started = r.p0.started; result = r.returnValue;
       }
       else if (call.includes('->optInt')) result = Number(args[0][args[1]]) || 0;
@@ -102,9 +90,8 @@ test('unproven loading has a fixed 15s deadline, then an error with safe retry a
     assert.match(r.p1.subtitle, / \[auth=/, 'technical detail follows the existing collapsed-disclosure grammar');
   }
   const timeout = read('smali/com/melodix/music/NativeSessionTimeout.smali');
-  assert.match(timeout, /cmp-long v1, v2, v4\s+if-nez v1, :timeout_done/, 'stale attempts cannot replace a newer attempt');
-  assert.match(timeout, /hasNativeHomeCardsAttached\(\)Z\s+move-result v1\s+if-nez v1, :timeout_done/, 'never replace successful cards');
-  assert.match(timeout, /WeakReference/);
+  assert.doesNotMatch(timeout, /NativeHomeShelfRenderer;->render/,'legacy timer cannot replace the state-machine surface');
+  assert.match(read('smali/com/melodix/music/NativeSessionGateTask.smali'), /presentation-deadline-not-expiration/);
 });
 
 test('navigation, guard, token outcome and bounded image observations survive one diagnostic copy', () => {
@@ -133,10 +120,10 @@ test('navigation, guard, token outcome and bounded image observations survive on
 });
 
 
-test('actual 400/403 token pair renders a refusal with retry and explicit reconnect, not a timeout', () => {
+test('legacy refusal presentation requires central completed-expiry evidence', () => {
   for (const cookie of [false, true]) {
     const input = {kind:'state', state:'error', sessionUnproven:true, tokenApiHttp:400, tokenFallbackHttp:403};
-    const r = prepareStatus(input, {cookie, now:20000, started:19000});
+    const r = prepareStatus(input, {cookie, now:20000, started:19000, expired:true});
     assert.equal(r.p1.title, 'Spotify refuse la demande d’accès (400/403)');
     assert.equal(r.p1.uri, 'melodix:action:retry-library');
     assert.equal(r.p1.secondaryUri, 'melodix:action:reconnect');
@@ -149,4 +136,9 @@ test('actual 400/403 token pair renders a refusal with retry and explicit reconn
     assert.equal(prepareStatus(input, {cookie:true, now:20000}, true).returnValue, 0,
       'never invent a 400 from only the final 403 or stale/loading data');
   }
+});
+
+test('a 400/403 pair without correlated expiry cannot offer destructive recovery',()=>{
+ const r=prepareStatus({state:'error',tokenApiHttp:400,tokenFallbackHttp:403},{cookie:true,now:20000},true);
+ assert.equal(r.returnValue,0);assert.notEqual(r.p1.secondaryUri,'melodix:action:reconnect');
 });

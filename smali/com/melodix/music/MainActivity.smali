@@ -5041,6 +5041,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
     .line 1
     invoke-super {p0}, Landroidx/activity/a;->onResume()V
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionGate;->resume(Lcom/melodix/music/MainActivity;)V
 
     invoke-static {}, Lcom/melodix/music/NativeStartupTiming;->resume()V
 
@@ -9582,11 +9583,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
 .method public final applyNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
     .locals 10
-    invoke-static {p0}, Lcom/melodix/music/NativeSessionGate;->blocked(Lcom/melodix/music/MainActivity;)Z
-    move-result v0
-    if-eqz v0, :session_data_allowed
-    return-void
-    :session_data_allowed
+
 
 
     # The bridge is reachable from the page itself: a null screen or a null
@@ -9595,6 +9592,12 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     if-eqz p1, :apply_done
 
     if-eqz p2, :apply_done
+
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionGate;->blocked(Lcom/melodix/music/MainActivity;)Z
+    move-result v0
+    if-eqz v0, :session_data_allowed
+    return-void
+    :session_data_allowed
 
     # Diag natif : quel payload arrive avec quel ecran courant (gate drop).
     :try_start_md1

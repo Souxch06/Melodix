@@ -29,7 +29,8 @@ function run(name, obj, state, value) {
     if(l==='return-void') return;
     if((m=l.match(/^invoke-\S+ \{([^}]*)\}, (.*)$/))) {
       const a=m[1]?m[1].split(', ').map(x=>r[x]):[], c=m[2];
-      if(c.includes('NativeSessionReconnect;-><init>')) a[0].activity={referent:a[1]};
+      if(c.includes('NativeSessionGate;->canReconnect')) result=state.expired===true;
+      else if(c.includes('NativeSessionReconnect;-><init>')) a[0].activity={referent:a[1]};
       else if(c.includes('Reference;->get()')) result=a[0].referent;
       else if(c.includes('->isFinishing()')) result=!!a[0].finishing;
       else if(c.includes('->isDestroyed()')) result=!!a[0].destroyed;
@@ -55,7 +56,7 @@ function run(name, obj, state, value) {
   }
   assert.fail('no return');
 }
-function fixture() {return {activity:{G:{},nativeVerificationStart:123},state:{cookie:true,proof:true,events:[],rows:[]}};}
+function fixture() {return {activity:{G:{},nativeVerificationStart:123},state:{cookie:true,proof:true,expired:true,events:[],rows:[]}};}
 
 test('explicit reconnect waits for deletion callback, checks cookie absence, then opens existing login',()=>{
   const {activity,state}=fixture();
@@ -100,4 +101,11 @@ test('actual shell preserves only numeric token codes across the Home bridge pay
   send('home',[{kind:'state',state:'error',title:'Fixture',tokenApiHttp:'SECRET',tokenFallbackHttp:9000}]);
   assert.equal(payload[0].tokenApiHttp,0); assert.equal(payload[0].tokenFallbackHttp,599);
   assert.doesNotMatch(JSON.stringify(payload),/SECRET/);
+});
+
+test('reconnect tap without completed expiry evidence never removes any cookie',()=>{
+  for (const expired of [false, undefined]) {
+    const {activity,state}=fixture();state.expired=expired;
+    run('start',activity,state);assert.deepEqual(state.events,[]);assert.equal(state.callback,undefined);
+  }
 });

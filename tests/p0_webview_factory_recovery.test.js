@@ -123,47 +123,14 @@ test('C() guarantees a page load right after the WebView is stored', () => {
 });
 
 test('ensureWebPageLoaded is idempotent, uses the same target and never hides a failure', () => {
+  const gate = fs.readFileSync(require('node:path').join(__dirname, '..', 'smali/com/melodix/music/NativeSessionGate.smali'), 'utf8');
     const activity = read('smali/com/melodix/music/MainActivity.smali');
     const body = methodBody(activity, '.method public final ensureWebPageLoaded()V');
-
-    // Idempotent: a real page on screen returns immediately, so onResume can
-    // never reload the player while the user is listening. A null URL or an
-    // empty document is repaired.
-    assert.match(body, /const-string v1, "ensure-check"/);
-    assert.match(body, /getUrl\(\)Ljava\/lang\/String;/);
-    assert.match(body, /if-eqz v1, :do_load/,
-        'getUrl()==null doit aller directement au chargement, pas dereferencer null');
-    assert.match(body, /const-string v2, "about:blank"[\s\S]*invoke-virtual \{v2, v1\}, Ljava\/lang\/String;->equals\(Ljava\/lang\/Object;\)Z[\s\S]*move-result v1[\s\S]*if-eqz v1, :proven_check/,
-        'about:blank se charge; une URL reelle passe par le controle de session (MEL-BUG-068)');
-    assert.match(body, /:proven_check[\s\S]*goto :done/,
-        'session prouvée + URL reelle = aucun rechargement (onResume ne coupe jamais la lecture)');
-    // MEL-BUG-071: every remote page re-asserts the login surface (the old
-    // guard only did it for accounts.spotify.com and let open.spotify.com fall
-    // through, which is how the native Home was painted over an unproven
-    // session on a warm start). A local shell asset stays untouched, and an
-    // accounts.spotify.com page is only revealed, never reloaded.
-    assert.match(body, /:force_login[\s\S]*startsWith[\s\S]*if-nez v2, :done[\s\S]*revealLoginWebUi\(\)V[\s\S]*accounts\.spotify\.com[\s\S]*if-eqz v2, :done/,
-        'session non prouvée + page distante = login réaffiché (rechargé sauf si la page est déjà le login); page locale = inchangé (pas de boucle, shell natif préservé)');
-    assert.doesNotMatch(body, /invoke-virtual \{v1, v2\}, Ljava\/lang\/String;->equals/,
-        'le code ne doit jamais invoquer equals sur une URL potentiellement nulle');
-    assert.match(body, /:do_load/);
-
-    // Same URLs as the factory, so the login flow is not altered.
-    assert.match(body, /https:\/\/open\.spotify\.com\//);
-    assert.match(body, /accounts\.spotify\.com\/en\/login/);
-
-    // Failures are recorded, never swallowed, and the branch names itself.
-    assert.match(body, /recordWebViewConfigFailure\(Ljava\/lang\/Throwable;\)V/);
-    assert.match(body, /const-string v1, "ensure-load"/);
-    assert.match(body, /const-string v1, "ensure-load-failed"/);
-
-    // No cookie, cache or session manipulation: this only asks for a page.
-    assert.doesNotMatch(body, /clearCache|clearHistory|evaluateJavascript/);
-    // MEL-BUG-067: the cookie check is allowed but restricted to a PRESENCE test
-    // of sp_dc — the cookie value must never be read, logged or stored.
-    const cm = body.match(/CookieManager;->getInstance\(\)[\s\S]*?:login_url/);
-    assert.ok(cm, 'cookie check present on the proven path');
-    assert.doesNotMatch(cm[0], /getAllCookies|Log\.|println|sp_dc=[^=]/, 'only sp_dc presence is tested, value never read');
+    assert.match(body, /getUrl\(\)Ljava\/lang\/String;\s+move-result-object v1\s+if-nez v1, :done/);
+    assert.match(body, /NativeSessionGate;->initialUrl/);
+    assert.match(body, /recordWebViewConfigFailure/);
+    assert.doesNotMatch(body, /clearCache|clearHistory|removeAllCookies|revealLoginWebUi/);
+    assert.match(gate, /autoUsed:Z[\s\S]*?about:blank/);
 });
 
 test('the load watchdog retries a WebView that never requested a page', () => {

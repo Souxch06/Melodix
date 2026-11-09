@@ -2,6 +2,9 @@
 .super Ljava/lang/Object;
 # Process-scoped launch budget survives Activity recreation; UI refs are weak.
 # 0 verifying, 1 no-session, 2 session-expired, 3 valid, 4 error.
+.field public static tokenApiHttp:I
+.field public static tokenFallbackHttp:I
+.field public static libraryHttp:I
 .field public static lastReason:Ljava/lang/String;
 .field public static activeLaunch:Z
 .field public static state:I
@@ -16,7 +19,7 @@
 
 .method public static bind(Lcom/melodix/music/MainActivity;)V
     .locals 2
-new-instance v0, Ljava/lang/ref/WeakReference;
+    new-instance v0, Ljava/lang/ref/WeakReference;
     invoke-direct {v0, p0}, Ljava/lang/ref/WeakReference;-><init>(Ljava/lang/Object;)V
     sput-object v0, Lcom/melodix/music/NativeSessionGate;->owner:Ljava/lang/ref/WeakReference;
     const/4 v0, 0x0
@@ -39,7 +42,7 @@ new-instance v0, Ljava/lang/ref/WeakReference;
 
 .method public static transition(ILjava/lang/String;)V
     .locals 3
-sget v0, Lcom/melodix/music/NativeSessionGate;->state:I
+    sget v0, Lcom/melodix/music/NativeSessionGate;->state:I
     sput p0, Lcom/melodix/music/NativeSessionGate;->state:I
     sput-object p1, Lcom/melodix/music/NativeSessionGate;->lastReason:Ljava/lang/String;
     new-instance v1, Ljava/lang/StringBuilder;
@@ -65,7 +68,7 @@ sget v0, Lcom/melodix/music/NativeSessionGate;->state:I
 
 .method public static name(I)Ljava/lang/String;
     .locals 1
-packed-switch p0, :states
+    packed-switch p0, :states
     const-string v0, "error"
     return-object v0
     :verifying
@@ -91,11 +94,14 @@ packed-switch p0, :states
 
 .method public static begin(Lcom/melodix/music/MainActivity;)V
     .locals 5
-sget v0, Lcom/melodix/music/NativeSessionGate;->generation:I
+    sget v0, Lcom/melodix/music/NativeSessionGate;->generation:I
     add-int/lit8 v0, v0, 0x1
     sput v0, Lcom/melodix/music/NativeSessionGate;->generation:I
     const/4 v1, 0x0
     sput v1, Lcom/melodix/music/NativeSessionGate;->lastAttempt:I
+    sput v1, Lcom/melodix/music/NativeSessionGate;->tokenApiHttp:I
+    sput v1, Lcom/melodix/music/NativeSessionGate;->tokenFallbackHttp:I
+    sput v1, Lcom/melodix/music/NativeSessionGate;->libraryHttp:I
     sput-boolean v1, Lcom/melodix/music/NativeSessionGate;->expiredEvidence:Z
     sput-boolean v1, Lcom/melodix/music/NativeSessionGate;->loginActive:Z
     const/4 v1, 0x1
@@ -118,7 +124,7 @@ sget v0, Lcom/melodix/music/NativeSessionGate;->generation:I
 
 .method public static initialUrl()Ljava/lang/String;
     .locals 2
-invoke-static {}, Lcom/melodix/music/NativeSessionRecovery;->hasCookie()Z
+    invoke-static {}, Lcom/melodix/music/NativeSessionRecovery;->hasCookie()Z
     move-result v0
     if-nez v0, :player
     sget-boolean v0, Lcom/melodix/music/NativeSessionGate;->autoUsed:Z
@@ -140,7 +146,7 @@ invoke-static {}, Lcom/melodix/music/NativeSessionRecovery;->hasCookie()Z
 
 .method public static blocked(Lcom/melodix/music/MainActivity;)Z
     .locals 2
-sget v0, Lcom/melodix/music/NativeSessionGate;->state:I
+    sget v0, Lcom/melodix/music/NativeSessionGate;->state:I
     const/4 v1, 0x3
     if-eq v0, v1, :allowed
     sget-boolean v0, Lcom/melodix/music/NativeSessionGate;->loginActive:Z
@@ -157,7 +163,7 @@ sget v0, Lcom/melodix/music/NativeSessionGate;->state:I
 
 .method public static pageFinished(Lcom/melodix/music/MainActivity;)V
     .locals 2
-sget-boolean v0, Lcom/melodix/music/NativeSessionGate;->loginActive:Z
+    sget-boolean v0, Lcom/melodix/music/NativeSessionGate;->loginActive:Z
     if-eqz v0, :done
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->isLoginWebPath()Z
     move-result v0
@@ -195,7 +201,7 @@ sget-boolean v0, Lcom/melodix/music/NativeSessionGate;->loginActive:Z
 
 .method public static result(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
     .locals 5
-:try_start
+    :try_start
     new-instance v0, Lorg/json/JSONObject;
     invoke-direct {v0, p1}, Lorg/json/JSONObject;-><init>(Ljava/lang/String;)V
     const-string v1, "generation"
@@ -215,6 +221,19 @@ sget-boolean v0, Lcom/melodix/music/NativeSessionGate;->loginActive:Z
     sget v2, Lcom/melodix/music/NativeSessionGate;->lastAttempt:I
     if-le v1, v2, :done
     sput v1, Lcom/melodix/music/NativeSessionGate;->lastAttempt:I
+    const-string v1, "tokenApiHttp"
+    invoke-static {v0, v1}, Lcom/melodix/music/NativeSessionGate;->http(Lorg/json/JSONObject;Ljava/lang/String;)I
+    move-result v1
+    sput v1, Lcom/melodix/music/NativeSessionGate;->tokenApiHttp:I
+    const-string v1, "tokenFallbackHttp"
+    invoke-static {v0, v1}, Lcom/melodix/music/NativeSessionGate;->http(Lorg/json/JSONObject;Ljava/lang/String;)I
+    move-result v1
+    sput v1, Lcom/melodix/music/NativeSessionGate;->tokenFallbackHttp:I
+    const-string v1, "libraryHttp"
+    invoke-static {v0, v1}, Lcom/melodix/music/NativeSessionGate;->http(Lorg/json/JSONObject;Ljava/lang/String;)I
+    move-result v1
+    sput v1, Lcom/melodix/music/NativeSessionGate;->libraryHttp:I
+
     const-string v1, "token"
     invoke-virtual {v0, v1}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;)Z
     move-result v1
@@ -280,7 +299,7 @@ sget-boolean v0, Lcom/melodix/music/NativeSessionGate;->loginActive:Z
 
 .method public static navigateLogin(Lcom/melodix/music/MainActivity;)V
     .locals 2
-const/4 v0, 0x1
+    const/4 v0, 0x1
     sput-boolean v0, Lcom/melodix/music/NativeSessionGate;->loginActive:Z
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginWebRequested:Z
     const/4 v0, 0x0
@@ -302,7 +321,7 @@ const/4 v0, 0x1
 
 .method public static requestLogin(Lcom/melodix/music/MainActivity;)V
     .locals 2
-sget-boolean v0, Lcom/melodix/music/NativeSessionGate;->expiredEvidence:Z
+    sget-boolean v0, Lcom/melodix/music/NativeSessionGate;->expiredEvidence:Z
     if-nez v0, :login
     invoke-static {}, Lcom/melodix/music/NativeSessionRecovery;->hasCookie()Z
     move-result v0
@@ -316,7 +335,9 @@ sget-boolean v0, Lcom/melodix/music/NativeSessionGate;->expiredEvidence:Z
 
 .method public static canReconnect()Z
     .locals 2
-sget v0, Lcom/melodix/music/NativeSessionGate;->state:I
+    sget-boolean v0, Lcom/melodix/music/NativeSessionGate;->loginActive:Z
+    if-nez v0, :no
+    sget v0, Lcom/melodix/music/NativeSessionGate;->state:I
     const/4 v1, 0x2
     if-ne v0, v1, :no
     sget-boolean v0, Lcom/melodix/music/NativeSessionGate;->expiredEvidence:Z
@@ -328,7 +349,7 @@ sget v0, Lcom/melodix/music/NativeSessionGate;->state:I
 
 .method public static destroy(Lcom/melodix/music/MainActivity;)V
     .locals 1
-const/4 v0, 0x0
+    const/4 v0, 0x0
     sput-object v0, Lcom/melodix/music/NativeSessionGate;->overlay:Landroid/view/View;
     invoke-virtual {p0}, Landroid/app/Activity;->isFinishing()Z
     move-result v0
@@ -350,7 +371,7 @@ const/4 v0, 0x0
 
 .method public static paint(Lcom/melodix/music/MainActivity;)V
     .locals 0
-invoke-static {p0}, Lcom/melodix/music/NativeSessionSurface;->paint(Lcom/melodix/music/MainActivity;)V
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionSurface;->paint(Lcom/melodix/music/MainActivity;)V
     return-void
 .end method
 
@@ -401,4 +422,51 @@ invoke-static {p0}, Lcom/melodix/music/NativeSessionSurface;->paint(Lcom/melodix
     invoke-static {v0}, Lcom/melodix/music/NativeSessionGate;->paint(Lcom/melodix/music/MainActivity;)V
     :done
     return-void
+.end method
+
+.method public static http(Lorg/json/JSONObject;Ljava/lang/String;)I
+    .locals 2
+    invoke-virtual {p0, p1}, Lorg/json/JSONObject;->optInt(Ljava/lang/String;)I
+    move-result v0
+    const/16 v1, 0x64
+    if-lt v0, v1, :none
+    const/16 v1, 0x257
+    if-gt v0, v1, :none
+    return v0
+    :none
+    const/4 v0, 0x0
+    return v0
+.end method
+
+.method public static resume(Lcom/melodix/music/MainActivity;)V
+    .locals 2
+    sget v0, Lcom/melodix/music/NativeSessionGate;->state:I
+    const/4 v1, 0x3
+    if-ne v0, v1, :done
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionRecovery;->verify(Lcom/melodix/music/MainActivity;)V
+    :done
+    return-void
+.end method
+
+.method public static details()Ljava/lang/String;
+    .locals 3
+    new-instance v0, Ljava/lang/StringBuilder;
+    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+    sget-object v1, Lcom/melodix/music/NativeSessionGate;->lastReason:Ljava/lang/String;
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v1, " · token API="
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    sget v2, Lcom/melodix/music/NativeSessionGate;->tokenApiHttp:I
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v1, " · repli="
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    sget v2, Lcom/melodix/music/NativeSessionGate;->tokenFallbackHttp:I
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v1, " · bibliothèque="
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    sget v2, Lcom/melodix/music/NativeSessionGate;->libraryHttp:I
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v0
+    return-object v0
 .end method

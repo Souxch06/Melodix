@@ -85,21 +85,13 @@ test('MEL-BUG-069e: settings rows keep the hardened factory path', () => {
 });
 
 test('MEL-BUG-069f: an unproven auto-continued page never revokes the login surface', () => {
-  const finished = stripComments(method(main, '.method public final onWebViewPageFinished()V'));
-  // Spotify auto-continues the login URL to open.spotify.com/?flow_ctx=... with
-  // a browser-valid sp_dc cookie while AppSingleton.B stays false. That path
-  // must keep (and re-assert) the login surface instead of handing the
-  // foreground to the native Home.
-  assert.match(finished,
-    /:native_login_route_finished[\s\S]*sget-boolean v0, Lcom\/melodix\/music\/AppSingleton;->B:Z[\s\S]*if-eqz v0, :native_login_route_proven[\s\S]*const-string v2, "file:\/\/"[\s\S]*applyLoginWebUi\(Ljava\/lang\/String;Ljava\/lang\/String;\)V[\s\S]*return-void[\s\S]*:native_login_route_proven[\s\S]*iput-boolean v0, p0, Lcom\/melodix\/music\/MainActivity;->nativeLoginWebRequested:Z/,
-    'page-finished : unproven + page distante -> login réaffiché, aucune libération');
-  const ready = stripComments(method(main, '.method public final postNativeUiReady()V'));
-  assert.match(ready,
-    /:native_ready_clear_login[\s\S]*sget-boolean v0, Lcom\/melodix\/music\/AppSingleton;->B:Z[\s\S]*if-nez v0, :native_login_gate_done_keep[\s\S]*startsWith\(Ljava\/lang\/String;\)Z[\s\S]*if-nez v0, :native_login_gate_done_keep[\s\S]*iput-boolean v0, p0, Lcom\/melodix\/music\/MainActivity;->nativeLoginWebRequested:Z/,
-    'ui-ready : la surface login ne se referme que si la session est prouvée ou la page locale');
-  // The cookie is still only tested for presence (MEL-BUG-067), never logged.
-  assert.doesNotMatch(finished, /getCookie|sp_dc/,
-    'aucune lecture de cookie dans le chemin page-finished');
+  const gate = fs.readFileSync(require('node:path').join(__dirname, '..', 'smali/com/melodix/music/NativeSessionGate.smali'), 'utf8');
+  const finished = method(main, '.method public final onWebViewPageFinished()V');
+  assert.match(finished, /NativeSessionGate;->pageFinished[\s\S]*?showNativeUiFrom/);
+  const check = method(gate, '.method public static pageFinished(');
+  assert.match(check, /open.spotify.com[\s\S]*?freshLogin:Z[\s\S]*?->verify/);
+  assert.doesNotMatch(check, /showNativeUi|removeAllCookies|getCookie/);
+  assert.match(method(main, '.method public final showNativeUiFrom('), /NativeSessionGate;->blocked/);
 });
 
 test('MEL-BUG-070: no payload branch can draw Home over an unproven login surface', () => {
@@ -142,34 +134,15 @@ test('MEL-BUG-070: no payload branch can draw Home over an unproven login surfac
     'aucune URL ni cookie dans le journal de refus');
 });
 
-test('MEL-BUG-071: a warm start on the player URL still requests the login surface', () => {
-  // Second device report after test.106: still "ecran=home auth=false sp_dc=true"
-  // but with NO *-dropped-unproven label, i.e. the payload locks were never hit
-  // because isLoginWebRoute() was false — the login surface had never been
-  // requested. Cause: :force_login only revealed it for accounts.spotify.com and
-  // did goto :done for open.spotify.com, so a warm start kept the player URL.
-  const body = stripComments(method(main, '.method public final ensureWebPageLoaded()V'));
-  const def = /^\s*:force_login\s*$/m.exec(body);
-  assert.ok(def, ':force_login présent');
-  const next = /^\s*:login_url\s*$/m.exec(body.slice(def.index + 1));
-  assert.ok(next, ':login_url présent');
-  const block = body.slice(def.index, def.index + 1 + next.index);
-
-  // Local shell asset is the only URL that short-circuits.
-  assert.match(block, /startsWith\(Ljava\/lang\/String;\)Z[\s\S]*?if-nez v2, :done/,
-    'une page locale (file://) reste seule exclue');
-  // Every remote page re-asserts the login surface, before the host check.
-  const revealAt = block.indexOf('revealLoginWebUi()V');
-  const accountsAt = block.indexOf('const-string v2, "accounts.spotify.com"');
-  assert.ok(revealAt > 0, 'revealLoginWebUi appelé sur le chemin distant');
-  assert.ok(accountsAt > revealAt,
-    'revealLoginWebUi couvre TOUTE page distante, pas seulement accounts.spotify.com');
-  // accounts.spotify.com is only revealed (already the login form), never reloaded.
-  assert.match(block.slice(accountsAt), /if-eqz v2, :done/, 'accounts.spotify.com -> pas de rechargement');
-  // The player URL must not reach :done before revealLoginWebUi.
-  const beforeReveal = block.slice(0, revealAt);
-  assert.doesNotMatch(beforeReveal.slice(beforeReveal.indexOf('startsWith')), /goto :done|if-eqz v2, :done/,
-    'aucune sortie :done entre le test https et revealLoginWebUi');
+test('session gate: warm player stays hidden until valid, without repeated login', () => {
+  const gate = fs.readFileSync(require('node:path').join(__dirname, '..', 'smali/com/melodix/music/NativeSessionGate.smali'), 'utf8');
+  const ensure = method(main, '.method public final ensureWebPageLoaded()V');
+  assert.match(ensure, /if-nez v1, :done/);
+  const show = method(main, '.method public final showNativeUiFrom(');
+  assert.match(show, /NativeSessionGate;->blocked[\s\S]*?return-void/);
+  const blocked = method(gate, '.method public static blocked(');
+  assert.match(blocked, /const\/4 v1, 0x3[\s\S]*?if-eq v0, v1, :allowed/);
+  assert.match(blocked, /loginActive:Z[\s\S]*?applySessionLoginSurface/);
 });
 
 test('MEL-BUG-072: the shell and the route are refused without a session proof', () => {

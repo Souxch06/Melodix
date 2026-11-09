@@ -49,3 +49,15 @@ Les quatre entrées show/route/payload/rows sont désormais bloquées avant vali
 MDXPERF admet explicitement les transitions et raisons fixes, et le diagnostic copiable contient `sessionState`. Aucun corps de réponse, URL ni identifiant de compte n’est ajouté au journal.
 
 Tests ciblés : 11 tests session-gate et contrôles registres des helpers. Première suite globale : 1012 tests, 983 réussites, 25 échecs, 4 ignorés. Les échecs comprennent des contrats historiques exigeant le login à chaque resume et l’accueil dès page-finished (désormais explicitement interdits), ainsi que les interpréteurs de tests qui ne connaissent pas encore la nouvelle garde ; ils doivent être migrés à l’étape 4, pas désactivés. Aucune validation de pixels/appareil à ce stade.
+
+## Étape 4 : migration des contrats et validation
+
+Les tests historiques qui exigeaient le login forcé à chaque resume ou l’accueil dès une URL player ont été remplacés par le nouveau contrat centralisé ; leurs contrôles de cookies, garde privée et URL officielle sont conservés. Les interpréteurs smali de routes natives travaillent explicitement **après** validation, les décisions pré-validation étant exécutées dans `session_gate.test.js`. Ajout d’un test négatif réel sur l’entrée de suppression : sans expiration, aucun appel CookieManager.
+
+Durcissements de validation : les flags MainActivity partagés sont publics (contrôle d’accès interclasse), p1/p2 nuls sont ignorés avant tout rendu, les détails affichent uniquement les codes HTTP bornés et une raison fixe. Une session précédemment validée est revérifiée au retour premier plan, sans remettre le budget automatique à zéro. Une reconnexion destructive est interdite pendant la navigation de login : l’ancienne preuve d’expiration ne doit pas autoriser l’effacement d’un cookie qui pourrait venir d’être renouvelé.
+
+`tests/android/SessionGateInstrumentation.java` et `.github/workflows/test-session-gate.yml` constituent une nouvelle instrumentation **synthétique isolée** : premier lancement sans compte, délai 3 s, succès jeton+bibliothèque simulé, réseau/401 isolé, expiration corrélée simulée, refus frais, résultat ancien, rotation, recréation, resume et Retour. Aucun cookie/token n’est lu, écrit ou supprimé par le harness. Aucun secret/URL/stack brut dans ses résultats. Ce protocole ne remplace pas une vraie connexion Spotify ; l’ancienne CI images reste inchangée et son échec précédent n’est pas reclassé en réussite.
+
+Suite locale finale avant lancement CI : voir résultats exacts ci-dessous. Le workflow Android et le build preview doivent être exécutés depuis le SHA poussé ; leurs résultats ne sont pas encore connus au moment de cette entrée.
+
+Résultat local : `npm test` — **1019 tests, 1015 pass, 0 fail, 4 skip**. `smali_register_check.py NativeSession*.smali` — 0 problème sur 10 fichiers. `git diff --check` — propre. Les requêtes token/library, leurs en-têtes et le profil WebView n’ont pas changé ; les changements JS sont strictement observation de fin de tentative et déclenchement de vérification via le pipeline existant.

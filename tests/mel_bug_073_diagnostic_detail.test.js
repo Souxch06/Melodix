@@ -89,8 +89,8 @@ test('MEL-BUG-073d: the copied text carries locks, counters and the visible surf
     'route/show/rows dans cet ordre');
   // Still no secrets: the cookie is tested for presence only.
   assert.doesNotMatch(diag, /getAllCookies|sp_dc=[^"]|getToken/);
-  // The startup sequence is journaled explicitly.
-  const ensure = method(main, '.method public final ensureWebPageLoaded(');
-  assert.match(ensure, /const-string v1, "ensure"[\s\S]*?const-string v2, "cold"/, 'démarrage à froid journalisé');
-  assert.match(ensure, /const-string v1, "ensure"[\s\S]*?const-string v2, "warm"/, 'démarrage à chaud journalisé');
+  const gate = fs.readFileSync(require('node:path').join(__dirname, '..', 'smali/com/melodix/music/NativeSessionGate.smali'), 'utf8');
+  assert.match(diag, /sessionState=/);
+  assert.match(gate, /session-state from=/);
+  assert.match(gate, /cookie-absent-auto-login|verification-start/);
 });

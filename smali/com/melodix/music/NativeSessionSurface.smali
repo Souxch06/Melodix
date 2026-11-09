@@ -36,6 +36,12 @@
     if-ne v1, v3, :remove_old
     sget-boolean v3, Lcom/melodix/music/NativeSessionSurface;->renderedLogin:Z
     if-ne v2, v3, :remove_old
+    const-string v3, "sessionDetails"
+    invoke-static {v0, v3}, Lcom/melodix/music/NativeSessionSurface;->text(Landroid/view/View;Ljava/lang/String;)Landroid/widget/TextView;
+    move-result-object v3
+    invoke-static {}, Lcom/melodix/music/NativeSessionGate;->details()Ljava/lang/String;
+    move-result-object v4
+    invoke-virtual {v3, v4}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
     invoke-virtual {v0}, Landroid/view/View;->bringToFront()V
     return-void
     :remove_old
@@ -101,6 +107,9 @@
     const/4 v5, 0x0
     goto :action
     :reconnect_action
+    invoke-static {}, Lcom/melodix/music/NativeSessionGate;->canReconnect()Z
+    move-result v4
+    if-eqz v4, :action_done
     const-string v4, "Se reconnecter — effacer la session"
     const/4 v5, 0x2
     :action
@@ -121,7 +130,8 @@
     const-string v4, "sessionDetails"
     invoke-static {v0, v4}, Lcom/melodix/music/NativeSessionSurface;->text(Landroid/view/View;Ljava/lang/String;)Landroid/widget/TextView;
     move-result-object v4
-    sget-object v5, Lcom/melodix/music/NativeSessionGate;->lastReason:Ljava/lang/String;
+    invoke-static {}, Lcom/melodix/music/NativeSessionGate;->details()Ljava/lang/String;
+    move-result-object v5
     invoke-virtual {v4, v5}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
     new-instance v5, Lcom/melodix/music/NativeHomeShelfRenderer$DetailsToggle;
     invoke-direct {v5, v3, v4}, Lcom/melodix/music/NativeHomeShelfRenderer$DetailsToggle;-><init>(Landroid/widget/TextView;Landroid/widget/TextView;)V

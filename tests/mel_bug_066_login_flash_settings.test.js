@@ -23,34 +23,25 @@ const method = (src, sig) => {
 };
 
 test('MEL-BUG-066a: nativeLoginPageCommitted marker exists and is managed', () => {
+  const gate = fs.readFileSync(require('node:path').join(__dirname, '..', 'smali/com/melodix/music/NativeSessionGate.smali'), 'utf8');
   const main = read('smali/com/melodix/music/MainActivity.smali');
-  assert.ok(main.includes('.field private nativeLoginPageCommitted:Z'), 'field declared');
-  // set false when a login is requested
-  for (const name of ['openSpotifyLogin', 'revealLoginWebUi']) {
-    const m = method(main, '.method public final ' + name + '(');
-    assert.match(m, /iput-boolean v0, p0, Lcom\/melodix\/music\/MainActivity;->nativeLoginWebRequested:Z\s*\n\s*(?:#[^\n]*\n\s*)*const\/4 v0, 0x0\s*\n\s*iput-boolean v0, p0, Lcom\/melodix\/music\/MainActivity;->nativeLoginPageCommitted:Z/,
-      name + ' resets the committed marker when requesting login');
-  }
-  // set true when a login-path page commits
-  const fin = method(main, '.method public final onWebViewPageFinished(');
-  assert.match(fin, /const\/4 v0, 0x1\s*\n\s*iput-boolean v0, p0, Lcom\/melodix\/music\/MainActivity;->nativeLoginPageCommitted:Z[\s\S]*?applyLoginWebUi/,
-    'page-finished on a login path marks it committed and stays on the web UI');
+  assert.match(main, /\.field public nativeLoginPageCommitted:Z/);
+  const nav = method(gate, '.method public static navigateLogin(');
+  assert.match(nav, /const\/4 v0, 0x0\s+iput-boolean v0, p0, .*->nativeLoginPageCommitted:Z/);
+  const fin = method(gate, '.method public static pageFinished(');
+  assert.match(fin, /isLoginWebPath\(\)Z[\s\S]*?const\/4 v0, 0x1[\s\S]*?nativeLoginPageCommitted:Z[\s\S]*?applySessionLoginSurface/);
+  assert.match(fin, /nativeLoginPageCommitted:Z[\s\S]*?open.spotify.com[\s\S]*?->verify/);
 });
 
 test('MEL-BUG-066a: JS-driven callbacks cannot close the login surface before it commits', () => {
+  const gate = fs.readFileSync(require('node:path').join(__dirname, '..', 'smali/com/melodix/music/NativeSessionGate.smali'), 'utf8');
   const main = read('smali/com/melodix/music/MainActivity.smali');
-  for (const name of ['postNativeUiReady', 'postNativeUiRoute']) {
-    const m = method(main, '.method public final ' + name + '(');
-    // MEL-BUG-069: the committed marker is still required, and it is no longer
-    // sufficient — the session must also be proven (or the page must be the
-    // local shell asset) before the login surface is released.
-    assert.match(m, /iget-boolean v0, p0, Lcom\/melodix\/music\/MainActivity;->nativeLoginPageCommitted:Z\s*\n\s*if-eqz v0, :native_login_gate_done_keep[\s\S]*?sget-boolean v0, Lcom\/melodix\/music\/AppSingleton;->B:Z\s*\n\s*if-nez v0, :native_login_gate_done_keep[\s\S]*?const\/4 v0, 0x0\s*\n\s*iput-boolean v0, p0, Lcom\/melodix\/music\/MainActivity;->nativeLoginWebRequested:Z/,
-      name + ' clears the login flag only after the login page committed AND the session is proven');
+  for (const name of ['showNativeUiFrom', 'activateNativeUiRoute', 'applyNativeUiData', 'renderNativeRows']) {
+    const m = method(main, '.method public final '+name+'(');
+    assert.match(m, /NativeSessionGate;->blocked[\s\S]*?return-void/);
   }
-  // page-finished still closes the surface on a real non-login page (post-login redirect)
-  const fin = method(main, '.method public final onWebViewPageFinished(');
-  assert.match(fin, /isLoginWebPath\(\)Z[\s\S]*?nativeLoginWebRequested:Z[\s\S]*?showNativeUiFrom/,
-    'a real non-login page still returns to the native shell');
+  assert.match(method(gate, '.method public static pageFinished('), /freshLogin:Z[\s\S]*?NativeSessionRecovery;->verify/);
+  assert.doesNotMatch(method(gate, '.method public static pageFinished('), /showNativeUi|loadUrl|removeAllCookies/);
 });
 
 test('MEL-BUG-066b: settings icon slot is a soft glow circle with accent ring', () => {
@@ -90,16 +81,11 @@ test('MEL-BUG-067a: login page zoom is mobile-sized and reset stays 100% on the 
 });
 
 test('MEL-BUG-067b: missing sp_dc cookie forces the login screen first, even with a persisted marker', () => {
-  const main = read('smali/com/melodix/music/MainActivity.smali');
-  const at = main.indexOf('sget-boolean v1, Lcom/melodix/music/MainActivity;->l0:Z');
-  const block = main.slice(at, main.indexOf(':have_url', at));
-  assert.match(main, /:proven_check[\s\S]*:force_login[\s\S]*revealLoginWebUi/, 'force_login réaffiche la surface login même avec une URL déjà chargée');
-  assert.match(block, /invoke-static \{\}, Landroid\/webkit\/CookieManager;->getInstance\(\)Landroid\/webkit\/CookieManager;/);
-  assert.match(block, /CookieManager;->getCookie\(Ljava\/lang\/String;\)Ljava\/lang\/String;\s*\n\s*move-result-object v2\s*\n\s*if-eqz v2, :login_url/,
-    'no cookie string -> login URL');
-  assert.match(block, /const-string v3, "sp_dc="\s*\n\s*invoke-virtual \{v2, v3\}, Ljava\/lang\/String;->contains\(Ljava\/lang\/CharSequence;\)Z\s*\n\s*move-result v2\s*\n\s*if-eqz v2, :login_url/,
-    'no sp_dc in the cookie string -> login URL + revealLoginWebUi, regardless of persisted markers');
-  assert.match(block, /const-string v1, "https:\/\/open\.spotify\.com\/"/, 'cookie present -> player URL as before');
-  assert.doesNotMatch(block, /getAllCookies|Log\.|println/, 'the cookie value is never read, logged or stored');
-  assert.doesNotMatch(main, /hasProvenSessionCookie/, 'no helper method: the check is inline (a helper call here crashed the emulator build)');
+  const gate = fs.readFileSync(require('node:path').join(__dirname, '..', 'smali/com/melodix/music/NativeSessionGate.smali'), 'utf8');
+  const initial = method(gate, '.method public static initialUrl(');
+  assert.match(initial, /hasCookie\(\)Z[\s\S]*?cookie-absent-auto-login[\s\S]*?accounts.spotify.com/);
+  assert.doesNotMatch(initial, /LoggedIn|AppSingleton;->B/);
+  const recovery = read('smali/com/melodix/music/NativeSessionRecovery.smali');
+  assert.match(recovery, /Pattern;->compile/);
+  assert.doesNotMatch(gate, /getAllCookies|Log\.|println|removeAllCookies/);
 });

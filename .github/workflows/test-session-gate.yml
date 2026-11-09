@@ -1,0 +1,94 @@
+name: Test login-first session gate on Android
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Full source SHA to build and test
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+jobs:
+  build:
+    uses: ./.github/workflows/preview-apk.yml
+    with:
+      release_tag: v1.3.2-test.124-preview
+      source_ref: ${{ inputs.source_ref }}
+      build_only: true
+      target_debuggable: true
+      apk_suffix: '-session-instrumentation'
+    secrets: inherit
+  android:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.source_ref }}
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4.0.4
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: ${{ needs.build.outputs.apk_name }}
+          path: target-apk
+      - name: Compile and sign synthetic session instrumentation
+        env:
+          MELODIX_PREVIEW_KEYSTORE_B64: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_B64 }}
+          MELODIX_PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
+          MELODIX_PREVIEW_KEY_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEY_PASSWORD || secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == '${{ inputs.source_ref }}' ]]
+          sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
+          android_jar="$ANDROID_HOME/platforms/android-36/android.jar"
+          tools="$ANDROID_HOME/build-tools/35.0.0"
+          mkdir -p "$RUNNER_TEMP/session-classes" "$RUNNER_TEMP/session-dex"
+          javac --release 8 -classpath "$android_jar" -d "$RUNNER_TEMP/session-classes" tests/android/SessionGateInstrumentation.java
+          mapfile -t classes < <(find "$RUNNER_TEMP/session-classes" -name '*.class')
+          "$tools/d8" --lib "$android_jar" --min-api 24 --output "$RUNNER_TEMP/session-dex" "${classes[@]}"
+          sed 's/HomeRenderInstrumentation/SessionGateInstrumentation/g' tests/android/AndroidManifest.xml > "$RUNNER_TEMP/SessionManifest.xml"
+          "$tools/aapt" package -f -M "$RUNNER_TEMP/SessionManifest.xml" -I "$android_jar" -F "$RUNNER_TEMP/session-unsigned.apk"
+          (cd "$RUNNER_TEMP/session-dex" && zip -q "$RUNNER_TEMP/session-unsigned.apk" classes.dex)
+          "$tools/zipalign" -f 4 "$RUNNER_TEMP/session-unsigned.apk" "$RUNNER_TEMP/session-aligned.apk"
+          printf '%s' "$MELODIX_PREVIEW_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/session-signing.jks"
+          trap 'rm -f "$RUNNER_TEMP/session-signing.jks"' EXIT
+          "$tools/apksigner" sign --ks "$RUNNER_TEMP/session-signing.jks" --ks-key-alias MELODIX_PREVIEW \
+            --ks-pass env:MELODIX_PREVIEW_KEYSTORE_PASSWORD --key-pass env:MELODIX_PREVIEW_KEY_PASSWORD \
+            --out "$RUNNER_TEMP/session-test.apk" "$RUNNER_TEMP/session-aligned.apk"
+          "$tools/apksigner" verify --verbose "$RUNNER_TEMP/session-test.apk"
+          target="$(find target-apk -name '*.apk' | head -n 1)"
+          [[ -s "$target" ]]
+          "$tools/apksigner" verify --print-certs "$target" > "$RUNNER_TEMP/target-cert.txt"
+          "$tools/apksigner" verify --print-certs "$RUNNER_TEMP/session-test.apk" > "$RUNNER_TEMP/test-cert.txt"
+          diff <(grep '^Signer #1 certificate SHA-256 digest:' "$RUNNER_TEMP/target-cert.txt") <(grep '^Signer #1 certificate SHA-256 digest:' "$RUNNER_TEMP/test-cert.txt")
+          sudo chmod 666 /dev/kvm
+      - name: Execute actual native state decisions on fresh emulator (not Spotify authentication)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
+          script: |
+            mkdir -p session-evidence
+            adb install -r "$(find target-apk -name '*.apk' | head -n 1)"
+            adb install -r "$RUNNER_TEMP/session-test.apk"
+            adb shell pm grant com.melodix.music.preview android.permission.POST_NOTIFICATIONS
+            adb shell pm grant com.melodix.music.preview android.permission.BLUETOOTH_CONNECT
+            adb shell am instrument -w -r com.melodix.music.preview.test/com.melodix.test.SessionGateInstrumentation > session-evidence/result.txt
+            cat session-evidence/result.txt
+            grep -Fq 'INSTRUMENTATION_RESULT: overall=passed' session-evidence/result.txt
+      - name: Upload bounded synthetic-only test outcomes
+        if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: session-gate-results
+          path: session-evidence/result.txt
+          if-no-files-found: warn

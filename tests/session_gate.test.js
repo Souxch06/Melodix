@@ -24,6 +24,7 @@ function machine(overrides={}) {
    if((m=l.match(/^invoke-\S+ \{([^}]*)\}, (.*)$/))) {
     const a=m[1]?m[1].split(', ').map(r=>regs[r]):[], c=m[2];
     if(c.includes('JSONObject;-><init>')) Object.assign(a[0],JSON.parse(a[1]));
+    else if(c.includes('NativeSessionGate;->http')) { const n=Number(a[0][a[1]]);result=n>=100&&n<=599?n:0; }
     else if(c.includes('->optInt')) result=Number(a[0][a[1]])||0;
     else if(c.includes('->optBoolean')) result=a[0][a[1]]===true;
     else if(c.includes('->transition')) {transitions.push({from:fields.state,to:a[0],reason:a[1]});fields.state=a[0];}
@@ -59,7 +60,7 @@ test('case 2: cookie merely routes to hidden player; only token AND validated li
  for(const result of [{token:true,libraryOk:false},{token:false,libraryOk:true}]) {const n=machine();n.send(result);assert.equal(n.fields.state,4);assert.ok(!n.calls.includes('login'));}
 });
 test('case 3: completed correlated token refusal + library401 auto routes only once, preserves cookie',()=>{
- const m=machine();m.send({token:false,tokenRefused:true,libraryHttp:401});assert.equal(m.fields.state,2);assert.equal(m.run('canReconnect'),1);assert.equal(m.calls.filter(c=>c==='login').length,1);
+ const m=machine();m.send({token:false,tokenRefused:true,libraryHttp:401});assert.equal(m.fields.state,2);assert.equal(m.run('canReconnect'),0, 'login navigation invalidates destructive action');assert.equal(m.calls.filter(c=>c==='login').length,1);
  m.send({attempt:2,tokenRefused:true,libraryHttp:401});assert.equal(m.calls.filter(c=>c==='login').length,1);
 });
 test('case 4: timeout/network/isolated 401/403 never imply expiry or destructive recovery',()=>{
@@ -93,7 +94,7 @@ test('publication exports only closed, same-attempt observations at completion',
   let sent;const window={AndBridge:{onSessionVerification:s=>sent=JSON.parse(s)}};
   vm.runInNewContext('('+fn+')(diagnostic)',{window,diagnostic:{nativeGeneration:7,attempt:8,...diag},boundedMediaLibraryCount:(n,max)=>Math.max(0,Math.min(max,Number(n)||0))});
   assert.equal(sent.tokenRefused,expected);assert.equal(sent.generation,7);assert.equal(sent.attempt,8);assert.equal(sent.completed,true);
-  assert.deepEqual(Object.keys(sent),['generation','attempt','completed','token','tokenRefused','libraryHttp','libraryOk']);
+  assert.deepEqual(Object.keys(sent),['generation','attempt','completed','token','tokenApiHttp','tokenFallbackHttp','tokenRefused','libraryHttp','libraryOk']);
  }
  assert.ok(source.indexOf('publishSessionVerification(diagnostic)')>source.indexOf('} finally {\n            if (requestGeneration'));
 });
@@ -116,4 +117,21 @@ test('MDXPERF accepts fixed state transitions but rejects private reasons',()=>{
  const src=read('smali/com/melodix/music/NativeStartupTiming.smali');const literal=src.match(/const-string v0, "(\^sid=[^"\n]+)"/)[1];const rule=new RegExp(JSON.parse('"'+literal+'"'));
  assert.ok(rule.test('sid=1234abcd t=1 session-state from=verifying state=error reason=presentation-deadline-not-expiration'));
  assert.ok(!rule.test('sid=1234abcd t=1 session-state from=verifying state=error reason=https://private'));
+});
+
+test('destructive reconnect is disabled during official login, even after old expiry evidence',()=>{
+ const m=machine({state:2,expiredEvidence:true,loginActive:false});assert.equal(m.run('canReconnect'),true);
+ m.fields.loginActive=true;assert.equal(m.run('canReconnect'),0);
+});
+test('foreground revalidates a previously valid session, preserving redirect budget',()=>{
+ const m=machine({state:3,autoUsed:true});m.run('resume',{});assert.deepEqual(m.calls,['verify']);assert.equal(m.fields.autoUsed,true);
+ const n=machine({state:4,autoUsed:true});n.run('resume',{});assert.deepEqual(n.calls,[]);
+});
+test('new helpers never illegally access private MainActivity fields',()=>{
+ const main=read('smali/com/melodix/music/MainActivity.smali');
+ const fields=new Map([...main.matchAll(/^\.field\s+(.+?)\s+(\w+):/gm)].map(m=>[m[2],m[1]]));
+ for(const name of ['NativeSessionGate','NativeSessionGateTask','NativeSessionSurface','NativeSessionSurfaceLayout']) {
+  const src=read('smali/com/melodix/music/'+name+'.smali');
+  for(const match of src.matchAll(/MainActivity;->(\w+):/g)) assert.match(fields.get(match[1])||'',/public/,name+' field '+match[1]);
+ }
 });
