@@ -89,7 +89,7 @@ test('MEL-BUG-069f: an unproven auto-continued page never revokes the login surf
   const finished = method(main, '.method public final onWebViewPageFinished()V');
   assert.match(finished, /NativeSessionGate;->pageFinished[\s\S]*?showNativeUiFrom/);
   const check = method(gate, '.method public static pageFinished(');
-  assert.match(check, /open.spotify.com[\s\S]*?freshLogin:Z[\s\S]*?->verify/);
+  assert.match(check, /open.spotify.com[\s\S]*?nativeLoginWebRequested:Z[\s\S]*?->verify/);
   assert.doesNotMatch(check, /showNativeUi|removeAllCookies|getCookie/);
   assert.match(method(main, '.method public final showNativeUiFrom('), /NativeSessionGate;->blocked/);
 });

@@ -40,3 +40,9 @@ gh workflow run test-preview-emulator.yml --ref arena/6b935c3e-melodix \
 ```
 
 Ne pas désinstaller ni lancer clear-data pour tester sur le téléphone. Les états serveur des captures CI sont simulés, jamais une validation d’un vrai compte Spotify.
+
+### Étape classement (implémentée)
+
+`NativeSessionEvidence` conserve uniquement un digest éphémère du sp_dc et un compteur saturé à deux ; le natif filtre auparavant génération, complétion et numéro de tentative. Le même callback ne peut donc pas ajouter deux observations. Un cookie remplacé invalide la suppression, même si les deux anciens refus étaient vrais. Le retour SSO ne positionne plus freshLogin ; seul le callback de suppression volontaire confirmée l’arme. Le statut probable ne navigue pas automatiquement : il rend possible le choix explicite Se reconnecter.
+
+Tests ciblés de décision, compteur et callback de reconnexion exécutés avant le commit. Relance de cette étape : commandes test125 en tête du document (l’UI de l’étape suivante n’est pas encore appliquée). Aucune preuve appareil/capture après ne doit être déduite de ces seuls tests.

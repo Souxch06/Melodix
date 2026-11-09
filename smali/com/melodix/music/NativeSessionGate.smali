@@ -28,6 +28,7 @@
     sget-boolean v0, Lcom/melodix/music/NativeSessionGate;->activeLaunch:Z
     if-nez v0, :bound
     const/4 v0, 0x1
+    invoke-static {}, Lcom/melodix/music/NativeSessionEvidence;->reset()V
     sput-boolean v0, Lcom/melodix/music/NativeSessionGate;->activeLaunch:Z
     invoke-static {p0}, Lcom/melodix/music/NativeSessionGate;->begin(Lcom/melodix/music/MainActivity;)V
     invoke-static {}, Lcom/melodix/music/NativeSessionRecovery;->hasCookie()Z
@@ -194,8 +195,7 @@
     invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
     if-eqz v0, :done
-    const/4 v0, 0x1
-    sput-boolean v0, Lcom/melodix/music/NativeSessionGate;->freshLogin:Z
+    # A page return is not proof of a freshly cleared/re-authenticated session.
     const/4 v0, 0x0
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginWebRequested:Z
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginPageCommitted:Z
@@ -253,6 +253,7 @@
     const/16 v2, 0x12b
     if-gt v1, v2, :not_valid
     const/4 v1, 0x3
+    invoke-static {}, Lcom/melodix/music/NativeSessionEvidence;->reset()V
     const-string v2, "token-and-library-ok"
     invoke-static {v1, v2}, Lcom/melodix/music/NativeSessionGate;->transition(ILjava/lang/String;)V
     const/4 v1, 0x0
@@ -265,41 +266,45 @@
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     goto :done
     :not_valid
-    sget-boolean v1, Lcom/melodix/music/NativeSessionGate;->freshLogin:Z
-    if-nez v1, :failed
     const-string v1, "token"
     invoke-virtual {v0, v1}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;)Z
     move-result v1
     if-nez v1, :failed
-    const-string v1, "tokenRefused"
-    invoke-virtual {v0, v1}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;)Z
-    move-result v1
-    if-eqz v1, :failed
     sget v1, Lcom/melodix/music/NativeSessionGate;->tokenApiHttp:I
-    invoke-static {v1}, Lcom/melodix/music/NativeSessionGate;->refused(I)Z
-    move-result v1
-    if-eqz v1, :failed
+    const/16 v2, 0x190
+    if-ne v1, v2, :failed
     sget v1, Lcom/melodix/music/NativeSessionGate;->tokenFallbackHttp:I
-    invoke-static {v1}, Lcom/melodix/music/NativeSessionGate;->refused(I)Z
-    move-result v1
-    if-eqz v1, :failed
-    const-string v1, "libraryHttp"
-    invoke-virtual {v0, v1}, Lorg/json/JSONObject;->optInt(Ljava/lang/String;)I
-    move-result v1
+    const/16 v2, 0x193
+    if-ne v1, v2, :failed
+    sget v1, Lcom/melodix/music/NativeSessionGate;->libraryHttp:I
     const/16 v2, 0x191
     if-ne v1, v2, :failed
+    invoke-static {}, Lcom/melodix/music/NativeSessionEvidence;->recordCurrentCookie()I
+    move-result v1
+    if-eqz v1, :failed
+    sget-boolean v2, Lcom/melodix/music/NativeSessionGate;->freshLogin:Z
+    if-nez v2, :fresh_refusal
+    const/4 v2, 0x2
+    if-lt v1, v2, :first_refusal
     const/4 v1, 0x1
     sput-boolean v1, Lcom/melodix/music/NativeSessionGate;->expiredEvidence:Z
     const/4 v1, 0x2
-    const-string v2, "completed-token-refused-library-401"
+    const-string v2, "repeated-refusal-cookie-present"
     invoke-static {v1, v2}, Lcom/melodix/music/NativeSessionGate;->transition(ILjava/lang/String;)V
-    sget-boolean v1, Lcom/melodix/music/NativeSessionGate;->autoUsed:Z
-    if-nez v1, :paint
-    const/4 v1, 0x1
-    sput-boolean v1, Lcom/melodix/music/NativeSessionGate;->autoUsed:Z
-    invoke-static {p0}, Lcom/melodix/music/NativeSessionGate;->navigateLogin(Lcom/melodix/music/MainActivity;)V
+    goto :paint
+    :fresh_refusal
+    const-string v2, "fresh-account-refused"
+    goto :refusal_error
+    :first_refusal
+    const-string v2, "first-refusal-awaiting-confirmation"
+    :refusal_error
+    const/4 v1, 0x0
+    sput-boolean v1, Lcom/melodix/music/NativeSessionGate;->expiredEvidence:Z
+    const/4 v1, 0x4
+    invoke-static {v1, v2}, Lcom/melodix/music/NativeSessionGate;->transition(ILjava/lang/String;)V
     goto :paint
     :failed
+    invoke-static {}, Lcom/melodix/music/NativeSessionEvidence;->reset()V
     const/4 v1, 0x0
     sput-boolean v1, Lcom/melodix/music/NativeSessionGate;->expiredEvidence:Z
     const/4 v1, 0x4
@@ -359,7 +364,12 @@
     sget v0, Lcom/melodix/music/NativeSessionGate;->state:I
     const/4 v1, 0x2
     if-ne v0, v1, :no
+    sget-boolean v0, Lcom/melodix/music/NativeSessionGate;->freshLogin:Z
+    if-nez v0, :no
     sget-boolean v0, Lcom/melodix/music/NativeSessionGate;->expiredEvidence:Z
+    if-eqz v0, :no
+    invoke-static {}, Lcom/melodix/music/NativeSessionEvidence;->canClear()Z
+    move-result v0
     return v0
     :no
     const/4 v0, 0x0
@@ -429,6 +439,7 @@
     const/4 v0, 0x0
     sput-boolean v0, Lcom/melodix/music/NativeSessionGate;->loginActive:Z
     sput-boolean v0, Lcom/melodix/music/NativeSessionGate;->expiredEvidence:Z
+    invoke-static {}, Lcom/melodix/music/NativeSessionEvidence;->reset()V
     const/4 v0, 0x4
     const-string v1, "network-error-no-logout"
     invoke-static {v0, v1}, Lcom/melodix/music/NativeSessionGate;->transition(ILjava/lang/String;)V
@@ -474,6 +485,11 @@
     invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
     sget-object v1, Lcom/melodix/music/NativeSessionGate;->lastReason:Ljava/lang/String;
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v1, " · refus concordants="
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-static {}, Lcom/melodix/music/NativeSessionEvidence;->count()I
+    move-result v2
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
     const-string v1, " · token API="
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     sget v2, Lcom/melodix/music/NativeSessionGate;->tokenApiHttp:I

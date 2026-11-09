@@ -22,6 +22,7 @@ function run(name, obj, state, value) {
     if((m=l.match(/^new-instance (\w+), (.*)$/))) {r[m[1]]={type:m[2]};continue;}
     if((m=l.match(/^iget(?:-boolean|-object) (\w+), (\w+), .*;->(\w+):/))) {r[m[1]]=r[m[2]][m[3]];continue;}
     if((m=l.match(/^iput(?:-boolean|-wide) (\w+), (\w+), .*;->(\w+):/))) {r[m[2]][m[3]]=r[m[1]];continue;}
+    if((m=l.match(/^sput-boolean (\w+), .*NativeSessionGate;->(\w+):/))) {state[m[2]]=!!r[m[1]];continue;}
     if((m=l.match(/^sput-boolean (\w+), .*;->B:Z/))) {state.proof=!!r[m[1]];continue;}
     if((m=l.match(/^move-result(?:-object)? (\w+)/))) {r[m[1]]=result;continue;}
     if((m=l.match(/^check-cast /))) continue;
@@ -30,6 +31,10 @@ function run(name, obj, state, value) {
     if((m=l.match(/^invoke-\S+ \{([^}]*)\}, (.*)$/))) {
       const a=m[1]?m[1].split(', ').map(x=>r[x]):[], c=m[2];
       if(c.includes('NativeSessionGate;->canReconnect')) result=state.expired===true;
+      else if(c.includes('NativeSessionEvidence;->canClear')) result=state.expired===true;
+      else if(c.includes('NativeSessionEvidence;->reset')) {}
+      else if(c.includes('NativeSessionGate;->transition')) {state.phase=a[1];state.sessionState=a[0];}
+      else if(c.includes('NativeSessionGate;->paint')) {}
       else if(c.includes('NativeSessionReconnect;-><init>')) a[0].activity={referent:a[1]};
       else if(c.includes('Reference;->get()')) result=a[0].referent;
       else if(c.includes('->isFinishing()')) result=!!a[0].finishing;
@@ -82,7 +87,7 @@ test('remaining cookie or dead activity never opens login after reconnect',()=>{
     run('onReceiveValue',state.callback,state,false);
     assert.ok(!state.events.includes('login'),mode);
     assert.ok(!state.events.includes('storage-clear'),mode);
-    if(mode==='cookie') assert.equal(state.rows.at(-1)[0].title,'Reconnexion interrompue');
+    if(mode==='cookie') assert.equal(state.phase,'reconnect-not-confirmed');
   }
 });
 

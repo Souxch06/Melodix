@@ -1828,7 +1828,7 @@ test('page-finished delegates to verification, never unlocks native home on a pa
     const activity = read('smali/com/melodix/music/MainActivity.smali');
     const gate = read('smali/com/melodix/music/NativeSessionGate.smali');
     assert.match(activity, /onWebViewPageFinished\(\)V[\s\S]*?NativeSessionGate;->pageFinished/);
-    assert.match(gate, /pageFinished\([\s\S]*?open.spotify.com[\s\S]*?freshLogin:Z[\s\S]*?->verify/);
+    assert.match(gate, /pageFinished\([\s\S]*?open.spotify.com[\s\S]*?nativeLoginWebRequested:Z[\s\S]*?->verify/);
     assert.match(activity, /showNativeUiFrom\([\s\S]*?NativeSessionGate;->blocked/);
     assert.doesNotMatch(gate, /removeAllCookies|deleteAllData/);
 });

@@ -9,7 +9,9 @@ function body(src, name) { const a = src.indexOf('.method public static '+name+'
 // Execute actual decision instructions, not a duplicate JS state machine.
 function machine(overrides={}) {
  const fields = {state:0,generation:1,lastAttempt:0,autoUsed:false,freshLogin:false,loginActive:false,expiredEvidence:false,...overrides};
- const calls=[], transitions=[];
+ const calls=[], transitions=[]; let refusalCount=0, refusalCookie=null;
+ function resetEvidence(){refusalCount=0;refusalCookie=null;}
+ function recordEvidence(){if(fields.cookie===false){resetEvidence();return 0;} const id=fields.cookieId||'digest-A';refusalCount=id===refusalCookie?Math.min(2,refusalCount+1):1;refusalCookie=id;return refusalCount;}
  function run(name, ...args) {
   const lines=body(gate,name).split('\n').map(l=>l.trim()), labels=Object.fromEntries(lines.map((l,i)=>[l,i]));
   const regs=Object.fromEntries(args.map((a,i)=>['p'+i,a])); let result;
@@ -26,6 +28,9 @@ function machine(overrides={}) {
     if(c.includes('JSONObject;-><init>')) Object.assign(a[0],JSON.parse(a[1]));
     else if(c.includes('NativeSessionGate;->http')) { const n=Number(a[0][a[1]]);result=n>=100&&n<=599?n:0; }
     else if(c.includes('NativeSessionGate;->refused')) result=[400,401,403].includes(a[0]);
+    else if(c.includes('NativeSessionEvidence;->recordCurrentCookie')) result=recordEvidence();
+    else if(c.includes('NativeSessionEvidence;->reset')) resetEvidence();
+    else if(c.includes('NativeSessionEvidence;->canClear')) result=refusalCount>=2&&fields.cookie!==false&&refusalCookie===(fields.cookieId||'digest-A');
     else if(c.includes('->optInt')) result=Number(a[0][a[1]])||0;
     else if(c.includes('->optBoolean')) result=a[0][a[1]]===true;
     else if(c.includes('->transition')) {transitions.push({from:fields.state,to:a[0],reason:a[1]});fields.state=a[0];}
@@ -60,9 +65,10 @@ test('case 2: cookie merely routes to hidden player; only token AND validated li
  m.send({token:true,libraryOk:true});assert.equal(m.fields.state,3);assert.ok(m.calls.includes('showNativeUi'));
  for(const result of [{token:true,libraryOk:false},{token:false,libraryOk:true}]) {const n=machine();n.send(result);assert.equal(n.fields.state,4);assert.ok(!n.calls.includes('login'));}
 });
-test('case 3: completed correlated token refusal + library401 auto routes only once, preserves cookie',()=>{
- const m=machine();m.send({token:false,tokenRefused:true,libraryHttp:401});assert.equal(m.fields.state,2);assert.equal(m.run('canReconnect'),0, 'login navigation invalidates destructive action');assert.equal(m.calls.filter(c=>c==='login').length,1);
- m.send({attempt:2,tokenRefused:true,libraryHttp:401});assert.equal(m.calls.filter(c=>c==='login').length,1);
+test('case 3: two completed refusals for same cookie offer explicit reconnect, never auto redirect',()=>{
+ const m=machine();m.send({tokenRefused:true,libraryHttp:401});assert.equal(m.fields.state,4);assert.equal(m.run('canReconnect'),0);
+ m.send({attempt:2,tokenRefused:true,libraryHttp:401});assert.equal(m.fields.state,2);assert.equal(m.run('canReconnect'),true);
+ assert.ok(!m.calls.includes('login'));m.fields.cookieId='digest-B';assert.equal(m.run('canReconnect'),false,'replaced cookie must be preserved');
 });
 test('case 4: timeout/network/isolated 401/403 never imply expiry or destructive recovery',()=>{
  for(const payload of [{},{tokenRefused:true,libraryHttp:0},{libraryHttp:401},{tokenRefused:true,libraryHttp:403}]) {
@@ -120,8 +126,8 @@ test('MDXPERF accepts fixed state transitions but rejects private reasons',()=>{
  assert.ok(!rule.test('sid=1234abcd t=1 session-state from=verifying state=error reason=https://private'));
 });
 
-test('destructive reconnect is disabled during official login, even after old expiry evidence',()=>{
- const m=machine({state:2,expiredEvidence:true,loginActive:false});assert.equal(m.run('canReconnect'),true);
+test('destructive reconnect is disabled during official login, even after repeated refusal evidence',()=>{
+ const m=machine();m.send({tokenRefused:true,libraryHttp:401});m.send({attempt:2,tokenRefused:true,libraryHttp:401});assert.equal(m.run('canReconnect'),true);
  m.fields.loginActive=true;assert.equal(m.run('canReconnect'),0);
 });
 test('foreground revalidates a previously valid session, preserving redirect budget',()=>{
@@ -186,4 +192,19 @@ test('MainActivity never overrides a final method in its packaged superclass cha
   for(const m of parent.matchAll(/^\.method[^\n]*?\bfinal\b[^\n]*? (\S+\([^\n]+)$/gm)) assert.ok(!declared.has(m[1]),'cannot override final '+name+'->'+m[1]);
   name=parent.match(/^\.super L([^;]+);/m)[1];
  }
+});
+
+test('a stale/duplicate attempt cannot count twice; retries accumulate without pretending SSO is fresh',()=>{
+ const m=machine();const refusal={tokenRefused:true,libraryHttp:401};m.send(refusal);m.send(refusal);assert.equal(m.fields.state,4);
+ m.fields.generation++;m.fields.lastAttempt=0;m.send(refusal);assert.equal(m.fields.state,2);
+ const fin=body(gate,'pageFinished');assert.doesNotMatch(fin,/sput-boolean.*freshLogin:Z/);
+ const reconnect=read('smali/com/melodix/music/NativeSessionReconnect.smali');assert.match(reconnect,/->reset\(\)V[\s\S]*?freshLogin:Z/);
+});
+test('missing/changed cookie and network break the repeated-refusal proof, fresh refusal explains account denial',()=>{
+ const refusal={tokenRefused:true,libraryHttp:401};
+ const no=machine({cookie:false});no.send(refusal);no.send({attempt:2,...refusal});assert.equal(no.fields.state,4);
+ const m=machine();m.send(refusal);m.fields.cookieId='digest-B';m.send({attempt:2,...refusal});assert.equal(m.fields.state,4);
+ m.send({attempt:3,libraryHttp:0});m.send({attempt:4,...refusal});assert.equal(m.fields.state,4);
+ const fresh=machine({freshLogin:true});fresh.send(refusal);assert.equal(fresh.fields.state,4);assert.equal(fresh.transitions.at(-1).reason,'fresh-account-refused');
+ assert.ok(!fresh.calls.includes('login'));assert.equal(fresh.run('canReconnect'),0);
 });

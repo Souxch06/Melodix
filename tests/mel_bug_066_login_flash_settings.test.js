@@ -40,7 +40,7 @@ test('MEL-BUG-066a: JS-driven callbacks cannot close the login surface before it
     const m = method(main, '.method public final '+name+'(');
     assert.match(m, /NativeSessionGate;->blocked[\s\S]*?return-void/);
   }
-  assert.match(method(gate, '.method public static pageFinished('), /freshLogin:Z[\s\S]*?NativeSessionRecovery;->verify/);
+  assert.match(method(gate, '.method public static pageFinished('), /nativeLoginWebRequested:Z[\s\S]*?NativeSessionRecovery;->verify/);
   assert.doesNotMatch(method(gate, '.method public static pageFinished('), /showNativeUi|loadUrl|removeAllCookies/);
 });
 
