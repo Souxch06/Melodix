@@ -31,6 +31,7 @@ public final class UpdatePersistenceInstrumentation extends Instrumentation {
                 case "force_stop": origin = "https://melodix-force-stop-fixture.invalid/"; break;
                 case "same_process": origin = "https://melodix-same-process-fixture.invalid/"; break;
                 case "settled": origin = "https://melodix-settled-fixture.invalid/"; break;
+                case "settled_upgrade": origin = "https://melodix-settled-upgrade-fixture.invalid/"; break;
                 default: throw new AssertionError();
             }
             String mode = arguments.getString("mode");

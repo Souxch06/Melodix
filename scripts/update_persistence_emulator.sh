@@ -48,6 +48,12 @@ fi
 run_probe restart
 run_probe force_stop
 run_probe settled
+# Separate origin: write and keep the WebView alive for five seconds BEFORE
+# the primary immediate-write origin is seeded. This control cannot seed or
+# delay the primary origin and does not replace its fail-closed assertion.
+phase=settled_upgrade_seed
+timeout 90s adb shell am instrument -w -r -e origin_case settled_upgrade -e mode seed_settled "$fixture" > "$RUNNER_TEMP/update-settled-seed.txt"
+grep -Fq 'INSTRUMENTATION_RESULT: overall=passed' "$RUNNER_TEMP/update-settled-seed.txt"
 phase=seed
 timeout 90s adb shell am instrument -w -r -e mode seed "$fixture" > "$RUNNER_TEMP/update-seed.txt"
 cat "$RUNNER_TEMP/update-seed.txt"
@@ -58,7 +64,17 @@ adb shell am force-stop com.melodix.music.preview
 phase=install_after
 adb install -r "$new"
 phase=verify
-timeout 90s adb shell am instrument -w -r -e mode verify "$fixture" > "$RUNNER_TEMP/update-verify.txt"
+primary_ok=false
+if timeout 90s adb shell am instrument -w -r -e mode verify "$fixture" > "$RUNNER_TEMP/update-verify.txt" && grep -Fq 'INSTRUMENTATION_RESULT: overall=passed' "$RUNNER_TEMP/update-verify.txt"; then
+  primary_ok=true
+fi
 cat "$RUNNER_TEMP/update-verify.txt"
-grep -Fq 'INSTRUMENTATION_RESULT: overall=passed' "$RUNNER_TEMP/update-verify.txt"
+# Evaluate the settled-write control even if the primary strict test failed.
+# This is observational only and cannot turn a primary failure into success.
+if timeout 90s adb shell am instrument -w -r -e origin_case settled_upgrade -e mode verify "$fixture" > "$RUNNER_TEMP/update-settled-verify.txt" && grep -Fq 'INSTRUMENTATION_RESULT: overall=passed' "$RUNNER_TEMP/update-settled-verify.txt"; then
+  echo '::notice title=Synthetic storage control::case=settled_upgrade verify=passed'
+else
+  echo '::warning title=Synthetic storage control::case=settled_upgrade verify=failed'
+fi
+if [[ "$primary_ok" != true ]]; then exit 1; fi
 echo '::notice title=Synthetic WebView upgrade::cookie and localStorage survived install -r; no Spotify authentication was tested'

@@ -48,7 +48,12 @@ test('manual and background installer must flush before PackageInstaller; manual
 
 test('upgrade failure controls use distinct offline origins and do not weaken the strict replacement assertion',()=>{
  const fixture=read('tests/android/UpdatePersistenceInstrumentation.java'),script=read('scripts/update_persistence_emulator.sh');
- for(const marker of ['melodix-restart-fixture.invalid','melodix-force-stop-fixture.invalid','melodix-same-process-fixture.invalid','melodix-settled-fixture.invalid','melodix-update-fixture.invalid'])assert.ok(fixture.includes(marker));
+ for(const marker of ['melodix-restart-fixture.invalid','melodix-force-stop-fixture.invalid','melodix-same-process-fixture.invalid','melodix-settled-fixture.invalid','melodix-settled-upgrade-fixture.invalid','melodix-update-fixture.invalid'])assert.ok(fixture.includes(marker));
  assert.match(script,/run_probe restart[\s\S]*?run_probe force_stop[\s\S]*?run_probe settled[\s\S]*?phase=seed[\s\S]*?adb install -r "\$new"[\s\S]*?grep -Fq 'INSTRUMENTATION_RESULT: overall=passed'/);
  assert.doesNotMatch(script,/pm clear|adb uninstall/);assert.doesNotMatch(fixture,/open\.spotify\.com|sp_dc|authorization|Bearer/i);
+});
+
+test('settled-before-upgrade control remains separate and cannot mask strict immediate-write failure',()=>{
+ const script=read('scripts/update_persistence_emulator.sh');
+ assert.match(script,/-e origin_case settled_upgrade -e mode seed_settled[\s\S]*?phase=seed[\s\S]*?adb install -r "\$new"[\s\S]*?primary_ok=false[\s\S]*?mode verify[\s\S]*?origin_case settled_upgrade -e mode verify[\s\S]*?if \[\[ "\$primary_ok" != true \]\]; then exit 1/);
 });
