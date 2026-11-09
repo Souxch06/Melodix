@@ -187,6 +187,69 @@ jobs:
           disable-animations: true
           emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
           script: bash scripts/bridge_navigation_emulator.sh
+  bridge-navigation-webview156:
+    needs: [build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.source_ref }}
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4.0.4
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: ${{ needs.build.outputs.apk_name }}
+          path: target-apk
+      - name: Compile and sign offline WebView bridge fixture
+        env:
+          MELODIX_PREVIEW_KEYSTORE_B64: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_B64 }}
+          MELODIX_PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
+          MELODIX_PREVIEW_KEY_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEY_PASSWORD || secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          trap 'rm -f "$RUNNER_TEMP/bridge-signing.jks"' EXIT
+          [[ "$(git rev-parse HEAD)" == '${{ inputs.source_ref }}' ]]
+          sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
+          jar="$ANDROID_HOME/platforms/android-36/android.jar"
+          tools="$ANDROID_HOME/build-tools/35.0.0"
+          mkdir -p "$RUNNER_TEMP/bridge-classes" "$RUNNER_TEMP/bridge-dex" "$RUNNER_TEMP/bridge-manifest"
+          javac --release 8 -classpath "$jar" -d "$RUNNER_TEMP/bridge-classes" tests/android/BridgeNavigationInstrumentation.java
+          mapfile -t classes < <(find "$RUNNER_TEMP/bridge-classes" -name '*.class')
+          "$tools/d8" --lib "$jar" --min-api 24 --output "$RUNNER_TEMP/bridge-dex" "${classes[@]}"
+          sed 's/HomeRenderInstrumentation/BridgeNavigationInstrumentation/g' tests/android/AndroidManifest.xml > "$RUNNER_TEMP/bridge-manifest/AndroidManifest.xml"
+          "$tools/aapt" package -f -M "$RUNNER_TEMP/bridge-manifest/AndroidManifest.xml" -I "$jar" --min-sdk-version 24 --target-sdk-version 36 --version-code 1 --version-name bridge-fixture -F "$RUNNER_TEMP/bridge-unsigned.apk"
+          (cd "$RUNNER_TEMP/bridge-dex" && zip -q "$RUNNER_TEMP/bridge-unsigned.apk" classes.dex)
+          "$tools/zipalign" -f 4 "$RUNNER_TEMP/bridge-unsigned.apk" "$RUNNER_TEMP/bridge-aligned.apk"
+          printf '%s' "$MELODIX_PREVIEW_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/bridge-signing.jks"
+          "$tools/apksigner" sign --ks "$RUNNER_TEMP/bridge-signing.jks" --ks-key-alias MELODIX_PREVIEW --ks-pass env:MELODIX_PREVIEW_KEYSTORE_PASSWORD --key-pass env:MELODIX_PREVIEW_KEY_PASSWORD --out "$RUNNER_TEMP/bridge-test.apk" "$RUNNER_TEMP/bridge-aligned.apk"
+          "$tools/apksigner" verify "$RUNNER_TEMP/bridge-test.apk"
+          sudo chmod 666 /dev/kvm
+      - name: Fetch pinned Chromium 156 snapshot for disposable emulator only
+        run: |
+          set -euo pipefail
+          url='https://storage.googleapis.com/chromium-browser-snapshots/AndroidDesktop_x64/1706493/chrome-android-desktop.zip'
+          curl --fail --silent --show-error --location --retry 2 --max-time 600 -o "$RUNNER_TEMP/webview156.zip" "$url"
+          echo '4b88c258aedd5158df224e2e52a3e59911126110a0fb75c6d28e587789c39cc7  '"$RUNNER_TEMP/webview156.zip" | sha256sum -c -
+          unzip -p "$RUNNER_TEMP/webview156.zip" chrome-android-desktop/apks/SystemWebView.apk > "$RUNNER_TEMP/webview156.apk"
+          echo '7fb34cbe3f9bf69ed24866144b0279944a0fb13136a756b68f2afee79dfe007b  '"$RUNNER_TEMP/webview156.apk" | sha256sum -c -
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$RUNNER_TEMP/webview156.apk" > "$RUNNER_TEMP/webview156-badging.txt"
+          grep -Fq "package: name='com.android.webview'" "$RUNNER_TEMP/webview156-badging.txt"
+          grep -Fq "versionName='156.0.8078.0'" "$RUNNER_TEMP/webview156-badging.txt"
+          grep -Fq "'x86_64'" "$RUNNER_TEMP/webview156-badging.txt"
+      - name: Check real WebView interface visibility on offline navigation
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
+          script: bash scripts/webview156_emulator.sh
   update-before:
     if: inputs.evidence_run == '0'
     uses: ./.github/workflows/preview-apk.yml
