@@ -1,0 +1,4 @@
+tablet-mdxperf sid=efa6722a t=69855 session-state from=verifying state=verifying reason=verification-start
+tablet-mdxperf sid=efa6722a t=70847 session-state from=verifying state=no-session reason=cookie-absent
+tablet-mdxperf sid=efa6722a t=72540 session-state from=no-session state=no-session reason=cookie-absent-auto-login
+tablet-mdxperf sid=efa6722a t=76880 session-state from=no-session state=error reason=verification-failed-no-logout

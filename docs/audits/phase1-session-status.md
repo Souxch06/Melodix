@@ -70,3 +70,11 @@ Les miniatures JPEG des seules captures synthétiques sont publiées en annotati
 Premier run Android phase1 `42602365256` : échec de harnais avant toute installation/capture, `/usr/bin/sh` ne supporte pas `set -o pipefail` et l’action émulateur exécute chaque ligne dans un shell distinct. Cause corrigée en exécutant **un script Bash de fichier**, qui préserve fonctions et variables de la matrice. Le run suivant parti avant ce constat est annulé ; ces runs ne constituent pas des résultats applicatifs.
 
 Run corrigé `42602974124` : **SUCCESS**, les quatre cases avant/après × téléphone/tablette sont vertes. Le téléphone après comprend les assertions de session/lifecycle et les captures petite hauteur/grande police/clavier. Les PNG originaux sont dans les artefacts. GitHub tronque chaque message d’annotation à4096octets : le premier export JPEG monobloc est incomplet et ne doit pas être utilisé. Revue réexportée depuis ces **mêmes artefacts**, sans nouveau build ni état reconstitué, par fragments3600caractères contrôlés en nombre et SHA256. Les fichiers JPEG incomplets ont été retirés avant livraison.
+
+### Livraison / arrêt
+
+APK final : build42602886523, source applicative2f9bca4a, vC1021461, SHA256785df97658092bfff98dbd6396f56b92710fba2561e2c26e1f969c41a629b072. Matrice Android42602974124SUCCESS. Suite locale finale1031/1027réussis/0échec/4ignorés ; registres0problème/13helpers. Spoof/bridge/shell/runtime/adblock inchangés.
+
+Le réexport des images a nécessité de traiter l’ID de run comme une chaîne et de respecter la limite globale50annotations/job, en plus des4096octets/message ; ces reprises ne changent ni l’APK ni les preuves Android. Export complet42604478036SUCCESS. Captures complètes contrôlées présentes dans `phase1-captures/`. Rapport livré : `session-preview-test125.md`.
+
+Limites explicites de phase1 : pas de compte réel testé, clavier technique non affiché (validation IME réel encore utilisateur), pas de sériefps exploitable ni capture première frame du splash système. Le placement bas rapporté sur téléphone n’a pas été reproduit par la fixture avant ; seul le centrage après a été mesuré. Arrêt avant phase2 pour test utilisateur.

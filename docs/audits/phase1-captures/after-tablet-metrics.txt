@@ -1,0 +1,4 @@
+tablet-mdxperf sid=ea14332e t=84239 session-state from=verifying state=verifying reason=verification-start
+tablet-mdxperf sid=ea14332e t=85275 session-state from=verifying state=no-session reason=cookie-absent
+tablet-mdxperf sid=ea14332e t=86487 session-state from=no-session state=no-session reason=cookie-absent-auto-login
+tablet-mdxperf sid=ea14332e t=91184 session-state from=no-session state=session-expired reason=repeated-refusal-cookie-present

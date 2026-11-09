@@ -15,3 +15,9 @@ test('expired and post-fresh refusal have distinct labels, explicit secondary re
  assert.match(ex,/animator_duration_scale/);assert.match(ex,/if-nez p2, :done/);
  assert.match(src,/renderedReason/);
 });
+test('phase1 white button text and primary/secondary copy meet AA on defined opaque bases',()=>{
+ const lum=hex=>{const rgb=hex.match(/[a-f0-9]{2}/gi).map(s=>parseInt(s,16)/255).map(n=>n<=.04045?n/12.92:((n+.055)/1.055)**2.4);return rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722;};
+ const contrast=(a,b)=>(Math.max(lum(a),lum(b))+.05)/(Math.min(lum(a),lum(b))+.05);
+ for(const bg of ['7C3AED','DB2777'])assert.ok(contrast('FFFFFF',bg)>=4.5,bg);
+ for(const fg of ['F5F5FA','A1A1B5'])assert.ok(contrast(fg,'0B0B14')>=4.5,fg);
+});
