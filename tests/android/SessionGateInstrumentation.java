@@ -79,6 +79,47 @@ public final class SessionGateInstrumentation extends Instrumentation {
         call("result", new Class<?>[]{activity().getClass(), String.class}, activity(), proof.toString());
     }
     private void note() { Bundle b = new Bundle(); b.putString("phase", phase); b.putString("result", "passed"); sendStatus(1, b); }
+    /** Separate network-blocked WebView; synthetic observations only, never Spotify. */
+    private void diagnosticReadback(boolean stale) throws Exception {
+        final WebView[] local={null};final int[] gen={0},evidenceBefore={0};
+        final java.util.concurrent.CountDownLatch loaded=new java.util.concurrent.CountDownLatch(1);
+        ui(() -> {
+            begin();gen[0]=(Integer)field("generation");
+            if(stale) check(gen[0]>1);
+            evidence.getMethod("reset").invoke(null);
+            check((Integer)evidence.getMethod("record",String.class).invoke(null,"synthetic-A")==1);
+            evidenceBefore[0]=(Integer)evidence.getMethod("count").invoke(null);
+            local[0]=new WebView(activity());
+            local[0].getSettings().setJavaScriptEnabled(true);
+            local[0].getSettings().setBlockNetworkLoads(true);
+            local[0].setWebViewClient(new WebViewClient(){@Override public void onPageFinished(WebView v,String url){loaded.countDown();}});
+            int observed=stale?gen[0]-1:gen[0];
+            String fixture="{nativeGeneration:"+observed+",attempt:71,source:'native-retry',phase:'response',requests:1,http:401}";
+            local[0].loadDataWithBaseURL(null,"<html><script>window.__sfMediaLibLastDiagnostic="+fixture+";</script></html>","text/html","UTF-8",null);
+        });
+        check(loaded.await(10,java.util.concurrent.TimeUnit.SECONDS));
+        ui(() -> {Class<?> pull=getTargetContext().getClassLoader().loadClass("com.melodix.music.NativeSessionDiagnosticPull");
+            ((Runnable)pull.getConstructor(WebView.class,int.class).newInstance(local[0],gen[0])).run();});
+        final String key="Tentative "+gen[0]+"/71";
+        final String[] details={""};
+        for(int i=0;i<(stale?15:80);i++){
+            SystemClock.sleep(100);
+            ui(() -> details[0]=(String)gate.getMethod("details").invoke(null));
+            if(!stale&&details[0].contains(key))break;
+        }
+        ui(() -> {
+            if(stale) check(!details[0].contains(key));
+            else {
+                check(details[0].contains(key));
+                check(details[0].contains("token API=inconnu · repli=inconnu · bibliothèque=401 · terminée=inconnu · cookie=inconnu"));
+                check(details[0].contains("source=native-retry · token=inconnu"));
+            }
+            check((Integer)evidence.getMethod("count").invoke(null)==evidenceBefore[0]);
+            check(!(Boolean)field("expiredEvidence"));
+            evidence.getMethod("reset").invoke(null);
+            local[0].destroy();
+        });
+    }
     private void paintFixture(boolean baseline) throws Exception {
         set("loginActive", false);set("freshLogin",false);set("expiredEvidence",!baseline);
         set("tokenApiHttp",400);set("tokenFallbackHttp",403);set("libraryHttp",401);
@@ -160,6 +201,11 @@ public final class SessionGateInstrumentation extends Instrumentation {
             phase = "first_launch_login_before_home";
             ui(() -> check(view("sessionTitle") != null && view("sessionTitle").isShown())); note();
 
+            phase = "diagnostic_real_webview_fallback";
+            diagnosticReadback(false); note();
+            phase = "diagnostic_real_webview_rejects_stale";
+            diagnosticReadback(true); note();
+
             phase = "verifying_deadline_not_expiry";
             ui(() -> { set("freshLogin", false); begin(); state(0); });
             SystemClock.sleep(3300);
@@ -191,9 +237,14 @@ public final class SessionGateInstrumentation extends Instrumentation {
                 check(view("sessionTitle").getText().toString().equals("Ta session Spotify semble expirée"));
                 check(view("sessionAction").isShown()); check(view("sessionSecondary").isShown());
                 check(!view("sessionDetails").isShown()); view("sessionDisclosure").performClick();
-                check(view("sessionDetails").isShown()); view("sessionCopy").performClick();
+                check(view("sessionDetails").isShown());
+                phase="probable_expiry_clipboard_synthetic";
+                view("sessionCopy").performClick();
                 android.content.ClipboardManager cb=(android.content.ClipboardManager)activity().getSystemService(Context.CLIPBOARD_SERVICE);
-                check(cb.getPrimaryClip().getItemAt(0).getText().toString().equals(gate.getMethod("details").invoke(null)));
+                String copied=cb.getPrimaryClip().getItemAt(0).getText().toString();
+                String details=(String)gate.getMethod("details").invoke(null);
+                check(copied.startsWith(details+"\nMDXPERF-BEGIN v=1 dropped="));
+                check(copied.endsWith("MDXPERF-END"));
                 view("sessionDisclosure").performClick(); check(!view("sessionDetails").isShown());
                 // No real cookie in the CI fixture: the destructive path must stay blocked.
                 check(!(Boolean)gate.getMethod("canReconnect").invoke(null));
