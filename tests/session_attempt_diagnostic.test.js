@@ -21,11 +21,12 @@ test('diagnostic payload is closed and sanitizes unknown/malformed metadata with
 test('a broken native diagnostic consumer cannot affect requests or auth results',()=>{
  const {c}=harness();c.window.AndBridge.onSessionAttemptDiagnostic=()=>{throw Error('consumer');};assert.doesNotThrow(()=>c.publishSessionAttemptDiagnostic({sessionObservation:{}},true));
 });
-test('classification and its original proof publication are byte-for-byte unchanged from Preview125',()=>{
+test('proof publication and unrelated gates remain unchanged from Preview125',()=>{
  const gate=fs.readFileSync('smali/com/melodix/music/NativeSessionGate.smali','utf8'),old=baseline('smali/com/melodix/music/NativeSessionGate.smali');
- for(const name of ['result','canReconnect','begin','requestLogin']){const extract=s=>{const a=s.indexOf('.method public static '+name+'(');return s.slice(a,s.indexOf('.end method',a)).replace(/    invoke-static \{\}, Lcom\/melodix\/music\/NativeSessionVerificationFlight;->start\(\)V\n/g,'').replace(/if-ne v1, v2, :rejected_generation/g,'if-ne v1, v2, :done').replace(/if-le v1, v2, :rejected_attempt/g,'if-le v1, v2, :done').replace(/    goto :done\n    :rejected_generation[\s\S]*?(?=    :done\n    :try_end)/,'');};assert.equal(extract(gate),extract(old),name);}
+ for(const name of ['canReconnect','begin','requestLogin']){const extract=s=>{const a=s.indexOf('.method public static '+name+'(');return s.slice(a,s.indexOf('.end method',a)).replace(/    invoke-static \{\}, Lcom\/melodix\/music\/NativeSessionVerificationFlight;->start\(\)V\n/g,'').replace(/if-ne v1, v2, :rejected_generation/g,'if-ne v1, v2, :done').replace(/if-le v1, v2, :rejected_attempt/g,'if-le v1, v2, :done').replace(/    goto :done\n    :rejected_generation[\s\S]*?(?=    :done\n    :try_end)/,'');};assert.equal(extract(gate),extract(old),name);}
  assert.equal(fn(src,'publishSessionVerification'),fn(baseline('scripts/spotify_bridge.source.js'),'publishSessionVerification'));
- assert.ok(fs.readFileSync('smali/com/melodix/music/NativeSessionEvidence.smali','utf8').startsWith(baseline('smali/com/melodix/music/NativeSessionEvidence.smali')));
+ const evidence=fs.readFileSync('smali/com/melodix/music/NativeSessionEvidence.smali','utf8');
+ assert.match(evidence,/canClear\(\)Z[\s\S]*?const\/4 v1, 0x1[\s\S]*?->current\(\)Ljava\/lang\/String;[\s\S]*?->equals/);
  assert.equal(fs.readFileSync('smali/com/melodix/music/NativeSessionReconnect.smali','utf8'),baseline('smali/com/melodix/music/NativeSessionReconnect.smali'));
  assert.equal(fs.readFileSync('smali/com/melodix/music/NativeSessionGateTask.smali','utf8').replace('    invoke-static {v1}, Lcom/melodix/music/NativeSessionVerificationFlight;->finish(Ljava/lang/String;)V\n',''),baseline('smali/com/melodix/music/NativeSessionGateTask.smali').replace('NativeSessionEvidence;->reset()V','NativeSessionEvidence;->retainIfCurrent()Z'));
 });

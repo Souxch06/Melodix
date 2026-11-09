@@ -105,8 +105,8 @@
     const-string v6, "Connecte-toi sur la page officielle Spotify pour retrouver tes playlists."
     goto :labels
     :expired_labels
-    const-string v5, "Ta session Spotify semble expirée"
-    const-string v6, "Spotify a refusé deux vérifications. Reconnecte-toi pour retrouver tes playlists."
+    const-string v5, "Spotify refuse l’accès avec ta session actuelle"
+    const-string v6, "Reconnecte-toi ou réessaie."
     :labels
     invoke-virtual {v3, v5}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
     invoke-virtual {v4, v6}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V

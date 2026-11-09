@@ -286,19 +286,16 @@
     if-eqz v1, :failed
     sget-boolean v2, Lcom/melodix/music/NativeSessionGate;->freshLogin:Z
     if-nez v2, :fresh_refusal
-    const/4 v2, 0x2
-    if-lt v1, v2, :first_refusal
+    # One completed 400 / 403 / 401 observation with a current cookie is enough.
     const/4 v1, 0x1
     sput-boolean v1, Lcom/melodix/music/NativeSessionGate;->expiredEvidence:Z
     const/4 v1, 0x2
-    const-string v2, "repeated-refusal-cookie-present"
+    const-string v2, "completed-token-refused-library-401"
     invoke-static {v1, v2}, Lcom/melodix/music/NativeSessionGate;->transition(ILjava/lang/String;)V
     goto :paint
     :fresh_refusal
     const-string v2, "fresh-account-refused"
     goto :refusal_error
-    :first_refusal
-    const-string v2, "first-refusal-awaiting-confirmation"
     :refusal_error
     const/4 v1, 0x0
     sput-boolean v1, Lcom/melodix/music/NativeSessionGate;->expiredEvidence:Z

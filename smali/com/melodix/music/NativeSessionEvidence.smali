@@ -83,7 +83,7 @@
 .method public static canClear()Z
     .locals 2
     sget v0, Lcom/melodix/music/NativeSessionEvidence;->count:I
-    const/4 v1, 0x2
+    const/4 v1, 0x1
     if-lt v0, v1, :no
     invoke-static {}, Lcom/melodix/music/NativeSessionEvidence;->current()Ljava/lang/String;
     move-result-object v0

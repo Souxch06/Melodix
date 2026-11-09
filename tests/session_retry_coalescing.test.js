@@ -88,13 +88,15 @@ test('actual checkMediaLib acknowledges native start before network even if deta
  c.checkMediaLib(true,'native-retry');assert.deepEqual(events,['start']);await Promise.resolve();assert.deepEqual(events,['start','network']);
  assert.match(d.text(),/Tentative 2\/2.*bibliothèque=inconnu/);assert.match(d.text(),/canal=indisponible/);
 });
-test('classifier, evidence, generation guards, Spotify request functions and proof publication unchanged from 127',()=>{
+test('generation guards, reconnect, Spotify request functions and proof publication unchanged from 127',()=>{
  const old=p=>cp.execFileSync('git',['show','6c6a22d:'+p],{encoding:'utf8'});
  const gate=read(dir+'NativeSessionGate.smali'),oldGate=old(dir+'NativeSessionGate.smali');
  const method=(s,n)=>{const a=s.indexOf('.method public static '+n+'(');return s.slice(a,s.indexOf('.end method',a));};
- assert.equal(method(gate,'result'),method(oldGate,'result'));
+ assert.match(method(gate,'result'),/if-ne v1, v2, :rejected_generation/);
+ assert.match(method(gate,'result'),/if-le v1, v2, :rejected_attempt/);
  assert.equal(method(gate,'begin').replace('    invoke-static {}, Lcom/melodix/music/NativeSessionVerificationFlight;->start()V\n',''),method(oldGate,'begin'));
- for(const n of ['NativeSessionEvidence','NativeSessionReconnect'])assert.equal(read(dir+n+'.smali'),old(dir+n+'.smali'));
+ assert.equal(read(dir+'NativeSessionReconnect.smali'),old(dir+'NativeSessionReconnect.smali'));
+ assert.match(read(dir+'NativeSessionEvidence.smali'),/canClear\(\)Z[\s\S]*?const\/4 v1, 0x1[\s\S]*?->current\(\)Ljava\/lang\/String;[\s\S]*?->equals/);
  assert.equal(fn(js,'publishSessionVerification'),fn(old('scripts/spotify_bridge.source.js'),'publishSessionVerification'));
  const asyncFn=(s,n,end)=>s.slice(s.indexOf('    async function '+n+'('),s.indexOf(end,s.indexOf('    async function '+n+'(')));
  assert.equal(asyncFn(js,'fetchWebPlayerToken','    function dropWebPlayerToken'),asyncFn(old('scripts/spotify_bridge.source.js'),'fetchWebPlayerToken','    function dropWebPlayerToken'));

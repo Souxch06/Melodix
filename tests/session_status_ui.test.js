@@ -9,7 +9,7 @@ test('phase1 scalable card, scroll fallback and 48dp wrapping actions',()=>{
 });
 test('expired and post-fresh refusal have distinct labels, explicit secondary retry, scoped copy',()=>{
  const src=read('smali/com/melodix/music/NativeSessionSurface.smali'),ex=read('smali/com/melodix/music/NativeSessionSurfaceExtras.smali');
- for(const t of ['Ta session Spotify semble expirée','Spotify refuse l’accès avec ce compte','Se reconnecter']) assert.ok(src.includes(t));
+ for(const t of ['Spotify refuse l’accès avec ta session actuelle','Spotify refuse l’accès avec ce compte','Se reconnecter']) assert.ok(src.includes(t));
  assert.match(ex,/sessionSecondary[\s\S]*?Réessayer/);assert.match(ex,/->details\(\)Ljava\/lang\/String;[\s\S]*?ClipData;->newPlainText/);
  assert.doesNotMatch(ex,/buildDiagnosticText|getCookie|evaluateJavascript|RenderEffect/);
  assert.match(ex,/animator_duration_scale/);assert.match(ex,/if-nez p2, :done/);

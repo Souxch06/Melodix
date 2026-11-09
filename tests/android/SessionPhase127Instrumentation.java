@@ -95,13 +95,13 @@ public final class SessionPhase127Instrumentation extends Instrumentation {
             check(details.contains("bibliothèque=401 · terminée=inconnu · cookie=inconnu"));
             check(details.contains("token API=inconnu · repli=inconnu"));check(count()==beforeCount[0]);
             local[0].destroy();});note();
-        phase="one_complete_refusal";ui(()->{begin();refusal(1);check(count()==1&&state()==4);});note();
+        phase="one_complete_refusal";ui(()->{begin();refusal(1);check(count()==1&&state()==2);});note();
         // Start the same native begin used by Retry, without real network work.
         phase="slow_retry_deadline_retains_one";ui(()->begin());SystemClock.sleep(3400);
         ui(()->check(count()==1&&state()==4));note();
         phase="second_distinct_refusal_same_cookie";ui(()->{refusal(2);check(count()==2&&state()==2);
             TextView title=(TextView)activity.findViewById(activity.getResources().getIdentifier("sessionTitle","id",PKG));
-            check(title.getText().toString().equals("Ta session Spotify semble expirée"));refusal(2);check(count()==2);
+            check(title.getText().toString().equals("Spotify refuse l’accès avec ta session actuelle"));refusal(2);check(count()==2);
         });note();
         phase="replaced_cookie_deadline_clears";cookie("synthetic-phase127-B");ui(()->begin());SystemClock.sleep(3400);
         ui(()->check(count()==0&&state()==4));note();

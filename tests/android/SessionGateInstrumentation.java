@@ -234,7 +234,7 @@ public final class SessionGateInstrumentation extends Instrumentation {
 
             phase = "probable_expiry_surface_synthetic";
             ui(() -> { paintFixture(false);
-                check(view("sessionTitle").getText().toString().equals("Ta session Spotify semble expirée"));
+                check(view("sessionTitle").getText().toString().equals("Spotify refuse l’accès avec ta session actuelle"));
                 check(view("sessionAction").isShown()); check(view("sessionSecondary").isShown());
                 check(!view("sessionDetails").isShown()); view("sessionDisclosure").performClick();
                 check(view("sessionDetails").isShown());
