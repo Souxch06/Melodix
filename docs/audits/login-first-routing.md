@@ -61,3 +61,7 @@ Durcissements de validation : les flags MainActivity partagés sont publics (con
 Suite locale finale avant lancement CI : voir résultats exacts ci-dessous. Le workflow Android et le build preview doivent être exécutés depuis le SHA poussé ; leurs résultats ne sont pas encore connus au moment de cette entrée.
 
 Résultat local : `npm test` — **1019 tests, 1015 pass, 0 fail, 4 skip**. `smali_register_check.py NativeSession*.smali` — 0 problème sur 10 fichiers. `git diff --check` — propre. Les requêtes token/library, leurs en-têtes et le profil WebView n’ont pas changé ; les changements JS sont strictement observation de fin de tentative et déclenchement de vérification via le pipeline existant.
+
+### Déclenchement CI
+
+Le nouveau fichier de workflow n’est pas encore enregistré sur la branche par défaut : son dispatch direct retourne 404 (aucun problème d’authentification GitHub). Il est donc exposé via une option explicite `session_gate_only=true` du workflow existant `test-preview-emulator.yml`, qui appelle le nouveau workflow réutilisable. Les jobs historiques restent inchangés lorsqu’on ne choisit pas cette option ; ils ne sont ni déclarés réussis ni utilisés comme preuve de cette mission.

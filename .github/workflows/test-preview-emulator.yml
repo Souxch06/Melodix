@@ -6,6 +6,11 @@ on:
       - arena/7142700d-melodix
   workflow_dispatch:
     inputs:
+      session_gate_only:
+        description: Run isolated login-first synthetic Android instrumentation (not live authentication)
+        required: false
+        type: boolean
+        default: false
       source_ref:
         description: Full source commit SHA embedded in the Preview APK
         required: false
@@ -32,8 +37,14 @@ permissions:
   contents: write
 
 jobs:
+  session-gate:
+    if: github.event_name == 'workflow_dispatch' && inputs.session_gate_only == true
+    uses: ./.github/workflows/test-session-gate.yml
+    with:
+      source_ref: ${{ inputs.source_ref || github.sha }}
+    secrets: inherit
   build-preview:
-    if: github.event_name != 'workflow_dispatch' || inputs.replay_original_launch_path != true
+    if: (github.event_name != 'workflow_dispatch' || inputs.replay_original_launch_path != true) && inputs.session_gate_only != true
     name: Build debuggable APK for UI instrumentation
     uses: ./.github/workflows/preview-apk.yml
     with:
@@ -45,7 +56,7 @@ jobs:
     secrets: inherit
 
   build-release-candidate:
-    if: github.event_name != 'workflow_dispatch' || inputs.replay_original_launch_path != true
+    if: (github.event_name != 'workflow_dispatch' || inputs.replay_original_launch_path != true) && inputs.session_gate_only != true
     name: Build exact non-debuggable Preview release candidate
     uses: ./.github/workflows/preview-apk.yml
     with:
@@ -59,7 +70,7 @@ jobs:
     secrets: inherit
 
   install-and-launch:
-    if: github.event_name != 'workflow_dispatch' || inputs.replay_original_launch_path != true
+    if: (github.event_name != 'workflow_dispatch' || inputs.replay_original_launch_path != true) && inputs.session_gate_only != true
     name: Install and test the exact Preview artifacts built by this run
     needs: [build-preview, build-release-candidate]
     runs-on: ubuntu-24.04
@@ -2837,7 +2848,7 @@ jobs:
           echo "Public Preview: https://github.com/Souxch06/Melodix/releases/tag/$RELEASE_TAG" >> "$GITHUB_STEP_SUMMARY"
 
   p0-verify-replay:
-    if: github.event_name == 'workflow_dispatch' && inputs.replay_original_launch_path == true
+    if: github.event_name == 'workflow_dispatch' && inputs.replay_original_launch_path == true && inputs.session_gate_only != true
     name: Replay Android 16 launch on the historical ec6ef63 instrumentation APK
     runs-on: ubuntu-24.04
     timeout-minutes: 35
