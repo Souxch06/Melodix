@@ -88,6 +88,7 @@
 .field private diagRouteDropped:I
 .field private diagLoginRequested:I
 .field private nativeSessionUnproven:Z
+.field public nativeVerificationStart:J
 .field private nativeHomeContentReady:Z
 .field private nativeHomeVisibilityDiagnosticReported:Z
 .field private nativeHomeFirstCard:Landroid/view/View;
@@ -11906,4 +11907,25 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     :mel_sysback_no
     const/4 v0, 0x0
     return v0
+.end method
+
+.method public final scheduleNativeSessionTimeout()V
+    .locals 6
+    iget-wide v0, p0, Lcom/melodix/music/MainActivity;->nativeVerificationStart:J
+    const-wide/16 v2, 0x0
+    cmp-long v4, v0, v2
+    if-nez v4, :session_timer_done
+    invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
+    move-result-wide v0
+    iput-wide v0, p0, Lcom/melodix/music/MainActivity;->nativeVerificationStart:J
+    new-instance v2, Lcom/melodix/music/NativeSessionTimeout;
+    invoke-direct {v2, p0, v0, v1}, Lcom/melodix/music/NativeSessionTimeout;-><init>(Lcom/melodix/music/MainActivity;J)V
+    new-instance v3, Landroid/os/Handler;
+    invoke-static {}, Landroid/os/Looper;->getMainLooper()Landroid/os/Looper;
+    move-result-object v4
+    invoke-direct {v3, v4}, Landroid/os/Handler;-><init>(Landroid/os/Looper;)V
+    const-wide/16 v0, 0x3a98
+    invoke-virtual {v3, v2, v0, v1}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
+    :session_timer_done
+    return-void
 .end method

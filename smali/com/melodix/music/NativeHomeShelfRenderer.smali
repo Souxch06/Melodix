@@ -586,6 +586,9 @@
 .method private static renderHomeStatus(Lcom/melodix/music/MainActivity;Landroid/widget/LinearLayout;Lorg/json/JSONObject;)Z
     .locals 13
 
+    invoke-static {p0, p2}, Lcom/melodix/music/NativeSessionStatus;->prepare(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)V
+
+
     const-string v1, "title"
     const-string v2, ""
     invoke-virtual {p2, v1, v2}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;

@@ -32,6 +32,9 @@
 .method public static verify(Lcom/melodix/music/MainActivity;)V
     .locals 4
     :verify_try
+    const-wide/16 v0, 0x0
+    iput-wide v0, p0, Lcom/melodix/music/MainActivity;->nativeVerificationStart:J
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->scheduleNativeSessionTimeout()V
     const-string v1, "session-verify result=retry"
     invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;

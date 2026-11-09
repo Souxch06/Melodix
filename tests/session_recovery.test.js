@@ -37,3 +37,63 @@ test('login action retries with a cookie before account navigation; explicit log
   assert.equal(cookieGrammar.test('not_sp_dc=fixture'), false);
   assert.equal(cookieGrammar.test('sp_dc='), false);
 });
+
+// Execute the status helper's smali instructions against fake Android/JSON APIs.
+// This tests the actual branches and mutations, not a second implementation.
+function prepareStatus(payload, { cookie, now, started = 0 }) {
+  const code = method(read('smali/com/melodix/music/NativeSessionStatus.smali'), '.method public static prepare(').split('\n').map(l => l.trim());
+  const regs = { p0: { started }, p1: structuredClone(payload) };
+  const labels = Object.fromEntries(code.map((l, i) => [l, i]));
+  let result;
+  for (let pc = 0, steps = 0; pc < code.length && steps++ < 500; pc++) {
+    const l = code[pc]; let m;
+    if (!l || /^[.#:]/.test(l)) continue;
+    if ((m = l.match(/^const-string (\w+), (.*)$/))) { regs[m[1]] = JSON.parse(m[2]); continue; }
+    if ((m = l.match(/^const-wide\/16 (\w+), (.*)$/))) { regs[m[1]] = Number(m[2]); continue; }
+    if ((m = l.match(/^invoke-\S+ \{([^}]*)\}, (.*)$/))) {
+      const args = m[1] ? m[1].split(', ').map(r => regs[r]) : [];
+      const call = m[2];
+      if (call.includes('->optBoolean')) result = args[0][args[1]] === true;
+      else if (call.includes('->optString')) result = args[0][args[1]] || '';
+      else if (call.includes('->put(')) { args[0][args[1]] = args[2]; result = args[0]; }
+      else if (call.includes('->equals(')) result = args[0] === args[1];
+      else if (call.includes('->hasCookie()')) result = cookie;
+      else if (call.includes('->elapsedRealtime()')) result = now;
+      else if (call.includes('->scheduleNativeSessionTimeout()')) { if (!args[0].started) args[0].started = now; }
+      else assert.fail('unsupported call: ' + call);
+      continue;
+    }
+    if ((m = l.match(/^move-result(?:-object|-wide)? (\w+)/))) { regs[m[1]] = result; continue; }
+    if ((m = l.match(/^iget-wide (\w+), (\w+), .*nativeVerificationStart/))) { regs[m[1]] = regs[m[2]].started; continue; }
+    if ((m = l.match(/^sub-long\/2addr (\w+), (\w+)/))) { regs[m[1]] -= regs[m[2]]; continue; }
+    if ((m = l.match(/^cmp-long (\w+), (\w+), (\w+)/))) { regs[m[1]] = Math.sign(regs[m[2]] - regs[m[3]]); continue; }
+    if ((m = l.match(/^if-(eqz|gez) (\w+), (:\w+)/))) { if (m[1] === 'eqz' ? !regs[m[2]] : regs[m[2]] >= 0) pc = labels[m[3]]; continue; }
+    if ((m = l.match(/^goto (:\w+)/))) { pc = labels[m[1]]; continue; }
+    if (l === 'return-void') return regs;
+    assert.fail('unsupported instruction: ' + l);
+  }
+  assert.fail('helper failed to return');
+}
+
+test('unproven loading has a fixed 15s deadline, then an error with safe retry and conditional login', () => {
+  const input = { kind: 'state', state: 'loading', sessionUnproven: true, uri: 'melodix:action:open-login' };
+  let r = prepareStatus(input, { cookie: true, now: 20000 });
+  assert.equal(r.p1.state, 'loading');
+  assert.equal(r.p1.uri, '');
+  assert.equal(r.p1.secondaryUri, '');
+  assert.equal(r.p0.started, 20000);
+  r = prepareStatus(input, { cookie: true, now: 34999, started: 20000 });
+  assert.equal(r.p1.state, 'loading');
+  assert.equal(r.p0.started, 20000, 'repeated payloads cannot extend the deadline');
+  for (const cookie of [false, true]) {
+    r = prepareStatus(input, { cookie, now: 35000, started: 20000 });
+    assert.equal(r.p1.state, 'error');
+    assert.equal(r.p1.uri, 'melodix:action:retry-library');
+    assert.equal(r.p1.secondaryUri, cookie ? '' : 'melodix:action:open-login');
+    assert.match(r.p1.subtitle, / \[auth=/, 'technical detail follows the existing collapsed-disclosure grammar');
+  }
+  const timeout = read('smali/com/melodix/music/NativeSessionTimeout.smali');
+  assert.match(timeout, /cmp-long v1, v2, v4\s+if-nez v1, :timeout_done/, 'stale attempts cannot replace a newer attempt');
+  assert.match(timeout, /hasNativeHomeCardsAttached\(\)Z\s+move-result v1\s+if-nez v1, :timeout_done/, 'never replace successful cards');
+  assert.match(timeout, /WeakReference/);
+});
