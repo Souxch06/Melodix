@@ -23,3 +23,10 @@ test('cold-start cleanup flag is initialized false and set true only in the expl
  assert.match(read('smali/y51.smali'),/:pswitch_0[\s\S]*?const\/4 p1, 0x1[\s\S]*?sput-boolean p1, Lcom\/melodix\/music\/MainActivity;->l0:Z/);
  assert.match(method(read('smali/com/melodix/music/MainActivity.smali'),'.method public final A()V'),/sget-boolean v1, Lcom\/melodix\/music\/MainActivity;->l0:Z[\s\S]*?if-eqz v1, :cond_0[\s\S]*?removeAllCookies[\s\S]*?:cond_0/);
 });
+test('Preview builds compare their package, version and signer against the exact installed reference before uploading',()=>{
+ const w=read('.github/workflows/preview-apk.yml'),download=w.indexOf('Download installed Preview compatibility reference'),check=w.indexOf('Check update compatibility with Preview137'),upload=w.indexOf('Upload APK as workflow artifact');
+ assert.ok(download>0&&check>download&&upload>check);const s=w.slice(download,upload);
+ assert.match(s,/run-id: 42659601759/);assert.match(s,/65736a870192dfab10101912002d77c731cb64bf1fd0ee095bf9b4046a3a9122/);
+ assert.match(s,/apksigner" verify --print-certs "\$reference"/);assert.match(s,/\$old_cert" == "\$new_cert/);
+ assert.match(s,/\$new_package" == "\$old_package/);assert.match(s,/new_version > old_version/);assert.doesNotMatch(s,/pm clear|uninstall/);
+});
