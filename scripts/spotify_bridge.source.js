@@ -3428,6 +3428,10 @@
         traceLibraryEvent('proof-guard decision=allowed reason=dom-' + spotifyAuthUiState());
         const diagnostic = createMediaLibraryDiagnostic(source, safeCorrelationId);
         traceHomeLibraryStage(diagnostic, 'request', 'started', 0, 0, 0);
+        try {
+            diagnostic.nativeGeneration = window.AndBridge && typeof window.AndBridge.getSessionGeneration === 'function'
+                ? boundedMediaLibraryCount(window.AndBridge.getSessionGeneration(), 2147483647) : 0;
+        } catch (_) { diagnostic.nativeGeneration = 0; }
         const requestGeneration = mediaLibraryRequestGeneration;
         const authEpoch = boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999);
         window.__sfMediaLibLastAuthAttemptEpoch = authEpoch;
@@ -3580,12 +3584,44 @@
             }
             syncMediaLibraryUiState();
             emitMediaLibraryDiagnostic(diagnostic, diagnostic.phase || 'settle');
+            // A completed, correlated observation only. No request/header/token value changes.
+            publishSessionVerification(diagnostic);
+
             if (window.__sfMediaLibStatus === 'ready') {
                 window.__sfMediaLibRetryAt = 0;
                 window.__sfMediaLibRetryDelayMs = 5000;
             }
         }
     }
+    function publishSessionVerification(diagnostic) {
+        const refusal = code => code === 400 || code === 401 || code === 403;
+        const result = {
+            generation: boundedMediaLibraryCount(diagnostic.nativeGeneration, 2147483647),
+            attempt: boundedMediaLibraryCount(diagnostic.attempt, 999999),
+            completed: true,
+            token: diagnostic.bearer === true,
+            tokenRefused: diagnostic.bearer !== true && refusal(diagnostic.tokenApiHttp) &&
+                refusal(diagnostic.tokenFallbackHttp),
+            libraryHttp: boundedMediaLibraryCount(diagnostic.http, 599),
+            libraryOk: window.__sfMediaLibStatus === 'ready' && window.__sfMediaLibSessionProven === true &&
+                !window.__sfMediaLibError && diagnostic.http >= 200 && diagnostic.http < 300
+        };
+        try {
+            if (window.AndBridge && typeof window.AndBridge.onSessionVerification === 'function') {
+                window.AndBridge.onSessionVerification(JSON.stringify(result));
+            }
+        } catch (_) {}
+    }
+    // Native retry queues behind an older attempt instead of adopting its result.
+    // Existing auth guard, single-flight lock and Retry-After still apply.
+    window.__sfRequestSessionVerification = function () {
+        const request = () => {
+            if (window.__sfMediaLibError === 'http-429' && Number(window.__sfMediaLibRetryAt) > Date.now()) return false;
+            return checkMediaLib(true, 'native-retry');
+        };
+        if (mediaLibraryCheckPromise) return mediaLibraryCheckPromise.then(request, request);
+        return request();
+    };
     window.checkMediaLib = checkMediaLib;
 
     // Do not read, store, or forward credentials. Each page request uses only

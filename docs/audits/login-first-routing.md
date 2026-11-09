@@ -29,3 +29,13 @@
 Ne modifier ni endpoints/requêtes/en-têtes/version Spotify, ni spoof, ni blocage publicitaire. Le thème concerne uniquement les vues natives ; aucun style injecté dans accounts. Aucun token, cookie, URL ni contenu privé dans MDXPERF. Ne pas désinstaller ni effacer les données pour tester.
 
 Les étapes suivantes doivent préciser les implémentations, tests exécutés et limites de validation appareil ; les tests statiques ne constituent pas une preuve de pixels ni de session réelle.
+
+## Étape 2 : décision centralisée
+
+`NativeSessionGate` porte les cinq états, la génération, l’anti-duplication de tentative, le budget automatique et le verrou post-login frais. La factory et ensure partagent `initialUrl`; les routes et affichages natifs passent par `blocked`. `onWebViewPageFinished` ne prouve plus un login : il déclenche seulement la revérification au retour du player après accounts.
+
+La publication de fin de pipeline dans `spotify_bridge.source.js` exporte huit champs non sensibles d’une seule tentative. La génération est capturée **avant** le départ ; les garde-fous requestGeneration/authEpoch existants s’exécutent avant la publication. Le retry natif rejoint puis relance après une tentative ancienne, sans adopter son résultat et sans contourner Retry-After. Les requêtes et leur configuration sont inchangées.
+
+`NativeSessionReconnect.start` vérifie `canReconnect` avant toute suppression ; le simple couple 400/403 n’autorise plus la reconnexion destructive. L’ancien timer 15 s ne peut plus remplacer la surface de cette machine. Le timer natif 3 s est non destructif et accepte encore une preuve tardive courante.
+
+Tests ciblés : `node --test tests/session_gate.test.js` (9 cas, interprétation des instructions smali de décision et exécution réelle de la publication JS). Contrôle registres des nouveaux helpers. La surface graphique est l’étape suivante ; cette étape ne constitue pas une validation Android/appareil.

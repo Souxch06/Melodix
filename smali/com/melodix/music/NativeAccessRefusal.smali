@@ -5,6 +5,9 @@
 .method public static prepare(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Z
     .locals 3
     :refusal_try
+    invoke-static {}, Lcom/melodix/music/NativeSessionGate;->canReconnect()Z
+    move-result v0
+    if-eqz v0, :refusal_no
     const-string v0, "state"
     invoke-virtual {p1, v0}, Lorg/json/JSONObject;->optString(Ljava/lang/String;)Ljava/lang/String;
     move-result-object v0

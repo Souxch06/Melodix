@@ -1,0 +1,99 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const read = f => fs.readFileSync(require('node:path').join(__dirname, '..', f), 'utf8');
+const gate = read('smali/com/melodix/music/NativeSessionGate.smali');
+function body(src, name) { const a = src.indexOf('.method public static '+name+'('); assert.ok(a>=0,name); return src.slice(a,src.indexOf('.end method',a)); }
+// Execute actual decision instructions, not a duplicate JS state machine.
+function machine(overrides={}) {
+ const fields = {state:0,generation:1,lastAttempt:0,autoUsed:false,freshLogin:false,loginActive:false,expiredEvidence:false,...overrides};
+ const calls=[], transitions=[];
+ function run(name, ...args) {
+  const lines=body(gate,name).split('\n').map(l=>l.trim()), labels=Object.fromEntries(lines.map((l,i)=>[l,i]));
+  const regs=Object.fromEntries(args.map((a,i)=>['p'+i,a])); let result;
+  for(let pc=0, steps=0;pc<lines.length && steps++<1000;pc++) {
+   const l=lines[pc]; let m;
+   if(!l||/^[.#:]/.test(l))continue;
+   if((m=l.match(/^const-string (\w+), (.*)$/))) {regs[m[1]]=JSON.parse(m[2]);continue;}
+   if((m=l.match(/^const(?:\/4|\/16) (\w+), (.*)$/))) {regs[m[1]]=Number(m[2]);continue;}
+   if((m=l.match(/^sget(?:-boolean)? (\w+), .*;->(\w+):/))) {regs[m[1]]=fields[m[2]];continue;}
+   if((m=l.match(/^sput(?:-boolean)? (\w+), .*;->(\w+):/))) {fields[m[2]]=regs[m[1]];continue;}
+   if((m=l.match(/^new-instance (\w+), Lorg\/json\/JSONObject/))) {regs[m[1]]={};continue;}
+   if((m=l.match(/^invoke-\S+ \{([^}]*)\}, (.*)$/))) {
+    const a=m[1]?m[1].split(', ').map(r=>regs[r]):[], c=m[2];
+    if(c.includes('JSONObject;-><init>')) Object.assign(a[0],JSON.parse(a[1]));
+    else if(c.includes('->optInt')) result=Number(a[0][a[1]])||0;
+    else if(c.includes('->optBoolean')) result=a[0][a[1]]===true;
+    else if(c.includes('->transition')) {transitions.push({from:fields.state,to:a[0],reason:a[1]});fields.state=a[0];}
+    else if(c.includes('->navigateLogin')) {calls.push('login');fields.loginActive=true;fields.generation++;}
+    else if(c.includes('->hasCookie')) result=fields.cookie!==false;
+    else if(c.includes('->verify')) calls.push('verify');
+    else if(c.includes('->paint')||c.includes('->showNativeUi')||c.includes('->runNativeJavascript')) calls.push(c.match(/->(\w+)/)[1]);
+    else assert.fail('unsupported '+c);
+    continue;
+   }
+   if((m=l.match(/^move-result(?:-object)? (\w+)/))) {regs[m[1]]=result;continue;}
+   if((m=l.match(/^iput-boolean (\w+), (\w+), .*;->(\w+):/))) {regs[m[2]][m[3]]=regs[m[1]];continue;}
+   if((m=l.match(/^if-(eqz|nez) (\w+), (:\w+)/))) {if(m[1]==='eqz'?!regs[m[2]]:!!regs[m[2]])pc=labels[m[3]];continue;}
+   if((m=l.match(/^if-(eq|ne|le) (\w+), (\w+), (:\w+)/))) {const a=regs[m[2]], b=regs[m[3]];if(m[1]==='eq'?a===b:m[1]==='ne'?a!==b:a<=b)pc=labels[m[4]];continue;}
+   if((m=l.match(/^goto (:\w+)/))) {pc=labels[m[1]];continue;}
+   if((m=l.match(/^return(?:-object)? (\w+)/)))return regs[m[1]];
+   if(l==='return-void')return;
+   assert.fail('unsupported '+l);
+  }
+  assert.fail('did not return');
+ }
+ return {fields,calls,transitions,run,send:payload=>run('result',{},JSON.stringify({generation:fields.generation,attempt:1,completed:true,...payload}))};
+}
+
+test('case 1: no cookie chooses login once, never player/home or cookie deletion',()=>{
+ const m=machine({cookie:false});assert.match(m.run('initialUrl'),/^https:\/\/accounts/);assert.equal(m.fields.state,1);
+ assert.equal(m.run('initialUrl'),'about:blank');assert.equal(m.fields.autoUsed,1);
+ assert.doesNotMatch(gate,/removeAllCookies|deleteAllData|UserAgent|spotify-app-version/);
+});
+test('case 2: cookie merely routes to hidden player; only token AND validated library unlock home',()=>{
+ const m=machine();assert.equal(m.run('initialUrl'),'https://open.spotify.com/');assert.equal(m.fields.state,0);
+ m.send({token:true,libraryOk:true});assert.equal(m.fields.state,3);assert.ok(m.calls.includes('showNativeUi'));
+ for(const result of [{token:true,libraryOk:false},{token:false,libraryOk:true}]) {const n=machine();n.send(result);assert.equal(n.fields.state,4);assert.ok(!n.calls.includes('login'));}
+});
+test('case 3: completed correlated token refusal + library401 auto routes only once, preserves cookie',()=>{
+ const m=machine();m.send({token:false,tokenRefused:true,libraryHttp:401});assert.equal(m.fields.state,2);assert.equal(m.run('canReconnect'),1);assert.equal(m.calls.filter(c=>c==='login').length,1);
+ m.send({attempt:2,tokenRefused:true,libraryHttp:401});assert.equal(m.calls.filter(c=>c==='login').length,1);
+});
+test('case 4: timeout/network/isolated 401/403 never imply expiry or destructive recovery',()=>{
+ for(const payload of [{},{tokenRefused:true,libraryHttp:0},{libraryHttp:401},{tokenRefused:true,libraryHttp:403}]) {
+  const m=machine();m.send(payload);assert.equal(m.fields.state,4);assert.equal(m.run('canReconnect'),0);assert.ok(!m.calls.includes('login'));
+ }
+});
+test('case 5: fresh-login refusal stays error without a redirect loop',()=>{
+ const m=machine({freshLogin:true,autoUsed:true});m.send({tokenRefused:true,libraryHttp:401});assert.equal(m.fields.state,4);assert.equal(m.run('canReconnect'),0);assert.ok(!m.calls.includes('login'));
+});
+test('case 6: stale, duplicate, incomplete and login-page callbacks cannot unlock home',()=>{
+ for(const payload of [{generation:0},{attempt:0},{completed:false}]) {const m=machine();m.send({...payload,token:true,libraryOk:true});assert.equal(m.fields.state,0);}
+ const m=machine({loginActive:true});m.send({token:true,libraryOk:true});assert.equal(m.fields.state,0);
+ const n=machine();n.send({token:true,libraryOk:true});n.send({token:false,libraryHttp:401});assert.equal(n.fields.state,3);
+});
+test('retry is non-destructive; expiry guard precedes removeAllCookies',()=>{
+ const r=read('smali/com/melodix/music/NativeSessionReconnect.smali');assert.ok(r.indexOf('canReconnect()Z')<r.indexOf('removeAllCookies'));
+ assert.match(read('smali/com/melodix/music/NativeSessionRecovery.smali'),/NativeSessionGate;->begin/);
+ const m=machine({cookie:true});m.run('requestLogin',{});assert.deepEqual(m.calls,['verify']);
+});
+test('rotation/background preserve process budget; 3s presentation deadline cannot navigate',()=>{
+ const task=read('smali/com/melodix/music/NativeSessionGateTask.smali');
+ assert.match(task,/NativeSessionGate;->owner/);assert.match(task,/if-ne v1, v2, :done/);assert.match(task,/presentation-deadline-not-expiration/);
+ assert.doesNotMatch(task,/navigateLogin|removeAllCookies|loadUrl/);
+ assert.match(body(gate,'begin'),/const-wide\/16 v3, 0xbb8/);
+ assert.match(body(gate,'destroy'),/isFinishing/);
+});
+test('publication exports only closed, same-attempt observations at completion',()=>{
+ const source=read('scripts/spotify_bridge.source.js');const fn=source.match(/    function publishSessionVerification\(diagnostic\) \{[\s\S]*?\n    \}/)[0];
+ for(const [diag,expected] of [[{tokenApiHttp:400,tokenFallbackHttp:403,http:401},true],[{tokenApiHttp:0,tokenFallbackHttp:403,http:401},false],[{bearer:true,tokenApiHttp:400,tokenFallbackHttp:403,http:200},false]]) {
+  let sent;const window={AndBridge:{onSessionVerification:s=>sent=JSON.parse(s)}};
+  vm.runInNewContext('('+fn+')(diagnostic)',{window,diagnostic:{nativeGeneration:7,attempt:8,...diag},boundedMediaLibraryCount:(n,max)=>Math.max(0,Math.min(max,Number(n)||0))});
+  assert.equal(sent.tokenRefused,expected);assert.equal(sent.generation,7);assert.equal(sent.attempt,8);assert.equal(sent.completed,true);
+  assert.deepEqual(Object.keys(sent),['generation','attempt','completed','token','tokenRefused','libraryHttp','libraryOk']);
+ }
+ assert.ok(source.indexOf('publishSessionVerification(diagnostic)')>source.indexOf('} finally {\n            if (requestGeneration'));
+});

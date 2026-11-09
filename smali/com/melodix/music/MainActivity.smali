@@ -438,221 +438,16 @@
 .end method
 
 .method public final ensureWebPageLoaded()V
-    .locals 4
-
-    # A WebView that exists but shows nothing is the device failure being fixed
-    # (report: url=null progress=100 chargement=false erreur=-1, and not a
-    # single page-finished stage). Whatever path produced the engine - fresh
-    # factory, cached singleton re-bound to a new activity, or a configuration
-    # step that failed before the first loadUrl - this method guarantees one
-    # usable page is requested.
-    #
-    # The test is what the user can actually see: getUrl() must be a real page.
-    # A null URL means no page was ever requested; "about:blank" means the view
-    # is showing an empty document. Both are repaired. Anything else returns
-    # immediately, so onResume can never reload the player while it is used.
-    :try_start_all
-    const-string v1, "ensure-check"
-
-    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
-
+    .locals 3
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
-
     if-eqz v0, :done
-
     invoke-virtual {v0}, Landroid/webkit/WebView;->getUrl()Ljava/lang/String;
-
     move-result-object v1
-
-    # Null means no navigation was ever requested. A real URL is already
-    # usable; only about:blank is the other empty state. Compare from the
-    # non-null constant so the null path never dereferences v1.
-    if-eqz v1, :do_load
-
-    const-string v2, "about:blank"
-
-    invoke-virtual {v2, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-
-    move-result v1
-
-    # MEL-BUG-068: a real URL only short-circuits when the session is PROVEN.
-    # Unproven (marker or sp_dc cookie missing) -> the login surface is forced
-    # back on top at every launch/resume, even if the WebView kept an old URL.
-    if-eqz v1, :proven_check
-
-    :do_load
-    # MEL-BUG-073: no page at all -> this is the cold-start branch.
-    # NOTE: ensureWebPageLoaded() takes no parameter, so no p-register may be
-    # used here (v1/v2 only).
-    const-string v1, "ensure"
-    const-string v2, "cold"
-    const/4 v3, 0x0
-    invoke-static {v1, v2, v3}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
-    # Same two targets the factory uses: the player once the session is proven,
-    # the login form otherwise. The login flow itself is untouched.
-    sget-boolean v1, Lcom/melodix/music/AppSingleton;->B:Z
-
-    if-eqz v1, :login_url
-
-    sget-boolean v1, Lcom/melodix/music/MainActivity;->l0:Z
-
-    if-nez v1, :login_url
-
-    # MEL-BUG-067: a persisted marker is not a session — if the real sp_dc
-    # session cookie is absent, show the login FIRST even on a warm start.
-    # Inline on v2/v3 (v0 = WebView, v1 = flag): only the cookie's presence is
-    # tested, never its value.
-    invoke-static {}, Landroid/webkit/CookieManager;->getInstance()Landroid/webkit/CookieManager;
-
-    move-result-object v2
-
-    if-eqz v2, :login_url
-
-    const-string v3, "https://open.spotify.com/"
-
-    invoke-virtual {v2, v3}, Landroid/webkit/CookieManager;->getCookie(Ljava/lang/String;)Ljava/lang/String;
-
-    move-result-object v2
-
-    if-eqz v2, :login_url
-
-    const-string v3, "sp_dc="
-
-    invoke-virtual {v2, v3}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
-
-    move-result v2
-
-    if-eqz v2, :login_url
-
-    const-string v1, "https://open.spotify.com/"
-
-    goto :have_url
-
-    :proven_check
-    # MEL-BUG-073: a real page is already loaded -> warm branch, with the proof.
-    const-string v1, "ensure"
-    const-string v2, "warm"
-    const-string v3, "proof"
-    invoke-static {v1, v2, v3}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
-    sget-boolean v1, Lcom/melodix/music/AppSingleton;->B:Z
-
-    if-eqz v1, :force_login
-
-    sget-boolean v1, Lcom/melodix/music/MainActivity;->l0:Z
-
-    if-nez v1, :force_login
-
-    invoke-static {}, Landroid/webkit/CookieManager;->getInstance()Landroid/webkit/CookieManager;
-
-    move-result-object v2
-
-    if-eqz v2, :force_login
-
-    const-string v3, "https://open.spotify.com/"
-
-    invoke-virtual {v2, v3}, Landroid/webkit/CookieManager;->getCookie(Ljava/lang/String;)Ljava/lang/String;
-
-    move-result-object v2
-
-    if-eqz v2, :force_login
-
-    const-string v3, "sp_dc="
-
-    invoke-virtual {v2, v3}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
-
-    move-result v2
-
-    if-eqz v2, :force_login
-
-    # Session proven and a real page already on screen: never reload (onResume
-    # must not restart the player while the user is listening).
-    goto :done
-
-    :force_login
-    # Unproven but a page is already loaded. A local shell asset is left alone
-    # (the native UI stays measurable — CI ui-metrics depends on it), so only a
-    # REMOTE page is handled here.
-    # The URL is re-read from the WebView (v0, still live) because v1 was
-    # reused as a flag above.
-    invoke-virtual {v0}, Landroid/webkit/WebView;->getUrl()Ljava/lang/String;
-
+    if-nez v1, :done
+    invoke-static {}, Lcom/melodix/music/NativeSessionGate;->initialUrl()Ljava/lang/String;
     move-result-object v1
-
-    if-eqz v1, :done
-
-    const-string v2, "https://"
-
-    invoke-virtual {v1, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
-
-    move-result v2
-
-    # A local shell asset (file:///android_asset) leaves the native shell
-    # measurable, so it is the only page that stops here.
-    if-nez v2, :done
-
-    # MEL-BUG-071 fix — THE leak seen on device. A warm start left the WebView
-    # on open.spotify.com/?flow_ctx=... (Spotify auto-continued the login with a
-    # browser-valid sp_dc cookie). The old guard only revealed the login surface
-    # for accounts.spotify.com and fell through to :done for anything else, so
-    # for the player URL the login surface was NEVER requested:
-    # nativeLoginWebRequested stayed false, every navigation gate and payload
-    # lock was satisfied, and the native Home was painted over an unproven
-    # session ("ecran=home ... auth=false cookie_sp_dc=true", journal
-    # "route home | render native-rows" with no *-dropped-unproven label).
-    # Every REMOTE page now re-asserts the login surface; an accounts.spotify.com
-    # page is already the login form, so it is only revealed, never reloaded.
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealLoginWebUi()V
-
-    const-string v2, "accounts.spotify.com"
-
-    invoke-virtual {v1, v2}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
-
-    move-result v2
-
-    if-eqz v2, :done
-
-    const/4 v1, 0x0
-
-    :login_url
-    const-string v1, "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&allow_signup=1"
-    # MEL-BUG-042: when no session is proven at load time (always true on a
-    # cold start: AppSingleton forces B=false at startup), show the official
-    # login screen directly instead of the native home. A valid persisted
-    # session cookie auto-continues to open.spotify.com via the continue
-    # parameter, so a saved login still lands on Home by itself.
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealLoginWebUi()V
-
-    :have_url
-    :try_start_load
-    const-string v2, "webview-load-start"
-    invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->perfMark(Ljava/lang/String;)V
     invoke-static {v1}, Lcom/melodix/music/NativeSessionTrace;->ensure(Ljava/lang/String;)V
     invoke-virtual {v0, v1}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
-    :try_end_load
-    .catchall {:try_start_load .. :try_end_load} :load_failed
-
-    const-string v1, "ensure-load"
-
-    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
-
-    goto :done
-
-    :load_failed
-    move-exception v1
-
-    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->recordWebViewConfigFailure(Ljava/lang/Throwable;)V
-
-    const-string v1, "ensure-load-failed"
-
-    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
-    :try_end_all
-    .catch Ljava/lang/Throwable; {:try_start_all .. :try_end_all} :catch_all
-
-    goto :done
-
-    :catch_all
-    move-exception v0
-
     :done
     return-void
 .end method
@@ -3068,6 +2863,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     return-void
 
     :native_content_ok
+    invoke-static {v0}, Lcom/melodix/music/NativeSessionGate;->bind(Lcom/melodix/music/MainActivity;)V
     const-string v1, "content-view"
 
     invoke-static/range {v1 .. v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
@@ -4783,6 +4579,8 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
 .method public final onDestroy()V
     .locals 2
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionGate;->destroy(Lcom/melodix/music/MainActivity;)V
+
 
     .line 1
     invoke-super {p0}, Le6;->onDestroy()V
@@ -7505,59 +7303,11 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 .end method
 
 .method public final onWebViewPageFinished()V
-    .locals 3
-
-    iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginWebRequested:Z
-    if-eqz v0, :native_web_page_native_owner
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->isLoginWebPath()Z
-    move-result v0
-    if-eqz v0, :native_login_route_finished
-    # MEL-BUG-066: a login-path page really committed — from now on, a later
-    # real non-login page may close the login surface again.
-    const/4 v0, 0x1
-    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginPageCommitted:Z
-    const-string v1, "page-finished-login"
-    const-string v2, "webview"
-    invoke-direct {p0, v1, v2}, Lcom/melodix/music/MainActivity;->applyLoginWebUi(Ljava/lang/String;Ljava/lang/String;)V
-    return-void
-
-    :native_login_route_finished
-    # MEL-BUG-072 fix — the REAL path. Every journal from the device starts with
-    # "route home ..." BEFORE any "data native-payload": the native home is
-    # painted by onWebViewPageFinished -> showNativeUiFrom, and this branch
-    # released the login surface on the very first page that was not the login
-    # form (Spotify auto-continues the login URL to `/?flow_ctx=...` with a
-    # browser-valid sp_dc cookie while AppSingleton.B is still false).
-    # `route home` is written by showNativeUiFrom itself, so it appears even
-    # though nothing proved the session.
-    # Only a proven session (or the local shell asset, which the native UI
-    # needs for CI) may hand the foreground back.
-    sget-boolean v0, Lcom/melodix/music/AppSingleton;->B:Z
-    if-eqz v0, :native_login_route_proven
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
-    if-eqz v0, :native_login_route_proven
-    invoke-virtual {v0}, Landroid/webkit/WebView;->getUrl()Ljava/lang/String;
-    move-result-object v1
-    if-eqz v1, :native_login_route_proven
-    const-string v2, "file://"
-    invoke-virtual {v1, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
-    move-result v0
-    if-eqz v0, :native_login_route_proven
-    # Unproven remote page: keep (and re-assert) the login surface. No reload
-    # happens here, so this cannot loop.
-    const-string v1, "page-finished-unproven-keep-login"
-    const-string v2, "webview"
-    invoke-direct {p0, v1, v2}, Lcom/melodix/music/MainActivity;->applyLoginWebUi(Ljava/lang/String;Ljava/lang/String;)V
-    return-void
-
-    :native_login_route_proven
-    const/4 v0, 0x0
-    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginWebRequested:Z
-
-    :native_web_page_native_owner
-    const-string v1, "page-finished"
-    const-string v2, "webview"
-    invoke-virtual {p0, v1, v2}, Lcom/melodix/music/MainActivity;->showNativeUiFrom(Ljava/lang/String;Ljava/lang/String;)V
+    .locals 2
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionGate;->pageFinished(Lcom/melodix/music/MainActivity;)V
+    const-string v0, "page-finished"
+    const-string v1, "webview"
+    invoke-virtual {p0, v0, v1}, Lcom/melodix/music/MainActivity;->showNativeUiFrom(Ljava/lang/String;Ljava/lang/String;)V
     return-void
 .end method
 
@@ -8961,6 +8711,13 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 .method public final showNativeUiFrom(Ljava/lang/String;Ljava/lang/String;)V
     .locals 5
 
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionGate;->blocked(Lcom/melodix/music/MainActivity;)Z
+    move-result v0
+    if-eqz v0, :session_gate_allowed
+    return-void
+    :session_gate_allowed
+
+
     # MEL-BUG-072 — the REAL leak. Every device journal begins with
     # "route home ..." BEFORE any "data native-payload", so the native home was
     # painted here (activateNativeUiRoute writes the "route" entry right after
@@ -9599,6 +9356,13 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
 .method public final activateNativeUiRoute(Ljava/lang/String;)V
     .locals 4
+
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionGate;->blocked(Lcom/melodix/music/MainActivity;)Z
+    move-result v0
+    if-eqz v0, :session_gate_allowed
+    return-void
+    :session_gate_allowed
+
 
     # MEL-BUG-072b: a route activation is a claim on the native UI, and it used
     # to run its whole body — writing "route <screen>" into the visible journal
@@ -11477,54 +11241,8 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 .end method
 
 .method public final openSpotifyLogin()V
-    .locals 3
-
-    # A session cookie is NOT proof, but it must never be sent to account
-    # navigation before a verification attempt. Explicit logout is separate.
-    invoke-static {}, Lcom/melodix/music/NativeSessionRecovery;->hasCookie()Z
-    move-result v0
-    if-eqz v0, :native_login_without_cookie
-    invoke-static {p0}, Lcom/melodix/music/NativeSessionRecovery;->verify(Lcom/melodix/music/MainActivity;)V
-    return-void
-
-    :native_login_without_cookie
-
-    # Reuse the Activity's existing official login URL and cookie-backed
-    # WebView flow; this does not alter OAuth parameters or native session proof.
-    const/4 v0, 0x1
-    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginWebRequested:Z
-    # MEL-BUG-066: the login page has NOT committed yet — JS callbacks fired by
-    # the previous page while the login navigation is in flight must not close
-    # the login surface (that was the one-frame flash).
-    const/4 v0, 0x0
-    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginPageCommitted:Z
-    const/4 v0, 0x0
-    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeCardsAttached:Z
-    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeStatusAttached:Z
-    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeSessionUnprovenStatusAttached:Z
-    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeContentReady:Z
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeFirstCard:Landroid/view/View;
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeStatusView:Landroid/view/View;
-    const/4 v0, 0x1
-    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeSessionUnproven:Z
-    iget-object v1, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
-    if-eqz v1, :native_login_surface
-    const-string v2, "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&allow_signup=1"
-    :try_start_native_login
-    invoke-static {v2}, Lcom/melodix/music/NativeSessionTrace;->button(Ljava/lang/String;)V
-    invoke-virtual {v1, v2}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
-    :try_end_native_login
-    .catch Ljava/lang/Throwable; {:try_start_native_login .. :try_end_native_login} :native_login_failed
-    goto :native_login_surface
-
-    :native_login_failed
-    move-exception v0
-    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->recordWebViewConfigFailure(Ljava/lang/Throwable;)V
-
-    :native_login_surface
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealLoginWebUi()V
-
-    :native_login_done
+    .locals 0
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionGate;->requestLogin(Lcom/melodix/music/MainActivity;)V
     return-void
 .end method
 
@@ -11939,5 +11657,15 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     const-wide/16 v0, 0x3a98
     invoke-virtual {v3, v2, v0, v1}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
     :session_timer_done
+    return-void
+.end method
+
+.method public final applySessionLoginSurface()V
+    .locals 2
+    const/4 v0, 0x1
+    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginWebRequested:Z
+    const-string v0, "session-login"
+    const-string v1, "state-machine"
+    invoke-direct {p0, v0, v1}, Lcom/melodix/music/MainActivity;->applyLoginWebUi(Ljava/lang/String;Ljava/lang/String;)V
     return-void
 .end method

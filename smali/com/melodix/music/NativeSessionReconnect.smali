@@ -15,6 +15,9 @@
 # ONLY the explicit reconnect action enters here. Retry/login never erase.
 .method public static start(Lcom/melodix/music/MainActivity;)V
     .locals 3
+    invoke-static {}, Lcom/melodix/music/NativeSessionGate;->canReconnect()Z
+    move-result v0
+    if-eqz v0, :reconnect_done
     iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeReconnectPending:Z
     if-nez v0, :reconnect_done
     const/4 v0, 0x1

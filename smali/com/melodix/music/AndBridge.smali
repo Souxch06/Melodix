@@ -3819,3 +3819,35 @@
     :bundled_asset_length_done
     return v1
 .end method
+
+.method public final getSessionGeneration()I
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+    .locals 1
+    sget v0, Lcom/melodix/music/NativeSessionGate;->generation:I
+    return v0
+.end method
+
+.method public final onSessionVerification(Ljava/lang/String;)V
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+    .locals 4
+    if-eqz p1, :done
+    invoke-virtual {p1}, Ljava/lang/String;->length()I
+    move-result v0
+    const/16 v1, 0x200
+    if-gt v0, v1, :done
+    :session_owner
+    sget-object v0, Lcom/melodix/music/NativeSessionGate;->owner:Ljava/lang/ref/WeakReference;
+    if-eqz v0, :done
+    invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+    move-result-object v0
+    check-cast v0, Lcom/melodix/music/MainActivity;
+    if-eqz v0, :done
+    new-instance v1, Lcom/melodix/music/NativeSessionGateTask;
+    const/4 v2, 0x0
+    invoke-direct {v1, v0, v2, p1}, Lcom/melodix/music/NativeSessionGateTask;-><init>(Lcom/melodix/music/MainActivity;ILjava/lang/String;)V
+    invoke-virtual {v0, v1}, Landroid/app/Activity;->runOnUiThread(Ljava/lang/Runnable;)V
+    :done
+    return-void
+.end method

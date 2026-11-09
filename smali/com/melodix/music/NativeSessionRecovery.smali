@@ -32,6 +32,7 @@
 .method public static verify(Lcom/melodix/music/MainActivity;)V
     .locals 4
     :verify_try
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionGate;->begin(Lcom/melodix/music/MainActivity;)V
     const-wide/16 v0, 0x0
     iput-wide v0, p0, Lcom/melodix/music/MainActivity;->nativeVerificationStart:J
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->scheduleNativeSessionTimeout()V
@@ -64,7 +65,7 @@
     invoke-static {v1}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
     move-result-object v1
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
-    const-string v1, "(window.__sfLoadBundledBridge||function(){} )('spotify_bridge.js');if(window.__sfNativeRetryLibrary)window.__sfNativeRetryLibrary();"
+    const-string v1, "(window.__sfLoadBundledBridge||function(){} )('spotify_bridge.js');if(window.__sfRequestSessionVerification)window.__sfRequestSessionVerification();"
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     goto :verify_done
     :verify_navigate

@@ -1601,25 +1601,10 @@
     # The prior null check was backwards: getOriginalUrl()==null branched past
     # loadUrl, leaving precisely the about:blank view seen on the TB125FU.
     :load_first_page
-
-    .line 278
-    .line 279
-    sget-boolean v0, Lcom/melodix/music/AppSingleton;->B:Z
-
-    .line 280
-    .line 281
+    invoke-static {}, Lcom/melodix/music/NativeSessionRecovery;->hasCookie()Z
+    move-result v0
     if-eqz v0, :cond_8
 
-    .line 282
-    .line 283
-    sget-boolean v0, Lcom/melodix/music/MainActivity;->l0:Z
-
-    .line 284
-    .line 285
-    if-nez v0, :cond_8
-
-    .line 286
-    .line 287
     # Match the desktop profile to the Chrome version in this installed WebView.
     invoke-virtual {p0}, Landroid/webkit/WebView;->getContext()Landroid/content/Context;
     move-result-object v0
@@ -1629,7 +1614,8 @@
     move-result-object v1
     invoke-virtual {v1, v0}, Landroid/webkit/WebSettings;->setUserAgentString(Ljava/lang/String;)V
 
-    const-string v0, "https://open.spotify.com/"
+    invoke-static {}, Lcom/melodix/music/NativeSessionGate;->initialUrl()Ljava/lang/String;
+    move-result-object v0
 
     .line 288
     .line 289
@@ -1657,7 +1643,8 @@
     move-result-object v0
     invoke-virtual {v1, v0}, Landroid/webkit/WebSettings;->setUserAgentString(Ljava/lang/String;)V
 
-    const-string v0, "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&allow_signup=1"
+    invoke-static {}, Lcom/melodix/music/NativeSessionGate;->initialUrl()Ljava/lang/String;
+    move-result-object v0
 
     .line 294
     .line 295
