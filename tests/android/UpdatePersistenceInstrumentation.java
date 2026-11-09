@@ -57,7 +57,7 @@ public final class UpdatePersistenceInstrumentation extends Instrumentation {
                 view[0].loadDataWithBaseURL(ORIGIN, "<html><body>synthetic local test</body></html>", "text/html", "UTF-8", null);
             });
             check(loaded.await(15, TimeUnit.SECONDS));
-            phase = seed ? "seed_storage" : "verify_storage";
+            phase = seed ? "seed_storage_callback" : "verify_storage_callback";
             CountDownLatch evaluated = new CountDownLatch(1);
             AtomicReference<String> value = new AtomicReference<>();
             String script = seed
@@ -65,6 +65,7 @@ public final class UpdatePersistenceInstrumentation extends Instrumentation {
                 : "localStorage.getItem('melodix_update_fixture')";
             runOnMainSync(() -> view[0].evaluateJavascript(script, v -> { value.set(v); evaluated.countDown(); }));
             check(evaluated.await(10, TimeUnit.SECONDS));
+            phase = seed ? "seed_storage_value" : "verify_storage_value";
             check("\"synthetic_only\"".equals(value.get()));
             result.putString("overall", "passed");
         } catch (Throwable error) {
