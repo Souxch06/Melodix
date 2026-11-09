@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Fail closed if a user-facing Preview cannot replace the known Preview137.
+"""Fail closed if a user-facing Preview cannot replace Preview144.
 
-The pin is the PUBLIC certificate digest observed while comparing the actual
-Preview137 artifact (APK SHA-256 65736a870192dfab10101912002d77c731cb64bf1fd0ee095bf9b4046a3a9122)
-with Preview138 in CI run 42661869818. This is not a signing key or credential.
+The public signer pin was verified against Preview137 and Preview138. The
+Preview144 build in CI run 42672242283 verified that pin and reported package
+com.melodix.music.preview and versionCode 1021481 (APK SHA-256
+35fd6c083e48c4a51b94941bf24e28090d00f151de5d27830b947feb2aa33f50).
 The baseline is a floor, not a substitute for checking each installed version.
 """
 import pathlib
@@ -12,7 +13,7 @@ import sys
 
 PACKAGE = 'com.melodix.music.preview'
 PUBLIC_CERT_SHA256 = 'e3ceb66f4f67ccbd53d92272f5c6422c3b10664aa57a28512bbafdb89657802f'
-BASELINE_VERSION_CODE = 1021473
+BASELINE_VERSION_CODE = 1021481
 
 
 def verify(cert_output: str, badging: str) -> int:
@@ -24,7 +25,7 @@ def verify(cert_output: str, badging: str) -> int:
         raise ValueError('Preview package mismatch or ambiguous metadata')
     version = int(rows[0][1])
     if version <= BASELINE_VERSION_CODE:
-        raise ValueError('Preview versionCode must exceed the Preview137 baseline')
+        raise ValueError('Preview versionCode must exceed the Preview144 baseline')
     return version
 
 
@@ -39,7 +40,7 @@ def main() -> int:
     except (OSError, UnicodeError, ValueError) as error:
         print('::error title=Preview update compatibility::' + str(error), file=sys.stderr)
         return 1
-    print(f'::notice title=Preview update compatibility::reference=137 signer=pinned versionCode={version}')
+    print(f'::notice title=Preview update compatibility::reference=144 signer=pinned versionCode={version}')
     return 0
 
 

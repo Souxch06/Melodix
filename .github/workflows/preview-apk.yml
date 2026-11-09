@@ -478,9 +478,9 @@ jobs:
             echo "- SHA-256: \`$apk_sha256\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # Preview137's public signing certificate and installed version were
-      # extracted from the exact artifact (run 42661869818). No private key or
-      # session data is stored in the repository. Fail closed on key rotation.
+      # The pinned public certificate was compared against Preview137 in run
+      # 42661869818; Preview144 passed the pin with version 1021481 in run
+      # 42672242283. Fail closed on key rotation or a non-upgrade version.
       - name: Check Preview update identity and version
         if: ${{ inputs.target_debuggable != true }}
         env:
