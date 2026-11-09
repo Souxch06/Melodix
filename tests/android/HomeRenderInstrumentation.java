@@ -21,6 +21,7 @@ import android.util.Log;
 import android.view.Display;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewParent;
 import android.view.KeyEvent;
 import android.view.Window;
 import android.view.WindowInsets;
@@ -4950,6 +4951,30 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 noteNativeHomeRenderTreePhase("payload_" + expectedLength + "_verified");
             }
 
+            // Real Android geometry checks in both orientations, using the same
+            // unauthenticated synthetic card. This never grants private proof.
+            final int originalOrientation = activity.getRequestedOrientation();
+            try {
+                for (final int orientation : new int[]{
+                        android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT,
+                        android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE}) {
+                    runOnMainSync(new Runnable() {
+                        @Override public void run() { activity.setRequestedOrientation(orientation); }
+                    });
+                    waitForIdleSync();
+                    Thread.sleep(1000L);
+                    awaitNativeHomeCardsReady(activity, 296);
+                    inspectNativeHomeCardRenderFixture(activity, webView, originalWebViewUrl, 296);
+                    result.putBoolean("synthetic_square_shelf_geometry_" + orientation, true);
+                }
+            } finally {
+                runOnMainSync(new Runnable() {
+                    @Override public void run() { activity.setRequestedOrientation(originalOrientation); }
+                });
+                waitForIdleSync();
+                Thread.sleep(1000L);
+            }
+
             // A repeated identical callback must replace the previous native tree,
             // not append another copy of its section/card.
             noteNativeHomeRenderTreePhase("dedupe_capture");
@@ -5388,6 +5413,18 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                     boolean statusAttached = readBooleanField(activity, "nativeHomeStatusAttached");
                     boolean contentReady = readBooleanField(activity, "nativeHomeContentReady");
                     boolean cardIsChild = isDescendantOf(card, nativeContent);
+                    // Geometry of synthetic cards, not authenticated content.
+                    ViewGroup cardGroup = (ViewGroup) card;
+                    View art = cardGroup.getChildAt(0);
+                    ViewParent trackParent = card.getParent();
+                    if (!(trackParent instanceof LinearLayout)
+                            || ((LinearLayout) trackParent).getOrientation() != LinearLayout.HORIZONTAL
+                            || !(trackParent.getParent() instanceof android.widget.HorizontalScrollView)
+                            || art.getWidth() <= 0 || art.getWidth() != art.getHeight()
+                            || title.getMaxLines() != 2 || title.getBottom() > card.getHeight()) {
+                        throw new AssertionError("Synthetic artwork shelf must be horizontal, square and contain its two-line title");
+                    }
+
                     boolean webContainerMounted = webContainer.getVisibility() == View.VISIBLE
                             && webView != null && webView.getParent() == webContainer;
                     boolean sameWebViewUrl = equalsNullable(originalWebViewUrl, webView.getUrl());

@@ -182,7 +182,7 @@ def build_report(entries, from_launch=False):
         },
         'session_events': [dict(offset_ms=stamp(e)[0] - t0, event=stamp(e)[1])
             for e in entries if stamp(e)[0] is not None and allowed_entry(e)
-            and re.match(r'^(navigation |proof |proof-guard |proof-native |token-http |token-result |session-verify |stage |image )', stamp(e)[1])][:120],
+            and re.match(r'^(navigation |proof |proof-guard |proof-native |token-http |token-result |session-verify |stage |image |shelf )', stamp(e)[1])][:120],
         'entries': len(entries),
         'observed_until_ms': max([stamp(e)[0] for e in entries if stamp(e)[0] is not None], default=t0) - t0,
         'durations': [dict(event='token-attempt', duration_ms=int(m.group(1)))

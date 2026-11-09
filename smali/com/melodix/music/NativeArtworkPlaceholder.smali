@@ -21,9 +21,9 @@
     :placeholder_error
     move-exception v0
     :placeholder_fallback
-    new-instance v0, Landroid/graphics/drawable/GradientDrawable;
-    invoke-direct {v0}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
-    sget v1, Lcom/melodix/music/MelColors;->surface:I
-    invoke-virtual {v0, v1}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
-    return-object v0
+    new-instance v1, Landroid/graphics/drawable/GradientDrawable;
+    invoke-direct {v1}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
+    sget v2, Lcom/melodix/music/MelColors;->surface:I
+    invoke-virtual {v1, v2}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
+    return-object v1
 .end method

@@ -404,7 +404,7 @@
     return-object v0
 .end method
 
-.method public static reset()V
+.method public static resetBudget()V
     .locals 1
     const/4 v0, 0x0
     sput v0, Lcom/melodix/music/NativeImageTrace;->count:I

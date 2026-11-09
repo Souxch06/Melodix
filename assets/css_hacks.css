@@ -2005,6 +2005,9 @@ body.sf-melodix-home-style-probe #sf-melodix-home {
 
 #sf-melodix-home .sf-melodix-home__cards {
     display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: flex-start !important;
     gap: 12px !important;
     overflow-x: auto !important;
     overflow-y: hidden !important;
@@ -2017,7 +2020,8 @@ body.sf-melodix-home-style-probe #sf-melodix-home {
 
 #sf-melodix-home .sf-melodix-home__card {
     display: flex !important;
-    flex: 0 0 clamp(126px, 42vw, 164px) !important;
+    flex: 0 0 148px !important;
+    height: auto !important;
     flex-direction: column !important;
     align-items: stretch !important;
     min-width: 0 !important;
@@ -2044,6 +2048,7 @@ body.sf-melodix-home-style-probe #sf-melodix-home {
 
 #sf-melodix-home .sf-melodix-home__artwork {
     display: block !important;
+    flex: 0 0 auto !important;
     width: 100% !important;
     aspect-ratio: 1 !important;
     object-fit: cover !important;

@@ -96,7 +96,7 @@
 
     :shelf_render_spotify_rows
     invoke-static {p0, v0}, Lcom/melodix/music/NativeImageLoader;->prefetch(Landroid/content/Context;Lorg/json/JSONArray;)V
-    invoke-static {p0, v13, v0}, Lcom/melodix/music/NativeHomeShelfRenderer;->renderQuickGrid(Lcom/melodix/music/MainActivity;Landroid/widget/LinearLayout;Lorg/json/JSONArray;)V
+    # Home uses shelves only: no duplicate two-column quick grid above them.
 
     const-string v2, ""
 
@@ -160,7 +160,7 @@
 
     move-result v7
 
-    if-eqz v7, :shelf_header_done
+    if-nez v7, :shelf_header_done
 
     invoke-static {p0, v6}, Lcom/melodix/music/NativeUiRowFactory;->createSectionHeader(Lcom/melodix/music/MainActivity;Ljava/lang/String;)Landroid/widget/TextView;
 
@@ -205,7 +205,11 @@
 
     invoke-virtual {v8, v7, v9}, Landroid/widget/HorizontalScrollView;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    invoke-virtual {v13, v8}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
+    new-instance v9, Landroid/widget/LinearLayout$LayoutParams;
+    const/4 v10, -0x1
+    const/4 v11, -0x2
+    invoke-direct {v9, v10, v11}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    invoke-virtual {v13, v8, v9}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
     move-object v3, v7
 
@@ -338,6 +342,7 @@
     const/4 v11, 0x2
 
     invoke-virtual {v10, v11}, Landroid/widget/TextView;->setMaxLines(I)V
+    invoke-virtual {v10, v11}, Landroid/widget/TextView;->setMinLines(I)V
 
     sget-object v11, Landroid/text/TextUtils$TruncateAt;->END:Landroid/text/TextUtils$TruncateAt;
 
@@ -518,6 +523,7 @@
     return-void
 
     :shelf_done
+    invoke-static {v13}, Lcom/melodix/music/NativeShelfLayoutProbe;->schedule(Landroid/view/View;)V
     const-string v0, "rendered"
     invoke-static {v1, p1, v0}, Lcom/melodix/music/NativeHomeShelfRenderer;->traceHomeRendered(IILjava/lang/String;)V
     # Startup timing: the cards exist in the view tree and are attached. This is

@@ -84,3 +84,46 @@ test('shared memory/disk caches, bounded prefetch and identical pending/error pl
  const helper=read('smali/com/melodix/music/NativeArtworkPlaceholder.smali');
  assert.match(helper,/getIdentifier/); assert.doesNotMatch(helper,/0x7f/);
 });
+
+test('native and Web Home explicitly retain nonwrapping horizontal tracks and contained titles',()=>{
+ const renderer=read('smali/com/melodix/music/NativeHomeShelfRenderer.smali');
+ const entry=renderer.slice(renderer.indexOf('.method public static render('),renderer.indexOf('.method private static renderHomeStatus'));
+ assert.doesNotMatch(entry,/->renderQuickGrid\(/,'no duplicate vertical quick grid precedes the carousel');
+ assert.match(entry,/const\/4 v8, 0x0\s+invoke-virtual \{v7, v8\}.*setOrientation/);
+ assert.match(entry,/HorizontalScrollView/);
+ assert.match(entry,/if-nez v7, :shelf_header_done/,'nonempty real section heading is rendered');
+ assert.match(entry,/TextView;->setMinLines\(I\)V/);
+ assert.match(entry,/TextView;->setMaxLines\(I\)V/);
+ assert.match(entry,/TruncateAt;->END/);
+ for(const qualifier of ['values','values-sw600dp']) {
+  const xml=read('res/'+qualifier+'/mel_dimens.xml');
+  const dim=n=>Number(xml.match(new RegExp('name="mel_shelf_'+n+'">([0-9.]+)dip'))[1]);
+  assert.equal(dim('card_width'),dim('art_height'),'square in '+qualifier);
+ }
+ const css=read('assets/css_hacks.css');
+ const rule=name=>css.slice(css.indexOf('#sf-melodix-home .sf-melodix-home__'+name+' {')).split('}')[0];
+ assert.match(rule('cards'),/flex-direction: row !important/);
+ assert.match(rule('cards'),/flex-wrap: nowrap !important/);
+ assert.match(rule('card'),/height: auto !important/);
+ assert.match(rule('card'),/148px/);
+ assert.match(rule('title'),/-webkit-line-clamp: 2/);
+ assert.doesNotMatch(rule('card'),/backdrop-filter/);
+ assert.match(read('tests/android/HomeRenderInstrumentation.java'),/art.getWidth\(\) != art.getHeight\(\)/);
+});
+
+test('image and layout observations survive the exact copied-journal filter',()=>{
+ const os=require('node:os'), cp=require('node:child_process');
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'mdx-image-'));
+ try {
+  const events=['image stage=payload 4 https=3 missing=1 invalid=0',
+    'image stage=request host=i.scdn.co key=01234567',
+    'image stage=http host=i.scdn.co key=01234567 code=200 duration=30 bytes=4096 type=jpeg',
+    'shelf stage=layout cards=4 orientation=0 width=1800 height=600 overlaps=0 overflow=0'];
+  const lines=events.map((x,i)=>`sid=abcd1234 t=${100+i} ${x}`);
+  const input=path.join(dir,'input'), output=path.join(dir,'output');
+  fs.writeFileSync(input,['MDXPERF-BEGIN v=1 dropped=0',...lines,
+    'sid=abcd1234 t=200 image stage=request host=i.scdn.co/PRIVATE key=01234567','MDXPERF-END'].join('\n'));
+  cp.execFileSync('python3',[path.join(__dirname,'../scripts/startup_timing_journal.py'),'--filter-log',input,output]);
+  assert.equal(fs.readFileSync(output,'utf8'),lines.join('\n')+'\n');
+ } finally {fs.rmSync(dir,{recursive:true,force:true});}
+});
