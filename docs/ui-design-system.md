@@ -92,7 +92,7 @@ cesse de s'appliquer, rien d'autre. L'app reste utilisable, moins stylée.
 
 ## 7. La pile tactile (une seule source de vérité)
 
-Les quatre valeurs ci-dessous, déclarées dans l'unique `:root`, gouvernent
+Les six valeurs ci-dessous, déclarées dans l'unique `:root`, gouvernent
 **tous** les décalages du bas de l'écran. Aucun littéral ne subsiste : dock,
 mini-lecteur, tiroir bibliothèque, réserve de contenu `#main-view` et vue
 d'accueil maison sont calculés à partir d'elles.
@@ -103,6 +103,8 @@ d'accueil maison sont calculés à partir d'elles.
 | `--sf-mini-gap` | `10px` | respiration entre dock et mini-lecteur |
 | `--sf-mini-h` | `68px` | hauteur du mini-lecteur |
 | `--sf-stack-gap` | `4px` | respiration au-dessus du mini-lecteur |
+| `--sf-dock-inset` | `16px` | marge latérale de la pilule (deux fois, une par bord) |
+| `--sf-dock-lift` | `24px` | décollement de la pilule par rapport au bord |
 
 Empilement (vérifié par `tests/mel_glass_theme.test.js`) :
 
@@ -129,3 +131,68 @@ le verre sur du contenu que nous ne contrôlons pas.
 
 Le flou n'est appliqué qu'à ces quatre surfaces (jamais à une zone qui défile) ;
 un test échoue si un autre sélecteur reçoit `backdrop-filter: blur`.
+
+## 9. La barre d'onglets : une pilule, pas un rail
+
+La barre est une **pilule de verre flottante**, pas une bande collée au bord.
+
+| Propriété | Valeur | Pourquoi |
+|---|---|---|
+| `left` + `transform` | `50%` + `translateX(-50%)` | centrée quelle que soit la largeur |
+| `width` | `calc(100vw - 2 * --sf-dock-inset)` | 16 px de chaque côté |
+| `max-width` | `560px` | sur tablette elle ne s'étire pas |
+| `height` | `--sf-dock-h` (**68 px**) | la hauteur *ne contient plus* la safe-area |
+| `bottom` | `calc(--sf-dock-lift + safe-area)` | elle décolle de 24 px |
+| `border-radius` | `34px` | exactement la moitié de la hauteur |
+| Onglet | `min-height: 44px`, rayon `34px` | cible tactile garantie, forme en pilule |
+| Onglet actif | dégradé d'accent + `--mel-text-on-accent` | libellé toujours visible, jamais masqué |
+
+Conséquences, toutes vérifiées par un test :
+
+- **rien ne passe derrière la pilule** : mini-lecteur, tiroir, réserve de
+  défilement et vue d'accueil sont décalés de `--sf-dock-lift` **en plus** de
+  la pile. Un test parcourt chaque règle `position: fixed` de la barre et exige
+  le centrage, le plafond et une largeur dérivée de `--sf-dock-inset` ;
+- **une seule source de style** : le rail pleine largeur (`100vw`, `bottom: 0`,
+  `inset-inline: 0`) n'existe plus nulle part, y compris dans la feuille de
+  repli injectée par le bridge ;
+- **la navigation reste en paysage** : elle n'est jamais masquée par une media
+  query. Le seul `display: none` légitime est le garde clavier
+  (`body.sf-keyboard-open`, < 820 px) et le parking initial avant que le shell
+  existe. Un test échoue si une media query la cache sur un appareil tactile ;
+- **cibles tactiles** : onglet ≥ 44 px de haut, boutons d'en-tête ≥ 44×44
+  (largeur en `min-width`, pour qu'une icône plus longue ne soit jamais
+  rognée) ;
+- **téléphone en paysage très bas** (≤ 400 px de haut) : le lecteur plein écran
+  repasse en colonne et la pochette est plafonnée à `38vh` — rien n'est coupé.
+
+## 10. La carte d'erreur native (MEL-BUG-083)
+
+La carte « Connexion Spotify à vérifier » est la première chose qu'un
+utilisateur non connecté voit. Elle doit ressembler à un message, pas à un
+rapport de crash.
+
+| Élément | Spécification |
+|---|---|
+| Icône | pastille d'avertissement (`MelColors.warning` **uniquement** sur l'icône) |
+| Titre | 19 sp, `--mel-text` |
+| Message | **une phrase**, 14 sp, texte secondaire |
+| Action primaire | « Se connecter », dégradé d'accent, blanc dessus (5.70:1) |
+| Action secondaire | « Réessayer », recette du verre (`native_button_dark`) |
+| Détails techniques | divulgation **fermée par défaut**, 12 sp, `#A1A1B5` (6.98:1 sur la carte), monospace |
+| Copier le diagnostic | bouton verre, 44 dp, réutilise `onNativeDiagCopyClick` (un seul chemin de copie) |
+
+Règles tenues par des tests :
+
+- **plus aucun rouge pleine taille** : `MelColors.warning` n'apparaît plus dans
+  la carte ; le texte machine n'est plus la deuxième chose qu'on lit ;
+- la découpe du suffixe ` [auth=…]` hors de la phrase est **conservée** (c'est
+  elle qui rend le message lisible), mais le suffixe va dans la divulgation ;
+- la divulgation bascule la visibilité de deux `TextView` — aucun rebuild, donc
+  aucun lag perceptible ; une animation optionnelle de 120 ms (alpha +
+  translation de 2 %) explique le changement sans toucher au layout. Elle est
+  résolue **par nom** (`NativeUiRowFactory.animId`) et le retour `0` est testé :
+  un id codé en dur casserait au prochain rebuild ;
+- la marge de la divulgation est un token (`mel_status_disclosure_gap`,
+  8 dip téléphone / 12 dip tablette) dont le repli smali égale la valeur
+  téléphone, donc une ressource manquante est inerte.
