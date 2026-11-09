@@ -2371,7 +2371,7 @@
         position: fixed !important;
         left: 10px !important;
         right: 10px !important;
-        bottom: calc(78px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+        bottom: calc(var(--sf-dock-lift, 24px) + var(--sf-dock-h, 68px) + var(--sf-mini-gap, 10px) + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
         box-sizing: border-box !important;
         width: auto !important;
         min-width: 0 !important;
