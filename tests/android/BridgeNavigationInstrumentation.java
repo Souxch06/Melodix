@@ -96,6 +96,25 @@ public final class BridgeNavigationInstrumentation extends Instrumentation {
             await(LOGIN,()->view[0].evaluateJavascript("document.getElementById('next').click()",null));
             phase="return_login_bridge_absent";
             check("\"undefined\"".equals(js("typeof window.AndBridge")));
+            // Reproduce the reported 3-track squeeze using an isolated local
+            // grid and the existing full-viewport rule, not Spotify content.
+            // No login, session storage or network is involved.
+            phase="synthetic_grid_load";
+            final String layoutUrl="https://layout-fixture.invalid/";
+            String html="<!doctype html><html><head><meta name='viewport' content='width=device-width, initial-scale=1'>"+
+                "<style>html,body{margin:0}#fixture-grid{display:grid;grid-template-columns:0px minmax(0,1fr) auto;width:100%;height:500px}"+
+                "#main-view{grid-column:2;min-width:0}#main-view+div{grid-column:3;overflow:hidden}"+
+                "#main-view+div>div>div>div:nth-child(2)>div{width:100vw!important}</style></head>"+
+                "<body><div id='fixture-grid'><div id='main-view'></div><div><div><div><div></div><div><div id='fixture-wide'></div></div></div></div></div></div></body></html>";
+            await(layoutUrl,()->{
+                view[0].measure(android.view.View.MeasureSpec.makeMeasureSpec(1080,android.view.View.MeasureSpec.EXACTLY),android.view.View.MeasureSpec.makeMeasureSpec(1800,android.view.View.MeasureSpec.EXACTLY));
+                view[0].layout(0,0,1080,1800);
+                view[0].loadDataWithBaseURL(layoutUrl,html,"text/html","UTF-8",null);
+            });
+            phase="synthetic_grid_baseline";
+            check("true".equals(js("document.getElementById('main-view').getBoundingClientRect().width<innerWidth*0.1")));
+            phase="synthetic_grid_scoped_width";
+            check("true".equals(js("(function(){document.getElementById('fixture-wide').style.setProperty('width','100%','important');return document.getElementById('main-view').getBoundingClientRect().width>innerWidth*0.8})()")));
             outcome.putString("overall","passed");
         }catch(Throwable t){outcome.putString("overall","failed");outcome.putString("phase",phase);outcome.putString("error_class",t.getClass().getSimpleName());}
         finally{if(view[0]!=null)ui(()->view[0].destroy());finish(Activity.RESULT_OK,outcome);}
