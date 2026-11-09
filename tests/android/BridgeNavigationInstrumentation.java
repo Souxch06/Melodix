@@ -34,6 +34,11 @@ public final class BridgeNavigationInstrumentation extends Instrumentation {
         ui(()->view[0].evaluateJavascript(code,v->{result.set(v);done.countDown();}));
         check(done.await(15,TimeUnit.SECONDS));check(callbackError==null);return result.get();
     }
+    private String asset(String name)throws Exception{
+        try(java.io.InputStream in=getTargetContext().getAssets().open(name); java.io.ByteArrayOutputStream out=new java.io.ByteArrayOutputStream()){
+            byte[] b=new byte[8192];for(int n;(n=in.read(b))!=-1;)out.write(b,0,n);return new String(out.toByteArray(),StandardCharsets.UTF_8);
+        }
+    }
     private void await(String url,Runnable navigate)throws Exception{
         CountDownLatch done=new CountDownLatch(1);expected.set(url);waiter.set(done);ui(navigate);
         check(done.await(20,TimeUnit.SECONDS));check(callbackError==null);
@@ -112,6 +117,28 @@ public final class BridgeNavigationInstrumentation extends Instrumentation {
             String afterGc=js("(function(){try{var x=AndBridge.getSessionGeneration();return x===null?'null':typeof x}catch(e){return 'exception'}})()");
             outcome.putString("repeat_attach_after_gc_type",afterGc.replace("\"",""));
             check("true".equals(js("AndBridge.getSessionGeneration()===10")));
+            // Real generated scripts plus the actual AndBridge and poller on a
+            // synthetic document. All network is disabled on the disposable
+            // emulator; no Spotify account or cookie is present in this test.
+            phase="bundled_runtime_injection";
+            js(asset("runtime_state.js"));
+            phase="bundled_shell_injection";
+            js(asset("native_ui_shell.js"));
+            check("true".equals(js("!!window.__sfNativeUiShellStarted")));
+            phase="bundled_bridge_injection";
+            js(asset("spotify_bridge.js"));
+            check("true".equals(js("!!window.__sfMelodixBridgeCompleted")));
+            phase="bundled_generation_immediate";
+            check("true".equals(js("typeof AndBridge.getSessionGeneration()==='number' && AndBridge.getSessionGeneration()===10")));
+            // Let the shell's scheduled updates run, as in the reported trace.
+            Thread.sleep(3000);
+            phase="bundled_generation_delayed";
+            check("true".equals(js("typeof AndBridge.getSessionGeneration()==='number' && AndBridge.getSessionGeneration()===10")));
+            phase="bundled_retry_dispatch";
+            check("true".equals(js("window.fixtureCount=0;window.__sfRequestSessionVerification=function(){window.fixtureCount++;return true};true")));
+            Runnable bundled=(Runnable)launch.getConstructor(WebView.class,int.class).newInstance(view[0],10);
+            ui(bundled::run);
+            check("1".equals(js("window.fixtureCount")));
             phase="return_login";
             await(LOGIN,()->view[0].evaluateJavascript("document.getElementById('next').click()",null));
             phase="return_login_bridge_absent";
