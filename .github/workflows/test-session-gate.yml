@@ -3,8 +3,8 @@ on:
   workflow_call:
     inputs:
       evidence_run:
-        type: number
-        default: 0
+        type: string
+        default: "0"
       source_ref:
         required: true
         type: string
@@ -12,8 +12,8 @@ on:
     inputs:
       evidence_run:
         description: Re-export existing synthetic captures without rebuilding the app
-        type: number
-        default: 0
+        type: string
+        default: "0"
       source_ref:
         description: Full source SHA to build and test
         required: true
@@ -23,7 +23,7 @@ permissions:
   actions: read
 jobs:
   build:
-    if: inputs.evidence_run == 0
+    if: inputs.evidence_run == '0'
     uses: ./.github/workflows/preview-apk.yml
     with:
       release_tag: v1.3.2-test.125-preview
@@ -33,7 +33,7 @@ jobs:
       apk_suffix: '-session-instrumentation'
     secrets: inherit
   build-before:
-    if: inputs.evidence_run == 0
+    if: inputs.evidence_run == '0'
     uses: ./.github/workflows/preview-apk.yml
     with:
       release_tag: v1.3.2-test.124-preview
@@ -137,7 +137,7 @@ jobs:
           path: session-evidence/
           if-no-files-found: warn
   evidence-review:
-    if: inputs.evidence_run != 0
+    if: inputs.evidence_run != '0'
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
