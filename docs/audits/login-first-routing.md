@@ -109,3 +109,10 @@ CI après retrait de la redéfinition finale (`42597347997`, source9f79d39d) : l
 - APK candidat final source applicative **5acef50b23f1c8d5968a43bea6995e28343d6790**, build **42597941924**, vC**1021459**, versionName **1.2.2-5acef50**, SHA256 **cd7483fb5082df5ed778072a77628e1a64db92525c488bc1066e80060b05191c**. Les builds test124 précédents ne sont pas le candidat final.
 
 Le contrôle background initial appelait seulement l’adaptateur resume. Le runner est renforcé pour effectuer maintenant un vrai `moveTaskToBack`, puis remettre la tâche au premier plan sans clear-task/data ; ce complément doit être exécuté séparément avant d’annoncer le passage arrière-plan OS comme validé. Aucun changement au code de l’APK candidat dans cette étape.
+
+
+### Clôture de validation de cette livraison
+
+Le complément **42599038997**, source **f0bf0325**, est **réussi** : le runner effectue maintenant le vrai passage de tâche arrière-plan → premier plan, sans effacer les données. Les contrôles de fin (callback périmé, rotation, recréation, reprise et Retour) sont obligatoires avant `overall=passed`, vérifié par le job. Les résultats serveur demeurent simulés ; ce succès ne valide pas un cookie Spotify réel. Les rotations automatisées mesurent la surface d’erreur native et la conservation de budget, pas le formulaire distant.
+
+Livraison et liens exacts : [session-preview-test124.md](session-preview-test124.md). Suite finale : **1024 / 1020 pass / 0 fail / 4 skip**. Source de l’APK non debuggable : **5acef50b**, vC**1021459**, build **42597941924**. Les commits suivants ne changent que tests, collecte CI et documentation. Aucune validation de session/pixels du téléphone n’est prétendue ; aucun merge de PR n’a été effectué.
