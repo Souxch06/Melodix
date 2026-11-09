@@ -85,8 +85,8 @@ test('case 6: stale, duplicate, incomplete and login-page callbacks cannot unloc
  const m=machine({loginActive:true});m.send({token:true,libraryOk:true});assert.equal(m.fields.state,0);
  const n=machine();n.send({token:true,libraryOk:true});n.send({token:false,libraryHttp:401});assert.equal(n.fields.state,3);
 });
-test('retry is non-destructive; expiry guard precedes removeAllCookies',()=>{
- const r=read('smali/com/melodix/music/NativeSessionReconnect.smali');assert.ok(r.indexOf('canReconnect()Z')<r.indexOf('removeAllCookies'));
+test('retry and reconnect are non-destructive; expiry guard precedes login',()=>{
+ const r=read('smali/com/melodix/music/NativeSessionReconnect.smali');assert.ok(r.indexOf('canReconnect()Z')<r.indexOf('navigateLogin('));assert.doesNotMatch(r,/removeAllCookies|removeSessionCookies|deleteAllData|proofClearLogout/);
  assert.match(read('smali/com/melodix/music/NativeSessionRecovery.smali'),/NativeSessionGate;->begin/);
  const m=machine({cookie:true});m.run('requestLogin',{});assert.deepEqual(m.calls,['verify']);
 });

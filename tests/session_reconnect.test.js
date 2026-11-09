@@ -31,10 +31,11 @@ function run(name, obj, state, value) {
     if((m=l.match(/^invoke-\S+ \{([^}]*)\}, (.*)$/))) {
       const a=m[1]?m[1].split(', ').map(x=>r[x]):[], c=m[2];
       if(c.includes('NativeSessionGate;->canReconnect')) result=state.expired===true;
-      else if(c.includes('NativeSessionEvidence;->canClear')) result=state.expired===true;
+      else if(c.includes('NativeSessionEvidence;->canClear')) result=state.expired===true && state.canClear!==false;
       else if(c.includes('NativeSessionEvidence;->reset')) {}
       else if(c.includes('NativeSessionGate;->transition')) {state.phase=a[1];state.sessionState=a[0];}
       else if(c.includes('NativeSessionGate;->paint')) {}
+      else if(c.includes('NativeSessionGate;->navigateLogin')) state.events.push('login');
       else if(c.includes('NativeSessionReconnect;-><init>')) a[0].activity={referent:a[1]};
       else if(c.includes('Reference;->get()')) result=a[0].referent;
       else if(c.includes('->isFinishing()')) result=!!a[0].finishing;
@@ -64,31 +65,20 @@ function run(name, obj, state, value) {
 }
 function fixture() {return {activity:{G:{},nativeVerificationStart:123},state:{cookie:true,proof:true,expired:true,events:[],rows:[]}};}
 
-test('explicit reconnect waits for deletion callback, checks cookie absence, then opens existing login',()=>{
-  const {activity,state}=fixture();
-  run('start',activity,state);
-  assert.deepEqual(state.events,['stop','prepare:about:blank','about:blank','clear-request']);
-  assert.equal(activity.nativeVerificationStart,0);
-  run('start',activity,state);
-  assert.equal(state.events.filter(x=>x==='clear-request').length,1,'double tap does not race clears');
-  state.cookie=false;
-  run('onReceiveValue',state.callback,state,true);
-  assert.deepEqual(state.events.slice(4),['flush','storage-clear','proof-clear','login']);
-  assert.equal(state.proof,false);
-  assert.equal(state.loggedIn,false);
-  assert.equal(activity.nativeReconnectPending,0);
+test('confirmed reconnect navigates once without clearing cookies or storage',()=>{
+  const {activity,state}=fixture();run('start',activity,state);
+  assert.deepEqual(state.events,['login']);assert.equal(state.cookie,true);assert.equal(state.proof,true);
+  assert.equal(activity.nativeReconnectPending,0);assert.equal(state.phase,'reconnect-user-confirmed');
+  assert.doesNotMatch(src,/removeAllCookies|removeSessionCookies|deleteAllData|proofClearLogout|putBoolean/);
 });
-
-test('remaining cookie or dead activity never opens login after reconnect',()=>{
-  for(const mode of ['cookie','destroyed','finishing','collected']) {
-    const {activity,state}=fixture(); run('start',activity,state);
-    if(mode==='destroyed') activity.destroyed=true;
-    if(mode==='finishing') activity.finishing=true;
-    if(mode==='collected') state.callback.activity.referent=null;
-    run('onReceiveValue',state.callback,state,false);
-    assert.ok(!state.events.includes('login'),mode);
-    assert.ok(!state.events.includes('storage-clear'),mode);
-    if(mode==='cookie') assert.equal(state.phase,'reconnect-not-confirmed');
+test('stale evidence, pending action or fresh state never opens another login',()=>{
+  for(const mode of ['stale','pending','identity-changed']) {
+    const {activity,state}=fixture();
+    if(mode==='stale')state.expired=false;
+    if(mode==='pending')activity.nativeReconnectPending=true;
+    if(mode==='identity-changed')state.canClear=false;
+    run('start',activity,state);assert.ok(!state.events.includes('login'),mode);
+    assert.equal(state.cookie,true);assert.equal(state.proof,true);
   }
 });
 

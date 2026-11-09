@@ -32,7 +32,8 @@ test('fingerprint is scoped to sp_dc and never logged or persisted; changed-cook
  const can=src.slice(src.indexOf('.method public static canClear'),src.indexOf('.method public static count'));
  assert.match(can,/->current\(\)Ljava\/lang\/String;[\s\S]*?->equals/);
  const clear=fs.readFileSync('smali/com/melodix/music/NativeSessionReconnect.smali','utf8');
- assert.ok(clear.indexOf('NativeSessionEvidence;->canClear')<clear.indexOf('removeAllCookies'));
+ assert.ok(clear.indexOf('NativeSessionEvidence;->canClear')<clear.indexOf('navigateLogin('));
+ assert.doesNotMatch(clear,/removeAllCookies|removeSessionCookies|deleteAllData/);
 });
 
 test('deadline preserves a single completed refusal for unchanged identity, without increment',()=>{

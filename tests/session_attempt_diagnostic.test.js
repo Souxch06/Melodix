@@ -27,7 +27,6 @@ test('proof publication and unrelated gates remain unchanged from Preview125',()
  assert.equal(fn(src,'publishSessionVerification'),fn(baseline('scripts/spotify_bridge.source.js'),'publishSessionVerification'));
  const evidence=fs.readFileSync('smali/com/melodix/music/NativeSessionEvidence.smali','utf8');
  assert.match(evidence,/canClear\(\)Z[\s\S]*?const\/4 v1, 0x1[\s\S]*?->current\(\)Ljava\/lang\/String;[\s\S]*?->equals/);
- assert.equal(fs.readFileSync('smali/com/melodix/music/NativeSessionReconnect.smali','utf8').replace('    invoke-static {v0, v1}, Lcom/melodix/music/NativeBridgeNavigation;->prepare(Landroid/webkit/WebView;Ljava/lang/String;)V\n',''),baseline('smali/com/melodix/music/NativeSessionReconnect.smali'));
  assert.equal(fs.readFileSync('smali/com/melodix/music/NativeSessionGateTask.smali','utf8').replace('    invoke-static {v1}, Lcom/melodix/music/NativeSessionVerificationFlight;->finish(Ljava/lang/String;)V\n',''),baseline('smali/com/melodix/music/NativeSessionGateTask.smali').replace('NativeSessionEvidence;->reset()V','NativeSessionEvidence;->retainIfCurrent()Z'));
 });
 test('native channel only records, closes values, bounds history and exports aliases rather than digests',()=>{

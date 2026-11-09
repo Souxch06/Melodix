@@ -14,7 +14,7 @@ test('prepare uses the exact HTTPS player predicate and detaches for every other
  assert.doesNotMatch(nav,/getCookie|removeAllCookies|deleteAllData|loadUrl|evaluateJavascript|setUserAgent|header/i);
 });
 test('every direct production loadUrl prepares the destination before loading',()=>{
- for(const path of ['smali/m9.smali','smali/ml.smali','smali/c2.smali','smali/yi1.smali','smali/com/melodix/music/AndBridgeProbe.smali','smali/com/melodix/music/MainActivity.smali','smali/com/melodix/music/NativeSessionGate.smali','smali/com/melodix/music/NativeSessionReconnect.smali','smali/com/melodix/music/NativeSessionRecovery.smali','smali/com/melodix/music/NativeWebPlayerNavigationRunnable.smali','smali/com/melodix/music/SpotifyNavigationPolicy.smali']){
+ for(const path of ['smali/m9.smali','smali/ml.smali','smali/c2.smali','smali/yi1.smali','smali/com/melodix/music/AndBridgeProbe.smali','smali/com/melodix/music/MainActivity.smali','smali/com/melodix/music/NativeSessionGate.smali','smali/com/melodix/music/NativeSessionRecovery.smali','smali/com/melodix/music/NativeWebPlayerNavigationRunnable.smali','smali/com/melodix/music/SpotifyNavigationPolicy.smali']){
   const s=read(path),loads=[...s.matchAll(/invoke-virtual \{(\w+), (\w+)\}, Landroid\/webkit\/WebView;->loadUrl\(Ljava\/lang\/String;\)V/g)];assert.ok(loads.length,path);
   for(const m of loads){const before=s.slice(Math.max(0,m.index-200),m.index);assert.ok(before.includes(`NativeBridgeNavigation;->prepare(Landroid/webkit/WebView;Ljava/lang/String;)V`),path);assert.ok(before.includes(`invoke-static {${m[1]}, ${m[2]}}`),path);}
  }
