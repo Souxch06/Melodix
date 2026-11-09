@@ -236,7 +236,7 @@
     :display_bounds
     new-instance v0, Ljava/lang/StringBuilder;
     invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
-    const-string v1, "image stage=decoded "
+    const-string v1, "image stage=drawable "
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     invoke-virtual {v0, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     const-string v1, " width="
@@ -408,5 +408,49 @@
     .locals 1
     const/4 v0, 0x0
     sput v0, Lcom/melodix/music/NativeImageTrace;->count:I
+    return-void
+.end method
+
+# Actual decoder result, unlike drawable intrinsic dimensions (density-scaled).
+.method public static decode(Lcom/squareup/picasso/Request;Landroid/graphics/Bitmap;)V
+    .locals 7
+    iget-object v2, p0, Lcom/squareup/picasso/Request;->uri:Landroid/net/Uri;
+    invoke-virtual {v2}, Landroid/net/Uri;->toString()Ljava/lang/String;
+    move-result-object v2
+    invoke-static {v2}, Lcom/melodix/music/NativeImageTrace;->identity(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v2
+    const/4 v3, 0x0
+    const/4 v4, 0x0
+    const/4 v5, 0x0
+    const-string v6, "failed"
+    if-eqz p1, :decode_emit
+    invoke-virtual {p1}, Landroid/graphics/Bitmap;->getWidth()I
+    move-result v3
+    invoke-virtual {p1}, Landroid/graphics/Bitmap;->getHeight()I
+    move-result v4
+    invoke-virtual {p1}, Landroid/graphics/Bitmap;->getByteCount()I
+    move-result v5
+    const-string v6, "ok"
+    :decode_emit
+    new-instance v0, Ljava/lang/StringBuilder;
+    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v1, "image stage=decode "
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v1, " result="
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v1, " width="
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v1, " height="
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v1, " bytes="
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0, v5}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v0
+    invoke-static {v0}, Lcom/melodix/music/NativeImageTrace;->log(Ljava/lang/String;)V
     return-void
 .end method

@@ -56,7 +56,9 @@ test('every artwork stage is accepted by the actual clipboard grammar, never raw
   `image stage=source ${id} form=https`,`image stage=start ${id} form=https px=444`,
   `image stage=request ${id}`,`image stage=http ${id} code=200 duration=35 bytes=4500 type=jpeg`,
   `image stage=result ${id} result=failed-network duration=42`,
-  `image stage=decoded ${id} width=444 height=444`,`image stage=view ${id} width=444 height=444 shown=true`]) assert.ok(rule.test(prefix+event),event);
+  `image stage=decode ${id} result=failed width=0 height=0 bytes=0`,
+  `image stage=decode ${id} result=ok width=444 height=444 bytes=788544`,
+  `image stage=drawable ${id} width=444 height=444`,`image stage=view ${id} width=444 height=444 shown=true`]) assert.ok(rule.test(prefix+event),event);
  for(const host of ['i.scdn.co/private','user.secret.example','i.scdn.co?token=secret'])
   assert.ok(!rule.test(prefix+`image stage=request host=${host} key=01234567`));
  const trace=read('smali/com/melodix/music/NativeImageTrace.smali');
@@ -126,4 +128,17 @@ test('image and layout observations survive the exact copied-journal filter',()=
   cp.execFileSync('python3',[path.join(__dirname,'../scripts/startup_timing_journal.py'),'--filter-log',input,output]);
   assert.equal(fs.readFileSync(output,'utf8'),lines.join('\n')+'\n');
  } finally {fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+
+test('decoder instrumentation preserves BitmapFactory decisions and reports actual null decoding results',()=>{
+ const hunter=read('smali/com/squareup/picasso/BitmapHunter.smali');
+ const start=hunter.indexOf('.method public static decodeStream(');
+ const method=hunter.slice(start,hunter.indexOf('.end method',start));
+ assert.match(method,/move-object v7, p1/);
+ assert.equal((method.match(/NativeImageTrace;->decode/g)||[]).length,3);
+ assert.match(method,/:cond_1\s+invoke-static \{v7, p0\}.*NativeImageTrace;->decode[\s\S]*?Failed to decode stream/);
+ const trace=read('smali/com/melodix/music/NativeImageTrace.smali');
+ assert.match(trace,/Bitmap;->getByteCount/);
+ assert.doesNotMatch(trace,/getMessage\(/);
 });

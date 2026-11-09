@@ -731,7 +731,8 @@
 .end method
 
 .method public static decodeStream(Lp81;Lcom/squareup/picasso/Request;)Landroid/graphics/Bitmap;
-    .locals 7
+    .locals 8
+    move-object v7, p1
 
     .line 1
     invoke-virtual {p0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
@@ -872,10 +873,12 @@
 
     .line 71
     .line 72
+    invoke-static {v7, p0}, Lcom/melodix/music/NativeImageTrace;->decode(Lcom/squareup/picasso/Request;Landroid/graphics/Bitmap;)V
     return-object p0
 
     .line 73
     :cond_1
+    invoke-static {v7, p0}, Lcom/melodix/music/NativeImageTrace;->decode(Lcom/squareup/picasso/Request;Landroid/graphics/Bitmap;)V
     const-string p0, "Failed to decode stream."
 
     .line 74
@@ -947,6 +950,7 @@
     move-result-object p0
 
     .line 108
+    invoke-static {v7, p0}, Lcom/melodix/music/NativeImageTrace;->decode(Lcom/squareup/picasso/Request;Landroid/graphics/Bitmap;)V
     return-object p0
 .end method
 
