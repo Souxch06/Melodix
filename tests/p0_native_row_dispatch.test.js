@@ -238,6 +238,10 @@ function executeOpenNativeRow(uri, title = 'Test collection') {
             state.verifications = (state.verifications || 0) + 1;
             continue;
         }
+        if (instruction === 'invoke-static {p0}, Lcom/melodix/music/NativeSessionReconnect;->start(Lcom/melodix/music/MainActivity;)V') {
+            state.reconnections = (state.reconnections || 0) + 1;
+            continue;
+        }
         if (instruction === 'return-void') return state;
         throw new Error(`unreviewed openNativeRow instruction: ${instruction}`);
     }
@@ -300,4 +304,11 @@ test('the shared renderer remains the destination for Home, Search, and Library 
     }
     assert.match(method, /const-string v0, "settings"[\s\S]*?isCurrentNativeSettingsPayload/,
         'Settings payloads use their separate acknowledged load gate');
+});
+
+
+test('only explicit reconnect dispatches session deletion; retry remains separate', () => {
+    assert.equal(executeOpenNativeRow('melodix:action:reconnect').reconnections, 1);
+    assert.equal(executeOpenNativeRow('melodix:action:retry-library').reconnections, undefined);
+    assert.equal(executeOpenNativeRow('melodix:action:open-login').reconnections, undefined);
 });

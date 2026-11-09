@@ -89,6 +89,8 @@
 .field private diagLoginRequested:I
 .field private nativeSessionUnproven:Z
 .field public nativeVerificationStart:J
+
+.field public nativeReconnectPending:Z
 .field private nativeHomeContentReady:Z
 .field private nativeHomeVisibilityDiagnosticReported:Z
 .field private nativeHomeFirstCard:Landroid/view/View;
@@ -11276,6 +11278,14 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     return-void
 
     :native_row_check_retry
+    const-string v2, "melodix:action:reconnect"
+    invoke-virtual {p1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v3
+    if-eqz v3, :native_row_check_login
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionReconnect;->start(Lcom/melodix/music/MainActivity;)V
+    return-void
+
+    :native_row_check_login
     const-string v2, "melodix:action:open-login"
     invoke-virtual {p1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v3

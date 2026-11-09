@@ -1120,6 +1120,13 @@
 .method private static createHomeStatusAction(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;Z)Landroid/widget/TextView;
     .locals 6
 
+    const-string v0, "melodix:action:reconnect"
+    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-eqz v0, :home_status_action_login
+    const-string v1, "Se reconnecter"
+    goto :home_status_action_label_ready
+    :home_status_action_login
     const-string v0, "melodix:action:open-login"
     invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
