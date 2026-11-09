@@ -720,6 +720,22 @@
     return v0
 .end method
 
+.method public static statusDisclosureGap(Landroid/content/Context;)I
+    .locals 2
+
+    # The "Détails techniques" disclosure sits one step below the message and
+    # one above the actions: tighter than a paragraph, looser than a label.
+    const-string v0, "mel_status_disclosure_gap"
+
+    const/16 v1, 0x8
+
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+
+    move-result v0
+
+    return v0
+.end method
+
 .method public static statusActionHeight(Landroid/content/Context;)I
     .locals 2
 

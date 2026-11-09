@@ -68,6 +68,9 @@
        makes the first frosted surface legible. Both are tokens because the
        stylesheet body may not carry a raw colour. */
     --mel-view-wash: rgba(255, 255, 255, 0.04);
+    /* The reflection of a glass button: a white wash at the top of the fill,
+       fading to nothing. Used as a background-image, never as a colour. */
+    --mel-glass-grad: linear-gradient(180deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0.02) 46%, rgba(255, 255, 255, 0) 100%);
     --mel-glass-wash-top: rgba(255, 255, 255, 0.05);
     --mel-glass-blur: 24px;
     --mel-glass-blur-sm: 16px;
@@ -2780,6 +2783,48 @@ body.sf-library-open #main-view::after {
     background-color: var(--mel-scrim-40);
     pointer-events: none;
     z-index: 10004;
+}
+
+/* --- 10.15 Secondary buttons: native glass, not a flat pill -------------- */
+/* A button that is a single flat fill reads as a web link even when it is the
+   right size. The native card already paints its secondary actions with
+   `native_button_dark`; this gives the WebView the same construction so the
+   two never look like different products: a translucent violet fill, a 1px
+   hairline, and a 1px white reflection along the top edge. The gradient is the
+   reflection — it is what makes the surface look lit from above. */
+#main-view button[data-encore-id="buttonSecondary"],
+#main-view [role="button"][data-encore-id="buttonSecondary"],
+#main-view [data-testid="action-bar-row"] button:not(.mel-accent-fill) {
+    background-image: var(--mel-glass-grad) !important;
+    background-color: var(--mel-glass-bg) !important;
+    border: 1px solid var(--mel-glass-border) !important;
+    box-shadow: var(--mel-glass-shadow) !important;
+}
+
+/* --- 10.16 The header: glow on top, round glass buttons ------------------ */
+/* 44dp round buttons with a glass fill. `min-width`/`min-height` (not width)
+   so a longer icon never clips, and the radius stays a circle because the box
+   is square. The glow sits behind the whole bar, never over the content. */
+[data-testid="global-nav-bar"] button,
+[data-testid="top-bar"] button {
+    min-width: 44px !important;
+    min-height: 44px !important;
+    border-radius: var(--mel-radius-pill) !important;
+    background-color: var(--mel-glass-bg) !important;
+    border: 1px solid var(--mel-glass-border) !important;
+    box-shadow: var(--mel-glass-highlight) 0 1px 0 inset !important;
+}
+
+[data-testid="global-nav-bar"]::before,
+[data-testid="top-bar"]::before {
+    content: "";
+    position: absolute;
+    inset: -50% 10% auto 10%;
+    height: 140%;
+    pointer-events: none;
+    z-index: 0;
+    background: radial-gradient(60% 100% at 50% 0%, var(--mel-glow-a) 0%, transparent 70%);
+    opacity: 0.5;
 }
 
 /* --- 10.13 Making the glass readable ------------------------------------ */

@@ -759,25 +759,12 @@
     invoke-virtual {v3, v6, v7}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
     :home_status_diag
+    # MEL-BUG-083: the raw " [auth=...]" string used to be painted full size in
+    # red monospace under the message, which reads as a crash to anyone who is
+    # not debugging. It now lives in a collapsed "Détails techniques" row:
+    # 12sp, secondary colour, closed by default. No red is left in the card.
     if-eqz v5, :home_status_actions
-    sget v7, Lcom/melodix/music/MelColors;->warning:I
-    const/4 v8, 0x0
-    const/high16 v9, 0x41800000
-    invoke-static {p0, v5, v7, v8, v9}, Lcom/melodix/music/NativeHomeShelfRenderer;->createHomeStatusText(Landroid/content/Context;Ljava/lang/String;IZF)Landroid/widget/TextView;
-    move-result-object v6
-    sget-object v7, Landroid/graphics/Typeface;->MONOSPACE:Landroid/graphics/Typeface;
-    const/4 v8, 0x1
-    invoke-virtual {v6, v7, v8}, Landroid/widget/TextView;->setTypeface(Landroid/graphics/Typeface;I)V
-    const/4 v7, 0x3
-    invoke-virtual {v6, v7}, Landroid/widget/TextView;->setMaxLines(I)V
-    new-instance v7, Landroid/widget/LinearLayout$LayoutParams;
-    const/4 v8, -0x1
-    const/4 v9, -0x2
-    invoke-direct {v7, v8, v9}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->statusSublabelGap(Landroid/content/Context;)I
-    move-result v8
-    iput v8, v7, Landroid/view/ViewGroup$MarginLayoutParams;->topMargin:I
-    invoke-virtual {v3, v6, v7}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    invoke-static {p0, v3, v5}, Lcom/melodix/music/NativeHomeShelfRenderer;->addHomeStatusDetails(Lcom/melodix/music/MainActivity;Landroid/widget/LinearLayout;Ljava/lang/String;)V
 
     :home_status_actions
     const-string v7, "uri"
@@ -799,6 +786,174 @@
     :home_status_session_state_marked
     const/4 v7, 0x1
     return v7
+.end method
+
+.method private static addHomeStatusDetails(Lcom/melodix/music/MainActivity;Landroid/widget/LinearLayout;Ljava/lang/String;)V
+    .locals 9
+
+    # A disclosure, not a banner. The card shows one readable sentence; the
+    # machine string is one tap away, and the same string can be copied with
+    # the existing header-chip handler (one copy path in the whole app).
+
+    new-instance v0, Landroid/widget/TextView;
+
+    invoke-direct {v0, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
+
+    const-string v1, "D\u00e9tails techniques"
+
+    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+
+    sget v1, Lcom/melodix/music/MelColors;->textSecondary:I
+
+    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextColor(I)V
+
+    const/high16 v1, 0x41300000
+
+    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextSize(F)V
+
+    const/4 v1, 0x1
+
+    const/4 v2, 0x0
+
+    invoke-virtual {v0, v2, v1}, Landroid/widget/TextView;->setTypeface(Landroid/graphics/Typeface;I)V
+
+    invoke-virtual {v0, v1}, Landroid/view/View;->setClickable(Z)V
+
+    invoke-virtual {v0, v1}, Landroid/view/View;->setFocusable(Z)V
+
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->statusActionHeight(Landroid/content/Context;)I
+
+    move-result v3
+
+    invoke-virtual {v0, v3}, Landroid/widget/TextView;->setMinimumHeight(I)V
+
+    const/16 v3, 0x10
+
+    invoke-virtual {v0, v3}, Landroid/widget/TextView;->setGravity(I)V
+
+    new-instance v3, Landroid/widget/LinearLayout$LayoutParams;
+
+    const/4 v4, -0x2
+
+    const/4 v5, -0x2
+
+    invoke-direct {v3, v4, v5}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->statusDisclosureGap(Landroid/content/Context;)I
+
+    move-result v4
+
+    iput v4, v3, Landroid/view/ViewGroup$MarginLayoutParams;->topMargin:I
+
+    invoke-virtual {p1, v0, v3}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    new-instance v3, Landroid/widget/TextView;
+
+    invoke-direct {v3, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
+
+    sget v4, Lcom/melodix/music/MelColors;->textSecondary:I
+
+    invoke-virtual {v3, v4}, Landroid/widget/TextView;->setTextColor(I)V
+
+    const/high16 v4, 0x41400000
+
+    invoke-virtual {v3, v4}, Landroid/widget/TextView;->setTextSize(F)V
+
+    sget-object v4, Landroid/graphics/Typeface;->MONOSPACE:Landroid/graphics/Typeface;
+
+    invoke-virtual {v3, v4, v2}, Landroid/widget/TextView;->setTypeface(Landroid/graphics/Typeface;I)V
+
+    invoke-virtual {v3, p2}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+
+    const/16 v4, 0x8
+
+    invoke-virtual {v3, v4}, Landroid/view/View;->setVisibility(I)V
+
+    new-instance v4, Landroid/widget/LinearLayout$LayoutParams;
+
+    const/4 v5, -0x1
+
+    const/4 v6, -0x2
+
+    invoke-direct {v4, v5, v6}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->statusDisclosureGap(Landroid/content/Context;)I
+
+    move-result v5
+
+    iput v5, v4, Landroid/view/ViewGroup$MarginLayoutParams;->topMargin:I
+
+    invoke-virtual {p1, v3, v4}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    # Toggle: flips visibility and keeps its own announced state in sync.
+    new-instance v4, Lcom/melodix/music/NativeHomeShelfRenderer$DetailsToggle;
+
+    invoke-direct {v4, v0, v3}, Lcom/melodix/music/NativeHomeShelfRenderer$DetailsToggle;-><init>(Landroid/widget/TextView;Landroid/widget/TextView;)V
+
+    invoke-virtual {v0, v4}, Landroid/view/View;->setOnClickListener(Landroid/view/View$OnClickListener;)V
+
+    # Copy: reuses MainActivity.onNativeDiagCopyClick, the single existing path.
+    new-instance v4, Landroid/widget/TextView;
+
+    invoke-direct {v4, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
+
+    const-string v5, "Copier le diagnostic"
+
+    invoke-virtual {v4, v5}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+
+    invoke-virtual {v4, v5}, Landroid/view/View;->setContentDescription(Ljava/lang/CharSequence;)V
+
+    sget v5, Lcom/melodix/music/MelColors;->textPrimary:I
+
+    invoke-virtual {v4, v5}, Landroid/widget/TextView;->setTextColor(I)V
+
+    const/high16 v5, 0x41300000
+
+    invoke-virtual {v4, v5}, Landroid/widget/TextView;->setTextSize(F)V
+
+    invoke-virtual {v4, v1}, Landroid/view/View;->setClickable(Z)V
+
+    invoke-virtual {v4, v1}, Landroid/view/View;->setFocusable(Z)V
+
+    const/16 v5, 0x11
+
+    invoke-virtual {v4, v5}, Landroid/widget/TextView;->setGravity(I)V
+
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->statusActionHeight(Landroid/content/Context;)I
+
+    move-result v5
+
+    invoke-virtual {v4, v5}, Landroid/widget/TextView;->setMinimumHeight(I)V
+
+    const-string v5, "native_button_dark"
+
+    invoke-static {p0, v4, v5}, Lcom/melodix/music/NativeUiRowFactory;->applyDrawableBackground(Landroid/content/Context;Landroid/view/View;Ljava/lang/String;)V
+
+    new-instance v5, Lcom/melodix/music/NativeHomeShelfRenderer$CopyDiagnosticAction;
+
+    invoke-direct {v5, p0}, Lcom/melodix/music/NativeHomeShelfRenderer$CopyDiagnosticAction;-><init>(Lcom/melodix/music/MainActivity;)V
+
+    invoke-virtual {v4, v5}, Landroid/view/View;->setOnClickListener(Landroid/view/View$OnClickListener;)V
+
+    new-instance v5, Landroid/widget/LinearLayout$LayoutParams;
+
+    const/4 v6, -0x2
+
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->statusActionHeight(Landroid/content/Context;)I
+
+    move-result v7
+
+    invoke-direct {v5, v6, v7}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->statusDisclosureGap(Landroid/content/Context;)I
+
+    move-result v6
+
+    iput v6, v5, Landroid/view/ViewGroup$MarginLayoutParams;->topMargin:I
+
+    invoke-virtual {p1, v4, v5}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    return-void
 .end method
 
 .method private static createHomeStatusBackground(Landroid/content/Context;)Landroid/graphics/drawable/GradientDrawable;

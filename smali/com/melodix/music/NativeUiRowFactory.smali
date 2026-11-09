@@ -513,6 +513,37 @@
     return-void
 .end method
 
+.method public static animId(Landroid/content/Context;Ljava/lang/String;)I
+    .locals 3
+
+    # Same contract as applyDrawableBackground: resolve by name so a rebuild can
+    # renumber resources without turning an optional animation into a crash.
+    # Returns 0 when the animation is missing, and every caller must check for 0.
+    if-eqz p0, :anim_missing
+
+    if-eqz p1, :anim_missing
+
+    invoke-virtual {p0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
+
+    move-result-object v0
+
+    const-string v1, "anim"
+
+    invoke-virtual {p0}, Landroid/content/Context;->getPackageName()Ljava/lang/String;
+
+    move-result-object v2
+
+    invoke-virtual {v0, p1, v1, v2}, Landroid/content/res/Resources;->getIdentifier(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I
+
+    move-result v0
+
+    return v0
+
+    :anim_missing
+    const/4 v0, 0x0
+    return v0
+.end method
+
 .method public static applyDrawableImage(Landroid/content/Context;Landroid/widget/ImageView;Ljava/lang/String;)V
     .locals 3
 

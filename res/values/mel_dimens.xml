@@ -114,6 +114,10 @@
     <dimen name="mel_status_action_pad_h">12.0dip</dimen>
     <dimen name="mel_status_action_pad_v">10.0dip</dimen>
     <dimen name="mel_status_action_gap">8.0dip</dimen>
+    <!-- MEL-BUG-083: the "Détails techniques" disclosure sits between the
+         one-sentence message and the actions: tighter than a paragraph, so the
+         card still reads as one block. -->
+    <dimen name="mel_status_disclosure_gap">8.0dip</dimen>
     <dimen name="mel_status_actions_gap">16.0dip</dimen>
     <dimen name="mel_quick_art">56.0dip</dimen>
     <dimen name="mel_quick_radius">8.0dip</dimen>

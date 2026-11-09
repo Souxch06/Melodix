@@ -2104,3 +2104,49 @@ test('settings connection state covers the full incident scenario matrix', () =>
   const all = rowsFor({ __sfMediaLibStatus: 'loading' });
   assert.doesNotMatch(JSON.stringify(all), /synchronis/i);
 });
+
+test('the native status card shows one sentence and hides the machine string behind a disclosure', () => {
+    const renderer = read('smali/com/melodix/music/NativeHomeShelfRenderer.smali');
+    const toggle = read('smali/com/melodix/music/NativeHomeShelfRenderer$DetailsToggle.smali');
+
+    // No more full-size red monospace error line inside the card.
+    assert.doesNotMatch(renderer, /MelColors;->warning:I[\s\S]{0,200}MONOSPACE/,
+        'the raw diagnostic is no longer painted full size in red monospace');
+    assert.doesNotMatch(renderer, /createHomeStatusText\(Landroid\/content\/Context;Ljava\/lang\/String;IZF\)Landroid\/widget\/TextView;[\s\S]{0,40}0x41800000/,
+        'the 16sp technical line is gone');
+
+    // The disclosure exists, is closed by default, and is 12sp/secondary.
+    assert.match(renderer, /addHomeStatusDetails\(Lcom\/melodix\/music\/MainActivity;Landroid\/widget\/LinearLayout;Ljava\/lang\/String;\)V/);
+    const details = renderer.match(/\.method private static addHomeStatusDetails[\s\S]*?\.end method/)[0];
+    assert.match(details, /"D\\u00e9tails techniques"/, 'the toggle reads "Détails techniques"');
+    assert.match(details, /const\/16 v4, 0x8\s*\n\s*invoke-virtual \{v3, v4\}, Landroid\/view\/View;->setVisibility\(I\)V/,
+        'the panel starts hidden (View.GONE)');
+    assert.match(details, /const\/high16 v4, 0x41400000/, 'the detail text is 12sp');
+    assert.match(details, /MelColors;->textSecondary:I[\s\S]{0,220}0x41400000/, 'and uses the secondary colour, not red');
+    assert.match(details, /"Copier le diagnostic"/, 'the copy action is present');
+    const copyAction = read('smali/com/melodix/music/NativeHomeShelfRenderer$CopyDiagnosticAction.smali');
+    assert.match(copyAction, /MainActivity;->onNativeDiagCopyClick\(Landroid\/view\/View;\)V/,
+        'and reuses the single existing copy path');
+    assert.match(details, /NativeHomeShelfRenderer\$CopyDiagnosticAction;-><init>\(Lcom\/melodix\/music\/MainActivity;\)V/);
+    assert.doesNotMatch(details, /MelColors;->warning:I/, 'the disclosure must never use the warning colour');
+
+    // Touch targets: the toggle and the copy button are both >= 44dp tall.
+    assert.match(details, /NativeUiMetrics;->statusActionHeight\(Landroid\/content\/Context;\)I[\s\S]{0,80}setMinimumHeight/);
+    // Opening never re-inflates: it flips visibility on the two text views.
+    assert.match(toggle, /getVisibility\(\)I/);
+    assert.match(toggle, /setVisibility\(I\)V[\s\S]*setVisibility\(I\)V/);
+    assert.doesNotMatch(toggle, /removeAllViews|inflate|renderHomeStatus/);
+    // The optional animation is resolved by name and guarded against 0.
+    assert.match(toggle, /NativeUiRowFactory;->animId\(Landroid\/content\/Context;Ljava\/lang\/String;\)I/);
+    assert.match(toggle, /if-nez v2, :no_anim/);
+    assert.doesNotMatch(toggle, /const v2, 0x7f01/);
+});
+
+test('the disclosure animation stays inside the frame budget', () => {
+    const xml = read('res/anim/mel_disclosure_expand.xml');
+    const durations = [...xml.matchAll(/android:duration="(\d+)"/g)].map((m) => Number(m[1]));
+    assert.ok(durations.length >= 1);
+    for (const d of durations) assert.ok(d <= 150, `duration ${d}ms is short enough not to block a tap`);
+    assert.match(xml, /android:fillAfter="true"/);
+    assert.doesNotMatch(xml, /layoutAnimation|setVisibility/, 'it animates alpha/transform, never layout');
+});

@@ -18,27 +18,31 @@ const method = (src, sig) => {
   return src.slice(at, src.indexOf('.end method', at));
 };
 
-test('MEL-BUG-063a: home card splits the [auth=…] diagnostic into a big mono warning line', () => {
+test('MEL-BUG-063a (revu par MEL-BUG-083): the [auth=…] suffix is still split out of the sentence, but it is no longer painted big in red', () => {
   const renderer = read('smali/com/melodix/music/NativeHomeShelfRenderer.smali');
   const status = method(renderer, '.method private static renderHomeStatus(');
-  // The diag suffix is located and cut out of the subtitle.
-  assert.match(status, /const-string v4, " \[auth="\s*\n\s*invoke-virtual \{v1, v4\}, Ljava\/lang\/String;->lastIndexOf\(Ljava\/lang\/String;\)I/,
-    'diag marker located with lastIndexOf');
+  // The split itself was the fix for "the error is buried in the sentence":
+  // it stays, because the card must show a clean one-sentence message.
+  assert.match(status, /const-string v4, " \[auth="/,
+    'diag marker still located');
   assert.match(status, /invoke-virtual \{v1, v6, v4\}, Ljava\/lang\/String;->substring\(II\)Ljava\/lang\/String;/,
     'subtitle keeps only the text before the diag');
   assert.match(status, /invoke-virtual \{v1, v6\}, Ljava\/lang\/String;->substring\(I\)Ljava\/lang\/String;/,
     'diag part extracted');
-  // Diag rendered as its own line: 16sp, bold monospace, warning color.
+
+  // MEL-BUG-083 supersedes the presentation: a 16sp bold red monospace banner
+  // under a one-sentence message reads as a crash. The string now goes to a
+  // collapsed "Détails techniques" disclosure, kept at 12sp secondary.
   const at = status.indexOf('\n    :home_status_diag\n');
   assert.ok(at >= 0, ':home_status_diag label defined');
   const diag = status.slice(at, status.indexOf('\n    :home_status_actions\n', at));
-  assert.match(diag, /sget v7, Lcom\/melodix\/music\/MelColors;->warning:I/);
-  assert.match(diag, /const\/high16 v9, 0x41800000/, 'diag text 16sp (bigger than the 14sp subtitle)');
-  assert.match(diag, /sget-object v7, Landroid\/graphics\/Typeface;->MONOSPACE:Landroid\/graphics\/Typeface;/);
-  assert.match(diag, /invoke-virtual \{v6, v7, v8\}, Landroid\/widget\/TextView;->setTypeface\(Landroid\/graphics\/Typeface;I\)V/,
-    'mono typeface applied (bold style arg)');
-  assert.match(diag, /const\/4 v7, 0x3\s*\n\s*invoke-virtual \{v6, v7\}, Landroid\/widget\/TextView;->setMaxLines\(I\)V/);
-  // The plain subtitle path is unchanged (14sp, textSecondary).
+  assert.doesNotMatch(diag, /MelColors;->warning:I/, 'no full-size red line any more');
+  assert.doesNotMatch(diag, /0x41800000/, 'no 16sp technical banner any more');
+  assert.doesNotMatch(diag, /Typeface;->MONOSPACE/, 'the machine text is not the second thing you read');
+  assert.match(diag, /NativeHomeShelfRenderer;->addHomeStatusDetails\(/,
+    'the split string is handed to the disclosure instead');
+
+  // The plain sentence path is unchanged (14sp, textSecondary).
   assert.match(status, /sget v7, Lcom\/melodix\/music\/MelColors;->textSecondary:I[\s\S]*?const\/high16 v9, 0x41600000/);
 });
 

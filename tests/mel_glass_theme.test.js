@@ -379,3 +379,27 @@ test('the primary play control never inherits the glass pill', () => {
     assert.match(primary[0], /background-image: var\(--mel-accent-grad\) !important;/);
     assert.match(primary[0], /border: 0 !important;/);
 });
+
+test('secondary buttons are built like the native ones: fill, hairline, reflection', () => {
+    const secondary = CSS.match(/#main-view button\[data-encore-id="buttonSecondary"\],(?:(?!\})[\s\S])*\{[^}]*\}/);
+    assert.ok(secondary, 'the secondary-button rule exists');
+    assert.match(secondary[0], /background-image: var\(--mel-glass-grad\) !important;/,
+        'the top-edge reflection is a gradient, not a second colour');
+    assert.match(secondary[0], /border: 1px solid var\(--mel-glass-border\) !important;/);
+    assert.match(secondary[0], /box-shadow: var\(--mel-glass-shadow\) !important;/);
+    assert.ok(rootTokens().has('--mel-glass-grad'), 'the reflection is a token');
+});
+
+test('the header keeps 44dp round glass buttons and a glow that never covers content', () => {
+    const button = CSS.match(/\[data-testid="global-nav-bar"\] button,\s*\[data-testid="top-bar"\] button \{[^}]*\}/);
+    assert.ok(button, 'the header-button rule exists');
+    assert.match(button[0], /min-width: 44px !important;/);
+    assert.match(button[0], /min-height: 44px !important;/, 'the 44dp target is the floor, and a longer icon cannot clip it');
+    assert.match(button[0], /border-radius: var\(--mel-radius-pill\) !important;/);
+    assert.match(button[0], /background-color: var\(--mel-glass-bg\) !important;/);
+
+    const glow = CSS.match(/\[data-testid="global-nav-bar"\]::before,(?:(?!\})[\s\S])*\{[^}]*\}/);
+    assert.ok(glow);
+    assert.match(glow[0], /pointer-events: none;/, 'the glow never eats a tap');
+    assert.match(glow[0], /radial-gradient\(60% 100% at 50% 0%, var\(--mel-glow-a\)/);
+});
