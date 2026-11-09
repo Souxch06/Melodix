@@ -19,7 +19,10 @@ as NOT MEASURED — never estimated — so a missing number is visible instead o
 silently invented.
 
 Usage:
-    startup_timing_journal.py JOURNAL_FILE [--json OUT.json]
+    startup_timing_journal.py JOURNAL_FILE [--from-launch] [--json OUT.json]
+
+`--from-launch` keeps the most recent activity-create and subsequent SSO resumes;
+without it the last resume remains the anchor for warm/background measurements.
 
 `JOURNAL_FILE` may be:
   * the raw `last_diag` value (one line, `|`-separated entries),
@@ -249,9 +252,20 @@ def main(argv):
     if '--github-notice' in argv:
         # GitHub-hosted annotation: readable even when artifact downloads are
         # blocked by the caller's network. No raw event bodies are included.
-        compact = json.dumps(report, ensure_ascii=False, separators=(',', ':'))
-        compact = compact.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
-        print('::notice title=Startup measurement ' + Path(argv[1]).stem + '::' + compact)
+        # GitHub truncates a single annotation around 4 KiB. Keep the timeline
+        # small and emit the closed-grammar session events in separate batches;
+        # the JSON artifact still contains the complete report.
+        summary = dict(report)
+        events = summary.pop('session_events')
+        summary['session_event_count'] = len(events)
+        notices = [('Startup measurement ' + Path(argv[1]).stem, summary)]
+        for offset in range(0, len(events), 12):
+            notices.append(('Session events ' + Path(argv[1]).stem + ' ' + str(offset // 12 + 1),
+                            events[offset:offset + 12]))
+        for title, payload in notices:
+            compact = json.dumps(payload, ensure_ascii=False, separators=(',', ':'))
+            compact = compact.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+            print('::notice title=' + title + '::' + compact)
     if '--json' in argv:
         out = argv[argv.index('--json') + 1]
         with open(out, 'w', encoding='utf-8') as handle:

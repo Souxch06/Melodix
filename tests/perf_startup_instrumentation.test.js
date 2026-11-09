@@ -305,3 +305,59 @@ test('measurement CI is opt-in, same-source, artifact-only and never injects a s
   assert.match(capture, /activity="com\.melodix\.music\.MainActivity"/);
   assert.match(capture, /--github-notice/);
 });
+
+
+test('from-launch preserves pre-SSO navigation and proof without changing warm anchoring', () => {
+  const { execFileSync } = require('node:child_process');
+  const script = `
+import importlib.util, sys
+s = importlib.util.spec_from_file_location('startup', sys.argv[1])
+m = importlib.util.module_from_spec(s); s.loader.exec_module(m)
+entries = ['sid=abcd1234 t=100 perf activity-create',
+ 'sid=abcd1234 t=200 navigation source=button route=accounts',
+ 'sid=abcd1234 t=220 proof clear-accounts=F',
+ 'sid=abcd1234 t=900 perf activity-resume',
+ 'sid=abcd1234 t=950 navigation source=finish route=player',
+ 'sid=abcd1234 t=960 token-http endpoint=api phase=end http=200 duration=25',
+ 'sid=abcd1234 t=980 token-result status=ok duration=30',
+ 'sid=abcd1234 t=990 image result=loaded',
+ 'sid=abcd1234 t=991 token-result status=secret duration=1']
+r = m.build_report(entries, from_launch=True)
+assert r['anchor'] == 'activity-create'
+assert r['observed_until_ms'] == 891
+assert len(r['session_events']) == 6
+assert r['session_events'][0] == dict(offset_ms=100, event='navigation source=button route=accounts')
+assert all('secret' not in x['event'] for x in r['session_events'])
+assert m.build_report(entries)['anchor'] == 'activity-resume'
+print('ok')
+`;
+  assert.match(execFileSync('python3', ['-c', script,
+    path.join(root, 'scripts/startup_timing_journal.py')], { encoding: 'utf8' }), /ok/);
+});
+
+
+test('GitHub notices keep session batches valid instead of truncating a long timeline', () => {
+  const { execFileSync } = require('node:child_process');
+  const os = require('node:os');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'melodix-notice-'));
+  try {
+    const file = path.join(tmp, 'cold.txt');
+    fs.writeFileSync(file, ['MDXPERF-BEGIN v=1 dropped=0',
+      'sid=abcd1234 t=100 perf activity-create',
+      ...Array.from({length: 100}, (_, i) =>
+        `sid=abcd1234 t=${200+i} token-http endpoint=fallback phase=end http=403 duration=100`),
+      'MDXPERF-END'].join('\n'));
+    const out = execFileSync('python3', [path.join(root, 'scripts/startup_timing_journal.py'),
+      file, '--github-notice'], {encoding: 'utf8'});
+    const lines = out.split('\n').filter(x => x.startsWith('::notice'));
+    assert.equal(lines.length, 10);
+    let events = 0;
+    for (const line of lines) {
+      assert.ok(Buffer.byteLength(line) < 3500);
+      const payload = JSON.parse(line.slice(line.indexOf('::', 2) + 2));
+      if (Array.isArray(payload)) events += payload.length;
+      else assert.equal(payload.session_event_count, 100);
+    }
+    assert.equal(events, 100);
+  } finally { fs.rmSync(tmp, {recursive: true, force: true}); }
+});
