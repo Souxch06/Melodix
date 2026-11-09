@@ -20,9 +20,19 @@ for path in sorted(root.glob('*.png'))[:8]:
         continue
     image = Image.open(path).convert('RGB')
     image.thumbnail((800, 960))
-    buffer = io.BytesIO()
-    image.save(buffer, format='JPEG', quality=65, optimize=True)
-    data = base64.b64encode(buffer.getvalue()).decode('ascii')
+    quality = 65
+    while True:
+        buffer = io.BytesIO()
+        image.save(buffer, format='JPEG', quality=quality, optimize=True)
+        data = base64.b64encode(buffer.getvalue()).decode('ascii')
+        if len(data) <= 32400:
+            break
+        if quality > 40:
+            quality -= 10
+        else:
+            image.thumbnail((int(image.width * .8), int(image.height * .8)))
+            if image.width < 120:
+                raise ValueError('cannot bound review thumbnail')
     # GitHub truncates annotation messages at 4096 bytes. Each fragment is
     # bounded below that limit; the receiver requires ALL fragments + SHA256.
     import hashlib
