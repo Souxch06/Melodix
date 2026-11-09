@@ -48,7 +48,7 @@ test('manual and background installer must flush before PackageInstaller; manual
 
 test('upgrade failure controls use distinct offline origins and do not weaken the strict replacement assertion',()=>{
  const fixture=read('tests/android/UpdatePersistenceInstrumentation.java'),script=read('scripts/update_persistence_emulator.sh');
- for(const marker of ['melodix-restart-fixture.invalid','melodix-force-stop-fixture.invalid','melodix-update-fixture.invalid'])assert.ok(fixture.includes(marker));
- assert.match(script,/run_probe restart[\s\S]*?run_probe force_stop[\s\S]*?phase=seed[\s\S]*?adb install -r "\$new"[\s\S]*?grep -Fq 'INSTRUMENTATION_RESULT: overall=passed'/);
+ for(const marker of ['melodix-restart-fixture.invalid','melodix-force-stop-fixture.invalid','melodix-same-process-fixture.invalid','melodix-settled-fixture.invalid','melodix-update-fixture.invalid'])assert.ok(fixture.includes(marker));
+ assert.match(script,/run_probe restart[\s\S]*?run_probe force_stop[\s\S]*?run_probe settled[\s\S]*?phase=seed[\s\S]*?adb install -r "\$new"[\s\S]*?grep -Fq 'INSTRUMENTATION_RESULT: overall=passed'/);
  assert.doesNotMatch(script,/pm clear|adb uninstall/);assert.doesNotMatch(fixture,/open\.spotify\.com|sp_dc|authorization|Bearer/i);
 });

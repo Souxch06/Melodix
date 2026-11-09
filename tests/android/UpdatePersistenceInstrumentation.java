@@ -29,9 +29,14 @@ public final class UpdatePersistenceInstrumentation extends Instrumentation {
                 case "upgrade": origin = ORIGIN; break;
                 case "restart": origin = "https://melodix-restart-fixture.invalid/"; break;
                 case "force_stop": origin = "https://melodix-force-stop-fixture.invalid/"; break;
+                case "same_process": origin = "https://melodix-same-process-fixture.invalid/"; break;
+                case "settled": origin = "https://melodix-settled-fixture.invalid/"; break;
                 default: throw new AssertionError();
             }
-            boolean seed = "seed".equals(arguments.getString("mode"));
+            String mode = arguments.getString("mode");
+            boolean roundtrip = "roundtrip".equals(mode);
+            boolean settled = "seed_settled".equals(mode);
+            boolean seed = "seed".equals(mode) || roundtrip || settled;
             check(seed || "verify".equals(arguments.getString("mode")));
             CookieManager cookies = CookieManager.getInstance();
             if (seed) {
@@ -74,7 +79,33 @@ public final class UpdatePersistenceInstrumentation extends Instrumentation {
             runOnMainSync(() -> view[0].evaluateJavascript(script, v -> { value.set(v); evaluated.countDown(); }));
             check(evaluated.await(10, TimeUnit.SECONDS));
             phase = seed ? "seed_storage_value" : "verify_storage_value";
+            result.putString("value_kind", "null".equals(value.get()) ? "null" : "\"synthetic_only\"".equals(value.get()) ? "expected" : "other");
             check("\"synthetic_only\"".equals(value.get()));
+            if (roundtrip) {
+                phase = "roundtrip_load";
+                CountDownLatch reloaded = new CountDownLatch(1);
+                runOnMainSync(() -> {
+                    view[0].destroy();
+                    view[0] = new WebView(getTargetContext());
+                    view[0].getSettings().setJavaScriptEnabled(true);
+                    view[0].getSettings().setDomStorageEnabled(true);
+                    view[0].getSettings().setBlockNetworkLoads(true);
+                    view[0].setWebViewClient(new WebViewClient() {
+                        @Override public void onPageFinished(WebView v, String url) { reloaded.countDown(); }
+                    });
+                    view[0].loadDataWithBaseURL(origin, "<html><body>synthetic local test</body></html>", "text/html", "UTF-8", null);
+                });
+                check(reloaded.await(15, TimeUnit.SECONDS));
+                phase = "roundtrip_storage_callback";
+                CountDownLatch readAgain = new CountDownLatch(1);
+                AtomicReference<String> next = new AtomicReference<>();
+                runOnMainSync(() -> view[0].evaluateJavascript("localStorage.getItem('melodix_update_fixture')", v -> { next.set(v); readAgain.countDown(); }));
+                check(readAgain.await(10, TimeUnit.SECONDS));
+                phase = "roundtrip_storage_value";
+                result.putString("value_kind", "null".equals(next.get()) ? "null" : "\"synthetic_only\"".equals(next.get()) ? "expected" : "other");
+                check("\"synthetic_only\"".equals(next.get()));
+            }
+            if (settled) android.os.SystemClock.sleep(5000);
             result.putString("overall", "passed");
         } catch (Throwable error) {
             result.putString("overall", "failed");

@@ -20,7 +20,9 @@ fixture=com.melodix.music.preview.test/com.melodix.test.UpdatePersistenceInstrum
 # unchanged and its origin is never pre-seeded by these probes.
 run_probe() {
   local kind="$1" seed_file="$RUNNER_TEMP/update-probe-$1-seed.txt" verify_file="$RUNNER_TEMP/update-probe-$1-verify.txt"
-  if ! timeout 90s adb shell am instrument -w -r -e origin_case "$kind" -e mode seed "$fixture" > "$seed_file" || ! grep -Fq 'INSTRUMENTATION_RESULT: overall=passed' "$seed_file"; then
+  local seed_mode=seed
+  if [[ "$kind" == settled ]]; then seed_mode=seed_settled; fi
+  if ! timeout 90s adb shell am instrument -w -r -e origin_case "$kind" -e mode "$seed_mode" "$fixture" > "$seed_file" || ! grep -Fq 'INSTRUMENTATION_RESULT: overall=passed' "$seed_file"; then
     echo "::warning title=Synthetic storage control::case=$kind seed=failed"
     return
   fi
@@ -31,12 +33,21 @@ run_probe() {
     local failure_phase
     failure_phase="$(sed -nE 's/^INSTRUMENTATION_RESULT: phase=(verify_cookie|verify_storage_callback|verify_storage_value)$/\1/p' "$verify_file" | head -1)"
     [[ -n "$failure_phase" ]] || failure_phase=unknown
-    echo "::warning title=Synthetic storage control::case=$kind verify=failed phase=$failure_phase"
+    local value_kind
+    value_kind="$(sed -nE 's/^INSTRUMENTATION_RESULT: value_kind=(null|expected|other)$/\1/p' "$verify_file" | head -1)"
+    [[ -n "$value_kind" ]] || value_kind=unknown
+    echo "::warning title=Synthetic storage control::case=$kind verify=failed phase=$failure_phase value=$value_kind"
   fi
 }
 phase=controls
+if timeout 90s adb shell am instrument -w -r -e origin_case same_process -e mode roundtrip "$fixture" > "$RUNNER_TEMP/update-roundtrip.txt" && grep -Fq 'INSTRUMENTATION_RESULT: overall=passed' "$RUNNER_TEMP/update-roundtrip.txt"; then
+  echo "::notice title=Synthetic storage control::case=same_process verify=passed"
+else
+  echo "::warning title=Synthetic storage control::case=same_process verify=failed"
+fi
 run_probe restart
 run_probe force_stop
+run_probe settled
 phase=seed
 timeout 90s adb shell am instrument -w -r -e mode seed "$fixture" > "$RUNNER_TEMP/update-seed.txt"
 cat "$RUNNER_TEMP/update-seed.txt"
