@@ -64,7 +64,7 @@
     <dimen name="mel_shelf_art_height">190.0dip</dimen>
     <dimen name="mel_shelf_card_height">224.0dip</dimen>
     <dimen name="mel_shelf_gap">16.0dip</dimen>
-    <dimen name="mel_shelf_radius">14.0dip</dimen>
+    <dimen name="mel_shelf_radius">18.0dip</dimen>
     <!-- ===== list rows (library, playlists, albums) ===== -->
     <dimen name="mel_row_art">64.0dip</dimen>
     <dimen name="mel_row_height">76.0dip</dimen>

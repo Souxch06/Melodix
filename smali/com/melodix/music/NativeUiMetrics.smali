@@ -59,7 +59,7 @@
 
     const-string v0, "mel_shelf_radius"
 
-    const/16 v1, 0xc
+    const/16 v1, 0x10
 
     invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
 
