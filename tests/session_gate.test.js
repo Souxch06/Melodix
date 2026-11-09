@@ -108,7 +108,7 @@ test('native glass surface has named resources, real 48dp actions, collapsed det
  assert.doesNotMatch(ui,/0x7f[0-9a-f]+|evaluateJavascript|backdrop-filter|loadUrl/);
  assert.match(ui,/getIdentifier/);assert.match(ui,/NativeSessionSurfaceLayout/);
  assert.match(read('smali/com/melodix/music/NativeSessionSurfaceLayout.smali'),/getPaddingTop/);
- const main=read('smali/com/melodix/music/MainActivity.smali');assert.match(main,/onBackPressed\(\)V[\s\S]*?->finish\(\)V/);
+ const main=read('smali/com/melodix/music/MainActivity.smali');assert.match(main,/onKeyDown\([\s\S]*?->finish\(\)V/);
  for(const sig of ['showNativeUiFrom','activateNativeUiRoute','applyNativeUiData','renderNativeRows']) {
   const start=main.indexOf('.method public final '+sig+'(');assert.ok(start>=0);const method=main.slice(start,main.indexOf('.end method',start));
   assert.ok(method.indexOf('NativeSessionGate;->blocked')<method.indexOf(':session_'),'ingress gated '+sig);
@@ -173,4 +173,17 @@ test('factory pending load cannot be cancelled by ensure while WebView.getUrl is
  const start=main.indexOf('.method public final ensureWebPageLoaded');const ensure=main.slice(start,main.indexOf('.end method',start));
  assert.match(ensure,/initialUrl[\s\S]*?move-result-object v1\s+if-eqz v1, :done/);
  assert.doesNotMatch(ensure,/about:blank/);
+});
+
+test('MainActivity never overrides a final method in its packaged superclass chain',()=>{
+ const main=read('smali/com/melodix/music/MainActivity.smali');
+ const declared=new Set([...main.matchAll(/^\.method[^\n]*? (\S+\([^\n]+)$/gm)].map(m=>m[1]));
+ let name=main.match(/^\.super L([^;]+);/m)[1];
+ const visited=new Set();
+ while(!visited.has(name)) {
+  visited.add(name);const path='smali/'+name+'.smali';if(!fs.existsSync(require('node:path').join(__dirname,'..',path)))break;
+  const parent=read(path);
+  for(const m of parent.matchAll(/^\.method[^\n]*?\bfinal\b[^\n]*? (\S+\([^\n]+)$/gm)) assert.ok(!declared.has(m[1]),'cannot override final '+name+'->'+m[1]);
+  name=parent.match(/^\.super L([^;]+);/m)[1];
+ }
 });

@@ -4707,8 +4707,19 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 .end method
 
 .method public final onKeyDown(ILandroid/view/KeyEvent;)Z
-    .locals 1
+    .locals 2
 
+    # The inherited onBackPressed is final. Keep gesture dispatch untouched;
+    # a hardware Back on an unverified surface exits without revealing Home.
+    const/4 v0, 0x4
+    if-ne p1, v0, :session_back_checked
+    sget v0, Lcom/melodix/music/NativeSessionGate;->state:I
+    const/4 v1, 0x3
+    if-eq v0, v1, :session_back_checked
+    invoke-virtual {p0}, Landroid/app/Activity;->finish()V
+    const/4 v0, 0x1
+    return v0
+    :session_back_checked
     .line 1
     const/16 v0, 0x52
 
@@ -11704,15 +11715,4 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     return-void
 .end method
 
-.method public onBackPressed()V
-    .locals 2
-    sget v0, Lcom/melodix/music/NativeSessionGate;->state:I
-    const/4 v1, 0x3
-    if-eq v0, v1, :normal_back
-    # Leave login/error without revealing an unverified native home or reloading accounts.
-    invoke-virtual {p0}, Landroid/app/Activity;->finish()V
-    return-void
-    :normal_back
-    invoke-super {p0}, Le6;->onBackPressed()V
-    return-void
-.end method
+

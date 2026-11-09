@@ -107,6 +107,7 @@ jobs:
             adb shell pm grant com.melodix.music.preview android.permission.BLUETOOTH_CONNECT
             adb shell am instrument -w -r com.melodix.music.preview.test/com.melodix.test.SessionGateInstrumentation > session-evidence/result.txt
             cat session-evidence/result.txt
+            grep -E '^INSTRUMENTATION_(RESULT|STATUS): (phase=[a-z_]+|result=passed|overall=(passed|failed)|error_class=[A-Za-z]+)$' session-evidence/result.txt | while IFS= read -r line; do echo "::notice title=Session gate synthetic result::$line"; done
             grep -Fq 'INSTRUMENTATION_RESULT: overall=passed' session-evidence/result.txt
       - name: Upload bounded synthetic-only test outcomes
         if: always()

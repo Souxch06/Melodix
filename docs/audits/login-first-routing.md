@@ -92,3 +92,7 @@ Le hook de resynchronisation reste sous le plafond historique de taille du shell
 Risques résiduels à mesurer : comportement réel des redirections SSO, latence réseau >3 s, dimensions du bandeau login avec grande police/clavier, authentification privée et playlists réelles. Les preuves synthétiques/CI ne doivent pas être présentées comme une validation de ces points.
 
 Dernière revue de cold start : `WebView.getUrl()` peut rester nul juste après `loadUrl` dans la factory. La décision initiale est désormais émise une seule fois ; un second appel d’ensure retourne sans naviguer (sentinelle nulle, jamais `about:blank`), pour ne pas annuler le login en vol. Test d’instructions ajouté pour les deux présences de cookie. Le budget est remis à zéro uniquement quand le lancement se termine, pas sur rotation/reprise.
+
+### Blocage ART découvert par la validation
+
+Le runner Android final `42596800499` n’a pas réussi (résultat sauvegardé, aucune validation annoncée). Revue de la hiérarchie : `androidx/activity/a.smali:978` déclare `onBackPressed()V` **final**. La redéfinition ajoutée à MainActivity était illégale et doit être retirée avant livraison. Retour matériel passe maintenant par `onKeyDown` et le geste conserve le dispatcher final existant. Ajout d’un test parcourant les superclasses réellement empaquetées pour interdire une telle redéfinition. **Tous les APK test124 antérieurs à cette correction sont intermédiaires et ne sont pas à installer.** Le premier build réussi n’était donc pas une preuve de chargement de classe ART.
