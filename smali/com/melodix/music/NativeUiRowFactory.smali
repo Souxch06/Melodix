@@ -352,7 +352,9 @@
     invoke-direct {v1}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
     const v3, -0xd5d5d6
     invoke-virtual {v1, v3}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
-    const/high16 v3, 0x41400000
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->shelfRadius(Landroid/content/Context;)I
+    move-result v3
+    int-to-float v3, v3
     invoke-virtual {v1, v3}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
     invoke-virtual {v2, v1}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
     const/4 v1, 0x1
@@ -430,13 +432,9 @@
     invoke-virtual {v5, v6, v7}, Landroid/widget/TextView;->setTypeface(Landroid/graphics/Typeface;I)V
     const/16 v6, 0x11
     invoke-virtual {v5, v6}, Landroid/widget/TextView;->setGravity(I)V
-    new-instance v6, Landroid/graphics/drawable/GradientDrawable;
-    invoke-direct {v6}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
-    const v7, -0xe128a0
-    invoke-virtual {v6, v7}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
-    const/high16 v7, 0x42800000
-    invoke-virtual {v6, v7}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
-    invoke-virtual {v5, v6}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
+    # Reuse the shell accent pill by name; the banner remains the click target.
+    const-string v6, "native_button_green"
+    invoke-static {p0, v5, v6}, Lcom/melodix/music/NativeUiRowFactory;->applyDrawableBackground(Landroid/content/Context;Landroid/view/View;Ljava/lang/String;)V
     invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->bannerActionPadH(Landroid/content/Context;)I
     move-result v6
     invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->bannerActionPadV(Landroid/content/Context;)I

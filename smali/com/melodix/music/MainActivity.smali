@@ -10881,6 +10881,8 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-virtual {v4, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v5
     check-cast v3, Landroid/widget/TextView;
+    # Expose the same selected state to accessibility services as to sighted users.
+    invoke-virtual {v3, v5}, Landroid/view/View;->setSelected(Z)V
     if-eqz v5, :chip_inactive
     sget v4, Lcom/melodix/music/MelColors;->accent:I
     invoke-static {v4}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
