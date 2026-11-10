@@ -3412,7 +3412,28 @@
     window.__sfMediaLibProofAuthEpoch = Number.isFinite(Number(window.__sfMediaLibProofAuthEpoch))
         ? Math.max(0, Math.floor(Number(window.__sfMediaLibProofAuthEpoch))) : 0;
 
-    function checkMediaLib(force = false, source = 'unspecified', correlationId = 0) {
+    // Read only a canonical value from the native bridge. A non-number from
+    // the primitive getter is never trusted as a generation by itself.
+    function readNativeSessionGeneration() {
+        const bridge = window.AndBridge;
+        if (!bridge) return 0;
+        let value;
+        try {
+            if (typeof bridge.getSessionGeneration === 'function') value = bridge.getSessionGeneration();
+        } catch (_) {}
+        if (typeof value === 'number' && Number.isInteger(value)) {
+            return value > 0 && value <= 2147483647 ? value : 0;
+        }
+        try {
+            if (typeof bridge.getSessionGenerationText !== 'function') return 0;
+            const text = bridge.getSessionGenerationText();
+            if (typeof text !== 'string' || !/^[1-9][0-9]{0,9}$/.test(text)) return 0;
+            const parsed = Number(text);
+            return Number.isInteger(parsed) && parsed <= 2147483647 && String(parsed) === text ? parsed : 0;
+        } catch (_) { return 0; }
+    }
+
+    function checkMediaLib(force = false, source = 'unspecified', correlationId = 0, expectedGeneration = 0) {
         const safeCorrelationId = boundedMediaLibraryCount(
             correlationId || window.__sfNativeUiHomeCorrelationId, 999999);
         const traceContext = { correlationId: safeCorrelationId, attempt: 0 };
@@ -3436,10 +3457,9 @@
         traceLibraryEvent('proof-guard decision=allowed reason=dom-' + spotifyAuthUiState());
         const diagnostic = createMediaLibraryDiagnostic(source, safeCorrelationId);
         traceHomeLibraryStage(diagnostic, 'request', 'started', 0, 0, 0);
-        try {
-            diagnostic.nativeGeneration = window.AndBridge && typeof window.AndBridge.getSessionGeneration === 'function'
-                ? boundedMediaLibraryCount(window.AndBridge.getSessionGeneration(), 2147483647) : 0;
-        } catch (_) { diagnostic.nativeGeneration = 0; }
+        const observedGeneration = readNativeSessionGeneration();
+        if (source === 'native-retry' && expectedGeneration > 0 && observedGeneration !== expectedGeneration) return Promise.resolve(false);
+        diagnostic.nativeGeneration = expectedGeneration > 0 && source === 'native-retry' ? expectedGeneration : observedGeneration;
         diagnostic.sessionObservation = { apiHttp: null, fallbackHttp: null, libraryHttp: null, tokenResult: 'not-attempted' };
         // Independent acknowledgement before queuing work: the detailed channel
         // may fail, but this attempt must still be visible with unknown observations.
@@ -3672,8 +3692,7 @@
         if (!/^(blocage=(dom-auth-required|attente-429))$/.test(reason)) return;
         const diagnostic = { nativeGeneration: 0, attempt: 0 };
         try {
-            diagnostic.nativeGeneration = window.AndBridge && typeof window.AndBridge.getSessionGeneration === 'function'
-                ? boundedMediaLibraryCount(window.AndBridge.getSessionGeneration(), 2147483647) : 0;
+            diagnostic.nativeGeneration = readNativeSessionGeneration();
             if (window.AndBridge && typeof window.AndBridge.onSessionAttemptDiagnostic === 'function') {
                 window.AndBridge.onSessionAttemptDiagnostic(JSON.stringify({ generation: diagnostic.nativeGeneration,
                     attempt: 0, source: 'native-retry', reason: reason }));
@@ -3710,8 +3729,16 @@
     }
     // Native retry queues behind an older attempt instead of adopting its result.
     // Existing auth guard, single-flight lock and Retry-After still apply.
-    window.__sfRequestSessionVerification = function () {
+    window.__sfRequestSessionVerification = function (expectedGeneration = 0) {
+        const expected = Number.isInteger(expectedGeneration) && expectedGeneration > 0 ? expectedGeneration : 0;
         const request = () => {
+            if (expected) {
+                try {
+                    if (readNativeSessionGeneration() !== expected || !window.AndBridge ||
+                        typeof window.AndBridge.isSessionRetryActive !== 'function' ||
+                        window.AndBridge.isSessionRetryActive(expected) !== true) return false;
+                } catch (_) { return false; }
+            }
             if (window.__sfMediaLibError === 'http-429' && Number(window.__sfMediaLibRetryAt) > Date.now()) {
                 publishSessionRelanceDiagnostic('native-retry', 'blocage=attente-429');
                 return false;
@@ -3723,7 +3750,7 @@
                 return false;
             }
             dropWebPlayerToken();
-            return checkMediaLib(true, 'native-retry');
+            return checkMediaLib(true, 'native-retry', 0, expected);
         };
         if (mediaLibraryCheckPromise) {
             // The previous flight may finish after this retry timed out, after a
@@ -3732,17 +3759,15 @@
             let queuedGeneration;
             try {
                 const bridge = window.AndBridge;
-                if (!bridge || typeof bridge.getSessionGeneration !== 'function' ||
-                    typeof bridge.isSessionRetryActive !== 'function') return false;
-                queuedGeneration = bridge.getSessionGeneration();
-                if (!Number.isInteger(queuedGeneration) || queuedGeneration <= 0) return false;
+                if (!bridge || typeof bridge.isSessionRetryActive !== 'function') return false;
+                queuedGeneration = readNativeSessionGeneration();
+                if (queuedGeneration <= 0 || (expected && queuedGeneration !== expected)) return false;
             } catch (_) { return false; }
             const requestIfCurrent = () => {
                 try {
                     const bridge = window.AndBridge;
-                    if (!bridge || typeof bridge.getSessionGeneration !== 'function' ||
-                        typeof bridge.isSessionRetryActive !== 'function' ||
-                        bridge.getSessionGeneration() !== queuedGeneration ||
+                    if (!bridge || typeof bridge.isSessionRetryActive !== 'function' ||
+                        readNativeSessionGeneration() !== queuedGeneration ||
                         bridge.isSessionRetryActive(queuedGeneration) !== true) return false;
                 } catch (_) { return false; }
                 return request();

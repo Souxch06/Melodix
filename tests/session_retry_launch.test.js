@@ -134,3 +134,13 @@ test('generation mismatch diagnosis remains strict and emits only fixed categori
   const label='session-probe result='+want;assert.equal(f.evaluate(),label);f.reply(JSON.stringify(label));assert.equal(calls,0);assert.ok(f.events.includes(label));
  }
 });
+
+test('unusable primitive falls back only to an exact native text generation, never a stale number',()=>{
+ for (const [value,text,want] of [[undefined,'9',true],[null,'9',true],['9','9',true],[NaN,'9',true],[8,'9',false],[10,'9',false],[undefined,'8',false],[undefined,'09',false],[undefined,9,false],[undefined,'PRIVATE',false]]) {
+  const f=harness();let calls=0,seen=null;f.window.AndBridge.getSessionGeneration=()=>value;f.window.AndBridge.getSessionGenerationText=()=>text;f.window.__sfRequestSessionVerification=g=>{calls++;seen=g;return true;};f.start();const result=f.evaluate();
+  if(want){assert.equal(result,'verification-dispatched');assert.equal(calls,1);assert.equal(seen,9);}else{assert.match(result,/^session-probe result=generation-/);assert.equal(calls,0);assert.doesNotMatch(result,/PRIVATE/);}
+ }
+});
+test('fallback with throwing or absent getters fails closed without leaking exception text',()=>{
+ for(const text of [undefined,()=>{throw Error('PRIVATE');},()=>null]){const f=harness();let n=0;f.window.AndBridge.getSessionGeneration=()=>{throw Error('PRIVATE');};if(text)f.window.AndBridge.getSessionGenerationText=text;f.window.__sfRequestSessionVerification=()=>{n++;};f.start();assert.equal(f.evaluate(),'session-probe result=generation-undefined');assert.equal(n,0);}
+});

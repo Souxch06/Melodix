@@ -1,11 +1,11 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 function retryContext(opts={}){
- const s=fs.readFileSync('scripts/spotify_bridge.source.js','utf8'),a=s.indexOf('    window.__sfRequestSessionVerification = function () {'),b=s.indexOf('\n    };',a)+7;
+ const s=fs.readFileSync('scripts/spotify_bridge.source.js','utf8'),a=s.indexOf('    window.__sfRequestSessionVerification = function (expectedGeneration = 0) {'),b=s.indexOf('\n    };',a)+7;
  const events=[],ctx={window:{__sfMediaLibError:'',__sfMediaLibRetryAt:0,AndBridge:opts.bridge||{getSessionGeneration:()=>2,isSessionRetryActive:()=>true}},mediaLibraryCheckPromise:opts.pending||null,
   publishSessionRelanceDiagnostic:(s,r)=>events.push(r),mediaLibraryAuthReady:()=>opts.auth!==false,
   dropWebPlayerToken:()=>events.push('drop-cache'),checkMediaLib:(force,source)=>{events.push([force,source]);return Promise.resolve('complete');}};
- vm.createContext(ctx);vm.runInContext(s.slice(a,b),ctx);return {ctx,events};
+ const h=s.indexOf('    function readNativeSessionGeneration()'),end=s.indexOf('\n    }',h)+6;vm.createContext(ctx);vm.runInContext(s.slice(h,end)+'\n'+s.slice(a,b),ctx);return {ctx,events};
 }
 test('manual retry discards cached bearer and launches the actual forced verification',async()=>{
  const {ctx,events}=retryContext();await ctx.window.__sfRequestSessionVerification();assert.deepEqual(events,['drop-cache',[true,'native-retry']]);
@@ -52,4 +52,21 @@ test('flight readback is generation scoped, bounded and visible across JavaScrip
 test('a rejected older request also cannot revive a stale queued retry',async()=>{
  let reject,gen=2;const pending=new Promise((_,r)=>reject=r);const bridge={getSessionGeneration:()=>gen,isSessionRetryActive:()=>true};
  const {ctx,events}=retryContext({pending,bridge});const result=ctx.window.__sfRequestSessionVerification();gen=3;reject(Error('private'));assert.equal(await result,false);assert.deepEqual(events,[]);
+});
+
+test('expected retry generation requires an active matching native flight before launch',()=>{
+ for(const [gen,active,expected] of [[2,false,2],[3,true,2],[2,true,3]]){const {ctx,events}=retryContext({bridge:{getSessionGeneration:()=>gen,isSessionRetryActive:()=>active}});assert.equal(ctx.window.__sfRequestSessionVerification(expected),false);assert.deepEqual(events,[]);}
+});
+test('queued retry can use canonical native text without accepting stale or malformed values',async()=>{
+ for(const [text,expected,go] of [['4',4,true],['5',4,false],['04',4,false],['PRIVATE',4,false]]){
+  let finish;const pending=new Promise(r=>finish=r),bridge={getSessionGeneration:()=>undefined,getSessionGenerationText:()=>text,isSessionRetryActive:()=>true};
+  const {ctx,events}=retryContext({pending,bridge}),result=ctx.window.__sfRequestSessionVerification(expected);finish();const v=await result;
+  if(go){assert.equal(v,'complete');assert.deepEqual(events,['drop-cache',[true,'native-retry']]);}else{assert.equal(v,false);assert.deepEqual(events,[]);}
+ }
+});
+
+test('native generation reader accepts only canonical bounded decimal fallback and never replaces a different integer',()=>{
+ for(const [value,text,want] of [[undefined,'1',1],[undefined,'2147483647',2147483647],[undefined,'0',0],[undefined,'2147483648',0],[undefined,'01',0],[undefined,'+1',0],[undefined,' 1',0],[undefined,1,0],[NaN,'3',3],[2,'3',2],[0,'3',0],[-1,'3',0]]){
+  const {ctx}=retryContext({bridge:{getSessionGeneration:()=>value,getSessionGenerationText:()=>text}});assert.equal(ctx.readNativeSessionGeneration(),want,JSON.stringify([value,text]));
+ }
 });

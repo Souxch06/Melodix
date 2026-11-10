@@ -24,7 +24,7 @@ test('native JS availability callback records a closed failure for its original 
 test('DOM/429 diagnostic events have attempt 0 and never call proof publication',()=>{
  const s=fs.readFileSync('scripts/spotify_bridge.source.js','utf8');const a=s.indexOf('    function publishSessionRelanceDiagnostic('),b=s.indexOf('\n    }',a)+6,notes=[];
  const window={AndBridge:{getSessionGeneration:()=>3,onSessionAttemptDiagnostic:x=>notes.push(JSON.parse(x))}};
- const f=vm.runInNewContext('('+s.slice(a,b)+')',{window,boundedMediaLibraryCount:(x,m)=>Math.min(m,Number(x)||0)});
+ const f=vm.runInNewContext('('+s.slice(a,b)+')',{window,boundedMediaLibraryCount:(x,m)=>Math.min(m,Number(x)||0),readNativeSessionGeneration:()=>3});
  f('native-retry','blocage=attente-429');f('native-retry','blocage=dom-auth-required');f('native-retry','PRIVATE');f('shell-update','blocage=dom-auth-required');assert.equal(notes.length,2);assert.ok(notes.every(n=>n.attempt===0&&!('completed'in n)));
 });
 test('actual JS finally annotates obsolete attempts before exiting, without publishing session proof',async()=>{
@@ -34,6 +34,6 @@ test('actual JS finally annotates obsolete attempts before exiting, without publ
  assert.deepEqual(events,['abandon=requete-perimee','abandon=contexte-auth-perime',true]);assert.equal(d.sessionObservation.apiHttp,400);
 });
 test('actual JS Retry-After path records the block and does not call checkMediaLib',()=>{
- const s=fs.readFileSync('scripts/spotify_bridge.source.js','utf8'),a=s.indexOf('    window.__sfRequestSessionVerification = function () {'),b=s.indexOf('\n    };',a)+7,events=[];
+ const s=fs.readFileSync('scripts/spotify_bridge.source.js','utf8'),a=s.indexOf('    window.__sfRequestSessionVerification = function (expectedGeneration = 0) {'),b=s.indexOf('\n    };',a)+7,events=[];
  const c={window:{__sfMediaLibError:'http-429',__sfMediaLibRetryAt:Date.now()+60000},mediaLibraryCheckPromise:null,publishSessionRelanceDiagnostic:(source,reason)=>events.push({source,reason}),checkMediaLib:()=>assert.fail('blocked')};vm.createContext(c);vm.runInContext(s.slice(a,b),c);assert.equal(c.window.__sfRequestSessionVerification(),false);assert.deepEqual(events,[{source:'native-retry',reason:'blocage=attente-429'}]);
 });

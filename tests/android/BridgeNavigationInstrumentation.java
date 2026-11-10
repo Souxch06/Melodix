@@ -174,6 +174,23 @@ public final class BridgeNavigationInstrumentation extends Instrumentation {
             for(int i=0;i<80;i++){if("true".equals(js("window.fixtureFetches===9 && window.__sfMediaLibStatus==='error'")))break;Thread.sleep(100);}
             Thread.sleep(300);
             check("true".equals(js("window.fixtureFetches===9 && window.__sfMediaLibStatus==='error'")));
+            // Simulate the reported unusable primitive result while retaining the
+            // real native bridge for the independent string getter, flight check
+            // and callbacks. The HTTP replies remain synthetic and offline.
+            phase="fallback_native_text_setup";
+            ui(()->{try{gate.getField("generation").setInt(null,13);flight.getMethod("start").invoke(null);}catch(Exception e){throw new RuntimeException(e);}});
+            check("true".equals(js("(function(){var n=window.AndBridge;window.fixtureNativeBridge=n;window.fixtureVerification=null;window.AndBridge=new Proxy(n,{get:function(t,k){if(k==='getSessionGeneration')return function(){return undefined};if(k==='onSessionVerification')return function(v){window.fixtureVerification=JSON.parse(v);return n.onSessionVerification(v)};var v=t[k];return typeof v==='function'?function(){return v.apply(n,arguments)}:v}});return AndBridge.getSessionGeneration()===undefined&&AndBridge.getSessionGenerationText()==='13'&&AndBridge.isSessionRetryActive(13)===true})()")));
+            phase="fallback_stale_native_text";
+            check("true".equals(js("window.__sfRequestSessionVerification(12)===false && window.fixtureFetches===9")));
+            Runnable fallbackStale=(Runnable)launch.getConstructor(WebView.class,int.class).newInstance(view[0],12);
+            ui(fallbackStale::run);
+            check("9".equals(js("window.fixtureFetches")));
+            phase="fallback_real_retry";
+            Runnable fallback=(Runnable)launch.getConstructor(WebView.class,int.class).newInstance(view[0],13);
+            ui(fallback::run);
+            for(int i=0;i<80;i++){if("true".equals(js("window.fixtureFetches===12 && window.fixtureVerification!==null")))break;Thread.sleep(100);}
+            check("true".equals(js("window.fixtureFetches===12 && window.fixtureVerification.generation===13 && window.fixtureVerification.tokenApiHttp===400 && window.fixtureVerification.tokenFallbackHttp===403 && window.fixtureVerification.libraryHttp===401")));
+            check("true".equals(js("window.AndBridge=window.fixtureNativeBridge;typeof AndBridge.getSessionGeneration()==='number'")));
             ui(()->{try{gate.getField("generation").setInt(null,10);}catch(Exception e){throw new RuntimeException(e);}});
             // Let the shell's scheduled updates run, as in the reported trace.
             Thread.sleep(3000);

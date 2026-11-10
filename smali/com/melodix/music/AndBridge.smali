@@ -3828,6 +3828,18 @@
     return v0
 .end method
 
+# Alternate read-only encoding for WebViews that do not expose the primitive
+# integer as a JavaScript number. Never returns session or credential data.
+.method public final getSessionGenerationText()Ljava/lang/String;
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+    .locals 1
+    sget v0, Lcom/melodix/music/NativeSessionGate;->generation:I
+    invoke-static {v0}, Ljava/lang/Integer;->toString(I)Ljava/lang/String;
+    move-result-object v0
+    return-object v0
+.end method
+
 # Read-only validity check for a queued manual retry. Does not authorize a
 # session, touch storage, or launch any request. JS-interface thread observes
 # volatile state and bounded monotonic flight time.

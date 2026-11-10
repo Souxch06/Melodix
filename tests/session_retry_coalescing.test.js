@@ -81,7 +81,7 @@ test('closed channel failure fallback enriches only diagnostics and never logs p
 test('actual checkMediaLib acknowledges native start before network even if detailed channel is unavailable',async()=>{
  const d=diagnosticVm(),events=[];
  const noop=()=>{};const c={window:{AndBridge:{getSessionGeneration:()=>2,onSessionAttemptStarted:(g,a)=>{events.push('start');d.run('started',g,a);},onSessionDiagnosticFailure:(g,a,r)=>d.run('failure',g,a,r)}},
- boundedMediaLibraryCount:(x,m)=>Math.max(0,Math.min(m,Number(x)||0)),safeMediaLibraryCheckSource:()=> 'native-retry',mediaLibraryAuthReady:()=>true,
+ boundedMediaLibraryCount:(x,m)=>Math.max(0,Math.min(m,Number(x)||0)),readNativeSessionGeneration:()=>2,safeMediaLibraryCheckSource:()=> 'native-retry',mediaLibraryAuthReady:()=>true,
  traceLibraryEvent:noop,traceHomeLibraryStage:noop,spotifyAuthUiState:()=> 'unknown',createMediaLibraryDiagnostic:()=>({attempt:2,source:'native-retry'}),mediaLibraryRequestGeneration:0,mediaLibraryCheckPromise:null,
  runMediaLibraryCheck:()=>{events.push('network');return new Promise(()=>{});},emitMediaLibraryDiagnostic:noop,notifyMediaLibUiChange:noop};
  vm.createContext(c);vm.runInContext(['reportSessionDiagnosticFailure','acknowledgeSessionAttemptStart','publishSessionAttemptDiagnostic','checkMediaLib'].map(n=>fn(js,n)).join('\n'),c);
@@ -103,7 +103,7 @@ test('generation guards, reconnect, Spotify request functions and proof publicat
  const flight=read(dir+'NativeSessionVerificationFlight.smali');assert.doesNotMatch(flight,/Evidence|transition|loadUrl|Cookie|recordCurrent/);
 });
 test('relance and start acknowledgement failures use the same closed, non-recursive fallback',()=>{
- const notes=[],c={window:{AndBridge:{getSessionGeneration:()=>5,onSessionAttemptDiagnostic:()=>{throw Error('PRIVATE');},onSessionAttemptStarted:()=>{throw Error('PRIVATE');},onSessionDiagnosticFailure:(g,a,r)=>notes.push({g,a,r})}},boundedMediaLibraryCount:(x,m)=>Math.max(0,Math.min(m,Number(x)||0))};
+ const notes=[],c={window:{AndBridge:{getSessionGeneration:()=>5,onSessionAttemptDiagnostic:()=>{throw Error('PRIVATE');},onSessionAttemptStarted:()=>{throw Error('PRIVATE');},onSessionDiagnosticFailure:(g,a,r)=>notes.push({g,a,r})}},boundedMediaLibraryCount:(x,m)=>Math.max(0,Math.min(m,Number(x)||0)),readNativeSessionGeneration:()=>5};
  vm.createContext(c);vm.runInContext(['reportSessionDiagnosticFailure','publishSessionRelanceDiagnostic','acknowledgeSessionAttemptStart'].map(n=>fn(js,n)).join('\n'),c);
  c.publishSessionRelanceDiagnostic('native-retry','blocage=attente-429');c.acknowledgeSessionAttemptStart({nativeGeneration:5,attempt:7});
  assert.deepEqual(notes,[{g:5,a:0,r:'canal=exception-js'},{g:5,a:7,r:'canal=exception-js'}]);assert.doesNotMatch(JSON.stringify(notes),/PRIVATE/);

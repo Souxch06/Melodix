@@ -96,7 +96,7 @@ test('snapshot and telemetry do not modify requests, proof or export sensitive d
 });
 test('real retry check supplies an independent initial snapshot before work when both observation interfaces are absent',async()=>{
  const noop=()=>{},events=[];
- const c={window:{AndBridge:{getSessionGeneration:()=>2}},boundedMediaLibraryCount:(x,m)=>Math.max(0,Math.min(m,Number(x)||0)),safeMediaLibraryCheckSource:v=>v,
+ const c={window:{AndBridge:{getSessionGeneration:()=>2}},readNativeSessionGeneration:()=>2,boundedMediaLibraryCount:(x,m)=>Math.max(0,Math.min(m,Number(x)||0)),safeMediaLibraryCheckSource:v=>v,
   mediaLibraryAuthReady:()=>true,traceLibraryEvent:noop,traceHomeLibraryStage:noop,spotifyAuthUiState:()=> 'unknown',
   createMediaLibraryDiagnostic:()=>({attempt:2,source:'native-retry'}),mediaLibraryRequestGeneration:0,mediaLibraryCheckPromise:null,
   runMediaLibraryCheck:d=>{events.push('network');c.observeSessionAttempt(d,'libraryHttp',401);c.publishSessionAttemptDiagnostic(d,true);return Promise.resolve();},
