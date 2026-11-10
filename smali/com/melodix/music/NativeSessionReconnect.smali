@@ -40,6 +40,11 @@
     invoke-static {v1, v2}, Lcom/melodix/music/NativeBridgeNavigation;->prepare(Landroid/webkit/WebView;Ljava/lang/String;)V
     invoke-virtual {v1, v2}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
     :clear
+    # Start both requested deletions before the asynchronous cookie callback.
+    # A destroyed Activity must not suppress the WebStorage deletion.
+    invoke-static {}, Landroid/webkit/WebStorage;->getInstance()Landroid/webkit/WebStorage;
+    move-result-object v1
+    invoke-virtual {v1}, Landroid/webkit/WebStorage;->deleteAllData()V
     new-instance v1, Lcom/melodix/music/NativeSessionReconnect;
     invoke-direct {v1, p0, v0}, Lcom/melodix/music/NativeSessionReconnect;-><init>(Lcom/melodix/music/MainActivity;I)V
     invoke-static {}, Landroid/webkit/CookieManager;->getInstance()Landroid/webkit/CookieManager;
@@ -82,15 +87,15 @@
     invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
     move-result-object v0
     check-cast v0, Lcom/melodix/music/MainActivity;
-    if-eqz v0, :done
+    if-eqz v0, :activity_gone
     iget-boolean v1, v0, Lcom/melodix/music/MainActivity;->nativeReconnectPending:Z
-    if-eqz v1, :done
+    if-eqz v1, :activity_gone
     invoke-virtual {v0}, Landroid/app/Activity;->isFinishing()Z
     move-result v1
-    if-nez v1, :done
+    if-nez v1, :activity_gone
     invoke-virtual {v0}, Landroid/app/Activity;->isDestroyed()Z
     move-result v1
-    if-nez v1, :done
+    if-nez v1, :activity_gone
     :callback_try
     invoke-static {}, Landroid/webkit/CookieManager;->getInstance()Landroid/webkit/CookieManager;
     move-result-object v1
@@ -98,9 +103,6 @@
     invoke-static {}, Lcom/melodix/music/NativeSessionRecovery;->hasCookie()Z
     move-result v1
     if-nez v1, :failed
-    invoke-static {}, Landroid/webkit/WebStorage;->getInstance()Landroid/webkit/WebStorage;
-    move-result-object v1
-    invoke-virtual {v1}, Landroid/webkit/WebStorage;->deleteAllData()V
     const/4 v1, 0x0
     sput-boolean v1, Lcom/melodix/music/AppSingleton;->B:Z
     invoke-static {v1}, Lcom/melodix/music/AppSingleton;->proofClearLogout(Z)V
@@ -118,8 +120,17 @@
     invoke-static {v0}, Lcom/melodix/music/NativeSessionGate;->navigateLogin(Lcom/melodix/music/MainActivity;)V
     const/4 v1, 0x0
     iput-boolean v1, v0, Lcom/melodix/music/MainActivity;->nativeReconnectPending:Z
+    goto :done
     :callback_end
     .catch Ljava/lang/RuntimeException; {:callback_try .. :callback_end} :error
+    :activity_gone
+    # The operation was user-confirmed, but navigation needs a live Activity.
+    # Unblock the gate so its next paint can offer retry/reconnect again.
+    const/4 v1, 0x0
+    sput-boolean v1, Lcom/melodix/music/NativeSessionGate;->loginActive:Z
+    const/4 v1, 0x4
+    const-string v2, "reconnect-activity-gone"
+    invoke-static {v1, v2}, Lcom/melodix/music/NativeSessionGate;->transition(ILjava/lang/String;)V
     :done
     return-void
     :error

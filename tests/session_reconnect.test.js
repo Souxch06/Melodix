@@ -31,6 +31,7 @@ function run(name, obj, state, value) {
     if((m=l.match(/^if-(eqz|nez) (\w+), (:\w+)/))) {if(m[1]==='eqz'?!r[m[2]]:!!r[m[2]]) pc=labels[m[3]];continue;}
     if((m=l.match(/^if-(eq|ne) (\w+), (\w+), (:\w+)/))) {if((r[m[2]]===r[m[3]])===(m[1]==='eq'))pc=labels[m[4]];continue;}
     if(l==='return-void') return;
+    if((m=l.match(/^goto (:\w+)/))) {pc=labels[m[1]];continue;}
     if((m=l.match(/^invoke-\S+ \{([^}]*)\}, (.*)$/))) {
       const a=m[1]?m[1].split(', ').map(x=>r[x]):[], c=m[2];
       if(c.includes('NativeSessionReconnect;->allowed')) result=!state.loginActive && [2,4].includes(state.gateState);
@@ -71,10 +72,10 @@ function fixture() {return {activity:{G:{},nativeVerificationStart:123},state:{c
 test('explicit reconnect invalidates the old generation and clears only after the tap',()=>{
   const {activity,state}=fixture();assert.deepEqual(state.events,[]);run('start',activity,state);
   assert.equal(state.generation,8);assert.equal(state.loginActive,1);assert.equal(activity.nativeReconnectPending,1);
-  assert.deepEqual(state.events,['stop','prepare:about:blank','about:blank','clear-request']);
+  assert.deepEqual(state.events,['stop','prepare:about:blank','about:blank','storage-clear','clear-request']);
   run('start',activity,state);assert.equal(state.events.filter(e=>e==='clear-request').length,1);
   state.cookie=false;run('onReceiveValue',state.callback,state,true);
-  assert.deepEqual(state.events,['stop','prepare:about:blank','about:blank','clear-request','flush','storage-clear','proof-clear','login']);
+  assert.deepEqual(state.events,['stop','prepare:about:blank','about:blank','storage-clear','clear-request','flush','proof-clear','login']);
   assert.equal(activity.nativeReconnectPending,0);assert.equal(state.phase,'reconnect-user-confirmed');
 });
 test('interactive login, pending action or unrelated state never triggers destructive reconnect',()=>{
@@ -83,9 +84,9 @@ test('interactive login, pending action or unrelated state never triggers destru
     run('start',activity,state);assert.deepEqual(state.events,[],mode);
   }
 });
-test('stale callback cannot clear web storage or navigate and a retained cookie fails closed',()=>{
-  {const {activity,state}=fixture();run('start',activity,state);state.generation++;run('onReceiveValue',state.callback,state,true);assert.ok(!state.events.includes('storage-clear'));assert.ok(!state.events.includes('login'));}
-  {const {activity,state}=fixture();run('start',activity,state);run('onReceiveValue',state.callback,state,false);assert.ok(!state.events.includes('storage-clear'));assert.ok(!state.events.includes('login'));assert.equal(state.loginActive,0);assert.equal(state.phase,'reconnect-not-confirmed');}
+test('stale callback cannot navigate and a retained cookie fails closed',()=>{
+  {const {activity,state}=fixture();run('start',activity,state);state.generation++;run('onReceiveValue',state.callback,state,true);assert.equal(state.events.filter(e=>e==='storage-clear').length,1);assert.ok(!state.events.includes('login'));}
+  {const {activity,state}=fixture();run('start',activity,state);run('onReceiveValue',state.callback,state,false);assert.equal(state.events.filter(e=>e==='storage-clear').length,1);assert.ok(!state.events.includes('login'));assert.equal(state.loginActive,0);assert.equal(state.phase,'reconnect-not-confirmed');}
 });
 
 test('actual shell preserves only numeric token codes across the Home bridge payload',()=>{
@@ -115,4 +116,16 @@ test('only the warned native reconnect button can reach destructive start',()=>{
  const main=read('smali/com/melodix/music/MainActivity.smali');
  const a=main.indexOf('const-string v2, "melodix:action:reconnect"'),b=main.indexOf('    :native_row_check_login',a);
  assert.match(main.slice(a,b),/NativeSessionGate;->paint/);assert.doesNotMatch(main.slice(a,b),/NativeSessionReconnect;->start/);
+});
+
+test('rotation during callback does not leave gate locked or suppress requested storage deletion',()=>{
+  for(const mode of ['destroyed','missing']){const {activity,state}=fixture();run('start',activity,state);
+    if(mode==='destroyed')activity.destroyed=true;else state.callback.activity.referent=null;
+    run('onReceiveValue',state.callback,state,true);assert.equal(state.events.filter(e=>e==='storage-clear').length,1);
+    assert.ok(!state.events.includes('login'));assert.equal(state.loginActive,0);assert.equal(state.phase,'reconnect-activity-gone');}
+});
+test('all smali call sites of destructive reconnect are the warned native action',()=>{
+  const walk=d=>fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(path.join(d,e.name)):[path.join(d,e.name)]);
+  const callers=walk(path.join(__dirname,'..','smali')).filter(p=>p.endsWith('.smali') && read(path.relative(path.join(__dirname,'..'),p)).includes('NativeSessionReconnect;->start(Lcom/melodix/music/MainActivity;)V'));
+  assert.deepEqual(callers.map(p=>path.relative(path.join(__dirname,'..'),p)),['smali/com/melodix/music/NativeSessionSurfaceAction.smali']);
 });

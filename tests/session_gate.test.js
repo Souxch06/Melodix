@@ -86,7 +86,7 @@ test('case 6: stale, duplicate, incomplete and login-page callbacks cannot unloc
  const n=machine();n.send({token:true,libraryOk:true});n.send({token:false,libraryHttp:401});assert.equal(n.fields.state,3);
 });
 test('retry is non-destructive, explicit warned reconnect is the sole session deletion path',()=>{
- const r=read('smali/com/melodix/music/NativeSessionReconnect.smali');assert.match(r,/allowed\(\)Z[\s\S]*?removeAllCookies/);assert.match(r,/removeAllCookies[\s\S]*?deleteAllData[\s\S]*?navigateLogin/);
+ const r=read('smali/com/melodix/music/NativeSessionReconnect.smali');assert.match(r,/allowed\(\)Z[\s\S]*?removeAllCookies/);assert.match(r,/deleteAllData[\s\S]*?removeAllCookies[\s\S]*?navigateLogin/);
  const recovery=read('smali/com/melodix/music/NativeSessionRecovery.smali');assert.match(recovery,/NativeSessionGate;->begin/);assert.doesNotMatch(recovery,/removeAllCookies|deleteAllData/);
  const m=machine({cookie:true});m.run('requestLogin',{});assert.deepEqual(m.calls,['verify']);
 });
