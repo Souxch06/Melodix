@@ -67,3 +67,10 @@ test('demo captures check one home badge, the player badge and measured mini-pla
  assert.match(s,/nativeMiniPlayerContainer[\s\S]*?nativeTabBar[\s\S]*?gap < expected/);
  assert.match(s,/expected=21 if profile=='phone' else 8/);
 });
+
+test('real no-session evidence records observed surfaces and never bypasses the gate',()=>{
+ const s=read('scripts/capture_real_no_session.py'), w=read('.github/workflows/demo-preview.yml');
+ assert.match(s,/com\.melodix\.music\.MainActivity/);assert.match(s,/sessionTitle/);assert.match(s,/not reachable: session gate/);assert.match(s,/not observed/);
+ assert.doesNotMatch(s,/pm[ '",]+clear|evaluateJavascript|__sfNative|putExtra/);
+ assert.match(w,/capture_real_no_session\.py/);assert.match(w,/real-no-session\/observation\.json/);
+});

@@ -1581,7 +1581,8 @@ test('browse tiles drive the live search and the grid yields to real results', (
     // guard was added at the top (MEL-BUG-070).
     const rows = activity.slice(rowsAt, activity.indexOf('\n.end method', rowsAt));
     const searchAt = activity.indexOf('.method public final onNativeSearchClick(Landroid/view/View;)V');
-    const search = activity.slice(searchAt, searchAt + 2200);
+    // Inspect the entire method; the haptic guard makes a fixed character window brittle.
+    const search = activity.slice(searchAt, activity.indexOf('\n.end method', searchAt));
     const screenAt = activity.indexOf('.method public final setNativeScreen(Ljava/lang/String;)V');
     const screen = activity.slice(screenAt, activity.indexOf('\n.end method', screenAt));
 

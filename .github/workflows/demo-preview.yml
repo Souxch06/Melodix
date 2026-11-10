@@ -118,7 +118,9 @@ jobs:
           profile: pixel_2
           disable-animations: true
           emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
-          script: bash scripts/run_demo_capture.sh "target-apk/${{ needs.build.outputs.apk_name }}" "${{ matrix.profile }}"
+          script: |
+            bash scripts/run_demo_capture.sh "target-apk/${{ needs.build.outputs.apk_name }}" "${{ matrix.profile }}"
+            python3 scripts/capture_real_no_session.py "${{ matrix.profile }}" "captures/${{ matrix.profile }}/real-no-session"
       - name: Upload capture evidence
         if: always()
         uses: actions/upload-artifact@v4.6.2
@@ -149,6 +151,8 @@ jobs:
             for screen in accueil recherche bibliotheque playlist reglages lecteur mini-lecteur; do
               test -s "bundle/captures/demo-captures-$p/$screen.png"
             done
+            test -s "bundle/captures/demo-captures-$p/real-no-session/observation.json"
+            test -s "bundle/captures/demo-captures-$p/real-no-session/etat-observe.png"
           done
           cp docs/audits/partie-b-etat-provisoire.md bundle/specification-vs-realise.md
           sha256sum "bundle/${{ needs.build.outputs.apk_name }}" > bundle/SHA256SUMS.txt
