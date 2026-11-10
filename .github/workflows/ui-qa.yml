@@ -1,6 +1,22 @@
 name: Melodix UI quality control
 on:
   workflow_dispatch: null
+  push:
+    branches:
+    - arena/6b935c3e-melodix
+    paths:
+    - res/**
+    - smali/com/melodix/music/Native**
+    - smali/com/melodix/music/MainActivity.smali
+    - assets/css_hacks.css
+    - scripts/ui_qa_walk.sh
+    - scripts/ui_qa_trace.py
+    - scripts/ui_layout_audit.py
+    - scripts/ui_view_center.py
+    - .github/workflows/ui-qa.yml
+    - scripts/ui_resource_probe.sh
+    - tests/**
+    - scripts/ui_wiring_audit.py
 permissions:
   contents: read
 jobs:
@@ -104,7 +120,7 @@ jobs:
     needs:
     - build-qa-apk
     - walk-qa
-    if: always()
+    if: ${{ always() && github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -148,7 +164,7 @@ jobs:
     - build-qa-apk
     - unit-tests
     - walk-qa
-    if: success()
+    if: ${{ success() && github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
