@@ -146,8 +146,11 @@ test('native Player scrolls above the fixed dock without reparenting mini-player
     const miniPlayer = byAndroidId('nativeMiniPlayerContainer');
     const tabBar = byAndroidId('nativeTabBar');
     assert.ok(root && player && miniPlayer && tabBar, 'all native shell surfaces exist');
-    assert.equal(player.tagName, 'ScrollView', 'the full Player content can scroll on short/landscape screens');
-    assert.equal(player.getAttribute('android:fillViewport'), 'true');
+    // The adaptive player is a ScrollView subclass; wrap content naturally so
+    // its two-pass measurement can reserve height for the rest of the player.
+    assert.equal(player.tagName, 'com.melodix.music.NativePlayerScroll');
+    assert.match(read('smali/com/melodix/music/NativePlayerScroll.smali'), /\.super Landroid\/widget\/ScrollView;/);
+    assert.equal(player.getAttribute('android:fillViewport'), 'false');
     assert.strictEqual(player.parentElement, root);
     assert.strictEqual(miniPlayer.parentElement, root);
     assert.strictEqual(tabBar.parentElement, root);
