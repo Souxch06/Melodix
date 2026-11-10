@@ -72,10 +72,11 @@ test('the placeholders are real texts, not invented tracks', () => {
     const xml = read(layout);
     assert.ok(xml.includes('Aucune lecture en cours'), `${layout}: mini title placeholder`);
     assert.ok(xml.includes('Ouvrez Spotify pour commencer l’écoute'), `${layout}: mini artist placeholder`);
-    assert.ok(xml.includes('● Lu via Spotify'), `${layout}: real-source caption`);
+    assert.ok(xml.includes('android:text="● Lecteur"'), `${layout}: neutral caption does not assert playback or a source`);
+    assert.ok(!xml.includes('● Lu via Spotify') && !xml.includes('● Lecture en cours'), `${layout}: placeholder does not claim a real source or playback`);
     // No invented title/artist anywhere in the player blocks.
     const panel = xml.slice(xml.indexOf('@id/nativePlayerPanel'), xml.indexOf('@id/nativeMiniPlayerContainer'));
-    assert.doesNotMatch(panel, /android:text="(?!Aucune lecture|Ouvrez Spotify|● Lu via|0:00)[^"]{4,}"/,
+    assert.doesNotMatch(panel, /android:text="(?!Aucune lecture|Ouvrez Spotify|● Lecteur|0:00)[^"]{4,}"/,
       'no fabricated track name in the player panel');
   }
 });

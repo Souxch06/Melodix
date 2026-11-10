@@ -684,7 +684,7 @@
                 android:layout_width="fill_parent"
                 android:layout_height="wrap_content" />
             <TextView
-                android:text="● Lecture en cours"
+                android:text="● Lecteur"
                 android:textSize="@dimen/mel_player_caption"
                 android:textStyle="bold"
                 android:textColor="@color/mel_accent"
