@@ -56,10 +56,11 @@ test('MEL-BUG-064c: settings rows get a glow ripple over the card (press feedbac
   const f = read('smali/com/melodix/music/NativeSettingsRowFactory.smali');
   const create = method(f, '.method public static create(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;');
   assert.match(create, /\.locals 14/, 'register budget raised for the ripple wrap');
-  assert.match(create, /sget v12, Lcom\/melodix\/music\/MelColors;->glow:I[\s\S]*?ColorStateList;->valueOf\(I\)[\s\S]*?new-instance v13, Landroid\/graphics\/drawable\/GradientDrawable;[\s\S]*?new-instance v0, Landroid\/graphics\/drawable\/RippleDrawable;[\s\S]*?RippleDrawable;-><init>\(Landroid\/content\/res\/ColorStateList;Landroid\/graphics\/drawable\/Drawable;Landroid\/graphics\/drawable\/Drawable;\)V/,
-    'row background = RippleDrawable(glow, card, mask)');
-  assert.match(create, /invoke-static \{p0\}, Lcom\/melodix\/music\/NativeUiMetrics;->settingsCardRadius\(Landroid\/content\/Context;\)I\s*\n\s*move-result v0\s*\n\s*int-to-float v0, v0\s*\n\s*invoke-virtual \{v13, v0\}, Landroid\/graphics\/drawable\/GradientDrawable;->setCornerRadius\(F\)V/,
-    'mask radius resolves the same density-aware token as the card');
+  assert.match(create, /"native_settings_card"[\s\S]*?applyDrawableBackground/, 'row uses shared ripple card');
+  const card = read('res/drawable/native_settings_card.xml');
+  assert.match(card, /<ripple/);assert.match(card, /@android:id\/mask/);
+  assert.equal((card.match(/@dimen\/mel_settings_card_radius/g)||[]).length, 3, 'glass layers and mask use the same density-aware radius');
+  assert.match(card, /@color\/mel_glass_surface/);assert.match(card, /@color\/mel_glass_reflection/);
 });
 
 test('MEL-BUG-064d: rounded gradient tab, status card 24dp, glass chips', () => {

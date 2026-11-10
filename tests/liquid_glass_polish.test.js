@@ -61,3 +61,11 @@ test('player title uses one line, demo badge is separate, and artwork has accent
  const progress=read('res/drawable/native_progress_glass.xml');assert.match(progress,/scaleWidth="100%"/);assert.match(progress,/gravity="right\|center_vertical"/);assert.match(progress,/type="radial"/);
  assert.match(read('res/drawable/native_player_background.xml'),/@color\/mel_player_tint_top/);
 });
+
+test('settings map known labels to distinct local icons with a safe fallback',()=>{
+ const s=read('smali/com/melodix/music/NativeSettingsRowFactory.smali');
+ assert.match(s,/:native_settings_icon_placeholder[\s\S]*?settingsIconName[\s\S]*?applyDrawableImage/);
+ for(const name of ['playback','canvas','version','audio','appearance']){assert.ok(s.includes('native_setting_'+name));assert.match(read(`res/drawable/native_setting_${name}.xml`),/<vector/);}
+ assert.match(s,/:settings_icon_default[\s\S]*?native_cover_placeholder/);
+ assert.match(s,/native_settings_switch_track[\s\S]*?setTrackResource/);
+});

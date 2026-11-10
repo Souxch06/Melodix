@@ -48,7 +48,7 @@ test('MEL-BUG-066b: settings icon slot is a soft glow circle with accent ring', 
   const f = read('smali/com/melodix/music/NativeSettingsRowFactory.smali');
   const create = method(f, '.method public static create(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;');
   assert.match(create, /setShape\(I\)V[\s\S]{0,120}?MelColors;->glow:I[\s\S]{0,80}?setColor\(I\)V/, 'oval glow fill');
-  assert.match(create, /MelColors;->strokeAccent:I[\s\S]{0,80}?setStroke\(II\)V/, 'accent hairline ring kept');
+  assert.match(create, /sget v11, Lcom\/melodix\/music\/MelColors;->strokeAccent:I\s*\n\s*invoke-virtual \{v1, v3, v11\}, Landroid\/graphics\/drawable\/GradientDrawable;->setStroke\(II\)V/, 'icon accent ring kept');
   assert.ok(!create.includes('0x40000000'), 'no more loud 25%-alpha solid square');
 });
 
@@ -57,13 +57,10 @@ test('MEL-BUG-066b: ON/OFF switch renders a real two-state track', () => {
   const at = f.indexOf('\n    :native_settings_switch_build\n');
   assert.ok(at >= 0);
   const sw = f.slice(at, f.indexOf('\n    :native_settings_pill_text\n', at));
-  // MEL-BUG-069: the state attribute lives in a scalar (v1) that is stored into
-  // the int[] states element, because the int[] arrays must receive ints.
-  assert.match(sw, /const v1, 0x101009c[\s\S]*?aput v1, v0, v3/, 'state_checked in the state list');
-  assert.doesNotMatch(sw, /const v2, |new-instance v2, |aput [^,]+, v2,/, 'the row register v2 is never clobbered (crash fix)');
-  assert.match(sw, /MelColors;->accent:I[\s\S]*?MelColors;->surfaceBtn:I[\s\S]*?ColorStateList;-><init>\(\[\[I\[I\)V/,
-    'track colors = [checked: accent, default: surfaceBtn]');
-  assert.match(sw, /setTrackTintList/, 'track tinted from the state list');
+  const track = read('res/drawable/native_settings_switch_track.xml');
+  assert.match(track, /state_checked="true"[\s\S]*?mel_gradient_start[\s\S]*?mel_gradient_end[\s\S]*?mel_switch_off/, 'gradient when checked, translucent neutral otherwise');
+  assert.doesNotMatch(sw, /const v2, |new-instance v2, |aput [^,]+, v2,/, 'row register v2 is never clobbered');
+  assert.match(sw, /"native_settings_switch_track"[\s\S]*?setTrackResource[\s\S]*?const\/4 v0, 0x0[\s\S]*?setTrackTintList/, 'selector with tint cleared');
   assert.match(sw, /MelColors;->textPrimary:I[\s\S]*?setThumbTintList/, 'thumb white for contrast');
   assert.match(sw, /Switch;->setChecked\(Z\)V/, 'checked state still driven by ON/OFF');
 });

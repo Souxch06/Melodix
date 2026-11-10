@@ -26,7 +26,7 @@ test('temporary injection adds isolated launcher and passive clone without chang
   assert.match(manifest,/name="com\.melodix\.demo\.DemoActivity"[^>]*process=":demo"[^>]*exported="false"/);
   const app=fs.readFileSync(path.join(d,'AppSingleton.smali'),'utf8');assert.match(app,/DemoRuntime;->isDemoProcess\(\)Z[\s\S]*?if-nez v0, :updater_done/);
   const clone=fs.readFileSync(path.join(d,'DemoSettingsRowFactory.smali'),'utf8');
-  assert.match(clone,/create\(Landroid\/app\/Activity;Lorg\/json\/JSONObject;\)/);assert.match(clone,/native_cover_placeholder/);assert.match(clone,/setTrackDrawable/);
+  assert.match(clone,/create\(Landroid\/app\/Activity;Lorg\/json\/JSONObject;\)/);assert.match(clone,/native_cover_placeholder/);assert.match(clone,/setTrackResource/);
   assert.doesNotMatch(clone,/NativeRowClickListener|NativeSession|AppSingleton/);
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });

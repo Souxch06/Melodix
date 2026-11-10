@@ -113,6 +113,7 @@
     <color name="mel_glow_left">#BB3B1D7A</color>
     <color name="mel_glow_right">#AA6B1A55</color>
     <color name="mel_glow_bottom">#AA2A1A6E</color>
+    <color name="mel_switch_off">#38FFFFFF</color>
     <color name="mel_player_halo">#BB7C3AED</color>
     <color name="mel_player_tint_top">#80342C91</color>
     <color name="mel_player_tint_bottom">#554C1448</color>

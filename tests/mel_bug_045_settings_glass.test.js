@@ -9,10 +9,10 @@ const main = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/MainActivi
 // MEL-BUG-045: settings rows get the Apple-glass treatment (MEL-BUG-039 palette)
 // instead of the flat opaque gray, and the native fallback lists every section.
 test('MEL-BUG-045: settings rows use the glass palette', () => {
-  assert.match(factory, /sget v0, Lcom\/melodix\/music\/MelColors;->glassCard:I[\s\S]*?setColor\(I\)V/,
-    'row fill = translucent glassCard');
-  assert.match(factory, /sget v1, Lcom\/melodix\/music\/MelColors;->strokeAccent:I[\s\S]*?setStroke\(II\)V/,
-    'row stroke = strokeAccent (MEL-BUG-056 vibe)');
+  assert.match(factory, /"native_settings_card"[\s\S]*?applyDrawableBackground/);
+  const card = fs.readFileSync(path.join(repo, 'res/drawable/native_settings_card.xml'), 'utf8');
+  assert.match(card, /@color\/mel_glass_surface/);assert.match(card, /android:width="1dp" android:color="@color\/mel_glass_edge"/);
+  assert.match(card, /@color\/mel_glass_reflection/);assert.match(card, /@color\/mel_glass_clear/);
   assert.match(factory, /sget v0, Lcom\/melodix\/music\/MelColors;->glassFill:I[\s\S]*?"ON"/,
     'default pill fill = glassFill (ON keeps the green accent)');
   assert.ok(!factory.includes('-0xe7e7e8'), 'flat opaque row color is gone');
@@ -57,7 +57,7 @@ test('MEL-BUG-051: settings icon slot always rendered, placeholder glyph when em
   const create = factory.slice(createAt, factory.indexOf('.end method', createAt));
   assert.ok(!/if-eqz v0, :native_settings_no_avatar\n    new-instance v0, Landroid\/widget\/ImageView;/.test(create),
     'the avatar slot is no longer skipped when image is empty');
-  assert.match(create, /:native_settings_icon_placeholder[\s\S]*?"native_cover_placeholder"[\s\S]*?setColorFilter\(I\)V/,
+  assert.match(create, /:native_settings_icon_placeholder[\s\S]*?settingsIconName[\s\S]*?setColorFilter\(I\)V/,
     'empty image falls back to the muted glyph with a muted tint');
 });
 
@@ -173,10 +173,10 @@ test('MEL-BUG-056: unknown-auth home card carries open-login + retry, filter all
 
 test('MEL-BUG-056: settings cards get accent stroke, 24dp radius and accent pills for actionable values', () => {
   const smali = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/NativeSettingsRowFactory.smali'), 'utf8');
-  assert.match(smali, /MelColors;->strokeAccent:I\s*\n\s*invoke-virtual \{v3, v0, v1\}, Landroid\/graphics\/drawable\/GradientDrawable;->setStroke\(II\)V/,
-    'card stroke uses strokeAccent');
-  assert.match(smali, /const\/high16 v0, 0x41800000\s*\n\s*invoke-virtual \{v3, v0\}, Landroid\/graphics\/drawable\/GradientDrawable;->setCornerRadius/,
-    'card corner radius is 16dp (MEL-BUG-061, sobre style appli mobile)');
+  const card = fs.readFileSync(path.join(repo, 'res/drawable/native_settings_card.xml'), 'utf8');
+  assert.match(smali, /"native_settings_card"[\s\S]*?applyDrawableBackground/);
+  assert.match(card, /android:width="1dp" android:color="@color\/mel_glass_edge"/);
+  assert.equal((card.match(/@dimen\/mel_settings_card_radius/g)||[]).length, 3, 'card and mask radius remain in sync');
   for (const val of ['Ouvrir', 'Actualiser', 'Se connecter', 'Connecté', 'Renouveler la session']) {
     assert.ok(smali.includes('const-string v3, "' + val + '"'), `pill knows ${val}`);
   }
@@ -218,10 +218,10 @@ test('MEL-BUG-062: ON/OFF values render as a styled Switch in settings rows', ()
   assert.match(sw, /new-instance v11, Landroid\/widget\/Switch;/);
   assert.match(sw, /Switch;->setChecked\(Z\)V/);
   assert.match(sw, /MelColors;->textPrimary:I[\s\S]*?setThumbTintList/, 'thumb = white (readable)');
-  // MEL-BUG-069: the state list is built with dedicated registers — v12 is the
-  // [[I states array, v13 the int[] colors, v0/v1/v3 scalars (v2 stays the row).
-  assert.match(sw, /new-array v12, v12, \[\[I[\s\S]*?const v1, 0x101009c[\s\S]*?aput-object v0, v12, v3[\s\S]*?MelColors;->accent:I[\s\S]*?MelColors;->surfaceBtn:I[\s\S]*?ColorStateList;-><init>\(\[\[I\[I\)V[\s\S]*?setTrackTintList/,
-    'track = state list: accent when checked, surfaceBtn when off (MEL-BUG-066/069)');
+  const track = fs.readFileSync(path.join(repo, 'res/drawable/native_settings_switch_track.xml'), 'utf8');
+  assert.match(sw, /"native_settings_switch_track"[\s\S]*?setTrackResource[\s\S]*?const\/4 v0, 0x0[\s\S]*?setTrackTintList/, 'state selector is not flattened by a tint');
+  assert.match(track, /state_checked="true"[\s\S]*?mel_gradient_start[\s\S]*?mel_gradient_end[\s\S]*?mel_switch_off/);
+  assert.doesNotMatch(sw, /const v2, |new-instance v2, |aput [^,]+, v2,/, 'row register is preserved');
   assert.match(sw, /setClickable\(Z\)V\s*\n\s*invoke-virtual \{v11, v0\}, Landroid\/view\/View;->setFocusable\(Z\)V/,
     'switch itself not clickable (the row dispatches the toggle)');
   assert.match(sw, /goto :native_settings_row_tail/, 'switch path rejoins the common row tail');

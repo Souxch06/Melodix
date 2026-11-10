@@ -37,38 +37,9 @@
     move-result v1
     invoke-virtual {v2, v0, v1, v0, v1}, Landroid/view/View;->setPadding(IIII)V
 
-    new-instance v3, Landroid/graphics/drawable/GradientDrawable;
-    invoke-direct {v3}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
-    # MEL-BUG-045: glass card (translucent fill + light stroke) like the rest of
-    # the Apple-glass UI (MEL-BUG-039) instead of the flat opaque gray.
-    sget v0, Lcom/melodix/music/MelColors;->glassCard:I
-    invoke-virtual {v3, v0}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
-    # Resolve dp to pixels for both the card and its matching ripple mask.
-    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->settingsCardRadius(Landroid/content/Context;)I
-    move-result v0
-    int-to-float v0, v0
-    invoke-virtual {v3, v0}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
-    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->settingsStroke(Landroid/content/Context;)I
-    move-result v0
-    # MEL-BUG-056: accent-tinted border (strokeAccent) for a livelier glass card.
-    sget v1, Lcom/melodix/music/MelColors;->strokeAccent:I
-    invoke-virtual {v3, v0, v1}, Landroid/graphics/drawable/GradientDrawable;->setStroke(II)V
-    # MEL-BUG-064: press feedback on the row — accent ripple masked to the card,
-    # the original card gradient stays as the ripple content.
-    sget v12, Lcom/melodix/music/MelColors;->glow:I
-    invoke-static {v12}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
-    move-result-object v12
-    new-instance v13, Landroid/graphics/drawable/GradientDrawable;
-    invoke-direct {v13}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
-    const/4 v0, -0x1
-    invoke-virtual {v13, v0}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
-    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->settingsCardRadius(Landroid/content/Context;)I
-    move-result v0
-    int-to-float v0, v0
-    invoke-virtual {v13, v0}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
-    new-instance v0, Landroid/graphics/drawable/RippleDrawable;
-    invoke-direct {v0, v12, v3, v13}, Landroid/graphics/drawable/RippleDrawable;-><init>(Landroid/content/res/ColorStateList;Landroid/graphics/drawable/Drawable;Landroid/graphics/drawable/Drawable;)V
-    invoke-virtual {v2, v0}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
+    # Shared translucent card and bounded ripple, with matching density-aware radii.
+    const-string v0, "native_settings_card"
+    invoke-static {p0, v2, v0}, Lcom/melodix/music/NativeUiRowFactory;->applyDrawableBackground(Landroid/content/Context;Landroid/view/View;Ljava/lang/String;)V
     invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->settingsRowHeight(Landroid/content/Context;)I
     move-result v0
     invoke-virtual {v2, v0}, Landroid/view/View;->setMinimumHeight(I)V
@@ -115,7 +86,8 @@
     goto :native_settings_no_avatar
 
     :native_settings_icon_placeholder
-    const-string v3, "native_cover_placeholder"
+    invoke-static {v4}, Lcom/melodix/music/NativeSettingsRowFactory;->settingsIconName(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v3
     invoke-static {p0, v0, v3}, Lcom/melodix/music/NativeUiRowFactory;->applyDrawableImage(Landroid/content/Context;Landroid/widget/ImageView;Ljava/lang/String;)V
     # MEL-BUG-054: accent-colored glyph on the accent-tinted slot.
     sget v3, Lcom/melodix/music/MelColors;->accent:I
@@ -191,60 +163,25 @@
     new-instance v11, Landroid/widget/Switch;
     invoke-direct {v11, p0}, Landroid/widget/Switch;-><init>(Landroid/content/Context;)V
     invoke-virtual {v11, v3}, Landroid/widget/Switch;->setChecked(Z)V
-    # Do not rely on the host theme's Switch drawables: some themes have no
-    # track at all. Give the tint list a real, density-scaled pill to tint.
-    new-instance v0, Landroid/graphics/drawable/GradientDrawable;
-    invoke-direct {v0}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
-    const/4 v1, -0x1
-    invoke-virtual {v0, v1}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
-    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->settingsSwitchTrackWidth(Landroid/content/Context;)I
-    move-result v1
-    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->settingsSwitchTrackHeight(Landroid/content/Context;)I
-    move-result v3
-    invoke-virtual {v0, v1, v3}, Landroid/graphics/drawable/GradientDrawable;->setSize(II)V
-    int-to-float v3, v3
-    invoke-virtual {v0, v3}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
-    invoke-virtual {v11, v0}, Landroid/widget/Switch;->setTrackDrawable(Landroid/graphics/drawable/Drawable;)V
+    # Drawable selector preserves the gradient; tinting would flatten it.
+    invoke-virtual {p0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
+    move-result-object v0
+    const-string v1, "native_settings_switch_track"
+    const-string v3, "drawable"
+    invoke-virtual {p0}, Landroid/content/Context;->getPackageName()Ljava/lang/String;
+    move-result-object v12
+    invoke-virtual {v0, v1, v3, v12}, Landroid/content/res/Resources;->getIdentifier(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I
+    move-result v0
+    if-eqz v0, :native_settings_track_missing
+    invoke-virtual {v11, v0}, Landroid/widget/Switch;->setTrackResource(I)V
+    :native_settings_track_missing
     const/4 v0, 0x0
+    invoke-virtual {v11, v0}, Landroid/widget/Switch;->setTrackTintList(Landroid/content/res/ColorStateList;)V
     invoke-virtual {v11, v0}, Landroid/widget/Switch;->setSplitTrack(Z)V
-    # MEL-BUG-066: readable switch — white thumb, track solid accent when ON,
-    # neutral surface when OFF (a state list, not one flat translucent tint).
     sget v0, Lcom/melodix/music/MelColors;->textPrimary:I
     invoke-static {v0}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
     move-result-object v0
     invoke-virtual {v11, v0}, Landroid/widget/Switch;->setThumbTintList(Landroid/content/res/ColorStateList;)V
-    # MEL-BUG-069 fix: the track state list was built as `new-array v12, v12, [I`
-    # (an int[]) and then filled with `aput v0, v12, v1` where v0 was itself an
-    # int[] — storing a reference into an int[] is a VerifyError thrown the first
-    # time a settings row is created, i.e. the Settings screen crashed on open.
-    # The states array must be [[I and its elements stored with aput-object.
-    # v12 = states, v13 = colors, v0/v1/v3 = scalar scratch (v2 is the row).
-    const/4 v12, 0x2
-    new-array v12, v12, [[I
-    const/4 v13, 0x2
-    new-array v13, v13, [I
-    # states[0] = { android.R.attr.state_checked }
-    const/4 v1, 0x1
-    new-array v0, v1, [I
-    const v1, 0x101009c
-    const/4 v3, 0x0
-    aput v1, v0, v3
-    aput-object v0, v12, v3
-    # states[1] = {} (default)
-    const/4 v1, 0x0
-    new-array v0, v1, [I
-    const/4 v3, 0x1
-    aput-object v0, v12, v3
-    # colors = { accent, surfaceBtn }
-    sget v0, Lcom/melodix/music/MelColors;->accent:I
-    const/4 v3, 0x0
-    aput v0, v13, v3
-    sget v0, Lcom/melodix/music/MelColors;->surfaceBtn:I
-    const/4 v3, 0x1
-    aput v0, v13, v3
-    new-instance v0, Landroid/content/res/ColorStateList;
-    invoke-direct {v0, v12, v13}, Landroid/content/res/ColorStateList;-><init>([[I[I)V
-    invoke-virtual {v11, v0}, Landroid/widget/Switch;->setTrackTintList(Landroid/content/res/ColorStateList;)V
     const/4 v0, 0x0
     invoke-virtual {v11, v0}, Landroid/view/View;->setClickable(Z)V
     invoke-virtual {v11, v0}, Landroid/view/View;->setFocusable(Z)V
@@ -426,4 +363,78 @@
 
     :native_settings_dp_ready
     return v2
+.end method
+
+.method private static settingsIconName(Ljava/lang/String;)Ljava/lang/String;
+    .locals 3
+    if-eqz p0, :settings_icon_default
+    sget-object v0, Ljava/util/Locale;->ROOT:Ljava/util/Locale;
+    invoke-virtual {p0, v0}, Ljava/lang/String;->toLowerCase(Ljava/util/Locale;)Ljava/lang/String;
+    move-result-object v0
+    const-string v1, "canvas"
+    invoke-virtual {v0, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v2
+    if-eqz v2, :settings_icon_next_320
+    const-string v1, "native_setting_canvas"
+    return-object v1
+    :settings_icon_next_320
+    const-string v1, "version"
+    invoke-virtual {v0, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v2
+    if-eqz v2, :settings_icon_next_587
+    const-string v1, "native_setting_version"
+    return-object v1
+    :settings_icon_next_587
+    const-string v1, "lecture"
+    invoke-virtual {v0, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v2
+    if-eqz v2, :settings_icon_next_856
+    const-string v1, "native_setting_playback"
+    return-object v1
+    :settings_icon_next_856
+    const-string v1, "playback"
+    invoke-virtual {v0, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v2
+    if-eqz v2, :settings_icon_next_1126
+    const-string v1, "native_setting_playback"
+    return-object v1
+    :settings_icon_next_1126
+    const-string v1, "audio"
+    invoke-virtual {v0, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v2
+    if-eqz v2, :settings_icon_next_1399
+    const-string v1, "native_setting_audio"
+    return-object v1
+    :settings_icon_next_1399
+    const-string v1, "qualité"
+    invoke-virtual {v0, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v2
+    if-eqz v2, :settings_icon_next_1666
+    const-string v1, "native_setting_audio"
+    return-object v1
+    :settings_icon_next_1666
+    const-string v1, "thème"
+    invoke-virtual {v0, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v2
+    if-eqz v2, :settings_icon_next_1935
+    const-string v1, "native_setting_appearance"
+    return-object v1
+    :settings_icon_next_1935
+    const-string v1, "theme"
+    invoke-virtual {v0, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v2
+    if-eqz v2, :settings_icon_next_2207
+    const-string v1, "native_setting_appearance"
+    return-object v1
+    :settings_icon_next_2207
+    const-string v1, "apparence"
+    invoke-virtual {v0, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v2
+    if-eqz v2, :settings_icon_next_2479
+    const-string v1, "native_setting_appearance"
+    return-object v1
+    :settings_icon_next_2479
+    :settings_icon_default
+    const-string v1, "native_cover_placeholder"
+    return-object v1
 .end method
