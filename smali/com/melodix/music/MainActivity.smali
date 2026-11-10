@@ -9357,6 +9357,17 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-virtual {v6, v4}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
 
     :screen_done
+    # Settings is a header action, not a bottom tab: expose and draw its own
+    # selected state while on that screen instead of leaving all routes unmarked.
+    const v2, 0x7f090250
+    invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v2
+    if-eqz v2, :settings_selected_done
+    const-string v3, "settings"
+    invoke-virtual {v3, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v3
+    invoke-virtual {v2, v3}, Landroid/view/View;->setSelected(Z)V
+    :settings_selected_done
     const-string v3, "home"
     const v2, 0x7f090246
     invoke-virtual {p0, p1, v3, v2}, Lcom/melodix/music/MainActivity;->styleNativeTab(Ljava/lang/String;Ljava/lang/String;I)V

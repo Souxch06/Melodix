@@ -154,7 +154,7 @@
                 android:clickable="true"
                 android:focusable="true"
                 android:contentDescription="Paramètres"
-                android:background="@drawable/native_icon_glass"
+                android:background="@drawable/native_settings_selected"
                 android:onClick="onNativeSettingsClick"
                 android:layout_width="@dimen/mel_header_action"
                 android:layout_height="@dimen/mel_header_action"
