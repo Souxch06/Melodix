@@ -6,6 +6,11 @@ on:
       - arena/7142700d-melodix
   workflow_dispatch:
     inputs:
+      demo_only:
+        description: Build one offline demo preview and capture both form factors
+        required: false
+        type: boolean
+        default: false
       session_evidence_run:
         description: Existing synthetic session matrix run to re-export (0 builds and tests normally)
         required: false
@@ -47,8 +52,15 @@ permissions:
   contents: write
 
 jobs:
+  demo:
+    if: github.event_name == 'workflow_dispatch' && inputs.demo_only == true
+    uses: ./.github/workflows/demo-preview.yml
+    with:
+      source_ref: ${{ inputs.source_ref || github.sha }}
+      release_tag: ${{ inputs.release_tag }}
+    secrets: inherit
   session-gate:
-    if: github.event_name == 'workflow_dispatch' && inputs.session_gate_only == true && !contains(fromJSON('["webview-discovery","webview-inspect"]'), inputs.source_ref)
+    if: inputs.demo_only != true && github.event_name == 'workflow_dispatch' && inputs.session_gate_only == true && !contains(fromJSON('["webview-discovery","webview-inspect"]'), inputs.source_ref)
     uses: ./.github/workflows/test-session-gate.yml
     with:
       source_ref: ${{ inputs.source_ref || github.sha }}
@@ -56,7 +68,7 @@ jobs:
       evidence_run: ${{ inputs.session_evidence_run || '0' }}
     secrets: inherit
   webview-discovery:
-    if: github.event_name == 'workflow_dispatch' && inputs.session_gate_only == true && contains(fromJSON('["webview-discovery","webview-inspect"]'), inputs.source_ref)
+    if: inputs.demo_only != true && github.event_name == 'workflow_dispatch' && inputs.session_gate_only == true && contains(fromJSON('["webview-discovery","webview-inspect"]'), inputs.source_ref)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -66,7 +78,7 @@ jobs:
           DISCOVERY_MODE: ${{ inputs.source_ref }}
         run: bash scripts/explore_webview156.sh
   build-preview:
-    if: (github.event_name != 'workflow_dispatch' || inputs.replay_original_launch_path != true) && inputs.session_gate_only != true
+    if: (github.event_name != 'workflow_dispatch' || inputs.replay_original_launch_path != true) && inputs.session_gate_only != true && inputs.demo_only != true
     name: Build debuggable APK for UI instrumentation
     uses: ./.github/workflows/preview-apk.yml
     with:
@@ -78,7 +90,7 @@ jobs:
     secrets: inherit
 
   build-release-candidate:
-    if: (github.event_name != 'workflow_dispatch' || inputs.replay_original_launch_path != true) && inputs.session_gate_only != true
+    if: (github.event_name != 'workflow_dispatch' || inputs.replay_original_launch_path != true) && inputs.session_gate_only != true && inputs.demo_only != true
     name: Build exact non-debuggable Preview release candidate
     uses: ./.github/workflows/preview-apk.yml
     with:
@@ -92,7 +104,7 @@ jobs:
     secrets: inherit
 
   install-and-launch:
-    if: (github.event_name != 'workflow_dispatch' || inputs.replay_original_launch_path != true) && inputs.session_gate_only != true
+    if: (github.event_name != 'workflow_dispatch' || inputs.replay_original_launch_path != true) && inputs.session_gate_only != true && inputs.demo_only != true
     name: Install and test the exact Preview artifacts built by this run
     needs: [build-preview, build-release-candidate]
     runs-on: ubuntu-24.04
@@ -2870,7 +2882,7 @@ jobs:
           echo "Public Preview: https://github.com/Souxch06/Melodix/releases/tag/$RELEASE_TAG" >> "$GITHUB_STEP_SUMMARY"
 
   p0-verify-replay:
-    if: github.event_name == 'workflow_dispatch' && inputs.replay_original_launch_path == true && inputs.session_gate_only != true
+    if: github.event_name == 'workflow_dispatch' && inputs.replay_original_launch_path == true && inputs.session_gate_only != true && inputs.demo_only != true
     name: Replay Android 16 launch on the historical ec6ef63 instrumentation APK
     runs-on: ubuntu-24.04
     timeout-minutes: 35

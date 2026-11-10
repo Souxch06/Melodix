@@ -1,5 +1,13 @@
 name: Build and capture offline demo preview
 on:
+  workflow_call:
+    inputs:
+      source_ref:
+        required: true
+        type: string
+      release_tag:
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       source_ref:
