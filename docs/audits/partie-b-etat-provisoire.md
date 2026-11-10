@@ -30,3 +30,16 @@ Activation : appui long sur **Version de Melodix** dans les réglages de test. L
 - Les réglages de démo sont des commandes fictives ; les réglages réels peuvent rester inaccessibles sans session. Les lignes communes partagent le style et les icônes, pas les données ni les actions.
 - L’image de lecteur de démo et sa couleur sont fixes ; la teinte réelle dépend d’une image effectivement chargée. La CI sans session ne prouve ni chargement Spotify ni lecture.
 - Consulter `captures/demo-captures-{phone,tablet}/real-no-session/observation.json` pour distinguer erreur ou réglages effectivement observés des écrans non atteints. Les captures ne sont pas inspectées visuellement par cette suite.
+
+## Résultats CI de test152 (après construction, sans nouvelle preview)
+
+Run [42784941611](https://github.com/Souxch06/Melodix/actions/runs/42784941611), source APK `514f8c56c47a482a8525822cd17782a359604e6c` ; la suite complète CI, l'assemblage et les deux captures démo ont réussi. Une lecture séparée de l'artefact existant ([42785894575](https://github.com/Souxch06/Melodix/actions/runs/42785894575)) n'a construit aucun APK supplémentaire.
+
+| Écran réel sans session | Téléphone | Tablette | Limite |
+|---|---|---|---|
+| Démarrage immédiat | Capture présente | Capture présente | Aucune assertion ne confirme que l'image est le splash. |
+| État après attente | Capture présente | Capture présente | État observé sans compte, réseau désactivé ; aucune analyse visuelle manuelle. |
+| Erreur | Non observée | Non observée | Pas de capture d'erreur affirmée, aucune erreur forcée. |
+| Réglages | Non atteints | Non atteints | Garde de session ou action absente ; aucun contournement. |
+
+L'artefact contient la version du tableau au moment de la construction ; cette section est ajoutée ensuite pour consigner le résultat réel. La règle d'en-tête masque l'avatar en présence de retour, mais l'avatar peut afficher une image de profil réelle au lieu du logo : l'exigence d'un logo permanent n'est donc pas entièrement démontrée. La CI de capture désactive les animations ; elle ne valide pas perceptivement transition, haptique ou halo.
