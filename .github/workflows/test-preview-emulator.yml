@@ -21,6 +21,11 @@ on:
         required: false
         type: string
         default: ""
+      update_after_ref:
+        description: Optional full commit SHA for the synthetic update-after APK only; test scripts and assertions remain from source_ref
+        required: false
+        type: string
+        default: ""
       release_tag:
         description: Optional public Preview tag to create after exact-APK validation
         required: false
@@ -47,6 +52,7 @@ jobs:
     uses: ./.github/workflows/test-session-gate.yml
     with:
       source_ref: ${{ inputs.source_ref || github.sha }}
+      update_after_ref: ${{ inputs.update_after_ref || inputs.source_ref || github.sha }}
       evidence_run: ${{ inputs.session_evidence_run || '0' }}
     secrets: inherit
   webview-discovery:

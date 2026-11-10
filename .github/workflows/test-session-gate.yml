@@ -8,6 +8,10 @@ on:
       source_ref:
         required: true
         type: string
+      update_after_ref:
+        required: false
+        type: string
+        default: ""
   workflow_dispatch:
     inputs:
       evidence_run:
@@ -266,7 +270,7 @@ jobs:
     uses: ./.github/workflows/preview-apk.yml
     with:
       release_tag: v1.3.2-test.138-preview
-      source_ref: ${{ inputs.source_ref }}
+      source_ref: ${{ inputs.update_after_ref || inputs.source_ref }}
       build_only: true
       target_debuggable: true
       apk_suffix: '-update-after'
