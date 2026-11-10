@@ -17,6 +17,8 @@
     invoke-static {}, Lcom/squareup/picasso/Picasso;->get()Lcom/squareup/picasso/Picasso;
     move-result-object v0
     invoke-virtual {v0, p0}, Lcom/squareup/picasso/Picasso;->cancelRequest(Landroid/widget/ImageView;)V
+    # Until this request succeeds, never retain the previous track's tint.
+    invoke-static {p0}, Lcom/melodix/music/NativePlayerTint;->reset(Landroid/widget/ImageView;)V
 
     if-eqz p1, :clear_native_image
     const-string v1, "https://"

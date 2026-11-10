@@ -9588,38 +9588,44 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
 .method private static fadeNativeScreen(Lcom/melodix/music/MainActivity;)V
     .locals 4
-
-    const v0, 0x7f09022f
-
+    # Animate visible content only: the opaque shell must continue covering WebView.
+    const v0, 0x7f090239
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-
     move-result-object v0
-
-    if-nez v0, :fade_done
-
-    # Start slightly transparent instead of fully invisible: the shell gradient
-    # is opaque, so a lower alpha would flash the WebView underneath, and a
-    # cancelled animation can never leave the screen blank.
-    const/high16 v1, 0x3f600000
-
-    invoke-virtual {v0, v1}, Landroid/view/View;->setAlpha(F)V
-
+    if-eqz v0, :fade_done
+    invoke-virtual {v0}, Landroid/view/View;->getVisibility()I
+    move-result v1
+    if-eqz v1, :fade_content
+    const v0, 0x7f09023a
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v0
+    if-eqz v0, :fade_done
+    invoke-virtual {v0}, Landroid/view/View;->getVisibility()I
+    move-result v1
+    if-nez v1, :fade_done
+    :fade_content
     invoke-virtual {v0}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
-
     move-result-object v1
-
+    invoke-virtual {v1}, Landroid/view/ViewPropertyAnimator;->cancel()V
+    const/high16 v1, 0x3f600000
+    invoke-virtual {v0, v1}, Landroid/view/View;->setAlpha(F)V
+    invoke-virtual {p0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
+    move-result-object v1
+    invoke-virtual {v1}, Landroid/content/res/Resources;->getDisplayMetrics()Landroid/util/DisplayMetrics;
+    move-result-object v1
+    iget v1, v1, Landroid/util/DisplayMetrics;->density:F
+    const/high16 v2, 0x41000000
+    mul-float/2addr v1, v2
+    invoke-virtual {v0, v1}, Landroid/view/View;->setTranslationY(F)V
+    invoke-virtual {v0}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
+    move-result-object v1
     const/high16 v2, 0x3f800000
-
     invoke-virtual {v1, v2}, Landroid/view/ViewPropertyAnimator;->alpha(F)Landroid/view/ViewPropertyAnimator;
-
+    const/4 v2, 0x0
+    invoke-virtual {v1, v2}, Landroid/view/ViewPropertyAnimator;->translationY(F)Landroid/view/ViewPropertyAnimator;
     const-wide/16 v2, 0xb4
-
     invoke-virtual {v1, v2, v3}, Landroid/view/ViewPropertyAnimator;->setDuration(J)Landroid/view/ViewPropertyAnimator;
-
-    move-result-object v1
-
     invoke-virtual {v1}, Landroid/view/ViewPropertyAnimator;->start()V
-
     :fade_done
     return-void
 .end method
@@ -10612,6 +10618,11 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
 .method public final onNativeHomeClick(Landroid/view/View;)V
     .locals 2
+    if-eqz p1, :haptic_done
+    const/4 v0, 0x1
+    invoke-virtual {p1, v0}, Landroid/view/View;->performHapticFeedback(I)Z
+    :haptic_done
+
 
     # setNativeScreen is idempotent on the active Home route. Never clear the
     # real shelf to [] before its authenticated refresh: identical payloads may
@@ -10625,6 +10636,11 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
 .method public final onNativeSearchClick(Landroid/view/View;)V
     .locals 5
+    if-eqz p1, :haptic_done
+    const/4 v0, 0x1
+    invoke-virtual {p1, v0}, Landroid/view/View;->performHapticFeedback(I)Z
+    :haptic_done
+
 
     const-string v0, "search"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
@@ -10806,6 +10822,11 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
 .method public final onNativeLibraryClick(Landroid/view/View;)V
     .locals 3
+    if-eqz p1, :haptic_done
+    const/4 v0, 0x1
+    invoke-virtual {p1, v0}, Landroid/view/View;->performHapticFeedback(I)Z
+    :haptic_done
+
 
     const-string v0, "library"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
@@ -11343,7 +11364,12 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 .end method
 
 .method public final onNativeSettingsClick(Landroid/view/View;)V
-    .locals 0
+    .locals 1
+    if-eqz p1, :haptic_done
+    const/4 v0, 0x1
+    invoke-virtual {p1, v0}, Landroid/view/View;->performHapticFeedback(I)Z
+    :haptic_done
+
 
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->openNativeSettings()V
     return-void
@@ -11621,6 +11647,11 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
 .method public final onNativePlayPauseClick(Landroid/view/View;)V
     .locals 1
+    if-eqz p1, :haptic_done
+    const/4 v0, 0x1
+    invoke-virtual {p1, v0}, Landroid/view/View;->performHapticFeedback(I)Z
+    :haptic_done
+
 
     # __sfTogglePlayback lives in the always-loaded native shell: it reads the
     # real player label, marks the user intent (pause must stay a pause) and
@@ -11661,6 +11692,11 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
 .method public final onNativePlayerPreviousClick(Landroid/view/View;)V
     .locals 1
+    if-eqz p1, :haptic_done
+    const/4 v0, 0x1
+    invoke-virtual {p1, v0}, Landroid/view/View;->performHapticFeedback(I)Z
+    :haptic_done
+
 
     # A skip is an explicit user action: the shell releases the pause latch and
     # the hold before moving, then refreshes the native player.
@@ -11672,6 +11708,11 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
 .method public final onNativePlayerNextClick(Landroid/view/View;)V
     .locals 1
+    if-eqz p1, :haptic_done
+    const/4 v0, 0x1
+    invoke-virtual {p1, v0}, Landroid/view/View;->performHapticFeedback(I)Z
+    :haptic_done
+
 
     # A skip is an explicit user action: the shell releases the pause latch and
     # the hold before moving, then refreshes the native player.

@@ -28,7 +28,7 @@ function loaderPath(url) {
    else if(c.includes('Picasso;->get()')) result={};
    else if(c.includes('elapsedRealtime')) result=100;
    else if(c.includes('NativeImageTrace;->identity')) result='host=other key=00000000';
-   else if(/NativeImageTrace;->(start|result)|Picasso;->cancelRequest/.test(c)) {}
+   else if(/NativeImageTrace;->(start|result)|Picasso;->cancelRequest|NativePlayerTint;->reset/.test(c)) {}
    else assert.fail(c);
    continue;
   }

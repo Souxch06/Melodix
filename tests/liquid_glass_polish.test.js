@@ -74,3 +74,9 @@ test('artwork halo is shared, radial and behind the player artwork',()=>{
  const halo=read('res/drawable/native_player_art_halo.xml');assert.match(halo,/type="radial"/);assert.match(halo,/mel_player_halo_center/);assert.match(halo,/mel_player_halo_middle/);assert.match(halo,/mel_player_halo_outer/);assert.doesNotMatch(halo,/RenderEffect/);
  for(const folder of ['layout','layout-land','layout-sw600dp','layout-sw600dp-land']){const s=read(`res/${folder}/activity_main.xml`);assert.match(s,/@drawable\/native_player_art_halo[\s\S]*?@id\/nativePlayerLargeArtwork/);}
 });
+
+test('screen transition and primary haptics do not animate the opaque shell',()=>{
+ const s=read('smali/com/melodix/music/MainActivity.smali');const f=s.slice(s.indexOf('.method private static fadeNativeScreen'),s.indexOf('.end method',s.indexOf('.method private static fadeNativeScreen')));
+ assert.match(f,/0x7f090239/);assert.match(f,/0x7f09023a/);assert.doesNotMatch(f,/0x7f09022f/);assert.match(f,/setTranslationY\(F\)/);assert.match(f,/translationY\(F\)/);
+ for(const name of ['onNativeHomeClick','onNativeSearchClick','onNativeLibraryClick','onNativePlayPauseClick']){let start=s.indexOf('.method public final '+name+'(');assert.match(s.slice(start,s.indexOf('.end method',start)),/performHapticFeedback/);}
+});

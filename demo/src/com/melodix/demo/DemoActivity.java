@@ -66,13 +66,14 @@ public final class DemoActivity extends Activity {
     }
     private void tab(String name,boolean selected){TextView x=t(name);if(x==null)return;x.setSelected(selected);int ink=selected?white:getResources().getColor(getResources().getIdentifier("mel_nav_inactive","color",getPackageName()),getTheme());x.setTextColor(ink);x.setCompoundDrawableTintList(ColorStateList.valueOf(ink));x.setBackgroundResource(drawable(selected?"native_tab_active":"native_tab_ripple"));}
     private void render(String p){
-        page=p; boolean player=p.equals("player");
+        boolean changed=!p.equals(page);page=p; boolean player=p.equals("player");
         show("nativeRowsScroll",!player);show("nativePlayerPanel",player);show("nativeMiniPlayerContainer",!player);
         show("nativeSearchPanel",p.equals("search"));show("nativeGenreScroll",false);show("nativeLibraryCategories",p.equals("library"));
         boolean back=p.equals("playlist")||p.equals("settings")||player;
         show("nativeBackButton",back);
         View avatar=v("nativeHeaderAvatar");if(avatar!=null && avatar.getParent() instanceof View)((View)avatar.getParent()).setVisibility(back?View.GONE:View.VISIBLE);
         show("nativeTabBar",true);
+        View screen=v(player?"nativePlayerPanel":"nativeRowsScroll");if(changed && screen!=null){screen.animate().cancel();screen.setAlpha(.875f);screen.setTranslationY(dp(8));screen.animate().alpha(1f).translationY(0).setDuration(180).start();}
         View settings=v("nativeSettingsButton");if(settings!=null)settings.setSelected(p.equals("settings"));
         tab("nativeHomeTab",p.equals("home"));tab("nativeSearchTab",p.equals("search"));tab("nativeLibraryTab",p.equals("library")||p.equals("playlist"));
         String title=p.equals("home")?"Accueil":p.equals("search")?"Rechercher":p.equals("library")?"Votre bibliothèque":p.equals("playlist")?"Playlist":p.equals("settings")?"Paramètres":"Lecture en cours";
@@ -115,11 +116,11 @@ public final class DemoActivity extends Activity {
     private void setting(LinearLayout p,String title,String subtitle,boolean enabled,Runnable action){View r=settingRow(title,subtitle,enabled?"ON":"OFF");r.setOnClickListener(v->action.run());p.addView(r);}
     private void settingInfo(LinearLayout p,String title,String subtitle,String value){View r=settingRow(title,subtitle,value);r.setOnLongClickListener(v->{finish();return true;});p.addView(r);}
     private void updatePlay(){int image=drawable(playing?"pause":"play");for(String n:new String[]{"nativePlayPauseButton","nativePlayerLargePlayPauseButton"}){View x=v(n);if(x instanceof ImageView && image!=0)((ImageView)x).setImageResource(image);}}
-    public void onNativeHomeClick(View v){render("home");} public void onNativeSearchClick(View v){render("search");}
-    public void onNativeLibraryClick(View v){render("library");} public void onNativeSettingsClick(View v){render("settings");}
+    public void onNativeHomeClick(View v){if(v!=null)v.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP);render("home");} public void onNativeSearchClick(View v){if(v!=null)v.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP);render("search");}
+    public void onNativeLibraryClick(View v){if(v!=null)v.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP);render("library");} public void onNativeSettingsClick(View v){if(v!=null)v.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP);render("settings");}
     public void onNativePlayerExpandClick(View v){render("player");} public void onNativeBackClick(View v){render("home");}
-    public void onNativePlayPauseClick(View v){playing=!playing;updatePlay();} public void onNativePlayerNextClick(View v){render("player");}
-    public void onNativePlayerPreviousClick(View v){render("player");} public void onNativePlayerShuffleClick(View v){} public void onNativePlayerRepeatClick(View v){}
+    public void onNativePlayPauseClick(View v){if(v!=null)v.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP);playing=!playing;updatePlay();} public void onNativePlayerNextClick(View v){if(v!=null)v.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP);render("player");}
+    public void onNativePlayerPreviousClick(View v){if(v!=null)v.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP);render("player");} public void onNativePlayerShuffleClick(View v){} public void onNativePlayerRepeatClick(View v){}
     public void onNativeLibraryCategoryClick(View v){render("library");} public void onNativeGenreClick(View v){render("search");}
     public void onNativeSearchSubmit(View v){EditText input=(EditText)v("nativeSearchInput");String q=input==null?"":input.getText().toString().trim();LinearLayout c=(LinearLayout)v("nativeContent");c.removeAllViews();section(c,"Démo · hors ligne");section(c,"Résultats fictifs");if(q.isEmpty()||"lueurs du soir les ondes fictives".contains(q.toLowerCase(java.util.Locale.ROOT)))row(c,"Lueurs du soir","Les Ondes Fictives",0xff6a4391,()->render("player"));else row(c,"Aucun résultat fictif","Essaie « Lueurs »",0xff4a4155,()->{});}
     public void onNativeDiagCopyClick(View v){ClipboardManager c=(ClipboardManager)getSystemService(CLIPBOARD_SERVICE);c.setPrimaryClip(ClipData.newPlainText("Démo","Mode démo local — aucune donnée de session"));}
