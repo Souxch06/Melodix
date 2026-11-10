@@ -109,7 +109,7 @@
     invoke-virtual {v2, v0, v1}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
     invoke-virtual {v9}, Ljava/lang/String;->isEmpty()Z
     move-result v3
-    if-eqz v3, :native_settings_icon_placeholder
+    if-nez v3, :native_settings_icon_placeholder
     const/16 v3, 0xb0
     invoke-static {v0, v9, v3}, Lcom/melodix/music/NativeImageLoader;->load(Landroid/widget/ImageView;Ljava/lang/String;I)V
     goto :native_settings_no_avatar
@@ -144,7 +144,7 @@
 
     invoke-virtual {v5}, Ljava/lang/String;->isEmpty()Z
     move-result v0
-    if-eqz v0, :native_settings_pill
+    if-nez v0, :native_settings_pill
 
     new-instance v10, Landroid/widget/TextView;
     invoke-direct {v10, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
@@ -191,6 +191,22 @@
     new-instance v11, Landroid/widget/Switch;
     invoke-direct {v11, p0}, Landroid/widget/Switch;-><init>(Landroid/content/Context;)V
     invoke-virtual {v11, v3}, Landroid/widget/Switch;->setChecked(Z)V
+    # Do not rely on the host theme's Switch drawables: some themes have no
+    # track at all. Give the tint list a real, density-scaled pill to tint.
+    new-instance v0, Landroid/graphics/drawable/GradientDrawable;
+    invoke-direct {v0}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
+    const/4 v1, -0x1
+    invoke-virtual {v0, v1}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->settingsSwitchTrackWidth(Landroid/content/Context;)I
+    move-result v1
+    invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->settingsSwitchTrackHeight(Landroid/content/Context;)I
+    move-result v3
+    invoke-virtual {v0, v1, v3}, Landroid/graphics/drawable/GradientDrawable;->setSize(II)V
+    int-to-float v3, v3
+    invoke-virtual {v0, v3}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
+    invoke-virtual {v11, v0}, Landroid/widget/Switch;->setTrackDrawable(Landroid/graphics/drawable/Drawable;)V
+    const/4 v0, 0x0
+    invoke-virtual {v11, v0}, Landroid/widget/Switch;->setSplitTrack(Z)V
     # MEL-BUG-066: readable switch — white thumb, track solid accent when ON,
     # neutral surface when OFF (a state list, not one flat translucent tint).
     sget v0, Lcom/melodix/music/MelColors;->textPrimary:I

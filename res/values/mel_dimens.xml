@@ -223,4 +223,6 @@
     <dimen name="mel_tile_glyph">62.0dip</dimen>
     <dimen name="mel_tile_glyph_out">-14.0dip</dimen>
     <dimen name="mel_tile_glyph_down">-10.0dip</dimen>
+    <dimen name="mel_settings_switch_track_width">48.0dip</dimen>
+    <dimen name="mel_settings_switch_track_height">24.0dip</dimen>
 </resources>

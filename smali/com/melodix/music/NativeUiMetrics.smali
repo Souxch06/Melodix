@@ -959,3 +959,22 @@
 
     return v0
 .end method
+
+# A theme-independent switch track; qualified resources can override the size.
+.method public static settingsSwitchTrackWidth(Landroid/content/Context;)I
+    .locals 2
+    const-string v0, "mel_settings_switch_track_width"
+    const/16 v1, 0x30
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+    move-result v0
+    return v0
+.end method
+
+.method public static settingsSwitchTrackHeight(Landroid/content/Context;)I
+    .locals 2
+    const-string v0, "mel_settings_switch_track_height"
+    const/16 v1, 0x18
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+    move-result v0
+    return v0
+.end method
