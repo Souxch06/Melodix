@@ -28,3 +28,9 @@ test('technical details and copied output include locally installed build identi
  for(const v of ['getPackageInfo','getLongVersionCode','versionCode:I','versionName:Ljava/lang/String;','VersionCode=','build='])assert.ok(info.includes(v),v);
  assert.match(info,/\[A-Za-z0-9\._-\]\{1,48\}/);assert.doesNotMatch(info,/Cookie|WebStorage|loadUrl|Authorization|token/i);
 });
+
+test('retry component failure uses a precise message and keeps the retry action',()=>{
+ const s=read('smali/com/melodix/music/NativeSessionSurface.smali'),a=s.indexOf('const-string v5, "retry-js-unavailable"'),b=s.indexOf('    :retry_other',a);
+ assert.ok(a>=0&&b>a);assert.match(s.slice(a,b),/Le composant de connexion ne répond pas\. Réessaie\./);
+ assert.match(read('smali/com/melodix/music/NativeSessionSurfaceExtras.smali'),/sessionSecondary[\s\S]*?Réessayer/);
+});

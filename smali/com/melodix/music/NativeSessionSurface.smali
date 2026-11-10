@@ -103,7 +103,7 @@
     move-result v7
     const-string v5, "Connexion Spotify indisponible"
     if-eqz v7, :retry_other
-    const-string v6, "La vérification n’a pas démarré : interface indisponible. Réessaie."
+    const-string v6, "Le composant de connexion ne répond pas. Réessaie."
     goto :labels
     :retry_other
     sget-object v7, Lcom/melodix/music/NativeSessionGate;->lastReason:Ljava/lang/String;
