@@ -57,7 +57,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          set +e
           npm test 2>&1 | tee "$RUNNER_TEMP/demo-suite.tap"
+          suite_status=${PIPESTATUS[0]}
+          set -e
+          if [ "$suite_status" != 0 ]; then
+            failures=$(grep -E '^not ok' "$RUNNER_TEMP/demo-suite.tap" | head -20 | tr '\n' ';' || true)
+            details=$(grep -A12 -E '^not ok' "$RUNNER_TEMP/demo-suite.tap" | head -100 | tr '\n' ' ' | cut -c1-3000 || true)
+            echo "::error title=Demo suite failures::$failures"
+            echo "::error title=Demo suite details::$details"
+            exit "$suite_status"
+          fi
           if grep -Eq '^# skipped [1-9][0-9]*$' "$RUNNER_TEMP/demo-suite.tap"; then
             echo "::error::Preview blocked because the suite skipped tests."
             exit 1
