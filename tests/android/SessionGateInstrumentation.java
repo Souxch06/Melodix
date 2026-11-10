@@ -210,6 +210,10 @@ public final class SessionGateInstrumentation extends Instrumentation {
             ui(() -> { set("freshLogin", false); begin(); state(0); });
             SystemClock.sleep(3300);
             ui(() -> { state(4); check(!(Boolean) field("expiredEvidence")); check(view("sessionAction").isShown());
+                check(view("sessionSecondary").isShown());
+                check(view("sessionSecondary").getText().toString().equals("Se reconnecter"));
+                check(view("sessionNotice").isShown());
+                check(view("sessionNotice").getText().toString().contains("uniquement après ton appui"));
                 check(!view("sessionDetails").isShown()); }); note();
 
             phase = "valid_token_and_library";
@@ -236,6 +240,8 @@ public final class SessionGateInstrumentation extends Instrumentation {
             ui(() -> { paintFixture(false);
                 check(view("sessionTitle").getText().toString().equals("Spotify refuse l’accès avec ta session actuelle"));
                 check(view("sessionAction").isShown()); check(view("sessionSecondary").isShown());
+                check(view("sessionSecondary").getText().toString().equals("Se reconnecter"));
+                check(view("sessionNotice").isShown());
                 check(!view("sessionDetails").isShown()); view("sessionDisclosure").performClick();
                 check(view("sessionDetails").isShown());
                 phase="probable_expiry_clipboard_synthetic";
@@ -246,7 +252,7 @@ public final class SessionGateInstrumentation extends Instrumentation {
                 check(copied.startsWith(details+"\nMDXPERF-BEGIN v=1 dropped="));
                 check(copied.endsWith("MDXPERF-END"));
                 view("sessionDisclosure").performClick(); check(!view("sessionDetails").isShown());
-                // No real cookie in the CI fixture: the destructive path must stay blocked.
+                // The legacy evidence-based gate remains blocked without a real cookie.
                 check(!(Boolean)gate.getMethod("canReconnect").invoke(null));
             }); note();
 

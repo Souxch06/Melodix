@@ -85,9 +85,9 @@ test('case 6: stale, duplicate, incomplete and login-page callbacks cannot unloc
  const m=machine({loginActive:true});m.send({token:true,libraryOk:true});assert.equal(m.fields.state,0);
  const n=machine();n.send({token:true,libraryOk:true});n.send({token:false,libraryHttp:401});assert.equal(n.fields.state,3);
 });
-test('retry and reconnect are non-destructive; expiry guard precedes login',()=>{
- const r=read('smali/com/melodix/music/NativeSessionReconnect.smali');assert.ok(r.indexOf('canReconnect()Z')<r.indexOf('navigateLogin('));assert.doesNotMatch(r,/removeAllCookies|removeSessionCookies|deleteAllData|proofClearLogout/);
- assert.match(read('smali/com/melodix/music/NativeSessionRecovery.smali'),/NativeSessionGate;->begin/);
+test('retry is non-destructive, explicit warned reconnect is the sole session deletion path',()=>{
+ const r=read('smali/com/melodix/music/NativeSessionReconnect.smali');assert.match(r,/allowed\(\)Z[\s\S]*?removeAllCookies/);assert.match(r,/removeAllCookies[\s\S]*?deleteAllData[\s\S]*?navigateLogin/);
+ const recovery=read('smali/com/melodix/music/NativeSessionRecovery.smali');assert.match(recovery,/NativeSessionGate;->begin/);assert.doesNotMatch(recovery,/removeAllCookies|deleteAllData/);
  const m=machine({cookie:true});m.run('requestLogin',{});assert.deepEqual(m.calls,['verify']);
 });
 test('rotation/background preserve process budget; 3s presentation deadline cannot navigate',()=>{

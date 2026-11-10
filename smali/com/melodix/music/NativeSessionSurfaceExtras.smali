@@ -25,13 +25,16 @@
     sget-boolean v0, Lcom/melodix/music/NativeSessionGate;->loginActive:Z
     if-nez v0, :done
     const/4 v0, 0x2
+    if-eq p2, v0, :reconnect
+    const/4 v0, 0x4
     if-ne p2, v0, :details
+    :reconnect
     const-string v0, "sessionSecondary"
     invoke-static {p1, v0}, Lcom/melodix/music/NativeSessionSurface;->text(Landroid/view/View;Ljava/lang/String;)Landroid/widget/TextView;
     move-result-object v0
-    const-string v1, "Réessayer"
+    const-string v1, "Se reconnecter"
     invoke-virtual {v0, v1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-    const/4 v1, 0x0
+    const/4 v1, 0x2
     invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeSessionSurfaceExtras;->button(Lcom/melodix/music/MainActivity;Landroid/view/View;I)V
     const-string v0, "sessionNotice"
     invoke-static {p1, v0}, Lcom/melodix/music/NativeSessionSurfaceExtras;->find(Landroid/view/View;Ljava/lang/String;)Landroid/view/View;
@@ -169,8 +172,6 @@
     if-eq v1, v2, :primary
     const/4 v2, 0x2
     if-ne v1, v2, :done
-    const-string v1, "sessionSecondary"
-    goto :button
     :primary
     const-string v1, "sessionAction"
     :button

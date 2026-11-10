@@ -137,7 +137,7 @@ function retryButtonVm(state,busy,loginActive=false){
 }
 test('real retry button shows and disables ongoing verification, restores Retry at release; other actions untouched',()=>{
  for(const state of [4,2]){
-  const locked=retryButtonVm(state,true),key=state===4?'primary':'secondary',other=state===4?'secondary':'primary';
+  const locked=retryButtonVm(state,true),key='primary',other='secondary';
   assert.equal(locked[key].text,'Vérification en cours…');assert.equal(locked[key].enabled,false);
   assert.equal(locked[other].text,'Réessayer');assert.equal(locked[other].enabled,true);
   const ready=retryButtonVm(state,false);assert.equal(ready[key].text,'Réessayer');assert.equal(ready[key].enabled,true);

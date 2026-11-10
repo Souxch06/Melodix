@@ -26,14 +26,13 @@ test('two completed observations must refer to the same ephemeral cookie identit
  assert.equal(t.record('digest-B'),1);assert.equal(t.record(null),0);assert.equal(t.fields.fingerprint,null);
  assert.equal(t.record('digest-B'),1);
 });
-test('fingerprint is scoped to sp_dc and never logged or persisted; changed-cookie tap is denied',()=>{
+test('fingerprint is scoped to sp_dc and never logged or persisted; automatic expiry evidence remains identity-scoped',()=>{
  assert.match(src,/sp_dc=\(\[\^;\]\+\)/);assert.match(src,/SHA-256/);
  assert.doesNotMatch(src,/noteDiag|diagLine|SharedPreferences|Log;|FileOutputStream|JavascriptInterface/);
  const can=src.slice(src.indexOf('.method public static canClear'),src.indexOf('.method public static count'));
  assert.match(can,/->current\(\)Ljava\/lang\/String;[\s\S]*?->equals/);
  const clear=fs.readFileSync('smali/com/melodix/music/NativeSessionReconnect.smali','utf8');
- assert.ok(clear.indexOf('NativeSessionEvidence;->canClear')<clear.indexOf('navigateLogin('));
- assert.doesNotMatch(clear,/removeAllCookies|removeSessionCookies|deleteAllData/);
+ assert.match(clear,/explicitly labelled and explained reconnect button/);assert.match(clear,/removeAllCookies/);
 });
 
 test('deadline preserves a single completed refusal for unchanged identity, without increment',()=>{

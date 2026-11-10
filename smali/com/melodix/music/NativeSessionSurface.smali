@@ -161,7 +161,7 @@
     const/4 v4, 0x4
     if-eq v1, v4, :retry_action
     const/4 v4, 0x2
-    if-eq v1, v4, :reconnect_action
+    if-eq v1, v4, :retry_action
     if-nez v2, :action_done
     const/4 v4, 0x1
     if-ne v1, v4, :action_done

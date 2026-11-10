@@ -238,8 +238,8 @@ function executeOpenNativeRow(uri, title = 'Test collection') {
             state.verifications = (state.verifications || 0) + 1;
             continue;
         }
-        if (instruction === 'invoke-static {p0}, Lcom/melodix/music/NativeSessionReconnect;->start(Lcom/melodix/music/MainActivity;)V') {
-            state.reconnections = (state.reconnections || 0) + 1;
+        if (instruction === 'invoke-static {p0}, Lcom/melodix/music/NativeSessionGate;->paint(Lcom/melodix/music/MainActivity;)V') {
+            state.reconnectWarnings = (state.reconnectWarnings || 0) + 1;
             continue;
         }
         if (instruction === 'return-void') return state;
@@ -308,8 +308,10 @@ test('the shared renderer remains the destination for Home, Search, and Library 
 });
 
 
-test('only explicit reconnect dispatches session deletion; retry remains separate', () => {
-    assert.equal(executeOpenNativeRow('melodix:action:reconnect').reconnections, 1);
-    assert.equal(executeOpenNativeRow('melodix:action:retry-library').reconnections, undefined);
-    assert.equal(executeOpenNativeRow('melodix:action:open-login').reconnections, undefined);
+test('legacy reconnect row only shows the warning; retry and login cannot delete session', () => {
+    assert.equal(executeOpenNativeRow('melodix:action:reconnect').reconnectWarnings, 1);
+    assert.equal(executeOpenNativeRow('melodix:action:retry-library').reconnectWarnings, undefined);
+    assert.equal(executeOpenNativeRow('melodix:action:open-login').reconnectWarnings, undefined);
+    const action=fs.readFileSync(path.join(ROOT,'smali/com/melodix/music/NativeSessionSurfaceAction.smali'),'utf8');
+    assert.match(action,/:reconnect[\s\S]*?NativeSessionReconnect;->start/);
 });

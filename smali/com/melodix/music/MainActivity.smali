@@ -11091,7 +11091,9 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-virtual {p1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v3
     if-eqz v3, :native_row_check_login
-    invoke-static {p0}, Lcom/melodix/music/NativeSessionReconnect;->start(Lcom/melodix/music/MainActivity;)V
+    # Untrusted row metadata is not consent to erase storage. Show the
+    # native surface and its explicit deletion warning; only its button acts.
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionGate;->paint(Lcom/melodix/music/MainActivity;)V
     return-void
 
     :native_row_check_login

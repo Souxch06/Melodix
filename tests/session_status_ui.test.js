@@ -10,7 +10,7 @@ test('phase1 scalable card, scroll fallback and 48dp wrapping actions',()=>{
 test('expired and post-fresh refusal have distinct labels, explicit secondary retry, scoped copy',()=>{
  const src=read('smali/com/melodix/music/NativeSessionSurface.smali'),ex=read('smali/com/melodix/music/NativeSessionSurfaceExtras.smali');
  for(const t of ['Spotify refuse l’accès avec ta session actuelle','Spotify refuse l’accès avec ce compte','Se reconnecter']) assert.ok(src.includes(t));
- assert.match(ex,/sessionSecondary[\s\S]*?Réessayer/);assert.match(ex,/->details\(\)Ljava\/lang\/String;[\s\S]*?ClipData;->newPlainText/);
+ assert.match(ex,/sessionSecondary[\s\S]*?Se reconnecter/);assert.match(ex,/->details\(\)Ljava\/lang\/String;[\s\S]*?ClipData;->newPlainText/);
  assert.doesNotMatch(ex,/buildDiagnosticText|getCookie|evaluateJavascript|RenderEffect/);
  assert.match(ex,/animator_duration_scale/);assert.match(ex,/if-nez p2, :done/);
  assert.match(src,/renderedReason/);
@@ -32,5 +32,12 @@ test('technical details and copied output include locally installed build identi
 test('retry component failure uses a precise message and keeps the retry action',()=>{
  const s=read('smali/com/melodix/music/NativeSessionSurface.smali'),a=s.indexOf('const-string v5, "retry-js-unavailable"'),b=s.indexOf('    :retry_other',a);
  assert.ok(a>=0&&b>a);assert.match(s.slice(a,b),/Le composant de connexion ne répond pas\. Réessaie\./);
- assert.match(read('smali/com/melodix/music/NativeSessionSurfaceExtras.smali'),/sessionSecondary[\s\S]*?Réessayer/);
+ assert.match(read('smali/com/melodix/music/NativeSessionSurfaceExtras.smali'),/sessionSecondary[\s\S]*?Se reconnecter/);
+});
+
+test('error and expired screens both show an explicit warned secondary reconnect action',()=>{
+ const x=read('smali/com/melodix/music/NativeSessionSurfaceExtras.smali'),ui=read('smali/com/melodix/music/NativeSessionSurface.smali'),xml=read('res/layout/native_session_surface.xml');
+ assert.match(x,/if-eq p2, v0, :reconnect[\s\S]*?if-ne p2, v0, :details[\s\S]*?sessionSecondary[\s\S]*?Se reconnecter[\s\S]*?const\/4 v1, 0x2/);
+ assert.match(xml,/session actuelle, tous les cookies et données Web de cette application, uniquement après ton appui/);
+ assert.match(ui,/if-eq v1, v4, :retry_action/);
 });
