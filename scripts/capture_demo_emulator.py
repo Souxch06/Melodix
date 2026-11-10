@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Exercise the actual test-only launcher, then capture real native demo views."""
-import json, os, re, subprocess, sys, time, xml.etree.ElementTree as ET
+import json, os, re, struct, subprocess, sys, time, xml.etree.ElementTree as ET
 profile, out = sys.argv[1:]
 os.makedirs(out, exist_ok=True)
 def adb(*args, binary=False):
@@ -28,6 +28,9 @@ def snap(name,required):
         raise RuntimeError(name+' missing '+required+'; visible='+summary[:420])
     png=adb('exec-out','screencap','-p',binary=True)
     if not png.startswith(b'\x89PNG\r\n\x1a\n'): raise RuntimeError('bad PNG')
+    width,height=struct.unpack('>II',png[16:24])
+    if (profile=='phone' and width>=height) or (profile=='tablet' and width<=height):
+        raise RuntimeError('wrong orientation: '+profile+' '+str(width)+'x'+str(height))
     open(os.path.join(out,name+'.png'),'wb').write(png)
     nodes={}
     for node in root.iter('node'):

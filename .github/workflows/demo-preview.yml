@@ -8,8 +8,17 @@ on:
       release_tag:
         required: true
         type: string
+      evidence_run:
+        required: false
+        type: string
+        default: "0"
   workflow_dispatch:
     inputs:
+      evidence_run:
+        description: Existing demo run to inspect without another APK build
+        required: false
+        type: string
+        default: "0"
       source_ref:
         description: Full commit SHA to build and validate
         required: true
@@ -24,6 +33,7 @@ permissions:
   actions: read
 jobs:
   build:
+    if: inputs.evidence_run == '0'
     uses: ./.github/workflows/preview-apk.yml
     with:
       source_ref: ${{ inputs.source_ref }}
@@ -105,3 +115,27 @@ jobs:
           path: bundle
           if-no-files-found: error
           retention-days: 14
+
+  validate-captures:
+    if: inputs.evidence_run != '0'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: Melodix-demo-preview-with-captures
+          path: bundle
+          run-id: ${{ inputs.evidence_run }}
+          github-token: ${{ github.token }}
+      - name: Verify actual screenshot dimensions
+        run: |
+          python3 - <<'PY'
+          import pathlib, struct
+          for profile in ('phone','tablet'):
+              for screen in ('accueil','recherche','bibliotheque','playlist','reglages','lecteur','mini-lecteur'):
+                  p=pathlib.Path('bundle/captures/demo-captures-'+profile)/(screen+'.png')
+                  data=p.read_bytes()
+                  assert data[:8]==b'\x89PNG\r\n\x1a\n',p
+                  w,h=struct.unpack('>II',data[16:24])
+                  assert (w<h if profile=='phone' else w>h),(str(p),w,h)
+                  print(f'::notice title=Demo screenshot::{profile}/{screen}={w}x{h}')
+          PY

@@ -6,6 +6,11 @@ on:
       - arena/7142700d-melodix
   workflow_dispatch:
     inputs:
+      demo_evidence_run:
+        description: Existing demo run to check without building another preview (0 builds normally)
+        required: false
+        type: string
+        default: "0"
       demo_only:
         description: Build one offline demo preview and capture both form factors
         required: false
@@ -58,6 +63,7 @@ jobs:
     with:
       source_ref: ${{ inputs.source_ref || github.sha }}
       release_tag: ${{ inputs.release_tag }}
+      evidence_run: ${{ inputs.demo_evidence_run || '0' }}
     secrets: inherit
   session-gate:
     if: inputs.demo_only != true && github.event_name == 'workflow_dispatch' && inputs.session_gate_only == true && !contains(fromJSON('["webview-discovery","webview-inspect"]'), inputs.source_ref)
