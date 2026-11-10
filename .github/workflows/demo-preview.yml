@@ -32,7 +32,40 @@ permissions:
   contents: read
   actions: read
 jobs:
+  suite:
+    if: inputs.evidence_run == '0'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.source_ref }}
+      - uses: actions/setup-node@v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install PyYAML==6.0.2
+      - run: npm ci
+      - name: Run the complete suite before building any preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm test 2>&1 | tee "$RUNNER_TEMP/demo-suite.tap"
+          if grep -Eq '^# skipped [1-9][0-9]*$' "$RUNNER_TEMP/demo-suite.tap"; then
+            echo "::error::Preview blocked because the suite skipped tests."
+            exit 1
+          fi
+          grep -qx '# fail 0' "$RUNNER_TEMP/demo-suite.tap"
+          grep -qx '# skipped 0' "$RUNNER_TEMP/demo-suite.tap"
   build:
+    needs: suite
     if: inputs.evidence_run == '0'
     uses: ./.github/workflows/preview-apk.yml
     with:

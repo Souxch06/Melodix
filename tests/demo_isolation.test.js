@@ -47,3 +47,14 @@ test('capture workflow uses one exact APK and requires all screens in both profi
 test('demo hides the native launch overlay before enabling the native shell',()=>{
  const s=read('demo/src/com/melodix/demo/DemoActivity.java');assert.match(s,/show\("splashOverlay",false\);show\("nativeRoot",true\)/);
 });
+
+test('a demo preview cannot build before the exact source passes the unskipped complete suite',()=>{
+ const w=read('.github/workflows/demo-preview.yml');
+ const suite=w.slice(w.indexOf('  suite:'),w.indexOf('  build:'));
+ const build=w.slice(w.indexOf('  build:'),w.indexOf('  capture:'));
+ assert.match(suite,/if: inputs\.evidence_run == '0'/);
+ assert.match(suite,/ref: \${\{ inputs\.source_ref \}\}/);
+ assert.match(suite,/npm ci/);assert.match(suite,/npm test 2>&1 \| tee/);
+ assert.match(suite,/# fail 0/);assert.match(suite,/# skipped 0/);
+ assert.match(build,/needs: suite/);assert.doesNotMatch(build,/always\(\)/);
+});
