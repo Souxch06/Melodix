@@ -268,3 +268,13 @@ test('white primary labels retain 4.5:1 across the complete accent gradient', ()
   ];
   for (const [file, pattern] of sources) assert.match(fs.readFileSync(path.join(root, file), 'utf8'), pattern, file);
 });
+
+test('inactive navigation text and icons clear AA over the composited glass and glows',()=>{
+ const p=readPalette();
+ const over=(front,back,alpha)=>[16,8,0].reduce((sum,shift)=>sum | (Math.round(((front>>shift)&255)*alpha+((back>>shift)&255)*(1-alpha))<<shift),0);
+ let bg=p.mel_background;
+ // Conservative bound: all three radial centres overlap at their peak.
+ for(const [c,a] of [['mel_glow_left',0xBB],['mel_glow_right',0xAA],['mel_glow_bottom',0xAA],['mel_nav_scrim',0x66],['mel_glass_surface',0x12],['mel_glass_reflection',0x2E]])bg=over(p[c],bg,a/255);
+ assert.ok(contrast(p.mel_nav_inactive,bg)>=4.5,`inactive navigation contrast ${contrast(p.mel_nav_inactive,bg).toFixed(2)}:1`);
+ const bar=fs.readFileSync(path.join(root,'res/drawable/native_tabbar_glass.xml'),'utf8');assert.match(bar,/@color\/mel_nav_scrim/);
+});

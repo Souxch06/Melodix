@@ -128,6 +128,8 @@
     <!-- text and icons -->
     <color name="mel_text_primary">#ffffffff</color>
     <color name="mel_text_secondary">#bfc0cb</color>
+    <color name="mel_nav_inactive">#E6E6F2</color>
+    <color name="mel_nav_scrim">#660B0B14</color>
     <color name="mel_text_tertiary">#A1A1B5</color>
     <color name="mel_text_dim">#aaaaaa</color>
     <color name="mel_warning">#FF6B6B</color>

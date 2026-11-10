@@ -9558,8 +9558,8 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     goto :native_tab_highlight
 
     :native_tab_inactive
-    sget v2, Lcom/melodix/music/MelColors;->textTertiary:I
-    sget v4, Lcom/melodix/music/MelColors;->textTertiary:I
+    sget v2, Lcom/melodix/music/MelColors;->navInactive:I
+    sget v4, Lcom/melodix/music/MelColors;->navInactive:I
     goto :native_tab_apply
 
     :native_tab_highlight
