@@ -54,6 +54,8 @@ test('a demo preview cannot build before the exact source passes the unskipped c
  const build=w.slice(w.indexOf('  build:'),w.indexOf('  capture:'));
  assert.match(suite,/if: inputs\.evidence_run == '0'/);
  assert.match(suite,/ref: \${\{ inputs\.source_ref \}\}/);
+ assert.match(suite,/fetch-depth: 0/, 'historical security comparisons require complete git history');
+ assert.match(suite,/apt-get install -y ripgrep/, 'persistence checks need rg');
  assert.match(suite,/npm ci/);assert.match(suite,/npm test 2>&1 \| tee/);
  assert.match(suite,/# fail 0/);assert.match(suite,/# skipped 0/);
  assert.match(build,/needs: suite/);assert.doesNotMatch(build,/always\(\)/);
