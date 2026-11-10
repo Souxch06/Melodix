@@ -34,6 +34,46 @@ public final class BridgeNavigationInstrumentation extends Instrumentation {
         ui(()->view[0].evaluateJavascript(code,v->{result.set(v);done.countDown();}));
         check(done.await(15,TimeUnit.SECONDS));check(callbackError==null);return result.get();
     }
+    private String jsOn(WebView w,String code)throws Exception{
+        CountDownLatch done=new CountDownLatch(1);AtomicReference<String> result=new AtomicReference<>();
+        ui(()->w.evaluateJavascript(code,v->{result.set(v);done.countDown();}));
+        check(done.await(15,TimeUnit.SECONDS));return result.get();
+    }
+    // Isolated, network-disabled WebView and real AndBridge. Observe whether
+    // the original Java object is actually collected after same-name
+    // replacement, not just whether System.gc() was requested. A second case
+    // keeps a strong reference as a positive control. Never records exceptions.
+    private void replacementGcProbe(Bundle result, boolean hold)throws Exception{
+        final WebView[] w=new WebView[1];final Object[] strong=new Object[1];
+        final java.lang.ref.WeakReference<?>[] old=new java.lang.ref.WeakReference<?>[1];
+        final CountDownLatch loaded=new CountDownLatch(1);
+        final Class<?> bridge=getTargetContext().getClassLoader().loadClass("com.melodix.music.AndBridge");
+        ui(()->{try{
+            w[0]=new WebView(getTargetContext());w[0].getSettings().setJavaScriptEnabled(true);
+            w[0].setWebViewClient(new WebViewClient(){@Override public void onPageFinished(WebView v,String url){loaded.countDown();}});
+            Object first=bridge.getConstructor(android.content.Context.class).newInstance(getTargetContext());
+            old[0]=new java.lang.ref.WeakReference<>(first);if(hold)strong[0]=first;
+            w[0].addJavascriptInterface(first,"AndBridge");
+            w[0].loadDataWithBaseURL("https://open.spotify.com/fixture","<!doctype html><title>fixture</title>","text/html","UTF-8",null);
+        }catch(Exception e){throw new RuntimeException(e);}});
+        try{
+            check(loaded.await(15,TimeUnit.SECONDS));
+            check("\"number\"".equals(jsOn(w[0],"typeof AndBridge.getSessionGeneration()")));
+            ui(()->{try{Object next=bridge.getConstructor(android.content.Context.class).newInstance(getTargetContext());w[0].addJavascriptInterface(next,"AndBridge");}catch(Exception e){throw new RuntimeException(e);}});
+            for(int i=0;i<15;i++){
+                System.gc();System.runFinalization();Thread.sleep(100);
+            }
+            boolean collected=old[0].get()==null;
+            String probe=jsOn(w[0],"(function(){try{var v=AndBridge.getSessionGeneration();return v===null?'null':typeof v}catch(e){return 'exception'}})()");
+            String category=probe.replace("\"","");
+            check(category.matches("number|null|undefined|exception|boolean|string|object"));
+            String prefix=hold?"gc_retained":"gc_replaced";
+            result.putString(prefix+"_collected",collected?"yes":"no");
+            result.putString(prefix+"_result",category);
+            if(hold){check(!collected);check("number".equals(category));}
+        }finally{ui(()->w[0].destroy());strong[0]=null;}
+    }
+
     private String asset(String name)throws Exception{
         try(java.io.InputStream in=getTargetContext().getAssets().open(name); java.io.ByteArrayOutputStream out=new java.io.ByteArrayOutputStream()){
             byte[] b=new byte[8192];for(int n;(n=in.read(b))!=-1;)out.write(b,0,n);return new String(out.toByteArray(),StandardCharsets.UTF_8);
@@ -54,6 +94,10 @@ public final class BridgeNavigationInstrumentation extends Instrumentation {
                 String major=version==null?"unknown":version.split("\\.")[0];
                 outcome.putString("webview_major",major.matches("[0-9]{1,4}")?major:"unknown");
             }
+            phase="replacement_gc_probe";
+            replacementGcProbe(outcome,false);
+            phase="retained_gc_control";
+            replacementGcProbe(outcome,true);
             prepare=getTargetContext().getClassLoader().loadClass("com.melodix.music.NativeBridgeNavigation").getMethod("prepare",WebView.class,String.class);
             policy=getTargetContext().getClassLoader().loadClass("com.melodix.music.SpotifyNavigationPolicy").getMethod("handle",WebView.class,Uri.class,boolean.class);
             ui(()->{

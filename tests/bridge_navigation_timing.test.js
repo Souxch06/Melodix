@@ -27,3 +27,9 @@ test('Android fixture covers offline account to player and back with the real pr
  for(const token of ['shouldInterceptRequest','NativeBridgeNavigation','SpotifyNavigationPolicy','login_bridge_absent','player_bridge_visible','return_login_bridge_absent','retry_first_generation','retry_next_generation','retry_stale_generation','repeat_attach_active_document_generation','repeat_attach_gc','native_flight_guard','native_flight_expired','queued_real_retry_invalidation','queued_real_retry_current','bundled_generation_delayed','bundled_retry_dispatch','webview_major','synthetic_grid_baseline','synthetic_grid_scoped_width'])assert.ok(f.includes(token),token);
  assert.doesNotMatch(f,/CookieManager|setCookie|sp_dc|authorization/i);assert.match(s,/overall=passed/);assert.match(s,/svc wifi disable/);assert.match(s,/svc data disable/);assert.match(w,/bridge-navigation:[\s\S]*?bridge_navigation_emulator\.sh/);
 });
+
+test('GC experiment observes actual collection after replacement and includes a strong-reference control',()=>{
+ const f=read('tests/android/BridgeNavigationInstrumentation.java');
+ for(const token of ['replacementGcProbe(outcome,false)','replacementGcProbe(outcome,true)','java.lang.ref.WeakReference','gc_replaced','gc_retained','getSessionGeneration()','old[0].get()==null'])assert.ok(f.includes(token),token);
+ assert.doesNotMatch(f,/CookieManager|setCookie|sp_dc|authorization/i);
+});
