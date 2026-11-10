@@ -953,6 +953,10 @@
 
     move-result v7
 
+    # Fill the available card width and let scaled text wrap; the view already
+    # has a 48dp minimum height. A fixed height clips at large font scales.
+    const/4 v6, -0x1
+    const/4 v7, -0x2
     invoke-direct {v5, v6, v7}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
 
     invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->statusDisclosureGap(Landroid/content/Context;)I
