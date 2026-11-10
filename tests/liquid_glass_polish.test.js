@@ -52,3 +52,12 @@ test('three radial lights cover top, middle and bottom and the mini player clear
  const demo=read('demo/src/com/melodix/demo/DemoActivity.java');const onCreate=demo.slice(demo.indexOf('void onCreate('),demo.indexOf('private void tab('));
  assert.match(onCreate,/nativePlayerArtwork[\s\S]*?nativePlayerLargeArtwork[\s\S]*?setImageResource\(drawable\("native_demo_art"\)\)[\s\S]*?render\("home"\)/);
 });
+
+test('player title uses one line, demo badge is separate, and artwork has accent tint',()=>{
+ const d=read('demo/src/com/melodix/demo/DemoActivity.java');assert.match(d,/"Lecture en cours"/);assert.doesNotMatch(d,/Lecture en cours · démo/);
+ assert.match(d,/setMaxLines\(player\?1:2\)/);assert.match(d,/playerBadge[\s\S]*?native_glass_pill/);
+ const main=read('smali/com/melodix/music/MainActivity.smali');assert.match(main,/native_title_two_lines[\s\S]*?native_title_lines_ready[\s\S]*?setMaxLines\(I\)V/);
+ for(const folder of ['layout','layout-land','layout-sw600dp','layout-sw600dp-land']){const s=read(`res/${folder}/activity_main.xml`);assert.match(s,/outlineAmbientShadowColor="@color\/mel_player_halo"/);assert.match(s,/outlineSpotShadowColor="@color\/mel_player_halo"/);}
+ const progress=read('res/drawable/native_progress_glass.xml');assert.match(progress,/scaleWidth="100%"/);assert.match(progress,/gravity="right\|center_vertical"/);assert.match(progress,/type="radial"/);
+ assert.match(read('res/drawable/native_player_background.xml'),/@color\/mel_player_tint_top/);
+});

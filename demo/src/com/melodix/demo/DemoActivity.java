@@ -51,6 +51,9 @@ public final class DemoActivity extends Activity {
         android.widget.ScrollView player=(android.widget.ScrollView)v("nativePlayerPanel");
         if(player!=null){
             LinearLayout body=(LinearLayout)player.getChildAt(0);
+            TextView playerBadge=label("MODE DÉMO · HORS LIGNE",11,white,true);
+            playerBadge.setPadding(dp(12),dp(6),dp(12),dp(6));playerBadge.setBackgroundResource(drawable("native_glass_pill"));
+            body.addView(playerBadge,0,new LinearLayout.LayoutParams(-2,-2));
             LinearLayout actions=new LinearLayout(this);actions.setGravity(Gravity.CENTER);actions.setPadding(0,dp(18),0,dp(8));
             for(String name:new String[]{"Paroles","File d’attente","Minuterie"}){
                 TextView pill=label(name,12,white,true);pill.setGravity(Gravity.CENTER);pill.setPadding(dp(10),dp(8),dp(10),dp(8));pill.setBackgroundResource(drawable("native_glass_pill"));
@@ -72,8 +75,9 @@ public final class DemoActivity extends Activity {
         show("nativeTabBar",true);
         View settings=v("nativeSettingsButton");if(settings!=null)settings.setSelected(p.equals("settings"));
         tab("nativeHomeTab",p.equals("home"));tab("nativeSearchTab",p.equals("search"));tab("nativeLibraryTab",p.equals("library")||p.equals("playlist"));
-        String title=p.equals("home")?"Accueil":p.equals("search")?"Rechercher":p.equals("library")?"Votre bibliothèque":p.equals("playlist")?"Playlist":p.equals("settings")?"Paramètres":"Lecture en cours · démo";
+        String title=p.equals("home")?"Accueil":p.equals("search")?"Rechercher":p.equals("library")?"Votre bibliothèque":p.equals("playlist")?"Playlist":p.equals("settings")?"Paramètres":"Lecture en cours";
         text("nativeScreenTitle",title);
+        TextView header=t("nativeScreenTitle");if(header!=null)header.setMaxLines(player?1:2);
         LinearLayout content=(LinearLayout)v("nativeContent");content.removeAllViews();
         TextView badge=label("MODE DÉMO · HORS LIGNE",11,white,true);badge.setPadding(dp(12),dp(6),dp(12),dp(6));badge.setBackgroundResource(drawable("native_glass_pill"));
         LinearLayout.LayoutParams badgeParams=new LinearLayout.LayoutParams(-2,-2);badgeParams.setMargins(dp(20),dp(8),0,dp(4));content.addView(badge,badgeParams);

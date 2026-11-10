@@ -650,7 +650,9 @@
                 android:layout_marginBottom="@dimen/mel_player_art_margin_bottom"
                 app:cardBackgroundColor="@color/mel_art_bg"
                 app:cardCornerRadius="@dimen/mel_player_art_radius"
-                app:cardElevation="@dimen/mel_player_art_elevation">
+                app:cardElevation="@dimen/mel_player_art_elevation"
+                android:outlineAmbientShadowColor="@color/mel_player_halo"
+                android:outlineSpotShadowColor="@color/mel_player_halo">
                 <ImageView
                     android:id="@id/nativePlayerLargeArtwork"
                     android:src="@drawable/logo_melodix"

@@ -9373,6 +9373,16 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     if-eqz v6, :screen_done
     check-cast v6, Landroid/widget/TextView;
     invoke-virtual {v6, v4}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    const-string v0, "player"
+    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-eqz v0, :native_title_two_lines
+    const/4 v0, 0x1
+    goto :native_title_lines_ready
+    :native_title_two_lines
+    const/4 v0, 0x2
+    :native_title_lines_ready
+    invoke-virtual {v6, v0}, Landroid/widget/TextView;->setMaxLines(I)V
 
     :screen_done
     # Settings is a header action, not a bottom tab: expose and draw its own
