@@ -278,3 +278,9 @@ test('inactive navigation text and icons clear AA over the composited glass and 
  assert.ok(contrast(p.mel_nav_inactive,bg)>=4.5,`inactive navigation contrast ${contrast(p.mel_nav_inactive,bg).toFixed(2)}:1`);
  const bar=fs.readFileSync(path.join(root,'res/drawable/native_tabbar_glass.xml'),'utf8');assert.match(bar,/@color\/mel_nav_scrim/);
 });
+
+test('darkened dominant player tint supports white and secondary labels at its brightest bound',()=>{
+ const p=readPalette(), helper=fs.readFileSync(path.join(root,'smali/com/melodix/music/NativePlayerTint.smali'),'utf8');
+ assert.match(helper,/mul-int\/lit8 v7, v7, 0x22\s+div-int\/lit8 v7, v7, 0xa/);
+ assert.ok(contrast(p.mel_text_secondary,0x333333)>=4.5);assert.ok(contrast(p.mel_text_primary,0x333333)>=4.5);
+});

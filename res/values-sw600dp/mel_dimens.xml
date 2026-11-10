@@ -196,6 +196,6 @@
     <dimen name="mel_tile_glyph">78.0dip</dimen>
     <dimen name="mel_tile_glyph_out">-18.0dip</dimen>
     <dimen name="mel_tile_glyph_down">-14.0dip</dimen>
-    <dimen name="mel_player_halo_size">376.0dip</dimen>
-    <dimen name="mel_player_halo_radius">188.0dip</dimen>
+    <dimen name="mel_player_halo_size">408.0dip</dimen>
+    <dimen name="mel_player_halo_radius">204.0dip</dimen>
 </resources>

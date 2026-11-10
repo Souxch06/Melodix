@@ -70,21 +70,21 @@
     goto :sample_y
     :samples_done
     if-eqz v10, :fallback
-    # Darken to 40% so white player labels remain readable on bright covers.
+    # Darken to 20% to retain contrast for secondary as well as white labels.
     ushr-int/lit8 v7, v11, 0x8
     and-int/lit8 v7, v7, 0xf
     mul-int/lit8 v7, v7, 0x22
-    div-int/lit8 v7, v7, 0x5
+    div-int/lit8 v7, v7, 0xa
     shl-int/lit8 v7, v7, 0x10
     ushr-int/lit8 v8, v11, 0x4
     and-int/lit8 v8, v8, 0xf
     mul-int/lit8 v8, v8, 0x22
-    div-int/lit8 v8, v8, 0x5
+    div-int/lit8 v8, v8, 0xa
     shl-int/lit8 v8, v8, 0x8
     or-int/2addr v7, v8
     and-int/lit8 v8, v11, 0xf
     mul-int/lit8 v8, v8, 0x22
-    div-int/lit8 v8, v8, 0x5
+    div-int/lit8 v8, v8, 0xa
     or-int/2addr v7, v8
     const/high16 v8, -0x1000000
     or-int/2addr v7, v8

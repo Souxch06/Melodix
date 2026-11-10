@@ -232,6 +232,6 @@
     <dimen name="mel_header_auto_step">1sp</dimen>
     <dimen name="mel_search_icon_gap">8dp</dimen>
     <dimen name="mel_play_elevation">8dp</dimen>
-    <dimen name="mel_player_halo_size">288.0dip</dimen>
-    <dimen name="mel_player_halo_radius">144.0dip</dimen>
+    <dimen name="mel_player_halo_size">320.0dip</dimen>
+    <dimen name="mel_player_halo_radius">160.0dip</dimen>
 </resources>
