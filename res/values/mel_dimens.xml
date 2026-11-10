@@ -135,7 +135,7 @@
     <dimen name="mel_player_pad_top">10.0dip</dimen>
     <dimen name="mel_player_pad_bottom">18.0dip</dimen>
     <dimen name="mel_player_art">272.0dip</dimen>
-    <dimen name="mel_player_art_radius">16.0dip</dimen>
+    <dimen name="mel_player_art_radius">36.0dip</dimen>
     <dimen name="mel_player_art_elevation">18.0dip</dimen>
     <dimen name="mel_player_art_margin_top">8.0dip</dimen>
     <dimen name="mel_player_art_margin_bottom">22.0dip</dimen>
@@ -225,4 +225,11 @@
     <dimen name="mel_tile_glyph_down">-10.0dip</dimen>
     <dimen name="mel_settings_switch_track_width">48.0dip</dimen>
     <dimen name="mel_settings_switch_track_height">24.0dip</dimen>
+    <dimen name="mel_liquid_radius">18.0dip</dimen>
+    <dimen name="mel_liquid_inset">4.0dip</dimen>
+    <dimen name="mel_settings_outer_inset">20.0dip</dimen>
+    <dimen name="mel_header_auto_min">16sp</dimen>
+    <dimen name="mel_header_auto_step">1sp</dimen>
+    <dimen name="mel_search_icon_gap">8dp</dimen>
+    <dimen name="mel_play_elevation">8dp</dimen>
 </resources>

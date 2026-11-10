@@ -32,7 +32,7 @@
 
     sput v0, Lcom/melodix/music/MelColors;->accent:I
 
-    const v0, 0xff8b5cf6
+    const v0, 0xff7c3aed
 
     sput v0, Lcom/melodix/music/MelColors;->accentDeep:I
 
@@ -60,7 +60,7 @@
 
     sput v0, Lcom/melodix/music/MelColors;->textSecondary:I
 
-    const v0, 0xff949cab
+    const v0, 0xffa1a1b5
 
     sput v0, Lcom/melodix/music/MelColors;->textTertiary:I
 
@@ -68,7 +68,7 @@
 
     sput v0, Lcom/melodix/music/MelColors;->warning:I
 
-    const v0, 0x33ffffff
+    const v0, 0x24ffffff
 
     sput v0, Lcom/melodix/music/MelColors;->stroke:I
 
@@ -76,23 +76,23 @@
 
     sput v0, Lcom/melodix/music/MelColors;->strokeAccent:I
 
-    const v0, 0x33a78bfa
+    const v0, 0x337c3aed
 
     sput v0, Lcom/melodix/music/MelColors;->glow:I
 
-    const v0, 0x1affffff
+    const v0, 0x12ffffff
 
     sput v0, Lcom/melodix/music/MelColors;->glassFill:I
 
-    const v0, 0x40ffffff
+    const v0, 0x24ffffff
 
     sput v0, Lcom/melodix/music/MelColors;->glassStroke:I
 
-    const v0, 0xb3141224
+    const v0, 0x12ffffff
 
     sput v0, Lcom/melodix/music/MelColors;->glassTabbar:I
 
-    const v0, 0x26ffffff
+    const v0, 0x12ffffff
 
     sput v0, Lcom/melodix/music/MelColors;->glassCard:I
 

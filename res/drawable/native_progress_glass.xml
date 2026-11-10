@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android"><item android:id="@android:id/background"><shape><corners android:radius="3dp"/><solid android:color="@color/mel_glass_edge"/></shape></item><item android:id="@android:id/progress"><clip><shape><corners android:radius="3dp"/><gradient android:angle="0" android:startColor="@color/mel_gradient_start" android:endColor="@color/mel_gradient_end"/></shape></clip></item></layer-list>

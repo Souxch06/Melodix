@@ -9249,6 +9249,24 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     :set_back_button
     invoke-virtual {v2, v3}, Landroid/view/View;->setVisibility(I)V
 
+    # Hide the avatar's CardView, not just its ImageView, when back is shown.
+    const v2, 0x7f090249
+    invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v2
+    if-eqz v2, :player_panel
+    invoke-virtual {v2}, Landroid/view/View;->getParent()Landroid/view/ViewParent;
+    move-result-object v2
+    instance-of v0, v2, Landroid/view/View;
+    if-eqz v0, :player_panel
+    check-cast v2, Landroid/view/View;
+    if-eqz v1, :show_native_avatar
+    const/16 v3, 0x8
+    goto :set_native_avatar
+    :show_native_avatar
+    const/4 v3, 0x0
+    :set_native_avatar
+    invoke-virtual {v2, v3}, Landroid/view/View;->setVisibility(I)V
+
     :player_panel
     const-string v0, "player"
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
@@ -9526,7 +9544,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-virtual {v1, v0}, Landroid/view/View;->setSelected(Z)V
     if-eqz v0, :native_tab_inactive
     sget v2, Lcom/melodix/music/MelColors;->textPrimary:I
-    sget v4, Lcom/melodix/music/MelColors;->accent:I
+    sget v4, Lcom/melodix/music/MelColors;->textPrimary:I
     goto :native_tab_highlight
 
     :native_tab_inactive
@@ -9544,14 +9562,8 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     move-result-object v4
     invoke-virtual {v1, v4}, Landroid/widget/TextView;->setCompoundDrawableTintList(Landroid/content/res/ColorStateList;)V
     if-eqz v0, :native_tab_restore_ripple
-    # MEL-BUG-058/059: active tab gets a soft accent pill (glow) behind icon+label.
-    new-instance v2, Landroid/graphics/drawable/GradientDrawable;
-    invoke-direct {v2}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
-    sget v3, Lcom/melodix/music/MelColors;->glow:I
-    invoke-virtual {v2, v3}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
-    const/high16 v3, 0x41c00000
-    invoke-virtual {v2, v3}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
-    invoke-virtual {v1, v2}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
+    const-string v2, "native_tab_active"
+    invoke-static {p0, v1, v2}, Lcom/melodix/music/NativeUiRowFactory;->applyDrawableBackground(Landroid/content/Context;Landroid/view/View;Ljava/lang/String;)V
     goto :native_tab_style_done
 
     :native_tab_restore_ripple
@@ -11063,6 +11075,24 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     const-string v2, ""
     invoke-virtual {v4, v5, v2}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
     invoke-virtual {v1, v4}, Lorg/json/JSONArray;->put(Ljava/lang/Object;)Lorg/json/JSONArray;
+    new-instance v4, Lorg/json/JSONObject;
+    invoke-direct {v4}, Lorg/json/JSONObject;-><init>()V
+    const-string v5, "section"
+    const-string v2, "Informations sur Melodix"
+    invoke-virtual {v4, v5, v2}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
+    const-string v5, "title"
+    const-string v2, "Copier le diagnostic"
+    invoke-virtual {v4, v5, v2}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
+    const-string v5, "subtitle"
+    const-string v2, "Détails techniques pour un rapport de problème"
+    invoke-virtual {v4, v5, v2}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
+    const-string v5, "settingValue"
+    const-string v2, "Copier"
+    invoke-virtual {v4, v5, v2}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
+    const-string v5, "uri"
+    const-string v2, "melodix:action:copy-diagnostic"
+    invoke-virtual {v4, v5, v2}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
+    invoke-virtual {v1, v4}, Lorg/json/JSONArray;->put(Ljava/lang/Object;)Lorg/json/JSONArray;
     invoke-virtual {v1}, Lorg/json/JSONArray;->toString()Ljava/lang/String;
     move-result-object v0
     :try_end_about
@@ -11086,6 +11116,15 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-virtual {p1}, Ljava/lang/String;->isEmpty()Z
     move-result v0
     if-nez v0, :native_row_click_done
+
+    const-string v2, "melodix:action:copy-diagnostic"
+    invoke-virtual {p1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v3
+    if-eqz v3, :native_row_not_diagnostic
+    const/4 v2, 0x0
+    invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->onNativeDiagCopyClick(Landroid/view/View;)V
+    return-void
+    :native_row_not_diagnostic
 
     # State rows on Home are real actions, dispatched natively: an error card
     # either retries the library fetch or opens Settings so the user can

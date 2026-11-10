@@ -294,7 +294,7 @@
     # shows nothing at all can be told apart from an APK that never reaches
     # application code.
     :toast_alive
-    const-string v1, "Melodix preview diag-5 : actif"
+    goto :done_toast
 
     :toast_show
     const/4 v2, 0x1

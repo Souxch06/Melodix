@@ -353,6 +353,12 @@
     invoke-static {p0}, Lcom/melodix/music/NativeUiMetrics;->settingsRowGap(Landroid/content/Context;)I
     move-result v1
     iput v1, v0, Landroid/view/ViewGroup$MarginLayoutParams;->bottomMargin:I
+    const-string v1, "mel_settings_outer_inset"
+    const/16 v3, 0x14
+    invoke-static {p0, v1, v3}, Lcom/melodix/music/NativeUiRowFactory;->metric(Landroid/content/Context;Ljava/lang/String;I)I
+    move-result v1
+    iput v1, v0, Landroid/view/ViewGroup$MarginLayoutParams;->leftMargin:I
+    iput v1, v0, Landroid/view/ViewGroup$MarginLayoutParams;->rightMargin:I
     invoke-virtual {v2, v0}, Landroid/view/View;->setLayoutParams(Landroid/view/ViewGroup$LayoutParams;)V
 
     invoke-virtual {v7}, Ljava/lang/String;->isEmpty()Z

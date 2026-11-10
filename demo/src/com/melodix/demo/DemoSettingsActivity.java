@@ -19,7 +19,7 @@ public final class DemoSettingsActivity extends Activity {
         getWindow().setStatusBarColor(Color.rgb(11,11,20));
         getWindow().setNavigationBarColor(Color.rgb(11,11,20));
         LinearLayout root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(24),dp(32),dp(24),dp(24)); root.setBackgroundColor(Color.rgb(11,11,20));
+        root.setPadding(dp(24),dp(32),dp(24),dp(24)); root.setBackgroundResource(getResources().getIdentifier("native_shell_background","drawable",getPackageName()));
         setContentView(root);
         TextView title = new TextView(this); title.setText("Paramètres"); title.setTextColor(Color.WHITE);
         title.setTextSize(28); title.setTypeface(null,Typeface.BOLD); root.addView(title);
@@ -31,7 +31,7 @@ public final class DemoSettingsActivity extends Activity {
         version.setText("Version de Melodix\n" + name + " (" + code + ")");
         version.setContentDescription("Version de Melodix " + name + " " + code);
         version.setPadding(dp(18),dp(18),dp(18),dp(18)); version.setMinHeight(dp(64)); version.setGravity(Gravity.CENTER_VERTICAL);
-        GradientDrawable card = new GradientDrawable(); card.setColor(0xff201b30); card.setCornerRadius(dp(16)); card.setStroke(dp(1),0x66a78bfa); version.setBackground(card);
+        version.setBackgroundResource(getResources().getIdentifier("native_glass_surface","drawable",getPackageName()));
         version.setOnLongClickListener(v -> { startActivity(new Intent(this,DemoActivity.class)); return true; });
         root.addView(version, new LinearLayout.LayoutParams(-1,-2));
         TextView open = new TextView(this); open.setText("Ouvrir Melodix"); open.setTextColor(0xffa78bfa);

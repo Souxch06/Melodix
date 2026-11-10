@@ -1,18 +1,2 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- MEL-BUG-064: white round play button with accent ripple. -->
-<ripple xmlns:android="http://schemas.android.com/apk/res/android"
-    android:color="@color/mel_accent_glow">
-    <item android:id="@android:id/mask">
-        <shape android:shape="oval">
-            <solid android:color="@color/mel_text_primary" />
-        </shape>
-    </item>
-    <item>
-        <shape android:shape="oval">
-            <gradient
-                android:angle="270"
-                android:startColor="@color/mel_btn_light_top"
-                android:endColor="@color/mel_btn_light_bottom" />
-        </shape>
-    </item>
-</ripple>
+<ripple xmlns:android="http://schemas.android.com/apk/res/android" android:color="@color/mel_glass_stroke"><item><shape android:shape="oval"><gradient android:angle="0" android:startColor="@color/mel_gradient_start" android:endColor="@color/mel_gradient_end"/></shape></item><item android:id="@android:id/mask"><shape android:shape="oval"><solid android:color="@color/mel_mask"/></shape></item></ripple>

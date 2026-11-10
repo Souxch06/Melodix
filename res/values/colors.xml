@@ -105,26 +105,37 @@
     <color name="mel_surface_btn">#D9232D36</color>
     <color name="mel_surface_btn_top">#E628323C</color>
     <color name="mel_surface_alt">#2a2a2a</color>
+    <!-- Liquid glass tokens: alpha is intentional; no view-level blur. -->
+    <color name="mel_glass_surface">#12FFFFFF</color>
+    <color name="mel_glass_edge">#24FFFFFF</color>
+    <color name="mel_glass_reflection">#2EFFFFFF</color>
+    <color name="mel_glass_clear">#00FFFFFF</color>
+    <color name="mel_glow_left">#BB3B1D7A</color>
+    <color name="mel_glow_right">#AA6B1A55</color>
+    <color name="mel_gradient_start">#7C3AED</color>
+    <color name="mel_gradient_end">#DB2777</color>
+    <color name="mel_glass_input">#44110B20</color>
+    <color name="mel_demo_art_blue">#342C91</color>
     <!-- accents -->
     <color name="mel_accent">#a78bfa</color>
-    <color name="mel_accent_deep">#8b5cf6</color>
-    <color name="mel_accent_glow">#33a78bfa</color>
+    <color name="mel_accent_deep">#7C3AED</color>
+    <color name="mel_accent_glow">#337C3AED</color>
     <!-- text and icons -->
     <color name="mel_text_primary">#ffffffff</color>
     <color name="mel_text_secondary">#bfc0cb</color>
-    <color name="mel_text_tertiary">#949cab</color>
+    <color name="mel_text_tertiary">#A1A1B5</color>
     <color name="mel_text_dim">#aaaaaa</color>
     <color name="mel_warning">#FF6B6B</color>
     <color name="mel_icon_muted">#6e7684</color>
     <!-- strokes and technical masks -->
-    <color name="mel_stroke">#33FFFFFF</color>
+    <color name="mel_stroke">#24FFFFFF</color>
     <color name="mel_stroke_accent">#2ea78bfa</color>
     <color name="mel_mask">#ffffffff</color>
     <!-- MEL-BUG-039: glass palette (Apple-like translucent surfaces + hairline strokes) -->
-    <color name="mel_glass_fill">#1AFFFFFF</color>
-    <color name="mel_glass_stroke">#40FFFFFF</color>
-    <color name="mel_glass_tabbar">#B3141224</color>
-    <color name="mel_glass_card">#26FFFFFF</color>
+    <color name="mel_glass_fill">#12FFFFFF</color>
+    <color name="mel_glass_stroke">#24FFFFFF</color>
+    <color name="mel_glass_tabbar">#12FFFFFF</color>
+    <color name="mel_glass_card">#12FFFFFF</color>
     <!-- gradient roles -->
     <color name="mel_shell_top">#150c2b</color>
     <color name="mel_shell_mid">#0B0B14</color>
@@ -138,7 +149,7 @@
     <color name="mel_btn_light_top">#ffffffff</color>
     <color name="mel_btn_light_bottom">#e8e8ee</color>
     <!-- light fields -->
-    <color name="mel_search_bg">#f2f4f6</color>
+    <color name="mel_search_bg">#44110B20</color>
     <!-- splash and artwork placeholders -->
     <color name="mel_splash_card">#120f22</color>
     <color name="mel_art_bg">#282828</color>
