@@ -1,0 +1,101 @@
+name: Build and capture offline demo preview
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Full commit SHA to build and validate
+        required: true
+        type: string
+      release_tag:
+        description: Build-only preview artifact name
+        required: true
+        type: string
+        default: v1.2.2-test.149-preview
+permissions:
+  contents: read
+  actions: read
+jobs:
+  build:
+    uses: ./.github/workflows/preview-apk.yml
+    with:
+      source_ref: ${{ inputs.source_ref }}
+      release_tag: ${{ inputs.release_tag }}
+      build_only: true
+      demo_build: true
+    secrets: inherit
+  capture:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [phone, tablet]
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.source_ref }}
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4.0.4
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: ${{ needs.build.outputs.apk_name }}
+          path: target-apk
+      - run: sudo chmod 666 /dev/kvm
+      - name: Install the exact preview and capture offline demo screens
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
+          script: |
+            set -euo pipefail
+            adb install -r "target-apk/${{ needs.build.outputs.apk_name }}"
+            python3 scripts/capture_demo_emulator.py '${{ matrix.profile }}' 'captures/${{ matrix.profile }}'
+      - name: Upload capture evidence
+        if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: demo-captures-${{ matrix.profile }}
+          path: captures/${{ matrix.profile }}
+          if-no-files-found: warn
+  bundle:
+    needs: [build, capture]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.source_ref }}
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: ${{ needs.build.outputs.apk_name }}
+          path: bundle
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          pattern: demo-captures-*
+          path: bundle/captures
+      - name: Verify and package all captures alongside the exact APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          for p in phone tablet; do
+            for screen in accueil recherche bibliotheque playlist reglages lecteur mini-lecteur; do
+              test -s "bundle/captures/demo-captures-$p/$screen.png"
+            done
+          done
+          cp docs/audits/partie-b-etat-provisoire.md bundle/specification-vs-realise.md
+          sha256sum "bundle/${{ needs.build.outputs.apk_name }}" > bundle/SHA256SUMS.txt
+          echo "source=${{ inputs.source_ref }}" > bundle/build-info.txt
+          echo "versionCode=${{ needs.build.outputs.version_code }}" >> bundle/build-info.txt
+      - uses: actions/upload-artifact@v4.6.2
+        with:
+          name: Melodix-demo-preview-with-captures
+          path: bundle
+          if-no-files-found: error
+          retention-days: 14
