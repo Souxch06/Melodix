@@ -30,7 +30,7 @@ jobs:
       release_tag: ${{ inputs.release_tag }}
       build_only: true
       demo_build: true
-      version_code_base: 1021485
+      version_code_base: 1021285
     secrets: inherit
   capture:
     needs: build
@@ -63,10 +63,7 @@ jobs:
           profile: pixel_2
           disable-animations: true
           emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
-          script: |
-            set -euo pipefail
-            adb install -r "target-apk/${{ needs.build.outputs.apk_name }}"
-            python3 scripts/capture_demo_emulator.py '${{ matrix.profile }}' 'captures/${{ matrix.profile }}'
+          script: bash scripts/run_demo_capture.sh "target-apk/${{ needs.build.outputs.apk_name }}" "${{ matrix.profile }}"
       - name: Upload capture evidence
         if: always()
         uses: actions/upload-artifact@v4.6.2
