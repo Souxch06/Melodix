@@ -188,3 +188,15 @@ jobs:
                   assert (w<h if profile=='phone' else w>h),(str(p),w,h)
                   print(f'::notice title=Demo screenshot::{profile}/{screen}={w}x{h}')
           PY
+      - name: Report the recorded real no-session observations
+        run: |
+          python3 - <<'PY'
+          import json, pathlib
+          for profile in ('phone', 'tablet'):
+              folder = pathlib.Path('bundle/captures/demo-captures-' + profile + '/real-no-session')
+              data = json.loads((folder / 'observation.json').read_text())
+              for key in ('error', 'settings'):
+                  print(f'::notice title=Real no-session {profile}::{key}={data[key]}')
+              for image in ('demarrage-immediat.png', 'etat-observe.png', 'erreur-observee.png', 'reglages-reels.png'):
+                  print(f'::notice title=Real capture {profile}::{image}={"present" if (folder / image).is_file() else "not observed"}')
+          PY

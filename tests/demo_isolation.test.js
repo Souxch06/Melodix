@@ -74,3 +74,9 @@ test('real no-session evidence records observed surfaces and never bypasses the 
  assert.doesNotMatch(s,/pm[ '",]+clear|evaluateJavascript|__sfNative|putExtra/);
  assert.match(w,/capture_real_no_session\.py/);assert.match(w,/real-no-session\/observation\.json/);
 });
+
+test('existing evidence can report observed real surfaces without another preview build',()=>{
+ const w=read('.github/workflows/demo-preview.yml');const evidence=w.slice(w.indexOf('  validate-captures:'));
+ assert.match(evidence,/inputs\.evidence_run != '0'/);assert.match(evidence,/Report the recorded real no-session observations/);assert.match(evidence,/observation\.json/);
+ assert.doesNotMatch(evidence,/preview-apk\.yml|prepare_demo_preview/);
+});
