@@ -17,4 +17,10 @@ grep -Fq 'INSTRUMENTATION_RESULT: overall=passed' "$RUNNER_TEMP/bridge-timing.tx
 major="$(sed -nE 's/^INSTRUMENTATION_RESULT: webview_major=([0-9]{1,4}|unknown)$/\1/p' "$RUNNER_TEMP/bridge-timing.txt" | head -1)"
 [[ -n "$major" ]] || major=unknown
 echo "::notice title=Offline WebView version::major=$major"
+# Export only fixed enum outcomes, never an exception or page content.
+for key in gc_replaced_collected gc_replaced_result gc_retained_collected gc_retained_result; do
+  value="$(sed -nE "s/^INSTRUMENTATION_RESULT: ${key}=(yes|no|number|null|undefined|exception|boolean|string|object)$/\1/p" "$RUNNER_TEMP/bridge-timing.txt" | head -1)"
+  [[ -n "$value" ]] || { echo "::error title=Bridge collection probe::missing $key"; exit 1; }
+  echo "::notice title=Bridge collection probe::$key=$value"
+done
 echo '::notice title=Synthetic bridge navigation::account interface absent; player interface available; account return interface absent; actual retry generation checked without network; no real Spotify requests'

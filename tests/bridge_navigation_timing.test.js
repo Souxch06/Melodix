@@ -33,3 +33,6 @@ test('GC experiment observes actual collection after replacement and includes a 
  for(const token of ['replacementGcProbe(outcome,false)','replacementGcProbe(outcome,true)','java.lang.ref.WeakReference','gc_replaced','gc_retained','getSessionGeneration()','old[0].get()==null'])assert.ok(f.includes(token),token);
  assert.doesNotMatch(f,/CookieManager|setCookie|sp_dc|authorization/i);
 });
+test('GC probe publishes only fixed categories and fails if no result is available',()=>{
+ const s=read('scripts/bridge_navigation_emulator.sh');assert.match(s,/gc_replaced_collected gc_replaced_result gc_retained_collected gc_retained_result/);assert.match(s,/yes\|no\|number\|null\|undefined\|exception\|boolean\|string\|object/);assert.match(s,/missing \$key/);
+});
