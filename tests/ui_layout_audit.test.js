@@ -539,7 +539,7 @@ test('the legacy btnSettings is gone by default and re-shown only in the web-own
     'the native shell must still hide it (GONE)');
 });
 
-test('every green QA run publishes its own test APK as a pre-release', () => {
+test('only a manually requested green QA run may publish a test APK as a pre-release', () => {
   // Permanent delivery rule: a sufficiently complete testable state gets an
   // installable TEST APK, traceable to one commit and one CI run. The release
   // must be a pre-release (never production), must run only when the build,
@@ -552,7 +552,7 @@ test('every green QA run publishes its own test APK as a pre-release', () => {
   const jobAt = flat.indexOf('release-test:');
   assert.ok(jobAt !== -1, 'the workflow must contain a release-test job');
   const job = flat.slice(jobAt);
-  assert.match(job, /if: success\(\)/, 'a red build/tests/walk must never publish');
+  assert.match(job, /if: \$\{\{ success\(\) && github\.event_name == 'workflow_dispatch' \}\}/, 'only a manually requested green build/tests/walk may publish');
   assert.match(job, /needs:\s*\n\s*- build-qa-apk\s*\n\s*- unit-tests\s*\n\s*- walk-qa/, 'gated on build + suite + both walks');
   assert.match(job, /permissions:\s*\n\s*contents: write/);
   assert.match(job, /melodix-ui-metrics-apk-\$\{\{ github\.run_id \}\}/, 'the APK of THIS run is attached');
@@ -651,7 +651,7 @@ test('workflow D: publish-captures exits cleanly (0, no commit) when no capture 
 test('workflow E: the test release gates on real build+tests+walks, cites the cert fingerprint and requires the 4 real captures', () => {
   const raw = fs.readFileSync(path.join(root, '.github', 'workflows', 'ui-qa.yml'), 'utf8');
   const flat = raw.replace(/\\(.)/g, '$1');
-  assert.match(flat, /release-test:\n[\s\S]*?needs:\n    - build-qa-apk\n    - unit-tests\n    - walk-qa\n    if: success\(\)/, 'release depends on build + unit suite + both UI walks and only on success');
+  assert.match(flat, /release-test:\n[\s\S]*?needs:\n    - build-qa-apk\n    - unit-tests\n    - walk-qa\n    if: \$\{\{ success\(\) && github\.event_name == 'workflow_dispatch' \}\}/, 'release depends on build + unit suite + both UI walks and manual success');
   assert.match(flat, /--prerelease/, 'test releases stay pre-releases');
   assert.match(flat, /expected 4 QA captures, found \$captures; no release is published"; exit 1/, 'no release without the 4 real captures');
   assert.match(flat, /Empreinte SHA-256 du certificat de signature/, 'the cert fingerprint is published in the notes');

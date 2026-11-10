@@ -30,6 +30,7 @@ jobs:
       release_tag: ${{ inputs.release_tag }}
       build_only: true
       demo_build: true
+      version_code_base: 1021485
     secrets: inherit
   capture:
     needs: build
