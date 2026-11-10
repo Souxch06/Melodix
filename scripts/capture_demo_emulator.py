@@ -23,7 +23,9 @@ def tap(**attrs):
     x,y=point(find(**attrs));adb('shell','input','tap',x,y);settle()
 def snap(name,required):
     root=tree(); values=' '.join((n.get('text','')+' '+n.get('content-desc','')) for n in root.iter('node'))
-    if required not in values: raise RuntimeError(name+' missing expected text '+required)
+    if required not in values:
+        summary=' | '.join((n.get('resource-id','').split('/')[-1] + '=' + n.get('text','')[:45]) for n in root.iter('node') if n.get('text'))
+        raise RuntimeError(name+' missing '+required+'; visible='+summary[:420])
     png=adb('exec-out','screencap','-p',binary=True)
     if not png.startswith(b'\x89PNG\r\n\x1a\n'): raise RuntimeError('bad PNG')
     open(os.path.join(out,name+'.png'),'wb').write(png)
