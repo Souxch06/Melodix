@@ -535,7 +535,7 @@
 .end method
 
 .method public static details()Ljava/lang/String;
-    .locals 3
+    .locals 4
     new-instance v0, Ljava/lang/StringBuilder;
     invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
     sget-object v1, Lcom/melodix/music/NativeSessionGate;->lastReason:Ljava/lang/String;
@@ -561,13 +561,13 @@
     move-result-object v0
     invoke-static {v0}, Lcom/melodix/music/NativeSessionAttemptDiagnostic;->appendTo(Ljava/lang/String;)Ljava/lang/String;
     move-result-object v0
-    sget-object v1, Lcom/melodix/music/NativeSessionGate;->owner:Ljava/lang/ref/WeakReference;
-    if-eqz v1, :details_done
-    invoke-virtual {v1}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
-    move-result-object v1
-    check-cast v1, Landroid/content/Context;
-    if-eqz v1, :details_done
-    invoke-static {v0, v1}, Lcom/melodix/music/NativeSessionBuildInfo;->append(Ljava/lang/String;Landroid/content/Context;)Ljava/lang/String;
+    sget-object v3, Lcom/melodix/music/NativeSessionGate;->owner:Ljava/lang/ref/WeakReference;
+    if-eqz v3, :details_done
+    invoke-virtual {v3}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+    move-result-object v3
+    check-cast v3, Landroid/content/Context;
+    if-eqz v3, :details_done
+    invoke-static {v0, v3}, Lcom/melodix/music/NativeSessionBuildInfo;->append(Ljava/lang/String;Landroid/content/Context;)Ljava/lang/String;
     move-result-object v0
     :details_done
     return-object v0
