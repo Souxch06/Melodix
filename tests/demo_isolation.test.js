@@ -43,3 +43,7 @@ test('capture workflow uses one exact APK and requires all screens in both profi
  assert.match(s,/svc','wifi','disable/);assert.match(s,/svc','data','disable/);assert.match(s,/user_rotation',rotation/);
  for(const screen of ['accueil','recherche','bibliotheque','playlist','reglages','lecteur','mini-lecteur'])assert.ok(s.includes(`snap('${screen}'`),screen);
 });
+
+test('demo hides the native launch overlay before enabling the native shell',()=>{
+ const s=read('demo/src/com/melodix/demo/DemoActivity.java');assert.match(s,/show\("splashOverlay",false\);show\("nativeRoot",true\)/);
+});

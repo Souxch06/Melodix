@@ -38,7 +38,7 @@ public final class DemoActivity extends Activity {
         int layout=getResources().getIdentifier("activity_main","layout",getPackageName());
         if(layout==0)throw new IllegalStateException("Missing native shell layout");
         setContentView(layout);
-        show("hScrollView",false);show("nativeRoot",true);
+        show("hScrollView",false);show("splashOverlay",false);show("nativeRoot",true);
         text("nativePlayerTitle","Lueurs du soir");text("nativePlayerArtist","Les Ondes Fictives");
         text("nativePlayerLargeTitle","Lueurs du soir");text("nativePlayerLargeArtist","Les Ondes Fictives · Album imaginaire");
         text("nativePlayerPositionText","1:24");text("nativePlayerDurationText","3:42");
