@@ -1168,7 +1168,7 @@
     const/high16 v2, 0x41700000
     invoke-virtual {v0, v2}, Landroid/widget/TextView;->setTextSize(F)V
     if-eqz p3, :home_status_action_secondary
-    sget v3, Lcom/melodix/music/MelColors;->background:I
+    sget v3, Lcom/melodix/music/MelColors;->textPrimary:I
     const-string v2, "native_button_green"
     goto :home_status_action_color_ready
     :home_status_action_secondary

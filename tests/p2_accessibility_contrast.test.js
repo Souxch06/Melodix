@@ -246,3 +246,25 @@ test('the launch background uses only resources that already exist', () => {
   assert.ok(logoCandidates.some((file) => fs.existsSync(file)),
     'le logo reference existe deja (aucune nouvelle image)');
 });
+
+// Primary gradient labels must be legible across the entire interpolated ramp,
+// not just at one endpoint. Keep the WCAG normal-text 4.5:1 threshold.
+test('white primary labels retain 4.5:1 across the complete accent gradient', () => {
+  const p = readPalette();
+  const start = p.mel_gradient_start, end = p.mel_gradient_end;
+  for (let i = 0; i <= 255; i++) {
+    let color = 0;
+    for (const shift of [16, 8, 0]) {
+      const a = (start >> shift) & 255, b = (end >> shift) & 255;
+      color |= Math.round(a + (b - a) * i / 255) << shift;
+    }
+    const ratio = contrast(p.mel_text_primary, color);
+    assert.ok(ratio >= 4.5, `gradient step ${i}: ${ratio.toFixed(3)}:1`);
+  }
+  const sources = [
+    ['smali/com/melodix/music/NativeHomeShelfRenderer.smali', /MelColors;->textPrimary:I\s*\n\s*const-string v2, "native_button_green"/],
+    ['smali/com/melodix/music/NativeStateView.smali', /MelColors;->textPrimary:I[\s\S]*?setTextColor\(I\)V[\s\S]*?"native_button_green"/],
+    ['smali/com/melodix/music/NativeUiRowFactory.smali', /MelColors;->textPrimary:I\s*\n\s*invoke-virtual \{v5, v6\}, Landroid\/widget\/TextView;->setTextColor\(I\)V[\s\S]*?"native_button_green"/]
+  ];
+  for (const [file, pattern] of sources) assert.match(fs.readFileSync(path.join(root, file), 'utf8'), pattern, file);
+});

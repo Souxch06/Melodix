@@ -205,7 +205,7 @@
     const/4 v3, 0x0
     const/4 v4, 0x1
     invoke-virtual {v1, v3, v4}, Landroid/widget/TextView;->setTypeface(Landroid/graphics/Typeface;I)V
-    sget v3, Lcom/melodix/music/MelColors;->background:I
+    sget v3, Lcom/melodix/music/MelColors;->textPrimary:I
     invoke-virtual {v1, v3}, Landroid/widget/TextView;->setTextColor(I)V
     const-string v3, "mel_row_title"
     const/high16 v4, 0x41700000

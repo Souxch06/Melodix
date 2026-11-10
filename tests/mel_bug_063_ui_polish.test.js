@@ -122,8 +122,8 @@ test('MEL-BUG-063c: home card action buttons are 15sp, secondary label softened'
     'action label 15sp');
   assert.match(action, /:home_status_action_secondary\s*\n\s*sget v3, Lcom\/melodix\/music\/MelColors;->textSecondary:I/,
     'secondary button label in textSecondary');
-  assert.match(action, /sget v3, Lcom\/melodix\/music\/MelColors;->background:I\s*\n\s*const-string v2, "native_button_green"/,
-    'primary button unchanged (green pill, dark label)');
+  assert.match(action, /sget v3, Lcom\/melodix\/music\/MelColors;->textPrimary:I\s*\n\s*const-string v2, "native_button_green"/,
+    'primary gradient button has white text');
 });
 
 test('MEL-BUG-063c: header settings gear is accent-tinted in every layout variant', () => {

@@ -425,7 +425,7 @@
     const-string v6, "▶  Lire"
     invoke-virtual {v5, v6}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
     invoke-static {v5, p0}, Lcom/melodix/music/NativeUiMetrics;->applyBannerAction(Landroid/widget/TextView;Landroid/content/Context;)V
-    const v6, -0xededee
+    sget v6, Lcom/melodix/music/MelColors;->textPrimary:I
     invoke-virtual {v5, v6}, Landroid/widget/TextView;->setTextColor(I)V
     const/4 v6, 0x0
     const/4 v7, 0x1
