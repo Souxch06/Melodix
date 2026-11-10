@@ -21,3 +21,10 @@ test('phase1 white button text and primary/secondary copy meet AA on defined opa
  for(const bg of ['7C3AED','DB2777'])assert.ok(contrast('FFFFFF',bg)>=4.5,bg);
  for(const fg of ['F5F5FA','A1A1B5'])assert.ok(contrast(fg,'0B0B14')>=4.5,fg);
 });
+
+test('technical details and copied output include locally installed build identity without accessing session data',()=>{
+ const gate=read('smali/com/melodix/music/NativeSessionGate.smali'),info=read('smali/com/melodix/music/NativeSessionBuildInfo.smali');
+ assert.match(gate,/NativeSessionAttemptDiagnostic;->appendTo[\s\S]*?NativeSessionBuildInfo;->append/);
+ for(const v of ['getPackageInfo','getLongVersionCode','versionCode:I','versionName:Ljava/lang/String;','VersionCode=','build='])assert.ok(info.includes(v),v);
+ assert.match(info,/\[A-Za-z0-9\._-\]\{1,48\}/);assert.doesNotMatch(info,/Cookie|WebStorage|loadUrl|Authorization|token/i);
+});

@@ -94,6 +94,13 @@ public final class BridgeNavigationInstrumentation extends Instrumentation {
                 String major=version==null?"unknown":version.split("\\.")[0];
                 outcome.putString("webview_major",major.matches("[0-9]{1,4}")?major:"unknown");
             }
+            phase="installed_build_identity";
+            android.content.pm.PackageInfo installed=getTargetContext().getPackageManager().getPackageInfo(getTargetContext().getPackageName(),0);
+            long installedCode=android.os.Build.VERSION.SDK_INT>=28?installed.getLongVersionCode():installed.versionCode;
+            Class<?> buildInfo=getTargetContext().getClassLoader().loadClass("com.melodix.music.NativeSessionBuildInfo");
+            String identity=(String)buildInfo.getMethod("append",String.class,android.content.Context.class).invoke(null,"fixture",getTargetContext());
+            check(identity.contains("VersionCode="+installedCode));
+            check(identity.contains("build="+installed.versionName));
             phase="replacement_gc_probe";
             replacementGcProbe(outcome,false);
             phase="retained_gc_control";
