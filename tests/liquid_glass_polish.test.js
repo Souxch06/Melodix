@@ -31,3 +31,12 @@ test('header title reserves two lines and scales text without changing route han
  // Structural constraints only: without rendering we cannot guarantee that
  // arbitrary long labels or extreme font scales will never be ellipsized.
 });
+
+test('demo tints the active navigation icon white and the inactive icons tertiary',()=>{
+ const d=read('demo/src/com/melodix/demo/DemoActivity.java');
+ const start=d.indexOf('private void tab('), end=d.indexOf('private void render(',start);assert.ok(start>=0&&end>start);const tab=d.slice(start,end);
+ assert.match(tab,/setSelected\(selected\)/);assert.match(tab,/setTextColor\(selected\?white:secondary\)/);
+ assert.match(tab,/setCompoundDrawableTintList\(ColorStateList\.valueOf\(selected\?white:secondary\)\)/);
+ assert.match(d,/white=0xffffffff, secondary=0xffa1a1b5/);
+ assert.match(tab,/selected\?"native_tab_active":"native_tab_ripple"/);
+});

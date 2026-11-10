@@ -3,6 +3,7 @@ package com.melodix.demo;
 import android.app.Activity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
+import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -57,7 +58,7 @@ public final class DemoActivity extends Activity {
         }
         render("home");
     }
-    private void tab(String name,boolean selected){TextView x=t(name);if(x==null)return;x.setSelected(selected);x.setTextColor(selected?white:secondary);x.setBackgroundResource(drawable(selected?"native_tab_active":"native_tab_ripple"));}
+    private void tab(String name,boolean selected){TextView x=t(name);if(x==null)return;x.setSelected(selected);x.setTextColor(selected?white:secondary);x.setCompoundDrawableTintList(ColorStateList.valueOf(selected?white:secondary));x.setBackgroundResource(drawable(selected?"native_tab_active":"native_tab_ripple"));}
     private void render(String p){
         page=p; boolean player=p.equals("player");
         show("nativeRowsScroll",!player);show("nativePlayerPanel",player);show("nativeMiniPlayerContainer",!player);
