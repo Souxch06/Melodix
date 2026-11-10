@@ -58,3 +58,10 @@ test('a demo preview cannot build before the exact source passes the unskipped c
  assert.match(suite,/# fail 0/);assert.match(suite,/# skipped 0/);
  assert.match(build,/needs: suite/);assert.doesNotMatch(build,/always\(\)/);
 });
+
+test('demo captures check one home badge, the player badge and measured mini-player spacing',()=>{
+ const s=read('scripts/capture_demo_emulator.py');
+ assert.match(s,/len\(badges\) != 1/);assert.match(s,/name == 'lecteur'[\s\S]*?Lecture en cours[\s\S]*?MODE DÉMO/);
+ assert.match(s,/nativeMiniPlayerContainer[\s\S]*?nativeTabBar[\s\S]*?gap < expected/);
+ assert.match(s,/expected=21 if profile=='phone' else 8/);
+});

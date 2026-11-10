@@ -26,6 +26,20 @@ def snap(name,required):
     if required not in values:
         summary=' | '.join((n.get('resource-id','').split('/')[-1] + '=' + n.get('text','')[:45]) for n in root.iter('node') if n.get('text'))
         raise RuntimeError(name+' missing '+required+'; visible='+summary[:420])
+    if name == 'accueil':
+        badges=[n for n in root.iter('node') if n.get('text') == 'MODE DÉMO · HORS LIGNE']
+        if len(badges) != 1: raise RuntimeError('home must have exactly one demo badge: '+str(len(badges)))
+    if name == 'lecteur':
+        if not any(n.get('text') == 'Lecture en cours' for n in root.iter('node')): raise RuntimeError('player title is missing')
+        if not any(n.get('text') == 'MODE DÉMO · HORS LIGNE' for n in root.iter('node')): raise RuntimeError('player demo badge is missing')
+    if name != 'lecteur':
+        by_id={n.get('resource-id','').split('/')[-1]:n for n in root.iter('node') if n.get('resource-id')}
+        mini=by_id.get('nativeMiniPlayerContainer'); bar=by_id.get('nativeTabBar')
+        if mini is None or bar is None: raise RuntimeError('mini-player or tab bar bounds unavailable for spacing check')
+        box=lambda node: tuple(map(int,re.fullmatch(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]',node.get('bounds','')).groups()))
+        gap=box(bar)[1]-box(mini)[3]; expected=21 if profile=='phone' else 8
+        if gap < expected: raise RuntimeError('mini-player gap too small: '+str(gap)+'px, expected at least '+str(expected)+'px')
+        print('mini-player-gap='+profile+'/'+name+' '+str(gap)+'px',flush=True)
     png=adb('exec-out','screencap','-p',binary=True)
     if not png.startswith(b'\x89PNG\r\n\x1a\n'): raise RuntimeError('bad PNG')
     width,height=struct.unpack('>II',png[16:24])
