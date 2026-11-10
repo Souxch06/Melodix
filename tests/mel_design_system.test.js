@@ -213,12 +213,16 @@ test('the renderers resolve their metrics instead of hardcoding them again', () 
 
   // Settings and profile.
   const settings = read('smali/com/melodix/music/NativeSettingsRowFactory.smali');
-  for (const acc of ['settingsPadH', 'settingsPadV', 'settingsStroke', 'settingsRowHeight',
+  for (const acc of ['settingsPadH', 'settingsPadV', 'settingsRowHeight',
     'settingsIcon', 'settingsIconGap', 'settingsSubtitlePad', 'settingsValuePadH',
     'settingsValuePadV', 'settingsValueGap', 'settingsRowGap', 'settingsSectionPadV']) {
     assert.ok(settings.includes(`NativeUiMetrics;->${acc}(Landroid/content/Context;)I`),
       `the settings renderer must resolve ${acc}`);
   }
+  const settingsCard = read('res/drawable/native_settings_card.xml');
+  assert.match(settings, /"native_settings_card"[\s\S]*?applyDrawableBackground/);
+  assert.match(settingsCard, /android:width="@dimen\/mel_settings_stroke"/, 'shared card resolves the stroke token');
+  assert.equal(resolveSize('@dimen/mel_settings_stroke', phone), 1);
   for (const acc of ['applySettingsTitle', 'applySettingsSubtitle', 'applySettingsValue',
     'applySettingsSectionTitle']) {
     assert.ok(settings.includes(`NativeUiMetrics;->${acc}(Landroid/widget/TextView;Landroid/content/Context;)V`),

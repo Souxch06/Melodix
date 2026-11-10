@@ -18,23 +18,16 @@ const stripComments = (src) => src.split('\n')
   .map((line) => line.replace(/^\s*#.*$/, ''))
   .join('\n');
 
-test('MEL-BUG-069a: the switch track state list is a [[I and never stores a reference in an int[]', () => {
+test('MEL-BUG-069a: XML switch state selector cannot recreate the array VerifyError', () => {
   const at = rowFactory.indexOf('\n    :native_settings_switch_build\n');
   assert.ok(at > 0, 'bloc switch présent');
   const sw = stripComments(rowFactory.slice(at, rowFactory.indexOf('\n    :native_settings_pill_text\n', at)));
-  // The states array must be created as [[I: `new-array v12, v12, [I` made an
-  // int[] and then received `aput v0, v12, v1` with v0 = int[], which is a
-  // VerifyError thrown when the Settings screen builds its first row.
-  // The exact crash: aput (primitive store) receiving a reference value, or
-  // aput-object on the int[] colors array.
-  assert.equal((sw.match(/new-array [vp]\d+, [vp]\d+, \[\[I/g) || []).length, 1,
-    'un seul tableau de tableaux (les états), le reste est int[]');
-  assert.match(sw, /aput v0, v13, v3/, 'le tableau de couleurs reçoit un entier (sget accent)');
-  assert.doesNotMatch(sw, /aput-object [vp]\d+, v13, /, 'aucune référence stockée dans le int[] des couleurs');
-  assert.match(sw, /new-array v12, v12, \[\[I/, 'le tableau d\'états est un [[I');
-  assert.match(sw, /aput-object v0, v12, v3/, 'les états sont écrits avec aput-object');
-  assert.match(sw, /const\/4 v13, 0x2\n\s*new-array v13, v13, \[I/, 'les couleurs sont un int[] de taille 2');
-  assert.match(sw, /ColorStateList;-><init>\(\[\[I\[I\)V/, 'constructeur (int[][], int[])');
+  // The selector lives in XML now: no primitive or reference array is built
+  // in this branch, so the original aput reference-in-int[] VerifyError cannot recur.
+  assert.doesNotMatch(sw, /new-array|aput(?:-object)?\s/, 'switch must not construct or write any state arrays');
+  assert.match(sw, /"native_settings_switch_track"[\s\S]*?setTrackResource\(I\)V/);
+  const selector = read('res/drawable/native_settings_switch_track.xml');
+  assert.match(selector, /state_checked="true"[\s\S]*?mel_gradient_start[\s\S]*?mel_gradient_end[\s\S]*?mel_switch_off/);
   // The row register v2 must still never be clobbered (MEL-BUG-068d).
   assert.doesNotMatch(sw, /const v2, |new-instance v2, |move-result-object v2/,
     'v2 (la ligne) n\'est jamais écrasé');

@@ -11,7 +11,7 @@ const main = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/MainActivi
 test('MEL-BUG-045: settings rows use the glass palette', () => {
   assert.match(factory, /"native_settings_card"[\s\S]*?applyDrawableBackground/);
   const card = fs.readFileSync(path.join(repo, 'res/drawable/native_settings_card.xml'), 'utf8');
-  assert.match(card, /@color\/mel_glass_surface/);assert.match(card, /android:width="1dp" android:color="@color\/mel_glass_edge"/);
+  assert.match(card, /@color\/mel_glass_surface/);assert.match(card, /android:width="@dimen\/mel_settings_stroke" android:color="@color\/mel_glass_edge"/);
   assert.match(card, /@color\/mel_glass_reflection/);assert.match(card, /@color\/mel_glass_clear/);
   assert.match(factory, /sget v0, Lcom\/melodix\/music\/MelColors;->glassFill:I[\s\S]*?"ON"/,
     'default pill fill = glassFill (ON keeps the green accent)');
@@ -175,7 +175,7 @@ test('MEL-BUG-056: settings cards get accent stroke, 24dp radius and accent pill
   const smali = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/NativeSettingsRowFactory.smali'), 'utf8');
   const card = fs.readFileSync(path.join(repo, 'res/drawable/native_settings_card.xml'), 'utf8');
   assert.match(smali, /"native_settings_card"[\s\S]*?applyDrawableBackground/);
-  assert.match(card, /android:width="1dp" android:color="@color\/mel_glass_edge"/);
+  assert.match(card, /android:width="@dimen\/mel_settings_stroke" android:color="@color\/mel_glass_edge"/);
   assert.equal((card.match(/@dimen\/mel_settings_card_radius/g)||[]).length, 3, 'card and mask radius remain in sync');
   for (const val of ['Ouvrir', 'Actualiser', 'Se connecter', 'Connecté', 'Renouveler la session']) {
     assert.ok(smali.includes('const-string v3, "' + val + '"'), `pill knows ${val}`);
