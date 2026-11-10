@@ -2,7 +2,7 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs');
 const {loadDimens,resolveSize,PHONE,TABLET}=require('./helpers/mel_dimens');
 test('player and mini-player radii follow the design tokens on phone and tablet',()=>{
- for(const [cfg,player,mini,container] of [[PHONE,16,12,16],[TABLET,18,14,18]]){
+ for(const [cfg,player,mini,container] of [[PHONE,36,12,16],[TABLET,36,14,18]]){
   const d=loadDimens(cfg);
   assert.equal(resolveSize('@dimen/mel_player_art_radius',d),player);
   assert.equal(resolveSize('@dimen/mel_mini_art_radius',d),mini);

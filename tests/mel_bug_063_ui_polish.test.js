@@ -104,15 +104,18 @@ test('MEL-BUG-063b: built shell asset stays under the 108867-byte ceiling', () =
   assert.ok(size <= 108867, `native_ui_shell.js ${size} <= 108867`);
 });
 
-test('MEL-BUG-063c: tab bar paints from the palette (no raw gray), active tab keeps accent pill', () => {
+test('MEL-BUG-063c: palette tab bar with white active label and icon on gradient', () => {
   const main = read('smali/com/melodix/music/MainActivity.smali');
   const tab = method(main, '.method public final styleNativeTab(');
   assert.ok(!tab.includes('-0x888889'), 'no raw gray constant in styleNativeTab');
   assert.match(tab, /:native_tab_inactive\s*\n\s*sget v2, Lcom\/melodix\/music\/MelColors;->textTertiary:I\s*\n\s*sget v4, Lcom\/melodix\/music\/MelColors;->textTertiary:I/,
     'inactive tab = textTertiary for label and icon');
-  assert.match(tab, /sget v2, Lcom\/melodix\/music\/MelColors;->textPrimary:I\s*\n\s*sget v4, Lcom\/melodix\/music\/MelColors;->accent:I/,
-    'active tab = textPrimary label + accent icon');
-  assert.match(tab, /MelColors;->glow:I[\s\S]*?setCornerRadius[\s\S]*?setBackground/, 'active pill kept');
+  assert.match(tab, /sget v2, Lcom\/melodix\/music\/MelColors;->textPrimary:I\s*\n\s*sget v4, Lcom\/melodix\/music\/MelColors;->textPrimary:I/,
+    'active label and icon are both white');
+  assert.match(tab, /if-eqz v0, :native_tab_restore_ripple[\s\S]*?"native_tab_active"[\s\S]*?applyDrawableBackground/, 'selected tab uses shared gradient pill');
+  const pill = read('res/drawable/native_tab_active.xml');
+  assert.match(pill, /@color\/mel_gradient_start/); assert.match(pill, /@color\/mel_gradient_end/);
+  assert.match(read('res/values/colors.xml'), /name="mel_text_tertiary">#A1A1B5<\/color>/);
 });
 
 test('MEL-BUG-063c: home card action buttons are 15sp, secondary label softened', () => {

@@ -112,12 +112,16 @@ test('dimension tokens carry the right unit for their role', () => {
   const offenders = [];
   for (const [name, raw] of Object.entries(phone)) {
     const isText = /(_title|_text|_label|_artist|_subtitle|_caption|_time)$/.test(name)
-      || name === 'mel_section_title';
-    const unit = raw.endsWith('sp') ? 'sp' : (raw.endsWith('dip') ? 'dip' : '?');
+      || name === 'mel_section_title' || ['mel_header_auto_min', 'mel_header_auto_step'].includes(name);
+    const unit = raw.endsWith('sp') ? 'sp' : (/(?:dip|dp)$/.test(raw) ? 'dip' : '?');
     if (isText && unit !== 'sp') offenders.push(`${name}=${raw} should be sp`);
     if (!isText && unit !== 'dip') offenders.push(`${name}=${raw} should be dip`);
   }
   assert.deepEqual(offenders, [], 'text scales with the font setting, geometry does not');
+  assert.equal(phone.mel_header_auto_min, '16sp');
+  assert.equal(phone.mel_header_auto_step, '1sp');
+  assert.equal(resolveSize(phone.mel_liquid_inset, phone), 4);
+  assert.equal(resolveSize(phone.mel_settings_outer_inset, phone), 20);
 });
 
 // ---------------------------------------------------------------------------

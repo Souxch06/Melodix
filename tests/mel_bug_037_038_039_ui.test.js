@@ -34,19 +34,18 @@ test('MEL-BUG-038: no shortcut grid rendered on Home; tab bar keeps the navigati
 // glass tab bar + glass icon discs applied in every layout variant.
 test('MEL-BUG-039: glass palette exists in XML and is mirrored in MelColors', () => {
   const colors = read('res/values/colors.xml');
-  // MELODIX GLASS: the tab-bar tint follows the new violet backdrop; the value
-  // is asserted here so the XML and MelColors halves cannot drift apart.
-  for (const [xmlName, hex] of [['mel_glass_fill', '1AFFFFFF'], ['mel_glass_stroke', '40FFFFFF'],
-      ['mel_glass_tabbar', 'B3141224'], ['mel_glass_card', '26FFFFFF']]) {
-    assert.ok(colors.includes(`<color name="${xmlName}">#${hex}</color>`), `${xmlName} defined`);
-  }
+  // The 7% fill and 14% border are mirrored in the runtime palette.
+  const pairs = [['mel_glass_fill','glassFill','12FFFFFF'],
+    ['mel_glass_stroke','glassStroke','24FFFFFF'],
+    ['mel_glass_tabbar','glassTabbar','12FFFFFF'],
+    ['mel_glass_card','glassCard','12FFFFFF']];
   const mc = read('smali/com/melodix/music/MelColors.smali');
-  for (const [field, hex] of [['glassFill', '0x1affffff'], ['glassStroke', '0x40ffffff'],
-      ['glassTabbar', '0xb3141224'], ['glassCard', '0x26ffffff']]) {
-    assert.ok(mc.includes(`.field public static ${field}:I`), `${field} field exists`);
-    assert.ok(mc.includes(`const v0, ${hex}`), `${field} initialised to ${hex}`);
+  for (const [xmlName, field, hex] of pairs) {
+    assert.ok(colors.includes(`<color name="${xmlName}">#${hex}</color>`), `${xmlName} defined`);
+    assert.match(mc, new RegExp(`const v0, 0x${hex.toLowerCase()}\\s+\\n\\s*sput v0, Lcom/melodix/music/MelColors;->${field}:I`), `${field} mirrors ${xmlName}`);
   }
-  // surfaces are translucent (glass) now
+  for (const [name, hex] of [['mel_glass_surface','12FFFFFF'], ['mel_glass_edge','24FFFFFF'], ['mel_glass_reflection','2EFFFFFF'], ['mel_glass_clear','00FFFFFF']])
+    assert.ok(colors.includes(`<color name="${name}">#${hex}</color>`), `${name} token`);
   assert.match(colors, /<color name="mel_surface">#[Cc][Cc]141222<\/color>/);
 });
 
@@ -82,20 +81,25 @@ test('MEL-BUG-040: auth-state-changed resets the 401/403 refusal budget', () => 
 
 // MEL-BUG-058: global vibe pass — accent hairline on the glass tab bar, accent
 // stroke on the home status card, and a soft accent pill behind the ACTIVE tab.
-test('MEL-BUG-058: tab bar hairline and active-tab pill use the accent palette', () => {
-  const tabbar = fs.readFileSync(path.join(repo, 'res/drawable/native_tabbar_glass.xml'), 'utf8');
-  assert.ok(tabbar.includes('@color/mel_stroke_accent'), 'tab bar top hairline = accent');
-  assert.ok(!tabbar.includes('@color/mel_glass_stroke'), 'no more neutral hairline on the tab bar');
-  const main = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/MainActivity.smali'), 'utf8');
+test('MEL-BUG-058: glass tab bar hairline and gradient active-tab pill', () => {
+  const tabbar = read('res/drawable/native_tabbar_glass.xml');
+  assert.match(tabbar, /<stroke android:width="1dp" android:color="@color\/mel_glass_edge"\s*\/>/, '1dp white glass edge');
+  assert.match(tabbar, /@color\/mel_glass_reflection/);
+  const main = read('smali/com/melodix/music/MainActivity.smali');
   const at = main.indexOf('.method public final styleNativeTab');
   const body = main.slice(at, main.indexOf('.end method', at));
-  assert.match(body, /if-eqz v0, :native_tab_restore_ripple[\s\S]{0,300}?new-instance v2, Landroid\/graphics\/drawable\/GradientDrawable;[\s\S]{0,300}?MelColors;->glow:I[\s\S]{0,200}?setCornerRadius[\s\S]{0,120}?setBackground/,
-    'active tab gets a glow pill');
-  // MEL-BUG-059: the pill must be REMOVED on inactive tabs (bug: every visited
-  // tab stayed green) — the original ripple drawable is restored by id.
-  assert.match(body, /:native_tab_restore_ripple[\s\S]{0,200}?const v2, 0x7f08013f[\s\S]{0,80}?invoke-virtual \{v1, v2\}, Landroid\/view\/View;->setBackgroundResource\(I\)V/,
-    'inactive tab restores native_tab_ripple (0x7f08013f)');
-  assert.match(body, /const\/high16 v3, 0x41c00000/, 'pill radius = 24dp (MEL-BUG-064)');
+  assert.match(body, /if-eqz v0, :native_tab_restore_ripple[\s\S]*?"native_tab_active"[\s\S]*?applyDrawableBackground/, 'active tab uses shared gradient');
+  assert.match(body, /:native_tab_restore_ripple[\s\S]{0,300}?const v2, 0x7f08013f[\s\S]{0,80}?invoke-virtual \{v1, v2\}, Landroid\/view\/View;->setBackgroundResource\(I\)V/, 'inactive tab restores its ripple');
+  const active = read('res/drawable/native_tab_active.xml');
+  assert.match(active, /@color\/mel_gradient_start/); assert.match(active, /@color\/mel_gradient_end/);
+  assert.match(active, /android:radius="999dp"/, 'pill rounds with tab height');
+  assert.match(read('res/values/mel_dimens.xml'), /<dimen name="mel_liquid_inset">4\.0dip<\/dimen>/);
+  for (const f of ['res/layout/activity_main.xml','res/layout-land/activity_main.xml','res/layout-sw600dp/activity_main.xml','res/layout-sw600dp-land/activity_main.xml']) {
+    const layout = read(f);
+    const bar = layout.slice(layout.indexOf('android:id="@id/nativeTabBar"'), layout.indexOf('</LinearLayout>', layout.indexOf('android:id="@id/nativeTabBar"')));
+    assert.match(bar, /android:padding="@dimen\/mel_liquid_inset"/, `${f}: symmetric 4dp inset`);
+    assert.equal((bar.match(/android:layout_height="match_parent"/g)||[]).length, 3, `${f}: tabs stay inside padded bar`);
+  }
 });
 
 // MEL-BUG-059: header gets a 1dp accent hairline (glass vibe) via a palette-only

@@ -14,3 +14,20 @@ test('demo uses shared resources, and no active diagnostic toast is emitted',()=
  assert.doesNotMatch(read('smali/com/melodix/music/NativeCrashGuard.smali'),/Melodix preview diag-5 : actif/);
  assert.match(read('smali/com/melodix/music/MainActivity.smali'),/melodix:action:copy-diagnostic/);
 });
+
+test('settings rows actually resolve symmetric 20dp margins in the real and passive demo factory',()=>{
+ const {loadDimens, resolveSize, PHONE, TABLET}=require('./helpers/mel_dimens');
+ for (const profile of [PHONE,TABLET]) assert.equal(resolveSize('@dimen/mel_settings_outer_inset',loadDimens(profile)),20);
+ const factory=read('smali/com/melodix/music/NativeSettingsRowFactory.smali');
+ assert.match(factory,/const-string v1, "mel_settings_outer_inset"[\s\S]*?NativeUiRowFactory;->metric[\s\S]*?move-result v1[\s\S]*?iput v1, v0, Landroid\/view\/ViewGroup\$MarginLayoutParams;->leftMargin:I[\s\S]*?iput v1, v0, Landroid\/view\/ViewGroup\$MarginLayoutParams;->rightMargin:I/);
+ assert.match(read('scripts/prepare_demo_preview.py'),/DemoSettingsRowFactory/);
+});
+test('header title reserves two lines and scales text without changing route handlers',()=>{
+ for(const folder of ['layout','layout-land','layout-sw600dp','layout-sw600dp-land']){
+  const s=read(`res/${folder}/activity_main.xml`);const start=s.indexOf('android:id="@id/nativeScreenTitle"');assert.ok(start>=0);const title=s.slice(start,s.indexOf('/>',start));
+  assert.match(title,/android:maxLines="2"/);assert.match(title,/android:autoSizeTextType="uniform"/);
+  assert.match(title,/@dimen\/mel_header_auto_min/);assert.match(title,/@dimen\/mel_header_title/);assert.match(title,/@dimen\/mel_header_auto_step/);
+ }
+ // Structural constraints only: without rendering we cannot guarantee that
+ // arbitrary long labels or extreme font scales will never be ellipsized.
+});

@@ -28,10 +28,17 @@ test('MEL-BUG-064a: primary/secondary/play buttons are ripple-wrapped pills on p
     assert.ok(xml.includes(mask), f + ' mask keeps the pill/oval shape');
     assert.ok(!/#[0-9a-fA-F]{3,8}/.test(xml), f + ' uses only @color/mel_*');
   }
-  assert.ok(read('res/drawable/native_button_green.xml').includes('@color/mel_accent_deep'),
-    'primary keeps the accent gradient');
-  assert.ok(read('res/drawable/native_button_dark.xml').includes('@color/mel_stroke'),
-    'secondary keeps its hairline stroke');
+  assert.match(read('res/drawable/native_button_green.xml'), /@drawable\/native_tab_active/, 'primary uses the shared accent gradient');
+  const gradient = read('res/drawable/native_tab_active.xml');
+  assert.match(gradient, /android:startColor="@color\/mel_gradient_start"/);
+  assert.match(gradient, /android:endColor="@color\/mel_gradient_end"/);
+  const play = read('res/drawable/native_button_white.xml');
+  assert.match(play, /android:startColor="@color\/mel_gradient_start"/);
+  assert.match(play, /android:endColor="@color\/mel_gradient_end"/);
+  assert.match(read('res/drawable/native_button_dark.xml'), /@drawable\/native_glass_pill/);
+  const glass = read('res/drawable/native_glass_pill.xml');
+  assert.match(glass, /android:width="1dp" android:color="@color\/mel_glass_edge"/);
+  assert.match(glass, /@color\/mel_glass_surface/); assert.match(glass, /@color\/mel_glass_reflection/);
 });
 
 test('MEL-BUG-064b: section headers are uppercase 12sp accent with letter spacing (both factories)', () => {
@@ -55,17 +62,19 @@ test('MEL-BUG-064c: settings rows get a glow ripple over the card (press feedbac
     'mask radius resolves the same density-aware token as the card');
 });
 
-test('MEL-BUG-064d: active tab pill 24dp, status card 24dp, chips accent-stroked', () => {
+test('MEL-BUG-064d: rounded gradient tab, status card 24dp, glass chips', () => {
   const main = read('smali/com/melodix/music/MainActivity.smali');
   const tab = method(main, '.method public final styleNativeTab(');
-  assert.match(tab, /MelColors;->glow:I[\s\S]*?const\/high16 v3, 0x41c00000\s*\n\s*invoke-virtual \{v2, v3\}, Landroid\/graphics\/drawable\/GradientDrawable;->setCornerRadius\(F\)V/,
-    'active tab pill radius 24dp');
+  assert.match(tab, /"native_tab_active"[\s\S]*?applyDrawableBackground/, 'active tab uses the rounded shared pill');
+  assert.match(read('res/drawable/native_tab_active.xml'), /android:radius="999dp"/, 'pill radius is fully rounded at any density');
+  assert.match(read('res/values/mel_dimens.xml'), /name="mel_liquid_inset">4\.0dip/, '4dp bar inset');
   assert.ok(read('res/values/mel_dimens.xml').includes('<dimen name="mel_status_radius">24.0dip</dimen>'),
     'status card radius 24dip');
   const metrics = read('smali/com/melodix/music/NativeUiMetrics.smali');
   assert.match(method(metrics, '.method public static statusRadius('), /const\/16 v1, 0x18/, 'statusRadius fallback 24');
-  assert.ok(read('res/drawable/native_category_chip.xml').includes('@color/mel_stroke_accent'),
-    'chip hairline in accent');
+  const chip = read('res/drawable/native_category_chip.xml');
+  assert.match(chip, /android:width="1dp" android:color="@color\/mel_glass_edge"/, 'chip has neutral 1dp glass border');
+  assert.match(chip, /@color\/mel_glass_surface/); assert.match(chip, /@color\/mel_glass_reflection/);
 });
 
 test('MEL-BUG-065a: token calls send Accept: application/json and never log the cookie value', () => {

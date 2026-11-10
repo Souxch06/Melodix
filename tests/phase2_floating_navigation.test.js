@@ -23,6 +23,8 @@ test('navigation dimensions preserve touch targets and cap tablet width without 
  const phone=loadDimens(PHONE),tablet=loadDimens(TABLET),v=(n,d)=>resolveSize('@dimen/'+n,d);
  for(const dims of [phone,tablet]){
   assert.ok(v('mel_tab_height',dims)>=44);assert.ok(v('mel_tab_bar_height',dims)>=v('mel_tab_height',dims));
+  assert.equal(v('mel_liquid_inset',dims),4);
+  assert.ok(v('mel_tab_bar_height',dims)-2*v('mel_liquid_inset',dims)>=44,'actual padded tab hit target remains at least 44dp');
   assert.ok(v('mel_tab_side_inset',dims)>=12);assert.ok(v('mel_tab_bottom_lift',dims)>0);
   assert.ok((320-2*v('mel_tab_side_inset',dims))/3>=44);
  }
@@ -30,8 +32,8 @@ test('navigation dimensions preserve touch targets and cap tablet width without 
 });
 test('floating bar has a fully rounded palette-driven fallback, selected state and unchanged handlers',()=>{
  const shape=fs.readFileSync('res/drawable/native_tabbar_glass.xml','utf8');
- assert.match(shape,/corners android:radius="@dimen\/mel_tab_radius"/);assert.match(shape,/@color\/mel_stroke_accent/);
- assert.match(shape,/@color\/mel_glass_tabbar/);assert.doesNotMatch(shape,/backdrop|RenderEffect|https?:\/\/(?!schemas.android.com)/);
+ assert.match(shape,/corners android:radius="@dimen\/mel_tab_radius"/);assert.match(shape,/android:width="1dp" android:color="@color\/mel_glass_edge"/);
+ assert.match(shape,/@color\/mel_glass_surface/);assert.match(shape,/@color\/mel_glass_reflection/);assert.match(shape,/@color\/mel_glass_clear/);assert.doesNotMatch(shape,/backdrop|RenderEffect|https?:\/\/(?!schemas.android.com)/);
  const activity=fs.readFileSync('smali/com/melodix/music/MainActivity.smali','utf8');
  const a=activity.indexOf('.method public final styleNativeTab('),b=activity.indexOf('.end method',a),method=activity.slice(a,b);
  assert.match(method,/String;->equals\(Ljava\/lang\/Object;\)Z[\s\S]*?setSelected\(Z\)V/);
