@@ -132,13 +132,13 @@
     <dimen name="mel_status_max_width">560.0dip</dimen>
 
     <!-- ===== full player ===== -->
-    <dimen name="mel_player_pad_top">10.0dip</dimen>
-    <dimen name="mel_player_pad_bottom">18.0dip</dimen>
+    <dimen name="mel_player_pad_top">4.0dip</dimen>
+    <dimen name="mel_player_pad_bottom">4.0dip</dimen>
     <dimen name="mel_player_art">272.0dip</dimen>
     <dimen name="mel_player_art_radius">36.0dip</dimen>
     <dimen name="mel_player_art_elevation">18.0dip</dimen>
-    <dimen name="mel_player_art_margin_top">8.0dip</dimen>
-    <dimen name="mel_player_art_margin_bottom">22.0dip</dimen>
+    <dimen name="mel_player_art_margin_top">0.0dip</dimen>
+    <dimen name="mel_player_art_margin_bottom">4.0dip</dimen>
     <dimen name="mel_player_title">24.0sp</dimen>
     <dimen name="mel_player_artist">15.0sp</dimen>
     <dimen name="mel_player_caption">12.0sp</dimen>

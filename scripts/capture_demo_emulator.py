@@ -43,7 +43,8 @@ def snap(name,required):
     png=adb('exec-out','screencap','-p',binary=True)
     if not png.startswith(b'\x89PNG\r\n\x1a\n'): raise RuntimeError('bad PNG')
     width,height=struct.unpack('>II',png[16:24])
-    if (profile=='phone' and width>=height) or (profile=='tablet' and width<=height):
+    if profile=='small' and (width,height)!=(360,640): raise RuntimeError('wrong small viewport: '+str((width,height)))
+    if (profile in ('phone','small') and width>=height) or (profile=='tablet' and width<=height):
         raise RuntimeError('wrong orientation: '+profile+' '+str(width)+'x'+str(height))
     open(os.path.join(out,name+'.png'),'wb').write(png)
     nodes={}
@@ -55,6 +56,8 @@ def snap(name,required):
     print('capture='+profile+'/'+name+' ok',flush=True)
 if profile=='phone':
     adb('shell','wm','size','1080x1920');adb('shell','wm','density','420');rotation='0'
+elif profile=='small':
+    adb('shell','wm','size','360x640');adb('shell','wm','density','160');rotation='0'
 else:
     adb('shell','wm','size','1200x1920');adb('shell','wm','density','160');rotation='1'
 adb('shell','settings','put','system','accelerometer_rotation','0')
@@ -72,4 +75,26 @@ tap(**{'resource-id':'com.melodix.music.preview:id/nativeLibraryTab'});snap('bib
 tap(**{'content-desc':'Escale imaginaire'});snap('playlist','Playlist fictive')
 tap(**{'resource-id':'com.melodix.music.preview:id/nativeSettingsButton'});snap('reglages','Lecture automatique après un titre')
 tap(**{'resource-id':'com.melodix.music.preview:id/nativeMiniPlayer'});snap('lecteur','Lueurs du soir')
+# The screenshot must show all player actions above the navigation without a swipe.
+r=tree(); nodes=list(r.iter('node'))
+byid=lambda name: next(n for n in nodes if n.get('resource-id','').endswith(':id/'+name))
+bytext=lambda name: next(n for n in nodes if n.get('text')==name)
+box=lambda n: tuple(map(int,re.fullmatch(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]',n.get('bounds','')).groups()))
+panel=box(byid('nativePlayerPanel'));bar=box(byid('nativeTabBar'));art=box(byid('nativePlayerLargeArtwork'))
+badge=box(bytext('MODE DÉMO · HORS LIGNE'))
+if art[1]<panel[1] or art[3]>panel[3] or art[3]<=art[1]: raise RuntimeError('artwork clipped: '+str((art,panel)))
+for name in ('Paroles','File d’attente','Minuterie'):
+    pill=box(bytext(name))
+    if pill[1]<panel[1] or pill[3]>panel[3] or pill[3]>bar[1] or pill[3]<=pill[1]: raise RuntimeError('pill clipped: '+name+' '+str((pill,panel,bar)))
+if badge[3]>panel[1]: raise RuntimeError('badge is not fixed above content: '+str((badge,panel)))
+# On the phone profiles a swipe must not move content at default font scale.
+if profile in ('phone','small'):
+    x=(panel[0]+panel[2])//2; y1=panel[1]+(panel[3]-panel[1])*3//4; y2=panel[1]+(panel[3]-panel[1])//4
+    adb('shell','input','swipe',str(x),str(y1),str(x),str(y2),'400');settle()
+    after=list(tree().iter('node'))
+    art2=next(n for n in after if n.get('resource-id','').endswith(':id/nativePlayerLargeArtwork'))
+    badge2=next(n for n in after if n.get('text')=='MODE DÉMO · HORS LIGNE')
+    if box(art2)!=art: raise RuntimeError('player unexpectedly scrolls on '+profile)
+    if box(badge2)!=badge: raise RuntimeError('demo badge moved during scroll')
+print('player geometry verified: '+profile,flush=True)
 print('demo capture complete: network disabled; fictional UI; profile='+profile,flush=True)

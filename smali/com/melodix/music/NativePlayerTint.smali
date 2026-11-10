@@ -86,21 +86,44 @@
     mul-int/lit8 v8, v8, 0x22
     div-int/lit8 v8, v8, 0xa
     or-int/2addr v7, v8
-    const/high16 v8, -0x1000000
+    const v8, 0x99000000
     or-int/2addr v7, v8
     const/4 v0, 0x2
     new-array v4, v0, [I
     const/4 v0, 0x0
     aput v7, v4, v0
     const/4 v0, 0x1
-    sget v7, Lcom/melodix/music/MelColors;->background:I
+    const/4 v7, 0x0
     aput v7, v4, v0
     new-instance v1, Landroid/graphics/drawable/GradientDrawable;
     sget-object v2, Landroid/graphics/drawable/GradientDrawable$Orientation;->TOP_BOTTOM:Landroid/graphics/drawable/GradientDrawable$Orientation;
     invoke-direct {v1, v2, v4}, Landroid/graphics/drawable/GradientDrawable;-><init>(Landroid/graphics/drawable/GradientDrawable$Orientation;[I)V
+    invoke-virtual {p0}, Landroid/view/View;->getContext()Landroid/content/Context;
+    move-result-object v8
+    invoke-virtual {v8}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
+    move-result-object v9
+    const-string v10, "native_shell_background"
+    const-string v11, "drawable"
+    invoke-virtual {v8}, Landroid/content/Context;->getPackageName()Ljava/lang/String;
+    move-result-object v12
+    invoke-virtual {v9, v10, v11, v12}, Landroid/content/res/Resources;->getIdentifier(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I
+    move-result v10
+    if-eqz v10, :fallback
+    invoke-virtual {v8}, Landroid/content/Context;->getTheme()Landroid/content/res/Resources$Theme;
+    move-result-object v8
+    invoke-virtual {v9, v10, v8}, Landroid/content/res/Resources;->getDrawable(ILandroid/content/res/Resources$Theme;)Landroid/graphics/drawable/Drawable;
+    move-result-object v8
+    const/4 v9, 0x2
+    new-array v4, v9, [Landroid/graphics/drawable/Drawable;
+    const/4 v9, 0x0
+    aput-object v8, v4, v9
+    const/4 v9, 0x1
+    aput-object v1, v4, v9
+    new-instance v1, Landroid/graphics/drawable/LayerDrawable;
+    invoke-direct {v1, v4}, Landroid/graphics/drawable/LayerDrawable;-><init>([Landroid/graphics/drawable/Drawable;)V
     invoke-virtual {p0}, Landroid/view/View;->getRootView()Landroid/view/View;
     move-result-object v0
-    const v2, 0x7f09023a
+    const v2, 0x7f09022f
     invoke-virtual {v0, v2}, Landroid/view/View;->findViewById(I)Landroid/view/View;
     move-result-object v0
     if-eqz v0, :done
@@ -126,7 +149,7 @@
     if-ne v0, v1, :reset_done
     invoke-virtual {p0}, Landroid/view/View;->getRootView()Landroid/view/View;
     move-result-object v0
-    const v1, 0x7f09023a
+    const v1, 0x7f09022f
     invoke-virtual {v0, v1}, Landroid/view/View;->findViewById(I)Landroid/view/View;
     move-result-object v0
     if-eqz v0, :reset_done

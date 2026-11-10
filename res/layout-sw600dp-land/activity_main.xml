@@ -621,7 +621,7 @@
             android:fillViewport="true"
             android:overScrollMode="never"
             android:scrollbars="none"
-            android:background="@drawable/native_player_background"
+            android:background="@android:color/transparent"
             android:paddingLeft="@dimen/mel_gutter"
             android:paddingRight="@dimen/mel_gutter"
             android:paddingTop="@dimen/mel_player_pad_top"

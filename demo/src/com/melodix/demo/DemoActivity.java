@@ -51,22 +51,27 @@ public final class DemoActivity extends Activity {
         android.widget.ScrollView player=(android.widget.ScrollView)v("nativePlayerPanel");
         if(player!=null){
             LinearLayout body=(LinearLayout)player.getChildAt(0);
+            LinearLayout root=(LinearLayout)v("nativeRoot");
             TextView playerBadge=label("MODE DÉMO · HORS LIGNE",11,white,true);
             playerBadge.setPadding(dp(12),dp(6),dp(12),dp(6));playerBadge.setBackgroundResource(drawable("native_glass_pill"));
-            body.addView(playerBadge,0,new LinearLayout.LayoutParams(-2,-2));
-            LinearLayout actions=new LinearLayout(this);actions.setGravity(Gravity.CENTER);actions.setPadding(0,dp(18),0,dp(8));
+            playerBadge.setMaxLines(1);playerBadge.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(-2,-2);bp.setMargins(dp(20),dp(3),dp(20),dp(3));
+            root.addView(playerBadge,1,bp);
+            LinearLayout actions=new LinearLayout(this);actions.setGravity(Gravity.CENTER);actions.setPadding(0,dp(8),0,dp(4));
             for(String name:new String[]{"Paroles","File d’attente","Minuterie"}){
                 TextView pill=label(name,12,white,true);pill.setGravity(Gravity.CENTER);pill.setPadding(dp(10),dp(8),dp(10),dp(8));pill.setBackgroundResource(drawable("native_glass_pill"));
                 LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-2,1);lp.setMargins(dp(3),0,dp(3),0);actions.addView(pill,lp);
                 pill.setOnClickListener(view->android.widget.Toast.makeText(this,"Action fictive en mode démo",android.widget.Toast.LENGTH_SHORT).show());
             }
-            body.addView(actions);
+            LinearLayout actionsParent=body.getOrientation()==LinearLayout.HORIZONTAL?(LinearLayout)body.getChildAt(1):body;
+            actionsParent.addView(actions);
         }
         render("home");
     }
     private void tab(String name,boolean selected){TextView x=t(name);if(x==null)return;x.setSelected(selected);int ink=selected?white:getResources().getColor(getResources().getIdentifier("mel_nav_inactive","color",getPackageName()),getTheme());x.setTextColor(ink);x.setCompoundDrawableTintList(ColorStateList.valueOf(ink));x.setBackgroundResource(drawable(selected?"native_tab_active":"native_tab_ripple"));}
     private void render(String p){
         boolean changed=!p.equals(page);page=p; boolean player=p.equals("player");
+        View shell=v("nativeRoot");if(shell!=null)shell.setBackgroundResource(drawable(player?"native_player_background":"native_shell_background"));
         show("nativeRowsScroll",!player);show("nativePlayerPanel",player);show("nativeMiniPlayerContainer",!player);
         show("nativeSearchPanel",p.equals("search"));show("nativeGenreScroll",false);show("nativeLibraryCategories",p.equals("library"));
         boolean back=p.equals("playlist")||p.equals("settings")||player;
@@ -80,8 +85,6 @@ public final class DemoActivity extends Activity {
         text("nativeScreenTitle",title);
         TextView header=t("nativeScreenTitle");if(header!=null)header.setMaxLines(player?1:2);
         LinearLayout content=(LinearLayout)v("nativeContent");content.removeAllViews();
-        TextView badge=label("MODE DÉMO · HORS LIGNE",11,white,true);badge.setPadding(dp(12),dp(6),dp(12),dp(6));badge.setBackgroundResource(drawable("native_glass_pill"));
-        LinearLayout.LayoutParams badgeParams=new LinearLayout.LayoutParams(-2,-2);badgeParams.setMargins(dp(20),dp(8),0,dp(4));content.addView(badge,badgeParams);
         if(p.equals("home")){section(content,"Bonjour !");cards(content,new String[]{"Escale imaginaire","Horizons violets","Rythmes du matin"},new String[]{"Playlist · 12 titres","Sélection fictive","Mix fictif"});section(content,"À écouter");row(content,"Lueurs du soir","Les Ondes Fictives · 3:42",0xff6a4391,()->render("player"));row(content,"Pluie d’étoiles","L’Atelier des Nuages · 4:08",0xff375f77,()->render("player"));}
         else if(p.equals("search")){section(content,"Découvrir");cards(content,new String[]{"Électronique","Découvertes","Au calme"},new String[]{"Genre fictif","Sélection fictive","Mix fictif"});row(content,"Lueurs du soir","Les Ondes Fictives",0xff6a4391,()->render("player"));}
         else if(p.equals("library")){section(content,"Vos playlists de démonstration");row(content,"Escale imaginaire","Playlist · 12 titres fictifs",0xff713b81,()->render("playlist"));row(content,"Horizons violets","Playlist · 8 titres fictifs",0xff355e89,()->render("playlist"));row(content,"Matin tranquille","Playlist · 10 titres fictifs",0xff5b678a,()->render("playlist"));}
@@ -97,7 +100,7 @@ public final class DemoActivity extends Activity {
         android.widget.HorizontalScrollView scroll=new android.widget.HorizontalScrollView(this);scroll.setHorizontalScrollBarEnabled(false);
         LinearLayout strip=new LinearLayout(this);strip.setPadding(dp(16),0,dp(16),dp(4));scroll.addView(strip);parent.addView(scroll);
         int[] colors={0xff704a9a,0xff335b82,0xff77436e};
-        for(int i=0;i<titles.length;i++){final String title=titles[i];LinearLayout c=new LinearLayout(this);c.setOrientation(LinearLayout.VERTICAL);c.setPadding(dp(10),dp(10),dp(10),dp(10));c.setBackgroundResource(drawable("native_glass_surface"));LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(dp(148),-2);cp.rightMargin=dp(10);strip.addView(c,cp);
+        for(int i=0;i<titles.length;i++){final String title=titles[i];LinearLayout c=new LinearLayout(this);c.setOrientation(LinearLayout.VERTICAL);c.setPadding(dp(10),dp(10),dp(10),dp(10));c.setBackgroundResource(drawable("native_glass_surface"));LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(dp(148),-2);cp.rightMargin=dp(10);strip.addView(c,cp);c.setAlpha(.875f);c.animate().alpha(1f).setStartDelay(Math.min(i,4)*40L).setDuration(180).start();
             TextView art=label("♪",50,white,true);art.setGravity(Gravity.CENTER);art.setBackgroundResource(drawable("native_demo_art"));c.addView(art,new LinearLayout.LayoutParams(-1,dp(105)));
             TextView a=label(title,14,white,true);a.setPadding(0,dp(8),0,0);c.addView(a);c.addView(label(details[i],12,secondary,false));c.setContentDescription(title);c.setOnClickListener(v->render("playlist"));}
     }

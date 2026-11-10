@@ -94,7 +94,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        profile: [phone, tablet]
+        profile: [phone, tablet, small]
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -147,7 +147,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for p in phone tablet; do
+          for p in phone tablet small; do
             for screen in accueil recherche bibliotheque playlist reglages lecteur mini-lecteur; do
               test -s "bundle/captures/demo-captures-$p/$screen.png"
             done
@@ -179,20 +179,20 @@ jobs:
         run: |
           python3 - <<'PY'
           import pathlib, struct
-          for profile in ('phone','tablet'):
+          for profile in ('phone','tablet','small'):
               for screen in ('accueil','recherche','bibliotheque','playlist','reglages','lecteur','mini-lecteur'):
                   p=pathlib.Path('bundle/captures/demo-captures-'+profile)/(screen+'.png')
                   data=p.read_bytes()
                   assert data[:8]==b'\x89PNG\r\n\x1a\n',p
                   w,h=struct.unpack('>II',data[16:24])
-                  assert (w<h if profile=='phone' else w>h),(str(p),w,h)
+                  assert (w<h if profile in ('phone','small') else w>h),(str(p),w,h)
                   print(f'::notice title=Demo screenshot::{profile}/{screen}={w}x{h}')
           PY
       - name: Report the recorded real no-session observations
         run: |
           python3 - <<'PY'
           import json, pathlib
-          for profile in ('phone', 'tablet'):
+          for profile in ('phone', 'tablet', 'small'):
               folder = pathlib.Path('bundle/captures/demo-captures-' + profile + '/real-no-session')
               data = json.loads((folder / 'observation.json').read_text())
               for key in ('error', 'settings'):

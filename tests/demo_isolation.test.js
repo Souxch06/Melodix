@@ -38,7 +38,7 @@ test('activation requires a long press on the version and demo has local screens
 });
 test('capture workflow uses one exact APK and requires all screens in both profiles before bundling',()=>{
  const w=read('.github/workflows/demo-preview.yml'),s=read('scripts/capture_demo_emulator.py');
- assert.match(w,/demo_build: true/);assert.match(w,/profile: \[phone, tablet\]/);assert.match(w,/needs: \[build, capture\]/);
+ assert.match(w,/demo_build: true/);assert.match(w,/profile: \[phone, tablet, small\]/);assert.match(w,/needs: \[build, capture\]/);
  assert.match(w,/accueil recherche bibliotheque playlist reglages lecteur mini-lecteur/);
  assert.match(s,/svc','wifi','disable/);assert.match(s,/svc','data','disable/);assert.match(s,/user_rotation',rotation/);
  for(const screen of ['accueil','recherche','bibliotheque','playlist','reglages','lecteur','mini-lecteur'])assert.ok(s.includes(`snap('${screen}'`),screen);

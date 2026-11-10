@@ -451,6 +451,7 @@
     invoke-virtual {v7, v11}, Landroid/view/View;->setOnClickListener(Landroid/view/View$OnClickListener;)V
 
     :shelf_add
+    invoke-static {v7, v4}, Lcom/melodix/music/NativeSkeleton;->reveal(Landroid/view/View;I)V
     invoke-virtual {v3, v7}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
     invoke-virtual {p0, v7}, Lcom/melodix/music/MainActivity;->noteNativeHomeCardAttached(Landroid/view/View;)V
     add-int/lit8 p1, p1, 0x1
@@ -658,6 +659,7 @@
     invoke-virtual {v7, v6}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v7
     if-eqz v7, :home_status_no_spinner
+    invoke-static {p0, v3}, Lcom/melodix/music/NativeSkeleton;->attach(Landroid/content/Context;Landroid/widget/LinearLayout;)V
     new-instance v6, Landroid/widget/ProgressBar;
     invoke-direct {v6, p0}, Landroid/widget/ProgressBar;-><init>(Landroid/content/Context;)V
     const/4 v7, 0x1

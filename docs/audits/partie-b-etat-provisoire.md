@@ -1,4 +1,4 @@
-# Polish 3 — spécification vs réalisé
+# Polish 4 — spécification vs réalisé
 
 Les liens `captures/demo-captures-phone/` et `captures/demo-captures-tablet/` visent les captures CI jointes au même artefact que l'APK : téléphone portrait et tablette paysage. Elles présentent des **données fictives locales**, sans audio ni validation de session Spotify. Le code est partagé avec une partie des écrans réels, mais ces captures ne prouvent pas le rendu ni le fonctionnement du parcours réel. Les images n'ont pas pu être examinées visuellement dans l'environnement de travail ; les assertions CI portent sur leur présence, l'orientation, les libellés et l'espacement mesuré.
 
@@ -43,3 +43,15 @@ Run [42784941611](https://github.com/Souxch06/Melodix/actions/runs/42784941611),
 | Réglages | Non atteints | Non atteints | Garde de session ou action absente ; aucun contournement. |
 
 L'artefact contient la version du tableau au moment de la construction ; cette section est ajoutée ensuite pour consigner le résultat réel. La règle d'en-tête masque l'avatar en présence de retour, mais l'avatar peut afficher une image de profil réelle au lieu du logo : l'exigence d'un logo permanent n'est donc pas entièrement démontrée. La CI de capture désactive les animations ; elle ne valide pas perceptivement transition, haptique ou halo.
+
+## Polish 4 — lecteur (preuve à confirmer par les captures CI de cette version)
+
+| Spécification | Réalisation et limites |
+|---|---|
+| Lecteur sans défilement, téléphone et 360 × 640 dp | Le conteneur téléphone mesure d'abord textes, contrôles et éventuelles pastilles, puis limite la pochette à 85 % de la largeur et à la hauteur restante. Minimum 72 dp ; si cela ne suffit pas, défilement avec padding bas égal à la barre. Les contrôles CI vérifient visibilité des trois actions et absence de déplacement après balayage sur téléphone et petit écran. La tablette conserve ses deux colonnes. Résultat soumis au run CI, pas à une validation manuelle. |
+| Halo | Dégradé radial partagé centré, rayon 50 % des dimensions et bord transparent ; l'intensité décroît avant la limite. Rendu perceptif à examiner sur appareil. |
+| Fond sur toute la hauteur | Le panneau lecteur est transparent : le fond et sa teinte couvrent désormais le shell derrière la barre d'onglets, sans frontière à la fin du panneau. **Partiel** : la barre système reste peinte par Android ; l'extension derrière la barre système n'est pas démontrée. |
+| Pastille mode démo | Hors du contenu défilant, sous l'en-tête ; la CI contrôle sa position après balayage. La pastille et les trois actions sont fictives, uniquement en démo. |
+| Chargement et arrivée des cartes | Trois squelettes décoratifs à balayage sont attachés aux états natifs de chargement et à l'état de chargement d'accueil ; cartes d'accueil et cartes de démo apparaissent de manière échelonnée. La capture CI désactive les animations : elle ne valide pas leur rendu perceptif ni toutes les sources possibles de chargement. |
+
+Les captures sont des vues de démonstration hors ligne, pas une preuve Spotify. Les captures d'écran réel sans session et leurs limites restent consignées séparément ; le tableau de test152 ci-dessus est historique.

@@ -1,3 +1,3 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- A radial alpha falloff behind the artwork. -->
-<shape xmlns:android="http://schemas.android.com/apk/res/android"><gradient android:type="radial" android:gradientRadius="@dimen/mel_player_halo_radius" android:centerX="0.5" android:centerY="0.55" android:startColor="@color/mel_player_halo_center" android:centerColor="@color/mel_player_halo_middle" android:endColor="@color/mel_player_halo_outer"/></shape>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"><gradient android:type="radial" android:gradientRadius="50%" android:centerX="0.5" android:centerY="0.5" android:startColor="@color/mel_player_halo_center" android:centerColor="@color/mel_player_halo_middle" android:endColor="@color/mel_player_halo_outer"/></shape>

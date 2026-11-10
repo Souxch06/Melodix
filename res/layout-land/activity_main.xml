@@ -624,12 +624,12 @@
             </LinearLayout>
         </ScrollView>
 
-        <ScrollView
+        <com.melodix.music.NativePlayerScroll
             android:id="@id/nativePlayerPanel"
-            android:fillViewport="true"
+            android:fillViewport="false"
             android:overScrollMode="never"
             android:scrollbars="none"
-            android:background="@drawable/native_player_background"
+            android:background="@android:color/transparent"
             android:paddingLeft="@dimen/mel_gutter"
             android:paddingRight="@dimen/mel_gutter"
             android:paddingTop="@dimen/mel_player_pad_top"
@@ -710,7 +710,7 @@
 
                 android:layout_width="fill_parent"
                 android:layout_height="@dimen/mel_player_progress"
-                android:layout_marginTop="@dimen/mel_space_4"
+                android:layout_marginTop="@dimen/mel_space_2"
                 android:layout_marginBottom="@dimen/mel_space_2" />
             <LinearLayout
                 android:orientation="horizontal"
@@ -748,7 +748,7 @@
                 <ImageView android:id="@id/nativePlayerRepeatButton" android:src="@drawable/repoff" android:tint="@color/mel_text_secondary" android:scaleType="centerInside" android:padding="@dimen/mel_player_side_pad" android:clickable="true" android:focusable="true" android:contentDescription="Répéter" android:background="@drawable/native_icon_glass" android:onClick="onNativePlayerRepeatClick" android:layout_width="@dimen/mel_player_side_control" android:layout_height="@dimen/mel_player_side_control" />
             </LinearLayout>
             </LinearLayout>
-        </ScrollView>
+        </com.melodix.music.NativePlayerScroll>
 
         <LinearLayout
             android:id="@id/nativeMiniPlayerContainer"

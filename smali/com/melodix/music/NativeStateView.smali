@@ -189,6 +189,12 @@
     invoke-static {p0, p1, p2, p3}, Lcom/melodix/music/NativeEmptyState;->create(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Landroid/widget/LinearLayout;
     move-result-object v0
     if-eqz v0, :sv_done
+    const-string v3, "native_state_loading"
+    invoke-virtual {v3, p3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v3
+    if-eqz v3, :sv_no_skeleton
+    invoke-static {p0, v0}, Lcom/melodix/music/NativeSkeleton;->attach(Landroid/content/Context;Landroid/widget/LinearLayout;)V
+    :sv_no_skeleton
     if-eqz p4, :sv_done
     invoke-virtual {p4}, Ljava/lang/String;->isEmpty()Z
     move-result v3
