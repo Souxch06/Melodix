@@ -69,3 +69,8 @@ test('settings map known labels to distinct local icons with a safe fallback',()
  assert.match(s,/:settings_icon_default[\s\S]*?native_cover_placeholder/);
  assert.match(s,/native_settings_switch_track[\s\S]*?setTrackResource/);
 });
+
+test('artwork halo is shared, radial and behind the player artwork',()=>{
+ const halo=read('res/drawable/native_player_art_halo.xml');assert.match(halo,/type="radial"/);assert.match(halo,/mel_player_halo_center/);assert.match(halo,/mel_player_halo_middle/);assert.match(halo,/mel_player_halo_outer/);assert.doesNotMatch(halo,/RenderEffect/);
+ for(const folder of ['layout','layout-land','layout-sw600dp','layout-sw600dp-land']){const s=read(`res/${folder}/activity_main.xml`);assert.match(s,/@drawable\/native_player_art_halo[\s\S]*?@id\/nativePlayerLargeArtwork/);}
+});

@@ -644,11 +644,16 @@
                 android:gravity="center_horizontal"
                 android:layout_width="fill_parent"
                 android:layout_height="wrap_content">
+            <FrameLayout
+                android:background="@drawable/native_player_art_halo"
+                android:layout_width="@dimen/mel_player_halo_size"
+                android:layout_height="@dimen/mel_player_halo_size"
+                android:layout_marginTop="@dimen/mel_player_art_margin_top"
+                android:layout_marginBottom="@dimen/mel_player_art_margin_bottom">
             <androidx.cardview.widget.CardView
                 android:layout_width="@dimen/mel_player_art"
                 android:layout_height="@dimen/mel_player_art"
-                android:layout_marginTop="@dimen/mel_player_art_margin_top"
-                android:layout_marginBottom="@dimen/mel_player_art_margin_bottom"
+                android:layout_gravity="center"
                 app:cardBackgroundColor="@color/mel_art_bg"
                 app:cardCornerRadius="@dimen/mel_player_art_radius"
                 app:cardElevation="@dimen/mel_player_art_elevation"
@@ -663,6 +668,7 @@
                     android:layout_width="fill_parent"
                     android:layout_height="fill_parent" />
             </androidx.cardview.widget.CardView>
+            </FrameLayout>
             <TextView
                 android:id="@id/nativePlayerLargeTitle"
                 android:text="Aucune lecture en cours"
