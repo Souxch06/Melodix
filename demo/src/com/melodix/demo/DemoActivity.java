@@ -43,6 +43,9 @@ public final class DemoActivity extends Activity {
         text("nativePlayerTitle","Lueurs du soir");text("nativePlayerArtist","Les Ondes Fictives");
         text("nativePlayerLargeTitle","Lueurs du soir");text("nativePlayerLargeArtist","Les Ondes Fictives · Album imaginaire");
         text("nativePlayerPositionText","1:24");text("nativePlayerDurationText","3:42");
+        for(String n:new String[]{"nativePlayerArtwork","nativePlayerLargeArtwork"}){
+            View art=v(n);if(art instanceof ImageView)((ImageView)art).setImageResource(drawable("native_demo_art"));
+        }
         ProgressBar mini=(ProgressBar)v("nativeMiniProgress"),large=(ProgressBar)v("nativePlayerProgress");
         if(mini!=null)mini.setProgress(380);if(large!=null)large.setProgress(380);
         android.widget.ScrollView player=(android.widget.ScrollView)v("nativePlayerPanel");

@@ -40,3 +40,15 @@ test('demo tints the active navigation icon white and the inactive icons tertiar
  assert.match(d,/white=0xffffffff, secondary=0xffa1a1b5/);
  assert.match(tab,/selected\?"native_tab_active":"native_tab_ripple"/);
 });
+
+test('three radial lights cover top, middle and bottom and the mini player clears the dock',()=>{
+ const bg=read('res/drawable/native_shell_background.xml');
+ assert.equal((bg.match(/android:type="radial"/g)||[]).length,3);
+ for(const token of ['mel_glow_left','mel_glow_right','mel_glow_bottom'])assert.ok(bg.includes('@color/'+token));
+ assert.match(bg,/android:gravity="top\|left"/);assert.match(bg,/android:gravity="center_vertical\|right"/);assert.match(bg,/android:gravity="bottom\|left"/);
+ const c=read('res/values/colors.xml');for(const hex of ['#0B0B14','#BB3B1D7A','#AA6B1A55','#AA2A1A6E'])assert.ok(c.includes(hex));
+ const {loadDimens,resolveSize,PHONE,TABLET}=require('./helpers/mel_dimens');
+ for(const cfg of [PHONE,TABLET])assert.ok(resolveSize('@dimen/mel_mini_margin_bottom',loadDimens(cfg))>=8);
+ const demo=read('demo/src/com/melodix/demo/DemoActivity.java');const onCreate=demo.slice(demo.indexOf('void onCreate('),demo.indexOf('private void tab('));
+ assert.match(onCreate,/nativePlayerArtwork[\s\S]*?nativePlayerLargeArtwork[\s\S]*?setImageResource\(drawable\("native_demo_art"\)\)[\s\S]*?render\("home"\)/);
+});

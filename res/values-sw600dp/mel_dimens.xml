@@ -144,7 +144,7 @@
     <dimen name="mel_mini_height">76.0dip</dimen>
     <dimen name="mel_mini_margin_h">16.0dip</dimen>
     <dimen name="mel_mini_margin_top">10.0dip</dimen>
-    <dimen name="mel_mini_margin_bottom">6.0dip</dimen>
+    <dimen name="mel_mini_margin_bottom">8.0dip</dimen>
     <dimen name="mel_mini_pad_h">14.0dip</dimen>
     <dimen name="mel_mini_pad_v">8.0dip</dimen>
     <dimen name="mel_mini_art">56.0dip</dimen>
