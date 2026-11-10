@@ -479,8 +479,8 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       # The pinned public certificate was compared against Preview137 in run
-      # 42661869818; Preview145 passed the pin with version 1021482 in run
-      # 42693148831. Fail closed on key rotation or a non-upgrade version.
+      # 42661869818; Preview146 passed the pin with version 1021483 in run
+      # 42700439431. Fail closed on key rotation or a non-upgrade version.
       - name: Check Preview update identity and version
         if: ${{ inputs.target_debuggable != true }}
         env:
