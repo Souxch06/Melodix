@@ -51,6 +51,7 @@
     const-string v2, "skipped"
     invoke-static {v1, v2, v3, v4}, Lcom/melodix/music/NativeImageTrace;->result(Ljava/lang/String;Ljava/lang/String;J)V
     invoke-virtual {p0, v5}, Landroid/widget/ImageView;->setImageDrawable(Landroid/graphics/drawable/Drawable;)V
+    invoke-static {p0}, Lcom/melodix/music/NativePlayerTint;->reset(Landroid/widget/ImageView;)V
 
     :image_load_end
     :try_end_image_load
@@ -60,6 +61,7 @@
     :image_load_error
     move-exception v0
     invoke-virtual {p0, v5}, Landroid/widget/ImageView;->setImageDrawable(Landroid/graphics/drawable/Drawable;)V
+    invoke-static {p0}, Lcom/melodix/music/NativePlayerTint;->reset(Landroid/widget/ImageView;)V
 
     :image_load_done
     return-void

@@ -142,3 +142,12 @@ test('decoder instrumentation preserves BitmapFactory decisions and reports actu
  assert.match(trace,/Bitmap;->getByteCount/);
  assert.doesNotMatch(trace,/getMessage\(/);
 });
+
+test('player tint samples only the already displayed artwork with a bounded fallback',()=>{
+ const t=read('smali/com/melodix/music/NativePlayerTint.smali');
+ assert.match(t,/const\/16 v0, 0x1000[\s\S]*?new-array v4, v0, \[I/);
+ assert.match(t,/const\/16 v0, 0x10[\s\S]*?getPixel\(II\)I[\s\S]*?aput v9, v4, v8/);
+ assert.match(t,/0x7f090245/);assert.match(t,/native_player_background/);assert.doesNotMatch(t,/https?:|Picasso|loadUrl|openConnection|CookieManager/);
+ const cb=read('smali/com/melodix/music/NativeImageLoader$FirstImageMark.smali');
+ assert.match(cb,/NativePlayerTint;->apply/);assert.match(cb,/NativePlayerTint;->reset/);
+});

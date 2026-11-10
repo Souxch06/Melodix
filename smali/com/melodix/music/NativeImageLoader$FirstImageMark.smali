@@ -30,6 +30,7 @@
     check-cast v0, Landroid/widget/ImageView;
     iget-object v1, p0, Lcom/melodix/music/NativeImageLoader$FirstImageMark;->identity:Ljava/lang/String;
     invoke-static {v0, v1}, Lcom/melodix/music/NativeImageTrace;->display(Landroid/widget/ImageView;Ljava/lang/String;)V
+    invoke-static {v0}, Lcom/melodix/music/NativePlayerTint;->apply(Landroid/widget/ImageView;)V
     iget-wide v2, p0, Lcom/melodix/music/NativeImageLoader$FirstImageMark;->started:J
     const-string v0, "loaded"
     invoke-static {v1, v0, v2, v3}, Lcom/melodix/music/NativeImageTrace;->result(Ljava/lang/String;Ljava/lang/String;J)V
@@ -64,6 +65,14 @@
 
     const/4 v0, 0x0
     invoke-static {v0}, Lcom/melodix/music/NativeSessionTrace;->image(Z)V
+
+    iget-object v0, p0, Lcom/melodix/music/NativeImageLoader$FirstImageMark;->view:Ljava/lang/ref/WeakReference;
+    if-eqz v0, :error_tint_done
+    invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+    move-result-object v0
+    check-cast v0, Landroid/widget/ImageView;
+    invoke-static {v0}, Lcom/melodix/music/NativePlayerTint;->reset(Landroid/widget/ImageView;)V
+    :error_tint_done
 
     # A failed image is not "displayed": report nothing rather than a fake mark.
     return-void
