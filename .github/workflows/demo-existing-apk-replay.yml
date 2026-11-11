@@ -2,11 +2,18 @@ name: Replay existing demo APK without rebuilding
 # Diagnostic and screenshot replay are manual only; a normal push does not run them.
 on:
   workflow_dispatch:
+    inputs:
+      diagnose_test157:
+        description: Replay the exact test157 with strict acceptance and redacted diagnostics
+        required: false
+        type: boolean
+        default: false
 permissions:
   actions: read
   contents: read
 jobs:
   replay:
+    if: inputs.diagnose_test157 != true
     # Diagnostic evidence is non-blocking; inspect the actual step outcomes.
     continue-on-error: true
     name: Replay the same Preview APK on a fresh offline phone
@@ -37,6 +44,7 @@ jobs:
           emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
           script: sh scripts/replay_existing_apk.sh
   capture:
+    if: inputs.diagnose_test157 != true
     # Diagnostic evidence is non-blocking; inspect the actual step outcomes.
     continue-on-error: true
     name: Capture existing Preview on ${{ matrix.profile }}
@@ -79,6 +87,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
   bundle:
+    if: inputs.diagnose_test157 != true
     # Diagnostic evidence is non-blocking; inspect the actual step outcomes.
     continue-on-error: true
     name: Bundle the same APK and verified screenshots
@@ -119,4 +128,47 @@ jobs:
           name: Melodix-Preview-test154-with-verified-captures
           path: bundle
           if-no-files-found: error
+          retention-days: 14
+
+  test157-diagnostics:
+    if: inputs.diagnose_test157 == true
+    name: Exact test157 strict launcher diagnostic
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4.0.4
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: Melodix-Preview-v1.2.2-test157.apk
+          run-id: 43074770471
+          github-token: ${{ github.token }}
+          path: target-apk
+      - name: Verify unchanged test157 bytes
+        run: echo '00ce34bf864e0678d88906eab43b4f529398cc63624394edc4b80aefde880fec  target-apk/Melodix-Preview-v1.2.2-test157.apk' | sha256sum -c -
+      - run: sudo chmod 666 /dev/kvm
+      - name: Strict launcher replay with observational markers
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
+          script: adb install target-apk/Melodix-Preview-v1.2.2-test157.apk && python3 scripts/diagnose_demo_return.py
+      - name: Upload redacted diagnostics and real captures
+        if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: test157-return-diagnostics
+          path: evidence
+          if-no-files-found: warn
           retention-days: 14
