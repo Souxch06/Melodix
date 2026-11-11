@@ -48,9 +48,16 @@ def observe_node_sample(items):
         cls = n.get('class', '')
         if ident in ('sessionTitle', 'nativeSettingsButton') or cls == 'android.webkit.WebView':
             relevant.append({'id': ident if ident in ('sessionTitle', 'nativeSettingsButton') else '',
-                             'class': cls, 'bounds': n.get('bounds', '')})
+                             'class': cls, 'bounds': n.get('bounds', ''),
+                             'children': len(n), 'element_truth': bool(n)})
+    session = next((n for n in items if n.get('resource-id', '').endswith(':id/sessionTitle')), None)
+    settings = next((n for n in items if n.get('resource-id', '').endswith(':id/nativeSettingsButton')), None)
+    # Reproduce the original predicate on the actual XML elements, including
+    # ElementTree's child-count-based truthiness; this is observation only.
+    legacy = session or settings
     texts = {n.get('text', '') for n in items}
     state = {'phase': PHASE, 'views': relevant,
+             'legacy_predicate_matches': legacy is not None,
              'login_labels': sorted(texts & {'Welcome back', 'Email', 'Continue', 'Sign up'}),
              'demo_entry': 'Essayer le mode démo' in texts}
     now = round((time.monotonic() - START) * 1000)
