@@ -24,9 +24,13 @@
     sub-int v2, p5, p3
     invoke-virtual {v1}, Landroid/view/View;->getPaddingTop()I
     move-result v3
+    if-nez v3, :update_padding
+    invoke-virtual {v1}, Landroid/view/View;->getPaddingBottom()I
+    move-result v3
     if-eq v2, v3, :done
+    :update_padding
     const/4 v3, 0x0
-    invoke-virtual {v1, v3, v2, v3, v3}, Landroid/view/View;->setPadding(IIII)V
+    invoke-virtual {v1, v3, v3, v3, v2}, Landroid/view/View;->setPadding(IIII)V
     :done
     return-void
 .end method

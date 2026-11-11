@@ -55,8 +55,8 @@ if (work/'res').exists():
 
     # Place the preview button directly after the primary session action and
     # before the details panel. The same tag prevents the legacy dynamic hooks
-    # from adding a duplicate. Login has its own measured native header, so no
-    # content is overlaid on the WebView. Fixture projects may omit that header.
+    # from adding a duplicate. Login uses a compact measured bottom control,
+    # outside the WebView. Fixture projects may omit that layout.
     for name in ('native_session_surface.xml', 'native_session_login_header.xml'):
         layout = work / 'res/layout' / name
         if not layout.exists():
@@ -77,5 +77,10 @@ if (work/'res').exists():
             a+'textColor': '#FFFFFF', a+'textSize': '15sp', a+'textStyle': 'bold',
             a+'clickable': 'true', a+'focusable': 'true', a+'onClick': 'onPreviewDemoClick',
         })
+        if name == 'native_session_login_header.xml':
+            # Keep the demo reachable without the large top banner. Its 48dp
+            # measured height is reserved below, not over, the login WebView.
+            demo.set(a+'layout_marginTop', '0dp')
+            demo.set(a+'textSize', '14sp')
         parent.insert(index + 1, demo)
         layout_tree.write(layout, encoding='utf-8', xml_declaration=True)

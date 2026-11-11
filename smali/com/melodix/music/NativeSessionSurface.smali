@@ -191,7 +191,7 @@
     const/4 v3, -0x1
     const/4 v4, -0x1
     if-eqz v2, :params
-    # Login header is native only; reserve exactly its measured height above WebView.
+    # The compact login demo control is outside the WebView, below its viewport.
     const/4 v4, -0x2
     move-object v5, v0
     check-cast v5, Landroid/widget/ScrollView;
@@ -204,6 +204,9 @@
     new-instance v5, Landroid/widget/FrameLayout$LayoutParams;
     invoke-direct {v5, v3, v4}, Landroid/widget/FrameLayout$LayoutParams;-><init>(II)V
     const/16 v3, 0x30
+    if-eqz v2, :set_gravity
+    const/16 v3, 0x50
+    :set_gravity
     iput v3, v5, Landroid/widget/FrameLayout$LayoutParams;->gravity:I
     invoke-virtual {p0, v0, v5}, Landroid/app/Activity;->addContentView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
     invoke-virtual {v0}, Landroid/view/View;->bringToFront()V

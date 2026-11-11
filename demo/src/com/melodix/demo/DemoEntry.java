@@ -56,7 +56,7 @@ public final class DemoEntry {
         parent.addView(demo, actionIndex < 0 ? 0 : actionIndex + 1, lp);
     }
     /** Complete the existing session entry for verification and active login.
-     * The login control stays inside its measured native header, not over the WebView.
+     * The login control stays inside its measured bottom area, not over the WebView.
      * State 3 has no session overlay: authenticated users use real settings.
      */
     public static void bindSessionOtherStates(Activity a, View overlay, int state, boolean loginActive) {
@@ -75,8 +75,7 @@ public final class DemoEntry {
         demo.setTag("preview-demo-entry");
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
         lp.topMargin = dp(a, 8);
-        // Keep the login option visible before the WebView, while allowing the
-        // existing header-layout listener to reserve space for the WebView.
+        // The layout listener reserves this control outside the WebView.
         if (loginActive) parent.addView(demo, 0, lp);
         else parent.addView(demo, lp);
     }

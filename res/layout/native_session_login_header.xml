@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="@drawable/session_glass_background" android:overScrollMode="never" android:scrollbars="none">
-<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="8dp"><TextView android:id="@+id/sessionTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="0dp"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="@android:color/transparent" android:overScrollMode="never" android:scrollbars="none">
+<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="0dp"><TextView android:id="@+id/sessionTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="0dp"
                 android:text="Melodix" android:textColor="@color/session_text" android:textSize="18sp" android:textStyle="bold"
-                android:gravity="center" android:accessibilityLiveRegion="polite" />
+                android:gravity="center" android:accessibilityLiveRegion="polite" android:visibility="gone" />
 <TextView android:id="@+id/sessionSubtitle" android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="4dp" android:textColor="@color/session_secondary" android:textSize="12sp" android:lineSpacingExtra="3dp" android:gravity="center" />
+                android:layout_marginTop="4dp" android:textColor="@color/session_secondary" android:textSize="12sp" android:lineSpacingExtra="3dp" android:gravity="center" android:visibility="gone" />
 <TextView android:id="@+id/sessionAction" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:padding="12dp"
                 android:layout_marginTop="24dp" android:background="@drawable/session_glass_button" android:gravity="center"
                 android:textColor="#FFFFFF" android:textSize="16sp" android:textStyle="bold" android:clickable="true" android:focusable="true"  android:visibility="gone" />
