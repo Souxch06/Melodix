@@ -77,3 +77,24 @@ Les tests exécutent les branches Smali avec des doubles et vérifient aussi la
 logique de la garde existante ; l'assemblage Smali isolé a réussi. Cela ne
 constitue ni un test Android du dialogue ni une preuve que le refus Spotify est
 résolu. Aucune build ni release n'a été lancée pour ce changement.
+
+## Test157 après les correctifs (run 43074770471)
+
+La suite CI et la build Preview de la source `377eb0aae8f2b824e3c6d68def15e7d80122dd2f`
+ont réussi. L'inspection du même APK indique le paquet
+`com.melodix.music.preview`, versionCode `1021503`, versionName
+`1.2.2-377eb0a`, SHA-256
+`00ce34bf864e0678d88906eab43b4f529398cc63624394edc4b80aefde880fec`,
+certificat `e3ceb66f4f67ccbd53d92272f5c6422c3b10664aa57a28512bbafdb89657802f`,
+et `DemoEntry` défini dans `classes2.dex`. La CI vérifie le certificat Preview
+épinglé et une version supérieure à test156 (`1021502`).
+
+L'acceptation stricte a échoué : après le lancement depuis l'icône, les réglages
+de test, la surface session, l'accueil et le lecteur démo, elle n'a pas reconnu
+la surface réelle attendue après la sortie. L'annotation rapporte une page de
+connexion Spotify visible ; elle ne suffit pas à prouver un retour conforme, un
+compte connecté ou l'accès aux réglages réels. Le dialogue de confirmation n'a
+pas été validé sur cet émulateur. Captures partielles dans l'artefact
+`demo-launcher-observations` 13882062108 ; elles n'ont pas été consultées depuis
+cet environnement. Aucun bundle validé n'a été produit et aucune release n'a
+été publiée. L'APK reste non validée, indépendamment du succès de la build.
