@@ -271,6 +271,9 @@ function melodixHomeCopy() {
             accessError: 'Spotify a refusé l’accès à la bibliothèque. Vérifiez les autorisations ou réessayez.',
             playlists: 'Vos playlists', albums: 'Albums enregistrés',
             artists: 'Artistes suivis', podcasts: 'Podcasts',
+            tokenError: 'Le jeton du lecteur est indisponible. La bibliothèque ne peut pas être vérifiée ; la cause est inconnue.',
+            responseError: 'La réponse de Spotify est inattendue. Réessayez.',
+            unknownError: 'La bibliothèque n’a pas pu être vérifiée. La cause est inconnue ; réessayez.',
             networkError: 'La collecte a échoué. Vérifiez la connexion puis réessayez.',
             rateLimitError: 'Spotify limite temporairement les requêtes. Réessayez dans un instant.',
             serverError: 'Spotify est momentanément indisponible. Réessayez dans un instant.'
@@ -278,6 +281,9 @@ function melodixHomeCopy() {
         en: {
             morning: 'Good morning', afternoon: 'Good afternoon', evening: 'Good evening', discover: 'Discover',
             ...common,
+            tokenError: 'The player token is unavailable. The library could not be checked; the cause is unknown.',
+            responseError: 'Spotify returned data in an unexpected format. Please try again.',
+            unknownError: 'The library could not be checked. The cause is unknown; please try again.',
             networkError: 'The collection failed. Check your connection and try again.',
             rateLimitError: 'Spotify is temporarily limiting requests. Please try again shortly.',
             serverError: 'Spotify is temporarily unavailable. Please try again shortly.',
@@ -293,6 +299,9 @@ function melodixHomeCopy() {
             errorTitle: 'Los datos de Spotify no están disponibles',
             partialErrorTitle: 'No se pudieron cargar algunos datos de Spotify', retry: 'Reintentar',
             playlists: 'Tus playlists', albums: 'Álbumes guardados', artists: 'Artistas seguidos', podcasts: 'Podcasts',
+            tokenError: 'El token del reproductor no está disponible. No se pudo verificar la biblioteca; se desconoce la causa.',
+            responseError: 'Spotify devolvió una respuesta inesperada. Inténtalo de nuevo.',
+            unknownError: 'No se pudo verificar la biblioteca. Se desconoce la causa; inténtalo de nuevo.',
             networkError: 'No se pudieron recopilar los datos. Comprueba la conexión y vuelve a intentarlo.',
             rateLimitError: 'Spotify está limitando las solicitudes temporalmente. Inténtalo más tarde.',
             serverError: 'Spotify no está disponible temporalmente. Inténtalo más tarde.',
@@ -308,6 +317,9 @@ function melodixHomeCopy() {
             errorTitle: 'Spotify-Daten sind nicht verfügbar',
             partialErrorTitle: 'Einige Spotify-Daten konnten nicht geladen werden', retry: 'Erneut versuchen',
             playlists: 'Deine Playlists', albums: 'Gespeicherte Alben', artists: 'Gefolgte Künstler', podcasts: 'Podcasts',
+            tokenError: 'Das Player-Token ist nicht verfügbar. Die Bibliothek konnte nicht geprüft werden; die Ursache ist unbekannt.',
+            responseError: 'Spotify hat unerwartete Daten zurückgegeben. Bitte versuche es erneut.',
+            unknownError: 'Die Bibliothek konnte nicht geprüft werden. Die Ursache ist unbekannt; bitte versuche es erneut.',
             networkError: 'Die Daten konnten nicht geladen werden. Prüfe die Verbindung und versuche es erneut.',
             rateLimitError: 'Spotify begrenzt Anfragen vorübergehend. Bitte versuche es später erneut.',
             serverError: 'Spotify ist vorübergehend nicht verfügbar. Bitte versuche es später erneut.',
@@ -323,6 +335,9 @@ function melodixHomeCopy() {
             errorTitle: 'Dati Spotify non disponibili',
             partialErrorTitle: 'Alcuni dati Spotify non sono stati caricati', retry: 'Riprova',
             playlists: 'Le tue playlist', albums: 'Album salvati', artists: 'Artisti seguiti', podcasts: 'Podcast',
+            tokenError: 'Il token del lettore non è disponibile. Non è stato possibile verificare la libreria; la causa è sconosciuta.',
+            responseError: 'Spotify ha restituito una risposta inattesa. Riprova.',
+            unknownError: 'Non è stato possibile verificare la libreria. La causa è sconosciuta; riprova.',
             networkError: 'Raccolta non riuscita. Controlla la connessione e riprova.',
             rateLimitError: 'Spotify sta limitando temporaneamente le richieste. Riprova tra poco.',
             serverError: 'Spotify non è temporaneamente disponibile. Riprova tra poco.',
@@ -338,6 +353,9 @@ function melodixHomeCopy() {
             errorTitle: 'Dados do Spotify indisponíveis',
             partialErrorTitle: 'Não foi possível carregar alguns dados do Spotify', retry: 'Tentar novamente',
             playlists: 'As tuas playlists', albums: 'Álbuns guardados', artists: 'Artistas seguidos', podcasts: 'Podcasts',
+            tokenError: 'O token do leitor não está disponível. Não foi possível verificar a biblioteca; a causa é desconhecida.',
+            responseError: 'O Spotify devolveu uma resposta inesperada. Tenta novamente.',
+            unknownError: 'Não foi possível verificar a biblioteca. A causa é desconhecida; tenta novamente.',
             networkError: 'A recolha falhou. Verifica a ligação e tenta novamente.',
             rateLimitError: 'O Spotify está a limitar os pedidos temporariamente. Tenta novamente em breve.',
             serverError: 'O Spotify está temporariamente indisponível. Tenta novamente em breve.',
@@ -961,7 +979,10 @@ function melodixHomeErrorKind() {
     if (error === 'http-429' && melodixHomeHasConfirmedHttpStatus(429)) return 'rate-limit';
     const serverStatus = /^http-5[0-9]{2}$/.test(error) ? Number(error.slice(5)) : 0;
     if (serverStatus && melodixHomeHasConfirmedHttpStatus(serverStatus)) return 'server';
-    return 'network';
+    if (error === 'token-missing') return 'token-unavailable';
+    if (['non-json', 'invalid-json', 'unexpected-shape', 'graphql-error', 'transform-error', 'fetch-parse-error'].includes(error)) return 'invalid-response';
+    if (error === 'network-error' || error === 'timeout') return 'network';
+    return 'unknown';
 }
 
 function melodixHomeStatusMessage(labels) {
@@ -970,7 +991,10 @@ function melodixHomeStatusMessage(labels) {
     if (kind === 'access-denied') return labels.accessError;
     if (kind === 'rate-limit') return labels.rateLimitError;
     if (kind === 'server') return labels.serverError;
-    return labels.networkError;
+    if (kind === 'token-unavailable') return labels.tokenError;
+    if (kind === 'invalid-response') return labels.responseError;
+    if (kind === 'network') return labels.networkError;
+    return labels.unknownError;
 }
 
 function retryMelodixHomeLibrary() {

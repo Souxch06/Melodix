@@ -844,3 +844,46 @@ test('bounded decisions expose only screen category and layout state without acc
         close(page);
     }
 });
+
+test('simulated Web Home error messages do not confuse unavailable token, invalid data, network or unknown failures', () => {
+    // An earlier verified session is modeled only to exercise rendering, not Spotify authentication.
+    const cases = [
+        ['token-missing', /jeton.*indisponible/i, /réseau|401|403/i],
+        ['invalid-json', /réponse.*inattendue/i, /réseau|401|403/i],
+        ['unexpected-shape', /réponse.*inattendue/i, /réseau|401|403/i],
+        ['network-error', /connexion/i, /jeton|401|403/i],
+        ['other-unrecognized-error', /cause.*inconnue/i, /réseau|401|403/i]
+    ];
+    for (const [error, expected, forbidden] of cases) {
+        const page = makePage({cards: [], libraryStatus: 'error', libraryError: error});
+        try {
+            const status = homeElement(page).querySelector('.sf-melodix-home__status');
+            assert.match(status.textContent, expected, error);
+            assert.doesNotMatch(status.textContent, forbidden, error);
+            assert.ok(status.querySelector('.sf-melodix-home__retry'), 'real retry remains available');
+        } finally { close(page); }
+    }
+});
+
+test('missing token and malformed-response messages are localized without claiming a confirmed HTTP refusal', () => {
+    const locales = {
+        fr: [/jeton.*indisponible/i, /réponse.*inattendue/i],
+        en: [/token.*unavailable/i, /unexpected format/i],
+        es: [/token.*no está disponible/i, /respuesta inesperada/i],
+        de: [/token.*nicht verfügbar/i, /unerwartete Daten/i],
+        it: [/token.*non è disponibile/i, /risposta inattesa/i],
+        pt: [/token.*não está disponível/i, /resposta inesperada/i]
+    };
+    for (const [lang, expectations] of Object.entries(locales)) {
+        for (const [index, error] of ['token-missing', 'invalid-json'].entries()) {
+            const page = makePage({cards: [], libraryStatus: 'error', libraryError: error, initialize: false});
+            try {
+                page.document.documentElement.lang = lang;
+                vm.runInContext(rendererSource, page.dom.getInternalVMContext(), { timeout: 5000 });
+                const status = homeElement(page).querySelector('.sf-melodix-home__status');
+                assert.match(status.textContent, expectations[index], `${lang} ${error}`);
+                assert.doesNotMatch(status.textContent, /\b(?:401|403)\b/);
+            } finally { close(page); }
+        }
+    }
+});
