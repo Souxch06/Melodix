@@ -68,9 +68,12 @@ test('case 2: cookie merely routes to hidden player; only token AND validated li
  m.send({token:true,libraryOk:true});assert.equal(m.fields.state,3);assert.ok(m.calls.includes('showNativeUi'));
  for(const result of [{token:true,libraryOk:false},{token:false,libraryOk:true}]) {const n=machine();n.send(result);assert.equal(n.fields.state,4);assert.ok(!n.calls.includes('login'));}
 });
-test('case 3: one complete refusal with same cookie offers explicit reconnect, never auto redirect',()=>{
- const m=machine();m.send({tokenRefused:true,libraryHttp:401});assert.equal(m.fields.state,2);assert.equal(m.run('canReconnect'),true);
- assert.ok(!m.calls.includes('login'));m.fields.cookieId='digest-B';assert.equal(m.run('canReconnect'),false,'replaced cookie must be preserved');
+test('case 3: missing token and synthetic library 401 never establish expiry or auto redirect',()=>{
+ const m=machine();m.send({tokenRefused:true,libraryHttp:401});
+ assert.equal(m.fields.state,4);assert.equal(m.transitions.at(-1).reason,'token-unavailable');
+ assert.equal(m.fields.expiredEvidence,0);assert.equal(m.evidence.fields.count,0);
+ assert.equal(m.run('canReconnect'),0);assert.ok(!m.calls.includes('login'));
+ m.fields.cookieId='digest-B';assert.equal(m.run('canReconnect'),0,'replaced cookie must be preserved');
 });
 test('case 4: timeout/network/isolated 401/403 never imply expiry or destructive recovery',()=>{
  for(const payload of [{},{tokenRefused:true,libraryHttp:0},{libraryHttp:401},{tokenRefused:true,libraryHttp:403}]) {
@@ -128,8 +131,9 @@ test('MDXPERF accepts fixed state transitions but rejects private reasons',()=>{
  assert.ok(!rule.test('sid=1234abcd t=1 session-state from=verifying state=error reason=https://private'));
 });
 
-test('destructive reconnect is disabled during official login, even after repeated refusal evidence',()=>{
- const m=machine();m.send({tokenRefused:true,libraryHttp:401});m.send({attempt:2,tokenRefused:true,libraryHttp:401});assert.equal(m.run('canReconnect'),true);
+test('destructive reconnect is disabled during official login, even with independently seeded evidence',()=>{
+ const m=machine({state:2,expiredEvidence:true});m.evidence.cookie('digest-A');m.evidence.run('recordCurrentCookie');
+ assert.equal(m.run('canReconnect'),true);
  m.fields.loginActive=true;assert.equal(m.run('canReconnect'),0);
 });
 test('foreground revalidates a previously valid session, preserving redirect budget',()=>{
@@ -196,48 +200,53 @@ test('MainActivity never overrides a final method in its packaged superclass cha
  }
 });
 
-test('a stale/duplicate attempt cannot count twice; retries accumulate without pretending SSO is fresh',()=>{
- const m=machine();const refusal={tokenRefused:true,libraryHttp:401};m.send(refusal);m.send(refusal);assert.equal(m.fields.state,2);assert.equal(m.evidence.fields.count,1);
- m.fields.generation++;m.fields.lastAttempt=0;m.send(refusal);assert.equal(m.fields.state,2);
+test('stale and duplicate token refusals cannot add expiry evidence or authenticate',()=>{
+ const m=machine();const refusal={tokenRefused:true,libraryHttp:0};m.send(refusal);m.send(refusal);
+ assert.equal(m.fields.state,4);assert.equal(m.evidence.fields.count,0);assert.equal(m.fields.lastAttempt,1);
+ m.fields.generation++;m.fields.lastAttempt=0;m.send({generation:1,...refusal});
+ assert.equal(m.fields.lastAttempt,0);assert.equal(m.evidence.fields.count,0);
+ m.send(refusal);assert.equal(m.fields.state,4);assert.equal(m.evidence.fields.count,0);
+ assert.ok(!m.calls.includes('showNativeUi'));assert.ok(!m.calls.includes('login'));
  const fin=body(gate,'pageFinished');assert.doesNotMatch(fin,/sput-boolean.*freshLogin:Z/);
  const reconnect=read('smali/com/melodix/music/NativeSessionReconnect.smali');assert.match(reconnect,/->reset\(\)V[\s\S]*?freshLogin:Z/);
 });
-test('missing/changed cookie and network break the repeated-refusal proof, fresh refusal explains account denial',()=>{
- const refusal={tokenRefused:true,libraryHttp:401};
- const no=machine({cookie:false});no.send(refusal);no.send({attempt:2,...refusal});assert.equal(no.fields.state,4);
- const m=machine();m.send(refusal);m.fields.cookieId='digest-B';assert.equal(m.run('canReconnect'),false);m.send({attempt:2,...refusal});assert.equal(m.fields.state,2);
- m.send({attempt:3,libraryHttp:0});assert.equal(m.fields.state,4);m.send({attempt:4,...refusal});assert.equal(m.fields.state,2);
- const fresh=machine({freshLogin:true});fresh.send(refusal);assert.equal(fresh.fields.state,4);assert.equal(fresh.transitions.at(-1).reason,'fresh-account-refused');
+test('missing or changed cookie and fresh login never turn token refusal into expiry',()=>{
+ const refusal={tokenRefused:true,libraryHttp:0};
+ const no=machine({cookie:false});no.send(refusal);no.send({attempt:2,...refusal});assert.equal(no.fields.state,4);assert.equal(no.evidence.fields.count,0);
+ const m=machine();m.send(refusal);m.fields.cookieId='digest-B';assert.equal(m.run('canReconnect'),0);m.send({attempt:2,...refusal});assert.equal(m.fields.state,4);assert.equal(m.evidence.fields.count,0);
+ m.send({attempt:3,libraryHttp:0});assert.equal(m.fields.state,4);m.send({attempt:4,...refusal});assert.equal(m.fields.state,4);
+ const fresh=machine({freshLogin:true});fresh.send(refusal);assert.equal(fresh.fields.state,4);assert.equal(fresh.transitions.at(-1).reason,'token-unavailable');
  assert.ok(!fresh.calls.includes('login'));assert.equal(fresh.run('canReconnect'),0);
+ // Existing independent cookie-evidence accumulator still rejects cookie changes.
+ const evidence=evidenceVm();evidence.cookie('digest-A');assert.equal(evidence.run('recordCurrentCookie'),1);
+ evidence.cookie('digest-B');assert.equal(evidence.run('retainIfCurrent'),0);assert.equal(evidence.fields.count,0);
 });
-
-test('actual gate plus actual evidence: first refusal, slow retry deadline, second distinct refusal',()=>{
- const m=machine(),refused={tokenRefused:true,libraryHttp:401};m.send(refused);assert.equal(m.evidence.fields.count,1);assert.equal(m.fields.state,2);
- // Model a new native begin; run the exact evidence operation used by its deadline.
+test('actual gate clears prior evidence; deadline and duplicate missing-token results cannot resurrect it',()=>{
+ const m=machine(),refused={tokenRefused:true,libraryHttp:0};
+ m.evidence.cookie('digest-A');m.evidence.run('recordCurrentCookie');assert.equal(m.evidence.fields.count,1);
+ m.send(refused);assert.equal(m.evidence.fields.count,0);assert.equal(m.fields.state,4);
  m.fields.generation++;m.fields.lastAttempt=0;m.fields.state=0;
- assert.equal(m.retainDeadline(),1);assert.equal(m.evidence.fields.count,1);assert.equal(m.fields.state,0,'retention itself cannot transition to expiry');
- m.fields.state=4;m.send({attempt:2,...refused});assert.equal(m.fields.state,2);assert.equal(m.evidence.fields.count,2);
- m.send({attempt:2,...refused});assert.equal(m.evidence.fields.count,2,'duplicate completion cannot add evidence');
- m.fields.cookieId='digest-B';assert.equal(m.retainDeadline(),0);assert.equal(m.evidence.fields.count,0);assert.equal(m.run('canReconnect'),false);
+ assert.equal(m.retainDeadline(),0);assert.equal(m.fields.state,0,'retention cannot transition to expiry');
+ m.fields.state=4;m.send({attempt:2,...refused});assert.equal(m.fields.state,4);assert.equal(m.evidence.fields.count,0);
+ m.send({attempt:2,...refused});assert.equal(m.evidence.fields.count,0,'duplicate completion cannot add evidence');
+ m.fields.cookieId='digest-B';assert.equal(m.retainDeadline(),0);assert.equal(m.run('canReconnect'),0);
 });
 test('deadline with no evidence never reaches probable expiry, including repeated deadlines',()=>{
  const m=machine();for(let i=0;i<4;i++)assert.equal(m.retainDeadline(),0);assert.equal(m.evidence.fields.count,0);assert.equal(m.fields.state,0);assert.equal(m.run('canReconnect'),0);
 });
 
 
-test('incomplete or unknown diagnostic rows can never add a session refusal',()=>{
- const m=machine(),d=diagnosticVm(),refused={tokenRefused:true,libraryHttp:401};
- m.send(refused);assert.equal(m.evidence.fields.count,1);
+test('incomplete or unknown diagnostic rows cannot add evidence or affect the gate',()=>{
+ const m=machine(),d=diagnosticVm(),refused={tokenRefused:true,libraryHttp:0};
+ m.evidence.cookie('digest-A');m.evidence.run('recordCurrentCookie');assert.equal(m.evidence.fields.count,1);
  d.run('started',m.fields.generation,2);
  d.record({generation:m.fields.generation,attempt:2,completed:false,apiHttp:400,fallbackHttp:403,libraryHttp:401,tokenResult:'refused'});
  d.record({generation:m.fields.generation,attempt:3,completed:true,apiHttp:null,fallbackHttp:null,libraryHttp:null,tokenResult:'unknown'});
  assert.match(d.text(),/Tentative 1\/2.*terminée=non/);
  assert.match(d.text(),/Tentative 1\/3.*token API=inconnu · repli=inconnu · bibliothèque=inconnu/);
- assert.equal(m.evidence.fields.count,1,'even diagnostic rows with all three refusal HTTPs are observational');
- assert.equal(m.fields.lastAttempt,1);assert.equal(m.fields.state,2);
- // Defense in depth: even on the PROOF channel, an incomplete full triple is ignored.
- m.send({attempt:2,completed:false,...refused});assert.equal(m.evidence.fields.count,1);assert.equal(m.fields.lastAttempt,1);
- // Unknown proof HTTPs must not turn into a refusal (existing classifier resets the chain).
+ assert.equal(m.evidence.fields.count,1,'diagnostic rows remain observational');
+ assert.equal(m.fields.lastAttempt,0);assert.equal(m.fields.state,0);
+ m.send({attempt:2,completed:false,...refused});assert.equal(m.evidence.fields.count,1);assert.equal(m.fields.lastAttempt,0);
  m.send({attempt:3,completed:true,token:false,tokenApiHttp:0,tokenFallbackHttp:0,libraryHttp:0});
- assert.equal(m.evidence.fields.count,0);assert.equal(m.fields.state,4);
+ assert.equal(m.evidence.fields.count,0);assert.equal(m.fields.state,4);assert.equal(m.transitions.at(-1).reason,'token-unavailable');
 });

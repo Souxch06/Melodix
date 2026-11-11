@@ -99,7 +99,8 @@ test('generation guards, reconnect, Spotify request functions and proof publicat
  assert.equal(fn(js,'publishSessionVerification'),fn(old('scripts/spotify_bridge.source.js'),'publishSessionVerification'));
  const asyncFn=(s,n,end)=>s.slice(s.indexOf('    async function '+n+'('),s.indexOf(end,s.indexOf('    async function '+n+'(')));
  assert.equal(asyncFn(js,'fetchWebPlayerToken','    function dropWebPlayerToken'),asyncFn(old('scripts/spotify_bridge.source.js'),'fetchWebPlayerToken','    function dropWebPlayerToken'));
- assert.equal(asyncFn(js,'fetchAllLibrary','    window.fetchAllLibrary'),asyncFn(old('scripts/spotify_bridge.source.js'),'fetchAllLibrary','    window.fetchAllLibrary'));
+ const normalize=require('./helpers/token_guard_normalize');
+ assert.equal(normalize(asyncFn(js,'fetchAllLibrary','    window.fetchAllLibrary')),asyncFn(old('scripts/spotify_bridge.source.js'),'fetchAllLibrary','    window.fetchAllLibrary'));
  const flight=read(dir+'NativeSessionVerificationFlight.smali');assert.doesNotMatch(flight,/Evidence|transition|loadUrl|Cookie|recordCurrent/);
 });
 test('relance and start acknowledgement failures use the same closed, non-recursive fallback',()=>{

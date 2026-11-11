@@ -92,7 +92,8 @@ test('snapshot and telemetry do not modify requests, proof or export sensitive d
  assert.doesNotMatch(pull,/cookie|https?:\/\/|authorization|printStackTrace|->getMessage\(/i);
  const previous=require('node:child_process').execFileSync('git',['show','04a26c8131691c9d0814254053ab359f024c342c:scripts/spotify_bridge.source.js'],{encoding:'utf8'});
  const start=s=>s.slice(s.indexOf('    async function fetchAllLibrary('),s.indexOf('    function ',s.indexOf('    async function fetchAllLibrary(')+10));
- assert.equal(start(js),start(previous));
+ const normalize=require('./helpers/token_guard_normalize');
+ assert.equal(normalize(start(js)),start(previous));
 });
 test('real retry check supplies an independent initial snapshot before work when both observation interfaces are absent',async()=>{
  const noop=()=>{},events=[];

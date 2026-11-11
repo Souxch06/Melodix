@@ -1,7 +1,6 @@
 'use strict';
-// Supplemental executions of unchanged legacy assertions under their now-required
-// precondition: a synthetic player token. The original tests remain untouched
-// and still report their historical, tokenless expectations honestly.
+// Supplemental executions of the neighboring assertions with an explicit
+// synthetic player-token fixture; no Spotify network access occurs.
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
@@ -22,9 +21,8 @@ const expected = [
  'MEL-BUG-036: with a web-player token'
 ];
 let header = source.slice(0, positions[0]);
-const old = 'tokenResponse = null, tokenStatus = 404';
-if (!header.includes(old)) throw new Error('fixture setup changed: review before replay');
-header = header.replace(old, "tokenResponse = { accessToken: 'SYNTHETIC_NEIGHBOR_TOKEN', accessTokenExpirationTimestampMs: Date.now()+3600000 }, tokenStatus = 404");
+const expectedFixture = "tokenResponse = { accessToken: 'SYNTHETIC_FIXTURE_TOKEN'";
+if (!header.includes(expectedFixture)) throw new Error('fixture setup changed: review before replay');
 const chunks = positions.map((p,i) => source.slice(p, positions[i+1] || source.length));
 const selected = expected.map(prefix => {
  const matches = chunks.filter(x => x.startsWith("test('" + prefix));

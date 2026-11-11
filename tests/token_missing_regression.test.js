@@ -13,7 +13,7 @@ vm.runInContext(head+'\nglobalThis.fixtures={loadBridge,libraryPage,libraryItem,
 const f=sandbox.fixtures;
 
 test('400/403 token refusal ends without library network call or false 401',async()=>{
- const calls=[]; const w=f.loadBridge({tokenStatus:400,fallbackTokenStatus:403,fetchImpl:async(...x)=>{calls.push(x);return f.jsonResponse(401,{});}});
+ const calls=[]; const w=f.loadBridge({tokenResponse:null,tokenStatus:400,fallbackTokenStatus:403,fetchImpl:async(...x)=>{calls.push(x);return f.jsonResponse(401,{});}});
  const proofs=[], attempts=[];w.AndBridge.onSessionVerification=s=>proofs.push(JSON.parse(s));w.AndBridge.onSessionAttemptDiagnostic=s=>attempts.push(JSON.parse(s));w.AndBridge.getSessionGeneration=()=>1;
  w.mediaLib={playlists:[{name:'OLD PRIVATE FIXTURE'}]};w.__sfMediaLibSessionProven=true;
  await w.checkMediaLib(true);
@@ -80,4 +80,23 @@ test('native gate distinguishes observed library 401 and 403 after a token',()=>
    assert.equal(m.transitions.at(-1).reason,'library-http-'+code);
    assert.ok(!m.calls.includes('showNativeUi'));
  }
+});
+
+test('concurrent attempts with no token coalesce and never issue protected requests',async()=>{
+ let calls=0;const w=f.loadBridge({tokenResponse:null,tokenStatus:400,fallbackTokenStatus:403,
+   fetchImpl:async()=>{calls++;return f.jsonResponse(401,{});}});
+ const a=w.checkMediaLib(), b=w.checkMediaLib(true), c=w.checkMediaLib();
+ assert.strictEqual(a,b);assert.strictEqual(a,c);
+ await Promise.all([a,b,c]);
+ assert.equal(w.__testTokenRequests.length,2);assert.equal(calls,0);
+ assert.equal(w.__sfMediaLibError,'token-missing');assert.equal(w.__sfMediaLibLastDiagnostic.http,0);
+ assert.doesNotMatch(w.__testDiagnostics.join('\n'),/library\.request\.(?:started|response).*http=401/);
+ assert.equal(w.__sfMediaLibSessionProven,false);
+});
+
+test('200 responses without an accessToken still do not authorize library requests',async()=>{
+ let calls=0;const w=f.loadBridge({tokenResponse:{},fetchImpl:async()=>{calls++;return f.libraryPage([]);}});
+ await w.checkMediaLib(true);assert.equal(w.__testTokenRequests.length,2);
+ assert.equal(calls,0);assert.equal(w.__sfMediaLibError,'token-missing');
+ assert.equal(w.__sfMediaLibLastDiagnostic.http,0);assert.equal(w.__sfMediaLibSessionProven,false);
 });

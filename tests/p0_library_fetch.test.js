@@ -30,7 +30,7 @@ function fakeElement() {
 
 // Loads the real bridge into its own sandbox. `fetchImpl` replaces page fetch
 // captured as oriFetch. Long production deadlines are shortened only in tests.
-function loadBridge({ fetchImpl, tokenResponse = null, tokenStatus = 404, fallbackTokenStatus = tokenStatus, profileSignal = true, playerSignal = true, loginSignal = false,
+function loadBridge({ fetchImpl, tokenResponse = { accessToken: 'SYNTHETIC_FIXTURE_TOKEN', accessTokenExpirationTimestampMs: Date.now() + 3600000 }, tokenStatus = 404, fallbackTokenStatus = tokenStatus, profileSignal = true, playerSignal = true, loginSignal = false,
     pathname = '/', hostname = 'open.spotify.com' } = {}) {
     const listeners = {};
     const dispatchedEvents = [];
@@ -87,7 +87,7 @@ function loadBridge({ fetchImpl, tokenResponse = null, tokenStatus = 404, fallba
         console: { log() {}, warn() {}, error() {}, info() {}, debug() {} },
         // MEL-BUG-036: the bridge now fetches a web-player token from
         // /api/token before libraryV3. Tests control it via tokenResponse
-        // (null => 404 => no Bearer header, legacy behaviour preserved).
+        // (explicit null => failed token; default => synthetic Bearer fixture).
         fetch: (async (url, init) => {
             if (String(url).indexOf('/api/token') >= 0 || String(url).indexOf('get_access_token') >= 0) {
                 tokenRequests.push({url: String(url), init: JSON.parse(JSON.stringify(init))});
@@ -172,7 +172,7 @@ function finalLibraryDiagnostic(win) {
 
 // A successful fixture verifies cookie inclusion, API shape, transformation,
 // and redacted HTTP/timing telemetry. It does not demonstrate a real Spotify session.
-test('checkMediaLib transforms a valid library response and sends cookies without inventing a token', async () => {
+test('checkMediaLib transforms a valid library response with cookies and a fixture bearer', async () => {
     const calls = [];
     const win = loadBridge({
         fetchImpl: async (url, init) => {
@@ -214,11 +214,12 @@ test('checkMediaLib transforms a valid library response and sends cookies withou
     assert.equal(requestBody.extensions.persistedQuery.version, 1);
     assert.match(requestBody.extensions.persistedQuery.sha256Hash, /^[a-f0-9]{64}$/);
     const headers = calls[0].init.headers || {};
-    assert.deepEqual(Object.keys(headers).sort(), ['Content-Type', 'app-platform', 'spotify-app-version'].sort());
+    assert.deepEqual(Object.keys(headers).sort(), ['Content-Type', 'Authorization', 'app-platform', 'spotify-app-version'].sort());
     assert.equal(headers['Content-Type'], 'application/json;charset=UTF-8');
     assert.equal(headers['app-platform'], 'WebPlayer');
     assert.equal(headers['spotify-app-version'], '1.2.40.0');
-    assert.ok(!/authorization/i.test(Object.keys(headers).join(',')));
+    assert.equal(headers.Authorization, 'Bearer SYNTHETIC_FIXTURE_TOKEN');
+    assert.doesNotMatch(JSON.stringify(win.__sfMediaLibLastDiagnostic), /SYNTHETIC_FIXTURE_TOKEN/);
     assert.match(finalLibraryDiagnostic(win),
         /^library-fetch phase=settle http=200 mime=json duration=[0-9]+ error=none auth=webview-session refresh=unsupported bearer=[01]$/);
     const diagnostic = win.__sfMediaLibLastDiagnostic;
@@ -318,8 +319,8 @@ test('the library paginates multiple playlist pages and deduplicates entries', a
     assert.match(finalLibraryDiagnostic(win), /^library-fetch phase=settle http=200 mime=json duration=[0-9]+ error=none auth=webview-session refresh=unsupported bearer=[01]$/);
 });
 
-test('an absent session represented by HTTP 401 remains an unknown-cause refusal, not a fabricated login diagnosis', async () => {
-    // Deterministic no-session fixture only; this is not a real Spotify login test.
+test('an actual library HTTP 401 with a bearer remains an unknown-cause refusal', async () => {
+    // Deterministic bearer and 401 fixture only; this is not a real Spotify login test.
     const win = loadBridge({ fetchImpl: async () => jsonResponse(401, {}) });
     await win.checkMediaLib(true);
 
@@ -811,7 +812,7 @@ test('MEL-BUG-036: with a web-player token, libraryV3 sends Authorization: Beare
 
 
 test('session diagnostics record actual token endpoint codes without credential values', async () => {
-    const win = loadBridge({ tokenStatus: 403, profileSignal: false, playerSignal: false,
+    const win = loadBridge({ tokenResponse: null, tokenStatus: 403, profileSignal: false, playerSignal: false,
         fetchImpl: async () => jsonResponse(401, {}) });
     await win.checkMediaLib(true);
     const trace = win.__testDiagnostics.join('\n');
@@ -820,15 +821,16 @@ test('session diagnostics record actual token endpoint codes without credential 
     assert.match(trace, /token-http endpoint=api phase=end http=403 duration=[0-9]+/);
     assert.match(trace, /token-http endpoint=fallback phase=end http=403 duration=[0-9]+/);
     assert.match(trace, /token-result status=ko-http403 duration=[0-9]+/);
-    assert.match(trace, /library.request.started/);
-    assert.match(trace, /library.request.response .*http=401/);
+    assert.doesNotMatch(trace, /library.request.started|library.request.response/);
+    assert.equal(win.__sfMediaLibError, 'token-missing');
+    assert.equal(win.__sfMediaLibLastDiagnostic.http, 0);
     assert.equal(win.__sfMediaLibSessionProven, false);
     assert.doesNotMatch(trace, /accessToken|TEST_TOKEN|sp_dc=/);
 });
 
 
 test('400 then 403 presentation metadata preserves the exact existing token requests', async () => {
-    const win = loadBridge({tokenStatus:400, fallbackTokenStatus:403, profileSignal:false,
+    const win = loadBridge({tokenResponse:null, tokenStatus:400, fallbackTokenStatus:403, profileSignal:false,
         playerSignal:false, fetchImpl:async () => jsonResponse(401,{})});
     await win.checkMediaLib(true);
     assert.equal(win.__sfMediaLibLastDiagnostic.tokenApiHttp,400);
@@ -846,20 +848,21 @@ test('400 then 403 presentation metadata preserves the exact existing token requ
     assert.equal(win.__testTokenRequests.length,2,'required guard and retry policy unchanged');
 });
 
-test('manual session retry runs a new API, fallback and library request after a complete refusal', async () => {
+test('manual retry repeats token attempts but sends no library request after refusal', async () => {
     const calls=[];const payloads=[];
-    const win=loadBridge({tokenStatus:400,fallbackTokenStatus:403,profileSignal:false,playerSignal:false,
+    const win=loadBridge({tokenResponse:null,tokenStatus:400,fallbackTokenStatus:403,profileSignal:false,playerSignal:false,
         fetchImpl:async (url,init)=>{calls.push({url,init});return jsonResponse(401,{});}});
     win.AndBridge.getSessionGeneration=()=>7;
     win.AndBridge.onSessionVerification=s=>payloads.push(JSON.parse(s));
     await win.checkMediaLib(true,'shell-update');
     await win.__sfRequestSessionVerification();
-    assert.equal(win.__testTokenRequests.length,4);assert.equal(calls.length,2);
+    assert.equal(win.__testTokenRequests.length,4);assert.equal(calls.length,0);
+    assert.equal(win.__sfMediaLibError, 'token-missing');
     assert.deepEqual(win.__testTokenRequests.map(x=>x.url),[
         'https://open.spotify.com/api/token','https://open.spotify.com/get_access_token?reason=transport&productType=web_player',
         'https://open.spotify.com/api/token','https://open.spotify.com/get_access_token?reason=transport&productType=web_player']);
     assert.equal(payloads.length,2);assert.notEqual(payloads[0].attempt,payloads[1].attempt);
-    for(const p of payloads)assert.deepEqual([p.generation,p.completed,p.tokenApiHttp,p.tokenFallbackHttp,p.libraryHttp],[7,true,400,403,401]);
+    for(const p of payloads)assert.deepEqual([p.generation,p.completed,p.tokenApiHttp,p.tokenFallbackHttp,p.libraryHttp],[7,true,400,403,0]);
     const trace=win.__testDiagnostics.join('\n');assert.match(trace,/token-http endpoint=api phase=start/);assert.match(trace,/token-http endpoint=fallback phase=end/);
     assert.doesNotMatch(trace,/accessToken|sp_dc=/);
 });
