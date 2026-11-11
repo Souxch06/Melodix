@@ -66,17 +66,21 @@ try:
     adb('shell', 'am', 'force-stop', pkg)
     adb('shell', 'monkey', '-p', pkg, '-c', 'android.intent.category.LAUNCHER', '1')
     wait_text('Ouvrir Melodix'); observe('launcher'); tap(wait_text('Ouvrir Melodix'))
-    # Wait for the actual login page, not a fabricated session signal.
-    wait_text('Spotify', 90); time.sleep(5); first = observe('login')
-    if not first['demo_entries']:
-        try: wait_text('Essayer le mode démo', 45)
-        except RuntimeError: pass
-        first = observe('login-final')
-    if first['demo_entries']:
-        tap(wait_text('Essayer le mode démo', 5))
-        wait_text('MODE DÉMO · HORS LIGNE', 60); observe('demo')
+    # A clean offline device may show either the interactive Spotify login or
+    # an unproven native session error. Record the actual WebView and surface;
+    # never pretend that either state represents authenticated access.
+    end = time.monotonic() + 90
+    while time.monotonic() < end:
+        items = nodes()
+        if any(n.get('class') == 'android.webkit.WebView' for n in items):
+            break
+        time.sleep(2)
     else:
-        print('::warning title=Test158 login::Demo entry not observed; no simulated session or alternate navigation.', flush=True)
+        raise RuntimeError('WebView not observed')
+    time.sleep(5); observe('real-session')
+    tap(wait_text('Essayer le mode démo', 45))
+    wait_text('MODE DÉMO · HORS LIGNE', 60); observe('demo')
+    tap(wait_text('Quitter la démo', 30)); time.sleep(5); observe('after-demo')
 except Exception as exc:
     print('::error title=Test158 observation::' + str(exc), flush=True)
     try: observe('error')
