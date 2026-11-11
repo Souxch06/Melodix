@@ -31,12 +31,20 @@ if (work/'res').exists():
     marker='    :attach\n    const/4 v3, -0x1'
     assert text.count(marker)==1
     text=text.replace(marker, '    :attach\n    invoke-static {p0, v0, v1, v2}, Lcom/melodix/demo/DemoEntry;->bindSession(Landroid/app/Activity;Landroid/view/View;IZ)V\n    invoke-static {p0, v0, v1, v2}, Lcom/melodix/demo/DemoEntry;->bindSessionOtherStates(Landroid/app/Activity;Landroid/view/View;IZ)V\n    const/4 v3, -0x1')
+    # A repaint may reuse an existing overlay; bind idempotently on both paths.
+    marker='    invoke-static {}, Lcom/melodix/music/NativeSessionSurfaceExtras;->retryState()V\n    invoke-virtual {v0}, Landroid/view/View;->bringToFront()V\n    return-void'
+    assert text.count(marker)==1
+    text=text.replace(marker, '    invoke-static {}, Lcom/melodix/music/NativeSessionSurfaceExtras;->retryState()V\n    invoke-static {p0, v0, v1, v2}, Lcom/melodix/demo/DemoEntry;->bindSession(Landroid/app/Activity;Landroid/view/View;IZ)V\n    invoke-static {p0, v0, v1, v2}, Lcom/melodix/demo/DemoEntry;->bindSessionOtherStates(Landroid/app/Activity;Landroid/view/View;IZ)V\n    invoke-virtual {v0}, Landroid/view/View;->bringToFront()V\n    return-void')
     p.write_text(text)
     p=work/'smali/com/melodix/music/MainActivity.smali'
     text=p.read_text()
     marker='    invoke-virtual {v2}, Landroid/widget/LinearLayout;->removeAllViews()V\n\n    # Home is a set of horizontal cover shelves'
     assert text.count(marker)==1
     text=text.replace(marker,'    invoke-virtual {v2}, Landroid/widget/LinearLayout;->removeAllViews()V\n    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;\n    invoke-static {p0, v2, v0}, Lcom/melodix/demo/DemoEntry;->bindSettings(Landroid/app/Activity;Landroid/widget/LinearLayout;Ljava/lang/String;)V\n\n    # Home is a set of horizontal cover shelves')
+    # The session button is an actual inflated layout element. Its click calls
+    # this preview-only Activity method; it does not rely on a later repaint.
+    assert 'onPreviewDemoClick(Landroid/view/View;)V' not in text
+    text += '''\n.method public final onPreviewDemoClick(Landroid/view/View;)V\n    .locals 0\n    invoke-static {p0}, Lcom/melodix/demo/DemoEntry;->open(Landroid/app/Activity;)V\n    return-void\n.end method\n'''
     p.write_text(text)
     p=work/'res/layout/native_session_surface.xml'
     text=p.read_text()
@@ -44,3 +52,30 @@ if (work/'res').exists():
         assert text.count(old)==1
         text=text.replace(old,new)
     p.write_text(text)
+
+    # Place the preview button directly after the primary session action and
+    # before the details panel. The same tag prevents the legacy dynamic hooks
+    # from adding a duplicate. Login has its own measured native header, so no
+    # content is overlaid on the WebView. Fixture projects may omit that header.
+    for name in ('native_session_surface.xml', 'native_session_login_header.xml'):
+        layout = work / 'res/layout' / name
+        if not layout.exists():
+            if name == 'native_session_surface.xml': raise FileNotFoundError(layout)
+            continue
+        layout_tree = ET.parse(layout)
+        layout_root = layout_tree.getroot()
+        matches = [(parent, list(parent).index(child)) for parent in layout_root.iter()
+                   for child in parent if child.get(a+'id') == '@+id/sessionAction']
+        assert len(matches) == 1, (name, 'sessionAction missing or ambiguous')
+        parent, index = matches[0]
+        demo = ET.Element('TextView', {
+            a+'tag': 'preview-demo-entry',
+            a+'layout_width': 'match_parent', a+'layout_height': 'wrap_content',
+            a+'minHeight': '48dp', a+'padding': '12dp', a+'layout_marginTop': '12dp',
+            a+'background': '@drawable/native_glass_surface', a+'gravity': 'center',
+            a+'text': 'Essayer le mode démo', a+'contentDescription': 'Essayer le mode démo',
+            a+'textColor': '#FFFFFF', a+'textSize': '15sp', a+'textStyle': 'bold',
+            a+'clickable': 'true', a+'focusable': 'true', a+'onClick': 'onPreviewDemoClick',
+        })
+        parent.insert(index + 1, demo)
+        layout_tree.write(layout, encoding='utf-8', xml_declaration=True)

@@ -33,6 +33,10 @@ public final class DemoEntry {
         });
         return button;
     }
+    /** Called by the preview-only native session layouts' onClick attribute. */
+    public static void open(Activity a) {
+        a.startActivity(new Intent(a, DemoActivity.class));
+    }
     public static void bindSession(Activity a, View overlay, int state, boolean loginActive) {
         // A real login WebView and its controls are never covered. No proof is altered.
         if (loginActive || state == 0 || state == 3 || overlay == null) return;
@@ -45,7 +49,11 @@ public final class DemoEntry {
         demo.setTag("preview-demo-entry");
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1,-2);
         lp.topMargin = dp(a,12);
-        parent.addView(demo, lp);
+        int actionId = a.getResources().getIdentifier("sessionAction", "id", a.getPackageName());
+        View primary = overlay.findViewById(actionId);
+        int actionIndex = primary == null ? -1 : parent.indexOfChild(primary);
+        // Place the fallback before diagnostics and any potentially lengthy details.
+        parent.addView(demo, actionIndex < 0 ? 0 : actionIndex + 1, lp);
     }
     /** Complete the existing session entry for verification and active login.
      * The login control stays inside its measured native header, not over the WebView.
