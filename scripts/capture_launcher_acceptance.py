@@ -26,6 +26,15 @@ def text_node(items, text):
 def find_id(items, idname):
     return next((n for n in items if n.get('resource-id', '').endswith(':id/' + idname)), None)
 
+def real_surface(items):
+    # ElementTree leaf nodes are falsey even when present. Test existence,
+    # not truthiness: keep the same two accepted IDs, without accepting login
+    # text, demo screens or any other substitute surface.
+    session = find_id(items, 'sessionTitle')
+    if session is not None:
+        return session
+    return find_id(items, 'nativeSettingsButton')
+
 def wait(predicate, label, limit=60):
     until = time.monotonic() + limit
     while time.monotonic() < until:
@@ -87,7 +96,7 @@ try:
     observe_watchdog(nodes, 'demo', 70)
     summary['steps'].append('demo remained visible during 70s watchdog window')
     tap(wait(lambda n: text_node(n, 'Quitter la démo'), 'demo exit'))
-    wait(lambda n: find_id(n, 'sessionTitle') or find_id(n, 'nativeSettingsButton'), 'real surface after demo exit', 90)
+    wait(real_surface, 'real surface after demo exit', 90)
     observe_watchdog(nodes, 'after-exit', 10)
     screenshot('06-apres-sortie', 'real surface after demo exit; no content diagnostic for 10s')
     # Require genuine, visible settings. No synthetic authentication to cross

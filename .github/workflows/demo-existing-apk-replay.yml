@@ -164,6 +164,27 @@ jobs:
           disable-animations: true
           emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
           script: adb install target-apk/Melodix-Preview-v1.2.2-test157.apk && python3 scripts/diagnose_demo_return.py
+      - name: Summarize redacted replay evidence
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PYDIAG'
+          import json, pathlib
+          folder = pathlib.Path('evidence')
+          samples = folder / 'ui-samples.json'
+          if samples.exists():
+              rows = [s for s in json.loads(samples.read_text()) if s['state'].get('phase') == 'after-exit']
+              print('::notice title=Return samples::' + json.dumps(rows[:1] + rows[-1:] if len(rows) > 1 else rows, ensure_ascii=False))
+          journal = folder / 'journal-safe.txt'
+          if journal.exists():
+              lines = journal.read_text().splitlines()
+              selected = [x for x in lines if ' MARK ' in x or any(k in x for k in ('navigation ', 'bridge-', 'page-loaded', 'session-state ', 'activity-resume'))]
+              for i in range(0, min(len(selected), 72), 12):
+                  print('::notice title=Return trace %03d::%s' % (i//12, ' | '.join(selected[i:i+12])))
+          summary = folder / 'diagnostic-summary.json'
+          if summary.exists():
+              print('::notice title=Return summary::' + json.dumps(json.loads(summary.read_text()), ensure_ascii=False))
+          PYDIAG
       - name: Upload redacted diagnostics and real captures
         if: always()
         uses: actions/upload-artifact@v4.6.2

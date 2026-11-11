@@ -58,6 +58,7 @@ def observe_node_sample(items):
     texts = {n.get('text', '') for n in items}
     state = {'phase': PHASE, 'views': relevant,
              'legacy_predicate_matches': legacy is not None,
+             'intended_predicate_matches': session is not None or settings is not None,
              'login_labels': sorted(texts & {'Welcome back', 'Email', 'Continue', 'Sign up'}),
              'demo_entry': 'Essayer le mode démo' in texts}
     now = round((time.monotonic() - START) * 1000)
