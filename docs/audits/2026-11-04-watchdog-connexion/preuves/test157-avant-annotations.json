@@ -1,0 +1,58 @@
+[
+  {
+    "message": "Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/download-artifact@v4.3.0, actions/setup-python@v5, actions/upload-artifact@v4.6.2. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/",
+    "title": ""
+  },
+  {
+    "message": "The process '/usr/bin/sh' failed with exit code 1",
+    "title": ""
+  },
+  {
+    "message": "[{\"host_ms\": 150722, \"state\": {\"phase\": \"after-exit\", \"views\": [{\"id\": \"\", \"class\": \"android.webkit.WebView\", \"bounds\": \"[0,527][1080,1920]\", \"children\": 1, \"element_truth\": true}, {\"id\": \"\", \"class\": \"android.webkit.WebView\", \"bounds\": \"[0,527][1080,1920]\", \"children\": 1, \"element_truth\": true}, {\"id\": \"sessionTitle\", \"class\": \"android.widget.TextView\", \"bounds\": \"[21,21][1059,84]\", \"children\": 0, \"element_truth\": false}], \"legacy_predicate_matches\": false, \"login_labels\": [\"Continue\", \"Email\", \"Sign up\", \"Welcome back\"], \"demo_entry\": true}}, {\"host_ms\": 167118, \"state\": {\"phase\": \"after-exit\", \"views\": [{\"id\": \"\", \"class\": \"android.webkit.WebView\", \"bounds\": \"[0,527][1080,1920]\", \"children\": 1, \"element_truth\": true}, {\"id\": \"\", \"class\": \"android.webkit.WebView\", \"bounds\": \"[0,527][1080,1920]\", \"children\": 1, \"element_truth\": true}, {\"id\": \"sessionTitle\", \"class\": \"android.widget.TextView\", \"bounds\": \"[21,21][1059,84]\", \"children\": 0, \"element_truth\": false}], \"legacy_predicate_matches\": false, \"login_labels\": [\"Continue\", \"Email\", \"Sign up\", \"Welcome back\"], \"demo_entry\": true}}, {\"host_ms\": 183528, \"state\": {\"phase\": \"after-exit\", \"views\": [{\"id\": \"\", \"class\": \"android.webkit.WebView\", \"bounds\": \"[0,527][1080,1920]\", \"children\": 1, \"element_truth\": true}, {\"id\": \"\", \"class\": \"android.webkit.WebView\", \"bounds\": \"[0,527][1080,1920]\", \"children\": 1, \"element_truth\": true}, {\"id\": \"sessionTitle\", \"class\": \"android.widget.TextView\", \"bounds\": \"[21,21][1059,84]\", \"children\": 0, \"element_truth\": false}], \"legacy_predicate_matches\": false, \"login_labels\": [\"Continue\", \"Email\", \"Sign up\", \"Welcome back\"], \"demo_entry\": true}}, {\"host_ms\": 199908, \"state\": {\"phase\": \"after-exit\", \"views\": [{\"id\": \"\", \"class\": \"android.webkit.WebView\", \"bounds\": \"[0,527][1080,1920]\", \"children\": 1, \"element_truth\": true}, {\"id\": \"\", \"class\": \"android.webkit.WebView\", \"bounds\": \"[0,527][1080,1920]\", \"children\": 1, \"element_truth\": true}, {\"id\": \"sessionTitle\", \"class\": \"android.widget.TextView\", \"bounds\": \"[21,21][1059,84]\", \"children\": 0, \"element_truth\": false}], \"legacy_predicate_matches\": false, \"login_labels\": [\"Continue\", \"Email\", \"Sign up\", \"Welcome back\"], \"demo_entry\": true}}, {\"host_ms\": 216330, \"state\": {\"phase\": \"after-exit\", \"views\": [{\"id\": \"\", \"class\": \"android.webkit.WebView\", \"bounds\": \"[0,527][1080,1920]\", \"children\": 1, \"element_truth\": true}, {\"id\": \"\", \"class\": \"android.webkit.WebView\", \"bounds\": \"[0,527][1080,1920]\", \"children\": 1, \"element_truth\": true}, {\"id\": \"sessionTitle\", \"class\": \"android.widget.TextView\", \"bounds\": \"[21,21][1059,84]\", \"children\": 0, \"element_truth\": false}], \"legacy_predicate_matches\": false, \"login_labels\": [\"Continue\", \"Email\", \"Sign up\", \"Welcome back\"], \"demo_entry\": true}}]",
+    "title": "Diagnostic UI samples 002"
+  },
+  {
+    "message": "[{\"host_ms\": 64411, \"state\": {\"phase\": \"before-exit\", \"views\": [{\"id\": \"nativeSettingsButton\", \"class\": \"android.widget.ImageView\", \"bounds\": \"[688,74][814,200]\", \"children\": 0, \"element_truth\": false}], \"legacy_predicate_matches\": true, \"login_labels\": [], \"demo_entry\": false}}, {\"host_ms\": 81845, \"state\": {\"phase\": \"before-exit\", \"views\": [{\"id\": \"nativeSettingsButton\", \"class\": \"android.widget.ImageView\", \"bounds\": \"[688,74][814,200]\", \"children\": 0, \"element_truth\": false}], \"legacy_predicate_matches\": true, \"login_labels\": [], \"demo_entry\": false}}, {\"host_ms\": 99487, \"state\": {\"phase\": \"before-exit\", \"views\": [{\"id\": \"nativeSettingsButton\", \"class\": \"android.widget.ImageView\", \"bounds\": \"[688,74][814,200]\", \"children\": 0, \"element_truth\": false}], \"legacy_predicate_matches\": true, \"login_labels\": [], \"demo_entry\": false}}, {\"host_ms\": 115844, \"state\": {\"phase\": \"before-exit\", \"views\": [{\"id\": \"nativeSettingsButton\", \"class\": \"android.widget.ImageView\", \"bounds\": \"[688,74][814,200]\", \"children\": 0, \"element_truth\": false}], \"legacy_predicate_matches\": true, \"login_labels\": [], \"demo_entry\": false}}, {\"host_ms\": 133985, \"state\": {\"phase\": \"after-exit\", \"views\": [{\"id\": \"\", \"class\": \"android.webkit.WebView\", \"bounds\": \"[0,527][1080,1920]\", \"children\": 1, \"element_truth\": true}, {\"id\": \"\", \"class\": \"android.webkit.WebView\", \"bounds\": \"[0,527][1080,1920]\", \"children\": 1, \"element_truth\": true}, {\"id\": \"sessionTitle\", \"class\": \"android.widget.TextView\", \"bounds\": \"[21,21][1059,84]\", \"children\": 0, \"element_truth\": false}], \"legacy_predicate_matches\": false, \"login_labels\": [\"Continue\", \"Email\", \"Sign up\", \"Welcome back\"], \"demo_entry\": true}}]",
+    "title": "Diagnostic UI samples 001"
+  },
+  {
+    "message": "[{\"host_ms\": 12147, \"state\": {\"phase\": \"before-exit\", \"views\": [], \"legacy_predicate_matches\": false, \"login_labels\": [], \"demo_entry\": true}}, {\"host_ms\": 27140, \"state\": {\"phase\": \"before-exit\", \"views\": [], \"legacy_predicate_matches\": false, \"login_labels\": [], \"demo_entry\": false}}, {\"host_ms\": 35986, \"state\": {\"phase\": \"before-exit\", \"views\": [{\"id\": \"\", \"class\": \"android.webkit.WebView\", \"bounds\": \"[0,527][1080,1920]\", \"children\": 0, \"element_truth\": false}, {\"id\": \"sessionTitle\", \"class\": \"android.widget.TextView\", \"bounds\": \"[21,21][1059,84]\", \"children\": 0, \"element_truth\": false}], \"legacy_predicate_matches\": false, \"login_labels\": [], \"demo_entry\": true}}, {\"host_ms\": 39073, \"state\": {\"phase\": \"before-exit\", \"views\": [{\"id\": \"\", \"class\": \"android.webkit.WebView\", \"bounds\": \"[0,527][1080,1920]\", \"children\": 1, \"element_truth\": true}, {\"id\": \"\", \"class\": \"android.webkit.WebView\", \"bounds\": \"[0,527][1080,1920]\", \"children\": 1, \"element_truth\": true}, {\"id\": \"sessionTitle\", \"class\": \"android.widget.TextView\", \"bounds\": \"[21,21][1059,84]\", \"children\": 0, \"element_truth\": false}], \"legacy_predicate_matches\": false, \"login_labels\": [\"Continue\", \"Email\", \"Sign up\", \"Welcome back\"], \"demo_entry\": true}}, {\"host_ms\": 45226, \"state\": {\"phase\": \"before-exit\", \"views\": [{\"id\": \"nativeSettingsButton\", \"class\": \"android.widget.ImageView\", \"bounds\": \"[688,74][814,200]\", \"children\": 0, \"element_truth\": false}], \"legacy_predicate_matches\": true, \"login_labels\": [], \"demo_entry\": false}}]",
+    "title": "Diagnostic UI samples 000"
+  },
+  {
+    "message": "{\"android_fatal\": 0, \"android_classes\": [], \"javascript_errors\": 0, \"javascript_classes\": []}",
+    "title": "Diagnostic errors"
+  },
+  {
+    "message": "{\"sessionTitle\": true, \"nativeSettingsButton\": false, \"webview_accessible\": true, \"login_labels_observed\": [\"Continue\", \"Continue with Google\", \"Email\", \"Sign up\", \"Welcome back\"], \"html_home_selector\": \"NOT MEASURED\", \"bridgeStarted\": \"NOT MEASURED\", \"bridgeBootstrapReady\": \"NOT MEASURED\"}",
+    "title": "Diagnostic UI"
+  },
+  {
+    "message": "strict acceptance failed: RuntimeError",
+    "title": "Diagnostic replay"
+  },
+  {
+    "message": "real surface after demo exit not observed; visible=['Spotify', 'Spotify', 'Welcome back', 'Email', 'Continue', 'or', 'Email + Password Classic Login', 'Continue with Google', 'Continue with Facebook', 'Continue with Apple', \"Don't have an account?\", 'Sign up', 'This site is protected by reCAPTCHA and the Google ', 'Privacy Policy', ' and ']",
+    "title": "Launcher acceptance"
+  },
+  {
+    "message": "demo player",
+    "title": "Launcher acceptance"
+  },
+  {
+    "message": "demo home opened from session",
+    "title": "Launcher acceptance"
+  },
+  {
+    "message": "real session / Essayer le mode démo",
+    "title": "Launcher acceptance"
+  },
+  {
+    "message": "launcher settings / Essayer le mode démo",
+    "title": "Launcher acceptance"
+  },
+  {
+    "message": "['Paramètres', 'Melodix Preview · réglages de test', 'Version de Melodix\\n1.2.2-377eb0a (1021503)', 'Essayer le mode démo', 'Ouvrir Melodix']",
+    "title": "Launcher first screen"
+  }
+]

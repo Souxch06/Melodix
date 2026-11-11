@@ -1,0 +1,82 @@
+[
+  {
+    "message": "Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/download-artifact@v4.3.0, actions/setup-python@v5, actions/upload-artifact@v4.6.2. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/",
+    "title": ""
+  },
+  {
+    "message": "{\"ui\": {\"sessionTitle\": true, \"nativeSettingsButton\": false, \"webview_accessible\": true, \"login_labels_observed\": [\"Continue\", \"Continue with Google\", \"Email\", \"Sign up\", \"Welcome back\"], \"html_home_selector\": \"NOT MEASURED\", \"bridgeStarted\": \"NOT MEASURED\", \"bridgeBootstrapReady\": \"NOT MEASURED\"}, \"errors\": {\"android_fatal\": 0, \"android_classes\": [], \"javascript_errors\": 0, \"javascript_classes\": []}, \"strict_acceptance_exit\": 1}",
+    "title": "Return summary"
+  },
+  {
+    "message": "host_ms=122981 MARK after-exit | host_ms=127381 DOM progress=100 nativehost=accounts host=accounts ready=complete started=undefined bootstrap=undefined home=false interface=false | host_ms=132382 DOM progress=100 nativehost=accounts host=accounts ready=complete started=undefined bootstrap=undefined home=false interface=false | host_ms=137382 DOM progress=100 nativehost=accounts host=accounts ready=complete started=undefined bootstrap=undefined home=false interface=false | host_ms=142383 DOM progress=100 nativehost=accounts host=accounts ready=complete started=undefined bootstrap=undefined home=false interface=false",
+    "title": "Return trace 003"
+  },
+  {
+    "message": "host_ms=31298 sid=ba0fb67d t=82609 navigation source=finish route=accounts | host_ms=31396 sid=ba0fb67d t=82711 perf page-loaded | host_ms=31476 sid=ba0fb67d t=82791 stage bridge-asset-loaded | host_ms=33334 sid=ba0fb67d t=84646 navigation source=finish route=accounts | host_ms=33370 sid=ba0fb67d t=84676 perf page-loaded | host_ms=33405 sid=ba0fb67d t=84720 stage bridge-asset-loaded | host_ms=35962 DOM progress=100 nativehost=accounts host=accounts ready=complete started=undefined bootstrap=undefined home=false interface=false | host_ms=37096 DOM activity=paused | host_ms=119963 MARK before-exit | host_ms=122056 DOM activity=resumed | host_ms=122057 sid=ba0fb67d t=173371 perf activity-resume | host_ms=122469 DOM progress=100 nativehost=accounts host=accounts ready=complete started=undefined bootstrap=undefined home=false interface=false",
+    "title": "Return trace 002"
+  },
+  {
+    "message": "host_ms=26388 DOM progress=70 nativehost=accounts host=accounts ready=interactive started=undefined bootstrap=undefined home=false interface=false | host_ms=26582 sid=ba0fb67d t=77893 navigation source=history-change route=accounts | host_ms=26601 sid=ba0fb67d t=77917 navigation source=finish route=accounts | host_ms=26667 sid=ba0fb67d t=77977 perf page-loaded | host_ms=26743 sid=ba0fb67d t=78059 stage bridge-asset-loaded | host_ms=30995 DOM progress=10 nativehost=accounts host=accounts ready=interactive started=undefined bootstrap=undefined home=false interface=false | host_ms=31043 sid=ba0fb67d t=82327 navigation source=finish route=accounts | host_ms=31083 sid=ba0fb67d t=82358 perf page-loaded | host_ms=31083 sid=ba0fb67d t=82385 stage bridge-asset-loaded | host_ms=31121 sid=ba0fb67d t=82424 navigation source=start route=accounts | host_ms=31131 sid=ba0fb67d t=82441 navigation source=history-reload route=accounts | host_ms=31298 sid=ba0fb67d t=82607 navigation source=history-change route=accounts",
+    "title": "Return trace 001"
+  },
+  {
+    "message": "host_ms=3767 DOM probe=ready | host_ms=19561 sid=ba0fb67d t=70876 session-state from=verifying state=verifying reason=verification-start | host_ms=19947 sid=ba0fb67d t=71260 session-state from=verifying state=no-session reason=cookie-absent | host_ms=21412 sid=ba0fb67d t=72726 session-state from=no-session state=no-session reason=cookie-absent-auto-login | host_ms=21413 sid=ba0fb67d t=72730 navigation source=factory route=accounts | host_ms=21536 sid=ba0fb67d t=72851 stage bridge-prepared-other | host_ms=21613 DOM activity=resumed | host_ms=22664 DOM activity=paused | host_ms=25723 DOM activity=resumed | host_ms=25726 sid=ba0fb67d t=77042 perf activity-resume | host_ms=25761 sid=ba0fb67d t=77071 navigation source=start route=accounts | host_ms=25841 sid=ba0fb67d t=77157 navigation source=history-change route=accounts",
+    "title": "Return trace 000"
+  },
+  {
+    "message": "[{\"host_ms\": 124995, \"state\": {\"phase\": \"after-exit\", \"views\": [{\"id\": \"\", \"class\": \"android.webkit.WebView\", \"bounds\": \"[0,527][1080,1920]\", \"children\": 1, \"element_truth\": true}, {\"id\": \"\", \"class\": \"android.webkit.WebView\", \"bounds\": \"[0,527][1080,1920]\", \"children\": 1, \"element_truth\": true}, {\"id\": \"sessionTitle\", \"class\": \"android.widget.TextView\", \"bounds\": \"[21,21][1059,84]\", \"children\": 0, \"element_truth\": false}], \"legacy_predicate_matches\": false, \"intended_predicate_matches\": true, \"login_labels\": [\"Continue\", \"Email\", \"Sign up\", \"Welcome back\"], \"demo_entry\": true}}]",
+    "title": "Return samples"
+  },
+  {
+    "message": "The process '/usr/bin/sh' failed with exit code 1",
+    "title": ""
+  },
+  {
+    "message": "{\"android_fatal\": 0, \"android_classes\": [], \"javascript_errors\": 0, \"javascript_classes\": []}",
+    "title": "Diagnostic errors"
+  },
+  {
+    "message": "{\"sessionTitle\": true, \"nativeSettingsButton\": false, \"webview_accessible\": true, \"login_labels_observed\": [\"Continue\", \"Continue with Google\", \"Email\", \"Sign up\", \"Welcome back\"], \"html_home_selector\": \"NOT MEASURED\", \"bridgeStarted\": \"NOT MEASURED\", \"bridgeBootstrapReady\": \"NOT MEASURED\"}",
+    "title": "Diagnostic UI"
+  },
+  {
+    "message": "strict acceptance failed: RuntimeError",
+    "title": "Diagnostic replay"
+  },
+  {
+    "message": "real settings inaccessible: session gate is visible, no authenticated session on fresh offline emulator",
+    "title": "Launcher acceptance"
+  },
+  {
+    "message": "real surface after demo exit; no content diagnostic for 10s",
+    "title": "Launcher acceptance"
+  },
+  {
+    "message": "demo player",
+    "title": "Launcher acceptance"
+  },
+  {
+    "message": "demo home opened from session",
+    "title": "Launcher acceptance"
+  },
+  {
+    "message": "real session / Essayer le mode démo",
+    "title": "Launcher acceptance"
+  },
+  {
+    "message": "launcher settings / Essayer le mode démo",
+    "title": "Launcher acceptance"
+  },
+  {
+    "message": "['Paramètres', 'Melodix Preview · réglages de test', 'Version de Melodix\\n1.2.2-377eb0a (1021503)', 'Essayer le mode démo', 'Ouvrir Melodix']",
+    "title": "Launcher first screen"
+  },
+  {
+    "message": "read-only instrumentation installed",
+    "title": "Replay setup"
+  },
+  {
+    "message": "exact test157 installed",
+    "title": "Replay setup"
+  }
+]
