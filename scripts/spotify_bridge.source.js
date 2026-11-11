@@ -3081,11 +3081,12 @@
             if (tokenResp && tokenResp.ok) {
                 const tokenData = await tokenResp.json();
                 const token = tokenData && tokenData.accessToken;
-                if (token) {
-                    const expMs = Number(tokenData.accessTokenExpirationTimestampMs);
+                const expMs = Number(tokenData && tokenData.accessTokenExpirationTimestampMs);
+                // Never fabricate an expiry or send an already expired token.
+                if (typeof token === 'string' && token.trim() && Number.isFinite(expMs) && expMs > Date.now()) {
                     webPlayerTokenCache = {
-                        token: String(token),
-                        expMs: Number.isFinite(expMs) && expMs > nowMs ? expMs : nowMs + 3600000
+                        token: token,
+                        expMs: expMs
                     };
                     lastTokenFetchStatus = 'ok';
                     return webPlayerTokenCache.token;
@@ -3112,11 +3113,12 @@
             if (altResp && altResp.ok) {
                 const altData = await altResp.json();
                 const altToken = altData && altData.accessToken;
-                if (altToken) {
-                    const altExp = Number(altData.accessTokenExpirationTimestampMs);
+                const altExp = Number(altData && altData.accessTokenExpirationTimestampMs);
+                // Never fabricate an expiry or send an already expired token.
+                if (typeof altToken === 'string' && altToken.trim() && Number.isFinite(altExp) && altExp > Date.now()) {
                     webPlayerTokenCache = {
-                        token: String(altToken),
-                        expMs: Number.isFinite(altExp) && altExp > nowMs ? altExp : nowMs + 3600000
+                        token: altToken,
+                        expMs: altExp
                     };
                     lastTokenFetchStatus = 'ok';
                     return webPlayerTokenCache.token;
@@ -3826,6 +3828,25 @@
 
         while (hasMore && offset < 1000 && requestGeneration === mediaLibraryRequestGeneration &&
             authEpoch === boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999)) {
+            // A token can expire while an earlier page is being read. Do not
+            // send it on a later page or retain partial private proof.
+            if (!webPlayerTokenCache || webPlayerTokenCache.token !== bearerToken ||
+                !Number.isFinite(webPlayerTokenCache.expMs) || webPlayerTokenCache.expMs <= Date.now()) {
+                trace.phase = 'request';
+                trace.http = 0;
+                trace.mime = 'missing';
+                trace.error = 'token-missing';
+                trace.bearer = false;
+                observeSessionAttempt(trace, 'tokenResult', 'unknown');
+                window.__sfMediaLibError = 'token-missing';
+                window.__sfMediaLibSessionProofKnown = false;
+                window.__sfMediaLibSessionProven = false;
+                window.__sfMediaLibRawItemCount = 0;
+                window.__sfMediaLibUpdatedAt = 0;
+                window.__sfMediaLibProofAuthEpoch = 0;
+                window.mediaLib = null;
+                return [];
+            }
             const activeHash = getGqlHash('libraryV3', '0082bf82412db50128add72dbdb73e2961d59100b9cbf41fb25c568bd8bc358b');
             const endpoint = 'https://api-partner.spotify.com/' + 'pathfinder' + '/v2/' + 'query';
             const controller = typeof window.AbortController === 'function' ? new window.AbortController() : null;

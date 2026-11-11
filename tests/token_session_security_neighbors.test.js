@@ -67,7 +67,8 @@ for reason in ('token-unavailable','library-http-401','library-http-403'):
 test('request changes are limited to the reviewed fail-closed guard and diagnostic enum',()=>{
  const cp=require('node:child_process');
  const old=cp.execFileSync('git',['show','9e55740c:scripts/spotify_bridge.source.js'],{encoding:'utf8'});
- let now=fs.readFileSync('scripts/spotify_bridge.source.js','utf8');
+ let now=require('./helpers/token_expiry_normalize')(fs.readFileSync('scripts/spotify_bridge.source.js','utf8'));
+ now=require('./helpers/token_page_expiry_normalize')(now);
  const start=now.indexOf('        // Never turn a failed token request');
  const end=now.indexOf('        while (hasMore',start);
  assert.ok(start>0 && end>start);

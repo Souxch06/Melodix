@@ -52,3 +52,15 @@ test('actual token success/cache does not claim an unobserved fallback or inheri
 test('actual network failure never invents an HTTP refusal or a fallback attempt',async()=>{
  const {c,sent}=tokenHarness([new Error('synthetic network failure')]);const d={attempt:1,sessionObservation:{}};assert.equal(await c.fetchWebPlayerToken(d),null);assert.equal(c.requests.length,1);assert.equal(d.sessionObservation.apiHttp,undefined);assert.equal(d.sessionObservation.fallbackHttp,undefined);assert.ok(sent.every(x=>x.tokenResult==='unknown'));
 });
+
+test('expired synthetic primary token is rejected and a valid synthetic fallback is used without changing requests',async()=>{
+ const {c}=tokenHarness([
+  {status:200,ok:true,json:async()=>({accessToken:'EXPIRED_FIXTURE',accessTokenExpirationTimestampMs:Date.now()-1})},
+  {status:200,ok:true,json:async()=>({accessToken:'VALID_FALLBACK_FIXTURE',accessTokenExpirationTimestampMs:Date.now()+3600000})}
+ ]);
+ const d={attempt:1,sessionObservation:{}};
+ assert.equal(await c.fetchWebPlayerToken(d),'VALID_FALLBACK_FIXTURE');
+ assert.equal(d.sessionObservation.apiHttp,200);assert.equal(d.sessionObservation.fallbackHttp,200);
+ assert.equal(c.requests.length,2);assert.equal(c.requests[0].url,'https://open.spotify.com/api/token');
+ assert.equal(c.requests[1].url,'https://open.spotify.com/get_access_token?reason=transport&productType=web_player');
+});

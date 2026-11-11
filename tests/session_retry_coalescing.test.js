@@ -98,7 +98,8 @@ test('generation guards, reconnect, Spotify request functions and proof publicat
  assert.match(read(dir+'NativeSessionEvidence.smali'),/canClear\(\)Z[\s\S]*?const\/4 v1, 0x1[\s\S]*?->current\(\)Ljava\/lang\/String;[\s\S]*?->equals/);
  assert.equal(fn(js,'publishSessionVerification'),fn(old('scripts/spotify_bridge.source.js'),'publishSessionVerification'));
  const asyncFn=(s,n,end)=>s.slice(s.indexOf('    async function '+n+'('),s.indexOf(end,s.indexOf('    async function '+n+'(')));
- assert.equal(asyncFn(js,'fetchWebPlayerToken','    function dropWebPlayerToken'),asyncFn(old('scripts/spotify_bridge.source.js'),'fetchWebPlayerToken','    function dropWebPlayerToken'));
+ const normalizeExpiry=require('./helpers/token_expiry_normalize');
+ assert.equal(normalizeExpiry(asyncFn(js,'fetchWebPlayerToken','    function dropWebPlayerToken')),asyncFn(old('scripts/spotify_bridge.source.js'),'fetchWebPlayerToken','    function dropWebPlayerToken'));
  const normalize=require('./helpers/token_guard_normalize');
  assert.equal(normalize(asyncFn(js,'fetchAllLibrary','    window.fetchAllLibrary')),asyncFn(old('scripts/spotify_bridge.source.js'),'fetchAllLibrary','    window.fetchAllLibrary'));
  const flight=read(dir+'NativeSessionVerificationFlight.smali');assert.doesNotMatch(flight,/Evidence|transition|loadUrl|Cookie|recordCurrent/);

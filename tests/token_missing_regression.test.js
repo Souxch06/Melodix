@@ -37,7 +37,7 @@ test('token success permits an authenticated library request and playlist parsin
 
 test('with a token, actual library 401 and 403 remain distinct authorization observations',async()=>{
  for(const code of [401,403]) {
-  let called=0; const w=f.loadBridge({tokenResponse:{accessToken:'fixture-secret'},fetchImpl:async()=>{called++;return f.jsonResponse(code,{});}});
+  let called=0; const w=f.loadBridge({tokenResponse:{accessToken:'fixture-secret',accessTokenExpirationTimestampMs:Date.now()+3600000},fetchImpl:async()=>{called++;return f.jsonResponse(code,{});}});
   await w.checkMediaLib(true);assert.equal(called,1);assert.equal(w.__sfMediaLibError,'http-'+code);
   assert.equal(w.__sfMediaLibSessionProven,false);assert.equal(w.__sfMediaLibLastDiagnostic.http,code);
  }
