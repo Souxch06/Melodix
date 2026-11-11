@@ -1,0 +1,45 @@
+name: Replay existing demo APK without rebuilding
+on:
+  push:
+    branches: [arena/6b935c3e-melodix]
+    paths:
+      - .github/workflows/demo-existing-apk-replay.yml
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+jobs:
+  replay:
+    name: Replay the same Preview APK on a fresh offline phone
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4.0.4
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: Melodix-Preview-v1.2.2-test154.apk
+          run-id: 42997630197
+          github-token: ${{ github.token }}
+          path: target-apk
+      - run: sudo chmod 666 /dev/kvm
+      - name: Replay without rebuilding or publishing
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
+          script: |
+            set -euo pipefail
+            apk=$(find target-apk -type f -name '*.apk' -print -quit)
+            test -s "$apk"
+            echo '54231b677bc382f608f67c1bd5f8ff8409c34b76620fc4bdc2fb4b2f67364066  '"$apk" | sha256sum -c -
+            adb install -r "$apk"
+            python3 scripts/replay_demo_entry.py
