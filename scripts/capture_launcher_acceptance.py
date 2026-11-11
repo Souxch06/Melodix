@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Actual launcher and user taps only. No session proof, account or fixture injection."""
 import json, pathlib, re, subprocess, sys, time, xml.etree.ElementTree as ET
+from session_watchdog_observation import observe_watchdog
 
 pkg = 'com.melodix.music.preview'
 out = pathlib.Path(sys.argv[1]); out.mkdir(parents=True, exist_ok=True)
@@ -80,9 +81,15 @@ try:
     wait(lambda n: text_node(n, 'Lecture en cours'), 'demo player')
     wait(lambda n: text_node(n, 'MODE DÉMO · HORS LIGNE'), 'demo player badge')
     screenshot('05-lecteur-demo', 'demo player')
+    # The real watchdog fires after 60s. Leave the demo in front longer than
+    # that, then require the session surface to stay usable after returning.
+    # This does not authenticate or dismiss any overlay.
+    observe_watchdog(nodes, 'demo', 70)
+    summary['steps'].append('demo remained visible during 70s watchdog window')
     tap(wait(lambda n: text_node(n, 'Quitter la démo'), 'demo exit'))
     wait(lambda n: find_id(n, 'sessionTitle') or find_id(n, 'nativeSettingsButton'), 'real surface after demo exit', 90)
-    screenshot('06-apres-sortie', 'real surface after demo exit')
+    observe_watchdog(nodes, 'after-exit', 10)
+    screenshot('06-apres-sortie', 'real surface after demo exit; no content diagnostic for 10s')
     # Require genuine, visible settings. No synthetic authentication to cross
     # the session gate; if blocked, record the failure rather than invent proof.
     items = nodes()
