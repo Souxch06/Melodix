@@ -145,6 +145,8 @@ jobs:
     steps:
     - name: Check out the branch under test
       uses: actions/checkout@v7.0.1
+      with:
+        fetch-depth: 0
     - name: Set up Java so the JVM rules actually execute
       uses: actions/setup-java@v6.1.0
       with:
@@ -154,6 +156,8 @@ jobs:
       uses: actions/setup-node@v4.4.0
       with:
         node-version: '20'
+    - name: Install ripgrep for security and persistence checks
+      run: sudo apt-get update && sudo apt-get install -y ripgrep
     - name: Install dependencies
       run: npm ci
     - name: Run the full suite and report skips honestly
