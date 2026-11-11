@@ -13,7 +13,8 @@ test('diagnostic workflow is pinned to the exact test157 and retains failing acc
  const w=fs.readFileSync('.github/workflows/demo-existing-apk-replay.yml','utf8');
  assert.match(w,/run-id: 43074770471/);assert.match(w,/00ce34bf864e0678d88906eab43b4f529398cc63624394edc4b80aefde880fec/);
  const job=w.slice(w.indexOf('  test157-diagnostics:'));
- assert.doesNotMatch(job,/continue-on-error/);assert.match(job,/python3 scripts\/diagnose_demo_return.py/);
+ assert.doesNotMatch(job,/continue-on-error/);assert.match(job,/bash scripts\/replay_demo_with_probe.sh/);
+ assert.match(fs.readFileSync('scripts/replay_demo_with_probe.sh','utf8'),/python3 scripts\/diagnose_demo_return.py/);
 });
 test('DOM probe only emits allowlisted facts and is strictly opt-in on fresh CI', () => {
  const code=`import sys\nsys.path.insert(0,'scripts')\nfrom diagnose_demo_return import safe_event\ngood='I/MDXDOM( 123): progress=100 host=accounts ready=complete started=undefined bootstrap=undefined home=false interface=false'\nassert safe_event(good)=='DOM '+good.split(': ',1)[1]\nassert safe_event(good+' cookie=secret') is None\n`;

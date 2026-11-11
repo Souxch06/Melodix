@@ -140,6 +140,8 @@ jobs:
     name: Exact test157 strict launcher diagnostic
     runs-on: ubuntu-24.04
     timeout-minutes: 25
+    env:
+      MELODIX_DEMO_DOM_PROBE: ${{ inputs.dom_probe && '1' || '0' }}
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-python@v5
@@ -177,13 +179,7 @@ jobs:
           profile: pixel_2
           disable-animations: true
           emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
-          script: |
-            adb install target-apk/Melodix-Preview-v1.2.2-test157.apk
-            if [ "${{ inputs.dom_probe }}" = "true" ]; then
-              adb install "$RUNNER_TEMP/melodix-return-probe/probe.apk"
-              export MELODIX_DEMO_DOM_PROBE=1
-            fi
-            python3 scripts/diagnose_demo_return.py
+          script: bash scripts/replay_demo_with_probe.sh
       - name: Summarize redacted replay evidence
         if: always()
         shell: bash
