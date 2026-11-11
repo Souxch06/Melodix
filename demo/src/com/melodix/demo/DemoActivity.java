@@ -40,6 +40,13 @@ public final class DemoActivity extends Activity {
         if(layout==0)throw new IllegalStateException("Missing native shell layout");
         setContentView(layout);
         show("hScrollView",false);show("splashOverlay",false);show("nativeRoot",true);
+        TextView exit=label("Quitter la démo",11,white,true);
+        exit.setContentDescription("Quitter la démo");exit.setGravity(Gravity.CENTER);exit.setPadding(dp(6),dp(8),dp(6),dp(8));
+        exit.setMinHeight(dp(48));exit.setBackgroundResource(drawable("native_glass_pill"));
+        exit.setOnClickListener(view->DemoEntry.returnToApp(this));
+        LinearLayout header=(LinearLayout)((LinearLayout)v("nativeRoot")).getChildAt(0);
+        header.addView(exit,new LinearLayout.LayoutParams(-2,-2));
+
         text("nativePlayerTitle","Lueurs du soir");text("nativePlayerArtist","Les Ondes Fictives");
         text("nativePlayerLargeTitle","Lueurs du soir");text("nativePlayerLargeArtist","Les Ondes Fictives · Album imaginaire");
         text("nativePlayerPositionText","1:24");text("nativePlayerDurationText","3:42");

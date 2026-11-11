@@ -68,5 +68,29 @@ if button is not None and find_id(items, 'sessionTitle') is None:
         result['settings'] = 'not reached after visible settings action'
 else:
     result['settings'] = 'not reachable: session gate or settings action not visible'
+# Exercise the genuine session surface without simulating authentication.
+items = nodes()
+if find_id(items, 'sessionTitle') is None:
+    raise RuntimeError('real session surface was not observed; cannot verify demo entry')
+entry = next((n for n in items if n.get('text') == 'Essayer le mode démo'), None)
+if entry is None:
+    raise RuntimeError('preview demo button not visible on actual session surface')
+image('session-entree-demo')
+tap(entry)
+time.sleep(3)
+items = nodes()
+if not any('MODE DÉMO' in n.get('text', '') for n in items):
+    raise RuntimeError('session demo entry did not open offline demo')
+image('demo-depuis-session')
+exit_button = next((n for n in items if n.get('content-desc') == 'Quitter la démo'), None)
+if exit_button is None:
+    raise RuntimeError('demo exit button not visible')
+tap(exit_button)
+time.sleep(3)
+items = nodes()
+if find_id(items, 'sessionTitle') is None:
+    raise RuntimeError('demo exit did not return to the real session surface')
+image('retour-session')
+result['demo_entry'] = 'visible and opened from real session surface; exit returned to session'
 (out / 'observation.json').write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
 print(json.dumps(result, ensure_ascii=False))

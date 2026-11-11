@@ -21,3 +21,26 @@ p=work/'smali/com/melodix/music/NativeSettingsRowFactory.smali'; s=p.read_text()
 a1=s.index('    invoke-virtual {v7}, Ljava/lang/String;->isEmpty()Z',s.index('    :native_settings_row_tail'))
 a2=s.index('    return-object v2',a1);s=s[:a1]+s[a2:]
 (work/'smali/com/melodix/music/DemoSettingsRowFactory.smali').write_text(s)
+
+# Real application entry points exist only in the temporary opt-in preview.
+# Tiny fixture projects used by the existing isolation tests lack resources;
+# a complete project must contain both native hooks or preparation fails.
+if (work/'res').exists():
+    p=work/'smali/com/melodix/music/NativeSessionSurface.smali'
+    text=p.read_text()
+    marker='    :attach\n    const/4 v3, -0x1'
+    assert text.count(marker)==1
+    text=text.replace(marker, '    :attach\n    invoke-static {p0, v0, v1, v2}, Lcom/melodix/demo/DemoEntry;->bindSession(Landroid/app/Activity;Landroid/view/View;IZ)V\n    const/4 v3, -0x1')
+    p.write_text(text)
+    p=work/'smali/com/melodix/music/MainActivity.smali'
+    text=p.read_text()
+    marker='    invoke-virtual {v2}, Landroid/widget/LinearLayout;->removeAllViews()V\n\n    # Home is a set of horizontal cover shelves'
+    assert text.count(marker)==1
+    text=text.replace(marker,'    invoke-virtual {v2}, Landroid/widget/LinearLayout;->removeAllViews()V\n    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;\n    invoke-static {p0, v2, v0}, Lcom/melodix/demo/DemoEntry;->bindSettings(Landroid/app/Activity;Landroid/widget/LinearLayout;Ljava/lang/String;)V\n\n    # Home is a set of horizontal cover shelves')
+    p.write_text(text)
+    p=work/'res/layout/native_session_surface.xml'
+    text=p.read_text()
+    for old,new in [('@drawable/session_glass_background','@drawable/native_shell_background'),('@drawable/session_glass_card','@drawable/native_glass_surface')]:
+        assert text.count(old)==1
+        text=text.replace(old,new)
+    p.write_text(text)

@@ -1,0 +1,63 @@
+package com.melodix.demo;
+
+import android.app.Activity;
+import android.content.Intent;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.view.Gravity;
+import android.view.View;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+
+/** Installed only in the opt-in preview build. Never reads or clears session data. */
+public final class DemoEntry {
+    private DemoEntry() {}
+    private static int dp(Activity a, int n) {
+        return (int)(n * a.getResources().getDisplayMetrics().density + .5f);
+    }
+    private static TextView button(final Activity a, String text) {
+        TextView button = new TextView(a);
+        button.setText(text);
+        button.setContentDescription(text);
+        button.setTextColor(Color.WHITE);
+        button.setTextSize(15);
+        button.setTypeface(null, Typeface.BOLD);
+        button.setGravity(Gravity.CENTER);
+        button.setPadding(dp(a,12),dp(a,12),dp(a,12),dp(a,12));
+        button.setMinHeight(dp(a,48));
+        int background = a.getResources().getIdentifier("native_glass_surface", "drawable", a.getPackageName());
+        if (background != 0) button.setBackgroundResource(background);
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View view) { a.startActivity(new Intent(a, DemoActivity.class)); }
+        });
+        return button;
+    }
+    public static void bindSession(Activity a, View overlay, int state, boolean loginActive) {
+        // A real login WebView and its controls are never covered. No proof is altered.
+        if (loginActive || state == 0 || state == 3 || overlay == null) return;
+        int id = a.getResources().getIdentifier("sessionCard", "id", a.getPackageName());
+        View card = overlay.findViewById(id);
+        if (!(card instanceof LinearLayout)) return;
+        LinearLayout parent = (LinearLayout)card;
+        if (parent.findViewWithTag("preview-demo-entry") != null) return;
+        TextView demo = button(a, "Essayer le mode démo");
+        demo.setTag("preview-demo-entry");
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1,-2);
+        lp.topMargin = dp(a,12);
+        parent.addView(demo, lp);
+    }
+    public static void bindSettings(Activity a, LinearLayout content, String screen) {
+        if (!"settings".equals(screen) || content == null) return;
+        TextView demo = button(a, "Essayer le mode démo");
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1,-2);
+        lp.setMargins(dp(a,16),dp(a,8),dp(a,16),dp(a,8));
+        content.addView(demo, lp);
+    }
+    public static void returnToApp(Activity a) {
+        Intent intent = new Intent();
+        intent.setClassName(a.getPackageName(), "com.melodix.music.MainActivity");
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        a.startActivity(intent);
+        a.finish();
+    }
+}

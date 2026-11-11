@@ -153,6 +153,11 @@ jobs:
             done
             test -s "bundle/captures/demo-captures-$p/real-no-session/observation.json"
             test -s "bundle/captures/demo-captures-$p/real-no-session/etat-observe.png"
+            for screen in session-entree-demo demo-depuis-session retour-session; do
+              test -s "bundle/captures/demo-captures-$p/real-no-session/$screen.png"
+            done
+            test -s "bundle/captures/demo-captures-$p/reglages-test-entree.png"
+            test -s "bundle/captures/demo-captures-$p/entree-reglages.png"
           done
           cp docs/audits/partie-b-etat-provisoire.md bundle/specification-vs-realise.md
           sha256sum "bundle/${{ needs.build.outputs.apk_name }}" > bundle/SHA256SUMS.txt
