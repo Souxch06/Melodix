@@ -27,7 +27,7 @@ PROBE_READY = threading.Event()
 
 def safe_event(line):
     probe = re.search(r'MDXDOM\s*\(\s*\d+\)\s*:\s*(.*)$', line)
-    if probe and re.fullmatch(r'(?:probe=(?:ready|unavailable)|web=absent|activity=(?:resumed|paused)|progress=(?:[0-9]|[1-9][0-9]|100) host=(?:accounts|player|other) ready=(?:loading|interactive|complete|other) started=(?:undefined|true|false|other) bootstrap=(?:undefined|true|false|other) home=(?:true|false) interface=(?:true|false))', probe.group(1)):
+    if probe and re.fullmatch(r'(?:probe=(?:ready|unavailable)|web=absent|activity=(?:resumed|paused)|progress=(?:[0-9]|[1-9][0-9]|100) nativehost=(?:none|accounts|player|other) host=(?:accounts|player|chrome-error|about|other) ready=(?:loading|interactive|complete|other) started=(?:undefined|true|false|other) bootstrap=(?:undefined|true|false|other) home=(?:true|false) interface=(?:true|false))', probe.group(1)):
         return 'DOM ' + probe.group(1)
     match = re.search(r'MDXTRACE\s*\(\s*\d+\)\s*:\s*(sid=[0-9a-f]{8} t=\d+ .*)$', line)
     if match and allowed_entry(match.group(1)) and re.search(

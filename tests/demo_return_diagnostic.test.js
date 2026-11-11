@@ -17,7 +17,7 @@ test('diagnostic workflow is pinned to the exact test157 and retains failing acc
  assert.match(fs.readFileSync('scripts/replay_demo_with_probe.sh','utf8'),/python3 scripts\/diagnose_demo_return.py/);
 });
 test('DOM probe only emits allowlisted facts and is strictly opt-in on fresh CI', () => {
- const code=`import sys\nsys.path.insert(0,'scripts')\nfrom diagnose_demo_return import safe_event\ngood='I/MDXDOM( 123): progress=100 host=accounts ready=complete started=undefined bootstrap=undefined home=false interface=false'\nassert safe_event(good)=='DOM '+good.split(': ',1)[1]\nassert safe_event(good+' cookie=secret') is None\n`;
+ const code=`import sys\nsys.path.insert(0,'scripts')\nfrom diagnose_demo_return import safe_event\ngood='I/MDXDOM( 123): progress=100 nativehost=accounts host=accounts ready=complete started=undefined bootstrap=undefined home=false interface=false'\nassert safe_event(good)=='DOM '+good.split(': ',1)[1]\nassert safe_event(good+' cookie=secret') is None\n`;
  const r=cp.spawnSync('python3',['-c',code],{encoding:'utf8'});assert.equal(r.status,0,r.stderr);
  const java=fs.readFileSync('tests/android/demo-return-probe/DemoReturnProbe.java','utf8');
  assert.match(java,/getElementById\('sf-melodix-home'\)/);

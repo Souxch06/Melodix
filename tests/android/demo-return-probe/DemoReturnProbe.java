@@ -7,8 +7,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
-import android.view.View;
-import android.view.ViewGroup;
+import android.net.Uri;
 import android.webkit.WebView;
 import org.json.JSONTokener;
 
@@ -17,32 +16,39 @@ public final class DemoReturnProbe extends Instrumentation {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private volatile boolean resumed;
     private static final String JS = "(function(){try{" +
-      "var h=location.hostname==='accounts.spotify.com'?'accounts':location.hostname==='open.spotify.com'?'player':'other';" +
+      "var h=location.hostname==='accounts.spotify.com'?'accounts':location.hostname==='open.spotify.com'?'player':location.protocol==='chrome-error:'?'chrome-error':location.protocol==='about:'?'about':'other';" +
       "var s=function(x){return typeof x==='undefined'?'undefined':x===true?'true':x===false?'false':'other'};" +
       "var d=['loading','interactive','complete'].indexOf(document.readyState)>=0?document.readyState:'other';" +
       "return 'host='+h+' ready='+d+' started='+s(window.__sfMelodixBridgeStarted)+' bootstrap='+s(window.__sfMelodixBridgeBootstrapReady)+' home='+(document.getElementById('sf-melodix-home')?'true':'false')+' interface='+(typeof window.AndBridge==='object'?'true':'false');" +
       "}catch(e){return 'probe-error';}})()";
-    private static WebView web(View v) {
-        if (v instanceof WebView) return (WebView)v;
-        if (v instanceof ViewGroup) {
-            ViewGroup group=(ViewGroup)v;
-            for (int i=0;i<group.getChildCount();i++) { WebView found=web(group.getChildAt(i)); if(found!=null)return found; }
-        }
-        return null;
+    private static WebView web(Activity a) {
+        try {
+            Object value=a.getClass().getField("G").get(a);
+            return value instanceof WebView ? (WebView)value : null;
+        } catch (ReflectiveOperationException e) { return null; }
+    }
+    private static String nativeHost(WebView w) {
+        String url=w.getUrl();
+        if (url==null) return "none";
+        String host=Uri.parse(url).getHost();
+        if ("accounts.spotify.com".equalsIgnoreCase(host)) return "accounts";
+        if ("open.spotify.com".equalsIgnoreCase(host)) return "player";
+        return "other";
     }
     private void sample(Activity a) {
         if (!resumed || a.isFinishing() || a.isDestroyed()) return;
         try {
-            WebView w=web(a.getWindow().getDecorView());
+            WebView w=web(a);
             if (w==null) Log.i("MDXDOM", "web=absent");
             else {
                 int progress=w.getProgress();
+                String nativeHost=nativeHost(w);
                 w.evaluateJavascript(JS, raw -> {
                     try {
                         Object value=new JSONTokener(raw).nextValue();
                         String result=String.valueOf(value);
-                        if (result.matches("host=(accounts|player|other) ready=(loading|interactive|complete|other) started=(undefined|true|false|other) bootstrap=(undefined|true|false|other) home=(true|false) interface=(true|false)"))
-                            Log.i("MDXDOM", "progress="+progress+" "+result);
+                        if (result.matches("host=(accounts|player|chrome-error|about|other) ready=(loading|interactive|complete|other) started=(undefined|true|false|other) bootstrap=(undefined|true|false|other) home=(true|false) interface=(true|false)"))
+                            Log.i("MDXDOM", "progress="+progress+" nativehost="+nativeHost+" "+result);
                         else Log.i("MDXDOM", "probe=unavailable");
                     } catch (Exception e) { Log.i("MDXDOM", "probe=unavailable"); }
                 });
