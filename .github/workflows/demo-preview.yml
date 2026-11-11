@@ -12,8 +12,17 @@ on:
         required: false
         type: string
         default: "0"
+      strict_launcher_validation:
+        required: false
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
+      strict_launcher_validation:
+        description: Strict launcher, real settings and session acceptance; no synthetic session
+        required: false
+        type: boolean
+        default: false
       evidence_run:
         description: Existing demo run to inspect without another APK build
         required: false
@@ -90,6 +99,7 @@ jobs:
   capture:
     # Evidence is optional; failures remain visible in job steps and artifacts.
     continue-on-error: true
+    if: inputs.strict_launcher_validation != true
     needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 35
@@ -133,6 +143,7 @@ jobs:
   bundle:
     # A failed/incomplete bundle must never block the build or be called verified.
     continue-on-error: true
+    if: inputs.strict_launcher_validation != true
     needs: [build, capture]
     runs-on: ubuntu-24.04
     steps:
@@ -172,6 +183,73 @@ jobs:
           name: Melodix-demo-preview-with-captures
           path: bundle
           if-no-files-found: error
+          retention-days: 14
+
+  launcher-acceptance:
+    name: Strict launcher and real-surface acceptance
+    if: inputs.strict_launcher_validation == true && inputs.evidence_run == '0'
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      APK_NAME: ${{ needs.build.outputs.apk_name }}
+      SOURCE_REF: ${{ inputs.source_ref }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.source_ref }}
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4.0.4
+      - run: sdkmanager --install "build-tools;35.0.0"
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: ${{ needs.build.outputs.apk_name }}
+          path: target-apk
+      - name: Inspect the exact APK and its actual DEX definitions
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd target-apk && sha256sum -c "$APK_NAME.sha256" && cd ..
+          python3 scripts/inspect_demo_apk.py "target-apk/$APK_NAME" "$SOURCE_REF" evidence
+      - run: sudo chmod 666 /dev/kvm
+      - name: Fresh emulator launcher and actual user navigation
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
+          script: bash scripts/launch_acceptance.sh
+      - name: Require every real capture before delivering APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in 01-premier-ecran 02-reglages-test 03-session 04-accueil-demo 05-lecteur-demo 06-apres-sortie 07-reglages-reels; do
+            test -s "evidence/$name.png"
+          done
+          python3 -c 'import json; assert json.load(open("evidence/observations.json"))["failure"] is None'
+          mkdir -p validated-bundle/evidence
+          cp "target-apk/$APK_NAME" "target-apk/$APK_NAME.sha256" validated-bundle/
+          cp -a evidence/. validated-bundle/evidence/
+      - name: Upload validated APK and real captures together
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: Melodix-demo-launcher-validated
+          path: validated-bundle
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload partial diagnostics separately, even on failure
+        if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: demo-launcher-observations
+          path: evidence
+          if-no-files-found: warn
           retention-days: 14
 
   validate-captures:
