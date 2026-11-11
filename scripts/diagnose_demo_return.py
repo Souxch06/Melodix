@@ -17,6 +17,10 @@ from startup_timing_journal import allowed_entry
 
 OUT = pathlib.Path('evidence')
 OUT.mkdir(exist_ok=True)
+EVENTS = []
+SAMPLES = []
+PHASE = 'before-exit'
+START = time.monotonic()
 
 
 def safe_event(line):
@@ -31,15 +35,38 @@ def safe_event(line):
 
 
 def mark(name):
-    subprocess.run(['adb', 'shell', 'log', '-t', 'MDXDEMOREPLAY', name],
-                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+    global PHASE
+    PHASE = name
+    EVENTS.append('host_ms=%d MARK %s' % ((time.monotonic() - START) * 1000, name))
+
+
+def observe_node_sample(items):
+    """Passive summary of the same snapshot consumed by the strict predicate."""
+    relevant = []
+    for n in items:
+        ident = n.get('resource-id', '').split('/')[-1]
+        cls = n.get('class', '')
+        if ident in ('sessionTitle', 'nativeSettingsButton') or cls == 'android.webkit.WebView':
+            relevant.append({'id': ident if ident in ('sessionTitle', 'nativeSettingsButton') else '',
+                             'class': cls, 'bounds': n.get('bounds', '')})
+    texts = {n.get('text', '') for n in items}
+    state = {'phase': PHASE, 'views': relevant,
+             'login_labels': sorted(texts & {'Welcome back', 'Email', 'Continue', 'Sign up'}),
+             'demo_entry': 'Essayer le mode démo' in texts}
+    now = round((time.monotonic() - START) * 1000)
+    if not SAMPLES or state != SAMPLES[-1]['state'] or now - SAMPLES[-1]['host_ms'] >= 15000:
+        SAMPLES.append({'host_ms': now, 'state': state})
 
 
 def replay_source(source):
     target = "    tap(wait(lambda n: text_node(n, 'Quitter la démo'), 'demo exit'))"
     if source.count(target) != 1:
         raise RuntimeError('acceptance exit anchor changed: refusing diagnostic replay')
-    return source.replace(target, "    mark('before-exit')\n" + target + "\n    mark('after-exit')")
+    source = source.replace(target, "    mark('before-exit')\n" + target + "\n    mark('after-exit')")
+    sample = "    return list(ET.fromstring(xml[xml.index(b'<?xml'):]).iter('node'))"
+    if source.count(sample) != 1:
+        raise RuntimeError('acceptance snapshot anchor changed: refusing diagnostic replay')
+    return source.replace(sample, "    items = list(ET.fromstring(xml[xml.index(b'<?xml'):]).iter('node'))\n    observe_node_sample(items)\n    return items")
 
 
 def collect_ui():
@@ -66,13 +93,13 @@ def main():
     proc = subprocess.Popen(['adb', 'logcat', '-v', 'brief', '-s',
                              'MDXTRACE:I', 'MDXDEMOREPLAY:I', 'chromium:I', 'AndroidRuntime:E'],
                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, errors='replace')
-    events, errors = [], {'android_fatal': 0, 'android_classes': set(), 'javascript_errors': 0,
+    events, errors = EVENTS, {'android_fatal': 0, 'android_classes': set(), 'javascript_errors': 0,
                           'javascript_classes': set()}
     def read_logs():
         for line in proc.stdout:
             event = safe_event(line.rstrip())
             if event and len(events) < 360:
-                events.append(event)
+                events.append('host_ms=%d %s' % ((time.monotonic() - START) * 1000, event))
             if 'AndroidRuntime' in line:
                 if 'FATAL EXCEPTION' in line: errors['android_fatal'] += 1
                 errors['android_classes'].update(re.findall(r'\b(?:[A-Za-z_$][\w$]*\.)*[A-Za-z_$][\w$]*(?:Exception|Error)\b', line))
@@ -85,13 +112,14 @@ def main():
         source = pathlib.Path('scripts/capture_launcher_acceptance.py').read_text()
         sys.argv = ['scripts/capture_launcher_acceptance.py', str(OUT)]
         exec(compile(replay_source(source), 'scripts/capture_launcher_acceptance.py', 'exec'),
-             {'__name__': '__main__', 'mark': mark})
+             {'__name__': '__main__', 'mark': mark, 'observe_node_sample': observe_node_sample})
     except Exception as exc:
         print('::error title=Diagnostic replay::strict acceptance failed: ' + type(exc).__name__, flush=True)
         status = 1
     finally:
         try:
             ui = collect_ui()
+            SAMPLES.append({'host_ms': round((time.monotonic() - START) * 1000), 'state': {'phase': 'final-independent', 'ui': ui}})
         except Exception as exc:
             ui = {'error': type(exc).__name__, 'html_home_selector': 'NOT MEASURED',
                   'bridgeStarted': 'NOT MEASURED', 'bridgeBootstrapReady': 'NOT MEASURED'}
@@ -99,11 +127,14 @@ def main():
         proc.terminate(); thread.join(timeout=5)
         errors['android_classes'] = sorted(errors['android_classes'])
         errors['javascript_classes'] = sorted(errors['javascript_classes'])
+        (OUT / 'ui-samples.json').write_text(json.dumps(SAMPLES, ensure_ascii=False, indent=2) + '\n')
         (OUT / 'journal-safe.txt').write_text('\n'.join(events) + '\n')
         (OUT / 'diagnostic-summary.json').write_text(json.dumps({'ui': ui, 'errors': errors,
                 'strict_acceptance_exit': status}, ensure_ascii=False, indent=2) + '\n')
         print('::notice title=Diagnostic UI::' + json.dumps(ui, ensure_ascii=False), flush=True)
         print('::notice title=Diagnostic errors::' + json.dumps(errors), flush=True)
+        for i in range(0, len(SAMPLES), 5):
+            print('::notice title=Diagnostic UI samples %03d::%s' % (i // 5, json.dumps(SAMPLES[i:i+5], ensure_ascii=False)), flush=True)
         # Group bounded, allowlisted journal lines into annotations accessible via GitHub API.
         for i in range(0, len(events), 12):
             print('::notice title=Diagnostic journal %03d::%s' % (i // 12, ' | '.join(events[i:i+12])), flush=True)
