@@ -549,6 +549,12 @@
     move-result v1
     if-nez v1, :structured_safe
 
+    # A missing-token diagnostic cannot claim a library response or HTTP status.
+    const-string v0, "^library-fetch phase=request http=0 mime=missing duration=[0-9]{1,6} error=token-missing auth=webview-session refresh=unsupported$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
     const-string v0, "^auth\\.state state=(unknown|in-progress|connected|required)$"
     invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
     move-result v1

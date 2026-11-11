@@ -279,35 +279,26 @@
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     goto :done
     :not_valid
+    # A missing token cannot establish an expired session. The library must
+    # not have been queried without it. Keep all private UI blocked.
     const-string v1, "token"
     invoke-virtual {v0, v1}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;)Z
     move-result v1
-    if-nez v1, :failed
-    sget v1, Lcom/melodix/music/NativeSessionGate;->tokenApiHttp:I
-    const/16 v2, 0x190
-    if-ne v1, v2, :failed
-    sget v1, Lcom/melodix/music/NativeSessionGate;->tokenFallbackHttp:I
-    const/16 v2, 0x193
-    if-ne v1, v2, :failed
+    if-nez v1, :library_failure
+    const-string v2, "token-unavailable"
+    goto :unproven_error
+    :library_failure
     sget v1, Lcom/melodix/music/NativeSessionGate;->libraryHttp:I
     const/16 v2, 0x191
+    if-ne v1, v2, :library_forbidden
+    const-string v2, "library-http-401"
+    goto :unproven_error
+    :library_forbidden
+    const/16 v2, 0x193
     if-ne v1, v2, :failed
-    invoke-static {}, Lcom/melodix/music/NativeSessionEvidence;->recordCurrentCookie()I
-    move-result v1
-    if-eqz v1, :failed
-    sget-boolean v2, Lcom/melodix/music/NativeSessionGate;->freshLogin:Z
-    if-nez v2, :fresh_refusal
-    # One completed 400 / 403 / 401 observation with a current cookie is enough.
-    const/4 v1, 0x1
-    sput-boolean v1, Lcom/melodix/music/NativeSessionGate;->expiredEvidence:Z
-    const/4 v1, 0x2
-    const-string v2, "completed-token-refused-library-401"
-    invoke-static {v1, v2}, Lcom/melodix/music/NativeSessionGate;->transition(ILjava/lang/String;)V
-    goto :paint
-    :fresh_refusal
-    const-string v2, "fresh-account-refused"
-    goto :refusal_error
-    :refusal_error
+    const-string v2, "library-http-403"
+    :unproven_error
+    invoke-static {}, Lcom/melodix/music/NativeSessionEvidence;->reset()V
     const/4 v1, 0x0
     sput-boolean v1, Lcom/melodix/music/NativeSessionGate;->expiredEvidence:Z
     const/4 v1, 0x4

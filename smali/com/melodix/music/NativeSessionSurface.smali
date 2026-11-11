@@ -107,6 +107,34 @@
     goto :labels
     :retry_other
     sget-object v7, Lcom/melodix/music/NativeSessionGate;->lastReason:Ljava/lang/String;
+    const-string v5, "token-unavailable"
+    invoke-virtual {v5, v7}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v7
+    const-string v5, "Connexion Spotify indisponible"
+    if-eqz v7, :retry_deadline
+    const-string v5, "Jeton Spotify indisponible"
+    const-string v6, "Le jeton du lecteur n’a pas pu être obtenu. La bibliothèque ne peut pas être vérifiée. La cause reste inconnue."
+    goto :labels
+    :retry_deadline
+    sget-object v7, Lcom/melodix/music/NativeSessionGate;->lastReason:Ljava/lang/String;
+    const-string v5, "library-http-401"
+    invoke-virtual {v5, v7}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v7
+    if-eqz v7, :library_forbidden_labels
+    const-string v5, "Requête bibliothèque refusée (401)"
+    const-string v6, "L’authentification de la requête n’a pas été acceptée. La cause reste inconnue."
+    goto :labels
+    :library_forbidden_labels
+    sget-object v7, Lcom/melodix/music/NativeSessionGate;->lastReason:Ljava/lang/String;
+    const-string v5, "library-http-403"
+    invoke-virtual {v5, v7}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v7
+    if-eqz v7, :retry_deadline_labels
+    const-string v5, "Accès bibliothèque refusé (403)"
+    const-string v6, "La requête a été refusée. La cause et les autorisations restent à vérifier."
+    goto :labels
+    :retry_deadline_labels
+    sget-object v7, Lcom/melodix/music/NativeSessionGate;->lastReason:Ljava/lang/String;
     const-string v5, "presentation-deadline-not-expiration"
     invoke-virtual {v5, v7}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v7

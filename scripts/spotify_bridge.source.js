@@ -3269,7 +3269,7 @@
         const allowedPhases = ['request', 'response', 'parse', 'transform', 'settle'];
         const allowedMimes = ['json', 'html', 'other', 'missing'];
         const allowedErrors = [
-            'none', 'empty', 'http-401', 'http-403', 'http-other', 'timeout', 'network',
+            'none', 'empty', 'token-missing', 'http-401', 'http-403', 'http-other', 'timeout', 'network',
             'non-json', 'invalid-json', 'unexpected-shape', 'graphql', 'parse', 'transform'
         ];
         const requestedPhase = String(phase || state.phase || 'settle');
@@ -3328,6 +3328,7 @@
 
     function mediaLibraryDiagnosticError(error) {
         const value = String(error || '');
+        if (value === 'token-missing') return 'token-missing';
         if (value === 'http-401') return 'http-401';
         if (value === 'http-403') return 'http-403';
         if (/^http-[0-9]{3}$/.test(value)) return 'http-other';
@@ -3805,6 +3806,23 @@
         const refused = code => code === 400 || code === 401 || code === 403;
         observeSessionAttempt(trace, 'tokenResult', bearerToken ? 'obtained' :
             observed && refused(observed.apiHttp) && refused(observed.fallbackHttp) ? 'refused' : 'unknown');
+
+        // Never turn a failed token request into a library 401 or session-expiry
+        // claim. A stale attempt must not clear a newer session's state either.
+        if (requestGeneration !== mediaLibraryRequestGeneration ||
+            authEpoch !== boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999)) return [];
+        if (!bearerToken) {
+            trace.phase = 'request';
+            trace.error = 'token-missing';
+            window.__sfMediaLibError = 'token-missing';
+            window.__sfMediaLibSessionProofKnown = false;
+            window.__sfMediaLibSessionProven = false;
+            window.__sfMediaLibRawItemCount = 0;
+            window.__sfMediaLibUpdatedAt = 0;
+            window.__sfMediaLibProofAuthEpoch = 0;
+            window.mediaLib = null;
+            return [];
+        }
 
         while (hasMore && offset < 1000 && requestGeneration === mediaLibraryRequestGeneration &&
             authEpoch === boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999)) {
