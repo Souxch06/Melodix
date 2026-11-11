@@ -37,7 +37,7 @@ jobs:
           disable-animations: true
           emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
           script: |
-            set -euo pipefail
+            set -eu
             apk=$(find target-apk -type f -name '*.apk' -print -quit)
             test -s "$apk"
             echo '54231b677bc382f608f67c1bd5f8ff8409c34b76620fc4bdc2fb4b2f67364066  '"$apk" | sha256sum -c -
