@@ -13,11 +13,12 @@
 
 ## Travail effectué sans appareil
 
-- 7b821603 évite de montrer le diagnostic de contenu et de lancer ses sondes si
-  le contrôle effectué sur le fil UI observe une surface de session appartenant
-  à l'activité courante ou la page de connexion visible, lorsque l'état de
-  session n'est pas valide. Le rapport enregistré reste conservé. Un diagnostic
-  de démarrage bloqué et une session validée conservent leur chemin précédent.
+- 7b821603 visait à éviter le diagnostic de contenu pendant une session visible,
+  mais sa condition `startsWith("CONTENT STUCK")` ne correspondait pas au rapport
+  réel : `buildReport` commence par `MELODIX DIAGNOSTIC`. Le contrôle était donc
+  inopérant pour ce rapport. Le correctif suivant fournit au runnable un préfixe
+  explicite, tout en conservant le rapport complet et le rapport stocké original.
+  Un vrai diagnostic de démarrage bloqué garde son chemin précédent.
 - Ce contrôle utilise `isShown()` et l'état de l'activité au moment du callback ;
   son comportement pendant que l'activité démo est au premier plan et lors du
   retour reste à vérifier sur Android. Un ancien rapport de contenu peut aussi

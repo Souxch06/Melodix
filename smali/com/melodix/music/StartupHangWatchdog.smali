@@ -209,7 +209,16 @@
 
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->write(Ljava/lang/String;)V
 
-    move-object v6, v0
+    # buildReport starts with the diagnostic header, not the phase. The UI
+    # runnable's content-only guard expects an explicit CONTENT STUCK prefix.
+    # Preserve the original stored report and pass the complete report too.
+    new-instance v1, Ljava/lang/StringBuilder;
+    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v2, "CONTENT STUCK\n"
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v6
 
     const-string v0, "content-hang"
 
