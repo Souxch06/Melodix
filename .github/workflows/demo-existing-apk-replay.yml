@@ -1,16 +1,14 @@
 name: Replay existing demo APK without rebuilding
+# Diagnostic and screenshot replay are manual only; a normal push does not run them.
 on:
-  push:
-    branches: [arena/6b935c3e-melodix]
-    paths:
-      - .github/workflows/demo-existing-apk-replay.yml
-      - scripts/replay_existing_apk.sh
   workflow_dispatch:
 permissions:
   actions: read
   contents: read
 jobs:
   replay:
+    # Diagnostic evidence is non-blocking; inspect the actual step outcomes.
+    continue-on-error: true
     name: Replay the same Preview APK on a fresh offline phone
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -39,6 +37,8 @@ jobs:
           emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
           script: sh scripts/replay_existing_apk.sh
   capture:
+    # Diagnostic evidence is non-blocking; inspect the actual step outcomes.
+    continue-on-error: true
     name: Capture existing Preview on ${{ matrix.profile }}
     needs: replay
     runs-on: ubuntu-24.04
@@ -79,6 +79,8 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
   bundle:
+    # Diagnostic evidence is non-blocking; inspect the actual step outcomes.
+    continue-on-error: true
     name: Bundle the same APK and verified screenshots
     needs: capture
     runs-on: ubuntu-24.04

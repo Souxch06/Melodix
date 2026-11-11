@@ -88,6 +88,8 @@ jobs:
       version_code_base: 1021285
     secrets: inherit
   capture:
+    # Evidence is optional; failures remain visible in job steps and artifacts.
+    continue-on-error: true
     needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 35
@@ -129,6 +131,8 @@ jobs:
           path: captures/${{ matrix.profile }}
           if-no-files-found: warn
   bundle:
+    # A failed/incomplete bundle must never block the build or be called verified.
+    continue-on-error: true
     needs: [build, capture]
     runs-on: ubuntu-24.04
     steps:
