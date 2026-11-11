@@ -30,7 +30,7 @@ if (work/'res').exists():
     text=p.read_text()
     marker='    :attach\n    const/4 v3, -0x1'
     assert text.count(marker)==1
-    text=text.replace(marker, '    :attach\n    invoke-static {p0, v0, v1, v2}, Lcom/melodix/demo/DemoEntry;->bindSession(Landroid/app/Activity;Landroid/view/View;IZ)V\n    const/4 v3, -0x1')
+    text=text.replace(marker, '    :attach\n    invoke-static {p0, v0, v1, v2}, Lcom/melodix/demo/DemoEntry;->bindSession(Landroid/app/Activity;Landroid/view/View;IZ)V\n    invoke-static {p0, v0, v1, v2}, Lcom/melodix/demo/DemoEntry;->bindSessionOtherStates(Landroid/app/Activity;Landroid/view/View;IZ)V\n    const/4 v3, -0x1')
     p.write_text(text)
     p=work/'smali/com/melodix/music/MainActivity.smali'
     text=p.read_text()

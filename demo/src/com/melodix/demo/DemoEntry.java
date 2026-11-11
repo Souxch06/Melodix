@@ -7,6 +7,7 @@ import android.graphics.Typeface;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 /** Installed only in the opt-in preview build. Never reads or clears session data. */
@@ -46,9 +47,35 @@ public final class DemoEntry {
         lp.topMargin = dp(a,12);
         parent.addView(demo, lp);
     }
+    /** Complete the existing session entry for verification and active login.
+     * The login control stays inside its measured native header, not over the WebView.
+     * State 3 has no session overlay: authenticated users use real settings.
+     */
+    public static void bindSessionOtherStates(Activity a, View overlay, int state, boolean loginActive) {
+        if (overlay == null || state == 3 || (!loginActive && state != 0)) return;
+        LinearLayout parent = null;
+        if (loginActive && overlay instanceof ScrollView) {
+            View child = ((ScrollView) overlay).getChildAt(0);
+            if (child instanceof LinearLayout) parent = (LinearLayout) child;
+        } else {
+            int id = a.getResources().getIdentifier("sessionCard", "id", a.getPackageName());
+            View card = overlay.findViewById(id);
+            if (card instanceof LinearLayout) parent = (LinearLayout) card;
+        }
+        if (parent == null || parent.findViewWithTag("preview-demo-entry") != null) return;
+        TextView demo = button(a, "Essayer le mode démo");
+        demo.setTag("preview-demo-entry");
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+        lp.topMargin = dp(a, 8);
+        // Keep the login option visible before the WebView, while allowing the
+        // existing header-layout listener to reserve space for the WebView.
+        if (loginActive) parent.addView(demo, 0, lp);
+        else parent.addView(demo, lp);
+    }
     public static void bindSettings(Activity a, LinearLayout content, String screen) {
         if (!"settings".equals(screen) || content == null) return;
-        TextView demo = button(a, "Essayer le mode démo");
+        TextView demo = button(a, "Mode démo");
+        demo.setTag("preview-demo-settings-entry");
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1,-2);
         lp.setMargins(dp(a,16),dp(a,8),dp(a,16),dp(a,8));
         content.addView(demo, lp);
