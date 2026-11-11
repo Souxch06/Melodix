@@ -6,6 +6,7 @@ exit tap. Never change its predicate or its return status. Capture only the
 closed redacted MDX journal and error categories, not raw URLs or console text.
 """
 import json
+import os
 import pathlib
 import re
 import subprocess
@@ -21,9 +22,13 @@ EVENTS = []
 SAMPLES = []
 PHASE = 'before-exit'
 START = time.monotonic()
+PROBE_READY = threading.Event()
 
 
 def safe_event(line):
+    probe = re.search(r'MDXDOM\s*\(\s*\d+\)\s*:\s*(.*)$', line)
+    if probe and re.fullmatch(r'(?:probe=(?:ready|unavailable)|web=absent|activity=(?:resumed|paused)|progress=(?:[0-9]|[1-9][0-9]|100) host=(?:accounts|player|other) ready=(?:loading|interactive|complete|other) started=(?:undefined|true|false|other) bootstrap=(?:undefined|true|false|other) home=(?:true|false) interface=(?:true|false))', probe.group(1)):
+        return 'DOM ' + probe.group(1)
     match = re.search(r'MDXTRACE\s*\(\s*\d+\)\s*:\s*(sid=[0-9a-f]{8} t=\d+ .*)$', line)
     if match and allowed_entry(match.group(1)) and re.search(
             r' (?:navigation |session-state |proof |proof-guard |stage |perf (?:activity-|webview-|page-loaded)|js-shell-ready|bridge-js-started|bridge-bootstrap-ready|home-data stage=)', match.group(1)):
@@ -66,6 +71,16 @@ def observe_node_sample(items):
         SAMPLES.append({'host_ms': now, 'state': state})
 
 
+def start_dom_probe():
+    # Instrumentation is installed only on a fresh CI emulator, signed with the
+    # same Preview key; original test157 bytes and auth state remain untouched.
+    subprocess.Popen(['adb', 'shell', 'am', 'instrument', '-w',
+                      'com.melodix.diagnostic/com.melodix.diagnostic.DemoReturnProbe'],
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if not PROBE_READY.wait(20):
+        EVENTS.append('host_ms=%d DOM probe=not-ready' % ((time.monotonic() - START) * 1000))
+
+
 def replay_source(source):
     target = "    tap(wait(lambda n: text_node(n, 'Quitter la démo'), 'demo exit'))"
     if source.count(target) != 1:
@@ -74,7 +89,13 @@ def replay_source(source):
     sample = "    return list(ET.fromstring(xml[xml.index(b'<?xml'):]).iter('node'))"
     if source.count(sample) != 1:
         raise RuntimeError('acceptance snapshot anchor changed: refusing diagnostic replay')
-    return source.replace(sample, "    items = list(ET.fromstring(xml[xml.index(b'<?xml'):]).iter('node'))\n    observe_node_sample(items)\n    return items")
+    source = source.replace(sample, "    items = list(ET.fromstring(xml[xml.index(b'<?xml'):]).iter('node'))\n    observe_node_sample(items)\n    return items")
+    if os.environ.get('MELODIX_DEMO_DOM_PROBE') == '1':
+        force = "    adb('shell', 'am', 'force-stop', pkg)"
+        if source.count(force) != 1:
+            raise RuntimeError('acceptance force-stop anchor changed')
+        source = source.replace(force, force + "\n    start_dom_probe()")
+    return source
 
 
 def collect_ui():
@@ -99,13 +120,14 @@ def collect_ui():
 def main():
     subprocess.run(['adb', 'logcat', '-c'], check=True)
     proc = subprocess.Popen(['adb', 'logcat', '-v', 'brief', '-s',
-                             'MDXTRACE:I', 'MDXDEMOREPLAY:I', 'chromium:I', 'AndroidRuntime:E'],
+                             'MDXTRACE:I', 'MDXDOM:I', 'MDXDEMOREPLAY:I', 'chromium:I', 'AndroidRuntime:E'],
                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, errors='replace')
     events, errors = EVENTS, {'android_fatal': 0, 'android_classes': set(), 'javascript_errors': 0,
                           'javascript_classes': set()}
     def read_logs():
         for line in proc.stdout:
             event = safe_event(line.rstrip())
+            if event == 'DOM probe=ready': PROBE_READY.set()
             if event and len(events) < 360:
                 events.append('host_ms=%d %s' % ((time.monotonic() - START) * 1000, event))
             if 'AndroidRuntime' in line:
@@ -120,7 +142,7 @@ def main():
         source = pathlib.Path('scripts/capture_launcher_acceptance.py').read_text()
         sys.argv = ['scripts/capture_launcher_acceptance.py', str(OUT)]
         exec(compile(replay_source(source), 'scripts/capture_launcher_acceptance.py', 'exec'),
-             {'__name__': '__main__', 'mark': mark, 'observe_node_sample': observe_node_sample})
+             {'__name__': '__main__', 'mark': mark, 'observe_node_sample': observe_node_sample, 'start_dom_probe': start_dom_probe})
     except Exception as exc:
         print('::error title=Diagnostic replay::strict acceptance failed: ' + type(exc).__name__, flush=True)
         status = 1

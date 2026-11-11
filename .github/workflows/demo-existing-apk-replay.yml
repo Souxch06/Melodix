@@ -8,6 +8,11 @@ on:
         required: false
         type: boolean
         default: false
+      dom_probe:
+        description: Use ephemeral same-signature read-only DOM instrumentation on the fresh emulator
+        required: false
+        type: boolean
+        default: false
 permissions:
   actions: read
   contents: read
@@ -153,6 +158,15 @@ jobs:
           path: target-apk
       - name: Verify unchanged test157 bytes
         run: echo '00ce34bf864e0678d88906eab43b4f529398cc63624394edc4b80aefde880fec  target-apk/Melodix-Preview-v1.2.2-test157.apk' | sha256sum -c -
+      - name: Install compiler and build ephemeral read-only instrumentation
+        if: inputs.dom_probe == true
+        env:
+          MELODIX_PREVIEW_KEYSTORE_B64: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_B64 }}
+          MELODIX_PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
+          MELODIX_PREVIEW_KEY_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEY_PASSWORD || secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
+        run: |
+          sdkmanager --install "platforms;android-36" "build-tools;35.0.0"
+          bash scripts/build_demo_return_probe.sh
       - run: sudo chmod 666 /dev/kvm
       - name: Strict launcher replay with observational markers
         uses: reactivecircus/android-emulator-runner@v2
@@ -163,7 +177,13 @@ jobs:
           profile: pixel_2
           disable-animations: true
           emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
-          script: adb install target-apk/Melodix-Preview-v1.2.2-test157.apk && python3 scripts/diagnose_demo_return.py
+          script: |
+            adb install target-apk/Melodix-Preview-v1.2.2-test157.apk
+            if [ "${{ inputs.dom_probe }}" = "true" ]; then
+              adb install "$RUNNER_TEMP/melodix-return-probe/probe.apk"
+              export MELODIX_DEMO_DOM_PROBE=1
+            fi
+            python3 scripts/diagnose_demo_return.py
       - name: Summarize redacted replay evidence
         if: always()
         shell: bash
@@ -178,7 +198,7 @@ jobs:
           journal = folder / 'journal-safe.txt'
           if journal.exists():
               lines = journal.read_text().splitlines()
-              selected = [x for x in lines if ' MARK ' in x or any(k in x for k in ('navigation ', 'bridge-', 'page-loaded', 'session-state ', 'activity-resume'))]
+              selected = [x for x in lines if ' MARK ' in x or ' DOM ' in x or any(k in x for k in ('navigation ', 'bridge-', 'page-loaded', 'session-state ', 'activity-resume'))]
               for i in range(0, min(len(selected), 72), 12):
                   print('::notice title=Return trace %03d::%s' % (i//12, ' | '.join(selected[i:i+12])))
           summary = folder / 'diagnostic-summary.json'
