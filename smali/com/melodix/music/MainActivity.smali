@@ -5038,6 +5038,17 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     return-void
 .end method
 
+# Re-check any content diagnostic posted while another Activity was in front.
+# Never touch a STARTUP STUCK panel or the stored crash report.
+.method public final onWindowFocusChanged(Z)V
+    .locals 0
+    invoke-super {p0, p1}, Le6;->onWindowFocusChanged(Z)V
+    if-eqz p1, :done
+    invoke-static {p0}, Lcom/melodix/music/StartupDiagnosticOverlay;->dismissContentForSession(Lcom/melodix/music/MainActivity;)V
+    :done
+    return-void
+.end method
+
 .method public final onResume()V
     .locals 6
 

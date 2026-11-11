@@ -49,3 +49,14 @@ maintenant cette action dès que la connexion est active, sans retirer l'entrée
 Preview distincte et sans changer la garde, les cookies ou les requêtes. Le
 bouton réapparaît normalement pour les états 2 et 4 hors connexion interactive.
 La cause des refus Spotify reste inconnue et une validation Android reste due.
+
+## Diagnostic affiché avant le retour au premier plan
+
+Le watchdog peut poster son panneau sur `MainActivity` pendant qu'une autre
+activité, comme la démo, est au premier plan. Au retour du focus, le code retire
+désormais ce panneau **uniquement** s'il s'agit d'un diagnostic de contenu,
+s'il appartient à la fenêtre courante et si la surface de session ou la page de
+connexion est visible. Le rapport enregistré n'est pas effacé ; un diagnostic
+`STARTUP STUCK`, une activité différente et une session validée ne sont pas
+écartés par cette vérification. Cette protection ne prouve pas que les sondes
+antérieures ont été évitées, et doit encore être testée sur Android.

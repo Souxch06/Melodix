@@ -21,6 +21,9 @@
 
 .field private static shown:Z
 
+# UI-thread marker for the panel actually attached by show().
+.field private static contentReport:Z
+
 
 # direct methods
 .method public constructor <init>()V
@@ -494,6 +497,38 @@
     return-void
 .end method
 
+# A content panel may have been attached while a different Activity (e.g.
+# the demo) was in front. On regaining focus, dismiss it only when the current
+# Activity actually shows the session/login UI. Keep the stored diagnostic.
+.method public static dismissContentForSession(Lcom/melodix/music/MainActivity;)V
+    .locals 2
+    if-eqz p0, :done
+    :try_session
+    sget-boolean v0, Lcom/melodix/music/StartupDiagnosticOverlay;->contentReport:Z
+    if-eqz v0, :done
+    sget-object v0, Lcom/melodix/music/StartupDiagnosticOverlay;->panel:Landroid/view/View;
+    if-eqz v0, :done
+    invoke-virtual {v0}, Landroid/view/View;->getRootView()Landroid/view/View;
+    move-result-object v0
+    invoke-virtual {p0}, Landroid/app/Activity;->getWindow()Landroid/view/Window;
+    move-result-object v1
+    if-eqz v1, :done
+    invoke-virtual {v1}, Landroid/view/Window;->getDecorView()Landroid/view/View;
+    move-result-object v1
+    if-ne v0, v1, :done
+    invoke-static {p0}, Lcom/melodix/music/StartupUnstickRunnable;->sessionSurfaceVisible(Lcom/melodix/music/MainActivity;)Z
+    move-result v0
+    if-eqz v0, :done
+    invoke-static {}, Lcom/melodix/music/StartupDiagnosticOverlay;->dismissIfShowing()V
+    :try_end_session
+    .catch Ljava/lang/Throwable; {:try_session .. :try_end_session} :session_error
+    goto :done
+    :session_error
+    move-exception v0
+    :done
+    return-void
+.end method
+
 .method public static appendDiagnosticLine(Ljava/lang/String;)V
     .locals 4
 
@@ -595,6 +630,12 @@
     sput-object v0, Lcom/melodix/music/StartupDiagnosticOverlay;->panel:Landroid/view/View;
 
     sput-object v1, Lcom/melodix/music/StartupDiagnosticOverlay;->reportTextView:Landroid/widget/TextView;
+
+    # Capture the original report kind before later trace lines are prepended.
+    const-string v2, "CONTENT STUCK"
+    invoke-virtual {p1, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v2
+    sput-boolean v2, Lcom/melodix/music/StartupDiagnosticOverlay;->contentReport:Z
 
     const-string v2, "MDXDIAG"
 
