@@ -61,7 +61,22 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: sudo apt-get update && sudo apt-get install -y ripgrep
+      - name: Install ripgrep for the complete test suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v rg >/dev/null; then
+            # Use the pinned Linux binary when distro mirrors are unavailable;
+            # the fallback remains a real system ripgrep, never a test stub.
+            if npm install --prefix "$RUNNER_TEMP/ripgrep" --no-save --no-audit --no-fund @vscode/ripgrep-linux-x64@1.18.0; then
+              rg_bin="$RUNNER_TEMP/ripgrep/node_modules/@vscode/ripgrep-linux-x64/bin"
+              export PATH="$rg_bin:$PATH"
+              echo "$rg_bin" >> "$GITHUB_PATH"
+            else
+              sudo apt-get update && sudo apt-get install -y ripgrep
+            fi
+          fi
+          rg --version
       - run: python -m pip install PyYAML==6.0.2
       - run: npm ci
       - name: Run the complete suite before building any preview
