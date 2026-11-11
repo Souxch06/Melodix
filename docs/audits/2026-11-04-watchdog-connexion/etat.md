@@ -60,3 +60,20 @@ connexion est visible. Le rapport enregistré n'est pas effacé ; un diagnostic
 `STARTUP STUCK`, une activité différente et une session validée ne sont pas
 écartés par cette vérification. Cette protection ne prouve pas que les sondes
 antérieures ont été évitées, et doit encore être testée sur Android.
+
+## Confirmation avant reconnexion
+
+Le bouton « Se reconnecter » affichait déjà un avertissement, mais lançait
+immédiatement l'effacement global des cookies et données Web de l'application.
+Il ouvre maintenant une confirmation précisant cette portée et indiquant qu'une
+reconnexion peut ne pas résoudre le refus Spotify. « Annuler » ne lance aucune
+suppression ; seul « Effacer et se reconnecter » appelle le parcours existant.
+Si le dialogue ne peut être affiché, l'effacement n'est pas lancé. L'activité,
+la génération de session et l'absence d'une opération en cours sont contrôlées
+à la confirmation ; la garde existante reste inchangée. Le texte de l'écran
+suggère d'abord de réessayer sans effacer la session.
+
+Les tests exécutent les branches Smali avec des doubles et vérifient aussi la
+logique de la garde existante ; l'assemblage Smali isolé a réussi. Cela ne
+constitue ni un test Android du dialogue ni une preuve que le refus Spotify est
+résolu. Aucune build ni release n'a été lancée pour ce changement.

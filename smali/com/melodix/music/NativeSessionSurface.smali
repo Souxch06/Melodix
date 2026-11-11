@@ -151,7 +151,7 @@
     goto :labels
     :expired_labels
     const-string v5, "Spotify refuse l’accès avec ta session actuelle"
-    const-string v6, "Reconnecte-toi ou réessaie."
+    const-string v6, "Réessaie sans effacer ta session. Une reconnexion peut ne pas résoudre le refus."
     :labels
     invoke-virtual {v3, v5}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
     invoke-virtual {v4, v6}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
