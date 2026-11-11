@@ -36,3 +36,15 @@ réel de connexion avec l'utilisateur ; ne jamais collecter d'identifiants ou
 jetons. Ne pas présenter l'absence d'authentification sur un émulateur hors ligne
 comme une preuve d'accès aux réglages réels. Aucune garde ni requête Spotify n'a
 été modifiée par ce travail.
+
+## Action pendant la connexion interactive
+
+Dans le code antérieur, si `loginActive` était vrai mais que l'état de session
+restait 2 ou 4, la construction de l'en-tête affichait quand même « Réessayer ».
+Son action peut appeler `verify` si un cookie est présent ; `begin` remet alors
+`loginActive` à faux. Ce chemin est démontré par lecture/exécution des branches
+Smali avec des doubles, pas observé sur un téléphone. La présentation masque
+maintenant cette action dès que la connexion est active, sans retirer l'entrée
+Preview distincte et sans changer la garde, les cookies ou les requêtes. Le
+bouton réapparaît normalement pour les états 2 et 4 hors connexion interactive.
+La cause des refus Spotify reste inconnue et une validation Android reste due.

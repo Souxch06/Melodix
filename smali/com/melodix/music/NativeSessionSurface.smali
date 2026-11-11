@@ -158,11 +158,14 @@
     const-string v3, "sessionAction"
     invoke-static {v0, v3}, Lcom/melodix/music/NativeSessionSurface;->text(Landroid/view/View;Ljava/lang/String;)Landroid/widget/TextView;
     move-result-object v3
+    # While the official login is open, state may still be error/expired.
+    # Keep its header action hidden: Retry would restart verification and can
+    # replace the interactive login. The separate Preview demo entry remains.
+    if-nez v2, :action_done
     const/4 v4, 0x4
     if-eq v1, v4, :retry_action
     const/4 v4, 0x2
     if-eq v1, v4, :retry_action
-    if-nez v2, :action_done
     const/4 v4, 0x1
     if-ne v1, v4, :action_done
     const-string v4, "Se connecter à Spotify"
