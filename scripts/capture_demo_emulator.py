@@ -73,8 +73,12 @@ open(os.path.join(out,'reglages-test-entree.png'),'wb').write(settings_png)
 tap(text='Essayer le mode démo')
 snap('entree-reglages','MODE DÉMO')
 tap(**{'content-desc':'Quitter la démo'})
-if not any(n.get('resource-id','').endswith(':id/sessionTitle') for n in tree().iter('node')):
-    raise RuntimeError('demo exit did not return to the real session surface')
+deadline=time.monotonic()+45
+while True:
+    returned=any(n.get('resource-id','').endswith(':id/sessionTitle') for n in tree().iter('node'))
+    if returned: break
+    if time.monotonic()>=deadline: raise RuntimeError('demo exit did not return to the real session surface')
+    time.sleep(2)
 adb('shell','am','start','-W','-n','com.melodix.music.preview/com.melodix.demo.DemoSettingsActivity');settle()
 version=next((n for n in tree().iter('node') if n.get('text','').startswith('Version de Melodix')),None)
 if version is None: raise RuntimeError('version entry unavailable')

@@ -4,6 +4,7 @@ on:
     branches: [arena/6b935c3e-melodix]
     paths:
       - .github/workflows/demo-existing-apk-replay.yml
+      - scripts/replay_existing_apk.sh
   workflow_dispatch:
 permissions:
   actions: read

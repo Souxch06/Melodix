@@ -2,6 +2,9 @@
 set -euo pipefail
 apk="$1"; profile="$2"; output="captures/$profile"
 adb install -r "$apk"
+# Grant only the fresh emulator's declared runtime permissions; never change device/user data.
+adb shell pm grant com.melodix.music.preview android.permission.POST_NOTIFICATIONS
+adb shell pm grant com.melodix.music.preview android.permission.BLUETOOTH_CONNECT
 set +e
 python3 scripts/capture_demo_emulator.py "$profile" "$output" > "$RUNNER_TEMP/demo-$profile.log" 2>&1
 status=$?
