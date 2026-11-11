@@ -13,12 +13,17 @@ on:
         required: false
         type: boolean
         default: false
+      diagnose_test158:
+        description: Observe the exact test158 launcher and login without rebuilding
+        required: false
+        type: boolean
+        default: false
 permissions:
   actions: read
   contents: read
 jobs:
   replay:
-    if: inputs.diagnose_test157 != true
+    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true
     # Diagnostic evidence is non-blocking; inspect the actual step outcomes.
     continue-on-error: true
     name: Replay the same Preview APK on a fresh offline phone
@@ -49,7 +54,7 @@ jobs:
           emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
           script: sh scripts/replay_existing_apk.sh
   capture:
-    if: inputs.diagnose_test157 != true
+    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true
     # Diagnostic evidence is non-blocking; inspect the actual step outcomes.
     continue-on-error: true
     name: Capture existing Preview on ${{ matrix.profile }}
@@ -92,7 +97,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
   bundle:
-    if: inputs.diagnose_test157 != true
+    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true
     # Diagnostic evidence is non-blocking; inspect the actual step outcomes.
     continue-on-error: true
     name: Bundle the same APK and verified screenshots
@@ -207,5 +212,47 @@ jobs:
         with:
           name: test157-return-diagnostics
           path: evidence
+          if-no-files-found: warn
+          retention-days: 14
+
+  test158-observation:
+    if: inputs.diagnose_test158 == true
+    name: Observe exact test158 login without rebuilding
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4.0.4
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: Melodix-Preview-v1.2.2-test158.apk
+          run-id: 43094648501
+          github-token: ${{ github.token }}
+          path: target-apk
+      - name: Verify exact test158
+        run: echo '2251561cc171edba1059ce3250e3ba1b66172050bd25b8eff57f321736e76bf9  target-apk/Melodix-Preview-v1.2.2-test158.apk' | sha256sum -c -
+      - run: sudo chmod 666 /dev/kvm
+      - name: Observe launcher and login on clean emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
+          script: |
+            adb install target-apk/Melodix-Preview-v1.2.2-test158.apk
+            python3 scripts/observe_test158_login.py evidence-test158
+      - name: Upload real diagnostic captures
+        if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: test158-login-observation
+          path: evidence-test158
           if-no-files-found: warn
           retention-days: 14
