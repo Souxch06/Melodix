@@ -39,6 +39,51 @@
     return-void
 .end method
 
+# UI thread only. A visible session surface or visible official login page is
+# not evidence that Home is stuck. Never infer authentication from this check.
+.method public static sessionSurfaceVisible(Lcom/melodix/music/MainActivity;)Z
+    .locals 3
+    if-eqz p0, :no
+    sget v0, Lcom/melodix/music/NativeSessionGate;->state:I
+    const/4 v1, 0x3
+    if-eq v0, v1, :no
+    :try_session
+    sget-object v0, Lcom/melodix/music/NativeSessionGate;->overlay:Landroid/view/View;
+    if-eqz v0, :web
+    invoke-virtual {v0}, Landroid/view/View;->isShown()Z
+    move-result v1
+    if-eqz v1, :web
+    # A static overlay can outlive an Activity; do not suppress a diagnostic
+    # unless it belongs to the current Activity's decor.
+    invoke-virtual {v0}, Landroid/view/View;->getRootView()Landroid/view/View;
+    move-result-object v0
+    invoke-virtual {p0}, Landroid/app/Activity;->getWindow()Landroid/view/Window;
+    move-result-object v1
+    if-eqz v1, :web
+    invoke-virtual {v1}, Landroid/view/Window;->getDecorView()Landroid/view/View;
+    move-result-object v1
+    if-eq v0, v1, :yes
+    :web
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+    if-eqz v0, :no
+    invoke-virtual {v0}, Landroid/view/View;->isShown()Z
+    move-result v0
+    if-eqz v0, :no
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->isLoginWebPath()Z
+    move-result v0
+    if-eqz v0, :no
+    :yes
+    const/4 v0, 0x1
+    return v0
+    :try_session_end
+    .catch Ljava/lang/Throwable; {:try_session .. :try_session_end} :session_error
+    :session_error
+    move-exception v2
+    :no
+    const/4 v0, 0x0
+    return v0
+.end method
+
 .method public final run()V
     .locals 4
 
@@ -49,6 +94,20 @@
     iget-object v1, p0, Lcom/melodix/music/StartupUnstickRunnable;->report:Ljava/lang/String;
 
     if-eqz v1, :no_panel
+
+    # Only the content verdict is inapplicable while the user sees session or
+    # login UI. Keep the watchdog's stored report; do not navigate or hide a
+    # genuine STARTUP STUCK report. Recheck on the UI thread to avoid races.
+    iget-boolean v2, p0, Lcom/melodix/music/StartupUnstickRunnable;->unstick:Z
+    if-nez v2, :show_report
+    const-string v2, "CONTENT STUCK"
+    invoke-virtual {v1, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v2
+    if-eqz v2, :show_report
+    invoke-static {v0}, Lcom/melodix/music/StartupUnstickRunnable;->sessionSurfaceVisible(Lcom/melodix/music/MainActivity;)Z
+    move-result v2
+    if-nez v2, :unstick_done
+    :show_report
 
     # UI thread: capture the web-side state and enrich the stored report so
     # the photo shows the full picture (page, login, JS trail).
