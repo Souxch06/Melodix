@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Real test158 offline DEMO screenshots from the launcher, no session injection."""
+"""Real Preview offline DEMO screenshots from the launcher, no session injection."""
 import json
 import pathlib
 import re
@@ -50,7 +50,7 @@ def snap(stage, required):
     (out / (stage + '.png')).write_bytes(png)
     summary = {'profile': profile, 'stage': stage, 'required': required, 'offline_demo_badge': True}
     (out / (stage + '.json')).write_text(json.dumps(summary, ensure_ascii=False) + '\n')
-    print('::notice title=Test158 real demo screenshot::' + json.dumps(summary, ensure_ascii=False), flush=True)
+    print('::notice title=Preview real demo screenshot::' + json.dumps(summary, ensure_ascii=False), flush=True)
 
 try:
     if profile == 'small':
@@ -66,9 +66,9 @@ try:
     tap(wait(ident='nativeSearchTab')); snap('recherche', 'Découvrir')
     tap(wait(ident='nativeHomeTab')); snap('retour-accueil', 'MODE DÉMO · HORS LIGNE')
     tap(wait(ident='nativeMiniPlayer')); snap('lecteur', 'Lecture en cours')
-    tap(wait(text='Quitter la démo')); print('::notice title=Test158 demo exit::Quitter la démo clicked; post-exit surface not asserted by this diagnostic', flush=True)
+    tap(wait(text='Quitter la démo')); print('::notice title=Preview demo exit::Quitter la démo clicked; post-exit surface not asserted by this diagnostic', flush=True)
 except Exception as exc:
-    print('::error title=Test158 demo capture::' + str(exc), flush=True)
+    print('::error title=Preview demo capture::' + str(exc), flush=True)
     try: (out / 'error.png').write_bytes(adb('exec-out', 'screencap', '-p'))
     except Exception: pass
     raise

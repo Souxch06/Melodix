@@ -23,12 +23,17 @@ on:
         required: false
         type: boolean
         default: false
+      capture_test159_demo:
+        description: Capture actual isolated offline demo screens from the exact test159 without rebuilding
+        required: false
+        type: boolean
+        default: false
 permissions:
   actions: read
   contents: read
 jobs:
   replay:
-    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true
+    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true && inputs.capture_test159_demo != true
     # Diagnostic evidence is non-blocking; inspect the actual step outcomes.
     continue-on-error: true
     name: Replay the same Preview APK on a fresh offline phone
@@ -59,7 +64,7 @@ jobs:
           emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
           script: sh scripts/replay_existing_apk.sh
   capture:
-    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true
+    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true && inputs.capture_test159_demo != true
     # Diagnostic evidence is non-blocking; inspect the actual step outcomes.
     continue-on-error: true
     name: Capture existing Preview on ${{ matrix.profile }}
@@ -102,7 +107,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
   bundle:
-    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true
+    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true && inputs.capture_test159_demo != true
     # Diagnostic evidence is non-blocking; inspect the actual step outcomes.
     continue-on-error: true
     name: Bundle the same APK and verified screenshots
@@ -263,10 +268,13 @@ jobs:
           retention-days: 14
 
   test158-demo-capture:
-    if: inputs.capture_test158_demo == true
-    name: Capture original test158 offline demo on ${{ matrix.profile }}
+    if: inputs.capture_test158_demo == true || inputs.capture_test159_demo == true
+    name: Capture exact Preview offline demo on ${{ matrix.profile }}
     runs-on: ubuntu-24.04
     timeout-minutes: 25
+    env:
+      APK_NAME: ${{ inputs.capture_test159_demo && 'Melodix-Preview-v1.2.2-test159.apk' || 'Melodix-Preview-v1.2.2-test158.apk' }}
+      APK_SHA: ${{ inputs.capture_test159_demo && '31f561be0765c0d7f5b4b790ded3f47c5a86b877ab6dd0b8c7c8f5d2c224f8f7' || '2251561cc171edba1059ce3250e3ba1b66172050bd25b8eff57f321736e76bf9' }}
     strategy:
       fail-fast: false
       matrix:
@@ -280,12 +288,12 @@ jobs:
       - uses: android-actions/setup-android@v4.0.4
       - uses: actions/download-artifact@v4.3.0
         with:
-          name: Melodix-Preview-v1.2.2-test158.apk
-          run-id: 43094648501
+          name: ${{ inputs.capture_test159_demo && 'Melodix-Preview-v1.2.2-test159.apk' || 'Melodix-Preview-v1.2.2-test158.apk' }}
+          run-id: ${{ inputs.capture_test159_demo && '43107820755' || '43094648501' }}
           github-token: ${{ github.token }}
           path: target-apk
-      - name: Verify exact test158
-        run: echo '2251561cc171edba1059ce3250e3ba1b66172050bd25b8eff57f321736e76bf9  target-apk/Melodix-Preview-v1.2.2-test158.apk' | sha256sum -c -
+      - name: Verify exact original APK
+        run: echo "$APK_SHA  target-apk/$APK_NAME" | sha256sum -c -
       - run: sudo chmod 666 /dev/kvm
       - name: Capture real demo screens from launcher without any session
         uses: reactivecircus/android-emulator-runner@v2
@@ -297,13 +305,13 @@ jobs:
           disable-animations: true
           emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
           script: |
-            adb install target-apk/Melodix-Preview-v1.2.2-test158.apk
+            adb install "target-apk/$APK_NAME"
             python3 scripts/capture_test158_demo.py "${{ matrix.profile }}" "captures/${{ matrix.profile }}"
       - name: Upload only actual emulator captures, even on failure
         if: always()
         uses: actions/upload-artifact@v4.6.2
         with:
-          name: test158-demo-captures-${{ matrix.profile }}
+          name: ${{ inputs.capture_test159_demo && 'test159' || 'test158' }}-demo-captures-${{ matrix.profile }}
           path: captures/${{ matrix.profile }}
           if-no-files-found: warn
           retention-days: 14
