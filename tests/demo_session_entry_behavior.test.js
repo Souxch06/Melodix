@@ -18,6 +18,8 @@ test('session entry behavior: existing view, fallback placement, click and repea
       public class Resources {
         public static class DisplayMetrics { public float density=1; }
         public DisplayMetrics getDisplayMetrics(){return new DisplayMetrics();}
+        public static class Configuration { public int screenWidthDp=400; }
+        public Configuration getConfiguration(){return new Configuration();}
         public int getIdentifier(String n,String t,String p){return n.equals("sessionCard")?100:n.equals("sessionAction")?101:0;}
       }`,
     'android/content/Intent.java': `package android.content;
@@ -32,7 +34,7 @@ test('session entry behavior: existing view, fallback placement, click and repea
         public void startActivity(Intent i){started=i;} public void finish(){} }`,
     'android/graphics/Color.java': 'package android.graphics; public class Color { public static final int WHITE=-1; }',
     'android/graphics/Typeface.java': 'package android.graphics; public class Typeface { public static final int BOLD=1; }',
-    'android/view/Gravity.java': 'package android.view; public class Gravity { public static final int CENTER=17; }',
+    'android/view/Gravity.java': 'package android.view; public class Gravity { public static final int CENTER=17, CENTER_HORIZONTAL=1; }',
     'android/view/View.java': `package android.view;
       public class View { public int id; public Object tag; public OnClickListener listener;
         public interface OnClickListener { void onClick(View v); }
@@ -43,7 +45,7 @@ test('session entry behavior: existing view, fallback placement, click and repea
     'android/widget/LinearLayout.java': `package android.widget;
       import java.util.*; import android.view.View;
       public class LinearLayout extends View { public final List<View> children=new ArrayList<View>();
-        public static class LayoutParams { public int topMargin; public LayoutParams(int w,int h){} public void setMargins(int a,int b,int c,int d){} }
+        public static class LayoutParams { public int topMargin,gravity; public LayoutParams(int w,int h){} public void setMargins(int a,int b,int c,int d){} }
         public void addView(View v,LayoutParams p){children.add(v);} public void addView(View v,int i,LayoutParams p){children.add(i,v);}
         public int indexOfChild(View v){return children.indexOf(v);} public View getChildAt(int i){return children.get(i);}
         public View findViewById(int i){View x=super.findViewById(i); if(x!=null)return x; for(View c:children){x=c.findViewById(i);if(x!=null)return x;}return null;}
@@ -55,6 +57,7 @@ test('session entry behavior: existing view, fallback placement, click and repea
         public void setText(String t){text=t;} public void setContentDescription(String t){} public void setTextColor(int c){}
         public void setTextSize(int s){} public void setTypeface(Object t,int s){} public void setGravity(int g){}
         public void setPadding(int a,int b,int c,int d){} public void setMinHeight(int v){} }`,
+    'com/melodix/local/LocalMusicActivity.java': 'package com.melodix.local; public class LocalMusicActivity extends android.app.Activity {}',
     'com/melodix/demo/DemoActivity.java': 'package com.melodix.demo; public class DemoActivity extends android.app.Activity {}',
     'Driver.java': `import android.app.Activity; import android.view.View; import android.widget.*; import com.melodix.demo.*;
       public class Driver { static void check(boolean b){if(!b)throw new AssertionError();}
@@ -74,6 +77,11 @@ test('session entry behavior: existing view, fallback placement, click and repea
           DemoEntry.bindSessionOtherStates(a,header,1,true);check(content.children.size()==1);
           LinearLayout valid=card();DemoEntry.bindSession(a,valid,3,false);DemoEntry.bindSessionOtherStates(a,valid,3,false);check(valid.children.size()==2);
           a.started=null;DemoEntry.open(a);check(a.started.target==DemoActivity.class);
+          LinearLayout home=new LinearLayout();DemoEntry.bindLimitedHome(a,home,"home");check(home.children.size()==2);
+          View music=home.findViewWithTag("preview-local-home-entry");check(music!=null);music.click();
+          check(a.started.target==com.melodix.local.LocalMusicActivity.class);
+          View homeDemo=home.findViewWithTag("preview-demo-home-entry");check(homeDemo!=null);homeDemo.click();check(a.started.target==DemoActivity.class);
+          LinearLayout other=new LinearLayout();DemoEntry.bindLimitedHome(a,other,"search");check(other.children.isEmpty());
           System.out.println("all session entry behavior checks passed");
         }} `,
   };
