@@ -171,8 +171,9 @@ for tab, heading in [('nativeLibraryTab', 'Bibliothèque'), ('nativeSearchTab', 
         titles = [n for n in nodes() if by_id('nativeScreenTitle')(n)]
         known = {'Accueil': 'home', 'Rechercher': 'search', 'Bibliothèque': 'library', 'Paramètres': 'settings'}
         current = known.get(titles[0].get('text'), 'other') if len(titles) == 1 else 'missing-or-multiple'
-        print('::notice title=Experimental tab result::route=%s' % current, flush=True)
-        raise
+        raise AssertionError('tab=%s route=%s bounds=%d,%d,%d,%d focused=%s' % (
+            tab, current, x1, y1, x2, y2,
+            main_component(adb('shell', 'dumpsys', 'window'), ('mCurrentFocus', 'mFocusedApp'))))
     phase('native navigation: ' + tab)
 
 phase('opening limited settings')
