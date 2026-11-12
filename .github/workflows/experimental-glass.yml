@@ -1,7 +1,7 @@
 name: Validate experimental offline Glass APK
 
 on:
-  workflow_dispatch:
+  workflow_call:
     inputs:
       source_ref:
         description: Exact full source commit SHA

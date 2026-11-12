@@ -6,6 +6,11 @@ on:
       - arena/7142700d-melodix
   workflow_dispatch:
     inputs:
+      experimental_glass:
+        description: Also build and validate an offline experimental Glass candidate
+        required: false
+        type: boolean
+        default: false
       demo_evidence_run:
         description: Existing demo run to check without building another preview (0 builds normally)
         required: false
@@ -62,6 +67,12 @@ permissions:
   contents: write
 
 jobs:
+  experimental-glass:
+    if: github.event_name == 'workflow_dispatch' && inputs.experimental_glass == true
+    uses: ./.github/workflows/experimental-glass.yml
+    with:
+      source_ref: ${{ inputs.source_ref || github.sha }}
+    secrets: inherit
   demo:
     if: github.event_name == 'workflow_dispatch' && inputs.demo_only == true
     uses: ./.github/workflows/demo-preview.yml
