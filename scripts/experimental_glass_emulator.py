@@ -126,7 +126,9 @@ tap(find(text('Quitter la démo')))
 phase('waiting for real settings after demo exit')
 find(lambda n: by_id('nativeScreenTitle')(n) and text('Paramètres')(n), timeout=60)
 phase('demo exit returned to real limited Glass')
+phase('finding Home tab after demo exit')
 tap(find(by_id('nativeHomeTab')))
+phase('waiting for Home title after demo exit')
 find(lambda n: by_id('nativeScreenTitle')(n) and text('Accueil')(n))
 
 # Retry is voluntary and does not perform a login. Afterwards deliberately open login.
