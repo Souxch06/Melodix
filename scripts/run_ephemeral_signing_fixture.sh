@@ -11,6 +11,9 @@ cleanup() {
   if (( rc != 0 )); then
     echo "::error title=Ephemeral signing fixture::phase=$phase exit=$rc"
     if [[ -f "$dir/result.txt" ]]; then grep -E '^INSTRUMENTATION_(RESULT|CODE):' "$dir/result.txt" || true; fi
+    if [[ -f "$dir/aapt-error.txt" ]]; then
+      while IFS= read -r line; do echo "::error title=Disposable manifest compiler::$line"; done < "$dir/aapt-error.txt"
+    fi
   fi
 }
 trap cleanup EXIT
@@ -32,9 +35,11 @@ phase=compile
 javac --release 8 -classpath "$sdk" -d "$dir/classes" "$dir/FixtureInstrumentation.java"
 mapfile -t classes < <(find "$dir/classes" -name '*.class')
 "$tools/d8" --lib "$sdk" --min-api 24 --output "$dir/dex" "${classes[@]}"
-phase=package
-"$tools/aapt" package -f -M "$dir/app.xml" -I "$sdk" -F "$dir/app-unsigned.apk"
-"$tools/aapt" package -f -M "$dir/test.xml" -I "$sdk" -F "$dir/test-unsigned.apk"
+phase=package_app
+"$tools/aapt" package -f -M "$dir/app.xml" -I "$sdk" -F "$dir/app-unsigned.apk" 2> "$dir/aapt-error.txt"
+phase=package_test
+"$tools/aapt" package -f -M "$dir/test.xml" -I "$sdk" -F "$dir/test-unsigned.apk" 2> "$dir/aapt-error.txt"
+phase=package_dex
 (cd "$dir/dex" && zip -q "$dir/test-unsigned.apk" classes.dex)
 phase=sign
 for part in app test; do
