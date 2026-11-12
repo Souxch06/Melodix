@@ -3047,6 +3047,59 @@
         const v = String(value || '');
         return /^(ok|none|ko-network|ko-non-json|ko-invalid|ko-expired|ko-http[1-5][0-9]{2})$/.test(v) ? v : 'unknown';
     }
+    // Debug-only, closed enums; the native side validates the same grammar.
+    // No page-provided URL, body text, cookie, token or error message is sent.
+    function sessionDebugEnabled() {
+        try { return window.AndBridge && window.AndBridge.isSessionDebugEnabled() === true; }
+        catch (_) { return false; }
+    }
+    function sessionDebugGetter(name, value, failed) {
+        try {
+            if (!sessionDebugEnabled()) return;
+            const origin = location.protocol === 'https:' && location.hostname === 'open.spotify.com' &&
+                (!location.port || location.port === '443') ? 'https://open.spotify.com' : 'other';
+            const path = location.pathname;
+            const route = path === '/' ? 'root' : path === '/app' ? 'app' : path === '/search' ? 'search' : 'other';
+            const load = /^(loading|interactive|complete)$/.test(document.readyState) ? document.readyState : 'unknown';
+            let frame = 'unknown';
+            try { frame = window.top === window ? 'top' : 'child'; } catch (_) {}
+            const type = failed === 'absent' ? 'absent' : failed ? 'exception' : typeof value;
+            const safe = /^(undefined|number|string|boolean|object|function|exception|absent)$/.test(type) ? type : 'undefined';
+            window.AndBridge.onSessionDebug('getter=' + name + ' type=' + safe + ' null=' + (value === null ? 'yes' : 'no') + ' origin=' + origin +
+                ' route=' + route + ' load=' + load + ' frame=' + frame);
+        } catch (_) {}
+    }
+    // Extract only exact, safe error codes from a bounded prefix. Arbitrary
+    // remote text is not redactable with a guaranteed absence of secrets/PII.
+    async function traceDebugLibraryResponse(response, tokenOrigin) {
+        try {
+            if (!sessionDebugEnabled() || !response || ![400, 401, 403].includes(response.status)) return;
+            let body = 'unknown';
+            try {
+                const clone = response.clone();
+                if (!clone.body || !clone.body.getReader) body = 'unknown';
+                else {
+                    const reader = clone.body.getReader();
+                    const first = await reader.read();
+                    const bytes = first.value || new Uint8Array(0);
+                    const text = new TextDecoder().decode(bytes.subarray(0, 1024));
+                    if (!first.done) reader.cancel().catch(() => {});
+                    body = text.length ? 'redacted' : 'empty';
+                    if (first.done || bytes.length < 1024) {
+                        try {
+                            const parsed = JSON.parse(text);
+                            const code = parsed && (typeof parsed.error === 'string' ? parsed.error :
+                                parsed.error && parsed.error.reason);
+                            if (['invalid_token', 'unauthorized', 'forbidden', 'bad_request'].includes(code)) body = code;
+                        } catch (_) {}
+                    }
+                }
+            } catch (_) { body = 'unknown'; }
+            const source = /^(api|fallback|cache-api|cache-fallback)$/.test(tokenOrigin) ? tokenOrigin : 'unknown';
+            window.AndBridge.onSessionDebug('http method=POST endpoint=https://api-partner.spotify.com/pathfinder/v2/query status=' + response.status +
+                ' token=' + source + ' body=' + body);
+        } catch (_) {}
+    }
     function traceTokenEndpoint(endpoint, phase, http, duration) {
         traceLibraryEvent('token-http endpoint=' + endpoint + ' phase=' + phase +
             ' http=' + boundedMediaLibraryCount(http, 599) +
@@ -3089,6 +3142,7 @@
             Number(webPlayerTokenCache.expMs) - 60000 > nowMs) {
             observeSessionAttempt(observation, 'tokenResult', 'obtained');
             observeSessionAttempt(observation, 'reason', 'token-source=cache');
+            if (observation) observation.debugTokenOrigin = 'cache-' + (webPlayerTokenCache.source || 'unknown');
             lastTokenFetchStatus = 'ok';
             traceTokenEndpoint('cache', 'end', 0, 0);
             return webPlayerTokenCache.token;
@@ -3114,7 +3168,8 @@
                 const parsed = await decodeWebPlayerToken(tokenResp);
                 lastTokenFetchStatus = parsed.status;
                 if (parsed.token) {
-                    webPlayerTokenCache = { token: parsed.token, expMs: parsed.expMs };
+                    webPlayerTokenCache = { token: parsed.token, expMs: parsed.expMs, source: 'api' };
+                    if (observation) observation.debugTokenOrigin = 'api';
                     return webPlayerTokenCache.token;
                 }
             } else {
@@ -3140,7 +3195,8 @@
                 const parsed = await decodeWebPlayerToken(altResp);
                 lastTokenFetchStatus = parsed.status;
                 if (parsed.token) {
-                    webPlayerTokenCache = { token: parsed.token, expMs: parsed.expMs };
+                    webPlayerTokenCache = { token: parsed.token, expMs: parsed.expMs, source: 'fallback' };
+                    if (observation) observation.debugTokenOrigin = 'fallback';
                     return webPlayerTokenCache.token;
                 }
             } else {
@@ -3439,22 +3495,40 @@
     // Read only a canonical value from the native bridge. A non-number from
     // the primitive getter is never trusted as a generation by itself.
     function readNativeSessionGeneration() {
+        // An Android interface is visible to subframes too. Never authorize a
+        // generation read from a frame or a non-player origin.
+        try {
+            if (typeof window.top !== 'undefined' && window.top !== window) return 0;
+            if (window.location && (window.location.protocol !== 'https:' ||
+                window.location.hostname !== 'open.spotify.com' ||
+                (window.location.port && window.location.port !== '443'))) return 0;
+        } catch (_) { return 0; }
         const bridge = window.AndBridge;
         if (!bridge) return 0;
         let value;
+        let failed = false;
         try {
             if (typeof bridge.getSessionGeneration === 'function') value = bridge.getSessionGeneration();
-        } catch (_) {}
+            else failed = 'absent';
+        } catch (_) { failed = true; }
+        if (typeof sessionDebugGetter === 'function') sessionDebugGetter('number', value, failed);
         if (typeof value === 'number' && Number.isInteger(value)) {
             return value > 0 && value <= 2147483647 ? value : 0;
         }
         try {
-            if (typeof bridge.getSessionGenerationText !== 'function') return 0;
+            if (typeof bridge.getSessionGenerationText !== 'function') {
+                if (typeof sessionDebugGetter === 'function') sessionDebugGetter('text', undefined, 'absent');
+                return 0;
+            }
             const text = bridge.getSessionGenerationText();
+            if (typeof sessionDebugGetter === 'function') sessionDebugGetter('text', text, false);
             if (typeof text !== 'string' || !/^[1-9][0-9]{0,9}$/.test(text)) return 0;
             const parsed = Number(text);
             return Number.isInteger(parsed) && parsed <= 2147483647 && String(parsed) === text ? parsed : 0;
-        } catch (_) { return 0; }
+        } catch (_) {
+            if (typeof sessionDebugGetter === 'function') sessionDebugGetter('text', undefined, true);
+            return 0;
+        }
     }
 
     function checkMediaLib(force = false, source = 'unspecified', correlationId = 0, expectedGeneration = 0) {
@@ -3960,6 +4034,7 @@
                 if (requestGeneration !== mediaLibraryRequestGeneration ||
                     authEpoch !== boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999)) break;
                 trace.http = mediaLibraryHttpStatus(resp);
+                if (typeof traceDebugLibraryResponse === 'function') void traceDebugLibraryResponse(resp, trace.debugTokenOrigin);
                 observeSessionAttempt(trace, 'libraryHttp', trace.http);
                 trace.mime = mediaLibraryResponseMime(resp);
                 trace.phase = 'response';

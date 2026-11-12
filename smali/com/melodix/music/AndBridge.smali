@@ -3834,7 +3834,9 @@
 .method public final getSessionGeneration()I
     .annotation runtime Landroid/webkit/JavascriptInterface;
     .end annotation
-    .locals 1
+    .locals 2
+    const-string v1, "number"
+    invoke-direct {p0, v1}, Lcom/melodix/music/AndBridge;->debugGetter(Ljava/lang/String;)V
     sget v0, Lcom/melodix/music/NativeSessionGate;->generation:I
     return v0
 .end method
@@ -3844,7 +3846,9 @@
 .method public final getSessionGenerationText()Ljava/lang/String;
     .annotation runtime Landroid/webkit/JavascriptInterface;
     .end annotation
-    .locals 1
+    .locals 2
+    const-string v1, "text"
+    invoke-direct {p0, v1}, Lcom/melodix/music/AndBridge;->debugGetter(Ljava/lang/String;)V
     sget v0, Lcom/melodix/music/NativeSessionGate;->generation:I
     invoke-static {v0}, Ljava/lang/Integer;->toString(I)Ljava/lang/String;
     move-result-object v0
@@ -3945,5 +3949,43 @@
     .end annotation
     .locals 0
     invoke-static {p1, p2, p3}, Lcom/melodix/music/NativeSessionAttemptDiagnostic;->failure(IILjava/lang/String;)V
+    return-void
+.end method
+
+# Closed, debug-only diagnostic channel; never carries request headers or values.
+.method public final isSessionDebugEnabled()Z
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+    .locals 1
+    invoke-direct {p0}, Lcom/melodix/music/AndBridge;->debugEnabled()Z
+    move-result v0
+    return v0
+.end method
+
+.method public final onSessionDebug(Ljava/lang/String;)V
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+    .locals 1
+    invoke-direct {p0, p1}, Lcom/melodix/music/AndBridge;->debugRecord(Ljava/lang/String;)V
+    return-void
+.end method
+
+.method private final debugGetter(Ljava/lang/String;)V
+    .locals 1
+    iget-object v0, p0, Lcom/melodix/music/AndBridge;->a:Landroid/content/Context;
+    invoke-static {v0, p1}, Lcom/melodix/music/NativeSessionDebug;->getter(Landroid/content/Context;Ljava/lang/String;)V
+    return-void
+.end method
+.method private final debugEnabled()Z
+    .locals 1
+    iget-object v0, p0, Lcom/melodix/music/AndBridge;->a:Landroid/content/Context;
+    invoke-static {v0}, Lcom/melodix/music/NativeSessionDebug;->enabled(Landroid/content/Context;)Z
+    move-result v0
+    return v0
+.end method
+.method private final debugRecord(Ljava/lang/String;)V
+    .locals 1
+    iget-object v0, p0, Lcom/melodix/music/AndBridge;->a:Landroid/content/Context;
+    invoke-static {v0, p1}, Lcom/melodix/music/NativeSessionDebug;->record(Landroid/content/Context;Ljava/lang/String;)V
     return-void
 .end method

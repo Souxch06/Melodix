@@ -124,6 +124,13 @@
     :label
     invoke-virtual {p1, v3}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
     if-nez v2, :done
+    sget-object v1, Lcom/melodix/music/NativeSessionGate;->overlay:Landroid/view/View;
+    const-string v3, "sessionDetails"
+    invoke-static {v1, v3}, Lcom/melodix/music/NativeSessionSurface;->text(Landroid/view/View;Ljava/lang/String;)Landroid/widget/TextView;
+    move-result-object v1
+    invoke-static {}, Lcom/melodix/music/NativeSessionGate;->details()Ljava/lang/String;
+    move-result-object v3
+    invoke-virtual {v1, v3}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
     invoke-static {p0}, Lcom/melodix/music/NativeSessionSurfaceExtras;->motion(Landroid/content/Context;)Z
     move-result v1
     if-eqz v1, :done

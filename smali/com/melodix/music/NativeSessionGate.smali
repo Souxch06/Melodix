@@ -598,6 +598,8 @@
     if-eqz v3, :details_done
     invoke-static {v0, v3}, Lcom/melodix/music/NativeSessionBuildInfo;->append(Ljava/lang/String;Landroid/content/Context;)Ljava/lang/String;
     move-result-object v0
+    invoke-static {v0, v3}, Lcom/melodix/music/NativeSessionDebug;->append(Ljava/lang/String;Landroid/content/Context;)Ljava/lang/String;
+    move-result-object v0
     :details_done
     return-object v0
 .end method

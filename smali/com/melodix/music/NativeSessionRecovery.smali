@@ -119,6 +119,7 @@
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     # The shell/bridge injection may still be queued at onPageFinished. Wait
     # for the current generation's function instead of declaring an immediate failure.
+    invoke-static {p0, v0}, Lcom/melodix/music/NativeSessionGetterProbe;->start(Landroid/content/Context;Landroid/webkit/WebView;)V
     sget v2, Lcom/melodix/music/NativeSessionGate;->generation:I
     new-instance v3, Lcom/melodix/music/NativeSessionRetryLaunch;
     invoke-direct {v3, v0, v2}, Lcom/melodix/music/NativeSessionRetryLaunch;-><init>(Landroid/webkit/WebView;I)V
