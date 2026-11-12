@@ -83,7 +83,7 @@ def main_component(dump, labels):
 
 def focus_summary():
     # A bounded component category only: no raw dumps, URLs, text or accounts.
-    dump = adb('shell', 'dumpsys', 'window', 'windows')
+    dump = adb('shell', 'dumpsys', 'window')
     for label in ('mCurrentFocus', 'mFocusedApp'):
         lines = [line for line in dump.splitlines() if label in line]
         if not lines:
@@ -108,7 +108,7 @@ def await_main_foreground(timeout=60):
     while time.monotonic() < deadline:
         resumed = main_component(adb('shell', 'dumpsys', 'activity', 'activities'),
                                  ('mResumedActivity', 'topResumedActivity', 'ResumedActivity'))
-        focused = main_component(adb('shell', 'dumpsys', 'window', 'windows'),
+        focused = main_component(adb('shell', 'dumpsys', 'window'),
                                  ('mCurrentFocus', 'mFocusedApp'))
         if resumed and focused:
             time.sleep(1)  # Let the focused window finish its transition.
