@@ -11,10 +11,9 @@ cleanup() {
   if (( rc != 0 )); then
     echo "::error title=Ephemeral signing fixture::phase=$phase exit=$rc"
     if [[ -f "$dir/result.txt" ]]; then
-      grep -E '^INSTRUMENTATION_(RESULT|CODE|FAILED|STATUS):' "$dir/result.txt" || true
-      for category in SecurityException ClassNotFoundException AndroidException Process\ crashed; do
-        if grep -q "$category" "$dir/result.txt"; then echo "::error title=Disposable instrumentation::category=$category"; fi
-      done
+      # This command targets only the generated empty fixture package; output
+      # cannot contain user/Spotify state. Bound it for actionable diagnostics.
+      while IFS= read -r line; do echo "::error title=Disposable instrumentation::$line"; done < <(head -20 "$dir/result.txt")
     fi
     if [[ -f "$dir/aapt-error.txt" ]]; then
       while IFS= read -r line; do echo "::error title=Disposable manifest compiler::$line"; done < "$dir/aapt-error.txt"
