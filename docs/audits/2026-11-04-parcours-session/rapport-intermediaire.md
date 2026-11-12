@@ -104,3 +104,7 @@ Ce cas intermittent déjà observé n'établit pas sa cause sur téléphone. Une
 relance des échecs a été demandée pour observer la variabilité ; même verte,
 elle ne suffirait pas à démontrer la résolution de cette intermittence. La
 mission reste inachevée.
+
+La relance du même run (tentative 2 sur `b8a44196`) est verte, y compris
+WebView 133. Elle confirme la variabilité, pas une correction de l'échec
+initial ; la phase ne peut donc pas être déclarée terminée sur cette base.
