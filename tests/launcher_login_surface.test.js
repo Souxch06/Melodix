@@ -45,3 +45,17 @@ for broken in (items[:-1], [n('Essayer le mode démo')]):
 `;
  const r=cp.spawnSync('python3',['-c',py],{encoding:'utf8'}); assert.equal(r.status,0,r.stderr || r.stdout);
 });
+test('launcher first step does not substitute settings and login never proves authenticated settings', () => {
+ const py = String.raw`
+import ast, pathlib, sys, xml.etree.ElementTree as ET
+sys.path.insert(0,'scripts')
+from launcher_surface import login_surface
+p=pathlib.Path('scripts/capture_launcher_acceptance.py'); text=p.read_text(); tree=ast.parse(text)
+funcs=[f for f in tree.body if isinstance(f,ast.FunctionDef) and f.name in ('find_id','login_or_native_session')]
+ns={'login_surface':login_surface}; exec(compile(ast.Module(body=funcs,type_ignores=[]),str(p),'exec'),ns)
+settings=ET.Element('node',{'resource-id':'com.melodix.music.preview:id/nativeSettingsButton'})
+assert ns['login_or_native_session']([settings]) is None
+assert 'login_surface(items) is not None or settings is None' in text
+`;
+ const r=cp.spawnSync('python3',['-c',py],{encoding:'utf8'}); assert.equal(r.status,0,r.stderr || r.stdout);
+});
