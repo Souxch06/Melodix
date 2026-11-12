@@ -687,7 +687,12 @@
     move-result v1
     if-nez v1, :structured_safe
 
-    const-string v0, "^token-result status=(ok|none|ko-network|ko-http[1-5][0-9]{2}|unknown) duration=[0-9]{1,6}$"
+    const-string v0, "^token-response endpoint=(api|fallback) generation=[0-9]{1,10} attempt=[0-9]{1,6} http=[0-9]{1,3} mime=(json|html|other|missing)$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const-string v0, "^token-result status=(ok|none|ko-network|ko-non-json|ko-invalid|ko-expired|ko-http[1-5][0-9]{2}|unknown) duration=[0-9]{1,6}$"
     invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
     move-result v1
     if-nez v1, :structured_safe

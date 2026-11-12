@@ -3045,12 +3045,40 @@
     }
     function safeTokenFetchStatus(value) {
         const v = String(value || '');
-        return /^(ok|none|ko-network|ko-http[1-5][0-9]{2})$/.test(v) ? v : 'unknown';
+        return /^(ok|none|ko-network|ko-non-json|ko-invalid|ko-expired|ko-http[1-5][0-9]{2})$/.test(v) ? v : 'unknown';
     }
     function traceTokenEndpoint(endpoint, phase, http, duration) {
         traceLibraryEvent('token-http endpoint=' + endpoint + ' phase=' + phase +
             ' http=' + boundedMediaLibraryCount(http, 599) +
             ' duration=' + boundedMediaLibraryCount(duration, 999999));
+    }
+    // Closed metadata only; never inspect error bodies or log header values.
+    function traceTokenResponse(endpoint, response, diagnostic) {
+        traceLibraryEvent('token-response endpoint=' + endpoint +
+            ' generation=' + boundedMediaLibraryCount(diagnostic && diagnostic.nativeGeneration, 2147483647) +
+            ' attempt=' + boundedMediaLibraryCount(diagnostic && diagnostic.attempt, 999999) +
+            ' http=' + boundedMediaLibraryCount(response && response.status, 599) +
+            ' mime=' + mediaLibraryResponseMime(response));
+    }
+    // Decode only successful token responses. Error text and response bodies are
+    // never logged or exposed; only a syntax failure is classified as non-JSON.
+    async function decodeWebPlayerToken(response) {
+        let data;
+        try { data = await response.json(); }
+        catch (error) {
+            if (error && error.name === 'SyntaxError') return { token: null, expMs: 0, status: 'ko-non-json' };
+            throw error; // Body transport/abort failures retain the network classification.
+        }
+        const token = data && data.accessToken;
+        const rawExpiry = data && data.accessTokenExpirationTimestampMs;
+        const expiryTypeValid = typeof rawExpiry === 'number' ||
+            (typeof rawExpiry === 'string' && /^[0-9]+$/.test(rawExpiry));
+        const expMs = expiryTypeValid ? Number(rawExpiry) : NaN;
+        if (typeof token !== 'string' || !token.trim() || !Number.isFinite(expMs) || expMs <= 0) {
+            return { token: null, expMs: 0, status: 'ko-invalid' };
+        }
+        if (expMs <= Date.now()) return { token: null, expMs: 0, status: 'ko-expired' };
+        return { token: token, expMs: expMs, status: 'ok' };
     }
     async function fetchWebPlayerToken(observation) {
         const nowMs = Date.now();
@@ -3070,35 +3098,32 @@
         try {
             observeSessionAttempt(observation, 'tokenResult', 'unknown');
             traceTokenEndpoint('api', 'start', 0, 0);
-            const tokenResp = await oriFetch('https://open.spotify.com/api/token', {
+            const tokenRequest = oriFetch('https://open.spotify.com/api/token', {
                 method: 'GET',
                 credentials: 'include',
                 headers: { 'Accept': 'application/json', 'app-platform': 'WebPlayer', 'spotify-app-version': '1.2.40.0' }
             });
+            // Acknowledge only after invoking the transport, not when work is queued.
+            if (observation && observation.source === 'native-retry') acknowledgeSessionAttemptStart(observation);
+            const tokenResp = await tokenRequest;
             tokenApiHttp = boundedMediaLibraryCount(tokenResp && tokenResp.status, 599);
             observeSessionAttempt(observation, 'apiHttp', tokenApiHttp);
             traceTokenEndpoint('api', 'end', tokenResp && tokenResp.status, mediaLibraryNow() - endpointStarted);
+            traceTokenResponse('api', tokenResp, observation);
             if (tokenResp && tokenResp.ok) {
-                const tokenData = await tokenResp.json();
-                const token = tokenData && tokenData.accessToken;
-                const expMs = Number(tokenData && tokenData.accessTokenExpirationTimestampMs);
-                // Never fabricate an expiry or send an already expired token.
-                if (typeof token === 'string' && token.trim() && Number.isFinite(expMs) && expMs > Date.now()) {
-                    webPlayerTokenCache = {
-                        token: token,
-                        expMs: expMs
-                    };
-                    lastTokenFetchStatus = 'ok';
+                const parsed = await decodeWebPlayerToken(tokenResp);
+                lastTokenFetchStatus = parsed.status;
+                if (parsed.token) {
+                    webPlayerTokenCache = { token: parsed.token, expMs: parsed.expMs };
                     return webPlayerTokenCache.token;
                 }
+            } else {
+                const status = tokenResp && Number(tokenResp.status);
+                lastTokenFetchStatus = safeTokenFetchStatus(
+                    Number.isFinite(status) && status >= 100 && status <= 599 ? 'ko-http' + Math.floor(status) : 'ko-network');
             }
-            // MEL-BUG-061: /api/token answers 400 on some WebView sessions.
-            // Fall back to the endpoint the official web player itself calls
-            // (cookie-authenticated, same session). No OAuth parameter, no
-            // session change: we only read the token the page already owns.
-            const status = tokenResp && Number(tokenResp.status);
-            lastTokenFetchStatus = safeTokenFetchStatus(
-                Number.isFinite(status) && status >= 100 && status <= 599 ? 'ko-http' + Math.floor(status) : 'ko-network');
+            // The existing fallback uses the same WebView session. No endpoint,
+            // request headers or session state are changed by response parsing.
             tokenEndpoint = 'fallback';
             endpointStarted = mediaLibraryNow();
             traceTokenEndpoint('fallback', 'start', 0, 0);
@@ -3110,23 +3135,19 @@
             tokenFallbackHttp = boundedMediaLibraryCount(altResp && altResp.status, 599);
             observeSessionAttempt(observation, 'fallbackHttp', tokenFallbackHttp);
             traceTokenEndpoint('fallback', 'end', altResp && altResp.status, mediaLibraryNow() - endpointStarted);
+            traceTokenResponse('fallback', altResp, observation);
             if (altResp && altResp.ok) {
-                const altData = await altResp.json();
-                const altToken = altData && altData.accessToken;
-                const altExp = Number(altData && altData.accessTokenExpirationTimestampMs);
-                // Never fabricate an expiry or send an already expired token.
-                if (typeof altToken === 'string' && altToken.trim() && Number.isFinite(altExp) && altExp > Date.now()) {
-                    webPlayerTokenCache = {
-                        token: altToken,
-                        expMs: altExp
-                    };
-                    lastTokenFetchStatus = 'ok';
+                const parsed = await decodeWebPlayerToken(altResp);
+                lastTokenFetchStatus = parsed.status;
+                if (parsed.token) {
+                    webPlayerTokenCache = { token: parsed.token, expMs: parsed.expMs };
                     return webPlayerTokenCache.token;
                 }
+            } else {
+                const altStatus = altResp && Number(altResp.status);
+                lastTokenFetchStatus = safeTokenFetchStatus(
+                    Number.isFinite(altStatus) && altStatus >= 100 && altStatus <= 599 ? 'ko-http' + Math.floor(altStatus) : 'ko-network');
             }
-            const altStatus = altResp && Number(altResp.status);
-            lastTokenFetchStatus = safeTokenFetchStatus(
-                Number.isFinite(altStatus) && altStatus >= 100 && altStatus <= 599 ? 'ko-http' + Math.floor(altStatus) : 'ko-network');
         } catch (_) {
             lastTokenFetchStatus = 'ko-network';
             traceTokenEndpoint(tokenEndpoint, 'error', 0, mediaLibraryNow() - endpointStarted);
@@ -3464,9 +3485,6 @@
         if (source === 'native-retry' && expectedGeneration > 0 && observedGeneration !== expectedGeneration) return Promise.resolve(false);
         diagnostic.nativeGeneration = expectedGeneration > 0 && source === 'native-retry' ? expectedGeneration : observedGeneration;
         diagnostic.sessionObservation = { apiHttp: null, fallbackHttp: null, libraryHttp: null, tokenResult: 'not-attempted' };
-        // Independent acknowledgement before queuing work: the detailed channel
-        // may fail, but this attempt must still be visible with unknown observations.
-        if (source === 'native-retry') acknowledgeSessionAttemptStart(diagnostic);
         const requestGeneration = mediaLibraryRequestGeneration;
         const authEpoch = boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999);
         window.__sfMediaLibLastAuthAttemptEpoch = authEpoch;
@@ -3730,10 +3748,19 @@
             }
         } catch (_) {}
     }
-    // Native retry queues behind an older attempt instead of adopting its result.
-    // Existing auth guard, single-flight lock and Retry-After still apply.
+    // Each native generation admits at most one manual retry, including while
+    // waiting behind an older library flight. Never infer a missing generation.
+    let nativeRetryGeneration = 0;
+    let nativeRetryPromise = null;
     window.__sfRequestSessionVerification = function (expectedGeneration = 0) {
-        const expected = Number.isInteger(expectedGeneration) && expectedGeneration > 0 ? expectedGeneration : 0;
+        if (!Number.isInteger(expectedGeneration) || expectedGeneration <= 0 || expectedGeneration > 2147483647) return false;
+        const expected = expectedGeneration;
+        try {
+            if (readNativeSessionGeneration() !== expected || !window.AndBridge ||
+                typeof window.AndBridge.isSessionRetryActive !== 'function' ||
+                window.AndBridge.isSessionRetryActive(expected) !== true) return false;
+        } catch (_) { return false; }
+        if (nativeRetryGeneration === expected) return nativeRetryPromise || false;
         const request = () => {
             if (expected) {
                 try {
@@ -3775,9 +3802,17 @@
                 } catch (_) { return false; }
                 return request();
             };
-            return mediaLibraryCheckPromise.then(requestIfCurrent, requestIfCurrent);
+            nativeRetryGeneration = expected;
+            nativeRetryPromise = mediaLibraryCheckPromise.then(requestIfCurrent, requestIfCurrent);
+            return nativeRetryPromise;
         }
-        return request();
+        // Reserve before request(): synchronous observers must not re-enter and
+        // start a second request for the same native generation.
+        nativeRetryGeneration = expected;
+        nativeRetryPromise = null;
+        const result = request();
+        nativeRetryPromise = result || null;
+        return result;
     };
     window.checkMediaLib = checkMediaLib;
 

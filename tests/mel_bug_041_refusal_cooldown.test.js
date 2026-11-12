@@ -132,7 +132,7 @@ test('MEL-BUG-050: the home state card carries a compact diagnostic line', () =>
 // The token value itself must never appear.
 test('MEL-BUG-057: token-fetch status is tracked as a sanitized enum and exported', () => {
   assert.match(bridge, /let lastTokenFetchStatus = 'none';/);
-  assert.match(bridge, /function safeTokenFetchStatus\(value\) \{\s*const v = String\(value \|\| ''\);\s*return \/\^\(ok\|none\|ko-network\|ko-http\[1-5\]\[0-9\]\{2\}\)\$\/\.test\(v\) \? v : 'unknown';/,
+  assert.match(bridge, /function safeTokenFetchStatus\(value\) \{\s*const v = String\(value \|\| ''\);\s*return \/\^\(ok\|none\|ko-network\|ko-non-json\|ko-invalid\|ko-expired\|ko-http\[1-5\]\[0-9\]\{2\}\)\$\/\.test\(v\) \? v : 'unknown';/,
     'status sanitizer only allows the fixed enum');
   assert.match(bridge, /trace\.token = safeTokenFetchStatus\(lastTokenFetchStatus\);/);
   assert.match(bridge, /token: safeTokenFetchStatus\(state\.token\)/,
@@ -146,7 +146,7 @@ test('MEL-BUG-057: home diag line includes the sanitized token status', () => {
   const shellSrc = fs.readFileSync(path.join(repo, 'scripts/native_ui_shell.source.js'), 'utf8');
   assert.match(shellSrc, /var diagToken = safeDiagToken\(diag && diag\.token\);/,
     'diagToken comes from the shared sanitizer');
-  assert.match(shellSrc, /function safeDiagToken\(v\) \{\s*v = String\(v == null \? '' : v\);\s*return \/\^\[\\w-\]\{2,12\}\$\/\.test\(v\) \? v : '-';/,
+  assert.match(shellSrc, /function safeDiagToken\(v\) \{\s*v = String\(v == null \? '' : v\);\s*return \/\^\(ok\|none\|ko-network\|ko-non-json\|ko-invalid\|ko-expired\|ko-http\[1-5\]\[0-9\]\{2\}\|unknown\)\$\/\.test\(v\) \? v : '-';/,
     'diagToken is sanitized (bounded enum-shaped string only)');
   assert.match(shellSrc, /' bearer=' \+ diagBearer \+\s*' token=' \+ diagToken \+\s*' cookie=' \+ \(diag && diag\.cookieSession === true \? 'oui' : 'non'\) \+ '\]'/,
     'diagLine ends with bearer=… token=… cookie=…');
@@ -169,7 +169,7 @@ test('MEL-BUG-060: new library diagnostics inherit the last known token-fetch st
 test('MEL-BUG-061: token fetch falls back to the web player get_access_token endpoint', () => {
   assert.match(bridge, /open\.spotify\.com\/get_access_token\?reason=transport&productType=web_player/,
     'fallback endpoint = the official web player token endpoint');
-  assert.match(bridge, /altResp && altResp\.ok[\s\S]*?altData\.accessToken/,
+  assert.match(bridge, /altResp && altResp\.ok[\s\S]*?decodeWebPlayerToken\(altResp\)/,
     'fallback parses accessToken');
   assert.doesNotMatch(bridge, /console\.\w+\([^)]*[Tt]oken/, 'token value never passed to console');
   assert.ok(bridgeAsset.includes('get_access_token'), 'assets/spotify_bridge.js must be regenerated');

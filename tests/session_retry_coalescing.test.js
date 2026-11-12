@@ -78,15 +78,15 @@ test('closed channel failure fallback enriches only diagnostics and never logs p
  c.window.AndBridge.onSessionDiagnosticFailure=()=>{throw Error('SECRET');};assert.doesNotThrow(()=>c.publishSessionAttemptDiagnostic({sessionObservation:{}},false));
  d.run('failure',3,2,'https://SECRET');assert.doesNotMatch(d.text(),/SECRET/);
 });
-test('actual checkMediaLib acknowledges native start before network even if detailed channel is unavailable',async()=>{
+test('actual checkMediaLib prepares work without claiming that transport already started',async()=>{
  const d=diagnosticVm(),events=[];
  const noop=()=>{};const c={window:{AndBridge:{getSessionGeneration:()=>2,onSessionAttemptStarted:(g,a)=>{events.push('start');d.run('started',g,a);},onSessionDiagnosticFailure:(g,a,r)=>d.run('failure',g,a,r)}},
  boundedMediaLibraryCount:(x,m)=>Math.max(0,Math.min(m,Number(x)||0)),readNativeSessionGeneration:()=>2,safeMediaLibraryCheckSource:()=> 'native-retry',mediaLibraryAuthReady:()=>true,
  traceLibraryEvent:noop,traceHomeLibraryStage:noop,spotifyAuthUiState:()=> 'unknown',createMediaLibraryDiagnostic:()=>({attempt:2,source:'native-retry'}),mediaLibraryRequestGeneration:0,mediaLibraryCheckPromise:null,
  runMediaLibraryCheck:()=>{events.push('network');return new Promise(()=>{});},emitMediaLibraryDiagnostic:noop,notifyMediaLibUiChange:noop};
  vm.createContext(c);vm.runInContext(['reportSessionDiagnosticFailure','acknowledgeSessionAttemptStart','publishSessionAttemptDiagnostic','checkMediaLib'].map(n=>fn(js,n)).join('\n'),c);
- c.checkMediaLib(true,'native-retry');assert.deepEqual(events,['start']);await Promise.resolve();assert.deepEqual(events,['start','network']);
- assert.match(d.text(),/Tentative 2\/2.*bibliothèque=inconnu/);assert.match(d.text(),/canal=indisponible/);
+ c.checkMediaLib(true,'native-retry');assert.deepEqual(events,[]);await Promise.resolve();assert.deepEqual(events,['network']);
+ assert.match(d.text(),/canal=indisponible/);assert.doesNotMatch(d.text(),/tentative réseau démarrée/);
 });
 test('generation guards, reconnect, Spotify request functions and proof publication unchanged from 127',()=>{
  const old=p=>cp.execFileSync('git',['show','6c6a22d:'+p],{encoding:'utf8'});

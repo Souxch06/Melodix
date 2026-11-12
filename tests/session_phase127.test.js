@@ -9,7 +9,7 @@ test('actual native diagnostics retain HTTPs/completion/source across empty and 
 test('actual native relance rows never fabricate a network attempt and preserve started fact after late block',()=>{
  const d=diagnosticVm();d.record({generation:2,attempt:0,reason:'relance-demandee'});assert.match(d.text(),/démarrage réseau=inconnu/);assert.doesNotMatch(d.text(),/Tentative|terminée=oui/);
  d.record({generation:2,attempt:0,reason:'blocage=dom-auth-required'});assert.match(d.text(),/relance demandée, aucune tentative réseau démarrée/);
- d.record({generation:2,attempt:1,completed:false});d.record({generation:2,attempt:0,reason:'blocage=fonction-js-indisponible'});assert.match(d.text(),/relance demandée, tentative réseau démarrée/);assert.equal(d.rows.size,2);
+ d.record({generation:2,attempt:1,completed:false});assert.doesNotMatch(d.text(),/relance demandée, tentative réseau démarrée/);d.run('started',2,1);d.record({generation:2,attempt:0,reason:'blocage=fonction-js-indisponible'});assert.match(d.text(),/relance demandée, tentative réseau démarrée/);assert.equal(d.rows.size,2);
 });
 test('native diagnostic aliases change with identity; reasons cannot sample a historical cookie or export secrets',()=>{
  const d=diagnosticVm();d.record({generation:1,attempt:1,completed:false});d.cookie('synthetic-B');d.record({generation:1,attempt:2,completed:false});d.record({generation:1,attempt:3,reason:'rejet=generation-perimee'});
@@ -35,5 +35,5 @@ test('actual JS finally annotates obsolete attempts before exiting, without publ
 });
 test('actual JS Retry-After path records the block and does not call checkMediaLib',()=>{
  const s=fs.readFileSync('scripts/spotify_bridge.source.js','utf8'),a=s.indexOf('    window.__sfRequestSessionVerification = function (expectedGeneration = 0) {'),b=s.indexOf('\n    };',a)+7,events=[];
- const c={window:{__sfMediaLibError:'http-429',__sfMediaLibRetryAt:Date.now()+60000},mediaLibraryCheckPromise:null,publishSessionRelanceDiagnostic:(source,reason)=>events.push({source,reason}),checkMediaLib:()=>assert.fail('blocked')};vm.createContext(c);vm.runInContext(s.slice(a,b),c);assert.equal(c.window.__sfRequestSessionVerification(),false);assert.deepEqual(events,[{source:'native-retry',reason:'blocage=attente-429'}]);
+ const c={window:{__sfMediaLibError:'http-429',__sfMediaLibRetryAt:Date.now()+60000,AndBridge:{isSessionRetryActive:()=>true}},readNativeSessionGeneration:()=>2,mediaLibraryCheckPromise:null,publishSessionRelanceDiagnostic:(source,reason)=>events.push({source,reason}),checkMediaLib:()=>assert.fail('blocked')};vm.createContext(c);vm.runInContext('let nativeRetryGeneration=0,nativeRetryPromise=null;\n'+s.slice(a,b),c);assert.equal(c.window.__sfRequestSessionVerification(2),false);assert.deepEqual(events,[{source:'native-retry',reason:'blocage=attente-429'}]);
 });

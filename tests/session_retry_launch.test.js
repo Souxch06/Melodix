@@ -144,3 +144,14 @@ test('unusable primitive falls back only to an exact native text generation, nev
 test('fallback with throwing or absent getters fails closed without leaking exception text',()=>{
  for(const text of [undefined,()=>{throw Error('PRIVATE');},()=>null]){const f=harness();let n=0;f.window.AndBridge.getSessionGeneration=()=>{throw Error('PRIVATE');};if(text)f.window.AndBridge.getSessionGenerationText=text;f.window.__sfRequestSessionVerification=()=>{n++;};f.start();assert.equal(f.evaluate(),'session-probe result=generation-undefined');assert.equal(n,0);}
 });
+
+test('poller recovers after an invalid null bridge is replaced with a valid current bridge',()=>{
+ const f=harness();let requests=0;
+ f.window.AndBridge={getSessionGeneration:()=>null,getSessionGenerationText:()=>null};
+ f.window.__sfRequestSessionVerification=g=>{assert.equal(g,9);requests++;return true;};
+ f.start();assert.equal(f.evaluate(),'session-probe result=generation-null');f.reply('"session-probe result=generation-null"');
+ assert.equal(requests,0,'no request may start with a null generation');
+ f.window.AndBridge={getSessionGeneration:()=>9};f.tick();
+ assert.equal(f.evaluate(),'verification-dispatched');f.reply('"verification-dispatched"');f.tick();
+ assert.equal(requests,1);assert.deepEqual(f.failures,[]);
+});

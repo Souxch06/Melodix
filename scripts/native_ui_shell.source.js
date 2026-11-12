@@ -2869,6 +2869,10 @@
         return 'Bonne nuit';
     }
 
+    function cleanSpotifyProfileText(value) {
+        return String(value || '').replace(/\s+/g, ' ').trim().slice(0, 100);
+    }
+
     function detectSpotifyProfile() {
         var name = '';
         var avatar = '';
@@ -2881,11 +2885,11 @@
         try {
             widget = document.querySelector('button[data-testid="user-widget-link"], a[data-testid="user-widget-link"]');
             if (widget) {
-                name = cleanText(widget.getAttribute && (widget.getAttribute('aria-label') || widget.getAttribute('title')) || '');
+                name = cleanSpotifyProfileText(widget.getAttribute && (widget.getAttribute('aria-label') || widget.getAttribute('title')) || '');
                 if (!name && typeof widget.querySelector === 'function') {
                     fig = widget.querySelector('[data-testid="user-widget-name"], figure[title]');
                     if (fig) {
-                        name = cleanText((fig.getAttribute && fig.getAttribute('title')) || fig.textContent || '');
+                        name = cleanSpotifyProfileText((fig.getAttribute && fig.getAttribute('title')) || fig.textContent || '');
                     }
                 }
                 if (typeof widget.querySelector === 'function') {
@@ -2990,7 +2994,7 @@
     // MEL-BUG-057: token-endpoint status suffix (enum only).
     function safeDiagToken(v) {
         v = String(v == null ? '' : v);
-        return /^[\w-]{2,12}$/.test(v) ? v : '-';
+        return /^(ok|none|ko-network|ko-non-json|ko-invalid|ko-expired|ko-http[1-5][0-9]{2}|unknown)$/.test(v) ? v : '-';
     }
 
     function mediaLibraryDiagnosticStatus() {
@@ -3019,48 +3023,49 @@
         var refreshAvailable = sessionProven && status !== 'loading';
         var profile = detectSpotifyProfile();
 
-        // Honest connection state: every value below is derived from the real
-        // libraryV3 proof/error, never asserted. 401/403 = session refused or
-        // expired, network-error/timeout = connectivity, loading = checking.
-        var connectionTitle, connectionSubtitle, connectionValue, connectionUri;
+        // A library response proves access to that library, not account identity.
+        // A refusal, missing token or network error never proves logout or expiry.
+        var connectionTitle = 'État de la connexion Spotify', connectionSubtitle, connectionValue, connectionUri;
         if (sessionProven) {
-            connectionTitle = 'État de la connexion Spotify';
-            connectionSubtitle = 'Connecté : la session est confirmée par la réponse libraryV3 de Spotify.';
-            connectionValue = 'Connecté';
+            connectionSubtitle = 'Bibliothèque vérifiée ; identité du compte non vérifiée.';
+            connectionValue = 'Accès vérifié';
             connectionUri = '';
         } else if (libError === 'http-401') {
-            connectionTitle = 'État de la connexion Spotify';
             // A 401 does NOT prove an expired session (project rule): say refused,
             // mention expiration as a possibility without asserting it.
-            connectionSubtitle = 'Spotify a refusé la session (HTTP 401) ; une expiration est possible sans être prouvée. Renouvelez la session.';
-            connectionValue = 'Renouveler la session';
-            connectionUri = 'melodix:action:open-login';
+            connectionSubtitle = 'Spotify a refusé la requête (HTTP 401) ; expiration non prouvée.';
+            connectionValue = 'Réessayer';
+            connectionUri = 'melodix:action:retry-library';
         } else if (libError === 'http-403') {
-            connectionTitle = 'État de la connexion Spotify';
-            connectionSubtitle = 'Spotify a refusé l’accès (HTTP 403) : ce refus ne prouve pas une déconnexion. Vérifiez l’accès au compte, puis renouvelez la session.';
-            connectionValue = 'Renouveler la session';
-            connectionUri = 'melodix:action:open-login';
+            connectionSubtitle = 'Spotify a refusé l’accès (HTTP 403) ; déconnexion et expiration non prouvées.';
+            connectionValue = 'Réessayer';
+            connectionUri = 'melodix:action:retry-library';
+        } else if (libError === 'token-missing') {
+            connectionSubtitle = 'Jeton indisponible ; session et identité non vérifiées.';
+            connectionValue = 'Réessayer';
+            connectionUri = 'melodix:action:retry-library';
         } else if (libError === 'network-error' || libError === 'timeout') {
-            connectionTitle = 'État de la connexion Spotify';
             connectionSubtitle = 'Erreur réseau lors de la vérification de la session. Vérifiez la connexion, puis réessayez.';
             connectionValue = 'Réessayer';
             connectionUri = 'melodix:action:retry-library';
+        } else if (status === 'error') {
+            connectionSubtitle = 'Réponse inattendue ou vérification impossible ; session non vérifiée.';
+            connectionValue = 'Réessayer';
+            connectionUri = 'melodix:action:retry-library';
         } else if (status === 'loading' || status === 'pending') {
-            connectionTitle = 'État de la connexion Spotify';
             connectionSubtitle = 'Vérification de la session en cours…';
             connectionValue = 'Vérification…';
             connectionUri = '';
         } else {
-            connectionTitle = 'État de la connexion Spotify';
-            connectionSubtitle = 'Non connecté : aucune session Spotify n’est confirmée sur cet appareil.';
+            connectionSubtitle = 'Session Spotify non vérifiée sur cet appareil.';
             connectionValue = 'Se connecter';
             connectionUri = 'melodix:action:open-login';
         }
 
         var accountTitle = profile.name || 'Compte non identifié';
         var accountSubtitle = profile.name
-            ? 'Nom lu depuis le widget de compte Spotify de cette session confirmée.'
-            : 'Le nom du compte n’est affiché que lorsqu’une session est confirmée ; aucune donnée n’est inventée.';
+            ? 'Nom lu sur Spotify ; identité non vérifiée.'
+            : 'Identité non vérifiée ; aucune donnée n’est inventée.';
 
 
         var rows = [
@@ -3078,7 +3083,7 @@
                     subtitle: accountSubtitle,
                     image: '',
                     uri: '',
-                    settingValue: sessionProven ? 'Confirmé' : 'Non confirmé'
+                    settingValue: 'Non confirmé'
             },
             {
     section: 'Compte et connexion',
@@ -3094,10 +3099,12 @@
             {
     section: 'Compte et connexion',
                     title: 'Autorisations',
-                    subtitle: 'Melodix utilise la session web officielle de Spotify ; l’accès aux données privées n’est accordé que lorsqu’il est confirmé par la réponse libraryV3. Aucune autorisation supplémentaire n’est demandée et aucun jeton n’est affiché.',
+                    subtitle: sessionProven
+                        ? 'Accès bibliothèque vérifié par libraryV3 ; identité et autorisations non vérifiées.'
+                        : 'Accès bibliothèque, identité et autorisations non vérifiés.',
                     image: '',
                     uri: '',
-                    settingValue: sessionProven ? 'Session confirmée' : 'Aucune confirmée'
+                    settingValue: sessionProven ? 'Bibliothèque vérifiée' : 'Aucune confirmée'
             },
             {
     section: 'Préférences de lecture',

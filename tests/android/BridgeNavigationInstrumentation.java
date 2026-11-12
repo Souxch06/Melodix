@@ -189,9 +189,9 @@ public final class BridgeNavigationInstrumentation extends Instrumentation {
             check("true".equals(js("AndBridge.isSessionRetryActive(10)===false")));
             ui(()->{try{flight.getMethod("start").invoke(null);}catch(Exception e){throw new RuntimeException(e);}});
             // Synthetic in-memory HTTP responses: hold the first token request
-            // until a queued retry has been invalidated, then return 400/403/401.
+            // until a queued retry has been invalidated. Refused tokens must not cause a library request.
             phase="synthetic_refusal_fetch";
-            check("true".equals(js("window.fixtureFetches=0;window.fixtureHoldNext=true;window.fetch=function(){var n=++window.fixtureFetches;if(window.fixtureHoldNext){window.fixtureHoldNext=false;return new Promise(function(resolve){window.fixtureResolve=function(){resolve(new Response('{}',{status:400,headers:{'Content-Type':'application/json'}}))}})}return Promise.resolve(new Response('{}',{status:n%3===1?400:n%3===2?403:401,headers:{'Content-Type':'application/json'}}))};true")));
+            check("true".equals(js("window.fixtureFetches=0;window.fixtureRoutes=[];window.fixtureHoldNext=true;window.fixtureTokenMode=false;window.fetch=function(url){var u=String(url),route=u.indexOf('/api/token')>=0?'api':u.indexOf('get_access_token')>=0?'fallback':'library';window.fixtureRoutes.push(route);++window.fixtureFetches;if(window.fixtureHoldNext){window.fixtureHoldNext=false;return new Promise(function(resolve){window.fixtureResolve=function(){resolve(new Response('{}',{status:400,headers:{'Content-Type':'application/json'}}))}})}if(route==='api'&&window.fixtureTokenMode)return Promise.resolve(new Response(JSON.stringify({accessToken:'SYNTHETIC_TEST_ONLY',accessTokenExpirationTimestampMs:Date.now()+3600000}),{status:200,headers:{'Content-Type':'application/json'}}));return Promise.resolve(new Response('{}',{status:route==='api'?400:route==='fallback'?403:401,headers:{'Content-Type':'application/json'}}))};true")));
             phase="bundled_runtime_injection";
             js(asset("runtime_state.js"));
             phase="bundled_shell_injection";
@@ -207,24 +207,24 @@ public final class BridgeNavigationInstrumentation extends Instrumentation {
             for(int i=0;i<50;i++){if("1".equals(js("window.fixtureFetches")))break;Thread.sleep(100);}
             check("true".equals(js("window.fixtureFetches===1 && typeof window.fixtureResolve==='function'")));
             phase="queued_real_retry_invalidation";
-            check("true".equals(js("(function(){var p=window.__sfRequestSessionVerification();return !!p && typeof p.then==='function'})()")));
+            check("true".equals(js("(function(){var p=window.__sfRequestSessionVerification(10);return !!p && typeof p.then==='function'})()")));
             ui(()->{try{gate.getField("generation").setInt(null,11);}catch(Exception e){throw new RuntimeException(e);}});
             check("true".equals(js("window.fixtureResolve();true")));
-            for(int i=0;i<80;i++){if("true".equals(js("window.fixtureFetches===3 && window.__sfMediaLibStatus==='error'")))break;Thread.sleep(100);}
+            for(int i=0;i<80;i++){if("true".equals(js("window.fixtureFetches===2 && window.fixtureRoutes.join(',')==='api,fallback' && window.__sfMediaLibStatus==='error'")))break;Thread.sleep(100);}
             Thread.sleep(300);
-            check("true".equals(js("window.fixtureFetches===3 && window.__sfMediaLibStatus==='error'")));
+            check("true".equals(js("window.fixtureFetches===2 && window.fixtureRoutes.join(',')==='api,fallback' && window.__sfMediaLibStatus==='error'")));
             // Positive control: a still-current, active queued retry must run
             // exactly once once the preceding synthetic refusal completes.
             phase="queued_real_retry_current";
             ui(()->{try{gate.getField("generation").setInt(null,12);flight.getMethod("start").invoke(null);}catch(Exception e){throw new RuntimeException(e);}});
             check("true".equals(js("window.fixtureHoldNext=true;window.checkMediaLib(true,'shell-update');true")));
-            for(int i=0;i<50;i++){if("4".equals(js("window.fixtureFetches")))break;Thread.sleep(100);}
-            check("true".equals(js("window.fixtureFetches===4 && typeof window.fixtureResolve==='function'")));
-            check("true".equals(js("(function(){var p=window.__sfRequestSessionVerification();return !!p && typeof p.then==='function'})()")));
+            for(int i=0;i<50;i++){if("3".equals(js("window.fixtureFetches")))break;Thread.sleep(100);}
+            check("true".equals(js("window.fixtureFetches===3 && typeof window.fixtureResolve==='function'")));
+            check("true".equals(js("(function(){var p=window.__sfRequestSessionVerification(12),q=window.__sfRequestSessionVerification(12);return !!p && p===q && typeof p.then==='function'})()")));
             check("true".equals(js("window.fixtureResolve();true")));
-            for(int i=0;i<80;i++){if("true".equals(js("window.fixtureFetches===9 && window.__sfMediaLibStatus==='error'")))break;Thread.sleep(100);}
+            for(int i=0;i<80;i++){if("true".equals(js("window.fixtureFetches===6 && window.fixtureRoutes.join(',')==='api,fallback,api,fallback,api,fallback' && window.__sfMediaLibStatus==='error'")))break;Thread.sleep(100);}
             Thread.sleep(300);
-            check("true".equals(js("window.fixtureFetches===9 && window.__sfMediaLibStatus==='error'")));
+            check("true".equals(js("window.fixtureFetches===6 && window.fixtureRoutes.join(',')==='api,fallback,api,fallback,api,fallback' && window.__sfMediaLibStatus==='error'")));
             // Simulate the reported unusable primitive result while retaining the
             // real native bridge for the independent string getter, flight check
             // and callbacks. The HTTP replies remain synthetic and offline.
@@ -232,15 +232,22 @@ public final class BridgeNavigationInstrumentation extends Instrumentation {
             ui(()->{try{gate.getField("generation").setInt(null,13);flight.getMethod("start").invoke(null);}catch(Exception e){throw new RuntimeException(e);}});
             check("true".equals(js("(function(){var n=window.AndBridge;window.fixtureNativeBridge=n;window.fixtureVerification=null;window.AndBridge=new Proxy(n,{get:function(t,k){if(k==='getSessionGeneration')return function(){return undefined};if(k==='onSessionVerification')return function(v){window.fixtureVerification=JSON.parse(v);return n.onSessionVerification(v)};var v=t[k];return typeof v==='function'?function(){return v.apply(n,arguments)}:v}});return AndBridge.getSessionGeneration()===undefined&&AndBridge.getSessionGenerationText()==='13'&&AndBridge.isSessionRetryActive(13)===true})()")));
             phase="fallback_stale_native_text";
-            check("true".equals(js("window.__sfRequestSessionVerification(12)===false && window.fixtureFetches===9")));
+            check("true".equals(js("window.__sfRequestSessionVerification(12)===false && window.fixtureFetches===6")));
             Runnable fallbackStale=(Runnable)launch.getConstructor(WebView.class,int.class).newInstance(view[0],12);
             ui(fallbackStale::run);
-            check("9".equals(js("window.fixtureFetches")));
+            check("6".equals(js("window.fixtureFetches")));
             phase="fallback_real_retry";
             Runnable fallback=(Runnable)launch.getConstructor(WebView.class,int.class).newInstance(view[0],13);
             ui(fallback::run);
-            for(int i=0;i<80;i++){if("true".equals(js("window.fixtureFetches===12 && window.fixtureVerification!==null")))break;Thread.sleep(100);}
-            check("true".equals(js("window.fixtureFetches===12 && window.fixtureVerification.generation===13 && window.fixtureVerification.tokenApiHttp===400 && window.fixtureVerification.tokenFallbackHttp===403 && window.fixtureVerification.libraryHttp===401")));
+            for(int i=0;i<80;i++){if("true".equals(js("window.fixtureFetches===8 && window.fixtureVerification!==null")))break;Thread.sleep(100);}
+            check("true".equals(js("window.fixtureFetches===8 && window.fixtureRoutes.join(',')==='api,fallback,api,fallback,api,fallback,api,fallback' && window.fixtureVerification.generation===13 && window.fixtureVerification.tokenApiHttp===400 && window.fixtureVerification.tokenFallbackHttp===403 && window.fixtureVerification.libraryHttp===0 && window.fixtureVerification.token===false && window.fixtureVerification.libraryOk===false")));
+            // Independent synthetic 401 control: library is called only after
+            // the fixture returns a valid bearer. This is not a real account.
+            phase="synthetic_valid_token_library_401";
+            ui(()->{try{gate.getField("generation").setInt(null,14);flight.getMethod("start").invoke(null);}catch(Exception e){throw new RuntimeException(e);}});
+            check("true".equals(js("window.fixtureTokenMode=true;window.fixtureVerification=null;window.__sfRequestSessionVerification(14)!==false")));
+            for(int i=0;i<80;i++){if("true".equals(js("window.fixtureFetches===10 && window.fixtureVerification!==null")))break;Thread.sleep(100);}
+            check("true".equals(js("window.fixtureFetches===10 && window.fixtureRoutes.slice(-2).join(',')==='api,library' && window.fixtureVerification.generation===14 && window.fixtureVerification.tokenApiHttp===200 && window.fixtureVerification.tokenFallbackHttp===0 && window.fixtureVerification.libraryHttp===401 && window.fixtureVerification.token===true && window.fixtureVerification.libraryOk===false")));
             check("true".equals(js("window.AndBridge=window.fixtureNativeBridge;typeof AndBridge.getSessionGeneration()==='number'")));
             ui(()->{try{gate.getField("generation").setInt(null,10);}catch(Exception e){throw new RuntimeException(e);}});
             // Let the shell's scheduled updates run, as in the reported trace.

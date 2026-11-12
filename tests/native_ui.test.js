@@ -1855,6 +1855,7 @@ test('settings page distinguishes connecté / expirée / réseau / non connecté
             c.getAttribute = (n) => n === 'aria-checked' ? String(c.enabled) : null;
             c.click = () => {};
         });
+        if (over.__testProfileWidget) controls['user-widget-link'] = over.__testProfileWidget;
         const document = {
             readyState: 'complete',
             documentElement: {},
@@ -1887,21 +1888,34 @@ test('settings page distinguishes connecté / expirée / réseau / non connecté
     };
     const state = (rows) => rows.find((r) => r.title === 'État de la connexion Spotify');
 
-    // 1. Connecté (preuve libraryV3) : jamais de faux statut, action déconnexion réelle.
+    // 1. La bibliothèque est vérifiée, mais pas l’identité du compte.
     let rows = run({ __sfMediaLibSessionProofKnown: true, __sfMediaLibSessionProven: true, __sfMediaLibStatus: 'ready', __sfMediaLibRawItemCount: 3 });
-    assert.equal(state(rows).settingValue, 'Connecté');
+    assert.equal(state(rows).settingValue, 'Accès vérifié');
+    assert.match(state(rows).subtitle, /identité du compte non vérifiée/);
     assert.equal(state(rows).uri, '', 'no action on a confirmed connection');
     assert.equal(rows.find((r) => r.title === 'Se déconnecter de Spotify').uri, 'spotify:settings:logout');
     const accountOk = rows.find((r) => r.section === 'Compte et connexion' && /Compte/.test(r.title));
     assert.equal(accountOk.title, 'Compte non identifié', 'no fabricated account name without a widget');
-    assert.equal(accountOk.settingValue, 'Confirmé', 'the session proof is the confirmation, not the name');
+    assert.equal(accountOk.settingValue, 'Non confirmé', 'library access is not identity proof');
+    const profileWidget = { getAttribute: (key) => key === 'aria-label' ? 'Nom du widget' : null, querySelector: () => null };
+    const namedRows = run({ __testProfileWidget: profileWidget, __sfMediaLibSessionProofKnown: true,
+        __sfMediaLibSessionProven: true, __sfMediaLibStatus: 'ready',
+        location: { hostname: 'open.spotify.com', pathname: '/settings', href: 'https://open.spotify.com/settings' } });
+    const namedAccount = namedRows.find((r) => r.title === 'Nom du widget');
+    assert.ok(namedAccount, 'a genuine widget name may be displayed');
+    assert.equal(namedAccount.settingValue, 'Non confirmé');
+    assert.match(namedAccount.subtitle, /identité non vérifiée/);
+    const unprovenRows = run({ __testProfileWidget: profileWidget, __sfMediaLibStatus: 'absent' });
+    assert.ok(!unprovenRows.some((r) => r.title === 'Nom du widget'), 'widget is not forwarded without library proof');
+    const permissions = unprovenRows.find((r) => r.title === 'Autorisations');
+    assert.match(permissions.subtitle, /non vérifiés/);
 
-    // 2. Session expirée (401) : état distinct + renouvellement réel.
+    // 2. HTTP 401 ne prouve pas une expiration ; aucune déconnexion forcée.
     rows = run({ __sfMediaLibSessionProofKnown: true, __sfMediaLibSessionProven: false, __sfMediaLibStatus: 'error', __sfMediaLibError: 'http-401' });
-    assert.equal(state(rows).settingValue, 'Renouveler la session');
-    assert.equal(state(rows).uri, 'melodix:action:open-login');
+    assert.equal(state(rows).settingValue, 'Réessayer');
+    assert.equal(state(rows).uri, 'melodix:action:retry-library');
     assert.match(state(rows).subtitle, /HTTP 401/);
-    assert.match(state(rows).subtitle, /sans être prouvée/, 'a 401 must not be asserted as an expired session');
+    assert.match(state(rows).subtitle, /expiration non prouvée/, 'a 401 must not be asserted as an expired session');
 
     // 3. Erreur réseau : état distinct + réessayer réel, pas de "connecté".
     rows = run({ __sfMediaLibSessionProofKnown: true, __sfMediaLibSessionProven: false, __sfMediaLibStatus: 'error', __sfMediaLibError: 'network-error' });
@@ -1909,7 +1923,16 @@ test('settings page distinguishes connecté / expirée / réseau / non connecté
     assert.equal(state(rows).uri, 'melodix:action:retry-library');
     assert.match(state(rows).subtitle, /Erreur réseau/);
 
-    // 4. Non connecté : connexion proposée, aucun statut inventé.
+    // Les réponses inattendues ne prouvent ni déconnexion ni expiration.
+    for (const err of ['non-json', 'invalid-json', 'unexpected-shape', 'http-400']) {
+        const unexpected = run({ __sfMediaLibStatus: 'error', __sfMediaLibError: err });
+        assert.equal(state(unexpected).settingValue, 'Réessayer');
+        assert.equal(state(unexpected).uri, 'melodix:action:retry-library');
+        assert.match(state(unexpected).subtitle, /session non vérifiée/);
+        assert.doesNotMatch(state(unexpected).subtitle, /Non connecté|expirée/);
+    }
+
+    // 4. Session non vérifiée : connexion proposée, aucun statut inventé.
     rows = run({ __sfMediaLibStatus: 'absent' });
     assert.equal(state(rows).settingValue, 'Se connecter');
     assert.equal(state(rows).uri, 'melodix:action:open-login');
@@ -2044,12 +2067,12 @@ test('settings connection state covers the full incident scenario matrix', () =>
   const scenarios = [
     ['première connexion / session absente', { __sfMediaLibStatus: 'absent' }, 'Se connecter', 'melodix:action:open-login'],
     ['authentification en cours', { __sfMediaLibStatus: 'loading' }, 'Vérification…', ''],
-    ['connexion réussie (preuve libraryV3)', { __sfMediaLibSessionProofKnown: true, __sfMediaLibSessionProven: true, __sfMediaLibStatus: 'ready', __sfMediaLibRawItemCount: 5 }, 'Connecté', ''],
-    ['session refusée 401 (renouveler)', { __sfMediaLibSessionProofKnown: true, __sfMediaLibSessionProven: false, __sfMediaLibStatus: 'error', __sfMediaLibError: 'http-401' }, 'Renouveler la session', 'melodix:action:open-login'],
-    ['accès refusé 403', { __sfMediaLibSessionProofKnown: true, __sfMediaLibSessionProven: false, __sfMediaLibStatus: 'error', __sfMediaLibError: 'http-403' }, 'Renouveler la session', 'melodix:action:open-login'],
+    ['bibliothèque vérifiée, identité inconnue', { __sfMediaLibSessionProofKnown: true, __sfMediaLibSessionProven: true, __sfMediaLibStatus: 'ready', __sfMediaLibRawItemCount: 5 }, 'Accès vérifié', ''],
+    ['accès refusé 401', { __sfMediaLibSessionProofKnown: true, __sfMediaLibSessionProven: false, __sfMediaLibStatus: 'error', __sfMediaLibError: 'http-401' }, 'Réessayer', 'melodix:action:retry-library'],
+    ['accès refusé 403', { __sfMediaLibSessionProofKnown: true, __sfMediaLibSessionProven: false, __sfMediaLibStatus: 'error', __sfMediaLibError: 'http-403' }, 'Réessayer', 'melodix:action:retry-library'],
     ['erreur réseau', { __sfMediaLibSessionProofKnown: true, __sfMediaLibSessionProven: false, __sfMediaLibStatus: 'error', __sfMediaLibError: 'network-error' }, 'Réessayer', 'melodix:action:retry-library'],
     ['délai dépassé', { __sfMediaLibSessionProofKnown: true, __sfMediaLibSessionProven: false, __sfMediaLibStatus: 'error', __sfMediaLibError: 'timeout' }, 'Réessayer', 'melodix:action:retry-library'],
-    ['jeton absent (non connecté)', { __sfMediaLibSessionProofKnown: true, __sfMediaLibSessionProven: false, __sfMediaLibStatus: 'error', __sfMediaLibError: 'token-missing' }, 'Se connecter', 'melodix:action:open-login']
+    ['jeton absent (session inconnue)', { __sfMediaLibSessionProofKnown: true, __sfMediaLibSessionProven: false, __sfMediaLibStatus: 'error', __sfMediaLibError: 'token-missing' }, 'Réessayer', 'melodix:action:retry-library']
   ];
   for (const [name, over, value, uri] of scenarios) {
     const c = conn(rowsFor(over));

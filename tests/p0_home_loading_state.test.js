@@ -171,8 +171,12 @@ test('P0: Settings show the real connection state and real actions, never a stat
     });
     assert.equal(on.window.__sfNativeSettingsRequest(9), true);
     const onRows = on.calls.filter((c) => c.screen === 'settings').flatMap((c) => JSON.parse(c.data));
-    const onAccount = onRows.find((r) => r.settingValue === 'Confirmé');
-    assert.ok(onAccount, 'a proven session reports "Confirmé"');
+    const onAccount = onRows.find((r) => r.title === 'Compte non identifié');
+    assert.equal(onAccount.settingValue, 'Non confirmé', 'library proof does not establish account identity');
+    assert.match(onAccount.subtitle, /Identité non vérifiée/);
+    const onConnection = onRows.find((r) => r.title === 'État de la connexion Spotify');
+    assert.equal(onConnection.settingValue, 'Accès vérifié');
+    assert.match(onConnection.subtitle, /identité du compte non vérifiée/);
     assert.ok(onRows.some((r) => r.uri === 'spotify:settings:logout' && r.settingValue === 'Se déconnecter'),
         'a proven session offers the real logout action');
 });

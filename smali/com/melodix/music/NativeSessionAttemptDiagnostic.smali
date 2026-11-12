@@ -272,10 +272,11 @@
     invoke-virtual {v6, v1, v2}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
     :no_reason
     invoke-virtual {v5, v4, v6}, Ljava/util/LinkedHashMap;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
-    # If a real attempt started, mark the matching relance without inventing completion.
+    # A prepared attempt is not proof of transport invocation. Only the
+    # explicit network-start acknowledgement marks this specific relance.
     if-eqz v3, :trim
-    const-string v1, "completed"
-    invoke-virtual {v0, v1}, Lorg/json/JSONObject;->has(Ljava/lang/String;)Z
+    const-string v1, "networkStarted"
+    invoke-virtual {v0, v1}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;)Z
     move-result v1
     if-eqz v1, :trim
     const-string v1, "generation"
@@ -529,6 +530,9 @@
     invoke-virtual {v0, v1, v2}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
     const-string v1, "completed"
     const/4 v2, 0x0
+    invoke-virtual {v0, v1, v2}, Lorg/json/JSONObject;->put(Ljava/lang/String;Z)Lorg/json/JSONObject;
+    const-string v1, "networkStarted"
+    const/4 v2, 0x1
     invoke-virtual {v0, v1, v2}, Lorg/json/JSONObject;->put(Ljava/lang/String;Z)Lorg/json/JSONObject;
     invoke-virtual {v0}, Lorg/json/JSONObject;->toString()Ljava/lang/String;
     move-result-object v0

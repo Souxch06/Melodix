@@ -853,9 +853,10 @@ test('manual retry repeats token attempts but sends no library request after ref
     const win=loadBridge({tokenResponse:null,tokenStatus:400,fallbackTokenStatus:403,profileSignal:false,playerSignal:false,
         fetchImpl:async (url,init)=>{calls.push({url,init});return jsonResponse(401,{});}});
     win.AndBridge.getSessionGeneration=()=>7;
+    win.AndBridge.isSessionRetryActive=g=>g===7;
     win.AndBridge.onSessionVerification=s=>payloads.push(JSON.parse(s));
     await win.checkMediaLib(true,'shell-update');
-    await win.__sfRequestSessionVerification();
+    await win.__sfRequestSessionVerification(7);
     assert.equal(win.__testTokenRequests.length,4);assert.equal(calls.length,0);
     assert.equal(win.__sfMediaLibError, 'token-missing');
     assert.deepEqual(win.__testTokenRequests.map(x=>x.url),[
@@ -871,7 +872,8 @@ test('manual retry requests a fresh token even if a valid synthetic bearer was c
     let libraries=0;
     const win=loadBridge({tokenResponse:{accessToken:'SYNTHETIC',accessTokenExpirationTimestampMs:Date.now()+3600000},
         fetchImpl:async()=>{libraries++;return libraryPage([]);}});
-    await win.checkMediaLib(true,'shell-update');await win.__sfRequestSessionVerification();
+    win.AndBridge.getSessionGeneration=()=>1;win.AndBridge.isSessionRetryActive=g=>g===1;
+    await win.checkMediaLib(true,'shell-update');await win.__sfRequestSessionVerification(1);
     assert.equal(win.__testTokenRequests.length,2);assert.equal(libraries,2);
     assert.ok(win.__testTokenRequests.every(x=>x.url.endsWith('/api/token')));
 });
@@ -906,4 +908,72 @@ test('a broken cache cannot prevent library proof invalidation on a recognized l
     assert.equal(win.__sfMediaItemsCache.size, 0);
     assert.equal(win.__sfMediaLibSessionProven, false);
     assert.equal(win.mediaLib, null);
+});
+
+test('native retry refuses missing or invalid generation and absent or inactive bridge before any real fetch', async () => {
+    const win = loadBridge({tokenResponse:null,tokenStatus:400,fallbackTokenStatus:403});
+    let gen=7,active=true;
+    win.AndBridge.getSessionGeneration=()=>gen;
+    win.AndBridge.isSessionRetryActive=(g)=>active && g===gen;
+    for (const invalid of [undefined,null,0,-1,1.5,'7',2147483648]) {
+        assert.equal(win.__sfRequestSessionVerification(invalid),false,'invalid expected generation '+String(invalid));
+    }
+    assert.equal(win.__sfRequestSessionVerification(8),false,'stale/mismatching generation');
+    active=false;
+    assert.equal(win.__sfRequestSessionVerification(7),false,'inactive flight');
+    active=true;
+    const bridge=win.AndBridge;delete win.AndBridge;
+    assert.equal(win.__sfRequestSessionVerification(7),false,'missing bridge');
+    win.AndBridge=bridge;
+    assert.equal(win.__testTokenRequests.length,0,'no synthetic transport was invoked');
+});
+
+test('two concurrent native retry invocations for the same active generation make one fresh attempt',async()=>{
+    const results=[];
+    const win=loadBridge({tokenResponse:null,tokenStatus:400,fallbackTokenStatus:403});
+    win.AndBridge.getSessionGeneration=()=>12;
+    win.AndBridge.isSessionRetryActive=(g)=>g===12;
+    win.AndBridge.onSessionVerification=s=>results.push(JSON.parse(s));
+    const first=win.__sfRequestSessionVerification(12);
+    const second=win.__sfRequestSessionVerification(12);
+    await Promise.all([first,second]);
+    assert.equal(win.__testTokenRequests.length,2,'one attempt makes one API call and one fallback');
+    assert.equal(results.length,1);
+    assert.equal(results[0].generation,12);
+    assert.deepEqual([results[0].tokenApiHttp,results[0].tokenFallbackHttp],[400,403]);
+});
+
+test('native attempt-start acknowledgement is sent only after the token transport was invoked',async()=>{
+    const ack=[];
+    const win=loadBridge({tokenResponse:null,tokenStatus:400,fallbackTokenStatus:403});
+    win.AndBridge.getSessionGeneration=()=>21;
+    win.AndBridge.isSessionRetryActive=g=>g===21;
+    win.AndBridge.onSessionAttemptStarted=(generation,attempt)=>ack.push({generation,attempt,requests:win.__testTokenRequests.length});
+    await win.__sfRequestSessionVerification(21);
+    assert.equal(ack.length,1);
+    assert.equal(ack[0].generation,21);
+    assert.ok(ack[0].attempt>0);
+    assert.equal(ack[0].requests,1,'transport invocation precedes network-start acknowledgement');
+    assert.equal(win.__testTokenRequests.length,2);
+});
+
+test('after a failed retry a new active generation makes exactly one new correlated request',async()=>{
+    const completed=[];let generation=31;
+    const win=loadBridge({tokenResponse:null,tokenStatus:400,fallbackTokenStatus:403});
+    win.AndBridge.getSessionGeneration=()=>generation;
+    win.AndBridge.isSessionRetryActive=g=>g===generation;
+    win.AndBridge.onSessionVerification=s=>completed.push(JSON.parse(s));
+    await win.__sfRequestSessionVerification(31);
+    assert.equal(win.__testTokenRequests.length,2);
+    generation=32;
+    assert.equal(win.__sfRequestSessionVerification(31),false,'old generation cannot start work');
+    await win.__sfRequestSessionVerification(32);
+    assert.equal(win.__testTokenRequests.length,4);
+    assert.deepEqual(completed.map(r=>r.generation),[31,32]);
+    assert.notEqual(completed[0].attempt,completed[1].attempt);
+    assert.ok(completed.every(r=>r.tokenApiHttp===400&&r.tokenFallbackHttp===403&&!r.token&&!r.libraryOk));
+    for (const r of completed) {
+        assert.ok(win.__testDiagnostics.includes(`token-response endpoint=api generation=${r.generation} attempt=${r.attempt} http=400 mime=json`));
+        assert.ok(win.__testDiagnostics.includes(`token-response endpoint=fallback generation=${r.generation} attempt=${r.attempt} http=403 mime=json`));
+    }
 });

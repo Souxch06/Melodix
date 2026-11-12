@@ -102,11 +102,11 @@ test('navigation, guard, token outcome and bounded image observations survive on
     'navigation source=button route=accounts', 'proof clear-accounts=F',
     'proof-native decision=blocked reason=unproven site=rows',
     'proof-guard decision=blocked reason=auth-required', 'token-http endpoint=api phase=end http=403 duration=23',
-    'token-result status=ko-http403 duration=40', 'image result=loaded', 'stage shell-asset-loaded']) {
+    'token-result status=ko-http403 duration=40', 'token-response endpoint=api generation=31 attempt=2 http=400 mime=json', 'image result=loaded', 'stage shell-asset-loaded']) {
     assert.ok(rule.test('sid=1234abcd t=1000 ' + event), event);
   }
   for (const event of ['navigation source=redirect route=https://private',
-    'token-result status=TOKEN_SECRET duration=2', 'image result=https://private']) {
+    'token-result status=TOKEN_SECRET duration=2', 'token-response endpoint=api generation=31 attempt=2 http=400 mime=SECRET', 'image result=https://private']) {
     assert.ok(!rule.test('sid=1234abcd t=1000 ' + event));
   }
   const resume = method(src, '.method public static resume()');
