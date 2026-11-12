@@ -3,6 +3,11 @@ name: Replay existing demo APK without rebuilding
 on:
   workflow_dispatch:
     inputs:
+      test161_evidence:
+        description: Run A and B on exact test160; C explicitly pending
+        required: false
+        type: boolean
+        default: false
       diagnose_test157:
         description: Replay the exact test157 with strict acceptance and redacted diagnostics
         required: false
@@ -38,7 +43,7 @@ permissions:
   contents: read
 jobs:
   replay:
-    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true && inputs.capture_test159_demo != true && inputs.diagnose_test159 != true
+    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true && inputs.capture_test159_demo != true && inputs.diagnose_test159 != true && inputs.test161_evidence != true
     # Diagnostic evidence is non-blocking; inspect the actual step outcomes.
     continue-on-error: true
     name: Replay the same Preview APK on a fresh offline phone
@@ -69,7 +74,7 @@ jobs:
           emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
           script: sh scripts/replay_existing_apk.sh
   capture:
-    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true && inputs.capture_test159_demo != true && inputs.diagnose_test159 != true
+    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true && inputs.capture_test159_demo != true && inputs.diagnose_test159 != true && inputs.test161_evidence != true
     # Diagnostic evidence is non-blocking; inspect the actual step outcomes.
     continue-on-error: true
     name: Capture existing Preview on ${{ matrix.profile }}
@@ -112,7 +117,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
   bundle:
-    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true && inputs.capture_test159_demo != true && inputs.diagnose_test159 != true
+    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true && inputs.capture_test159_demo != true && inputs.diagnose_test159 != true && inputs.test161_evidence != true
     # Diagnostic evidence is non-blocking; inspect the actual step outcomes.
     continue-on-error: true
     name: Bundle the same APK and verified screenshots
@@ -376,3 +381,9 @@ jobs:
           path: evidence
           if-no-files-found: warn
           retention-days: 14
+
+  independent-test161:
+    if: inputs.test161_evidence == true
+    name: Test161 separated evidence
+    uses: ./.github/workflows/test161-independent.yml
+    secrets: inherit
