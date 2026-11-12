@@ -40,3 +40,12 @@ test('native navigation and explicit retry/login remain separate in limited mode
   assert.match(method(main,'.method public final openNativeRow('),/retry-library[\s\S]*?NativeSessionRecovery;->verify/);
   assert.doesNotMatch(method(gate,'.method public static navigateLogin('),/removeAllCookies|deleteAllData/);
 });
+
+test('limited back returns to home and login delegates to WebView history',()=>{
+ const main=read('smali/com/melodix/music/MainActivity.smali');
+ const handler=main.slice(main.indexOf('.method public final handleNativeSystemBack()Z'),main.indexOf('.end method',main.indexOf('.method public final handleNativeSystemBack()Z')));
+ assert.match(handler,/loginActive:Z[\s\S]*?if-eqz v0, :limited_back[\s\S]*?return v0/);
+ assert.match(handler,/NativeLimitedGlass;->back/);
+ const limited=read('smali/com/melodix/music/NativeLimitedGlass.smali');
+ assert.match(limited,/back\(Lcom\/melodix\/music\/MainActivity;\)Z[\s\S]*?"home"[\s\S]*?->show/);
+});

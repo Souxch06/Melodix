@@ -214,3 +214,20 @@
     invoke-static {p0, v0}, Lcom/melodix/music/NativeLimitedGlass;->show(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
     return-void
 .end method
+
+# Back from a limited root tab returns to limited Home, without page data.
+.method public static back(Lcom/melodix/music/MainActivity;)Z
+    .locals 2
+    sget-object v0, Lcom/melodix/music/NativeLimitedGlass;->route:Ljava/lang/String;
+    if-eqz v0, :no
+    const-string v1, "home"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-nez v0, :no
+    invoke-static {p0, v1}, Lcom/melodix/music/NativeLimitedGlass;->show(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+    const/4 v0, 0x1
+    return v0
+    :no
+    const/4 v0, 0x0
+    return v0
+.end method

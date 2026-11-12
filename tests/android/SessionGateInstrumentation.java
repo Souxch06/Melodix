@@ -307,7 +307,8 @@ public final class SessionGateInstrumentation extends Instrumentation {
                 limited("Rechercher");
                 activity().getClass().getMethod("onNativeSettingsClick",View.class).invoke(activity(),new Object[]{null});
                 limited("Paramètres"); check(findText(nativeRoot(),"Notifications Android")!=null);
-                activity().getClass().getMethod("onNativeHomeClick",View.class).invoke(activity(),new Object[]{null}); limited("Accueil");
+                check((Boolean)activity().getClass().getMethod("handleNativeSystemBack").invoke(activity()));
+                limited("Accueil");
             }); note();
             phase = "limited_glass_stale_queued_payload";
             ui(() -> {

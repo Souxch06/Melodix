@@ -11869,6 +11869,18 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     sget v0, Lcom/melodix/music/NativeSessionGate;->state:I
     const/4 v1, 0x3
     if-eq v0, v1, :session_back_valid
+    # Let the existing WebView back chain handle an active login.
+    sget-boolean v0, Lcom/melodix/music/NativeSessionGate;->loginActive:Z
+    if-eqz v0, :limited_back
+    const/4 v0, 0x0
+    return v0
+    :limited_back
+    invoke-static {p0}, Lcom/melodix/music/NativeLimitedGlass;->back(Lcom/melodix/music/MainActivity;)Z
+    move-result v0
+    if-eqz v0, :limited_home_exit
+    const/4 v0, 0x1
+    return v0
+    :limited_home_exit
     invoke-virtual {p0}, Landroid/app/Activity;->finish()V
     const/4 v0, 0x1
     return v0
