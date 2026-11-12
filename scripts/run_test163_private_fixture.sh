@@ -21,7 +21,11 @@ javac --release 8 -cp "$jar" -d "$dir/app-classes" tests/android/test163/Assembl
 java -cp "$dir/app-classes:$jar" Assemble "$dir/smali" "$dir/fixture.dex"
 javac --release 8 -cp "$sdk" -d "$dir/app-classes" tests/android/test163/Picasso.java
 javac --release 8 -cp "$sdk" -d "$dir/test-classes" tests/android/test163/PrivateUiInstrumentation.java
-"$tools/d8" --lib "$sdk" --min-api 24 --output "$dir/app-dex" "$dir/fixture.dex" "$dir/app-classes/com/squareup/picasso/Picasso.class"
+# D8 rejects mixing an existing dex and class input in one invocation. Keep
+# independently compiled fixture bytecode as a supported native multidex APK.
+"$tools/d8" --lib "$sdk" --min-api 24 --output "$dir/app-dex" "$dir/app-classes/com/squareup/picasso/Picasso.class"
+cp "$dir/app-dex/classes.dex" "$dir/app-dex/classes2.dex"
+cp "$dir/fixture.dex" "$dir/app-dex/classes.dex"
 mapfile -t classes < <(find "$dir/test-classes" -name '*.class')
 "$tools/d8" --lib "$sdk" --min-api 24 --output "$dir/test-dex" "${classes[@]}"
 cat > "$dir/target/AndroidManifest.xml" <<'XML'
@@ -40,7 +44,11 @@ XML
 for kind in target test; do
  "$tools/aapt" package -f -M "$dir/$kind/AndroidManifest.xml" -I "$sdk" --min-sdk-version 24 --target-sdk-version 35 -F "$dir/$kind-unsigned.apk"
  if [[ "$kind" == target ]]; then dexdir=app-dex; else dexdir=test-dex; fi
- (cd "$dir/$dexdir" && zip -q "$dir/$kind-unsigned.apk" classes.dex)
+ if [[ "$kind" == target ]]; then
+   (cd "$dir/$dexdir" && zip -q "$dir/$kind-unsigned.apk" classes.dex classes2.dex)
+ else
+   (cd "$dir/$dexdir" && zip -q "$dir/$kind-unsigned.apk" classes.dex)
+ fi
  "$tools/zipalign" -f 4 "$dir/$kind-unsigned.apk" "$dir/$kind-aligned.apk"
 done
 keytool -genkeypair -keystore "$dir/fixture-key.jks" -storepass android -keypass android -alias fixture -dname 'CN=Test163 Disposable Fixture' -keyalg RSA -keysize 2048 -validity 1 >/dev/null 2>&1
