@@ -77,10 +77,11 @@ test('MEL-BUG-067a: login page zoom is mobile-sized and reset stays 100% on the 
     'native shell still resets zoom to 100%');
 });
 
-test('MEL-BUG-067b: missing sp_dc cookie forces the login screen first, even with a persisted marker', () => {
+test('MEL-BUG-067b: missing cookie does not validate a session or force automatic login', () => {
   const gate = fs.readFileSync(require('node:path').join(__dirname, '..', 'smali/com/melodix/music/NativeSessionGate.smali'), 'utf8');
   const initial = method(gate, '.method public static initialUrl(');
-  assert.match(initial, /hasCookie\(\)Z[\s\S]*?cookie-absent-auto-login[\s\S]*?accounts.spotify.com/);
+  assert.ok(initial.includes('https://open.spotify.com/'));
+  assert.doesNotMatch(initial, /accounts\.spotify\.com|loginActive:Z/);
   assert.doesNotMatch(initial, /LoggedIn|AppSingleton;->B/);
   const recovery = read('smali/com/melodix/music/NativeSessionRecovery.smali');
   assert.match(recovery, /Pattern;->compile/);

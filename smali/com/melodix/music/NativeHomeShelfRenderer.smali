@@ -10,6 +10,12 @@
 .method public static render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
     .locals 14
 
+    sget v0, Lcom/melodix/music/NativeSessionGate;->state:I
+    const/4 v1, 0x3
+    if-eq v0, v1, :private_render_proven
+    return-void
+    :private_render_proven
+
     # The Activity owns these private state fields. Reset through its public
     # API so the renderer never issues illegal cross-class private-field writes.
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->beginNativeHomeRender()V

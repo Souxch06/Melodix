@@ -112,8 +112,8 @@
     move-result v7
     const-string v5, "Connexion Spotify indisponible"
     if-eqz v7, :retry_deadline
-    const-string v5, "Jeton Spotify indisponible"
-    const-string v6, "Le jeton du lecteur n’a pas pu être obtenu. La bibliothèque ne peut pas être vérifiée. La cause reste inconnue."
+    const-string v5, "Bibliothèque Spotify indisponible"
+    const-string v6, "La bibliothèque ne peut pas être vérifiée. La cause reste inconnue."
     goto :labels
     :retry_deadline
     sget-object v7, Lcom/melodix/music/NativeSessionGate;->lastReason:Ljava/lang/String;
@@ -297,6 +297,32 @@
     if-eqz v0, :done
     const/4 v1, 0x0
     invoke-virtual {v0, v1}, Landroid/view/View;->setImportantForAccessibility(I)V
+    :done
+    return-void
+.end method
+
+# Used before limited Glass is shown. It does not change session state.
+.method public static removeOverlay(Lcom/melodix/music/MainActivity;)V
+    .locals 2
+    sget-object v0, Lcom/melodix/music/NativeSessionGate;->overlay:Landroid/view/View;
+    if-eqz v0, :web
+    invoke-virtual {v0}, Landroid/view/View;->getParent()Landroid/view/ViewParent;
+    move-result-object v1
+    instance-of v0, v1, Landroid/view/ViewGroup;
+    if-eqz v0, :clear
+    check-cast v1, Landroid/view/ViewGroup;
+    sget-object v0, Lcom/melodix/music/NativeSessionGate;->overlay:Landroid/view/View;
+    invoke-virtual {v1, v0}, Landroid/view/ViewGroup;->removeView(Landroid/view/View;)V
+    :clear
+    const/4 v0, 0x0
+    sput-object v0, Lcom/melodix/music/NativeSessionGate;->overlay:Landroid/view/View;
+    :web
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->N:Landroid/widget/FrameLayout;
+    if-eqz v0, :done
+    const/4 v1, 0x4
+    invoke-virtual {v0, v1}, Landroid/view/View;->setImportantForAccessibility(I)V
+    const/4 v1, 0x0
+    invoke-virtual {v0, v1, v1, v1, v1}, Landroid/view/View;->setPadding(IIII)V
     :done
     return-void
 .end method

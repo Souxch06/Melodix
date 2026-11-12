@@ -1378,24 +1378,11 @@
                 primaryUri = '';
             }
         }
-        // MEL-BUG-054: the bearer flag is carried ONCE by the diagLine below
-        // (MEL-BUG-050); the old standalone (bearer=…) suffix is dropped to
-        // avoid a duplicated "(bearer=0) […] bearer=0" on the Home card.
-        // MEL-BUG-050: make the test build self-diagnosing — the card carries a
-        // compact internal state (auth state, library status, attempts sent,
-        // last error, bearer flag) so one screenshot tells exactly what happens.
-        var diagBearer = '-';
+        // Only bounded, non-credential diagnostic categories are presented.
         var diag = window.__sfMediaLibLastDiagnostic;
-        if (diag && typeof diag === 'object' && Object.prototype.hasOwnProperty.call(diag, 'bearer')) {
-            diagBearer = diag.bearer === true ? '1' : '0';
-        }
-        // MEL-BUG-057: token-endpoint status (ok/ko-httpXXX/ko-network).
-        var diagToken = safeDiagToken(diag && diag.token);
         var diagLine = ' [auth=' + authState + ' statut=' + status +
             ' essais=' + safeHomeTraceCount(window.__sfNativeUiHomeAttempt, 999999) +
-            ' erreur=' + (err || 'aucune') + ' bearer=' + diagBearer +
-            ' token=' + diagToken +
-            ' cookie=' + (diag && diag.cookieSession === true ? 'oui' : 'non') + ']';
+            ' erreur=' + (err === 'token-missing' ? 'indisponible' : (err || 'aucune')) + ']';
         if (subtitle) subtitle += diagLine; else subtitle = diagLine;
         return {
             kind: 'state',
@@ -3041,7 +3028,7 @@
             connectionValue = 'Réessayer';
             connectionUri = 'melodix:action:retry-library';
         } else if (libError === 'token-missing') {
-            connectionSubtitle = 'Jeton indisponible ; session et identité non vérifiées.';
+            connectionSubtitle = 'Bibliothèque indisponible ; session et identité non vérifiées.';
             connectionValue = 'Réessayer';
             connectionUri = 'melodix:action:retry-library';
         } else if (libError === 'network-error' || libError === 'timeout') {

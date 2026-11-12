@@ -13,17 +13,16 @@ function ensureBlock() {
   return main.slice(at, main.indexOf('.end method', at));
 }
 
-// MEL-BUG-042: on a cold start the persisted login marker is never trusted
-// (AppSingleton forces B=false at startup), so ensureWebPageLoaded takes the
-// login branch. It must now also reveal the login Web UI so the user sees the
-// official login screen directly, not the native home with a 401 card. A
-// valid persisted session cookie auto-continues to open.spotify.com thanks to
-// the continue parameter, so a saved login still lands on Home.
-test('MEL-BUG-042: an unproven load reveals the login screen, not the native home', () => {
+// The login-first display contract is replaced by limited Glass, but the
+// official login is still explicit and never treated as library proof.
+test('MEL-BUG-042: an unproven load mounts limited Glass and keeps an explicit official login', () => {
   const gate = fs.readFileSync(require('node:path').join(__dirname, '..', 'smali/com/melodix/music/NativeSessionGate.smali'), 'utf8');
+  const start=gate.indexOf('.method public static initialUrl('), initial=gate.slice(start,gate.indexOf('.end method',start));
   assert.match(ensureBlock(), /NativeSessionGate;->initialUrl/);
   assert.ok(gate.includes(LOGIN_URL), 'official accounts URL unchanged');
-  assert.match(gate, /hasCookie\(\)Z[\s\S]*?autoUsed:Z[\s\S]*?cookie-absent-auto-login/);
+  assert.match(initial, /https:\/\/open\.spotify\.com\//);
+  assert.doesNotMatch(initial,/accounts\.spotify\.com|loginActive:Z/);
+  assert.match(gate,/NativeLimitedGlass;->available[\s\S]*?NativeLimitedGlass;->repaint/);
   assert.match(main, /showNativeUiFrom\([\s\S]*?NativeSessionGate;->blocked/);
 });
 
@@ -42,7 +41,7 @@ test('MEL-BUG-042: cold start never wipes the persisted session cookies', () => 
 
 test('MEL-BUG-042: the Se connecter action keeps the official login route', () => {
   const gate = fs.readFileSync(require('node:path').join(__dirname, '..', 'smali/com/melodix/music/NativeSessionGate.smali'), 'utf8');
-  assert.match(main, /openSpotifyLogin\(\)V[\s\S]*?NativeSessionGate;->requestLogin/);
+  assert.match(main, /openSpotifyLogin\(\)V[\s\S]*?NativeSessionGate;->navigateLogin/);
   assert.ok(gate.includes(LOGIN_URL));
   assert.match(gate, /requestLogin\([\s\S]*?expiredEvidence:Z[\s\S]*?hasCookie\(\)Z[\s\S]*?->verify[\s\S]*?->navigateLogin/);
   assert.doesNotMatch(gate, /removeAllCookies|deleteAllData/);

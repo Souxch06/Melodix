@@ -8165,6 +8165,13 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 .method public final setMelodixHomeVisibility(ZZ)V
     .locals 3
 
+    invoke-static {}, Lcom/melodix/music/NativeLimitedGlass;->available()Z
+    move-result v0
+    if-eqz v0, :limited_visibility_normal
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionGate;->paint(Lcom/melodix/music/MainActivity;)V
+    return-void
+    :limited_visibility_normal
+
     const/4 v0, 0x0
     if-eqz p1, :melodix_home_observation_saved
     if-eqz p2, :melodix_home_observation_saved
@@ -9078,6 +9085,12 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
 .method public final setNativeScreen(Ljava/lang/String;)V
     .locals 7
+
+    sget v0, Lcom/melodix/music/NativeSessionGate;->state:I
+    const/4 v1, 0x3
+    if-eq v0, v1, :limited_route_proven
+    return-void
+    :limited_route_proven
 
     # Reject null/empty routes and accept only fixed native screen categories.
     # The first route has no previous screen, so never compare a null field.
@@ -10688,6 +10701,14 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
 .method public final onNativeHomeClick(Landroid/view/View;)V
     .locals 2
+
+    invoke-static {}, Lcom/melodix/music/NativeLimitedGlass;->available()Z
+    move-result v0
+    if-eqz v0, :limited_home_normal
+    const-string v0, "home"
+    invoke-static {p0, v0}, Lcom/melodix/music/NativeLimitedGlass;->show(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+    return-void
+    :limited_home_normal
     if-eqz p1, :haptic_done
     const/4 v0, 0x1
     invoke-virtual {p1, v0}, Landroid/view/View;->performHapticFeedback(I)Z
@@ -10706,6 +10727,14 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
 .method public final onNativeSearchClick(Landroid/view/View;)V
     .locals 5
+
+    invoke-static {}, Lcom/melodix/music/NativeLimitedGlass;->available()Z
+    move-result v0
+    if-eqz v0, :limited_search_normal
+    const-string v0, "search"
+    invoke-static {p0, v0}, Lcom/melodix/music/NativeLimitedGlass;->show(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+    return-void
+    :limited_search_normal
     if-eqz p1, :haptic_done
     const/4 v0, 0x1
     invoke-virtual {p1, v0}, Landroid/view/View;->performHapticFeedback(I)Z
@@ -10892,6 +10921,14 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
 .method public final onNativeLibraryClick(Landroid/view/View;)V
     .locals 3
+
+    invoke-static {}, Lcom/melodix/music/NativeLimitedGlass;->available()Z
+    move-result v0
+    if-eqz v0, :limited_library_normal
+    const-string v0, "library"
+    invoke-static {p0, v0}, Lcom/melodix/music/NativeLimitedGlass;->show(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+    return-void
+    :limited_library_normal
     if-eqz p1, :haptic_done
     const/4 v0, 0x1
     invoke-virtual {p1, v0}, Landroid/view/View;->performHapticFeedback(I)Z
@@ -11037,6 +11074,14 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
 .method public final onNativeBackClick(Landroid/view/View;)V
     .locals 6
+
+    invoke-static {}, Lcom/melodix/music/NativeLimitedGlass;->available()Z
+    move-result v0
+    if-eqz v0, :limited_home_normal
+    const-string v0, "home"
+    invoke-static {p0, v0}, Lcom/melodix/music/NativeLimitedGlass;->show(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+    return-void
+    :limited_home_normal
 
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnScreen:Ljava/lang/String;
     if-eqz v0, :native_back_default
@@ -11267,7 +11312,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     const-string v2, "melodix:action:retry-library"
     invoke-virtual {p1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v3
-    if-eqz v3, :native_row_check_settings_uri
+    if-eqz v3, :native_row_check_notifications
     invoke-static {p0}, Lcom/melodix/music/NativeSessionRecovery;->verify(Lcom/melodix/music/MainActivity;)V
     return-void
 
@@ -11435,6 +11480,14 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
 .method public final onNativeSettingsClick(Landroid/view/View;)V
     .locals 1
+
+    invoke-static {}, Lcom/melodix/music/NativeLimitedGlass;->available()Z
+    move-result v0
+    if-eqz v0, :limited_settings_normal
+    const-string v0, "settings"
+    invoke-static {p0, v0}, Lcom/melodix/music/NativeLimitedGlass;->show(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+    return-void
+    :limited_settings_normal
     if-eqz p1, :haptic_done
     const/4 v0, 0x1
     invoke-virtual {p1, v0}, Landroid/view/View;->performHapticFeedback(I)Z
@@ -11447,7 +11500,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
 .method public final openSpotifyLogin()V
     .locals 0
-    invoke-static {p0}, Lcom/melodix/music/NativeSessionGate;->requestLogin(Lcom/melodix/music/MainActivity;)V
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionGate;->navigateLogin(Lcom/melodix/music/MainActivity;)V
     return-void
 .end method
 

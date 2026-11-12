@@ -154,23 +154,12 @@
     if-nez v0, :already
     const/4 v0, 0x1
     sput-boolean v0, Lcom/melodix/music/NativeSessionGate;->initialNavigationIssued:Z
-    invoke-static {}, Lcom/melodix/music/NativeSessionRecovery;->hasCookie()Z
-    move-result v0
-    if-nez v0, :player
-    sget-boolean v0, Lcom/melodix/music/NativeSessionGate;->autoUsed:Z
-    if-nez v0, :already
-    const/4 v0, 0x1
-    sput-boolean v0, Lcom/melodix/music/NativeSessionGate;->autoUsed:Z
-    sput-boolean v0, Lcom/melodix/music/NativeSessionGate;->loginActive:Z
-    const-string v1, "cookie-absent-auto-login"
-    invoke-static {v0, v1}, Lcom/melodix/music/NativeSessionGate;->transition(ILjava/lang/String;)V
-    const-string v0, "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&allow_signup=1"
+    # The player remains mounted under Glass; an account login is opened only
+    # by an explicit user action, regardless of cookie presence.
+    const-string v0, "https://open.spotify.com/"
     return-object v0
     :already
     const/4 v0, 0x0
-    return-object v0
-    :player
-    const-string v0, "https://open.spotify.com/"
     return-object v0
 .end method
 
@@ -315,15 +304,8 @@
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     goto :done
     :not_valid
-    # A failed/missing token cannot establish an expired session. Only a
-    # validated successful library response may unlock the private UI.
-    const-string v1, "token"
-    invoke-virtual {v0, v1}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;)Z
-    move-result v1
-    if-nez v1, :library_failure
-    const-string v2, "token-unavailable"
-    goto :unproven_error
-    :library_failure
+    # Classify the observed library response, independently of legacy token
+    # fields. A refusal or an absent response never establishes expiry or proof.
     sget v1, Lcom/melodix/music/NativeSessionGate;->libraryHttp:I
     const/16 v2, 0x191
     if-ne v1, v2, :library_forbidden
@@ -490,7 +472,14 @@
 .end method
 
 .method public static paint(Lcom/melodix/music/MainActivity;)V
-    .locals 0
+    .locals 1
+    invoke-static {}, Lcom/melodix/music/NativeLimitedGlass;->available()Z
+    move-result v0
+    if-eqz v0, :regular_surface
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionSurface;->removeOverlay(Lcom/melodix/music/MainActivity;)V
+    invoke-static {p0}, Lcom/melodix/music/NativeLimitedGlass;->repaint(Lcom/melodix/music/MainActivity;)V
+    return-void
+    :regular_surface
     invoke-static {p0}, Lcom/melodix/music/NativeSessionSurface;->paint(Lcom/melodix/music/MainActivity;)V
     return-void
 .end method

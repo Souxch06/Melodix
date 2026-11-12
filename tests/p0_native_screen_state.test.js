@@ -124,6 +124,16 @@ function executeSetNativeScreen(
             pc = labels.get(match[1]);
             continue;
         }
+        if (instruction === 'sget v0, Lcom/melodix/music/NativeSessionGate;->state:I') {
+            registers.v0 = state.sessionProven ? 3 : 4;
+            continue;
+        }
+        if ((match = /^if-eq (\w+), (\w+), :([\w$.-]+)$/.exec(instruction))) {
+            if (registers[match[1]] === registers[match[2]]) {
+                assert.ok(labels.has(match[3])); pc = labels.get(match[3]);
+            }
+            continue;
+        }
         // MEL-BUG-077: no native screen without a session proof. The local shell
         // asset (file://) keeps the foreground because it IS the native UI and
         // the UI metric CI measures it. This emulator models no WebView, so no
@@ -750,6 +760,10 @@ function executeNativeBackClick(activity) {
         assert.ok(++steps <= 80, 'onNativeBackClick control flow must terminate');
         const instruction = instructions[pc++];
         let match;
+        if (instruction === 'invoke-static {}, Lcom/melodix/music/NativeLimitedGlass;->available()Z') {
+            pendingResult = 0; // This executor covers the existing proven-session path.
+            continue;
+        }
         if ((match = /^iget-object (\w+), p0, .*->(nativeReturnScreen|nativeReturnExpectedId|nativeReturnSearch|nativeReturnTitle|nativeReturnJson):Ljava\/lang\/String;$/.exec(instruction))) {
             registers[match[1]] = activity[match[2]];
             continue;

@@ -169,7 +169,7 @@ test('MEL-BUG-024: isNativeSessionUnproven reads a PERSISTENT flag that survives
   assert.match(unproven, /iput-boolean v0, p0, .*->nativeSessionUnproven:Z/);
   const login = activity.slice(activity.indexOf('.method public final openSpotifyLogin'),
     activity.indexOf('.end method', activity.indexOf('.method public final openSpotifyLogin')));
-  assert.match(login, /NativeSessionGate;->requestLogin/);
+  assert.match(login, /NativeSessionGate;->navigateLogin/);
   const gate = read('smali/com/melodix/music/NativeSessionGate.smali');
   assert.match(gate, /const\/4 v1, 0x1\s+iput-boolean v1, p0, .*->nativeSessionUnproven:Z/);
   // Screen changes and home re-renders must NOT reset the persistent flag.

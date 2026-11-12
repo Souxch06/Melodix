@@ -845,10 +845,10 @@ test('bounded decisions expose only screen category and layout state without acc
     }
 });
 
-test('simulated Web Home error messages do not confuse unavailable token, invalid data, network or unknown failures', () => {
+test('simulated Web Home errors do not confuse unavailability, invalid data, network or unknown failures', () => {
     // An earlier verified session is modeled only to exercise rendering, not Spotify authentication.
     const cases = [
-        ['token-missing', /jeton.*indisponible/i, /réseau|401|403/i],
+        ['token-missing', /bibliothèque.*vérifiée.*cause.*inconnue/i, /jeton|réseau|401|403/i],
         ['invalid-json', /réponse.*inattendue/i, /réseau|401|403/i],
         ['unexpected-shape', /réponse.*inattendue/i, /réseau|401|403/i],
         ['network-error', /connexion/i, /jeton|401|403/i],
@@ -865,14 +865,14 @@ test('simulated Web Home error messages do not confuse unavailable token, invali
     }
 });
 
-test('missing token and malformed-response messages are localized without claiming a confirmed HTTP refusal', () => {
+test('legacy missing-credential and malformed-response messages are localized without a credential claim or confirmed refusal', () => {
     const locales = {
-        fr: [/jeton.*indisponible/i, /réponse.*inattendue/i],
-        en: [/token.*unavailable/i, /unexpected format/i],
-        es: [/token.*no está disponible/i, /respuesta inesperada/i],
-        de: [/token.*nicht verfügbar/i, /unerwartete Daten/i],
-        it: [/token.*non è disponibile/i, /risposta inattesa/i],
-        pt: [/token.*não está disponível/i, /resposta inesperada/i]
+        fr: [/bibliothèque.*vérifiée.*cause.*inconnue/i, /réponse.*inattendue/i],
+        en: [/library.*checked.*cause.*unknown/i, /unexpected format/i],
+        es: [/verificar.*biblioteca.*causa/i, /respuesta inesperada/i],
+        de: [/bibliothek.*geprüft.*ursache/i, /unerwartete Daten/i],
+        it: [/libreria.*causa/i, /risposta inattesa/i],
+        pt: [/biblioteca.*causa/i, /resposta inesperada/i]
     };
     for (const [lang, expectations] of Object.entries(locales)) {
         for (const [index, error] of ['token-missing', 'invalid-json'].entries()) {

@@ -17,9 +17,9 @@ test('unknown player DOM can request verification, never becomes private-library
   assert.match(bridge, /window\.__sfMediaLibSessionProven = false/);
 });
 
-test('login action delegates to central verification/expiry-aware routing without deleting cookies', () => {
+test('explicit login opens Spotify without deleting cookies; the separate legacy retry policy remains bounded', () => {
   const main = read('smali/com/melodix/music/MainActivity.smali');
-  assert.match(method(main, '.method public final openSpotifyLogin()V'), /NativeSessionGate;->requestLogin/);
+  assert.match(method(main, '.method public final openSpotifyLogin()V'), /NativeSessionGate;->navigateLogin/);
   const gate = read('smali/com/melodix/music/NativeSessionGate.smali');
   assert.match(method(gate, '.method public static requestLogin('), /expiredEvidence:Z[\s\S]*?hasCookie[\s\S]*?->verify[\s\S]*?->navigateLogin/);
   assert.doesNotMatch(gate, /removeAllCookies|deleteAllData/);

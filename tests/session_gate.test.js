@@ -60,9 +60,9 @@ function machine(overrides={}) {
  return {fields,calls,transitions,run,evidence,retainDeadline:()=>{syncEvidence();return evidence.run('retainIfCurrent');},send:payload=>run('result',{},JSON.stringify({generation:fields.generation,attempt:1,completed:true,libraryHttp:payload.libraryOk?200:0,tokenApiHttp:payload.tokenRefused?400:0,tokenFallbackHttp:payload.tokenRefused?403:0,...payload}))};
 }
 
-test('case 1: no cookie chooses login once, never player/home or cookie deletion',()=>{
- const m=machine({cookie:false});assert.match(m.run('initialUrl'),/^https:\/\/accounts/);assert.equal(m.fields.state,1);
- assert.equal(m.run('initialUrl'),0);assert.equal(m.fields.autoUsed,1);
+test('case 1: no cookie mounts the player under limited Glass without auto-login or cookie deletion',()=>{
+ const m=machine({cookie:false});assert.equal(m.run('initialUrl'),'https://open.spotify.com/');assert.equal(m.fields.state,0);
+ assert.equal(m.run('initialUrl'),0);assert.equal(m.fields.autoUsed,false);assert.ok(!m.fields.loginActive);
  assert.doesNotMatch(gate,/removeAllCookies|deleteAllData|UserAgent|spotify-app-version/);
 });
 test('case 2: cookie alone is not proof; a validated library unlocks with or without bearer',()=>{
@@ -73,10 +73,18 @@ test('case 2: cookie alone is not proof; a validated library unlocks with or wit
 });
 test('case 3: missing token and synthetic library 401 never establish expiry or auto redirect',()=>{
  const m=machine();m.send({tokenRefused:true,libraryHttp:401});
- assert.equal(m.fields.state,4);assert.equal(m.transitions.at(-1).reason,'token-unavailable');
+ assert.equal(m.fields.state,4);assert.equal(m.transitions.at(-1).reason,'library-http-401');
  assert.equal(m.fields.expiredEvidence,0);assert.equal(m.evidence.fields.count,0);
  assert.equal(m.run('canReconnect'),0);assert.ok(!m.calls.includes('login'));
  m.fields.cookieId='digest-B';assert.equal(m.run('canReconnect'),0,'replaced cookie must be preserved');
+});
+test('library HTTP classification is independent of legacy token fields',()=>{
+ for (const token of [true, false]) for (const [http, reason] of [[401,'library-http-401'],[403,'library-http-403'],[0,'verification-failed-no-logout'],[500,'verification-failed-no-logout']]) {
+  const m=machine();m.send({token,libraryOk:false,libraryHttp:http});
+  assert.equal(m.fields.state,4);assert.equal(m.transitions.at(-1).reason,reason);
+  assert.equal(m.fields.expiredEvidence,0);assert.equal(m.evidence.fields.count,0);
+  assert.ok(!m.calls.includes('login'));assert.ok(!m.calls.includes('showNativeUi'));
+ }
 });
 test('case 4: timeout/network/isolated 401/403 never imply expiry or destructive recovery',()=>{
  for(const payload of [{},{tokenRefused:true,libraryHttp:0},{libraryHttp:401},{tokenRefused:true,libraryHttp:403}]) {
@@ -218,7 +226,7 @@ test('missing or changed cookie and fresh login never turn token refusal into ex
  const no=machine({cookie:false});no.send(refusal);no.send({attempt:2,...refusal});assert.equal(no.fields.state,4);assert.equal(no.evidence.fields.count,0);
  const m=machine();m.send(refusal);m.fields.cookieId='digest-B';assert.equal(m.run('canReconnect'),0);m.send({attempt:2,...refusal});assert.equal(m.fields.state,4);assert.equal(m.evidence.fields.count,0);
  m.send({attempt:3,libraryHttp:0});assert.equal(m.fields.state,4);m.send({attempt:4,...refusal});assert.equal(m.fields.state,4);
- const fresh=machine({freshLogin:true});fresh.send(refusal);assert.equal(fresh.fields.state,4);assert.equal(fresh.transitions.at(-1).reason,'token-unavailable');
+ const fresh=machine({freshLogin:true});fresh.send(refusal);assert.equal(fresh.fields.state,4);assert.equal(fresh.transitions.at(-1).reason,'verification-failed-no-logout');
  assert.ok(!fresh.calls.includes('login'));assert.equal(fresh.run('canReconnect'),0);
  // Existing independent cookie-evidence accumulator still rejects cookie changes.
  const evidence=evidenceVm();evidence.cookie('digest-A');assert.equal(evidence.run('recordCurrentCookie'),1);
@@ -251,7 +259,7 @@ test('incomplete or unknown diagnostic rows cannot add evidence or affect the ga
  assert.equal(m.fields.lastAttempt,0);assert.equal(m.fields.state,0);
  m.send({attempt:2,completed:false,...refused});assert.equal(m.evidence.fields.count,1);assert.equal(m.fields.lastAttempt,0);
  m.send({attempt:3,completed:true,token:false,tokenApiHttp:0,tokenFallbackHttp:0,libraryHttp:0});
- assert.equal(m.evidence.fields.count,0);assert.equal(m.fields.state,4);assert.equal(m.transitions.at(-1).reason,'token-unavailable');
+ assert.equal(m.evidence.fields.count,0);assert.equal(m.fields.state,4);assert.equal(m.transitions.at(-1).reason,'verification-failed-no-logout');
 });
 
 test('a rejected native proof commit cannot unlock private UI',()=>{
