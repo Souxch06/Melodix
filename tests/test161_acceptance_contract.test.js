@@ -57,7 +57,7 @@ test('ephemeral signing experiment cannot sign the real or preview app',()=>{
  const s=fs.readFileSync('scripts/run_ephemeral_signing_fixture.sh','utf8');
  assert.match(s,/package="com\.melodix\.ci\.ephemeralfixture"/);
  assert.match(s,/targetPackage="com\.melodix\.ci\.ephemeralfixture"/);
- assert.match(s,/trap 'rm -f "\$dir\/fixture\.jks"' EXIT/);
+ assert.match(s,/rm -f "\$dir\/fixture\.jks"/); assert.match(s,/trap cleanup EXIT/);
  assert.doesNotMatch(s,/MELODIX_(?:TEST|PREVIEW)_KEYSTORE|target-apk|com\.melodix\.music\.preview\.test/);
  assert.match(s,/persisten(?:ce|t).*not tested/);
 });
