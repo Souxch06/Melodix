@@ -53,7 +53,7 @@ def observe_node_sample(items):
         cls = n.get('class', '')
         if ident in ('sessionTitle', 'nativeSettingsButton') or cls == 'android.webkit.WebView':
             relevant.append({'id': ident if ident in ('sessionTitle', 'nativeSettingsButton') else '',
-                             'class': cls, 'bounds': n.get('bounds', ''),
+                             'class': cls, 'package': n.get('package', ''), 'bounds': n.get('bounds', ''),
                              'children': len(n), 'element_truth': bool(n)})
     session = next((n for n in items if n.get('resource-id', '').endswith(':id/sessionTitle')), None)
     settings = next((n for n in items if n.get('resource-id', '').endswith(':id/nativeSettingsButton')), None)

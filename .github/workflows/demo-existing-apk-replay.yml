@@ -18,6 +18,11 @@ on:
         required: false
         type: boolean
         default: false
+      diagnose_test159:
+        description: Replay exact test159 strict acceptance with read-only WebView diagnostics
+        required: false
+        type: boolean
+        default: false
       capture_test158_demo:
         description: Capture actual isolated offline demo screens from the exact test158 without rebuilding
         required: false
@@ -33,7 +38,7 @@ permissions:
   contents: read
 jobs:
   replay:
-    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true && inputs.capture_test159_demo != true
+    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true && inputs.capture_test159_demo != true && inputs.diagnose_test159 != true
     # Diagnostic evidence is non-blocking; inspect the actual step outcomes.
     continue-on-error: true
     name: Replay the same Preview APK on a fresh offline phone
@@ -64,7 +69,7 @@ jobs:
           emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
           script: sh scripts/replay_existing_apk.sh
   capture:
-    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true && inputs.capture_test159_demo != true
+    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true && inputs.capture_test159_demo != true && inputs.diagnose_test159 != true
     # Diagnostic evidence is non-blocking; inspect the actual step outcomes.
     continue-on-error: true
     name: Capture existing Preview on ${{ matrix.profile }}
@@ -107,7 +112,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
   bundle:
-    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true && inputs.capture_test159_demo != true
+    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true && inputs.capture_test159_demo != true && inputs.diagnose_test159 != true
     # Diagnostic evidence is non-blocking; inspect the actual step outcomes.
     continue-on-error: true
     name: Bundle the same APK and verified screenshots
@@ -313,5 +318,61 @@ jobs:
         with:
           name: ${{ inputs.capture_test159_demo && 'test159' || 'test158' }}-demo-captures-${{ matrix.profile }}
           path: captures/${{ matrix.profile }}
+          if-no-files-found: warn
+          retention-days: 14
+
+  test159-strict-diagnostic:
+    if: inputs.diagnose_test159 == true
+    name: Diagnose exact test159 strict login without rebuilding
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      MELODIX_DEMO_DOM_PROBE: '1'
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4.0.4
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: Melodix-Preview-v1.2.2-test159.apk
+          run-id: 43107820755
+          github-token: ${{ github.token }}
+          path: target-apk
+      - name: Verify exact unchanged APK
+        run: echo '31f561be0765c0d7f5b4b790ded3f47c5a86b877ab6dd0b8c7c8f5d2c224f8f7  target-apk/Melodix-Preview-v1.2.2-test159.apk' | sha256sum -c -
+      - name: Build ephemeral read-only instrumentation
+        env:
+          MELODIX_PREVIEW_KEYSTORE_B64: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_B64 }}
+          MELODIX_PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
+          MELODIX_PREVIEW_KEY_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEY_PASSWORD || secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
+        run: |
+          sdkmanager --install "platforms;android-36" "build-tools;35.0.0"
+          bash scripts/build_demo_return_probe.sh
+      - run: sudo chmod 666 /dev/kvm
+      - name: Original strict acceptance with read-only measurements
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
+          script: |
+            adb install target-apk/Melodix-Preview-v1.2.2-test159.apk
+            adb install "$RUNNER_TEMP/melodix-return-probe/probe.apk"
+            python3 scripts/diagnose_demo_return.py
+      - name: Upload observations and actual screenshots
+        if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: test159-strict-diagnostic
+          path: evidence
           if-no-files-found: warn
           retention-days: 14
