@@ -8,19 +8,23 @@ sys.path.insert(0,'scripts')
 from launcher_surface import login_surface
 pkg='com.melodix.music.preview'
 def node(cls='android.view.View',text='',package=pkg,bounds='[0,0][100,40]'):
- return ET.Element('node',{'class':cls,'text':text,'package':package,'bounds':bounds})
+ return ET.Element('node',{'class':cls,'text':text,'package':package,'bounds':bounds,'enabled':'true','clickable':'true'})
 def setup():
  web=node('android.webkit.WebView',bounds='[0,0][400,800]')
- for text in ('Welcome back','Email','Continue'): web.append(node(text=text))
+ for text in ('Welcome back','Email'): web.append(node(text=text))
+ web.append(node('android.widget.EditText'))
+ web.append(node('android.widget.Button',text='Continue'))
  return web
 web=setup(); assert login_surface(list(web.iter('node'))) is web
 assert login_surface([]) is None
 assert login_surface([node(text='Essayer le mode démo')]) is None
-for i in range(3):
+for i in range(4):
  web=setup(); web.remove(web[i]); assert login_surface(list(web.iter('node'))) is None
 web=setup(); web.set('package','external.browser'); assert login_surface(list(web.iter('node'))) is None
 web=setup(); web[1].set('package','external.browser'); assert login_surface(list(web.iter('node'))) is None
 web=setup(); web[1].set('bounds','[0,0][0,0]'); assert login_surface(list(web.iter('node'))) is None
+web=setup(); web[2].set('enabled','false'); assert login_surface(list(web.iter('node'))) is None
+web=setup(); web[3].set('clickable','false'); assert login_surface(list(web.iter('node'))) is None
 web=setup(); web.set('bounds','bad'); assert login_surface(list(web.iter('node'))) is None
 web=setup(); children=list(web); web.clear(); web.set('class','android.webkit.WebView'); web.set('package',pkg); web.set('bounds','[0,0][400,800]'); assert login_surface([web,*children]) is None
 `;
@@ -33,9 +37,10 @@ sys.path.insert(0,'scripts')
 from session_watchdog_observation import observe_watchdog
 p='com.melodix.music.preview'
 def n(text='',cls='android.view.View'):
- return ET.Element('node',{'class':cls,'text':text,'package':p,'bounds':'[0,0][200,100]'})
+ return ET.Element('node',{'class':cls,'text':text,'package':p,'bounds':'[0,0][200,100]','enabled':'true','clickable':'true'})
 w=n(cls='android.webkit.WebView')
-for t in ('Welcome back','Email','Continue'): w.append(n(t))
+for t in ('Welcome back','Email'): w.append(n(t))
+w.append(n(cls='android.widget.EditText')); w.append(n('Continue','android.widget.Button'))
 items=list(w.iter('node'))+[n('Essayer le mode démo')]
 observe_watchdog(lambda:items,'after-exit',0,lambda:0,lambda _:None)
 for broken in (items[:-1], [n('Essayer le mode démo')], items+[n('MODE DÉMO · HORS LIGNE')]):

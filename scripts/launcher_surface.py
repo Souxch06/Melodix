@@ -24,7 +24,13 @@ def login_surface(items):
         descendants = [n for n in web.iter('node') if n.get('package') == PACKAGE and visible(n)]
         def has_label(label):
             return any(label in (n.get('text', ''), n.get('content-desc', '')) for n in descendants)
-        if has_label('Welcome back') and has_label('Email') and has_label('Continue'):
+        email_input = any(n.get('class') == 'android.widget.EditText' and
+                          n.get('enabled') == 'true' for n in descendants)
+        continue_button = any(n.get('class') == 'android.widget.Button' and
+                              n.get('clickable') == 'true' and n.get('enabled') == 'true' and
+                              'Continue' in (n.get('text', ''), n.get('content-desc', ''))
+                              for n in descendants)
+        if has_label('Welcome back') and has_label('Email') and email_input and continue_button:
             return web
     return None
 

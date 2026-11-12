@@ -69,6 +69,9 @@ def observe_node_sample(items):
                                  'package': n.get('package', ''), 'bounds': n.get('bounds', ''),
                                  'clickable': n.get('clickable', '')}
                                 for n in items if n.get('text', '') in ('Welcome back', 'Email', 'Continue')],
+             'input_controls': [{'class': n.get('class', ''), 'package': n.get('package', ''),
+                                 'bounds': n.get('bounds', ''), 'enabled': n.get('enabled', '')}
+                                for n in items if n.get('class') == 'android.widget.EditText'],
              'demo_entry': 'Essayer le mode démo' in texts}
     now = round((time.monotonic() - START) * 1000)
     if not SAMPLES or state != SAMPLES[-1]['state'] or now - SAMPLES[-1]['host_ms'] >= 15000:
