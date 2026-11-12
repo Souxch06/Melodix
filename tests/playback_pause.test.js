@@ -195,7 +195,9 @@ test('automatic resume helpers respect the pause intent latch', () => {
     assert.match(bridge, /autoPlayMode === "onetime"[\s\S]{0,200}?__sfUserRequestedPause/);
     assert.match(bridge, /function markUserPlaybackIntent\(playing, options\)/);
     assert.match(bridge, /window\.__sfMarkUserPlaybackIntent = markUserPlaybackIntent;/);
-    assert.match(bridge, /window\.playFromUri = function\(uri, contextUri\) \{[\s\S]{0,300}?markUserPlaybackIntent\(true\)/);
+    const directPlay = bridge.match(/window\.playFromUri = function\(uri, contextUri\) \{[\s\S]*?\n    \};/)[0];
+    assert.match(directPlay, /return false;/, 'unsupported direct play reports failure');
+    assert.doesNotMatch(directPlay, /markUserPlaybackIntent\(true\)/, 'a no-op cannot clear the pause latch');
     assert.match(
         bridge,
         /window\.manageAll = function\(play\) \{[\s\S]{0,200}?if \(play\) markUserPlaybackIntent\(true, \{ explicit: !window\.__sfUserRequestedPause \}\)/,

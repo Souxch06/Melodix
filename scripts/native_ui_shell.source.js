@@ -3393,12 +3393,12 @@
         var url;
         if (!raw) return false;
         normalized = nativeSpotifyUri(raw);
-        target = normalized;
 
         if (/^spotify:track:/i.test(normalized) && typeof window.playFromUri === 'function') {
             try {
-                window.playFromUri(normalized);
-                return true;
+                // Only an explicit success may suppress navigation. The current
+                // bridge has no supported direct play command and returns false.
+                if (window.playFromUri(normalized) === true) return true;
             } catch (_) {}
         }
 

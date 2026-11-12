@@ -1425,12 +1425,12 @@
     // SECTION 3: WAKE LOCK & BACKGROUND CONTROL
     // =========================================================================
 
-    // No API command is ever sent from the bridge: playback belongs to the
-    // web player itself. Kept as a no-op so callers stay harmless.
+    // The old command used private player credentials. There is no supported
+    // playback command here; report failure so callers can open Spotify's page
+    // rather than claiming that a silent no-op started playback.
     window.playFromUri = function(uri, contextUri) {
-        if (!uri) return;
-        tracePlayback('play-from-uri', /^spotify:track:/i.test(String(uri)) ? 'track' : 'context');
-        markUserPlaybackIntent(true);
+        if (uri) tracePlayback('play-from-uri', /^spotify:track:/i.test(String(uri)) ? 'track' : 'context');
+        return false;
     };
 
     // Search-and-play sent credentialed API requests: disabled. The web
@@ -3020,19 +3020,9 @@
         return list[1]?.url || list[0]?.url || null;
     }
 
-    // MEL-BUG-036: the WebPlayer authorizes pathfinder with a Bearer web-player
-    // token (GET open.spotify.com/api/token, cookie-authenticated), not with
-    // cookies alone. A cookie-only libraryV3 can be answered 401 right after a
-    // fresh login -> the Home falls back to the error card. The token is cached
-    // with its expiry, NEVER logged (only a boolean reaches diagnostics), and
-    // dropped on any 401/403 so the bounded retry refetches it.
-    let webPlayerTokenCache = null; // { token, expMs }
-    // MEL-BUG-057: status of the LAST /api/token fetch (ok | ko-httpXXX |
-    // ko-network | none) — exported as a sanitized enum so a screenshot tells
-    // whether the cookie session itself can mint a web-player token. The
-    // token value is NEVER stored here.
+    // Legacy diagnostics keep their shape; the app does not request, read,
+    // cache or forward a private Web Player token.
     let lastTokenFetchStatus = 'none';
-    // Presentation metadata only: no request, credential, or retry decisions.
     let tokenApiHttp = 0;
     let tokenFallbackHttp = 0;
     // MEL-BUG-065: boolean only — is a Spotify session cookie (sp_dc) present?
@@ -3221,109 +3211,6 @@
             } catch (_) { emit(Object.assign({}, unknown, {body:'unavailable'})); }
         } catch (_) {}
     }
-    // Successful token responses are decoded separately; error text is never
-    // exposed, only bounded categories from the debug-only clone above.
-    async function decodeWebPlayerToken(response) {
-        let data;
-        try { data = await response.json(); }
-        catch (error) {
-            if (error && error.name === 'SyntaxError') return { token: null, expMs: 0, status: 'ko-non-json' };
-            throw error; // Body transport/abort failures retain the network classification.
-        }
-        const token = data && data.accessToken;
-        const rawExpiry = data && data.accessTokenExpirationTimestampMs;
-        const expiryTypeValid = typeof rawExpiry === 'number' ||
-            (typeof rawExpiry === 'string' && /^[0-9]+$/.test(rawExpiry));
-        const expMs = expiryTypeValid ? Number(rawExpiry) : NaN;
-        if (typeof token !== 'string' || !token.trim() || !Number.isFinite(expMs) || expMs <= 0) {
-            return { token: null, expMs: 0, status: 'ko-invalid' };
-        }
-        if (expMs <= Date.now()) return { token: null, expMs: 0, status: 'ko-expired' };
-        return { token: token, expMs: expMs, status: 'ok' };
-    }
-    async function fetchWebPlayerToken(observation) {
-        const nowMs = Date.now();
-        const tokenStarted = mediaLibraryNow();
-        let endpointStarted = tokenStarted;
-        let tokenEndpoint = 'api';
-        if (webPlayerTokenCache && webPlayerTokenCache.token &&
-            Number(webPlayerTokenCache.expMs) - 60000 > nowMs) {
-            observeSessionAttempt(observation, 'tokenResult', 'obtained');
-            observeSessionAttempt(observation, 'reason', 'token-source=cache');
-            if (observation) observation.debugTokenOrigin = 'cache-' + (webPlayerTokenCache.source || 'unknown');
-            lastTokenFetchStatus = 'ok';
-            traceTokenEndpoint('cache', 'end', 0, 0);
-            return webPlayerTokenCache.token;
-        }
-        tokenApiHttp = 0;
-        tokenFallbackHttp = 0;
-        try {
-            observeSessionAttempt(observation, 'tokenResult', 'unknown');
-            traceTokenEndpoint('api', 'start', 0, 0);
-            const tokenRequest = oriFetch('https://open.spotify.com/api/token', {
-                method: 'GET',
-                credentials: 'include',
-                headers: { 'Accept': 'application/json', 'app-platform': 'WebPlayer', 'spotify-app-version': '1.2.40.0' }
-            });
-            // Acknowledge only after invoking the transport, not when work is queued.
-            if (observation && observation.source === 'native-retry') acknowledgeSessionAttemptStart(observation);
-            const tokenResp = await tokenRequest;
-            tokenApiHttp = boundedMediaLibraryCount(tokenResp && tokenResp.status, 599);
-            observeSessionAttempt(observation, 'apiHttp', tokenApiHttp);
-            traceTokenEndpoint('api', 'end', tokenResp && tokenResp.status, mediaLibraryNow() - endpointStarted);
-            traceTokenResponse('api', tokenResp, observation);
-            if (tokenResp && tokenResp.ok) {
-                const parsed = await decodeWebPlayerToken(tokenResp);
-                lastTokenFetchStatus = parsed.status;
-                if (parsed.token) {
-                    webPlayerTokenCache = { token: parsed.token, expMs: parsed.expMs, source: 'api' };
-                    if (observation) observation.debugTokenOrigin = 'api';
-                    return webPlayerTokenCache.token;
-                }
-            } else {
-                const status = tokenResp && Number(tokenResp.status);
-                lastTokenFetchStatus = safeTokenFetchStatus(
-                    Number.isFinite(status) && status >= 100 && status <= 599 ? 'ko-http' + Math.floor(status) : 'ko-network');
-            }
-            // The existing fallback uses the same WebView session. No endpoint,
-            // request headers or session state are changed by response parsing.
-            tokenEndpoint = 'fallback';
-            endpointStarted = mediaLibraryNow();
-            traceTokenEndpoint('fallback', 'start', 0, 0);
-            const altResp = await oriFetch('https://open.spotify.com/get_access_token?reason=transport&productType=web_player', {
-                method: 'GET',
-                credentials: 'include',
-                headers: { 'Accept': 'application/json', 'app-platform': 'WebPlayer', 'spotify-app-version': '1.2.40.0' }
-            });
-            tokenFallbackHttp = boundedMediaLibraryCount(altResp && altResp.status, 599);
-            observeSessionAttempt(observation, 'fallbackHttp', tokenFallbackHttp);
-            traceTokenEndpoint('fallback', 'end', altResp && altResp.status, mediaLibraryNow() - endpointStarted);
-            traceTokenResponse('fallback', altResp, observation);
-            if (altResp && altResp.ok) {
-                const parsed = await decodeWebPlayerToken(altResp);
-                lastTokenFetchStatus = parsed.status;
-                if (parsed.token) {
-                    webPlayerTokenCache = { token: parsed.token, expMs: parsed.expMs, source: 'fallback' };
-                    if (observation) observation.debugTokenOrigin = 'fallback';
-                    return webPlayerTokenCache.token;
-                }
-            } else {
-                const altStatus = altResp && Number(altResp.status);
-                lastTokenFetchStatus = safeTokenFetchStatus(
-                    Number.isFinite(altStatus) && altStatus >= 100 && altStatus <= 599 ? 'ko-http' + Math.floor(altStatus) : 'ko-network');
-            }
-        } catch (_) {
-            lastTokenFetchStatus = 'ko-network';
-            traceTokenEndpoint(tokenEndpoint, 'error', 0, mediaLibraryNow() - endpointStarted);
-        } finally {
-            traceLibraryEvent('token-result status=' + safeTokenFetchStatus(lastTokenFetchStatus) +
-                ' duration=' + boundedMediaLibraryCount(mediaLibraryNow() - tokenStarted, 999999));
-        }
-        webPlayerTokenCache = null;
-        return null;
-    }
-    function dropWebPlayerToken() { webPlayerTokenCache = null; }
-
     function getGqlHash(opName, fallbackHash) {
         if (window.spHashes && window.spHashes[opName]) return window.spHashes[opName];
         try {
@@ -3953,13 +3840,11 @@
                 publishSessionRelanceDiagnostic('native-retry', 'blocage=attente-429');
                 return false;
             }
-            // A manual verification must observe a new token response rather than
-            // reuse a prior successful bearer. Requests, headers and auth guards stay unchanged.
+            // Retry the library transport for the current native generation.
             if (!mediaLibraryAuthReady()) {
                 publishSessionRelanceDiagnostic('native-retry', 'blocage=dom-auth-required');
                 return false;
             }
-            dropWebPlayerToken();
             return checkMediaLib(true, 'native-retry', 0, expected);
         };
         if (mediaLibraryCheckPromise) {
@@ -4006,51 +3891,17 @@
         let offset = 0;
         let allItems = [];
         let hasMore = true;
-        // MEL-BUG-036: attach the Bearer web-player token when available. The
-        // token value itself must never reach diagnostics; only this flag does.
-        const tokenWaitStartedAt = mediaLibraryNow();
-        perfMarkBridge('token-request', 0);
-        const bearerToken = await fetchWebPlayerToken(trace);
-        perfMarkBridge('token-ready', Math.max(0, mediaLibraryNow() - tokenWaitStartedAt));
-        trace.bearer = Boolean(bearerToken);
-        // MEL-BUG-057: remember WHY there is no bearer (token endpoint refused
-        // by the cookie session vs network failure) — status enum only.
-        trace.token = safeTokenFetchStatus(lastTokenFetchStatus);
-        trace.tokenApiHttp = tokenApiHttp;
-        trace.tokenFallbackHttp = tokenFallbackHttp;
-        // Only this attempt's observations, never the seeded/stale global HTTP fields.
-        const observed = trace.sessionObservation;
-        const refused = code => code === 400 || code === 401 || code === 403;
-        observeSessionAttempt(trace, 'tokenResult', bearerToken ? 'obtained' :
-            observed && refused(observed.apiHttp) && refused(observed.fallbackHttp) ? 'refused' : 'unknown');
-
-        // Match the historical WebView flow: if minting a bearer failed,
-        // try the same library request with WebView credentials alone.  A
-        // server response must still prove the library; a cookie is not proof.
+        // The browser owns its session. Do not obtain or reuse a private
+        // player token. A successful, well-formed response is still required.
+        trace.bearer = false;
+        trace.token = 'none';
+        trace.tokenApiHttp = 0;
+        trace.tokenFallbackHttp = 0;
         if (requestGeneration !== mediaLibraryRequestGeneration ||
             authEpoch !== boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999)) return [];
 
         while (hasMore && offset < 1000 && requestGeneration === mediaLibraryRequestGeneration &&
             authEpoch === boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999)) {
-            // A token can expire while an earlier page is being read. Do not
-            // send it on a later page or retain partial private proof.
-            if (bearerToken && (!webPlayerTokenCache || webPlayerTokenCache.token !== bearerToken ||
-                !Number.isFinite(webPlayerTokenCache.expMs) || webPlayerTokenCache.expMs <= Date.now())) {
-                trace.phase = 'request';
-                trace.http = 0;
-                trace.mime = 'missing';
-                trace.error = 'token-missing';
-                trace.bearer = false;
-                observeSessionAttempt(trace, 'tokenResult', 'unknown');
-                window.__sfMediaLibError = 'token-missing';
-                window.__sfMediaLibSessionProofKnown = false;
-                window.__sfMediaLibSessionProven = false;
-                window.__sfMediaLibRawItemCount = 0;
-                window.__sfMediaLibUpdatedAt = 0;
-                window.__sfMediaLibProofAuthEpoch = 0;
-                window.mediaLib = null;
-                return [];
-            }
             const activeHash = getGqlHash('libraryV3', '0082bf82412db50128add72dbdb73e2961d59100b9cbf41fb25c568bd8bc358b');
             const endpoint = 'https://api-partner.spotify.com/' + 'pathfinder' + '/v2/' + 'query';
             const controller = typeof window.AbortController === 'function' ? new window.AbortController() : null;
@@ -4074,11 +3925,11 @@
                     method: 'POST',
                     mode: 'cors',
                     credentials: 'include',
-                    headers: Object.assign({
+                    headers: {
                         'Content-Type': 'application/json;charset=UTF-8',
                         'app-platform': 'WebPlayer',
                         'spotify-app-version': '1.2.40.0'
-                    }, bearerToken ? { 'Authorization': 'Bearer ' + bearerToken } : {}),
+                    },
                     body: JSON.stringify({
                         variables: {
                             filters: [],
@@ -4111,7 +3962,9 @@
                         boundedMediaLibraryCount(trace.attempt, 999999) +
                         ' request=' + trace.requests +
                         ' source=' + safeMediaLibraryCheckSource(trace.source));
-                    resp = await Promise.race([oriFetch(endpoint, init), timeout]);
+                    const request = oriFetch(endpoint, init);
+                    if (trace.source === 'native-retry') acknowledgeSessionAttemptStart(trace);
+                    resp = await Promise.race([request, timeout]);
                     if (requestGeneration !== mediaLibraryRequestGeneration ||
                         authEpoch !== boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999)) break;
                 } catch (_) {
@@ -4150,9 +4003,6 @@
                     // accepted private rows. A 403 may mean insufficient scope,
                     // app access, or another policy refusal; it is not proof of logout.
                     const refusal = trace.http === 401 ? 'http-401' : 'http-403';
-                    // MEL-BUG-036: a refusal may be an expired web-player token;
-                    // drop it so the bounded retry refetches a fresh one.
-                    dropWebPlayerToken();
                     window.__sfMediaLibSessionProofKnown = true;
                     window.__sfMediaLibSessionProven = false;
                     window.__sfMediaLibError = refusal;

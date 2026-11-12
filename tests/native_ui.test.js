@@ -752,6 +752,15 @@ test('bundled native bootstrap activates the shell, sends Home rows, and only op
 
     assert.equal(window.__sfNativeOpenUri('spotify:track:track123'), true);
     assert.equal(loaded.pop(), 'https://open.spotify.com/track/track123');
+    window.playFromUri = () => false;
+    assert.equal(window.__sfNativeOpenUri('spotify:track:track123'), true);
+    assert.equal(loaded.pop(), 'https://open.spotify.com/track/track123', 'unsupported play opens the real Spotify page');
+    window.playFromUri = () => { throw new Error('fixture'); };
+    assert.equal(window.__sfNativeOpenUri('spotify:track:track123'), true);
+    assert.equal(loaded.pop(), 'https://open.spotify.com/track/track123', 'a broken player also falls back');
+    window.playFromUri = () => true;
+    assert.equal(window.__sfNativeOpenUri('spotify:track:track123'), true);
+    assert.equal(loaded.length, 0, 'an explicitly successful play needs no navigation');
     assert.deepEqual(assigned, [], 'Spotify content navigation stays in the existing WebView');
     assert.equal(window.__sfNativeOpenUri('https://example.org/track/track123'), false);
     assert.equal(window.__sfNativeRequestHome(), true);
