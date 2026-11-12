@@ -70,6 +70,21 @@ def tap(node):
     adb('shell', 'input', 'tap', (x1 + x2) // 2, (y1 + y2) // 2)
 
 
+def await_main_foreground(timeout=60):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        dump = adb('shell', 'dumpsys', 'activity', 'activities')
+        resumed = next((line for line in dump.splitlines()
+                        if 'mResumedActivity:' in line or 'topResumedActivity=' in line), '')
+        window = adb('shell', 'dumpsys', 'window', 'windows')
+        focused = next((line for line in window.splitlines() if 'mCurrentFocus=' in line), '')
+        if (PACKAGE + '/com.melodix.music.MainActivity' in resumed and
+                PACKAGE + '/com.melodix.music.MainActivity' in focused):
+            return
+        time.sleep(1)
+    raise AssertionError('real MainActivity did not regain resumed and focused state')
+
+
 def phase(label):
     global current_phase
     current_phase = label
@@ -125,6 +140,7 @@ tap(find(text('Quitter la démo')))
 # Settings title before interacting, not merely the demo's identical root.
 phase('waiting for real settings after demo exit')
 find(lambda n: by_id('nativeScreenTitle')(n) and text('Paramètres')(n), timeout=60)
+await_main_foreground()
 phase('demo exit returned to real limited Glass')
 phase('finding Home tab after demo exit')
 tap(find(by_id('nativeHomeTab')))
