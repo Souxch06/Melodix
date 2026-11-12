@@ -1,0 +1,20 @@
+# Essai du comportement bibliothèque pré-Glass
+
+## Demande et portée
+
+À la demande de l'utilisateur, rétablissement ciblé du chemin pré-Glass après refus des deux demandes de jeton : essayer `libraryV3` avec `credentials: include` de la WebView et sans en-tête Authorization quand aucun bearer valide n'a été obtenu. Le thème Glass actuel est conservé. Ce n'est pas un retour complet à l'ancien APK. Aucune valeur d'en-tête, de jeton ou de cookie n'est ajoutée aux journaux ; aucun endpoint, identité client ou paramètre d'authentification n'est modifié.
+
+Sur réponse `libraryV3` 2xx JSON valide, le bridge peut traiter les données et la porte native accepte désormais cette preuve de bibliothèque même si `token=false`. Le diagnostic natif distingue `library-cookie-ok` de `token-and-library-ok`. Un cookie seul, un 401/403, un JSON invalide ou une réponse GraphQL partielle ne suffisent pas. Les gardes génération/époque, l'invalidation des données en cas de 401/403 et l'interdiction d'envoyer un bearer expiré restent en place. Aucun fichier de persistance, getter ou fixture Android n'a été modifié. Le code de persistance existant est toujours appelé lorsqu'une bibliothèque valide est acceptée ; le nouveau chemin peut donc atteindre cet appel sans bearer.
+
+## Résultats et limites
+
+- Source applicative `d6e7c5fffeb61d2c7bf064f6b9a420d2c69fac41` ; source APK `64f42154921380578876ce90d0a12f03bd159c46` (comprend les tests adaptés). Aucun merge ni release.
+- Tests locaux : **1 318 réussis, 0 échec, 0 ignoré**. En VM, l'ancien scénario 400/403 puis bibliothèque valide produit une playlist réelle synthétique sans bearer ; les cas 401/403, données mal formées et réponse partielle ne prouvent pas la session. Les tests de références comparent toujours tous les octets après normalisation de blocs exactement épinglés, et détectent leurs mutations. Les tests adaptés ne sont ni supprimés ni ignorés.
+- [Android run 43271120992](https://github.com/Souxch06/Melodix/actions/runs/43271120992) : construction et signature réussies ; tests de session téléphone/tablette et mise à jour synthétique verts. **Run global rouge** : les deux jobs bridge WebView 133 et 156 échouent à la phase `queued_real_retry_invalidation` (AssertionError). La fixture inchangée exige exactement deux requêtes et aucune bibliothèque après refus de jeton ; cette attente est incompatible avec le nouveau comportement. L'annotation ne donne pas la ligne précise de l'assertion, donc elle ne prouve pas à elle seule que c'est l'unique cause. Le nouveau cas de bibliothèque cookie-only n'est pas validé de bout en bout par ces jobs Android.
+- Le retour téléphonique historique test121 mentionnait déjà 400/403 puis bibliothèque 401 ; cela rend un échec encore plausible. L'essai actuel ne change pas la réponse des serveurs Spotify et n'est pas une preuve de correction sur le compte réel. Un 401 réel serait un nouveau résultat observé, pas une expiration démontrée.
+
+## APK expérimental
+
+[Artefact CI](https://github.com/Souxch06/Melodix/actions/runs/43271120992/artifacts/13968416836) : `Melodix-Preview-v1.3.2-test138-update-after.apk`, package `com.melodix.music.preview`, débogable, versionCode `1022720`, source `64f42154921380578876ce90d0a12f03bd159c46`, SHA-256 APK annoncé par CI `45427ac99bc4abcba6badc6acb6de0e13c02ee372f1592aa0fc8e65307fc5326`. La CI vérifie le signataire Preview épinglé ; l'APK n'a pas été inspecté localement. Expiration de l'artefact selon GitHub : 26 novembre à 17:36 UTC. L'APK est un artefact d'instrumentation, pas une release ; son versionCode supérieur peut empêcher une mise à jour ultérieure de version inférieure.
+
+Après prise en compte du run Android rouge : si l'utilisateur souhaite essayer, installer par-dessus la preview sans désinstallation ni effacement des données ; si Android refuse signature ou downgrade, arrêter. Vérifier si les playlists apparaissent ; sinon copier Détails techniques pour constater le nouveau statut bibliothèque. Ne pas transmettre de token ou de cookie. La compatibilité de signature et de version avec une installation particulière ne peut être garantie sans contrôle Android.
