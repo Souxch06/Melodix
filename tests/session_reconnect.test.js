@@ -29,6 +29,7 @@ function run(name, obj, state, value) {
     if((m=l.match(/^move-result(?:-object)? (\w+)/))) {r[m[1]]=result;continue;}
     if((m=l.match(/^check-cast /))) continue;
     if((m=l.match(/^if-(eqz|nez) (\w+), (:\w+)/))) {if(m[1]==='eqz'?!r[m[2]]:!!r[m[2]]) pc=labels[m[3]];continue;}
+    if((m=l.match(/^if-(gez|ltz) (\w+), (:\w+)/))) {if(m[1]==='gez'?r[m[2]]>=0:r[m[2]]<0)pc=labels[m[3]];continue;}
     if((m=l.match(/^if-(eq|ne) (\w+), (\w+), (:\w+)/))) {if((r[m[2]]===r[m[3]])===(m[1]==='eq'))pc=labels[m[4]];continue;}
     if(l==='return-void') return;
     if((m=l.match(/^goto (:\w+)/))) {pc=labels[m[1]];continue;}
@@ -36,6 +37,7 @@ function run(name, obj, state, value) {
       const a=m[1]?m[1].split(', ').map(x=>r[x]):[], c=m[2];
       if(c.includes('NativeSessionReconnect;->allowed')) result=!state.loginActive && [2,4].includes(state.gateState);
       else if(c.includes('NativeSessionEvidence;->canClear')) result=state.expired===true && state.canClear!==false;
+      else if(c.includes('NativeSessionStore;->advance')) {result=state.storeFails?-1:++state.generation; if(state.storeFails)state.generation=-1;}
       else if(c.includes('NativeSessionEvidence;->reset')) {}
       else if(c.includes('NativeSessionGate;->transition')) {state.phase=a[1];state.sessionState=a[0];}
       else if(c.includes('NativeSessionGate;->paint')) {}
@@ -128,4 +130,10 @@ test('all smali call sites of destructive reconnect are the warned native action
   const walk=d=>fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(path.join(d,e.name)):[path.join(d,e.name)]);
   const callers=walk(path.join(__dirname,'..','smali')).filter(p=>p.endsWith('.smali') && read(path.relative(path.join(__dirname,'..'),p)).includes('NativeSessionReconnect;->start(Lcom/melodix/music/MainActivity;)V'));
   assert.deepEqual(callers.map(p=>path.relative(path.join(__dirname,'..'),p)),['smali/com/melodix/music/NativeSessionSurfaceAction.smali']);
+});
+
+test('a failed synchronous generation commit blocks the destructive reconnect',()=>{
+ const f=fixture();f.state.storeFails=true;run('start',f.activity,f.state);
+ assert.equal(f.state.generation,-1);assert.ok(!f.state.events.includes('storage-clear'));
+ assert.ok(!f.state.events.includes('clear-request'));
 });

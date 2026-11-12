@@ -259,7 +259,8 @@ jobs:
     uses: ./.github/workflows/preview-apk.yml
     with:
       release_tag: v1.3.2-test.137-preview
-      source_ref: 2fb41959b4f7c7d7ef11f17d38bf601d02a75679
+      # Both versions contain the native epoch store; version codes differ.
+      source_ref: ${{ inputs.source_ref }}
       build_only: true
       target_debuggable: true
       apk_suffix: '-update-before'

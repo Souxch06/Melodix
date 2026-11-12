@@ -251,9 +251,8 @@
     sget v0, Lcom/melodix/music/NativeSessionGate;->privateUiEpoch:I
     add-int/lit8 v0, v0, 0x1
     sput v0, Lcom/melodix/music/NativeSessionGate;->privateUiEpoch:I
-    sget v0, Lcom/melodix/music/NativeSessionGate;->generation:I
-    add-int/lit8 v0, v0, 0x1
-    sput v0, Lcom/melodix/music/NativeSessionGate;->generation:I
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionStore;->advance(Landroid/content/Context;)I
+    move-result v0
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->invalidateNativePrivateUi()V
 
     .line 1
@@ -5057,6 +5056,15 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     if-eqz p1, :done
     invoke-static {p0}, Lcom/melodix/music/StartupDiagnosticOverlay;->dismissContentForSession(Lcom/melodix/music/MainActivity;)V
     :done
+    return-void
+.end method
+
+# CookieManager.flush only commits the cookie jar; it is not a WebStorage flush.
+# The login-return and onStop paths remain independently guarded.
+.method public final onPause()V
+    .locals 0
+    invoke-super {p0}, Le6;->onPause()V
+    invoke-static {}, Lcom/melodix/music/NativeSessionRecovery;->flushCookies()V
     return-void
 .end method
 

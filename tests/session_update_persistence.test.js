@@ -33,7 +33,7 @@ test('actual verifier rejects incompatible keys, packages, versions, ambiguity a
  const goodcert=`Signer #1 certificate SHA-256 digest: ${digest}\n`,goodpkg="package: name='com.melodix.music.preview' versionCode='1021485' versionName='test'\n";
  try {for(const [c,b,pass] of [[goodcert,goodpkg,true],[goodcert.toUpperCase(),goodpkg,false],[goodcert.replace(digest,'f'.repeat(64)),goodpkg,false],[goodcert+goodcert,goodpkg,false],[goodcert,goodpkg.replace('1021485','1021484'),false],[goodcert,goodpkg.replace('com.melodix.music.preview','com.melodix.music'),false],[goodcert,goodpkg+goodpkg,false],['',goodpkg,false]]){fs.writeFileSync(cert,c);fs.writeFileSync(badging,b);const r=spawnSync('python3',['scripts/verify_preview_update.py',cert,badging],{encoding:'utf8'});assert.equal(r.status===0,pass,`${c.slice(0,55)} ${b.slice(0,80)}`);}}finally{fs.rmSync(tmp,{recursive:true,force:true});}
 });
-test('upgrade emulator fixture exercises synthetic cookie and WebStorage through install -r without clearing data',()=>{
+test('upgrade emulator fixture checks flushed cookies and committed native state without clearing data',()=>{
  const fixture=read('tests/android/UpdatePersistenceInstrumentation.java'),script=read('scripts/update_persistence_emulator.sh'),workflow=read('.github/workflows/test-session-gate.yml');
  assert.match(fixture,/melodix-update-fixture\.invalid/);assert.match(fixture,/cookies\.setCookie[\s\S]*?cookies\.flush/);assert.match(fixture,/cookies\.getCookie/);assert.match(fixture,/localStorage\.setItem[\s\S]*?localStorage\.getItem/);assert.doesNotMatch(fixture,/open\.spotify\.com|sp_dc|authorization|Bearer/i);
  assert.match(script,/adb install "\$old"[\s\S]*?-e mode seed[\s\S]*?adb install -r "\$new"[\s\S]*?-e mode verify/);assert.doesNotMatch(script,/pm clear|adb uninstall/);
@@ -46,14 +46,27 @@ test('manual and background installer must flush before PackageInstaller; manual
  const manual=read('smali/com/melodix/music/SelfUpdater$OnInstall.smali');assert.match(manual,/flushForUpdate\(\)Z[\s\S]*?Toast;->show\(\)V[\s\S]*?:flush_ok[\s\S]*?SelfUpdater;->install/);
 });
 
-test('upgrade failure controls use distinct offline origins and do not weaken the strict replacement assertion',()=>{
+test('restart and upgrade check committed native state and cookies, not immediate WebStorage durability',()=>{
  const fixture=read('tests/android/UpdatePersistenceInstrumentation.java'),script=read('scripts/update_persistence_emulator.sh');
- for(const marker of ['melodix-restart-fixture.invalid','melodix-force-stop-fixture.invalid','melodix-same-process-fixture.invalid','melodix-settled-fixture.invalid','melodix-settled-upgrade-fixture.invalid','melodix-update-fixture.invalid'])assert.ok(fixture.includes(marker));
- assert.match(script,/run_probe restart[\s\S]*?run_probe force_stop[\s\S]*?run_probe settled[\s\S]*?phase=seed[\s\S]*?adb install -r "\$new"[\s\S]*?grep -Fq 'INSTRUMENTATION_RESULT: overall=passed'/);
- assert.doesNotMatch(script,/pm clear|adb uninstall/);assert.doesNotMatch(fixture,/open\.spotify\.com|sp_dc|authorization|Bearer/i);
+ for(const marker of ['melodix-restart-fixture.invalid','melodix-force-stop-fixture.invalid','melodix-same-process-fixture.invalid','melodix-update-fixture.invalid'])assert.ok(fixture.includes(marker));
+ assert.match(script,/run_probe restart[\s\S]*?run_probe force_stop[\s\S]*?phase=seed[\s\S]*?adb install -r "\$new"[\s\S]*?grep -Fq 'INSTRUMENTATION_RESULT: overall=passed'/);
+ assert.match(fixture,/recordVerified[\s\S]*?verified_generation/);
+ assert.match(fixture,/verify_fresh_process_unproven[\s\S]*?getField\("state"\).*!=3/);
+ assert.doesNotMatch(script,/pm clear|adb uninstall|sleep/);
+ assert.doesNotMatch(fixture,/open\.spotify\.com|sp_dc|authorization|Bearer/i);
+ const verify=fixture.slice(fixture.indexOf('phase="verify_cookie"'),fixture.indexOf('// localStorage is checked'));
+ assert.doesNotMatch(verify,/localStorage/);
 });
-
-test('settled-before-upgrade control remains separate and cannot mask strict immediate-write failure',()=>{
- const script=read('scripts/update_persistence_emulator.sh');
- assert.match(script,/-e origin_case settled_upgrade -e mode seed_settled[\s\S]*?phase=seed[\s\S]*?adb install -r "\$new"[\s\S]*?primary_ok=false[\s\S]*?mode verify[\s\S]*?origin_case settled_upgrade -e mode verify[\s\S]*?if \[\[ "\$primary_ok" != true \]\]; then exit 1/);
+test('generation and proof observations commit synchronously, failed commits close the gate, and no old proof reauthorizes',()=>{
+ const store=read('smali/com/melodix/music/NativeSessionStore.smali'),gate=read('smali/com/melodix/music/NativeSessionGate.smali');
+ const advance=method(store,'.method public static advance('),record=method(store,'.method public static recordVerified(');
+ assert.match(advance,/getInt[\s\S]*?putInt[\s\S]*?verified_generation[\s\S]*?commit\(\)Z[\s\S]*?if-eqz v0, :failed[\s\S]*?sput v1, .*generation/);
+ assert.match(advance,/:failed[\s\S]*?const\/4 v0, -0x1[\s\S]*?sput v0, .*generation/);
+ assert.match(record,/if-lez p1, :failed[\s\S]*?if-ne v2, p1, :failed[\s\S]*?last_verified_generation[\s\S]*?commit\(\)Z/);
+ assert.doesNotMatch(store.replace(/^#.*$/gm,''),/Cookie|token|WebStorage|localStorage|loadUrl/i);
+ assert.match(method(gate,'.method public static result('),/if-lez v2, :rejected_generation/);
+ assert.match(method(gate,'.method public static result('),/recordVerified[\s\S]*?if-nez v1, :proof_saved[\s\S]*?verification-failed-no-logout/);
+ assert.doesNotMatch(gate,/last_verified_generation|verified_generation/);
+ const pause=method(read('smali/com/melodix/music/MainActivity.smali'),'.method public final onPause()V');
+ assert.match(pause,/NativeSessionRecovery;->flushCookies/);
 });

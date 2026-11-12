@@ -94,7 +94,7 @@ test('generation guards, reconnect, Spotify request functions and proof publicat
  const method=(s,n)=>{const a=s.indexOf('.method public static '+n+'(');return s.slice(a,s.indexOf('.end method',a));};
  assert.match(method(gate,'result'),/if-ne v1, v2, :rejected_generation/);
  assert.match(method(gate,'result'),/if-le v1, v2, :rejected_attempt/);
- assert.equal(method(gate,'begin').replace('    invoke-static {}, Lcom/melodix/music/NativeSessionVerificationFlight;->start()V\n',''),method(oldGate,'begin'));
+ assert.equal(require('./helpers/session_store_normalize')(method(gate,'begin').replace('    invoke-static {}, Lcom/melodix/music/NativeSessionVerificationFlight;->start()V\n','')),method(oldGate,'begin'));
  assert.match(read(dir+'NativeSessionEvidence.smali'),/canClear\(\)Z[\s\S]*?const\/4 v1, 0x1[\s\S]*?->current\(\)Ljava\/lang\/String;[\s\S]*?->equals/);
  assert.equal(fn(js,'publishSessionVerification'),fn(old('scripts/spotify_bridge.source.js'),'publishSessionVerification'));
  const asyncFn=(s,n,end)=>s.slice(s.indexOf('    async function '+n+'('),s.indexOf(end,s.indexOf('    async function '+n+'(')));

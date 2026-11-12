@@ -33,6 +33,7 @@ function machine(overrides={}) {
     else if(c.includes('NativeSessionAttemptDiagnostic;->reason')) {}
     else if(c.includes('NativeSessionEvidence;->recordCurrentCookie')) result=recordEvidence();
     else if(c.includes('NativeSessionEvidence;->reset')) resetEvidence();
+    else if(c.includes('NativeSessionStore;->recordVerified')) result=fields.storeCommit!==false;
     else if(c.includes('NativeSessionEvidence;->canClear')) {syncEvidence();result=!!evidence.run('canClear');}
     else if(c.includes('->optInt')) result=Number(a[0][a[1]])||0;
     else if(c.includes('->optBoolean')) result=a[0][a[1]]===true;
@@ -47,6 +48,7 @@ function machine(overrides={}) {
    if((m=l.match(/^move-result(?:-object)? (\w+)/))) {regs[m[1]]=result;continue;}
    if((m=l.match(/^iput-boolean (\w+), (\w+), .*;->(\w+):/))) {regs[m[2]][m[3]]=regs[m[1]];continue;}
    if((m=l.match(/^if-(eqz|nez) (\w+), (:\w+)/))) {if(m[1]==='eqz'?!regs[m[2]]:!!regs[m[2]])pc=labels[m[3]];continue;}
+   if((m=l.match(/^if-lez (\w+), (:\w+)/))) {if(regs[m[1]]<=0)pc=labels[m[2]];continue;}
    if((m=l.match(/^if-(eq|ne|le|lt|gt) (\w+), (\w+), (:\w+)/))) {const a=regs[m[2]], b=regs[m[3]];if(m[1]==='eq'?a===b:m[1]==='ne'?a!==b:m[1]==='lt'?a<b:m[1]==='gt'?a>b:a<=b)pc=labels[m[4]];continue;}
    if((m=l.match(/^goto (:\w+)/))) {pc=labels[m[1]];continue;}
    if((m=l.match(/^return(?:-object)? (\w+)/)))return regs[m[1]];
@@ -249,4 +251,15 @@ test('incomplete or unknown diagnostic rows cannot add evidence or affect the ga
  m.send({attempt:2,completed:false,...refused});assert.equal(m.evidence.fields.count,1);assert.equal(m.fields.lastAttempt,0);
  m.send({attempt:3,completed:true,token:false,tokenApiHttp:0,tokenFallbackHttp:0,libraryHttp:0});
  assert.equal(m.evidence.fields.count,0);assert.equal(m.fields.state,4);assert.equal(m.transitions.at(-1).reason,'token-unavailable');
+});
+
+test('a rejected native proof commit cannot unlock private UI',()=>{
+ const m=machine({storeCommit:false});m.send({token:true,libraryOk:true});
+ assert.equal(m.fields.state,4);assert.equal(m.transitions.at(-1).reason,'verification-failed-no-logout');
+ assert.ok(!m.calls.includes('showNativeUi'));
+});
+
+test('negative generation after failed persistence cannot accept a matching callback',()=>{
+ const m=machine({generation:-1});m.send({generation:-1,token:true,libraryOk:true});
+ assert.equal(m.fields.state,0);assert.ok(!m.calls.includes('showNativeUi'));
 });

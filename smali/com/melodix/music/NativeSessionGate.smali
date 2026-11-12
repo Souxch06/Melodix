@@ -113,9 +113,9 @@
 
 .method public static begin(Lcom/melodix/music/MainActivity;)V
     .locals 5
-    sget v0, Lcom/melodix/music/NativeSessionGate;->generation:I
-    add-int/lit8 v0, v0, 0x1
-    sput v0, Lcom/melodix/music/NativeSessionGate;->generation:I
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionStore;->advance(Landroid/content/Context;)I
+    move-result v0
+    if-ltz v0, :store_failure
     invoke-static {}, Lcom/melodix/music/NativeSessionVerificationFlight;->start()V
     const/4 v1, 0x0
     sput v1, Lcom/melodix/music/NativeSessionGate;->lastAttempt:I
@@ -138,6 +138,12 @@
     invoke-direct {v2, v3}, Landroid/os/Handler;-><init>(Landroid/os/Looper;)V
     const-wide/16 v3, 0xbb8
     invoke-virtual {v2, v1, v3, v4}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionGate;->paint(Lcom/melodix/music/MainActivity;)V
+    return-void
+    :store_failure
+    const/4 v1, 0x4
+    const-string v2, "retry-launch-failed"
+    invoke-static {v1, v2}, Lcom/melodix/music/NativeSessionGate;->transition(ILjava/lang/String;)V
     invoke-static {p0}, Lcom/melodix/music/NativeSessionGate;->paint(Lcom/melodix/music/MainActivity;)V
     return-void
 .end method
@@ -242,6 +248,7 @@
     invoke-virtual {v0, v1}, Lorg/json/JSONObject;->optInt(Ljava/lang/String;)I
     move-result v1
     sget v2, Lcom/melodix/music/NativeSessionGate;->generation:I
+    if-lez v2, :rejected_generation
     if-ne v1, v2, :rejected_generation
     sget-boolean v1, Lcom/melodix/music/NativeSessionGate;->loginActive:Z
     if-nez v1, :done
@@ -281,6 +288,13 @@
     if-lt v1, v2, :not_valid
     const/16 v2, 0x12b
     if-gt v1, v2, :not_valid
+    sget v1, Lcom/melodix/music/NativeSessionGate;->generation:I
+    invoke-static {p0, v1}, Lcom/melodix/music/NativeSessionStore;->recordVerified(Landroid/content/Context;I)Z
+    move-result v1
+    if-nez v1, :proof_saved
+    const-string v2, "verification-failed-no-logout"
+    goto :unproven_error
+    :proof_saved
     const/4 v1, 0x3
     invoke-static {}, Lcom/melodix/music/NativeSessionEvidence;->reset()V
     const-string v2, "token-and-library-ok"
@@ -389,9 +403,18 @@
     const/4 v0, 0x0
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginPageCommitted:Z
     # Invalidate callbacks issued before this login without clearing any cookie.
-    sget v0, Lcom/melodix/music/NativeSessionGate;->generation:I
-    add-int/lit8 v0, v0, 0x1
-    sput v0, Lcom/melodix/music/NativeSessionGate;->generation:I
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionStore;->advance(Landroid/content/Context;)I
+    move-result v0
+    if-gez v0, :login_epoch_ok
+    const/4 v0, 0x0
+    sput-boolean v0, Lcom/melodix/music/NativeSessionGate;->loginActive:Z
+    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginWebRequested:Z
+    const/4 v0, 0x4
+    const-string v1, "retry-launch-failed"
+    invoke-static {v0, v1}, Lcom/melodix/music/NativeSessionGate;->transition(ILjava/lang/String;)V
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionGate;->paint(Lcom/melodix/music/MainActivity;)V
+    return-void
+    :login_epoch_ok
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
     if-eqz v0, :done
     const-string v1, "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&allow_signup=1"
@@ -446,9 +469,8 @@
     if-eqz v0, :done
     const/4 v0, 0x0
     sput-boolean v0, Lcom/melodix/music/NativeSessionGate;->activeLaunch:Z
-    sget v0, Lcom/melodix/music/NativeSessionGate;->generation:I
-    add-int/lit8 v0, v0, 0x1
-    sput v0, Lcom/melodix/music/NativeSessionGate;->generation:I
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionStore;->advance(Landroid/content/Context;)I
+    move-result v0
     const/4 v0, 0x0
     sput v0, Lcom/melodix/music/NativeSessionGate;->state:I
     sput-boolean v0, Lcom/melodix/music/NativeSessionGate;->initialNavigationIssued:Z

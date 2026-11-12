@@ -27,9 +27,12 @@
     const/4 v0, 0x1
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeReconnectPending:Z
     sput-boolean v0, Lcom/melodix/music/NativeSessionGate;->loginActive:Z
-    sget v0, Lcom/melodix/music/NativeSessionGate;->generation:I
-    add-int/lit8 v0, v0, 0x1
-    sput v0, Lcom/melodix/music/NativeSessionGate;->generation:I
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionStore;->advance(Landroid/content/Context;)I
+    move-result v0
+    if-gez v0, :advance_ok
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionReconnect;->failed(Lcom/melodix/music/MainActivity;)V
+    return-void
+    :advance_ok
     const-wide/16 v1, 0x0
     iput-wide v1, p0, Lcom/melodix/music/MainActivity;->nativeVerificationStart:J
     :try_start
