@@ -27,6 +27,10 @@ def text_node(items, text):
 def find_id(items, idname):
     return next((n for n in items if n.get('resource-id', '').endswith(':id/' + idname)), None)
 
+def login_or_native_session(items):
+    session = find_id(items, 'sessionTitle')
+    return session if session is not None else login_surface(items)
+
 def real_surface(items):
     # The login header title is deliberately GONE. Recognize the actual
     # functional login WebView, while keeping the old native error/settings
@@ -84,7 +88,7 @@ try:
     wait(lambda n: text_node(n, 'Essayer le mode démo'), 'launcher demo button')
     screenshot('02-reglages-test', 'launcher settings / Essayer le mode démo')
     tap(wait(lambda n: text_node(n, 'Ouvrir Melodix'), 'open real app'))
-    wait(real_surface, 'real session surface', 90)
+    wait(login_or_native_session, 'real session surface', 90)
     entry = wait(lambda n: text_node(n, 'Essayer le mode démo'), 'real session demo button', 90)
     screenshot('03-session', 'real session / Essayer le mode démo')
     tap(entry)
