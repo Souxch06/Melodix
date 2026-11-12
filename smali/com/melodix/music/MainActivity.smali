@@ -10106,9 +10106,14 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     const-wide/16 v6, 0x0
     invoke-virtual {v0, v1, v6, v7}, Lorg/json/JSONObject;->optLong(Ljava/lang/String;J)J
     move-result-wide v4
-    invoke-static {v4, v5}, Lcom/melodix/music/MainActivity;->formatNativeTime(J)Ljava/lang/String;
+    # The WebView player payload is in seconds; the shared formatter accepts
+    # milliseconds. Preserve v2/v4 in seconds for the progress ratio below.
+    const-wide/16 v6, 0x3e8
+    mul-long v8, v4, v6
+    invoke-static {v8, v9}, Lcom/melodix/music/MainActivity;->formatNativeTime(J)Ljava/lang/String;
     move-result-object v11
-    invoke-static {v2, v3}, Lcom/melodix/music/MainActivity;->formatNativeTime(J)Ljava/lang/String;
+    mul-long v8, v2, v6
+    invoke-static {v8, v9}, Lcom/melodix/music/MainActivity;->formatNativeTime(J)Ljava/lang/String;
     move-result-object v10
     const v8, 0x7f09023d
     invoke-virtual {p0, v8}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
@@ -10219,6 +10224,12 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 .method private static formatNativeTime(J)Ljava/lang/String;
     .locals 6
 
+    # Keep the formatter's millisecond contract and clamp invalid negatives.
+    const-wide/16 v0, 0x0
+    cmp-long v1, p0, v0
+    if-gez v1, :native_time_nonnegative
+    const-wide/16 p0, 0x0
+    :native_time_nonnegative
     const-wide/16 v0, 0x3e8
     div-long v0, p0, v0
     const-wide/16 v2, 0x3c
@@ -10233,7 +10244,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     const-wide/16 v2, 0xa
     cmp-long v1, v4, v2
-    if-ltz v1, :native_time_pad
+    if-gez v1, :native_time_pad
     const-string v1, "0"
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 

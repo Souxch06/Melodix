@@ -61,7 +61,7 @@ jobs:
     uses: ./.github/workflows/preview-apk.yml
     with:
       source_ref: ${{ inputs.source_ref }}
-      release_tag: v1.2.2-test.165-preview
+      release_tag: v1.2.2-test.166-preview
       build_only: true
       demo_build: true
       version_code_base: 1021508
