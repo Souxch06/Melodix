@@ -24,6 +24,10 @@ on:
         required: false
         default: false
         type: boolean
+      demo_glass_launcher:
+        required: false
+        default: false
+        type: boolean
       apk_suffix:
         required: false
         default: ""
@@ -187,6 +191,7 @@ jobs:
           BUILD_ONLY: ${{ inputs.build_only || github.event_name == 'workflow_dispatch' }}
           TARGET_DEBUGGABLE: ${{ inputs.target_debuggable || false }}
           DEMO_BUILD: ${{ inputs.demo_build || false }}
+          DEMO_GLASS_LAUNCHER: ${{ inputs.demo_glass_launcher || false }}
           MELODIX_PREVIEW_KEYSTORE_B64: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_B64 }}
           MELODIX_PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
           MELODIX_PREVIEW_KEY_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEY_PASSWORD || secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
@@ -296,7 +301,13 @@ jobs:
 
           if [[ "$DEMO_BUILD" == "true" ]]; then
             [[ "$BUILD_ONLY" == "true" ]] || { echo "::error::Demo is forbidden in publishable builds"; exit 1; }
-            python3 "$source_dir/scripts/prepare_demo_preview.py" "$work_dir"
+            if [[ "$DEMO_GLASS_LAUNCHER" == "true" ]]; then
+              python3 "$source_dir/scripts/prepare_demo_preview.py" "$work_dir" --glass-launcher
+            else
+              python3 "$source_dir/scripts/prepare_demo_preview.py" "$work_dir"
+            fi
+          elif [[ "$DEMO_GLASS_LAUNCHER" == "true" ]]; then
+            echo "::error::Glass demo launcher requires a demo build"; exit 1
           fi
 
           sed -i -E "s#(<string name=\"app_name\">)[^<]*(</string>)#\1Melodix Preview ${SOURCE_REF:0:7}\2#" \

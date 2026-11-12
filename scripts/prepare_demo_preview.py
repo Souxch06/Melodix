@@ -9,8 +9,13 @@ launch=[]
 for f in main.findall('intent-filter'):
     if any(x.get(a+'name')=='android.intent.action.MAIN' for x in f.findall('action')) and any(x.get(a+'name')=='android.intent.category.LAUNCHER' for x in f.findall('category')): launch.append(f)
 assert len(launch)==1
-main.remove(launch[0]); entry=ET.SubElement(app,'activity',{a+'name':'com.melodix.demo.DemoSettingsActivity',a+'process':':demo',a+'exported':'true',a+'label':'Melodix Preview'})
-entry.append(launch[0]); ET.SubElement(app,'activity',{a+'name':'com.melodix.demo.DemoActivity',a+'process':':demo',a+'exported':'false'})
+glass_launcher = len(sys.argv) == 3 and sys.argv[2] == '--glass-launcher'
+if len(sys.argv) > 2 and not glass_launcher:
+    raise ValueError('usage: prepare_demo_preview.py PROJECT [--glass-launcher]')
+entry=ET.SubElement(app,'activity',{a+'name':'com.melodix.demo.DemoSettingsActivity',a+'process':':demo',a+'exported':'true',a+'label':'Melodix Preview'})
+if not glass_launcher:
+    main.remove(launch[0]); entry.append(launch[0])
+ET.SubElement(app,'activity',{a+'name':'com.melodix.demo.DemoActivity',a+'process':':demo',a+'exported':'false'})
 ET.SubElement(app,'activity',{a+'name':'com.melodix.local.LocalMusicActivity',a+'process':':demo',a+'exported':'false'})
 ET.SubElement(app,'service',{a+'name':'com.melodix.local.LocalPlaybackService',a+'process':':demo',a+'exported':'false',a+'foregroundServiceType':'mediaPlayback'})
 tree.write(manifest,encoding='utf-8',xml_declaration=True)

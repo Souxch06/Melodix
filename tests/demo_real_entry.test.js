@@ -57,3 +57,26 @@ test('visible preview controls retain the hidden shortcut and do not alter sessi
   assert.match(helper, /FLAG_ACTIVITY_CLEAR_TOP \| Intent.FLAG_ACTIVITY_SINGLE_TOP/);
   assert.doesNotMatch(helper, /CookieManager|WebStorage|removeAllCookies|clearApplicationUserData|NativeSessionGate|NativeSessionEvidence|https?:\/\//);
 });
+
+test('experimental Glass launcher retains the real MainActivity and isolates demo additions', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'melodix-glass-demo-'));
+  try {
+    const files = ['AndroidManifest.xml', 'smali/com/melodix/music/AppSingleton.smali',
+      'smali/com/melodix/music/NativeSettingsRowFactory.smali',
+      'smali/com/melodix/music/NativeSessionSurface.smali',
+      'smali/com/melodix/music/MainActivity.smali', 'res/layout/native_session_surface.xml',
+      'smali/com/melodix/music/NativeLimitedGlass.smali'];
+    for (const f of files) { const out=path.join(dir,f); fs.mkdirSync(path.dirname(out),{recursive:true}); fs.copyFileSync(f,out); }
+    cp.execFileSync('python3',['scripts/prepare_demo_preview.py',dir,'--glass-launcher']);
+    cp.execFileSync('python3',['-c',String.raw`
+import sys, xml.etree.ElementTree as E
+r=E.parse(sys.argv[1]+'/AndroidManifest.xml').getroot(); a='{http://schemas.android.com/apk/res/android}'
+acts=r.find('application').findall('activity')
+launch=[x for x in acts if any(y.get(a+'name')=='android.intent.category.LAUNCHER' for f in x.findall('intent-filter') for y in f.findall('category'))]
+assert len(launch)==1 and launch[0].get(a+'name')=='com.melodix.music.MainActivity'
+assert any(x.get(a+'name')=='com.melodix.demo.DemoActivity' and x.get(a+'process')==':demo' for x in acts)
+`,dir]);
+    assert.match(fs.readFileSync(path.join(dir,'smali/com/melodix/music/NativeLimitedGlass.smali'),'utf8'), /DemoEntry;->bindSettings/);
+    assert.doesNotMatch(read('smali/com/melodix/music/NativeLimitedGlass.smali'), /DemoEntry/);
+  } finally { fs.rmSync(dir,{recursive:true,force:true}); }
+});
