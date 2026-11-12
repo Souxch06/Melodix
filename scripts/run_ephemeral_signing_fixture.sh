@@ -23,7 +23,7 @@ cleanup() {
 trap cleanup EXIT
 keytool -genkeypair -keystore "$dir/fixture.jks" -storepass test-only -keypass test-only -alias fixture -dname 'CN=Disposable Android CI Fixture' -keyalg RSA -keysize 2048 -validity 1 >/dev/null 2>&1
 cat > "$dir/app/AndroidManifest.xml" <<'EOF'
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.melodix.ci.ephemeralfixture"><uses-sdk android:minSdkVersion="24" android:targetSdkVersion="36"/><application android:label="Disposable signing fixture" android:hasCode="false" android:debuggable="true" /></manifest>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.melodix.ci.ephemeralfixture"><uses-sdk android:minSdkVersion="24" android:targetSdkVersion="36"/><application android:label="Disposable signing fixture" android:hasCode="true" android:debuggable="true" /></manifest>
 EOF
 cat > "$dir/test/AndroidManifest.xml" <<'EOF'
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.melodix.ci.ephemeralfixture.test"><uses-sdk android:minSdkVersion="24" android:targetSdkVersion="36"/><application android:label="Disposable signing test"/><instrumentation android:name="com.melodix.ci.FixtureInstrumentation" android:targetPackage="com.melodix.ci.ephemeralfixture"/></manifest>
@@ -44,7 +44,7 @@ phase=package_app
 phase=package_test
 "$tools/aapt" package -f -M "$dir/test/AndroidManifest.xml" -I "$sdk" -F "$dir/test-unsigned.apk" 2> "$dir/aapt-error.txt"
 phase=package_dex
-(cd "$dir/dex" && zip -q "$dir/test-unsigned.apk" classes.dex)
+(cd "$dir/dex" && zip -q "$dir/test-unsigned.apk" classes.dex && zip -q "$dir/app-unsigned.apk" classes.dex)
 phase=sign
 for part in app test; do
   "$tools/zipalign" -f 4 "$dir/$part-unsigned.apk" "$dir/$part-aligned.apk"
