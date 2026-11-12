@@ -60,8 +60,10 @@ try:
     adb('shell','am','force-stop',pkg)
     adb('shell','monkey','-p',pkg,'-c','android.intent.category.LAUNCHER','1')
     tap(wait(text='Ma musique')); tap(wait(text='Choisir un fichier audio'))
-    # The system document picker may start on Recents or in Downloads.
-    deadline=time.monotonic()+45
+    # Use the storage provider, not the Downloads provider: files pushed by adb
+    # need not appear in DownloadManager. The picker still grants the real URI.
+    deadline=time.monotonic()+60
+    opened_root=False; opened_folder=False
     while True:
         items=nodes(); audio=find(items,text='Melodix-Local-Test.wav')
         if audio is not None: tap(audio); break
@@ -70,10 +72,17 @@ try:
             raise RuntimeError('system picker did not show test file; controls='+repr(visible[:25]))
         allow=next((n for n in items if n.get('resource-id','').endswith(':id/permission_allow_button')),None)
         if allow is not None: tap(allow); continue
-        downloads=find(items,text='Downloads') or find(items,text='Téléchargements')
-        if downloads is not None: tap(downloads); continue
-        roots=next((n for n in items if n.get('content-desc') in ('Show roots','Browse','Afficher les racines','Parcourir')),None)
-        if roots is not None: tap(roots); continue
+        drawer=find(items,text='Open from') or find(items,text='Ouvrir depuis')
+        if drawer is not None and not opened_root:
+            device=next((n for n in items if n.get('text','').startswith('sdk_gphone')),None)
+            if device is None: raise RuntimeError('emulator storage root not visible')
+            tap(device); opened_root=True; continue
+        folder=find(items,text='Download')
+        if opened_root and not opened_folder and folder is not None:
+            tap(folder); opened_folder=True; continue
+        if not opened_root:
+            roots=next((n for n in items if n.get('content-desc') in ('Show roots','Browse','Afficher les racines','Parcourir')),None)
+            if roots is not None: tap(roots); continue
         time.sleep(1)
     wait(ident='nativeMiniPlayer',seconds=60); tap(wait(ident='nativeMiniPlayer'))
     wait(ident='nativePlayerLargePlayPauseButton'); wait(text='1:30',seconds=35)
