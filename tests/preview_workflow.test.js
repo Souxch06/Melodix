@@ -514,7 +514,7 @@ test("the emulator workflow validates same-run instrumentation and exact release
   );
   assert.match(emulatorWorkflow, /build_only: true/);
   assert.match(emulatorWorkflow, /build-preview:[\s\S]*?target_debuggable: true[\s\S]*?apk_suffix: '-instrumentation'/);
-  assert.match(emulatorWorkflow, /default: v1\.2\.2-test\.96-preview[\s\S]*?build-release-candidate:[\s\S]*?release_tag: \$\{\{ inputs\.release_tag \|\| 'v1\.2\.2-test\.96-preview' \}\}[\s\S]*?target_debuggable: false[\s\S]*?apk_suffix: '-release-candidate'[\s\S]*?version_code_base: 1021019/);
+  assert.match(emulatorWorkflow, /default: v1\.2\.2-test\.96-preview[\s\S]*?build-release-candidate:[\s\S]*?release_tag: \$\{\{ inputs\.release_tag \|\| 'v1\.2\.2-test\.96-preview' \}\}[\s\S]*?target_debuggable: false[\s\S]*?apk_suffix: '-release-candidate'[\s\S]*?version_code_base: 1022721/);
   assert.doesNotMatch(emulatorWorkflow, /release_tag: \$\{\{ inputs\.release_tag \|\| 'v1\.2\.2-test\.95-preview'/,
     "the next release candidate targets .96 rather than overwriting the published .95 preview tag");
   assert.match(emulatorWorkflow, /install-and-launch:[\s\S]*?needs: \[build-preview, build-release-candidate\]/);
@@ -522,7 +522,7 @@ test("the emulator workflow validates same-run instrumentation and exact release
   assert.match(emulatorWorkflow, /Download the non-debuggable release candidate built by this same run/);
   assert.match(emulatorWorkflow, /needs\.build-preview\.outputs\.apk_name/);
   assert.match(emulatorWorkflow, /needs\.build-release-candidate\.outputs\.apk_name/);
-  assert.match(emulatorWorkflow, /Verify the exact non-debuggable release candidate[\s\S]*?\[\[ "\$target_debuggable" == "false" \]\][\s\S]*?version_code > 1021019/);
+  assert.match(emulatorWorkflow, /Verify the exact non-debuggable release candidate[\s\S]*?\[\[ "\$target_debuggable" == "false" \]\][\s\S]*?version_code > 1022721/);
   assert.match(emulatorWorkflow, /Install and cold-launch the exact non-debuggable release candidate[\s\S]*?adb install \"\$RELEASE_APK\"[\s\S]*?activity_resumed=true/);
   assert.match(emulatorWorkflow, /Publish the exact validated Preview release candidate[\s\S]*?steps\.release-candidate-smoke\.outcome == 'success'[\s\S]*?gh release create/);
   assert.match(emulatorWorkflow, /if: \(github\.event_name == 'workflow_dispatch' && inputs\.publish_preview == true \|\| github\.event_name == 'push' && startsWith\(github\.event\.head_commit\.message, '\[preview-release\] v1\.2\.2-test\.96-preview'\)\) && steps\.integration\.outcome == 'success'[\s\S]*?gh release create/);

@@ -111,8 +111,9 @@ jobs:
       build_only: true
       target_debuggable: false
       apk_suffix: '-release-candidate'
-      # v1.2.2-test.95 is versionCode 1021019; the candidate must be newer.
-      version_code_base: 1021019
+      # The previously distributed experimental APK is versionCode 1022721.
+      # The candidate must be updateable over that installed artifact too.
+      version_code_base: 1022721
     secrets: inherit
 
   install-and-launch:
@@ -392,7 +393,7 @@ jobs:
           [[ "$target_debuggable" == "false" ]] || { echo "::error::The release candidate must not be debuggable."; exit 1; }
           [[ "$package_id" == "com.melodix.music.preview" ]] || { echo "::error::Unexpected release-candidate package ID: $package_id"; exit 1; }
           [[ "$version_code" == "$EXPECTED_VERSION_CODE" && "$version_code" =~ ^[0-9]+$ ]] || { echo "::error::Unexpected release-candidate versionCode: $version_code (expected $EXPECTED_VERSION_CODE)."; exit 1; }
-          (( version_code > 1021019 )) || { echo "::error::Release-candidate versionCode must be newer than v1.2.2-test.95 (1021019)."; exit 1; }
+          (( version_code > 1022721 )) || { echo "::error::Release-candidate versionCode must be newer than experimental versionCode 1022721."; exit 1; }
           [[ "$version_name" == "1.2.2-${SOURCE_REF:0:7}" ]] || { echo "::error::Unexpected release-candidate versionName: $version_name"; exit 1; }
           "$build_tools/aapt" dump --values resources "$apk" > "$RUNNER_TEMP/melodix-release-candidate-resources.txt"
           grep -Fq "$SOURCE_REF" "$RUNNER_TEMP/melodix-release-candidate-resources.txt" || { echo "::error::Release candidate does not embed source SHA $SOURCE_REF."; exit 1; }

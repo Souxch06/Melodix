@@ -89,16 +89,13 @@ test('MEL-BUG-046: the visible libraryV3 status text carries the bearer flag on 
   assert.ok(shellAsset.includes('mediaLibraryBearerSuffix'), 'assets/native_ui_shell.js must be regenerated');
 });
 
-// MEL-BUG-048 + MEL-BUG-054: the Home state card carries the boolean bearer flag
-// exactly ONCE, inside the diagLine (MEL-BUG-050) — the old standalone
-// "(bearer=…)" suffix was removed to avoid a duplicated "(bearer=0) […] bearer=0".
-test('MEL-BUG-048/054: the home refusal card shows bearer=0/1 exactly once', () => {
+// Do not expose legacy credential diagnostics in the Home card.
+test('MEL-BUG-048/054: the home refusal card contains no bearer diagnostic', () => {
   const shellSrc = fs.readFileSync(path.join(repo, 'scripts/native_ui_shell.source.js'), 'utf8');
-  assert.doesNotMatch(shellSrc, /&& subtitle\) \{\s*subtitle \+= mediaLibraryBearerSuffix\(\);/,
-    'no standalone bearer suffix on the home card anymore (diagLine carries it)');
-  assert.match(shellSrc, /var diagLine = ' \[auth='[\s\S]*?bearer=' \+ diagBearer/,
-    'the diagLine carries the bearer flag');
-  assert.ok(shellAsset.includes('mediaLibraryBearerSuffix'), 'assets/native_ui_shell.js must be regenerated');
+  const card=shellSrc.slice(shellSrc.indexOf('function unprovenHomeStateRow()'),shellSrc.indexOf('function ',shellSrc.indexOf('function unprovenHomeStateRow()')+10));
+  assert.doesNotMatch(card, /bearer=|diagBearer|mediaLibraryBearerSuffix/);
+  assert.match(card, /diagLine/);
+  assert.ok(shellAsset.includes('diagLine'), 'asset must be regenerated');
 });
 
 // MEL-BUG-049: the proof gate used to require authState === 'connected'; if the
@@ -114,17 +111,14 @@ test('MEL-BUG-049: only a definite sign-out blocks the library proof', () => {
   assert.match(gate, /__sfMediaLibRefusalCooldownAt/, 'attempts stay bounded by budget + cool-down');
 });
 
-// MEL-BUG-050: the unproven Home state card is self-diagnosing — it carries a
-// compact bracket with auth state, library status, attempts sent, last error
-// and the boolean bearer flag, so ONE home screenshot is enough evidence.
-test('MEL-BUG-050: the home state card carries a compact diagnostic line', () => {
+// The unproven card retains bounded state information without credential metadata.
+test('MEL-BUG-050: the home state card carries a compact non-credential diagnostic line', () => {
   const shellSrc = fs.readFileSync(path.join(repo, 'scripts/native_ui_shell.source.js'), 'utf8');
-  assert.match(shellSrc, /var diagLine = ' \[auth=' \+ authState \+ ' statut=' \+ status \+/,
-    'the card subtitle includes auth/status/attempts');
-  assert.match(shellSrc, /' erreur=' \+ \(err \|\| 'aucune'\) \+ ' bearer=' \+ diagBearer \+\s*' token=' \+ diagToken \+\s*' cookie=' \+ \(diag && diag\.cookieSession === true \? 'oui' : 'non'\) \+ '\]'/,
-    'the card subtitle includes last error, the boolean bearer flag and the token-endpoint status');
-  assert.doesNotMatch(shellSrc, /diagLine[\s\S]{0,200}TEST_TOKEN/, 'no token in the diagnostic line');
-  assert.ok(shellAsset.includes('diagLine'), 'assets/native_ui_shell.js must be regenerated');
+  const card=shellSrc.slice(shellSrc.indexOf('function unprovenHomeStateRow()'),shellSrc.indexOf('function ',shellSrc.indexOf('function unprovenHomeStateRow()')+10));
+  assert.match(card, /var diagLine = ' \[auth=' \+ authState \+ ' statut=' \+ status \+/);
+  assert.match(card, /essais=.*safeHomeTraceCount/);
+  assert.doesNotMatch(card, /bearer=| token=| cookie=/);
+  assert.ok(shellAsset.includes('diagLine'));
 });
 
 // MEL-BUG-057: the diagnostic now says WHY there is no bearer token — the
@@ -141,17 +135,13 @@ test('MEL-BUG-057: token-fetch status is tracked as a sanitized enum and exporte
   assert.ok(bridgeAsset.includes('lastTokenFetchStatus'), 'assets/spotify_bridge.js must be regenerated');
 });
 
-// MEL-BUG-057: the Home card diag line shows token=… next to bearer=…
-test('MEL-BUG-057: home diag line includes the sanitized token status', () => {
+// Credential status is no longer shown to the user.
+test('MEL-BUG-057: home diagnostic does not show credential status', () => {
   const shellSrc = fs.readFileSync(path.join(repo, 'scripts/native_ui_shell.source.js'), 'utf8');
-  assert.match(shellSrc, /var diagToken = safeDiagToken\(diag && diag\.token\);/,
-    'diagToken comes from the shared sanitizer');
-  assert.match(shellSrc, /function safeDiagToken\(v\) \{\s*v = String\(v == null \? '' : v\);\s*return \/\^\(ok\|none\|ko-network\|ko-non-json\|ko-invalid\|ko-expired\|ko-http\[1-5\]\[0-9\]\{2\}\|unknown\)\$\/\.test\(v\) \? v : '-';/,
-    'diagToken is sanitized (bounded enum-shaped string only)');
-  assert.match(shellSrc, /' bearer=' \+ diagBearer \+\s*' token=' \+ diagToken \+\s*' cookie=' \+ \(diag && diag\.cookieSession === true \? 'oui' : 'non'\) \+ '\]'/,
-    'diagLine ends with bearer=… token=… cookie=…');
-  assert.doesNotMatch(shellSrc, /diagToken[\s\S]{0,200}TEST_TOKEN/, 'no token value in the diag line');
-  assert.ok(shellAsset.includes('diagToken'), 'assets/native_ui_shell.js must be regenerated');
+  const card=shellSrc.slice(shellSrc.indexOf('function unprovenHomeStateRow()'),shellSrc.indexOf('function ',shellSrc.indexOf('function unprovenHomeStateRow()')+10));
+  assert.match(card, /diagLine/);
+  assert.doesNotMatch(card, /diagToken| token=|bearer=| cookie=/);
+  assert.ok(shellAsset.includes('diagLine'));
 });
 
 // MEL-BUG-060: a fresh diagnostic must seed token= with the LAST KNOWN /api/token

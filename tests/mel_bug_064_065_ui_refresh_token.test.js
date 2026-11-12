@@ -88,10 +88,11 @@ test('MEL-BUG-065a: token calls send Accept: application/json and never log the 
   assert.ok(!/cookieSession[^,]*sp_dc[^=]*=/.test(bridge.replace(/sp_dc=\//, '')), 'no cookie value path');
 });
 
-test('MEL-BUG-065b: diag carries cookie=oui/non on the home card, assets under ceilings', () => {
+test('MEL-BUG-065b: home diagnostics avoid cookie details, assets remain under ceilings', () => {
   const shell = read('scripts/native_ui_shell.source.js');
-  assert.match(shell, /' cookie=' \+ \(diag && diag\.cookieSession === true \? 'oui' : 'non'\)/,
-    'home diag line shows cookie=oui/non');
+  const start=shell.indexOf('function unprovenHomeStateRow()');
+  const card=shell.slice(start,shell.indexOf('function ',start+10));
+  assert.doesNotMatch(card, / cookie=|bearer=| token=/, 'no credential detail on the card');
   const shellAsset = fs.statSync(path.join(repo, 'assets/native_ui_shell.js')).size;
   const bridgeAsset = fs.statSync(path.join(repo, 'assets/spotify_bridge.js')).size;
   assert.ok(shellAsset <= 108867, `shell ${shellAsset} <= 108867`);

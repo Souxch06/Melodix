@@ -236,10 +236,12 @@ public final class SessionGateInstrumentation extends Instrumentation {
             check(launch != null);
             launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             current.set(startActivitySync(launch));
-            ui(() -> { freezeNetwork(); check(!(Boolean) field("loginActive")); check((Integer) field("state") != 3); });
+            boolean baseline="true".equals(arguments.getString("baseline"));
+            ui(() -> { freezeNetwork();
+                if (!baseline) check(!(Boolean) field("loginActive"));
+                check((Integer) field("state") != 3); });
             if ("true".equals(arguments.getString("capture_only"))) {
                 phase="capture_synthetic";
-                boolean baseline="true".equals(arguments.getString("baseline"));
                 ui(() -> paintFixture(baseline));
                 SystemClock.sleep(350);
                 if ("true".equals(arguments.getString("keyboard"))) {
@@ -362,13 +364,19 @@ public final class SessionGateInstrumentation extends Instrumentation {
                 check(!view("sessionDetails").isShown()); view("sessionDisclosure").performClick();
                 check(view("sessionDetails").isShown());
                 phase="probable_expiry_clipboard_synthetic";
-                view("sessionCopy").performClick();
+                phase="probable_expiry_clipboard_click";
+                check(view("sessionCopy").performClick());
+                phase="probable_expiry_clipboard_read";
                 android.content.ClipboardManager cb=(android.content.ClipboardManager)activity().getSystemService(Context.CLIPBOARD_SERVICE);
                 String copied=cb.getPrimaryClip().getItemAt(0).getText().toString();
                 String details=(String)gate.getMethod("details").invoke(null);
+                phase="probable_expiry_clipboard_prefix";
                 check(copied.startsWith(details+"\nMDXPERF-BEGIN v=1 dropped="));
+                phase="probable_expiry_clipboard_suffix";
                 check(copied.endsWith("MDXPERF-END"));
+                phase="probable_expiry_details_collapse";
                 view("sessionDisclosure").performClick(); check(!view("sessionDetails").isShown());
+                phase="probable_expiry_reconnect_guard";
                 // The legacy evidence-based gate remains blocked without a real cookie.
                 check(!(Boolean)gate.getMethod("canReconnect").invoke(null));
             }); note();
