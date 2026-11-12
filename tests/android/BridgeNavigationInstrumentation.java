@@ -251,7 +251,13 @@ public final class BridgeNavigationInstrumentation extends Instrumentation {
             phase="synthetic_valid_proof";
             check("true".equals(js("window.fixtureFetches===10 && window.fixtureRoutes.slice(-2).join(',')==='api,library' && window.fixtureVerification.generation===14 && window.fixtureVerification.tokenApiHttp===200 && window.fixtureVerification.tokenFallbackHttp===0 && window.fixtureVerification.libraryHttp===401 && window.fixtureVerification.token===true && window.fixtureVerification.libraryOk===false")));
             phase="synthetic_valid_restore_bridge";
-            check("true".equals(js("window.AndBridge=window.fixtureNativeBridge;typeof AndBridge.getSessionGeneration()==='number'")));
+            // Keep only closed type categories: no getter value or exception
+            // text. Probe each native method separately after proxy removal.
+            String restored=js("(function(){window.AndBridge=window.fixtureNativeBridge;function kind(f){try{var x=f();return x===null?'null':typeof x}catch(e){return 'exception'}}return kind(function(){return AndBridge.getSessionGeneration()})+'_'+kind(function(){return AndBridge.getSessionGenerationText()})})()");
+            String restoreKind=restored.replace("\"", "");
+            if(!restoreKind.matches("(number|null|undefined|string|boolean|object|exception)_(number|null|undefined|string|boolean|object|exception)"))restoreKind="other";
+            phase="synthetic_valid_restore_"+restoreKind;
+            check(restoreKind.startsWith("number_"));
             ui(()->{try{gate.getField("generation").setInt(null,10);}catch(Exception e){throw new RuntimeException(e);}});
             // Let the shell's scheduled updates run, as in the reported trace.
             Thread.sleep(3000);

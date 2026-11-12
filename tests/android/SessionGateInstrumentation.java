@@ -90,6 +90,11 @@ public final class SessionGateInstrumentation extends Instrumentation {
             phase=detail+"begin";
             begin();gen[0]=(Integer)field("generation");
             if(stale) check(gen[0]>1);
+            // Isolate diagnostic callbacks from the separate 3-second
+            // presentation deadline. That deadline legitimately clears our
+            // synthetic fingerprint when there is no matching real cookie.
+            // Its own production behavior is exercised independently below.
+            call("transition",new Class<?>[]{int.class,String.class},4,"verification-failed-no-logout");
             evidence.getMethod("reset").invoke(null);
             phase=detail+"initial_evidence";
             check((Integer)evidence.getMethod("record",String.class).invoke(null,"synthetic-A")==1);
