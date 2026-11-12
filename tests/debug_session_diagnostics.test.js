@@ -66,12 +66,14 @@ test('generation reads reject subframes and untrusted origins without invoking n
 test('historical normalization pins debug changes and retains the complete byte comparison',()=>{
  const cp=require('node:child_process');const normalize=require('./helpers/session_debug_normalize');
  const before=cp.execFileSync('git',['show','89a02b1c88f8e4bf909f231da0b0eefd4343cdfe:scripts/spotify_bridge.source.js'],{encoding:'utf8'});
- assert.equal(normalize.full(source),before,'all bytes outside the four explicitly reviewed changes are unchanged');
+ assert.equal(normalize.full(source),before,'all bytes outside the explicitly reviewed changes are unchanged');
  for(const [oldText,newText] of [
   ['source: \'api\'','source: \'other\''],
   ["void traceDebugLibraryResponse(resp, trace.debugTokenOrigin)","void traceDebugLibraryResponse(resp, 'other')"],
   ["if (window.location && window.location.origin !== 'https://open.spotify.com') return 0;","if (false) return 0;"],
-  ['bytes.subarray(0, 1024)','bytes.subarray(0, 1025)']
+  ['bytes.subarray(0, 1024)','bytes.subarray(0, 1025)'],
+  ['size < 8192','size < 8193'],
+  ["? known[t] : 'other'","? known[t] : 'unknown'"]
  ]) {
   assert.ok(source.includes(oldText),oldText);
   assert.throws(()=>normalize.full(source.replace(oldText,newText)),undefined,'changed reviewed block must not silently normalize: '+oldText);

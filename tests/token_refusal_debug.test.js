@@ -69,3 +69,18 @@ test('actual response tracing invokes diagnostic without waiting or changing req
  assert.equal(fetch,baseline,'token request function is byte-identical');
  assert.equal((fetch.match(/oriFetch\(/g)||[]).length,2);
 });
+
+test('pending stream emits waiting synchronously and never holds up fallback',async()=>{
+ const {context:c,records}=harness();let clones=0;
+ const stalled={status:400,headers:{get:()=> 'application/json'},clone(){clones++;return {body:{getReader(){return {read(){return new Promise(()=>{});},cancel(){return Promise.resolve();}};}}};}};
+ const work=c.traceDebugTokenError('api',stalled);
+ assert.equal(clones,1);assert.match(records[0],/body=waiting/);
+ const outcome=await Promise.race([work.then(()=> 'completed'),new Promise(resolve=>setTimeout(()=>resolve('pending'),15))]);
+ assert.equal(outcome,'pending');
+ const disabled=harness(false);await disabled.context.traceDebugTokenError('api',stalled);assert.equal(clones,1);
+});
+test('chunk count is bounded even when every chunk is tiny',async()=>{
+ const {context:c,records}=harness();const chunks=Array(100).fill(' ');
+ const r=response(chunks,400,'application/json');await c.traceDebugTokenError('api',r);
+ assert.match(records.at(-1),/body=truncated/);assert.equal((await r.text()).length,100);
+});
