@@ -84,7 +84,7 @@ try:
             safe_packages = [x if x in (pkg, 'com.android.systemui', 'com.google.android.permissioncontroller', 'com.android.permissioncontroller') else 'other' for x in packages]
             labels = sorted({v for n in items for v in (n.get('text',''),n.get('content-desc','')) if v in ('MODE DÉMO · HORS LIGNE','Quitter la démo','Welcome back','Email','Continue','Ouvrir Melodix','Essayer le mode démo')})
             diagnostic = {'packages': safe_packages, 'labels': labels, 'webview': any(n.get('class')=='android.webkit.WebView' for n in items)}
-            print('::notice title=Category A exit diagnostic::' + json.dumps(diagnostic, ensure_ascii=False), flush=True)
+            print('::error title=Category A exit diagnostic::' + json.dumps(diagnostic, ensure_ascii=False), flush=True)
             raise RuntimeError('demo did not exit')
         time.sleep(2)
     png = adb('exec-out', 'screencap', '-p')

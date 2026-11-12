@@ -3,6 +3,11 @@ name: Replay existing demo APK without rebuilding
 on:
   workflow_dispatch:
     inputs:
+      test161_autonomous_only:
+        description: Re-run only the A walk (and C pending), no bridge rerun
+        required: false
+        type: boolean
+        default: false
       test161_evidence:
         description: Run A and B on exact test160; C explicitly pending
         required: false
@@ -386,4 +391,6 @@ jobs:
     if: inputs.test161_evidence == true
     name: Test161 separated evidence
     uses: ./.github/workflows/test161-independent.yml
+    with:
+      run_fixture: ${{ inputs.test161_autonomous_only != true }}
     secrets: inherit

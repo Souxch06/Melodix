@@ -2,6 +2,10 @@ name: Independent no-session and local bridge evidence
 on:
   workflow_dispatch:
   workflow_call:
+    inputs:
+      run_fixture:
+        type: boolean
+        default: true
 permissions:
   actions: read
   contents: read
@@ -49,6 +53,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
   fixture:
+    if: inputs.run_fixture != false
     name: B blocked-network local WebView bridge fixture
     runs-on: ubuntu-24.04
     timeout-minutes: 25
