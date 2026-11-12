@@ -61,7 +61,7 @@ jobs:
     uses: ./.github/workflows/preview-apk.yml
     with:
       source_ref: ${{ inputs.source_ref }}
-      release_tag: v1.2.2-test.168-preview
+      release_tag: v1.2.2-test.169-preview
       build_only: true
       demo_build: true
       version_code_base: 1021508
@@ -111,6 +111,9 @@ jobs:
           script: |
             adb install "target-apk/$APK_NAME"
             python3 scripts/acceptance_autonomous.py '${{ matrix.profile }}' 'evidence-a/${{ matrix.profile }}'
+            if [ '${{ matrix.profile }}' = phone ]; then
+              python3 scripts/acceptance_local_playback.py 'evidence-a/${{ matrix.profile }}'
+            fi
       - uses: actions/upload-artifact@v4.6.2
         if: always()
         with:

@@ -12,6 +12,7 @@ assert len(launch)==1
 main.remove(launch[0]); entry=ET.SubElement(app,'activity',{a+'name':'com.melodix.demo.DemoSettingsActivity',a+'process':':demo',a+'exported':'true',a+'label':'Melodix Preview'})
 entry.append(launch[0]); ET.SubElement(app,'activity',{a+'name':'com.melodix.demo.DemoActivity',a+'process':':demo',a+'exported':'false'})
 ET.SubElement(app,'activity',{a+'name':'com.melodix.local.LocalMusicActivity',a+'process':':demo',a+'exported':'false'})
+ET.SubElement(app,'service',{a+'name':'com.melodix.local.LocalPlaybackService',a+'process':':demo',a+'exported':'false',a+'foregroundServiceType':'mediaPlayback'})
 tree.write(manifest,encoding='utf-8',xml_declaration=True)
 # Only the separate demo process skips the real updater; the main process is
 # unchanged. No proof/session flags are touched. Demo UI creates no WebView.

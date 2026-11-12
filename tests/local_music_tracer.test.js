@@ -39,13 +39,14 @@ for name in ('native_session_surface.xml','native_session_login_header.xml'):
   } finally { fs.rmSync(dir,{recursive:true,force:true}); }
 });
 
-test('tracer is empty and offline, and its DEX is compiled only in opt-in demo build', () => {
+test('local UI uses a document picker without networking and its DEX remains test-only', () => {
   const local=read('local/src/com/melodix/local/LocalMusicActivity.java');
   assert.match(local,/class LocalMusicActivity extends Activity/);
-  assert.match(local,/setText\("Ma musique"\)/);
+  assert.match(local,/text\("nativeScreenTitle","Ma musique"\)/);
   assert.match(local,/setAllCaps\(false\)/);
   assert.match(local,/setOnClickListener\(view -> finish\(\)\)/);
-  assert.doesNotMatch(local,/MediaPlayer|MediaStore|ContentResolver|ACTION_OPEN_DOCUMENT|java\.net|android\.net|https?:\/\//);
+  assert.match(local,/Intent\.ACTION_OPEN_DOCUMENT/);
+  assert.doesNotMatch(local,/MediaStore|java\.net|https?:\/\//);
   const preview=read('.github/workflows/preview-apk.yml'), release=read('.github/workflows/release-apk.yml');
   assert.match(preview,/if \[\[ "\$DEMO_BUILD" == "true" \]\]; then[\s\S]*?"\$source_dir\/demo\/src" "\$source_dir\/local\/src"[\s\S]*?\$build_tools\/d8[\s\S]*?classes2\.dex[\s\S]*?check_preview_dex\.py/);
   assert.doesNotMatch(release,/local\/src|LocalMusicActivity/);
@@ -71,14 +72,14 @@ with tempfile.TemporaryDirectory() as d:
       put(so+4*i,len(data)); put(to+4*i,i); put(co+32*i,i)
       data.extend(bytes([len(s)])+s+b'\0')
     return data
-  demo='Lcom/melodix/demo/DemoEntry;'; local='Lcom/melodix/local/LocalMusicActivity;'; base='Lcom/example/Base;'
+  demo='Lcom/melodix/demo/DemoEntry;'; local='Lcom/melodix/local/LocalMusicActivity;'; service='Lcom/melodix/local/LocalPlaybackService;'; base='Lcom/example/Base;'
   def run(first,second):
     with zipfile.ZipFile(apk,'w') as z:
       z.writestr('classes.dex',dex(first)); z.writestr('classes2.dex',dex(second))
     return subprocess.run([sys.executable,str(script),str(apk)],capture_output=True,text=True)
-  good=run([base],[demo,local]); assert good.returncode==0,good.stderr
+  good=run([base],[demo,local,service]); assert good.returncode==0,good.stderr
   missing=run([base],[demo]); assert missing.returncode!=0 and 'must be defined' in missing.stderr
-  duplicate=run([base,local],[demo,local]); assert duplicate.returncode!=0 and 'duplicate DEX class' in duplicate.stderr
+  duplicate=run([base,local],[demo,local,service]); assert duplicate.returncode!=0 and 'duplicate DEX class' in duplicate.stderr
 `;
   cp.execFileSync('python3',['-c',py]);
 });

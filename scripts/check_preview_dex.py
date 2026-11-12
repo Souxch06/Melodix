@@ -47,10 +47,10 @@ def check(apk):
                 if cls in seen:
                     raise ValueError(f'duplicate DEX class {cls}: {seen[cls]} and {name}')
                 seen[cls] = name
-    for cls in (b'Lcom/melodix/demo/DemoEntry;', b'Lcom/melodix/local/LocalMusicActivity;'):
+    for cls in (b'Lcom/melodix/demo/DemoEntry;', b'Lcom/melodix/local/LocalMusicActivity;', b'Lcom/melodix/local/LocalPlaybackService;'):
         if seen.get(cls) != 'classes2.dex':
             raise ValueError(f'{cls} must be defined exactly once in classes2.dex; found {seen.get(cls)}')
-    print(f'DEX check: {len(seen)} unique definitions in {len(names)} DEX files; demo and local tracer in classes2.dex')
+    print(f'DEX check: {len(seen)} unique definitions in {len(names)} DEX files; demo and local playback in classes2.dex')
 
 
 if __name__ == '__main__':

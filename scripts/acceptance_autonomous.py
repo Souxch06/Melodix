@@ -75,7 +75,7 @@ try:
     adb('shell', 'monkey', '-p', pkg, '-c', 'android.intent.category.LAUNCHER', '1')
     capture('launcher', 'Melodix Preview · réglages de test', False)
     tap(wait(text='Ma musique'))
-    capture('musique-locale-tracer', 'Étape 0 · Écran de test, aucune lecture pour le moment', False)
+    capture('musique-locale-tracer', 'Choisir un fichier audio', False)
     tap(wait(text='Retour'))
     wait(text='Melodix Preview · réglages de test')
     tap(wait(text='Essayer le mode démo')); capture('accueil', 'MODE DÉMO · HORS LIGNE')
@@ -116,7 +116,7 @@ try:
     # No account or login state is simulated. Return must reveal that surface again.
     wait(text='Essayer le mode démo', seconds=90)
     tap(wait(text='Ma musique', seconds=30))
-    capture('musique-locale-depuis-session', 'Étape 0 · Écran de test, aucune lecture pour le moment', False)
+    capture('musique-locale-depuis-session', 'Choisir un fichier audio', False)
     tap(wait(text='Retour'))
     wait(text='Essayer le mode démo', seconds=30)
     wait(text='Ma musique', seconds=30)
