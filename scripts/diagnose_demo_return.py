@@ -65,6 +65,10 @@ def observe_node_sample(items):
              'legacy_predicate_matches': legacy is not None,
              'intended_predicate_matches': session is not None or settings is not None,
              'login_labels': sorted(texts & {'Welcome back', 'Email', 'Continue', 'Sign up'}),
+             'login_controls': [{'label': n.get('text', ''), 'class': n.get('class', ''),
+                                 'package': n.get('package', ''), 'bounds': n.get('bounds', ''),
+                                 'clickable': n.get('clickable', '')}
+                                for n in items if n.get('text', '') in ('Welcome back', 'Email', 'Continue')],
              'demo_entry': 'Essayer le mode démo' in texts}
     now = round((time.monotonic() - START) * 1000)
     if not SAMPLES or state != SAMPLES[-1]['state'] or now - SAMPLES[-1]['host_ms'] >= 15000:

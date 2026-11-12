@@ -9,7 +9,9 @@ p=pathlib.Path('scripts/capture_launcher_acceptance.py')
 tree=ast.parse(p.read_text())
 functions=[x for x in tree.body if isinstance(x,ast.FunctionDef) and x.name in ('find_id','real_surface')]
 assert {x.name for x in functions}=={'find_id','real_surface'}
-ns={};exec(compile(ast.Module(body=functions,type_ignores=[]),str(p),'exec'),ns)
+import sys; sys.path.insert(0,'scripts')
+from launcher_surface import login_surface
+ns={'login_surface':login_surface};exec(compile(ast.Module(body=functions,type_ignores=[]),str(p),'exec'),ns)
 node=lambda ident:ET.fromstring('<node resource-id="com.melodix.music.preview:id/'+ident+'"/>')
 session=node('sessionTitle'); settings=node('nativeSettingsButton'); unrelated=node('other')
 assert len(session)==0 and not bool(session)

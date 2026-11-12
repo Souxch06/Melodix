@@ -5,6 +5,7 @@ unit tests deterministic; production uses actual uiautomator snapshots and time.
 No session, cookie, navigation or app state is synthesized by this helper.
 """
 import time
+from launcher_surface import login_surface
 
 
 def observe_watchdog(sample, mode, duration, clock=time.monotonic, sleep=time.sleep):
@@ -27,7 +28,7 @@ def observe_watchdog(sample, mode, duration, clock=time.monotonic, sleep=time.sl
         else:
             def has_id(name):
                 return any(n.get('resource-id', '').endswith(':id/' + name) for n in items)
-            session = has_id('sessionTitle')
+            session = has_id('sessionTitle') or login_surface(items) is not None
             settings = has_id('nativeSettingsButton')
             if not session and not settings:
                 raise RuntimeError('real session or settings disappeared after demo exit')

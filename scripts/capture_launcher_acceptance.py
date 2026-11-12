@@ -2,6 +2,7 @@
 """Actual launcher and user taps only. No session proof, account or fixture injection."""
 import json, pathlib, re, subprocess, sys, time, xml.etree.ElementTree as ET
 from session_watchdog_observation import observe_watchdog
+from launcher_surface import login_surface
 
 pkg = 'com.melodix.music.preview'
 out = pathlib.Path(sys.argv[1]); out.mkdir(parents=True, exist_ok=True)
@@ -27,13 +28,16 @@ def find_id(items, idname):
     return next((n for n in items if n.get('resource-id', '').endswith(':id/' + idname)), None)
 
 def real_surface(items):
-    # ElementTree leaf nodes are falsey even when present. Test existence,
-    # not truthiness: keep the same two accepted IDs, without accepting login
-    # text, demo screens or any other substitute surface.
+    # The login header title is deliberately GONE. Recognize the actual
+    # functional login WebView, while keeping the old native error/settings
+    # surfaces and never treating login as proof of authenticated settings.
     session = find_id(items, 'sessionTitle')
     if session is not None:
         return session
-    return find_id(items, 'nativeSettingsButton')
+    settings = find_id(items, 'nativeSettingsButton')
+    if settings is not None:
+        return settings
+    return login_surface(items)
 
 def wait(predicate, label, limit=60):
     until = time.monotonic() + limit
@@ -80,7 +84,7 @@ try:
     wait(lambda n: text_node(n, 'Essayer le mode démo'), 'launcher demo button')
     screenshot('02-reglages-test', 'launcher settings / Essayer le mode démo')
     tap(wait(lambda n: text_node(n, 'Ouvrir Melodix'), 'open real app'))
-    wait(lambda n: find_id(n, 'sessionTitle'), 'real session surface', 90)
+    wait(real_surface, 'real session surface', 90)
     entry = wait(lambda n: text_node(n, 'Essayer le mode démo'), 'real session demo button', 90)
     screenshot('03-session', 'real session / Essayer le mode démo')
     tap(entry)
@@ -103,7 +107,7 @@ try:
     # the session gate; if blocked, record the failure rather than invent proof.
     items = nodes()
     settings = find_id(items, 'nativeSettingsButton')
-    if find_id(items, 'sessionTitle') is not None or settings is None:
+    if find_id(items, 'sessionTitle') is not None or login_surface(items) is not None or settings is None:
         raise RuntimeError('real settings inaccessible: session gate is visible, no authenticated session on fresh offline emulator')
     tap(settings)
     wait(lambda n: text_node(n, 'Mode démo'), 'real settings / Mode démo')
