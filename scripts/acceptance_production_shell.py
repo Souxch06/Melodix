@@ -127,6 +127,17 @@ def run(profile, directory):
             if found is not None and found is not False:
                 return found
             time.sleep(2)
+        if name == 'visible production shell and three clickable tabs':
+            # Closed diagnostics only: neither page text, URLs nor account data.
+            tree = hierarchy()
+            root = by_id(tree, 'nativeRoot')
+            result['home_diagnostic'] = {
+                'main_activity_foreground': foreground_main(),
+                'demo_badge_visible': has_demo(tree),
+                'native_root_in_accessibility_tree': root is not None,
+                'visible_clickable_tabs': [key for key in ('nativeHomeTab', 'nativeSearchTab', 'nativeLibraryTab')
+                                           if root is not None and by_id(root, key, True) is not None],
+            }
         raise RuntimeError(name + ' not observed on production MainActivity')
 
     def screenshot(name):
