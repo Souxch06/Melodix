@@ -255,7 +255,8 @@ public final class SessionGateInstrumentation extends Instrumentation {
             phase = "valid_token_begin"; noteStarted();
             ui(() -> { begin(); phase="valid_token_result"; noteStarted();
                 result(true, true, false, 200); phase="valid_token_assert"; noteStarted();
-                state(3); check(field("overlay") == null); });
+                state(3); check(field("overlay") == null);
+                phase="valid_token_assert_returned"; note(); });
             phase = "valid_token_and_library"; note();
 
             phase = "network_and_isolated_401";
