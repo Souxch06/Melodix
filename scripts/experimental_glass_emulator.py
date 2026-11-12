@@ -10,6 +10,7 @@ import time
 import xml.etree.ElementTree as ET
 
 PACKAGE = 'com.melodix.music.preview'
+current_phase = 'initial'
 
 
 def adb(*args):
@@ -51,7 +52,7 @@ def find(predicate, timeout=40):
                 bounds(n)
                 return n
         time.sleep(1)
-    raise AssertionError('required accessible node not observed')
+    raise AssertionError('required accessible node not observed after ' + current_phase)
 
 
 def by_id(name):
@@ -70,6 +71,8 @@ def tap(node):
 
 
 def phase(label):
+    global current_phase
+    current_phase = label
     print('::notice title=Experimental Glass offline check::' + label, flush=True)
 
 
@@ -111,8 +114,10 @@ adb('shell', 'input', 'swipe', x, y1 + (y2-y1)*4//5, x, y1 + (y2-y1)*2//5, 450)
 find(text('Notifications Android'))
 phase('Android notification setting is accessible')
 # The demo is packaged only in this explicitly experimental build.
+phase('checking demo entry')
 demo = find(text('Mode démo'))
 tap(demo)
+phase('checking offline demo')
 find(text('MODE DÉMO · HORS LIGNE'), timeout=60)
 phase('isolated offline demo opened from limited settings')
 tap(find(text('Quitter la démo')))
