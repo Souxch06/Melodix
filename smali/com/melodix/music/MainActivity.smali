@@ -245,6 +245,17 @@
 .method public final A()V
     .locals 4
 
+    # Explicit logout closes the private gate before advancing its epoch.
+    const/4 v0, 0x1
+    sput v0, Lcom/melodix/music/NativeSessionGate;->state:I
+    sget v0, Lcom/melodix/music/NativeSessionGate;->privateUiEpoch:I
+    add-int/lit8 v0, v0, 0x1
+    sput v0, Lcom/melodix/music/NativeSessionGate;->privateUiEpoch:I
+    sget v0, Lcom/melodix/music/NativeSessionGate;->generation:I
+    add-int/lit8 v0, v0, 0x1
+    sput v0, Lcom/melodix/music/NativeSessionGate;->generation:I
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->invalidateNativePrivateUi()V
+
     .line 1
     const/4 v0, 0x0
 
@@ -8413,6 +8424,35 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-direct {p0, v4, v3, v1}, Lcom/melodix/music/MainActivity;->traceNativeHomeStage(Ljava/lang/String;Ljava/lang/String;I)V
 
     :native_home_visible_trace_done
+    return-void
+.end method
+
+# Invalidate native presentation only; call on UI thread after the session
+# gate is closed and its generation advanced. Never touches user preferences.
+.method public final invalidateNativePrivateUi()V
+    .locals 2
+    const/4 v0, 0x0
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentTitle:Ljava/lang/String;
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentJson:Ljava/lang/String;
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeExpectedSearch:Ljava/lang/String;
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnScreen:Ljava/lang/String;
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnTitle:Ljava/lang/String;
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnJson:Ljava/lang/String;
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnExpectedId:Ljava/lang/String;
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnSearch:Ljava/lang/String;
+    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHasTrack:Z
+    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->melodixWebHomeActive:Z
+    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeSettingsLoading:Z
+    iput v0, p0, Lcom/melodix/music/MainActivity;->nativeSettingsReadyGeneration:I
+    iget v1, p0, Lcom/melodix/music/MainActivity;->nativeSettingsGeneration:I
+    add-int/lit8 v1, v1, 0x1
+    iput v1, p0, Lcom/melodix/music/MainActivity;->nativeSettingsGeneration:I
+    const/4 v1, 0x1
+    iput-boolean v1, p0, Lcom/melodix/music/MainActivity;->nativeSessionUnproven:Z
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->beginNativeHomeRender()V
+    invoke-static {p0}, Lcom/melodix/music/NativePrivateUiReset;->reset(Landroid/app/Activity;)V
     return-void
 .end method
 

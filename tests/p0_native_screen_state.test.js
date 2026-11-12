@@ -480,7 +480,7 @@ function executeUiUpdateRunnable(activity, screen, action) {
     const source = fs.readFileSync(
         path.join(ROOT, 'smali/com/melodix/music/NativeUiUpdateRunnable.smali'), 'utf8');
     const method = extractMethod(source, '.method public final run()V');
-    const runnable = { activity, screen, data: '', action };
+    const runnable = { activity, screen, data: '', action, sessionAtReceipt: 3, sessionGeneration: 1 };
     const registers = { p0: runnable };
     const instructions = [];
     const labels = new Map();
@@ -504,8 +504,17 @@ function executeUiUpdateRunnable(activity, screen, action) {
             registers[match[1]] = runnable[match[2]];
             continue;
         }
-        if ((match = /^iget (\w+), p0, .*->action:I$/.exec(instruction))) {
-            registers[match[1]] = runnable.action;
+        if ((match = /^iget (\w+), p0, .*->(action|sessionAtReceipt|sessionGeneration):I$/.exec(instruction))) {
+            registers[match[1]] = runnable[match[2]];
+            continue;
+        }
+        if ((match = /^sget (\w+), .*NativeSessionGate;->(state|generation):I$/.exec(instruction))) {
+            registers[match[1]] = match[2] === 'state' ? 3 : 1;
+            continue;
+        }
+        if ((match = /^goto :([\w$.-]+)$/.exec(instruction))) {
+            assert.ok(labels.has(match[1]), `branch target exists: :${match[1]}`);
+            pc = labels.get(match[1]);
             continue;
         }
         if ((match = /^const\/4 (\w+), (0x[0-9a-f]+|0x0|0x1)$/.exec(instruction))) {

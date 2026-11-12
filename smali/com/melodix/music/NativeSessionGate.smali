@@ -7,8 +7,9 @@
 .field public static libraryHttp:I
 .field public static lastReason:Ljava/lang/String;
 .field public static activeLaunch:Z
-.field public static state:I
+.field public static volatile state:I
 .field public static volatile generation:I
+.field public static volatile privateUiEpoch:I
 .field public static initialNavigationIssued:Z
 .field public static autoUsed:Z
 .field public static freshLogin:Z
@@ -44,9 +45,24 @@
 .end method
 
 .method public static transition(ILjava/lang/String;)V
-    .locals 3
+    .locals 4
     sget v0, Lcom/melodix/music/NativeSessionGate;->state:I
     sput p0, Lcom/melodix/music/NativeSessionGate;->state:I
+    # Every unproven transition invalidates queued presentation payloads and
+    # visible/cached native data before the caller may paint a session state.
+    const/4 v1, 0x3
+    if-eq p0, v1, :private_ui_reset_done
+    sget v1, Lcom/melodix/music/NativeSessionGate;->privateUiEpoch:I
+    add-int/lit8 v1, v1, 0x1
+    sput v1, Lcom/melodix/music/NativeSessionGate;->privateUiEpoch:I
+    sget-object v3, Lcom/melodix/music/NativeSessionGate;->owner:Ljava/lang/ref/WeakReference;
+    if-eqz v3, :private_ui_reset_done
+    invoke-virtual {v3}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+    move-result-object v3
+    check-cast v3, Lcom/melodix/music/MainActivity;
+    if-eqz v3, :private_ui_reset_done
+    invoke-virtual {v3}, Lcom/melodix/music/MainActivity;->invalidateNativePrivateUi()V
+    :private_ui_reset_done
     sput-object p1, Lcom/melodix/music/NativeSessionGate;->lastReason:Ljava/lang/String;
     new-instance v1, Ljava/lang/StringBuilder;
     invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
