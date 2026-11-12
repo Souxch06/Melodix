@@ -168,11 +168,16 @@ for tab, heading in [('nativeLibraryTab', 'Bibliothèque'), ('nativeSearchTab', 
         find(lambda n: by_id('nativeScreenTitle')(n) and text(heading)(n))
     except AssertionError:
         focus_summary()
-        titles = [n for n in nodes() if by_id('nativeScreenTitle')(n)]
-        known = {'Accueil': 'home', 'Rechercher': 'search', 'Bibliothèque': 'library', 'Paramètres': 'settings'}
+        snapshot = nodes()
+        titles = [n for n in snapshot if by_id('nativeScreenTitle')(n)]
+        known = {'Accueil': 'home', 'Rechercher': 'search', 'Bibliothèque': 'library', 'Paramètres': 'settings', 'Ma musique': 'local'}
         current = known.get(titles[0].get('text'), 'other') if len(titles) == 1 else 'missing-or-multiple'
-        raise AssertionError('tab=%s route=%s bounds=%d,%d,%d,%d focused=%s' % (
-            tab, current, x1, y1, x2, y2,
+        categories = {key: any(by_id(key)(n) for n in snapshot) for key in
+                      ('nativeRoot', 'nativeLibraryTab', 'sessionAction', 'splashOverlay')}
+        # Only public fixture categories and bounds, no text from the real device.
+        raise AssertionError('tab=%s route=%s title_count=%d root=%s tab_visible=%s session=%s splash=%s bounds=%d,%d,%d,%d focused=%s' % (
+            tab, current, len(titles), categories['nativeRoot'], categories['nativeLibraryTab'],
+            categories['sessionAction'], categories['splashOverlay'], x1, y1, x2, y2,
             main_component(adb('shell', 'dumpsys', 'window'), ('mCurrentFocus', 'mFocusedApp'))))
     phase('native navigation: ' + tab)
 
