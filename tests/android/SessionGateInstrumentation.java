@@ -79,6 +79,7 @@ public final class SessionGateInstrumentation extends Instrumentation {
         call("result", new Class<?>[]{activity().getClass(), String.class}, activity(), proof.toString());
     }
     private void note() { Bundle b = new Bundle(); b.putString("phase", phase); b.putString("result", "passed"); sendStatus(1, b); }
+    private void noteStarted() { Bundle b = new Bundle(); b.putString("phase", phase); b.putString("result", "started"); sendStatus(1, b); }
     /** Separate network-blocked WebView; synthetic observations only, never Spotify. */
     private void diagnosticReadback(boolean stale) throws Exception {
         final String outerPhase=phase;
@@ -251,8 +252,11 @@ public final class SessionGateInstrumentation extends Instrumentation {
                 check(view("sessionNotice").getText().toString().contains("uniquement après ton appui"));
                 check(!view("sessionDetails").isShown()); }); note();
 
-            phase = "valid_token_and_library";
-            ui(() -> { begin(); result(true, true, false, 200); state(3); check(field("overlay") == null); }); note();
+            phase = "valid_token_begin"; noteStarted();
+            ui(() -> { begin(); phase="valid_token_result"; noteStarted();
+                result(true, true, false, 200); phase="valid_token_assert"; noteStarted();
+                state(3); check(field("overlay") == null); });
+            phase = "valid_token_and_library"; note();
 
             phase = "network_and_isolated_401";
             ui(() -> { begin(); result(false, false, false, 401); state(4); check(!(Boolean) field("expiredEvidence")); }); note();

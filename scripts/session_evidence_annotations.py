@@ -58,7 +58,7 @@ if selected:
 lines = []
 for path in sorted(root.glob('*.txt')):
     for line in path.read_text(errors='replace').splitlines():
-        if re.fullmatch(r'INSTRUMENTATION_(STATUS|RESULT): (phase=[a-z0-9_]+|result=passed|overall=(passed|failed)|error_class=[A-Za-z]+|(?:viewport_height|viewport_width|action_height|card_height|card_width|center_delta)=[0-9]+)', line):
+        if re.fullmatch(r'INSTRUMENTATION_(STATUS|RESULT): (phase=[a-z0-9_]+|result=(passed|started)|overall=(passed|failed)|error_class=[A-Za-z]+|(?:viewport_height|viewport_width|action_height|card_height|card_width|center_delta)=[0-9]+)', line):
             lines.append(path.stem + ' ' + line)
         elif re.fullmatch(r'\s*(Total frames rendered:|Janky frames:|[0-9]+th percentile:|Number Missed Vsync:).*', line):
             lines.append(path.stem + ' ' + line.strip())

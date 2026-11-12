@@ -131,7 +131,10 @@ public final class BridgeNavigationInstrumentation extends Instrumentation {
             phase="player_navigation";
             await(PLAYER,()->view[0].evaluateJavascript("document.getElementById('next').click()",null));
             phase="player_bridge_visible";
-            check("\"function\"".equals(js("typeof window.AndBridge.getSessionGeneration")));
+            String visible=js("(function(){try{if(!window.AndBridge)return 'missing';return typeof window.AndBridge.getSessionGeneration}catch(e){return 'exception'}})()").replace("\"","");
+            if(!visible.matches("missing|function|undefined|null|object|string|number|boolean|exception"))visible="other";
+            phase="player_bridge_visible_"+visible;
+            check("function".equals(visible));
             // Exercise the actual retry poller and JavaScriptInterface after
             // changing generations on the UI thread without reloading the page.
             // Synthetic hook counts dispatches and makes no network requests.
