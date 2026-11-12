@@ -3,7 +3,7 @@
 set -euo pipefail
 : "${ANDROID_HOME:?}" "${RUNNER_TEMP:?}"
 dir="$RUNNER_TEMP/melodix-ephemeral-signing"; tools="$ANDROID_HOME/build-tools/35.0.0"; sdk="$ANDROID_HOME/platforms/android-36/android.jar"
-mkdir -p "$dir/classes" "$dir/dex"
+mkdir -p "$dir/classes" "$dir/dex" "$dir/app" "$dir/test"
 phase=key
 cleanup() {
   rc=$?
@@ -18,10 +18,10 @@ cleanup() {
 }
 trap cleanup EXIT
 keytool -genkeypair -keystore "$dir/fixture.jks" -storepass test-only -keypass test-only -alias fixture -dname 'CN=Disposable Android CI Fixture' -keyalg RSA -keysize 2048 -validity 1 >/dev/null 2>&1
-cat > "$dir/app.xml" <<'EOF'
+cat > "$dir/app/AndroidManifest.xml" <<'EOF'
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.melodix.ci.ephemeralfixture"><uses-sdk android:minSdkVersion="24" android:targetSdkVersion="36"/><application android:label="Disposable signing fixture" android:hasCode="false" /></manifest>
 EOF
-cat > "$dir/test.xml" <<'EOF'
+cat > "$dir/test/AndroidManifest.xml" <<'EOF'
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.melodix.ci.ephemeralfixture.test"><uses-sdk android:minSdkVersion="24" android:targetSdkVersion="36"/><application android:label="Disposable signing test"/><instrumentation android:name="com.melodix.ci.FixtureInstrumentation" android:targetPackage="com.melodix.ci.ephemeralfixture"/></manifest>
 EOF
 cat > "$dir/FixtureInstrumentation.java" <<'EOF'
@@ -36,9 +36,9 @@ javac --release 8 -classpath "$sdk" -d "$dir/classes" "$dir/FixtureInstrumentati
 mapfile -t classes < <(find "$dir/classes" -name '*.class')
 "$tools/d8" --lib "$sdk" --min-api 24 --output "$dir/dex" "${classes[@]}"
 phase=package_app
-"$tools/aapt" package -f -M "$dir/app.xml" -I "$sdk" -F "$dir/app-unsigned.apk" 2> "$dir/aapt-error.txt"
+"$tools/aapt" package -f -M "$dir/app/AndroidManifest.xml" -I "$sdk" -F "$dir/app-unsigned.apk" 2> "$dir/aapt-error.txt"
 phase=package_test
-"$tools/aapt" package -f -M "$dir/test.xml" -I "$sdk" -F "$dir/test-unsigned.apk" 2> "$dir/aapt-error.txt"
+"$tools/aapt" package -f -M "$dir/test/AndroidManifest.xml" -I "$sdk" -F "$dir/test-unsigned.apk" 2> "$dir/aapt-error.txt"
 phase=package_dex
 (cd "$dir/dex" && zip -q "$dir/test-unsigned.apk" classes.dex)
 phase=sign
