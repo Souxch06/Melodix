@@ -70,19 +70,30 @@ def tap(node):
     adb('shell', 'input', 'tap', (x1 + x2) // 2, (y1 + y2) // 2)
 
 
+def main_component(dump, labels):
+    for line in reversed(dump.splitlines()):
+        if not any(label in line for label in labels):
+            continue
+        match = re.search(r'([A-Za-z0-9_.]+)/([A-Za-z0-9_.$]+)', line)
+        if match:
+            package, activity = match.groups()
+            return package == PACKAGE and activity.rsplit('.', 1)[-1] == 'MainActivity'
+    return False
+
+
 def await_main_foreground(timeout=60):
     deadline = time.monotonic() + timeout
+    resumed = focused = False
     while time.monotonic() < deadline:
-        dump = adb('shell', 'dumpsys', 'activity', 'activities')
-        resumed = next((line for line in dump.splitlines()
-                        if 'mResumedActivity:' in line or 'topResumedActivity=' in line), '')
-        window = adb('shell', 'dumpsys', 'window', 'windows')
-        focused = next((line for line in window.splitlines() if 'mCurrentFocus=' in line), '')
-        if (PACKAGE + '/com.melodix.music.MainActivity' in resumed and
-                PACKAGE + '/com.melodix.music.MainActivity' in focused):
+        resumed = main_component(adb('shell', 'dumpsys', 'activity', 'activities'),
+                                 ('mResumedActivity', 'topResumedActivity', 'ResumedActivity'))
+        focused = main_component(adb('shell', 'dumpsys', 'window', 'windows'),
+                                 ('mCurrentFocus', 'mFocusedApp'))
+        if resumed and focused:
+            time.sleep(1)  # Let the focused window finish its transition.
             return
         time.sleep(1)
-    raise AssertionError('real MainActivity did not regain resumed and focused state')
+    raise AssertionError('MainActivity foreground resumed=%s focused=%s' % (resumed, focused))
 
 
 def phase(label):
