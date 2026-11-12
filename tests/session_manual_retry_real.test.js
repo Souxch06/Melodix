@@ -4,14 +4,14 @@ function retryContext(opts={}){
  const s=fs.readFileSync('scripts/spotify_bridge.source.js','utf8'),a=s.indexOf('    window.__sfRequestSessionVerification = function (expectedGeneration = 0) {'),b=s.indexOf('\n    };',a)+7;
  const events=[],ctx={window:{__sfMediaLibError:'',__sfMediaLibRetryAt:0,AndBridge:opts.bridge||{getSessionGeneration:()=>2,isSessionRetryActive:()=>true}},mediaLibraryCheckPromise:opts.pending||null,
   publishSessionRelanceDiagnostic:(s,r)=>events.push(r),mediaLibraryAuthReady:()=>opts.auth!==false,
-  dropWebPlayerToken:()=>events.push('drop-cache'),checkMediaLib:(force,source)=>{events.push([force,source]);return Promise.resolve('complete');}};
+  checkMediaLib:(force,source)=>{events.push([force,source]);return Promise.resolve('complete');}};
  const h=s.indexOf('    function readNativeSessionGeneration()'),end=s.indexOf('\n    }',h)+6;vm.createContext(ctx);vm.runInContext(s.slice(h,end)+'\nlet nativeRetryGeneration=0,nativeRetryPromise=null;\n'+s.slice(a,b),ctx);return {ctx,events};
 }
-test('manual retry discards cached bearer and launches the actual forced verification',async()=>{
- const {ctx,events}=retryContext();await ctx.window.__sfRequestSessionVerification(2);assert.deepEqual(events,['drop-cache',[true,'native-retry']]);
+test('manual retry launches the actual forced cookie-only verification',async()=>{
+ const {ctx,events}=retryContext();await ctx.window.__sfRequestSessionVerification(2);assert.deepEqual(events,[[true,'native-retry']]);
 });
-test('manual retry waits for an older flight before discarding bearer and launching a distinct verification',async()=>{
- let finish;const pending=new Promise(resolve=>finish=resolve),{ctx,events}=retryContext({pending});const result=ctx.window.__sfRequestSessionVerification(2);assert.deepEqual(events,[]);finish();await result;assert.deepEqual(events,['drop-cache',[true,'native-retry']]);
+test('manual retry waits for an older flight before launching a distinct verification',async()=>{
+ let finish;const pending=new Promise(resolve=>finish=resolve),{ctx,events}=retryContext({pending});const result=ctx.window.__sfRequestSessionVerification(2);assert.deepEqual(events,[]);finish();await result;assert.deepEqual(events,[[true,'native-retry']]);
 });
 test('auth guard blocks explicitly without clearing the cached bearer or starting requests',()=>{
  const {ctx,events}=retryContext({auth:false});assert.equal(ctx.window.__sfRequestSessionVerification(2),false);assert.deepEqual(events,['blocage=dom-auth-required']);
@@ -61,7 +61,7 @@ test('queued retry can use canonical native text without accepting stale or malf
  for(const [text,expected,go] of [['4',4,true],['5',4,false],['04',4,false],['PRIVATE',4,false]]){
   let finish;const pending=new Promise(r=>finish=r),bridge={getSessionGeneration:()=>undefined,getSessionGenerationText:()=>text,isSessionRetryActive:()=>true};
   const {ctx,events}=retryContext({pending,bridge}),result=ctx.window.__sfRequestSessionVerification(expected);finish();const v=await result;
-  if(go){assert.equal(v,'complete');assert.deepEqual(events,['drop-cache',[true,'native-retry']]);}else{assert.equal(v,false);assert.deepEqual(events,[]);}
+  if(go){assert.equal(v,'complete');assert.deepEqual(events,[[true,'native-retry']]);}else{assert.equal(v,false);assert.deepEqual(events,[]);}
  }
 });
 

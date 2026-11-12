@@ -76,11 +76,7 @@ jobs:
           profile: pixel_2
           disable-animations: true
           emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
-          script: |
-            set -euo pipefail
-            if [[ '${{ matrix.form }}' == tablet ]]; then adb shell wm size 1920x1200; adb shell wm density 160; else adb shell wm size 1080x1920; adb shell wm density 420; fi
-            adb install "candidate/$APK_NAME"
-            python3 scripts/experimental_glass_emulator.py
+          script: bash scripts/run_experimental_glass_emulator.sh '${{ matrix.form }}'
 
   validated-candidate:
     needs: [build, offline-android]
