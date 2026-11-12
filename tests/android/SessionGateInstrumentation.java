@@ -365,12 +365,14 @@ public final class SessionGateInstrumentation extends Instrumentation {
                 check(!view("sessionDetails").isShown()); view("sessionDisclosure").performClick();
                 check(view("sessionDetails").isShown());
                 phase="probable_expiry_clipboard_synthetic";
+                // Copy appends capture-end to the in-memory debug journal. Take
+                // the expected details before that mutation, not after the click.
+                String details=(String)gate.getMethod("details").invoke(null);
                 phase="probable_expiry_clipboard_click";
                 check(view("sessionCopy").performClick());
                 phase="probable_expiry_clipboard_read";
                 android.content.ClipboardManager cb=(android.content.ClipboardManager)activity().getSystemService(Context.CLIPBOARD_SERVICE);
                 String copied=cb.getPrimaryClip().getItemAt(0).getText().toString();
-                String details=(String)gate.getMethod("details").invoke(null);
                 phase="probable_expiry_clipboard_prefix";
                 check(copied.startsWith(details+"\nMDXPERF-BEGIN v=1 dropped="));
                 phase="probable_expiry_clipboard_suffix";
