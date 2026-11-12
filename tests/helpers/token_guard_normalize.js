@@ -21,6 +21,7 @@ const guard=`        // Never turn a failed token request into a library 401 or 
 
 `;
 module.exports=function normalizeTokenGuard(source) {
+ source=require('./session_debug_normalize').library(source);
  assert.equal(source.split(guard).length,2,'reviewed fail-closed guard must occur exactly once');
  return require('./token_page_expiry_normalize')(source.replace(guard,''));
 };

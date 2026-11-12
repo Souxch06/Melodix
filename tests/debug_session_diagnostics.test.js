@@ -62,3 +62,20 @@ test('generation reads reject subframes and untrusted origins without invoking n
  window.top={};assert.equal(ctx.readNativeSessionGeneration(),0);assert.equal(calls,1);
  window.top=window;window.location.origin='https://open.spotify.com.evil.test';assert.equal(ctx.readNativeSessionGeneration(),0);assert.equal(calls,1);
 });
+
+test('historical normalization pins debug changes and retains the complete byte comparison',()=>{
+ const cp=require('node:child_process');const normalize=require('./helpers/session_debug_normalize');
+ const before=cp.execFileSync('git',['show','89a02b1c88f8e4bf909f231da0b0eefd4343cdfe:scripts/spotify_bridge.source.js'],{encoding:'utf8'});
+ assert.equal(normalize.full(source),before,'all bytes outside the four explicitly reviewed changes are unchanged');
+ for(const [oldText,newText] of [
+  ['source: \'api\'','source: \'other\''],
+  ["void traceDebugLibraryResponse(resp, trace.debugTokenOrigin)","void traceDebugLibraryResponse(resp, 'other')"],
+  ["if (window.location && window.location.origin !== 'https://open.spotify.com') return 0;","if (false) return 0;"],
+  ['bytes.subarray(0, 1024)','bytes.subarray(0, 1025)']
+ ]) {
+  assert.ok(source.includes(oldText),oldText);
+  assert.throws(()=>normalize.full(source.replace(oldText,newText)),undefined,'changed reviewed block must not silently normalize: '+oldText);
+ }
+ const unrelated=source.replace('        const limit = 50;','        const limit = 51;');
+ assert.notEqual(normalize.full(unrelated),before,'historical comparison still sees unrelated edits');
+});

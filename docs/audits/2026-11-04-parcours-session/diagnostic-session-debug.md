@@ -94,3 +94,10 @@ Avec un APK **débogable** de cette révision, sur l'écran de session ouvrir
 « Détails techniques » puis utiliser **« Copier le diagnostic »** et transmettre
 le texte copié. Ne rien faire tant qu'un tel APK n'a pas été livré ; les champs
 du journal apparaissent sous « Diagnostic debug (données expurgées) ».
+
+## Actualisation des références
+
+Les trois comparaisons historiques ont été mises à jour avec des blocs debug
+épinglés et des tests anti-mutation, sans suppression ni skip. La suite complète
+est maintenant verte : 1309 réussites, 0 échec, 0 ignoré. Les détails, limites
+et lien de l'APK se trouvent dans `references-et-apk-debug.md`.

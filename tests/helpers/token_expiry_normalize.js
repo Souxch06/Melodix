@@ -8,6 +8,10 @@ const cp=require('node:child_process');
 const digest=s=>crypto.createHash('sha256').update(s).digest('hex');
 const segment=(s,a,b)=>{const x=s.indexOf(a),y=s.indexOf(b,x);assert.ok(x>=0&&y>x,'token block boundaries');return s.slice(x,y);};
 module.exports=function normalizeTokenExpiry(source) {
+ // Full sources additionally carry the bounded debug helpers and getter.
+ source=source.includes('    // Debug-only, closed enums;')
+   ? require('./session_debug_normalize').full(source)
+   : require('./session_debug_normalize').token(source);
  const start='    async function fetchWebPlayerToken(',end='    function dropWebPlayerToken';
  const current=source.includes(end) ? segment(source,start,end) : source.slice(source.indexOf(start));
  assert.ok(current.startsWith(start),'token function present');

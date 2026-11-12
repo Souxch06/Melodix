@@ -101,6 +101,11 @@ test('request changes are limited to the reviewed fail-closed guard and diagnost
  assert.equal(now,old,'all other fetch, endpoints, parameters, proof publication and telemetry remain byte-identical');
  const before=cp.execFileSync('git',['show','9e55740c:smali/com/melodix/music/NativeSessionGate.smali'],{encoding:'utf8'});
  let after=fs.readFileSync('smali/com/melodix/music/NativeSessionGate.smali','utf8');
+ // Pin the sole debug-only details append before retaining the complete
+ // historical comparison of all remaining gate bytes.
+ const debugAppend='    invoke-static {v0, v3}, Lcom/melodix/music/NativeSessionDebug;->append(Ljava/lang/String;Landroid/content/Context;)Ljava/lang/String;\n    move-result-object v0\n';
+ assert.equal(after.split(debugAppend).length,2,'reviewed debug details append occurs exactly once');
+ after=after.replace(debugAppend,'');
  // Store migration is independently pinned, not silently ignored in the old
  // historical contract. Compare the changed methods to the reviewed commit,
  // then normalize only those exact methods for the legacy comparison.
