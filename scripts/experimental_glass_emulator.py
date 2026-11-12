@@ -99,9 +99,17 @@ for tab, heading in [('nativeLibraryTab', 'Bibliothèque'), ('nativeSearchTab', 
     find(lambda n: by_id('nativeScreenTitle')(n) and text(heading)(n))
     phase('native navigation: ' + tab)
 
+phase('opening limited settings')
 tap(find(by_id('nativeSettingsButton')))
-find(text('Paramètres'))
+find(lambda n: by_id('nativeScreenTitle')(n) and text('Paramètres')(n))
+phase('settings title is accessible')
+# On a phone the lower actions can be below the fold: scroll the real content
+# before asserting their presence and interactivity; no forced view is added.
+x1, y1, x2, y2 = bounds(find(by_id('nativeRoot')))
+x = (x1 + x2) // 2
+adb('shell', 'input', 'swipe', x, y1 + (y2-y1)*4//5, x, y1 + (y2-y1)*2//5, 450)
 find(text('Notifications Android'))
+phase('Android notification setting is accessible')
 # The demo is packaged only in this explicitly experimental build.
 demo = find(text('Mode démo'))
 tap(demo)
