@@ -94,3 +94,13 @@ injecte des échecs de commit et un dépassement dans le vrai Smali du store,
 sans toucher aux préférences réelles. Son run doit être vérifié séparément.
 Le job UI de build nécessitant `MELODIX_TEST_KEYSTORE_B64` reste hors de ce run
 et ne doit pas être considéré comme validé.
+
+Sur `b8a44196`, les contrôles Android du store par backend synthétique (commit
+refusé et dépassement), les scénarios de persistance, les profils téléphone et
+tablette et WebView 156 passent dans [43250106265](https://github.com/Souxch06/Melodix/actions/runs/43250106265).
+Mais le run global est **rouge** : WebView 133 échoue à nouveau sur
+`synthetic_valid_restore_null_null` après remplacement synthétique par proxy.
+Ce cas intermittent déjà observé n'établit pas sa cause sur téléphone. Une
+relance des échecs a été demandée pour observer la variabilité ; même verte,
+elle ne suffirait pas à démontrer la résolution de cette intermittence. La
+mission reste inachevée.
