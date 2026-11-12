@@ -65,15 +65,15 @@ try:
     while True:
         items=nodes(); audio=find(items,text='Melodix-Local-Test.wav')
         if audio is not None: tap(audio); break
+        if time.monotonic()>=deadline:
+            visible=[n.get('text') or n.get('content-desc') for n in items if n.get('text') or n.get('content-desc')]
+            raise RuntimeError('system picker did not show test file; controls='+repr(visible[:25]))
         allow=next((n for n in items if n.get('resource-id','').endswith(':id/permission_allow_button')),None)
         if allow is not None: tap(allow); continue
         downloads=find(items,text='Downloads') or find(items,text='Téléchargements')
         if downloads is not None: tap(downloads); continue
         roots=next((n for n in items if n.get('content-desc') in ('Show roots','Browse','Afficher les racines','Parcourir')),None)
         if roots is not None: tap(roots); continue
-        if time.monotonic()>=deadline:
-            visible=[n.get('text') or n.get('content-desc') for n in items if n.get('text') or n.get('content-desc')]
-            raise RuntimeError('system picker did not show test file; controls='+repr(visible[:25]))
         time.sleep(1)
     wait(ident='nativeMiniPlayer',seconds=60); tap(wait(ident='nativeMiniPlayer'))
     wait(ident='nativePlayerLargePlayPauseButton'); wait(text='1:30',seconds=35)
