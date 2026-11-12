@@ -38,7 +38,7 @@ w=n(cls='android.webkit.WebView')
 for t in ('Welcome back','Email','Continue'): w.append(n(t))
 items=list(w.iter('node'))+[n('Essayer le mode démo')]
 observe_watchdog(lambda:items,'after-exit',0,lambda:0,lambda _:None)
-for broken in (items[:-1], [n('Essayer le mode démo')]):
+for broken in (items[:-1], [n('Essayer le mode démo')], items+[n('MODE DÉMO · HORS LIGNE')]):
  try: observe_watchdog(lambda:broken,'after-exit',0,lambda:0,lambda _:None)
  except RuntimeError: pass
  else: raise AssertionError('incomplete return accepted')

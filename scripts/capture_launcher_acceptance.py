@@ -2,7 +2,7 @@
 """Actual launcher and user taps only. No session proof, account or fixture injection."""
 import json, pathlib, re, subprocess, sys, time, xml.etree.ElementTree as ET
 from session_watchdog_observation import observe_watchdog
-from launcher_surface import login_surface
+from launcher_surface import demo_visible, login_surface
 
 pkg = 'com.melodix.music.preview'
 out = pathlib.Path(sys.argv[1]); out.mkdir(parents=True, exist_ok=True)
@@ -35,6 +35,8 @@ def real_surface(items):
     # The login header title is deliberately GONE. Recognize the actual
     # functional login WebView, while keeping the old native error/settings
     # surfaces and never treating login as proof of authenticated settings.
+    if demo_visible(items):
+        return None
     session = find_id(items, 'sessionTitle')
     if session is not None:
         return session

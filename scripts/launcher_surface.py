@@ -27,3 +27,8 @@ def login_surface(items):
         if has_label('Welcome back') and has_label('Email') and has_label('Continue'):
             return web
     return None
+
+
+def demo_visible(items):
+    return any('MODE DÉMO · HORS LIGNE' in (n.get('text', ''), n.get('content-desc', ''))
+               for n in items)
