@@ -54,3 +54,11 @@ test('independent evaluateJavascript callback reports absent and null getters wi
  assert.equal(calls,0);assert.match(result.a,/type=absent/);assert.match(result.a,/frame=child/);
  assert.match(smali,/evaluateJavascript\(Ljava\/lang\/String;Landroid\/webkit\/ValueCallback;\)V/);
 });
+test('generation reads reject subframes and untrusted origins without invoking native getters',()=>{
+ const a=source.indexOf('    function readNativeSessionGeneration()'),b=source.indexOf('    function checkMediaLib(',a);
+ let calls=0;const window={location:{origin:'https://open.spotify.com'},AndBridge:{getSessionGeneration:()=>{calls++;return 7;}}};window.top=window;
+ const ctx={window};vm.createContext(ctx);vm.runInContext(source.slice(a,b),ctx);
+ assert.equal(ctx.readNativeSessionGeneration(),7);assert.equal(calls,1);
+ window.top={};assert.equal(ctx.readNativeSessionGeneration(),0);assert.equal(calls,1);
+ window.top=window;window.location.origin='https://open.spotify.com.evil.test';assert.equal(ctx.readNativeSessionGeneration(),0);assert.equal(calls,1);
+});

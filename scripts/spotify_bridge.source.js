@@ -3499,9 +3499,7 @@
         // generation read from a frame or a non-player origin.
         try {
             if (typeof window.top !== 'undefined' && window.top !== window) return 0;
-            if (window.location && (window.location.protocol !== 'https:' ||
-                window.location.hostname !== 'open.spotify.com' ||
-                (window.location.port && window.location.port !== '443'))) return 0;
+            if (window.location && window.location.origin !== 'https://open.spotify.com') return 0;
         } catch (_) { return 0; }
         const bridge = window.AndBridge;
         if (!bridge) return 0;
