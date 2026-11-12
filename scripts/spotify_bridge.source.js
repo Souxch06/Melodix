@@ -4271,6 +4271,20 @@
     }
 
     function invalidateLibraryProofForAuthChange(reason) {
+        // A recognized sign-out/login must also discard presentation caches,
+        // even when no library request or proof exists. These are memory-only;
+        // never touch cookies or local preferences. Native invalidation alone
+        // does not reach a still-live WebView.
+        for (const cache of [window.__sfSearchCache, window.__sfMediaItemsCache]) {
+            try { if (cache && typeof cache.clear === 'function') cache.clear(); } catch (_) {}
+        }
+        window.__sfCurrentContextUri = null;
+        window.__sfCurrentTrackUris = [];
+        window.__sfPlayerPayload = null;
+        if (currentSearchAbortController) {
+            try { currentSearchAbortController.abort(); } catch (_) {}
+            currentSearchAbortController = null;
+        }
         const hadProof = window.__sfMediaLibSessionProven === true || Boolean(window.mediaLib);
         const hadRequest = Boolean(mediaLibraryCheckPromise || activeMediaLibraryControllers.size);
         if (hadRequest) {

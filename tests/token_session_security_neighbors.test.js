@@ -69,6 +69,26 @@ test('request changes are limited to the reviewed fail-closed guard and diagnost
  const old=cp.execFileSync('git',['show','9e55740c:scripts/spotify_bridge.source.js'],{encoding:'utf8'});
  let now=require('./helpers/token_expiry_normalize')(fs.readFileSync('scripts/spotify_bridge.source.js','utf8'));
  now=require('./helpers/token_page_expiry_normalize')(now);
+ // TEST164 deliberately adds this exact memory-only auth invalidation.
+ // Remove only a byte-pinned hunk for the historical comparison; changing
+ // either this hunk or any other formerly protected code still fails.
+ const authCacheReset = `        // A recognized sign-out/login must also discard presentation caches,
+        // even when no library request or proof exists. These are memory-only;
+        // never touch cookies or local preferences. Native invalidation alone
+        // does not reach a still-live WebView.
+        for (const cache of [window.__sfSearchCache, window.__sfMediaItemsCache]) {
+            try { if (cache && typeof cache.clear === 'function') cache.clear(); } catch (_) {}
+        }
+        window.__sfCurrentContextUri = null;
+        window.__sfCurrentTrackUris = [];
+        window.__sfPlayerPayload = null;
+        if (currentSearchAbortController) {
+            try { currentSearchAbortController.abort(); } catch (_) {}
+            currentSearchAbortController = null;
+        }
+`;
+ assert.equal(now.split(authCacheReset).length,2,'exact reviewed WebView memory invalidation appears once');
+ now=now.replace(authCacheReset,'');
  const start=now.indexOf('        // Never turn a failed token request');
  const end=now.indexOf('        while (hasMore',start);
  assert.ok(start>0 && end>start);
@@ -82,5 +102,15 @@ test('request changes are limited to the reviewed fail-closed guard and diagnost
  const before=cp.execFileSync('git',['show','9e55740c:smali/com/melodix/music/NativeSessionGate.smali'],{encoding:'utf8'});
  const after=fs.readFileSync('smali/com/melodix/music/NativeSessionGate.smali','utf8');
  const cut=s=>[s.slice(0,s.indexOf('    :not_valid\n',s.indexOf('.method public static result('))),s.slice(s.indexOf('    :failed\n',s.indexOf('    :not_valid\n',s.indexOf('.method public static result('))))];
- assert.deepEqual(cut(after),cut(before),'outside the refusal classification, gate instructions stay byte-identical');
+ // TEST163 intentionally adds an invalidation to transition and changes the
+ // visibility of state to volatile. Pin the exact reviewed additions first,
+ // then undo only those exact hunks for the original historical comparison.
+ // Thus unrelated gate edits and edits *within* the additions both fail.
+ const approved=cp.execFileSync('git',['show','68def1d2fb47c804c12993695f707a9635a81c17:smali/com/melodix/music/NativeSessionGate.smali'],{encoding:'utf8'});
+ assert.deepEqual(cut(after),cut(approved),'gate including the approved invalidation stays byte-identical outside refusal classification');
+ const block=s=>{const a=s.indexOf('.method public static transition(');const b=s.indexOf('.end method',a)+'.end method'.length;assert.ok(a>=0&&b>a);return s.slice(a,b);};
+ let historical=after.replace('.field public static volatile state:I\n','.field public static state:I\n')
+   .replace('.field public static volatile privateUiEpoch:I\n','')
+   .replace(block(approved),block(before));
+ assert.deepEqual(cut(historical),cut(before),'outside refusal classification, only the exact reviewed transition and epoch additions differ from the historical gate');
 });

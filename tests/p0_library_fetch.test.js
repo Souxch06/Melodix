@@ -875,3 +875,35 @@ test('manual retry requests a fresh token even if a valid synthetic bearer was c
     assert.equal(win.__testTokenRequests.length,2);assert.equal(libraries,2);
     assert.ok(win.__testTokenRequests.every(x=>x.url.endsWith('/api/token')));
 });
+
+test('recognized sign-out removes synthetic presentation caches even without library proof or request', () => {
+    // Real bridge IIFE in the VM fixture; deliberately no Spotify network or account.
+    const win = loadBridge();
+    win.__sfSearchCache.set('synthetic query', [{ title: 'SYNTHETIC OLD SEARCH' }]);
+    win.__sfMediaItemsCache.set('synthetic id', [{ title: 'SYNTHETIC OLD MEDIA' }]);
+    win.__sfCurrentContextUri = 'synthetic old context';
+    win.__sfCurrentTrackUris = ['synthetic old track'];
+    win.__sfPlayerPayload = { track: 'SYNTHETIC OLD PLAYER' };
+    win.SF_CONFIG = { syntheticPreference: 'KEEP' };
+    win.__testSetAuthSignals({ pathname: '/login' });
+    assert.equal(win.__sfGetSpotifyAuthUiState(), 'required');
+    assert.equal(win.__sfSearchCache.size, 0);
+    assert.equal(win.__sfMediaItemsCache.size, 0);
+    assert.equal(win.__sfCurrentContextUri, null);
+    assert.equal(win.__sfCurrentTrackUris.length, 0);
+    assert.equal(win.__sfPlayerPayload, null);
+    assert.equal(win.SF_CONFIG.syntheticPreference, 'KEEP');
+});
+
+test('a broken cache cannot prevent library proof invalidation on a recognized login route', () => {
+    const win = loadBridge();
+    win.__sfSearchCache = { clear() { throw new Error('synthetic cache failure'); } };
+    win.__sfMediaItemsCache.set('synthetic', [{title:'SYNTHETIC'}]);
+    win.mediaLib = {playlists:[{name:'SYNTHETIC OLD LIBRARY'}]};
+    win.__sfMediaLibSessionProven = true;
+    win.__testSetAuthSignals({pathname:'/login'});
+    assert.equal(win.__sfGetSpotifyAuthUiState(), 'required');
+    assert.equal(win.__sfMediaItemsCache.size, 0);
+    assert.equal(win.__sfMediaLibSessionProven, false);
+    assert.equal(win.mediaLib, null);
+});
