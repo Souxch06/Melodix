@@ -85,3 +85,12 @@ le document suivant et l'injection dépend de la navigation. Les diagnostics
 supplémentaires demandés (types JS par getter, contexte de document et thread,
 réponses réseau assainies et source exacte du jeton) ne sont pas encore livrés.
 Aucun résultat synthétique n'établit une connexion Spotify fonctionnelle.
+
+Sur `2cdcc842`, la suite locale passe (1298 réussites, 5 tests ignorés) et
+[le run Android ciblé](https://github.com/Souxch06/Melodix/actions/runs/43249008380)
+réussit, y compris les quatre scénarios synthétiques de persistance. Ces
+résultats ne portent pas sur l'instrumentation ajoutée après ce commit ; elle
+injecte des échecs de commit et un dépassement dans le vrai Smali du store,
+sans toucher aux préférences réelles. Son run doit être vérifié séparément.
+Le job UI de build nécessitant `MELODIX_TEST_KEYSTORE_B64` reste hors de ce run
+et ne doit pas être considéré comme validé.

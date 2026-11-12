@@ -3,11 +3,13 @@ package com.melodix.test;
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Context;
+import android.content.ContextWrapper;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.webkit.CookieManager;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import java.lang.reflect.Proxy;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -19,6 +21,40 @@ public final class UpdatePersistenceInstrumentation extends Instrumentation {
     private static final String COOKIE = "melodix_update_fixture=synthetic_only";
     @Override public void onCreate(Bundle args) { super.onCreate(args); arguments=args; start(); }
     private static void check(boolean ok) { if (!ok) throw new AssertionError(); }
+    // Exercise the actual Smali with an isolated, failing preference backend.
+    // Neither synthetic failure nor overflow touches real app preferences.
+    private void checkFailClosed(Context context, Class<?> store, Class<?> gate) throws Throwable {
+        AtomicReference<Throwable> error=new AtomicReference<>();
+        runOnMainSync(()->{try {
+            AtomicReference<Integer> stored=new AtomicReference<>(7);
+            SharedPreferences.Editor editor=(SharedPreferences.Editor)Proxy.newProxyInstance(
+                getClass().getClassLoader(),new Class<?>[]{SharedPreferences.Editor.class},
+                (proxy,method,args)->{
+                    if("putInt".equals(method.getName())) return proxy;
+                    if("commit".equals(method.getName())) return false;
+                    throw new AssertionError(method.getName());
+                });
+            SharedPreferences prefs=(SharedPreferences)Proxy.newProxyInstance(
+                getClass().getClassLoader(),new Class<?>[]{SharedPreferences.class},
+                (proxy,method,args)->{
+                    if("getInt".equals(method.getName())) return stored.get();
+                    if("edit".equals(method.getName())) return editor;
+                    throw new AssertionError(method.getName());
+                });
+            Context fake=new ContextWrapper(context){@Override public SharedPreferences getSharedPreferences(String name,int mode){return prefs;}};
+            gate.getField("generation").setInt(null,0);
+            check((Integer)store.getMethod("advance",Context.class).invoke(null,fake)==-1);
+            check(gate.getField("generation").getInt(null)==-1);
+            stored.set(Integer.MAX_VALUE);
+            check((Integer)store.getMethod("advance",Context.class).invoke(null,fake)==-1);
+            check(gate.getField("generation").getInt(null)==-1);
+            stored.set(7);gate.getField("generation").setInt(null,7);
+            check(!(Boolean)store.getMethod("recordVerified",Context.class,int.class).invoke(null,fake,7));
+            check(!(Boolean)store.getMethod("recordVerified",Context.class,int.class).invoke(null,fake,0));
+            gate.getField("generation").setInt(null,0);
+        } catch(Throwable t){error.set(t);}});
+        if(error.get()!=null)throw error.get();
+    }
     @Override public void onStart() {
         Bundle result = new Bundle(); WebView[] view = new WebView[1]; String phase="setup";
         try {
@@ -41,6 +77,8 @@ public final class UpdatePersistenceInstrumentation extends Instrumentation {
             SharedPreferences preferences=context.getSharedPreferences("native_session_epoch",Context.MODE_PRIVATE);
             CookieManager cookies=CookieManager.getInstance();
             if(seed) {
+                phase="native_failure_controls";
+                checkFailClosed(context,store,gate);
                 phase="seed_cookie";
                 CountDownLatch cookieSet=new CountDownLatch(1);
                 AtomicReference<Boolean> accepted=new AtomicReference<>(false);
