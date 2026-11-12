@@ -81,6 +81,27 @@ def main_component(dump, labels):
     return False
 
 
+def focus_summary():
+    # A bounded component category only: no raw dumps, URLs, text or accounts.
+    dump = adb('shell', 'dumpsys', 'window', 'windows')
+    for label in ('mCurrentFocus', 'mFocusedApp'):
+        lines = [line for line in dump.splitlines() if label in line]
+        if not lines:
+            category = 'missing'
+        else:
+            line = lines[-1]
+            component = re.search(r'([A-Za-z0-9_.]+)/([A-Za-z0-9_.$]+)', line)
+            if component is None:
+                category = 'no-component'
+            elif component.group(1) != PACKAGE:
+                category = 'other-package'
+            elif component.group(2).rsplit('.', 1)[-1] == 'MainActivity':
+                category = 'main'
+            else:
+                category = 'other-activity'
+        print('::notice title=Experimental focus category::%s=%s' % (label, category), flush=True)
+
+
 def await_main_foreground(timeout=60):
     deadline = time.monotonic() + timeout
     resumed = focused = False
@@ -93,6 +114,7 @@ def await_main_foreground(timeout=60):
             time.sleep(1)  # Let the focused window finish its transition.
             return
         time.sleep(1)
+    focus_summary()
     raise AssertionError('MainActivity foreground resumed=%s focused=%s' % (resumed, focused))
 
 
@@ -132,6 +154,8 @@ find(text('Choisir un fichier audio'))
 tap(find(text('Retour')))
 find(lambda n: by_id('nativeScreenTitle')(n) and text('Accueil')(n))
 phase('local music opened and returned to unverified Glass Home')
+focus_summary()
+await_main_foreground()
 
 for tab, heading in [('nativeLibraryTab', 'Bibliothèque'), ('nativeSearchTab', 'Rechercher'),
                      ('nativeHomeTab', 'Accueil')]:
