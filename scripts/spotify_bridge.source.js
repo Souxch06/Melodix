@@ -4024,29 +4024,18 @@
         observeSessionAttempt(trace, 'tokenResult', bearerToken ? 'obtained' :
             observed && refused(observed.apiHttp) && refused(observed.fallbackHttp) ? 'refused' : 'unknown');
 
-        // Never turn a failed token request into a library 401 or session-expiry
-        // claim. A stale attempt must not clear a newer session's state either.
+        // Match the historical WebView flow: if minting a bearer failed,
+        // try the same library request with WebView credentials alone.  A
+        // server response must still prove the library; a cookie is not proof.
         if (requestGeneration !== mediaLibraryRequestGeneration ||
             authEpoch !== boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999)) return [];
-        if (!bearerToken) {
-            trace.phase = 'request';
-            trace.error = 'token-missing';
-            window.__sfMediaLibError = 'token-missing';
-            window.__sfMediaLibSessionProofKnown = false;
-            window.__sfMediaLibSessionProven = false;
-            window.__sfMediaLibRawItemCount = 0;
-            window.__sfMediaLibUpdatedAt = 0;
-            window.__sfMediaLibProofAuthEpoch = 0;
-            window.mediaLib = null;
-            return [];
-        }
 
         while (hasMore && offset < 1000 && requestGeneration === mediaLibraryRequestGeneration &&
             authEpoch === boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999)) {
             // A token can expire while an earlier page is being read. Do not
             // send it on a later page or retain partial private proof.
-            if (!webPlayerTokenCache || webPlayerTokenCache.token !== bearerToken ||
-                !Number.isFinite(webPlayerTokenCache.expMs) || webPlayerTokenCache.expMs <= Date.now()) {
+            if (bearerToken && (!webPlayerTokenCache || webPlayerTokenCache.token !== bearerToken ||
+                !Number.isFinite(webPlayerTokenCache.expMs) || webPlayerTokenCache.expMs <= Date.now())) {
                 trace.phase = 'request';
                 trace.http = 0;
                 trace.mime = 'missing';

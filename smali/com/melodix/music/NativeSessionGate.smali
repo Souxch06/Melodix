@@ -275,10 +275,8 @@
     move-result v1
     sput v1, Lcom/melodix/music/NativeSessionGate;->libraryHttp:I
 
-    const-string v1, "token"
-    invoke-virtual {v0, v1}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;)Z
-    move-result v1
-    if-eqz v1, :not_valid
+    # Accept a real validated library response even when the WebView session
+    # authenticated the request directly without a minted bearer token.
     const-string v1, "libraryOk"
     invoke-virtual {v0, v1}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;)Z
     move-result v1
@@ -297,7 +295,15 @@
     :proof_saved
     const/4 v1, 0x3
     invoke-static {}, Lcom/melodix/music/NativeSessionEvidence;->reset()V
+    const-string v2, "token"
+    invoke-virtual {v0, v2}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;)Z
+    move-result v2
+    if-eqz v2, :cookie_success
     const-string v2, "token-and-library-ok"
+    goto :success_reason
+    :cookie_success
+    const-string v2, "library-cookie-ok"
+    :success_reason
     invoke-static {v1, v2}, Lcom/melodix/music/NativeSessionGate;->transition(ILjava/lang/String;)V
     const/4 v1, 0x0
     sput-boolean v1, Lcom/melodix/music/NativeSessionGate;->expiredEvidence:Z
@@ -309,8 +315,8 @@
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     goto :done
     :not_valid
-    # A missing token cannot establish an expired session. The library must
-    # not have been queried without it. Keep all private UI blocked.
+    # A failed/missing token cannot establish an expired session. Only a
+    # validated successful library response may unlock the private UI.
     const-string v1, "token"
     invoke-virtual {v0, v1}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;)Z
     move-result v1
