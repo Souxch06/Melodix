@@ -63,14 +63,19 @@ def phase(label):
     print('::notice title=Experimental Glass offline check::' + label, flush=True)
 
 
+phase('disabling network')
 adb('shell', 'svc', 'wifi', 'disable')
 adb('shell', 'svc', 'data', 'disable')
+phase('granting declared Bluetooth permission')
 adb('shell', 'pm', 'grant', PACKAGE, 'android.permission.BLUETOOTH_CONNECT')
 adb('shell', 'am', 'force-stop', PACKAGE)
 # Launch via the actual launcher intent, not a special activity or synthetic fixture.
+phase('launching via launcher')
 adb('shell', 'monkey', '-p', PACKAGE, '-c', 'android.intent.category.LAUNCHER', '1')
+phase('checking native root')
 root = find(by_id('nativeRoot'))
 find(by_id('nativeHomeTab'))
+phase('checking status and controls')
 find(lambda n: n.get('text') in ('Bibliothèque Spotify indisponible', 'Vérification de la bibliothèque…'))
 tap_target = find(text('Réessayer la bibliothèque'))
 find(text('Se connecter à Spotify'))
