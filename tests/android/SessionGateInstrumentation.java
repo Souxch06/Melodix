@@ -43,10 +43,13 @@ public final class SessionGateInstrumentation extends Instrumentation {
         gate.getMethod(name, types).invoke(null, values);
     }
     private Activity activity() { return current.get(); }
-    private void ui(final Checked action) {
+    private void uiImmediate(final Checked action) {
         final Throwable[] failure = new Throwable[1];
         runOnMainSync(() -> { try { action.run(); } catch (Throwable t) { failure[0] = t; } });
         if (failure[0] != null) throw new AssertionError("synthetic state operation failed", failure[0]);
+    }
+    private void ui(final Checked action) {
+        uiImmediate(action);
         waitForIdleSync();
     }
     private interface Checked { void run() throws Exception; }
@@ -253,7 +256,10 @@ public final class SessionGateInstrumentation extends Instrumentation {
                 check(!view("sessionDetails").isShown()); }); note();
 
             phase = "valid_token_begin"; noteStarted();
-            ui(() -> { begin(); phase="valid_token_result"; noteStarted();
+            // These state and overlay assertions run synchronously on the main
+            // thread. Showing the native UI can keep the global queue busy, so
+            // waitForIdleSync is not a completion signal for this operation.
+            uiImmediate(() -> { begin(); phase="valid_token_result"; noteStarted();
                 result(true, true, false, 200); phase="valid_token_assert"; noteStarted();
                 state(3); check(field("overlay") == null);
                 phase="valid_token_assert_returned"; note(); });
