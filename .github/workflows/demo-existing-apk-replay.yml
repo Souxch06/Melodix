@@ -3,6 +3,11 @@ name: Replay existing demo APK without rebuilding
 on:
   workflow_dispatch:
     inputs:
+      test162_baseline:
+        description: Run the strict production-shell baseline on exact test160, not the demo
+        required: false
+        type: boolean
+        default: false
       test161_signing_only:
         description: Run only disposable signing experiment and C pending
         required: false
@@ -53,7 +58,7 @@ permissions:
   contents: read
 jobs:
   replay:
-    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true && inputs.capture_test159_demo != true && inputs.diagnose_test159 != true && inputs.test161_evidence != true
+    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true && inputs.capture_test159_demo != true && inputs.diagnose_test159 != true && inputs.test161_evidence != true && inputs.test162_baseline != true
     # Diagnostic evidence is non-blocking; inspect the actual step outcomes.
     continue-on-error: true
     name: Replay the same Preview APK on a fresh offline phone
@@ -84,7 +89,7 @@ jobs:
           emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
           script: sh scripts/replay_existing_apk.sh
   capture:
-    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true && inputs.capture_test159_demo != true && inputs.diagnose_test159 != true && inputs.test161_evidence != true
+    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true && inputs.capture_test159_demo != true && inputs.diagnose_test159 != true && inputs.test161_evidence != true && inputs.test162_baseline != true
     # Diagnostic evidence is non-blocking; inspect the actual step outcomes.
     continue-on-error: true
     name: Capture existing Preview on ${{ matrix.profile }}
@@ -127,7 +132,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
   bundle:
-    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true && inputs.capture_test159_demo != true && inputs.diagnose_test159 != true && inputs.test161_evidence != true
+    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true && inputs.capture_test159_demo != true && inputs.diagnose_test159 != true && inputs.test161_evidence != true && inputs.test162_baseline != true
     # Diagnostic evidence is non-blocking; inspect the actual step outcomes.
     continue-on-error: true
     name: Bundle the same APK and verified screenshots
@@ -400,4 +405,9 @@ jobs:
       run_fixture: ${{ inputs.test161_autonomous_only != true && inputs.test161_signing_only != true }}
       run_autonomous: ${{ inputs.test161_signing_only != true }}
       run_ephemeral: ${{ inputs.test161_signing_only == true }}
+    secrets: inherit
+
+  test162-baseline:
+    if: inputs.test162_baseline == true
+    uses: ./.github/workflows/test162-production-baseline.yml
     secrets: inherit
