@@ -3112,9 +3112,117 @@
             ' attempt=' + boundedMediaLibraryCount(diagnostic && diagnostic.attempt, 999999) +
             ' http=' + boundedMediaLibraryCount(response && response.status, 599) +
             ' mime=' + mediaLibraryResponseMime(response));
+        if (typeof traceDebugTokenError === 'function') void traceDebugTokenError(endpoint, response);
     }
-    // Decode only successful token responses. Error text and response bodies are
-    // never logged or exposed; only a syntax failure is classified as non-JSON.
+    // Token refusal diagnostics, debug builds only. Closed categories are the
+    // only data allowed through the native channel; remote strings never leave.
+    async function readTokenErrorPrefix(response) {
+        const reader = response.clone().body.getReader();
+        const pieces = [];
+        let size = 0, complete = false;
+        try {
+            for (let i = 0; i < 64 && size < 8192; i++) {
+                const part = await reader.read();
+                if (part.done) { complete = true; break; }
+                if (!part.value || !part.value.length) continue;
+                const bytes = part.value.subarray(0, 8192 - size);
+                pieces.push(bytes); size += bytes.length;
+                if (bytes.length < part.value.length) break;
+            }
+            const decoder = new TextDecoder();
+            let text = '';
+            for (const bytes of pieces) text += decoder.decode(bytes, { stream: true });
+            text += decoder.decode();
+            return { text, complete };
+        } finally {
+            try { void reader.cancel().catch(() => {}); } catch (_) {}
+        }
+    }
+    function tokenErrorMessageCategory(value) {
+        if (typeof value !== 'string' || !value) return 'absent';
+        const v = value.slice(0, 1024).toLowerCase();
+        if (/missing.{0,40}(param|field)|(?:param|field).{0,40}(missing|required)/.test(v)) return 'missing_parameter';
+        if (/invalid.{0,40}(param|field)|(?:param|field).{0,40}invalid/.test(v)) return 'invalid_parameter';
+        if (/unsupported|not supported/.test(v)) return 'unsupported';
+        if (/rate.limit|too many requests/.test(v)) return 'rate_limit';
+        if (/forbidden|access denied|blocked/.test(v)) return 'access_denied';
+        if (/auth|credential|session/.test(v)) return 'auth';
+        return 'other';
+    }
+    function tokenErrorJsonFields(prefix) {
+        const result = { body: prefix.complete ? 'invalid_json' : 'truncated', code: 'absent', status: 'unknown', message: 'absent' };
+        if (!prefix.complete) return result;
+        try {
+            const data = JSON.parse(prefix.text);
+            if (!data || typeof data !== 'object' || Array.isArray(data)) return result;
+            result.body = 'json';
+            const err = data.error && typeof data.error === 'object' && !Array.isArray(data.error) ? data.error : null;
+            const rawCode = err && err.code !== undefined ? err.code : data.code !== undefined ? data.code :
+                typeof data.error === 'string' ? data.error : undefined;
+            const codes = ['invalid_request', 'invalid_client', 'invalid_grant', 'invalid_token', 'unauthorized', 'forbidden', 'bad_request', 'access_denied', 'rate_limited'];
+            if (rawCode !== undefined && rawCode !== null) {
+                const numericCode = typeof rawCode === 'number' ? rawCode :
+                    typeof rawCode === 'string' && /^[0-9]{1,3}$/.test(rawCode) ? Number(rawCode) : NaN;
+                result.code = Number.isInteger(numericCode) && numericCode >= 0 && numericCode <= 999 ? String(numericCode) :
+                    typeof rawCode === 'string' && codes.includes(rawCode) ? rawCode : 'other';
+            }
+            const rawStatus = err && err.status !== undefined ? err.status : data.status;
+            const status = typeof rawStatus === 'number' ? rawStatus :
+                typeof rawStatus === 'string' && /^[1-5][0-9]{2}$/.test(rawStatus) ? Number(rawStatus) : NaN;
+            if (Number.isInteger(status) && status >= 100 && status <= 599) result.status = String(status);
+            const msg = err && typeof err.message === 'string' ? err.message :
+                typeof data.error_description === 'string' ? data.error_description : data.message;
+            result.message = tokenErrorMessageCategory(msg);
+        } catch (_) {}
+        return result;
+    }
+    function tokenErrorHtmlFields(prefix) {
+        const match = /<title\b[^>]*>([^<]{0,512})<\/title\s*>/i.exec(prefix.text);
+        let title = 'absent';
+        if (match) {
+            const t = match[1].trim().replace(/\s+/g, ' ').toLowerCase();
+            const known = { 'access denied': 'access_denied', '403 forbidden': '403_forbidden',
+                'forbidden': 'forbidden', 'just a moment...': 'just_a_moment',
+                'attention required! | cloudflare': 'attention_required_cloudflare' };
+            title = Object.prototype.hasOwnProperty.call(known, t) ? known[t] : 'other';
+        } else if (!prefix.complete) title = 'unknown';
+        const text = prefix.text.toLowerCase();
+        let marker = 'none';
+        if (/captcha|turnstile/.test(text)) marker = 'captcha';
+        else if (/cf-chl|challenge-platform|checking your browser|just a moment/.test(text)) marker = 'challenge';
+        else if (/access denied|forbidden|blocked/.test(text)) marker = 'access_denied';
+        else if (/too many requests|rate.limit/.test(text)) marker = 'rate_limit';
+        return { body: prefix.complete ? 'html' : 'truncated', title, marker,
+            cloudflare: /cloudflare|cf-chl|challenge-platform/.test(text) ? 'yes' : 'no' };
+    }
+    async function traceDebugTokenError(endpoint, response) {
+        try {
+            if (!sessionDebugEnabled() || !response ||
+                !((endpoint === 'api' && response.status === 400) ||
+                  (endpoint === 'fallback' && response.status === 403))) return;
+            const isApi = endpoint === 'api';
+            const emit = fields => {
+                try {
+                    if (isApi) window.AndBridge.onSessionDebug('token-error endpoint=api http=400 body=' + fields.body +
+                        ' code=' + fields.code + ' status=' + fields.status + ' message=' + fields.message);
+                    else window.AndBridge.onSessionDebug('token-error endpoint=fallback http=403 body=' + fields.body +
+                        ' title=' + fields.title + ' marker=' + fields.marker + ' cloudflare=' + fields.cloudflare);
+                } catch (_) {}
+            };
+            const unknown = isApi ? {body:'waiting',code:'absent',status:'unknown',message:'absent'} :
+                {body:'waiting',title:'unknown',marker:'none',cloudflare:'no'};
+            emit(unknown); // Explicit even if the cloned response never finishes.
+            if (mediaLibraryResponseMime(response) !== (isApi ? 'json' : 'html')) {
+                emit(Object.assign({}, unknown, {body:'wrong_mime'})); return;
+            }
+            try {
+                const prefix = await readTokenErrorPrefix(response);
+                emit(isApi ? tokenErrorJsonFields(prefix) : tokenErrorHtmlFields(prefix));
+            } catch (_) { emit(Object.assign({}, unknown, {body:'unavailable'})); }
+        } catch (_) {}
+    }
+    // Successful token responses are decoded separately; error text is never
+    // exposed, only bounded categories from the debug-only clone above.
     async function decodeWebPlayerToken(response) {
         let data;
         try { data = await response.json(); }
