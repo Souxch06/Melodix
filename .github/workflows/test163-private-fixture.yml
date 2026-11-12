@@ -29,4 +29,8 @@ jobs:
           profile: pixel_2
           disable-animations: true
           emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
-          script: bash scripts/run_test163_private_fixture.sh
+          script: |
+            bash -x scripts/run_test163_private_fixture.sh > "$RUNNER_TEMP/test163-debug.log" 2>&1 || {
+              tail -80 "$RUNNER_TEMP/test163-debug.log" | while IFS= read -r line; do echo "::warning title=TEST163 fixture diagnostic::$line"; done
+              exit 1
+            }
