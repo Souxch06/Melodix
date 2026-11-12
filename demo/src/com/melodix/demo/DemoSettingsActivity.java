@@ -39,6 +39,11 @@ public final class DemoSettingsActivity extends Activity {
         demo.setBackgroundResource(getResources().getIdentifier("native_glass_surface","drawable",getPackageName()));
         demo.setOnClickListener(v -> startActivity(new Intent(this,DemoActivity.class)));
         LinearLayout.LayoutParams demoLp = new LinearLayout.LayoutParams(-1,-2); demoLp.topMargin=dp(16); root.addView(demo,demoLp);
+        TextView local = new TextView(this); local.setText("Ma musique"); local.setContentDescription("Ma musique");
+        local.setTextColor(Color.WHITE); local.setTextSize(16); local.setGravity(Gravity.CENTER); local.setPadding(dp(12),dp(16),dp(12),dp(16));
+        local.setBackgroundResource(getResources().getIdentifier("native_glass_surface","drawable",getPackageName()));
+        local.setOnClickListener(v -> startActivity(new Intent(this, com.melodix.local.LocalMusicActivity.class)));
+        LinearLayout.LayoutParams localLp = new LinearLayout.LayoutParams(-1,-2); localLp.topMargin=dp(8); root.addView(local,localLp);
         TextView open = new TextView(this); open.setText("Ouvrir Melodix"); open.setTextColor(0xffa78bfa);
         open.setTextSize(16); open.setGravity(Gravity.CENTER); open.setPadding(dp(12),dp(16),dp(12),dp(16));
         open.setOnClickListener(v -> { try { Intent i = new Intent(); i.setClassName(getPackageName(),"com.melodix.music.MainActivity"); startActivity(i); } catch (Exception e) { open.setText("Ouverture indisponible"); } });

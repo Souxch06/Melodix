@@ -352,12 +352,13 @@ jobs:
             demo_classes="$RUNNER_TEMP/demo-classes"
             demo_dex="$RUNNER_TEMP/demo-dex"
             mkdir -p "$demo_classes" "$demo_dex"
-            javac --release 8 -classpath "$ANDROID_HOME/platforms/android-36/android.jar" -d "$demo_classes" $(find "$source_dir/demo/src" -name '*.java')
+            javac --release 8 -classpath "$ANDROID_HOME/platforms/android-36/android.jar" -d "$demo_classes" $(find "$source_dir/demo/src" "$source_dir/local/src" -name '*.java')
             mapfile -t demo_class_files < <(find "$demo_classes" -name '*.class')
             "$build_tools/d8" --lib "$ANDROID_HOME/platforms/android-36/android.jar" --min-api 24 --output "$demo_dex" "${demo_class_files[@]}"
             if unzip -l "$RUNNER_TEMP/unsigned.apk" | grep -q 'classes2.dex'; then echo "::error::Demo dex slot already occupied"; exit 1; fi
             mv "$demo_dex/classes.dex" "$demo_dex/classes2.dex"
             (cd "$demo_dex" && zip -q "$RUNNER_TEMP/unsigned.apk" classes2.dex)
+            python3 "$source_dir/scripts/check_preview_dex.py" "$RUNNER_TEMP/unsigned.apk"
           fi
           "$build_tools/zipalign" -f 4 \
             "$RUNNER_TEMP/unsigned.apk" "$RUNNER_TEMP/aligned.apk"

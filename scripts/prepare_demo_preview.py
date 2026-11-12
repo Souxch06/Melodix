@@ -11,6 +11,7 @@ for f in main.findall('intent-filter'):
 assert len(launch)==1
 main.remove(launch[0]); entry=ET.SubElement(app,'activity',{a+'name':'com.melodix.demo.DemoSettingsActivity',a+'process':':demo',a+'exported':'true',a+'label':'Melodix Preview'})
 entry.append(launch[0]); ET.SubElement(app,'activity',{a+'name':'com.melodix.demo.DemoActivity',a+'process':':demo',a+'exported':'false'})
+ET.SubElement(app,'activity',{a+'name':'com.melodix.local.LocalMusicActivity',a+'process':':demo',a+'exported':'false'})
 tree.write(manifest,encoding='utf-8',xml_declaration=True)
 # Only the separate demo process skips the real updater; the main process is
 # unchanged. No proof/session flags are touched. Demo UI creates no WebView.
@@ -45,6 +46,7 @@ if (work/'res').exists():
     # this preview-only Activity method; it does not rely on a later repaint.
     assert 'onPreviewDemoClick(Landroid/view/View;)V' not in text
     text += '''\n.method public final onPreviewDemoClick(Landroid/view/View;)V\n    .locals 0\n    invoke-static {p0}, Lcom/melodix/demo/DemoEntry;->open(Landroid/app/Activity;)V\n    return-void\n.end method\n'''
+    text += '''\n.method public final onPreviewLocalMusicClick(Landroid/view/View;)V\n    .locals 2\n    new-instance v0, Landroid/content/Intent;\n    const-class v1, Lcom/melodix/local/LocalMusicActivity;\n    invoke-direct {v0, p0, v1}, Landroid/content/Intent;-><init>(Landroid/content/Context;Ljava/lang/Class;)V\n    invoke-virtual {p0, v0}, Landroid/app/Activity;->startActivity(Landroid/content/Intent;)V\n    return-void\n.end method\n'''
     p.write_text(text)
     p=work/'res/layout/native_session_surface.xml'
     text=p.read_text()
@@ -83,4 +85,17 @@ if (work/'res').exists():
             demo.set(a+'layout_marginTop', '0dp')
             demo.set(a+'textSize', '14sp')
         parent.insert(index + 1, demo)
+        local_music = ET.Element('TextView', {
+            a+'tag': 'preview-local-music-entry',
+            a+'layout_width': 'match_parent', a+'layout_height': 'wrap_content',
+            a+'minHeight': '48dp', a+'padding': '12dp', a+'layout_marginTop': '8dp',
+            a+'background': '@drawable/native_glass_surface', a+'gravity': 'center',
+            a+'text': 'Ma musique', a+'contentDescription': 'Ma musique',
+            a+'textColor': '#FFFFFF', a+'textSize': '15sp', a+'textStyle': 'bold',
+            a+'clickable': 'true', a+'focusable': 'true', a+'onClick': 'onPreviewLocalMusicClick',
+        })
+        if name == 'native_session_login_header.xml':
+            local_music.set(a+'layout_marginTop', '0dp')
+            local_music.set(a+'textSize', '14sp')
+        parent.insert(index + 2, local_music)
         layout_tree.write(layout, encoding='utf-8', xml_declaration=True)
