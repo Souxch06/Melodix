@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # TEST-ONLY disposable application signed with a disposable key, never Melodix.
 set -euo pipefail
+# Expose bounded test-only diagnostics even when the Actions log archive is
+# unavailable. No real account, production APK or private payload is used.
+log="${RUNNER_TEMP:?}/test163-debug.log"
+exec > >(tee "$log") 2>&1
+trap 'rc=$?; set +x; echo "::warning title=TEST163 fixture command failed::line $LINENO exit $rc"; tail -60 "$log" | while IFS= read -r line; do echo "::warning title=TEST163 fixture diagnostic::$line"; done' ERR
+set -x
 : "${ANDROID_HOME:?}" "${RUNNER_TEMP:?}"
 dir="$RUNNER_TEMP/test163-private-fixture"
 mkdir -p "$dir/smali" "$dir/app-classes" "$dir/test-classes" "$dir/app-dex" "$dir/test-dex" "$dir/target" "$dir/test"
