@@ -8,6 +8,11 @@ on:
         required: false
         type: boolean
         default: false
+      real_interface_preview:
+        description: Build a non-demo Preview that opens the original launcher
+        required: false
+        type: boolean
+        default: false
       test163_private_fixture:
         description: Run only disposable TEST163 Android private UI fixture
         required: false
@@ -68,7 +73,7 @@ permissions:
   contents: read
 jobs:
   replay:
-    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true && inputs.capture_test159_demo != true && inputs.diagnose_test159 != true && inputs.test161_evidence != true && inputs.test162_baseline != true && inputs.test163_private_fixture != true && inputs.demo_delivery_a != true
+    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true && inputs.capture_test159_demo != true && inputs.diagnose_test159 != true && inputs.test161_evidence != true && inputs.test162_baseline != true && inputs.test163_private_fixture != true && inputs.demo_delivery_a != true && inputs.real_interface_preview != true
     # Diagnostic evidence is non-blocking; inspect the actual step outcomes.
     continue-on-error: true
     name: Replay the same Preview APK on a fresh offline phone
@@ -99,7 +104,7 @@ jobs:
           emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
           script: sh scripts/replay_existing_apk.sh
   capture:
-    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true && inputs.capture_test159_demo != true && inputs.diagnose_test159 != true && inputs.test161_evidence != true && inputs.test162_baseline != true && inputs.test163_private_fixture != true && inputs.demo_delivery_a != true
+    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true && inputs.capture_test159_demo != true && inputs.diagnose_test159 != true && inputs.test161_evidence != true && inputs.test162_baseline != true && inputs.test163_private_fixture != true && inputs.demo_delivery_a != true && inputs.real_interface_preview != true
     # Diagnostic evidence is non-blocking; inspect the actual step outcomes.
     continue-on-error: true
     name: Capture existing Preview on ${{ matrix.profile }}
@@ -142,7 +147,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
   bundle:
-    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true && inputs.capture_test159_demo != true && inputs.diagnose_test159 != true && inputs.test161_evidence != true && inputs.test162_baseline != true && inputs.test163_private_fixture != true && inputs.demo_delivery_a != true
+    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true && inputs.capture_test159_demo != true && inputs.diagnose_test159 != true && inputs.test161_evidence != true && inputs.test162_baseline != true && inputs.test163_private_fixture != true && inputs.demo_delivery_a != true && inputs.real_interface_preview != true
     # Diagnostic evidence is non-blocking; inspect the actual step outcomes.
     continue-on-error: true
     name: Bundle the same APK and verified screenshots
@@ -429,6 +434,13 @@ jobs:
   demo-delivery-a:
     if: inputs.demo_delivery_a == true
     uses: ./.github/workflows/demo-delivery-a.yml
+    with:
+      source_ref: ${{ github.sha }}
+    secrets: inherit
+
+  real-interface-preview:
+    if: inputs.real_interface_preview == true && inputs.demo_delivery_a != true
+    uses: ./.github/workflows/real-interface-preview.yml
     with:
       source_ref: ${{ github.sha }}
     secrets: inherit
