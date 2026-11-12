@@ -262,8 +262,30 @@ public final class SessionGateInstrumentation extends Instrumentation {
                 note();outcome.putString("overall","passed");finish(Activity.RESULT_OK,outcome);return;
             }
             phase = "first_launch_limited_home";
-            ui(() -> { check(nativeRoot()!=null && nativeRoot().isShown());
-                check(findText(nativeRoot(),"Se connecter à Spotify")!=null); }); note();
+            ui(() -> {
+                View root=nativeRoot(); check(root!=null && root.isShown());
+                Rect rootRect=new Rect(); check(root.getGlobalVisibleRect(rootRect));
+                check(rootRect.width()>0 && rootRect.height()>0);
+                View splash=activity().findViewById(activity().getResources().getIdentifier("splashOverlay","id",PACKAGE));
+                check(splash!=null && !splash.isShown());
+                View status=findText(root,"Bibliothèque Spotify indisponible");
+                if(status==null) status=findText(root,"Vérification de la bibliothèque…");
+                check(status!=null && status.isShown());
+                Rect statusRect=new Rect(); check(status.getGlobalVisibleRect(statusRect));
+                check(statusRect.width()>0 && statusRect.height()>0);
+                android.view.accessibility.AccessibilityNodeInfo node=status.createAccessibilityNodeInfo();
+                check(node!=null && node.isVisibleToUser() && node.getText()!=null && node.getText().length()>0);
+                node.recycle();
+                View login=findText(root,"Se connecter à Spotify");
+                View retry=findText(root,"Réessayer la bibliothèque");
+                check(login!=null && login.isShown() && login.isClickable());
+                check(retry!=null && retry.isShown() && retry.isClickable());
+                for(String id:new String[]{"nativeHomeTab","nativeSearchTab","nativeLibraryTab","nativeSettingsButton"}) {
+                    View control=activity().findViewById(activity().getResources().getIdentifier(id,"id",PACKAGE));
+                    Rect r=new Rect();check(control!=null && control.isShown() && control.isClickable());
+                    check(control.getGlobalVisibleRect(r) && r.width()>0 && r.height()>0);
+                }
+            }); note();
 
             phase = "diagnostic_real_webview_fallback";
             diagnosticReadback(false); note();

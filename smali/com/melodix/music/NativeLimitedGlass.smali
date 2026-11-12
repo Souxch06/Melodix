@@ -34,6 +34,8 @@
     new-instance v0, Landroid/widget/TextView;
     invoke-direct {v0, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
     invoke-virtual {v0, p2}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    # TextView is an accessibility node with the same safe fixed label.
+    invoke-virtual {v0, p2}, Landroid/view/View;->setContentDescription(Ljava/lang/CharSequence;)V
     invoke-virtual {v0, p3}, Landroid/widget/TextView;->setTextSize(F)V
     sget v1, Lcom/melodix/music/MelColors;->textPrimary:I
     invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextColor(I)V
@@ -184,10 +186,11 @@
     const-string v5, "melodix:action:open-notifications"
     invoke-static {p0, v3, v4, v5}, Lcom/melodix/music/NativeLimitedGlass;->action(Lcom/melodix/music/MainActivity;Landroid/widget/LinearLayout;Ljava/lang/String;Ljava/lang/String;)V
     :show_root
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->H:Landroidx/constraintlayout/widget/ConstraintLayout;
-    if-eqz v0, :hide_progress
+    # bind() can run before MainActivity.H is assigned. Resolve the actual
+    # inflated splash by resource id, not the not-yet-initialized field.
+    const v0, 0x7f0901c6
     const/16 v1, 0x8
-    invoke-virtual {v0, v1}, Landroid/view/View;->setVisibility(I)V
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeLimitedGlass;->visibility(Landroid/app/Activity;II)V
     :hide_progress
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->R:Landroid/widget/ProgressBar;
     if-eqz v0, :root

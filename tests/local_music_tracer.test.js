@@ -12,7 +12,7 @@ test('test-only session layouts place the tracer next to the demo and keep the p
   const files = ['AndroidManifest.xml', 'smali/com/melodix/music/AppSingleton.smali',
     'smali/com/melodix/music/NativeSettingsRowFactory.smali', 'smali/com/melodix/music/NativeSessionSurface.smali',
     'smali/com/melodix/music/MainActivity.smali', 'res/layout/native_session_surface.xml',
-    'res/layout/native_session_login_header.xml'];
+    'res/layout/native_session_login_header.xml', 'smali/com/melodix/music/NativeLimitedGlass.smali'];
   try {
     const original = Object.fromEntries(files.map(f => [f, read(f)]));
     for (const f of files) { const out=path.join(dir,f); fs.mkdirSync(path.dirname(out),{recursive:true}); fs.copyFileSync(f,out); }

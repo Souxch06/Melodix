@@ -13,7 +13,7 @@ test('preview session layouts always contain an actionable button before diagnos
       'smali/com/melodix/music/NativeSettingsRowFactory.smali',
       'smali/com/melodix/music/NativeSessionSurface.smali',
       'smali/com/melodix/music/MainActivity.smali',
-      'res/layout/native_session_surface.xml', 'res/layout/native_session_login_header.xml'];
+      'res/layout/native_session_surface.xml', 'res/layout/native_session_login_header.xml', 'smali/com/melodix/music/NativeLimitedGlass.smali'];
     const original = Object.fromEntries(files.map(f => [f, fs.readFileSync(f, 'utf8')]));
     for (const file of files) {
       const dest = path.join(dir, file);

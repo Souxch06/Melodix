@@ -38,6 +38,18 @@ if (work/'res').exists():
     assert text.count(marker)==1
     text=text.replace(marker, '    invoke-static {}, Lcom/melodix/music/NativeSessionSurfaceExtras;->retryState()V\n    invoke-static {p0, v0, v1, v2}, Lcom/melodix/demo/DemoEntry;->bindSession(Landroid/app/Activity;Landroid/view/View;IZ)V\n    invoke-static {p0, v0, v1, v2}, Lcom/melodix/demo/DemoEntry;->bindSessionOtherStates(Landroid/app/Activity;Landroid/view/View;IZ)V\n    invoke-virtual {v0}, Landroid/view/View;->bringToFront()V\n    return-void')
     p.write_text(text)
+    # Limited Glass intentionally bypasses untrusted WebView settings rows.
+    # Add the existing demo entry only in this opt-in, isolated build, after
+    # its native settings content is created. Never alter session/proof state.
+    p=work/'smali/com/melodix/music/NativeLimitedGlass.smali'
+    text=p.read_text()
+    # The production renderer resolves splash by ID because the field can be
+    # uninitialized at bind. Match its stable label rather than the old code.
+    marker='    :show_root\n    # bind() can run before MainActivity.H is assigned.'
+    assert text.count(marker)==1
+    text=text.replace(marker, '    :show_root\n    invoke-static {p0, v3, v0}, Lcom/melodix/demo/DemoEntry;->bindSettings(Landroid/app/Activity;Landroid/widget/LinearLayout;Ljava/lang/String;)V\n    # bind() can run before MainActivity.H is assigned.')
+    p.write_text(text)
+
     p=work/'smali/com/melodix/music/MainActivity.smali'
     text=p.read_text()
     marker='    invoke-virtual {v2}, Landroid/widget/LinearLayout;->removeAllViews()V\n\n    # Home is a set of horizontal cover shelves'

@@ -49,3 +49,9 @@ test('limited back returns to home and login delegates to WebView history',()=>{
  const limited=read('smali/com/melodix/music/NativeLimitedGlass.smali');
  assert.match(limited,/back\(Lcom\/melodix\/music\/MainActivity;\)Z[\s\S]*?"home"[\s\S]*?->show/);
 });
+
+test('first paint hides the inflated splash even before Activity fields are initialized',()=>{
+ const show=method(limited,'.method public static show(');
+ assert.match(show,/const v0, 0x7f0901c6[\s\S]*?NativeLimitedGlass;->visibility/);
+ assert.doesNotMatch(show,/->H:Landroidx\/constraintlayout/);
+});

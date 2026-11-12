@@ -12,7 +12,7 @@ test('login removes the top banner while preserving a compact preview demo entry
     for (const name of ['AndroidManifest.xml', 'smali/com/melodix/music/AppSingleton.smali',
       'smali/com/melodix/music/NativeSettingsRowFactory.smali', 'smali/com/melodix/music/NativeSessionSurface.smali',
       'smali/com/melodix/music/MainActivity.smali', 'res/layout/native_session_surface.xml',
-      'res/layout/native_session_login_header.xml']) {
+      'res/layout/native_session_login_header.xml', 'smali/com/melodix/music/NativeLimitedGlass.smali']) {
       const dest = path.join(dir, name);
       fs.mkdirSync(path.dirname(dest), {recursive:true}); fs.copyFileSync(name, dest);
     }

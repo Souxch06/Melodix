@@ -13,7 +13,7 @@ test('only the isolated preview build injects demo entry points into the actual 
     const files = ['AndroidManifest.xml', 'smali/com/melodix/music/AppSingleton.smali',
       'smali/com/melodix/music/NativeSettingsRowFactory.smali',
       'smali/com/melodix/music/NativeSessionSurface.smali',
-      'smali/com/melodix/music/MainActivity.smali', 'res/layout/native_session_surface.xml'];
+      'smali/com/melodix/music/MainActivity.smali', 'res/layout/native_session_surface.xml', 'smali/com/melodix/music/NativeLimitedGlass.smali'];
     for (const f of files) {
       const dst = path.join(dir,f); fs.mkdirSync(path.dirname(dst),{recursive:true});
       fs.copyFileSync(f,dst);
@@ -23,6 +23,9 @@ test('only the isolated preview build injects demo entry points into the actual 
     const temp = f => fs.readFileSync(path.join(dir,f),'utf8');
     const surface = temp('smali/com/melodix/music/NativeSessionSurface.smali');
     const main = temp('smali/com/melodix/music/MainActivity.smali');
+    const limited = temp('smali/com/melodix/music/NativeLimitedGlass.smali');
+    assert.match(limited, /:show_root\s+invoke-static \{p0, v3, v0\}, Lcom\/melodix\/demo\/DemoEntry;->bindSettings/);
+    assert.doesNotMatch(read('smali/com/melodix/music/NativeLimitedGlass.smali'), /com\/melodix\/demo/);
     assert.match(surface, /:attach\s+invoke-static \{p0, v0, v1, v2\}, Lcom\/melodix\/demo\/DemoEntry;->bindSession/);
     assert.match(main, /removeAllViews\(\)V\s+iget-object v0, p0, Lcom\/melodix\/music\/MainActivity;->nativeCurrentScreen:[^\n]+\s+invoke-static \{p0, v2, v0\}, Lcom\/melodix\/demo\/DemoEntry;->bindSettings/);
     const layout = temp('res/layout/native_session_surface.xml');

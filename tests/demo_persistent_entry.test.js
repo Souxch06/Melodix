@@ -13,7 +13,7 @@ test('preview hooks preserve the real gate and include active login and settings
     const files = ['AndroidManifest.xml', 'smali/com/melodix/music/AppSingleton.smali',
       'smali/com/melodix/music/NativeSettingsRowFactory.smali',
       'smali/com/melodix/music/NativeSessionSurface.smali',
-      'smali/com/melodix/music/MainActivity.smali', 'res/layout/native_session_surface.xml'];
+      'smali/com/melodix/music/MainActivity.smali', 'res/layout/native_session_surface.xml', 'smali/com/melodix/music/NativeLimitedGlass.smali'];
     for (const f of files) {
       const dest = path.join(dir, f);
       fs.mkdirSync(path.dirname(dest), {recursive:true});
