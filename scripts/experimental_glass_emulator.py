@@ -121,7 +121,10 @@ phase('checking offline demo')
 find(text('MODE DÉMO · HORS LIGNE'), timeout=60)
 phase('isolated offline demo opened from limited settings')
 tap(find(text('Quitter la démo')))
-find(by_id('nativeRoot'), timeout=60)
+# Both activities reuse the nativeRoot resource id; require the real limited
+# Settings title before interacting, not merely the demo's identical root.
+phase('waiting for real settings after demo exit')
+find(lambda n: by_id('nativeScreenTitle')(n) and text('Paramètres')(n), timeout=60)
 phase('demo exit returned to real limited Glass')
 tap(find(by_id('nativeHomeTab')))
 find(lambda n: by_id('nativeScreenTitle')(n) and text('Accueil')(n))
