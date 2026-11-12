@@ -20,3 +20,36 @@ test('B fixture is isolated, network-blocked, and rejects both untrusted origins
   assert.match(b,/home_navigation/); assert.doesNotMatch(b,/CookieManager|setCookie\(/);
   assert.match(w,/7d3288bca24b8316aa80316d5f9a606fbd850c4d3c058cc7c7477a26227623aa/);
 });
+test('A retries failed dumps without accepting stale XML and handles the fresh-device permission dialog',()=>{
+  const cp=require('node:child_process');
+  const py=String.raw`
+import ast,pathlib,subprocess,xml.etree.ElementTree as ET
+src=pathlib.Path('scripts/acceptance_autonomous.py').read_text(); tree=ast.parse(src)
+funcs=[f for f in tree.body if isinstance(f,ast.FunctionDef) and f.name in ('nodes','handle_permission')]
+class FakeTime:
+ def sleep(self, v): pass
+calls=[]
+def adb(*args):
+ calls.append(args)
+ if args[2]=='dump': return b'ERROR: could not get idle state'
+ raise AssertionError('stale XML was read')
+ns={'adb':adb,'subprocess':subprocess,'ET':ET,'time':FakeTime()};exec(compile(ast.Module(body=funcs,type_ignores=[]),'fixture','exec'),ns)
+try: ns['nodes']()
+except RuntimeError: pass
+else: raise AssertionError('failed dumps accepted')
+assert len(calls)==3
+calls=[]
+def adb2(*args):
+ calls.append(args)
+ if args[2]=='dump': return b'UI hierarchy dumped to: /sdcard/melodix-a.xml'
+ return b'<?xml version="1.0"?><hierarchy><node package="test"/></hierarchy>'
+ns['adb']=adb2
+assert ns['nodes']()[0].get('package')=='test'
+taps=[];ns['tap']=lambda x:taps.append(x)
+allow=ET.Element('node',{'resource-id':'com.google.android.permissioncontroller:id/permission_allow_button'})
+other=ET.Element('node',{'resource-id':'com.google.android.permissioncontroller:id/permission_deny_button'})
+assert ns['handle_permission']([other]) is False and taps==[]
+assert ns['handle_permission']([allow]) is True and taps==[allow]
+`;
+  const r=cp.spawnSync('python3',['-c',py],{encoding:'utf8'}); assert.equal(r.status,0,r.stderr||r.stdout);
+});
