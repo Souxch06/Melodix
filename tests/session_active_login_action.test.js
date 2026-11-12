@@ -38,10 +38,10 @@ function decision(state, loginActive) {
   }
   return button;
 }
-test('no retry or login action is exposed over an active official login, including error states',()=>{
+test('only an explicit return, never retry or login, is exposed over an active official login',()=>{
   for(const state of [0,1,2,4]) {
     const b=decision(state,true);
-    assert.deepEqual(b,{visible:false,text:null,action:null},'state '+state);
+    assert.deepEqual(b,{visible:true,text:'Retour à Melodix',action:5},'state '+state);
   }
 });
 test('ordinary no-login retry and login actions are unchanged',()=>{
@@ -58,4 +58,14 @@ test('the real login header defaults action to gone and preview still contains i
   const action=read('smali/com/melodix/music/NativeSessionSurfaceAction.smali');
   assert.match(action,/->hasCookie\(\)Z[\s\S]*?->verify\(Lcom\/melodix\/music\/MainActivity;\)V/);
   assert.match(read('smali/com/melodix/music/NativeSessionGate.smali'),/begin\(Lcom\/melodix\/music\/MainActivity;\)V[\s\S]*?sput-boolean v1, Lcom\/melodix\/music\/NativeSessionGate;->loginActive:Z/);
+});
+test('explicit exit invalidates login generation and stays unverified without erasing storage or starting a retry',()=>{
+  const gate=read('smali/com/melodix/music/NativeSessionGate.smali');
+  const method=gate.slice(gate.indexOf('.method public static leaveLogin('),gate.indexOf('.end method',gate.indexOf('.method public static leaveLogin(')));
+  assert.match(method,/loginActive:Z[\s\S]*?if-eqz v0, :done/);
+  assert.match(method,/NativeSessionStore;->advance[\s\S]*?sput-boolean v0, .*->loginActive:Z[\s\S]*?stopLoading\(\)V[\s\S]*?const\/4 v0, 0x4[\s\S]*?->transition[\s\S]*?->paint/);
+  assert.match(method,/nativeLoginWebRequested:Z[\s\S]*?nativeLoginPageCommitted:Z/);
+  assert.doesNotMatch(method,/removeAllCookies|deleteAllData|->verify\(|->loadUrl\(|recordVerified|freshLogin:Z/);
+  const action=read('smali/com/melodix/music/NativeSessionSurfaceAction.smali');
+  assert.match(action,/:leave_login[\s\S]*?->generation:I[\s\S]*?NativeSessionGate;->generation:I[\s\S]*?if-ne v1, v2, :done[\s\S]*?->leaveLogin/);
 });

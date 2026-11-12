@@ -415,6 +415,32 @@
     return-void
 .end method
 
+# User exits the interactive surface without inferring login success. Cancel
+# its generation first so late login and verification callbacks cannot unlock
+# private UI. Neither cookies nor WebView storage are deleted.
+.method public static leaveLogin(Lcom/melodix/music/MainActivity;)V
+    .locals 2
+    sget-boolean v0, Lcom/melodix/music/NativeSessionGate;->loginActive:Z
+    if-eqz v0, :done
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionStore;->advance(Landroid/content/Context;)I
+    const/4 v0, 0x0
+    sput-boolean v0, Lcom/melodix/music/NativeSessionGate;->loginActive:Z
+    sput-boolean v0, Lcom/melodix/music/NativeSessionGate;->expiredEvidence:Z
+    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginWebRequested:Z
+    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginPageCommitted:Z
+    invoke-static {}, Lcom/melodix/music/NativeSessionEvidence;->reset()V
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+    if-eqz v0, :stopped
+    invoke-virtual {v0}, Landroid/webkit/WebView;->stopLoading()V
+    :stopped
+    const/4 v0, 0x4
+    const-string v1, "login-exited-unverified"
+    invoke-static {v0, v1}, Lcom/melodix/music/NativeSessionGate;->transition(ILjava/lang/String;)V
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionGate;->paint(Lcom/melodix/music/MainActivity;)V
+    :done
+    return-void
+.end method
+
 .method public static requestLogin(Lcom/melodix/music/MainActivity;)V
     .locals 2
     sget-boolean v0, Lcom/melodix/music/NativeSessionGate;->expiredEvidence:Z

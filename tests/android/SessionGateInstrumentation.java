@@ -363,6 +363,19 @@ public final class SessionGateInstrumentation extends Instrumentation {
             ui(() -> { check(findText(nativeRoot(),"Se connecter à Spotify").performClick());
                 check((Boolean)field("loginActive")); check(!nativeRoot().isShown());
             }); note();
+            phase = "login_explicit_return_unverified";
+            ui(() -> { int old=(Integer)field("generation");
+                check(view("sessionAction").isShown());
+                check(view("sessionAction").getText().toString().equals("Retour à Melodix"));
+                check(view("sessionAction").performClick());
+                check(!(Boolean)field("loginActive")); check((Integer)field("generation")>old);
+                state(4); limited("Accueil");
+                check("login-exited-unverified".equals(field("lastReason")));
+                JSONObject stale = new JSONObject().put("generation",old).put("attempt",++attempt)
+                    .put("completed",true).put("token",true).put("libraryOk",true).put("libraryHttp",200);
+                call("result", new Class<?>[]{activity().getClass(),String.class}, activity(),stale.toString());
+                state(4); limited("Accueil");
+            }); note();
 
             phase = "missing_cookie_is_not_expiry";
             ui(() -> { set("autoUsed", true); begin(); result(false, false, true, 401); state(4);

@@ -31,6 +31,8 @@
     const/4 v1, 0x1
     invoke-virtual {p1, v1}, Landroid/view/View;->performHapticFeedback(I)Z
     iget v1, p0, Lcom/melodix/music/NativeSessionSurfaceAction;->action:I
+    const/4 v2, 0x5
+    if-eq v1, v2, :leave_login
     const/4 v2, 0x3
     if-eq v1, v2, :toggle
     const/4 v2, 0x4
@@ -46,6 +48,12 @@
     goto :done
     :login
     invoke-virtual {v0}, Lcom/melodix/music/MainActivity;->openSpotifyLogin()V
+    goto :done
+    :leave_login
+    iget v1, p0, Lcom/melodix/music/NativeSessionSurfaceAction;->generation:I
+    sget v2, Lcom/melodix/music/NativeSessionGate;->generation:I
+    if-ne v1, v2, :done
+    invoke-static {v0}, Lcom/melodix/music/NativeSessionGate;->leaveLogin(Lcom/melodix/music/MainActivity;)V
     goto :done
     :reconnect
     # Reconnection clears WebView data. Request a second, informed confirmation
