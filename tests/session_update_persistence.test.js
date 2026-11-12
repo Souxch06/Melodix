@@ -70,3 +70,16 @@ test('generation and proof observations commit synchronously, failed commits clo
  const pause=method(read('smali/com/melodix/music/MainActivity.smali'),'.method public final onPause()V');
  assert.match(pause,/NativeSessionRecovery;->flushCookies/);
 });
+
+test('installation-local epoch is excluded from Android cloud and device backups',()=>{
+ const legacy=read('res/xml/backup_rules.xml'),rules=read('res/xml/data_extraction_rules.xml');
+ assert.match(legacy,/<exclude domain="sharedpref" path="native_session_epoch\.xml"\s*\/>/);
+ for(const mode of ['cloud-backup','device-transfer']){
+  const block=rules.slice(rules.indexOf('<'+mode+'>'),rules.indexOf('</'+mode+'>'));
+  assert.match(block,/<exclude domain="sharedpref" path="native_session_epoch\.xml"\s*\/>/);
+ }
+});
+test('recovery cannot launch verification or navigate after a failed epoch commit',()=>{
+ const verify=method(read('smali/com/melodix/music/NativeSessionRecovery.smali'),'.method public static verify(');
+ assert.match(verify,/->begin\(Lcom\/melodix\/music\/MainActivity;\)V\s+sget v0, .*->generation:I\s+if-lez v0, :verify_done[\s\S]*?scheduleNativeSessionTimeout/);
+});

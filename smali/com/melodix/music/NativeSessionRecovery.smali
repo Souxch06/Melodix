@@ -81,6 +81,7 @@
     :verify_begin
     invoke-static {p0}, Lcom/melodix/music/NativeSessionGate;->begin(Lcom/melodix/music/MainActivity;)V
     sget v0, Lcom/melodix/music/NativeSessionGate;->generation:I
+    if-lez v0, :verify_done
     const/4 v1, 0x0
     const-string v2, "relance-demandee"
     invoke-static {v0, v1, v2}, Lcom/melodix/music/NativeSessionAttemptDiagnostic;->note(IILjava/lang/String;)V

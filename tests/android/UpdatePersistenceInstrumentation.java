@@ -48,9 +48,16 @@ public final class UpdatePersistenceInstrumentation extends Instrumentation {
                 check(cookieSet.await(10,TimeUnit.SECONDS));check(Boolean.TRUE.equals(accepted.get()));
                 phase="flush_cookie";cookies.flush();
                 phase="native_commit";
-                int gen=(Integer)store.getMethod("advance",Context.class).invoke(null,context);
-                check(gen>0);
-                check((Boolean)store.getMethod("recordVerified",Context.class,int.class).invoke(null,context,gen));
+                AtomicReference<Throwable> storeError=new AtomicReference<>();
+                AtomicReference<Integer> generation=new AtomicReference<>(0);
+                runOnMainSync(()->{try {
+                    int next=(Integer)store.getMethod("advance",Context.class).invoke(null,context);
+                    check(next>0);
+                    check((Boolean)store.getMethod("recordVerified",Context.class,int.class).invoke(null,context,next));
+                    generation.set(next);
+                } catch(Throwable e) { storeError.set(e); }});
+                check(storeError.get()==null);
+                int gen=generation.get();
                 check(preferences.getInt("generation",0)==gen);
                 check(preferences.getInt("verified_generation",0)==gen);
             } else {

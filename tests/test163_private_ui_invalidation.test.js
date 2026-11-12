@@ -75,7 +75,7 @@ test('gate invalidates on every non-valid transition and logout before old routi
   const transition=body(gate,'.method public static transition(').join('\n');
   assert.match(transition,/sput p0, .*->state:I[\s\S]*?if-eq p0, v1, :private_ui_reset_done[\s\S]*?privateUiEpoch:I[\s\S]*?invalidateNativePrivateUi/);
   const logout=body(activity,'.method public final A()V').join('\n');
-  assert.match(logout,/->state:I[\s\S]*?->privateUiEpoch:I[\s\S]*?->generation:I[\s\S]*?invalidateNativePrivateUi/);
+  assert.match(logout,/->state:I[\s\S]*?->privateUiEpoch:I[\s\S]*?NativeSessionStore;->advance\(Landroid\/content\/Context;\)I[\s\S]*?invalidateNativePrivateUi/);
   assert.match(runnable,/->privateUiEpoch:I[\s\S]*?->state:I[\s\S]*?->privateUiEpoch:I[\s\S]*?if-eq v0, v1, :stable_receipt/);
   assert.match(reset,/cancelRequest\(Landroid\/widget\/ImageView;\)V/);
   assert.match(reset,/getChildCount\(\)I[\s\S]*?cancelImages\(Landroid\/view\/View;\)V/);

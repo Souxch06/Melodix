@@ -100,7 +100,19 @@ test('request changes are limited to the reviewed fail-closed guard and diagnost
  now=now.replace("        if (value === 'token-missing') return 'token-missing';\n",'');
  assert.equal(now,old,'all other fetch, endpoints, parameters, proof publication and telemetry remain byte-identical');
  const before=cp.execFileSync('git',['show','9e55740c:smali/com/melodix/music/NativeSessionGate.smali'],{encoding:'utf8'});
- const after=fs.readFileSync('smali/com/melodix/music/NativeSessionGate.smali','utf8');
+ let after=fs.readFileSync('smali/com/melodix/music/NativeSessionGate.smali','utf8');
+ // Store migration is independently pinned, not silently ignored in the old
+ // historical contract. Compare the changed methods to the reviewed commit,
+ // then normalize only those exact methods for the legacy comparison.
+ const storeGate=cp.execFileSync('git',['show','c6d598d507c970bfab82837e35378e4319cb3d62:smali/com/melodix/music/NativeSessionGate.smali'],{encoding:'utf8'});
+ const priorGate=cp.execFileSync('git',['show','68def1d2fb47c804c12993695f707a9635a81c17:smali/com/melodix/music/NativeSessionGate.smali'],{encoding:'utf8'});
+ const gateMethod=(s,n)=>{const a=s.indexOf('.method public static '+n+'(');assert.ok(a>=0);const b=s.indexOf('.end method',a)+'.end method'.length;return s.slice(a,b);};
+ for(const n of ['begin','result','navigateLogin','destroy']){
+   assert.equal(gateMethod(after,n),gateMethod(storeGate,n),'store migration method '+n+' is pinned');
+   if(n!=='result') after=after.replace(gateMethod(after,n),gateMethod(priorGate,n));
+ }
+ const resultPrefix=s=>{const a=s.indexOf('.method public static result('),b=s.indexOf('    :not_valid\n',a);return s.slice(a,b);};
+ after=after.replace(resultPrefix(after),resultPrefix(priorGate));
  const cut=s=>[s.slice(0,s.indexOf('    :not_valid\n',s.indexOf('.method public static result('))),s.slice(s.indexOf('    :failed\n',s.indexOf('    :not_valid\n',s.indexOf('.method public static result('))))];
  // TEST163 intentionally adds an invalidation to transition and changes the
  // visibility of state to volatile. Pin the exact reviewed additions first,

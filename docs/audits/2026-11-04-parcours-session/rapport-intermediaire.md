@@ -56,3 +56,32 @@ Le run [43240684221](https://github.com/Souxch06/Melodix/actions/runs/4324068422
 Le job update-persistence échoue toujours : `verify_storage_value=null` après mise à jour immédiate. Redémarrage immédiat et arrêt forcé échouent aussi ; même processus, écriture stabilisée et mise à jour stabilisée passent. Le run global est donc rouge et la phase reste inachevée. Le `null` observé après le proxy synthétique sur un run précédent reste intermittent et ne démontre pas sa cause sur le téléphone. Aucun nouveau correctif de production n'est proposé sans cette preuve. Les résultats 400/403 observés sur le téléphone ne sont pas expliqués ni validés par ces fixtures.
 
 Suite JS sur ce même code : `npm test`, 1 298 tests, 1 293 réussis, 0 échec, 5 skips. Contrôles ciblés de la dernière modification d'instrumentation : 53/53. Les outils Android locaux manquent ; l'instrumentation a été exécutée en CI. Pas de fusion, release ou prétention de connexion Spotify réelle.
+
+## Persistance native — chantier en cours
+
+La génération de vérification et une observation historique de preuve sont
+stockées dans les préférences natives privées `native_session_epoch` par
+`commit()` synchrone. Seule une preuve vivante token + bibliothèque valide
+peut ouvrir la surface privée : les métadonnées historiques ne sont jamais
+rechargées comme autorisation. Une génération non positive est rejetée ; un
+échec d'écriture interdit la reconnexion destructive et la relance. Le fichier
+est exclu des sauvegardes cloud et du transfert Android afin de ne pas restaurer
+un ancien compteur. La sortie de connexion reconnue, `onPause` et `onStop`
+demandent un flush des cookies ; ce flush ne concerne pas localStorage.
+
+La fixture hors ligne utilise un cookie synthétique, des métadonnées natives,
+et une page locale. Elle vérifie leurs commits après redémarrage de processus,
+force-stop et remplacement d'APK ; localStorage n'est vérifié que dans le même
+processus. La version avant mise à jour est désormais épinglée au premier commit
+de ce store (`c6d598d5`) ; la version après est indépendante. Ce test ne
+vérifie donc pas la migration depuis un APK antérieur au store, ni une connexion
+Spotify réelle. La compilation et l'exécution Android doivent être vérifiées
+sur le commit final ; l'état des runs précédents ne suffit pas.
+
+Les causes des retours 400/403 et de `generation-null` restent inconnues.
+Les interfaces WebView sont exposées aussi aux cadres et ne permettent pas
+nativement de connaître l'origine de l'appel ; la préparation du pont concerne
+le document suivant et l'injection dépend de la navigation. Les diagnostics
+supplémentaires demandés (types JS par getter, contexte de document et thread,
+réponses réseau assainies et source exacte du jeton) ne sont pas encore livrés.
+Aucun résultat synthétique n'établit une connexion Spotify fonctionnelle.
