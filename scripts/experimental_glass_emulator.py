@@ -18,9 +18,19 @@ def adb(*args):
 
 
 def nodes():
-    adb('shell', 'uiautomator', 'dump', '/sdcard/experimental-glass.xml')
-    raw = adb('shell', 'cat', '/sdcard/experimental-glass.xml')
-    return list(ET.fromstring(raw[raw.index('<?xml'):]).iter('node'))
+    # Immediately after launch UIAutomator may report an empty window and not
+    # create its file even when its shell command itself exits successfully.
+    # Retry transient capture errors; never treat missing hierarchy as success.
+    for attempt in range(10):
+        try:
+            adb('shell', 'rm', '-f', '/sdcard/experimental-glass.xml')
+            adb('shell', 'uiautomator', 'dump', '/sdcard/experimental-glass.xml')
+            raw = adb('shell', 'cat', '/sdcard/experimental-glass.xml')
+            return list(ET.fromstring(raw[raw.index('<?xml'):]).iter('node'))
+        except (subprocess.CalledProcessError, ValueError, ET.ParseError):
+            if attempt == 9:
+                raise AssertionError('UI hierarchy unavailable after bounded retries')
+            time.sleep(1)
 
 
 def bounds(node):
@@ -86,7 +96,7 @@ phase('fresh launcher: native root, measured accessible status, login and retry 
 for tab, heading in [('nativeLibraryTab', 'Bibliothèque'), ('nativeSearchTab', 'Rechercher'),
                      ('nativeHomeTab', 'Accueil')]:
     tap(find(by_id(tab)))
-    find(text(heading))
+    find(lambda n: by_id('nativeScreenTitle')(n) and text(heading)(n))
     phase('native navigation: ' + tab)
 
 tap(find(by_id('nativeSettingsButton')))
