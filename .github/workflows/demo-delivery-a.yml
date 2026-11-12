@@ -111,9 +111,7 @@ jobs:
           script: |
             adb install "target-apk/$APK_NAME"
             python3 scripts/acceptance_autonomous.py '${{ matrix.profile }}' 'evidence-a/${{ matrix.profile }}'
-            if [ '${{ matrix.profile }}' = phone ]; then
-              python3 scripts/acceptance_local_playback.py 'evidence-a/${{ matrix.profile }}'
-            fi
+            if [ '${{ matrix.profile }}' = phone ]; then python3 scripts/acceptance_local_playback.py 'evidence-a/${{ matrix.profile }}'; fi
       - uses: actions/upload-artifact@v4.6.2
         if: always()
         with:
