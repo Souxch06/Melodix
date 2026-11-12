@@ -130,7 +130,7 @@
     const/high16 v2, 0x42400000    # 48dp minimum touch target
     mul-float/2addr v2, v1
     float-to-int v2, v2
-    invoke-virtual {v0, v2}, Landroid/view/View;->setMinHeight(I)V
+    invoke-virtual {v0, v2}, Landroid/widget/TextView;->setMinHeight(I)V
     const/high16 v2, 0x41000000    # 8dp
     mul-float/2addr v1, v2
     float-to-int v1, v1

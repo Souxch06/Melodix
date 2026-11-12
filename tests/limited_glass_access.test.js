@@ -63,6 +63,7 @@ test('first paint hides the inflated splash even before Activity fields are init
   assert.match(card,/screenWidthDp:I/);
   assert.match(action,/native_button_green[\s\S]*?native_button_dark|native_button_dark[\s\S]*?native_button_green/);
   assert.match(action,/setAllCaps\(Z\)V/);
-  assert.match(action,/48dp minimum touch target[\s\S]*?setMinHeight\(I\)V/);
+  assert.match(action,/48dp minimum touch target[\s\S]*?Landroid\/widget\/TextView;->setMinHeight\(I\)V/);
+  assert.doesNotMatch(action,/Landroid\/view\/View;->setMinHeight/);
   assert.match(method(limited,'.method public static show('),/->card[\s\S]*?Bibliothèque Spotify indisponible[\s\S]*?retry-library[\s\S]*?open-login/);
  });
