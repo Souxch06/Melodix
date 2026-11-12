@@ -1840,7 +1840,7 @@ test('page-finished delegates to verification, never unlocks native home on a pa
 test('login Web ownership is explicit and verification must complete before private home', () => {
     const gate = read('smali/com/melodix/music/NativeSessionGate.smali');
     assert.match(gate, /blocked\([\s\S]*?loginActive:Z[\s\S]*?applySessionLoginSurface/);
-    assert.match(gate, /result\([\s\S]*?"token"[\s\S]*?"libraryOk"[\s\S]*?token-and-library-ok/);
+    assert.match(gate, /result\([\s\S]*?"libraryOk"[\s\S]*?libraryHttp[\s\S]*?token-and-library-ok[\s\S]*?library-cookie-ok/);
     assert.match(gate, /navigateLogin\([\s\S]*?nativeLoginPageCommitted:Z/);
 });
 

@@ -73,7 +73,9 @@ test('historical normalization pins debug changes and retains the complete byte 
   ["if (window.location && window.location.origin !== 'https://open.spotify.com') return 0;","if (false) return 0;"],
   ['bytes.subarray(0, 1024)','bytes.subarray(0, 1025)'],
   ['size < 8192','size < 8193'],
-  ["? known[t] : 'other'","? known[t] : 'unknown'"]
+  ["? known[t] : 'other'","? known[t] : 'unknown'"],
+  ["if (bearerToken && (!webPlayerTokenCache", "if (!bearerToken && (!webPlayerTokenCache"],
+  ["// Match the historical WebView flow:", "// Unreviewed cookie-only change:"]
  ]) {
   assert.ok(source.includes(oldText),oldText);
   assert.throws(()=>normalize.full(source.replace(oldText,newText)),undefined,'changed reviewed block must not silently normalize: '+oldText);

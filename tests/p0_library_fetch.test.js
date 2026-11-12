@@ -821,9 +821,9 @@ test('session diagnostics record actual token endpoint codes without credential 
     assert.match(trace, /token-http endpoint=api phase=end http=403 duration=[0-9]+/);
     assert.match(trace, /token-http endpoint=fallback phase=end http=403 duration=[0-9]+/);
     assert.match(trace, /token-result status=ko-http403 duration=[0-9]+/);
-    assert.doesNotMatch(trace, /library.request.started|library.request.response/);
-    assert.equal(win.__sfMediaLibError, 'token-missing');
-    assert.equal(win.__sfMediaLibLastDiagnostic.http, 0);
+    assert.match(trace, /library.request.response.*http=401/);
+    assert.equal(win.__sfMediaLibError, 'http-401');
+    assert.equal(win.__sfMediaLibLastDiagnostic.http, 401);
     assert.equal(win.__sfMediaLibSessionProven, false);
     assert.doesNotMatch(trace, /accessToken|TEST_TOKEN|sp_dc=/);
 });
@@ -848,7 +848,7 @@ test('400 then 403 presentation metadata preserves the exact existing token requ
     assert.equal(win.__testTokenRequests.length,2,'required guard and retry policy unchanged');
 });
 
-test('manual retry repeats token attempts but sends no library request after refusal', async () => {
+test('manual retry repeats token attempts and cookie-only library after refusal', async () => {
     const calls=[];const payloads=[];
     const win=loadBridge({tokenResponse:null,tokenStatus:400,fallbackTokenStatus:403,profileSignal:false,playerSignal:false,
         fetchImpl:async (url,init)=>{calls.push({url,init});return jsonResponse(401,{});}});
@@ -857,13 +857,14 @@ test('manual retry repeats token attempts but sends no library request after ref
     win.AndBridge.onSessionVerification=s=>payloads.push(JSON.parse(s));
     await win.checkMediaLib(true,'shell-update');
     await win.__sfRequestSessionVerification(7);
-    assert.equal(win.__testTokenRequests.length,4);assert.equal(calls.length,0);
-    assert.equal(win.__sfMediaLibError, 'token-missing');
+    assert.equal(win.__testTokenRequests.length,4);assert.equal(calls.length,2);
+    assert.ok(calls.every(c=>c.init.credentials==='include'&&!c.init.headers.Authorization));
+    assert.equal(win.__sfMediaLibError, 'http-401');
     assert.deepEqual(win.__testTokenRequests.map(x=>x.url),[
         'https://open.spotify.com/api/token','https://open.spotify.com/get_access_token?reason=transport&productType=web_player',
         'https://open.spotify.com/api/token','https://open.spotify.com/get_access_token?reason=transport&productType=web_player']);
     assert.equal(payloads.length,2);assert.notEqual(payloads[0].attempt,payloads[1].attempt);
-    for(const p of payloads)assert.deepEqual([p.generation,p.completed,p.tokenApiHttp,p.tokenFallbackHttp,p.libraryHttp],[7,true,400,403,0]);
+    for(const p of payloads)assert.deepEqual([p.generation,p.completed,p.tokenApiHttp,p.tokenFallbackHttp,p.libraryHttp],[7,true,400,403,401]);
     const trace=win.__testDiagnostics.join('\n');assert.match(trace,/token-http endpoint=api phase=start/);assert.match(trace,/token-http endpoint=fallback phase=end/);
     assert.doesNotMatch(trace,/accessToken|sp_dc=/);
 });
@@ -959,7 +960,7 @@ test('native attempt-start acknowledgement is sent only after the token transpor
 
 test('after a failed retry a new active generation makes exactly one new correlated request',async()=>{
     const completed=[];let generation=31;
-    const win=loadBridge({tokenResponse:null,tokenStatus:400,fallbackTokenStatus:403});
+    const win=loadBridge({tokenResponse:null,tokenStatus:400,fallbackTokenStatus:403,fetchImpl:async()=>jsonResponse(401,{})});
     win.AndBridge.getSessionGeneration=()=>generation;
     win.AndBridge.isSessionRetryActive=g=>g===generation;
     win.AndBridge.onSessionVerification=s=>completed.push(JSON.parse(s));

@@ -12,17 +12,18 @@ vm.createContext(sandbox);
 vm.runInContext(head+'\nglobalThis.fixtures={loadBridge,libraryPage,libraryItem,jsonResponse};',sandbox);
 const f=sandbox.fixtures;
 
-test('400/403 token refusal ends without library network call or false 401',async()=>{
+test('400/403 token refusal tries cookie-only library; actual 401 stays unproven',async()=>{
  const calls=[]; const w=f.loadBridge({tokenResponse:null,tokenStatus:400,fallbackTokenStatus:403,fetchImpl:async(...x)=>{calls.push(x);return f.jsonResponse(401,{});}});
  const proofs=[], attempts=[];w.AndBridge.onSessionVerification=s=>proofs.push(JSON.parse(s));w.AndBridge.onSessionAttemptDiagnostic=s=>attempts.push(JSON.parse(s));w.AndBridge.getSessionGeneration=()=>1;
  w.mediaLib={playlists:[{name:'OLD PRIVATE FIXTURE'}]};w.__sfMediaLibSessionProven=true;
  await w.checkMediaLib(true);
- assert.equal(w.__testTokenRequests.length,2);assert.equal(calls.length,0);
- assert.equal(w.__sfMediaLibStatus,'error');assert.equal(w.__sfMediaLibError,'token-missing');
+ assert.equal(w.__testTokenRequests.length,2);assert.equal(calls.length,1);
+ assert.equal(calls[0][1].credentials,'include');assert.equal(calls[0][1].headers.Authorization,undefined);
+ assert.equal(w.__sfMediaLibStatus,'error');assert.equal(w.__sfMediaLibError,'http-401');
  assert.equal(w.mediaLib,null);assert.equal(w.__sfMediaLibSessionProven,false);
- assert.equal(proofs.at(-1).token,false);assert.equal(proofs.at(-1).libraryHttp,0);assert.equal(proofs.at(-1).libraryOk,false);
- assert.equal(attempts.at(-1).libraryHttp,null);assert.equal(attempts.at(-1).tokenResult,'refused');
- assert.equal(w.__sfMediaLibLastDiagnostic.error,'token-missing');
+ assert.equal(proofs.at(-1).token,false);assert.equal(proofs.at(-1).libraryHttp,401);assert.equal(proofs.at(-1).libraryOk,false);
+ assert.equal(attempts.at(-1).libraryHttp,401);assert.equal(attempts.at(-1).tokenResult,'refused');
+ assert.equal(w.__sfMediaLibLastDiagnostic.error,'http-401');
  assert.ok(!JSON.stringify(w.__testDiagnostics).includes('OLD PRIVATE FIXTURE'));
 });
 
@@ -82,21 +83,44 @@ test('native gate distinguishes observed library 401 and 403 after a token',()=>
  }
 });
 
-test('concurrent attempts with no token coalesce and never issue protected requests',async()=>{
+test('concurrent attempts coalesce to one cookie-only request after token refusal',async()=>{
  let calls=0;const w=f.loadBridge({tokenResponse:null,tokenStatus:400,fallbackTokenStatus:403,
    fetchImpl:async()=>{calls++;return f.jsonResponse(401,{});}});
  const a=w.checkMediaLib(), b=w.checkMediaLib(true), c=w.checkMediaLib();
  assert.strictEqual(a,b);assert.strictEqual(a,c);
  await Promise.all([a,b,c]);
- assert.equal(w.__testTokenRequests.length,2);assert.equal(calls,0);
- assert.equal(w.__sfMediaLibError,'token-missing');assert.equal(w.__sfMediaLibLastDiagnostic.http,0);
- assert.doesNotMatch(w.__testDiagnostics.join('\n'),/library\.request\.(?:started|response).*http=401/);
+ assert.equal(w.__testTokenRequests.length,2);assert.equal(calls,1);
+ assert.equal(w.__sfMediaLibError,'http-401');assert.equal(w.__sfMediaLibLastDiagnostic.http,401);
+ assert.match(w.__testDiagnostics.join('\n'),/library\.request\.response.*http=401/);
  assert.equal(w.__sfMediaLibSessionProven,false);
 });
 
-test('200 responses without an accessToken still do not authorize library requests',async()=>{
+test('200 token responses without accessToken use cookie-only library and require valid response',async()=>{
  let calls=0;const w=f.loadBridge({tokenResponse:{},fetchImpl:async()=>{calls++;return f.libraryPage([]);}});
+ const proofs=[];w.AndBridge.onSessionVerification=s=>proofs.push(JSON.parse(s));w.AndBridge.getSessionGeneration=()=>1;
  await w.checkMediaLib(true);assert.equal(w.__testTokenRequests.length,2);
- assert.equal(calls,0);assert.equal(w.__sfMediaLibError,'token-missing');
- assert.equal(w.__sfMediaLibLastDiagnostic.http,0);assert.equal(w.__sfMediaLibSessionProven,false);
+ assert.equal(calls,1);assert.equal(w.__sfMediaLibError,'');
+ assert.equal(w.__sfMediaLibLastDiagnostic.http,200);assert.equal(w.__sfMediaLibSessionProven,true);
+ assert.equal(proofs.at(-1).token,false);assert.equal(proofs.at(-1).libraryOk,true);
+});
+
+test('cookie-only library success renders a real parsed playlist without inventing a bearer',async()=>{
+ const calls=[];const proofs=[];
+ const w=f.loadBridge({tokenResponse:null,tokenStatus:400,fallbackTokenStatus:403,fetchImpl:async(url,init)=>{
+  calls.push({url,init});return f.libraryPage([f.libraryItem({uri:'spotify:playlist:fixture',name:'Fixture'})]);
+ }});
+ w.AndBridge.getSessionGeneration=()=>1;w.AndBridge.onSessionVerification=s=>proofs.push(JSON.parse(s));
+ await w.checkMediaLib(true);
+ assert.equal(calls.length,1);assert.equal(calls[0].init.credentials,'include');assert.equal(calls[0].init.headers.Authorization,undefined);
+ assert.equal(w.__sfMediaLibStatus,'ready');assert.equal(w.mediaLib.playlists[0].name,'Fixture');
+ assert.equal(proofs.at(-1).token,false);assert.equal(proofs.at(-1).libraryHttp,200);assert.equal(proofs.at(-1).libraryOk,true);
+});
+test('cookie-only requests cannot unlock library on malformed, partial or refused responses',async()=>{
+ for (const make of [()=>f.jsonResponse(200,{}),()=>f.jsonResponse(200,{errors:[{message:'fixture'}],data:{me:{libraryV3:{items:[]}}}}),()=>f.jsonResponse(403,{})]){
+  const proofs=[];let requests=0;
+  const w=f.loadBridge({tokenResponse:null,tokenStatus:400,fallbackTokenStatus:403,fetchImpl:async()=>{requests++;return make();}});
+  w.AndBridge.getSessionGeneration=()=>1;w.AndBridge.onSessionVerification=s=>proofs.push(JSON.parse(s));
+  await w.checkMediaLib(true);assert.equal(requests,1);assert.equal(proofs.at(-1).token,false);
+  assert.equal(proofs.at(-1).libraryOk,false);assert.notEqual(w.__sfMediaLibStatus,'ready');
+ }
 });

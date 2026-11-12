@@ -19,9 +19,8 @@ test('repeated token refusals, stale and incomplete callbacks cannot unlock or e
  assert.equal(m.fields.lastAttempt,3);
 });
 
-test('unproven states do not authenticate; real library 200 and token are both required',()=>{
+test('only validated library 200 authenticates, with or without bearer',()=>{
  for(const payload of [
-  {token:false,libraryOk:true,libraryHttp:200},
   {token:true,libraryOk:false,libraryHttp:401},
   {token:true,libraryOk:false,libraryHttp:403},
   {token:true,libraryOk:true,libraryHttp:0},
@@ -31,6 +30,8 @@ test('unproven states do not authenticate; real library 200 and token are both r
  }
  const valid=ctx.machine();valid.send({token:true,libraryOk:true,libraryHttp:200});
  assert.equal(valid.fields.state,3);assert.ok(valid.calls.includes('showNativeUi'));
+ const cookie=ctx.machine();cookie.send({token:false,libraryOk:true,libraryHttp:200});
+ assert.equal(cookie.fields.state,3);assert.equal(cookie.transitions.at(-1).reason,'library-cookie-ok');
 });
 
 test('explicit reconnect remains guarded, confirmed and unavailable during active login',()=>{
@@ -101,6 +102,11 @@ test('request changes are limited to the reviewed fail-closed guard and diagnost
  assert.equal(now,old,'all other fetch, endpoints, parameters, proof publication and telemetry remain byte-identical');
  const before=cp.execFileSync('git',['show','9e55740c:smali/com/melodix/music/NativeSessionGate.smali'],{encoding:'utf8'});
  let after=fs.readFileSync('smali/com/melodix/music/NativeSessionGate.smali','utf8');
+ const cookieGate=cp.execFileSync('git',['show','d6e7c5fffeb61d2c7bf064f6b9a420d2c69fac41:smali/com/melodix/music/NativeSessionGate.smali'],{encoding:'utf8'});
+ const preCookieGate=cp.execFileSync('git',['show','0acafb25:smali/com/melodix/music/NativeSessionGate.smali'],{encoding:'utf8'});
+ const methodBlock=s=>s.slice(s.indexOf('.method public static result('),s.indexOf('.end method',s.indexOf('.method public static result('))+'.end method'.length);
+ assert.equal(methodBlock(after),methodBlock(cookieGate),'reviewed cookie-only success gate');
+ after=after.replace(methodBlock(after),methodBlock(preCookieGate));
  // Pin the sole debug-only details append before retaining the complete
  // historical comparison of all remaining gate bytes.
  const debugAppend='    invoke-static {v0, v3}, Lcom/melodix/music/NativeSessionDebug;->append(Ljava/lang/String;Landroid/content/Context;)Ljava/lang/String;\n    move-result-object v0\n';

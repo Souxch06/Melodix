@@ -8,7 +8,7 @@ const ctx={require,__dirname:path.resolve('tests'),console,setTimeout,clearTimeo
 vm.createContext(ctx);
 vm.runInContext(source.slice(0,source.indexOf('// A successful fixture verifies'))+'\nglobalThis.fixtures={loadBridge,libraryPage};',ctx);
 
-test('known expired or unverifiable fixture token must not trigger a protected library request',async()=>{
+test('known expired or unverifiable bearer is never sent; cookie-only request may succeed',async()=>{
  for (const tokenResponse of [
   {accessToken:'EXPIRED_FIXTURE',accessTokenExpirationTimestampMs:Date.now()-60000},
   {accessToken:'MISSING_EXPIRY_FIXTURE'},
@@ -16,12 +16,12 @@ test('known expired or unverifiable fixture token must not trigger a protected l
   {accessToken:'  ',accessTokenExpirationTimestampMs:Date.now()+3600000},
   {accessToken:{fake:'object'},accessTokenExpirationTimestampMs:Date.now()+3600000}
  ]) {
-  let count=0; const w=ctx.fixtures.loadBridge({tokenResponse,fetchImpl:async()=>{count++;return ctx.fixtures.libraryPage([]);}});
+  let count=0; const w=ctx.fixtures.loadBridge({tokenResponse,fetchImpl:async(url,init)=>{count++;assert.equal(init.headers.Authorization,undefined);return ctx.fixtures.libraryPage([]);}});
   await w.checkMediaLib(true);
-  assert.equal(count,0,'unusable token must not issue library requests');
-  assert.equal(w.__sfMediaLibError,'token-missing');
-  assert.equal(w.__sfMediaLibLastDiagnostic.http,0);
-  assert.equal(w.__sfMediaLibSessionProven,false);
+  assert.equal(count,1,'unusable bearer falls back to a cookie-only request');
+  assert.equal(w.__sfMediaLibError,'');
+  assert.equal(w.__sfMediaLibLastDiagnostic.http,200);
+  assert.equal(w.__sfMediaLibSessionProven,true);
   assert.doesNotMatch(w.__testDiagnostics.join('\n'),/EXPIRED_FIXTURE|MISSING_EXPIRY_FIXTURE|INVALID_EXPIRY_FIXTURE/);
  }
 });

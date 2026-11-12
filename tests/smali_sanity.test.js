@@ -382,7 +382,7 @@ test('[structure] page-finished cannot replace server verification with a route 
     assert.match(main, /onWebViewPageFinished\(\)V[\s\S]*?NativeSessionGate;->pageFinished/);
     assert.match(main, /showNativeUiFrom\([\s\S]*?NativeSessionGate;->blocked/);
     assert.match(gate, /pageFinished\([\s\S]*?->verify/);
-    assert.match(gate, /"token"[\s\S]*?"libraryOk"[\s\S]*?token-and-library-ok/);
+    assert.match(gate, /"libraryOk"[\s\S]*?libraryHttp[\s\S]*?token-and-library-ok[\s\S]*?library-cookie-ok/);
 });
 
 test('a stalled Spotify page load leaves the splash and exposes retry after 30 seconds', () => {

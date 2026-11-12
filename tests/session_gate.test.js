@@ -65,10 +65,11 @@ test('case 1: no cookie chooses login once, never player/home or cookie deletion
  assert.equal(m.run('initialUrl'),0);assert.equal(m.fields.autoUsed,1);
  assert.doesNotMatch(gate,/removeAllCookies|deleteAllData|UserAgent|spotify-app-version/);
 });
-test('case 2: cookie merely routes to hidden player; only token AND validated library unlock home',()=>{
+test('case 2: cookie alone is not proof; a validated library unlocks with or without bearer',()=>{
  const m=machine();assert.equal(m.run('initialUrl'),'https://open.spotify.com/');assert.equal(m.fields.state,0);
  m.send({token:true,libraryOk:true});assert.equal(m.fields.state,3);assert.ok(m.calls.includes('showNativeUi'));
- for(const result of [{token:true,libraryOk:false},{token:false,libraryOk:true}]) {const n=machine();n.send(result);assert.equal(n.fields.state,4);assert.ok(!n.calls.includes('login'));}
+ const cookie=machine();cookie.send({token:false,libraryOk:true});assert.equal(cookie.fields.state,3);assert.equal(cookie.transitions.at(-1).reason,'library-cookie-ok');
+ for(const result of [{token:true,libraryOk:false},{token:false,libraryOk:false}]) {const n=machine();n.send(result);assert.equal(n.fields.state,4);assert.ok(!n.calls.includes('login'));}
 });
 test('case 3: missing token and synthetic library 401 never establish expiry or auto redirect',()=>{
  const m=machine();m.send({tokenRefused:true,libraryHttp:401});

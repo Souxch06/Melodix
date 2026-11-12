@@ -8,6 +8,8 @@ const readAt=ref=>cp.execFileSync('git',['show',ref+':scripts/spotify_bridge.sou
 const reviewed=readAt('d73c84cb2b1ce1007d16c4f2c1f91b6aabcd172b');
 const before=readAt('89a02b1c88f8e4bf909f231da0b0eefd4343cdfe');
 const tokenRefusalReviewed=readAt('44d7e7a4fb5d39557d20c7b1ef997213c17f5521');
+const cookieReviewed=readAt('d6e7c5fffeb61d2c7bf064f6b9a420d2c69fac41');
+const cookieBefore=readAt('0acafb25');
 function block(source,start,end){
  const a=source.indexOf(start);assert.ok(a>=0,`missing ${start}`);
  const b=source.indexOf(end,a);assert.ok(b>a,`missing ${end}`);
@@ -32,7 +34,19 @@ const libraryLine="                if (typeof traceDebugLibraryResponse === 'fun
 assert.equal(reviewed.split(libraryLine).length,2,'reviewed library hook occurs once');
 assert.equal(before.includes(libraryLine),false,'library hook absent in historical reference');
 exports.token=function(source){return replaceOnce(source,tokenReviewed,tokenBefore,'token provenance');};
-exports.library=function(source){return replaceOnce(source,libraryLine,'','library response diagnostic');};
+// Normalize only the reviewed cookie-only fallback, preserving full historical
+// comparisons of every other byte and failing if either reviewed block changes.
+const cookieStart='        // Match the historical WebView flow:', cookieOldStart='        // Never turn a failed token request';
+const cookieEnd='        while (hasMore &&';
+const cookieCurrent=block(cookieReviewed,cookieStart,cookieEnd),cookieOld=block(cookieBefore,cookieOldStart,cookieEnd);
+const pageStart='            // A token can expire while an earlier page';
+const pageEnd="            const activeHash = getGqlHash('libraryV3'";
+const pageCurrent=block(cookieReviewed,pageStart,pageEnd),pageOld=block(cookieBefore,pageStart,pageEnd);
+exports.library=function(source){
+ source=replaceOnce(source,cookieCurrent,cookieOld,'cookie-only request path');
+ source=replaceOnce(source,pageCurrent,pageOld,'bearer pagination guard');
+ return replaceOnce(source,libraryLine,'','library response diagnostic');
+};
 exports.full=function(source){
  source=replaceOnce(source,refusalCurrent,refusalBefore,'token refusal diagnostics');
  source=exports.token(source);
