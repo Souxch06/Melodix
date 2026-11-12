@@ -118,6 +118,8 @@ phase('isolated offline demo opened from limited settings')
 tap(find(text('Quitter la démo')))
 find(by_id('nativeRoot'), timeout=60)
 phase('demo exit returned to real limited Glass')
+tap(find(by_id('nativeHomeTab')))
+find(lambda n: by_id('nativeScreenTitle')(n) and text('Accueil')(n))
 
 # Retry is voluntary and does not perform a login. Afterwards deliberately open login.
 tap(find(text('Réessayer la bibliothèque')))
