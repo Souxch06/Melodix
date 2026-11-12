@@ -174,11 +174,17 @@ for tab, heading in [('nativeLibraryTab', 'Bibliothèque'), ('nativeSearchTab', 
         current = known.get(titles[0].get('text'), 'other') if len(titles) == 1 else 'missing-or-multiple'
         categories = {key: any(by_id(key)(n) for n in snapshot) for key in
                       ('nativeRoot', 'nativeLibraryTab', 'sessionAction', 'splashOverlay')}
-        # Only public fixture categories and bounds, no text from the real device.
-        raise AssertionError('tab=%s route=%s title_count=%d root=%s tab_visible=%s session=%s splash=%s bounds=%d,%d,%d,%d focused=%s' % (
+        # Offline emulator only: whitelist exception class and Melodix method names,
+        # never emit log messages, stack contents, URLs or UI/account text.
+        logs = adb('logcat', '-d', '-s', 'AndroidRuntime:E')
+        errors = re.findall(r'\b((?:java|android|dalvik)\.[A-Za-z0-9_.$]*(?:Exception|Error))\b', logs)
+        methods = re.findall(r'\bat (com\.melodix\.music\.[A-Za-z0-9_.$]+)\(', logs)
+        error = errors[-1] if errors else 'none'
+        method = methods[0] if methods else 'none'
+        raise AssertionError('tab=%s route=%s title_count=%d root=%s tab_visible=%s session=%s splash=%s bounds=%d,%d,%d,%d focused=%s exception=%s method=%s' % (
             tab, current, len(titles), categories['nativeRoot'], categories['nativeLibraryTab'],
             categories['sessionAction'], categories['splashOverlay'], x1, y1, x2, y2,
-            main_component(adb('shell', 'dumpsys', 'window'), ('mCurrentFocus', 'mFocusedApp'))))
+            main_component(adb('shell', 'dumpsys', 'window'), ('mCurrentFocus', 'mFocusedApp')), error, method))
     phase('native navigation: ' + tab)
 
 phase('opening limited settings')
