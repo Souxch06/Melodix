@@ -3,6 +3,11 @@ name: Replay existing demo APK without rebuilding
 on:
   workflow_dispatch:
     inputs:
+      test161_signing_only:
+        description: Run only disposable signing experiment and C pending
+        required: false
+        type: boolean
+        default: false
       test161_autonomous_only:
         description: Re-run only the A walk (and C pending), no bridge rerun
         required: false
@@ -392,5 +397,7 @@ jobs:
     name: Test161 separated evidence
     uses: ./.github/workflows/test161-independent.yml
     with:
-      run_fixture: ${{ inputs.test161_autonomous_only != true }}
+      run_fixture: ${{ inputs.test161_autonomous_only != true && inputs.test161_signing_only != true }}
+      run_autonomous: ${{ inputs.test161_signing_only != true }}
+      run_ephemeral: ${{ inputs.test161_signing_only == true }}
     secrets: inherit
