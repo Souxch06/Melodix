@@ -13,9 +13,26 @@ def adb(*args):
     return subprocess.run(['adb', *args], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=40).stdout
 
 def nodes():
-    adb('shell', 'uiautomator', 'dump', '/sdcard/melodix-a.xml')
-    raw = adb('shell', 'cat', '/sdcard/melodix-a.xml')
-    return list(ET.fromstring(raw[raw.index(b'<?xml'):]).iter('node'))
+    # UIAutomator can race startup / window changes. A failed dump is never
+    # treated as a screen; retry boundedly and fail rather than using stale XML.
+    failure = None
+    for _ in range(3):
+        try:
+            status = adb('shell', 'uiautomator', 'dump', '/sdcard/melodix-a.xml')
+            if b'dumped to' not in status: raise RuntimeError('hierarchy dump failed')
+            raw = adb('shell', 'cat', '/sdcard/melodix-a.xml')
+            return list(ET.fromstring(raw[raw.index(b'<?xml'):]).iter('node'))
+        except (subprocess.CalledProcessError, ValueError, ET.ParseError, RuntimeError) as exc:
+            failure = exc; time.sleep(1)
+    raise RuntimeError('hierarchy unavailable after retries') from failure
+
+def handle_permission(items):
+    # Only on this clean disposable emulator; same permission handling as the
+    # strict acceptance, without clearing or synthesizing any account state.
+    allow = next((n for n in items if n.get('resource-id', '').endswith(':id/permission_allow_button') or n.get('resource-id', '').endswith(':id/permission_allow_foreground_only_button')), None)
+    if allow is None: return False
+    tap(allow)
+    return True
 
 def find(items, *, text=None, ident=None):
     return next((n for n in items if (text is not None and text in (n.get('text'), n.get('content-desc'))) or
@@ -26,8 +43,7 @@ def wait(*, text=None, ident=None, seconds=60):
     while time.monotonic() < end:
         items = nodes(); n = find(items, text=text, ident=ident)
         if n is not None: return n
-        allow = next((n for n in items if n.get('resource-id', '').endswith(':id/permission_allow_button') or n.get('resource-id', '').endswith(':id/permission_allow_foreground_only_button')), None)
-        if allow is not None: tap(allow)
+        handle_permission(items)
         time.sleep(2)
     raise RuntimeError('missing control: ' + str(text or ident))
 
@@ -76,6 +92,8 @@ try:
     end = time.monotonic() + 45
     while True:
         items = nodes()
+        if handle_permission(items):
+            continue
         if (any(n.get('package') == pkg for n in items) and
                 find(items, text='MODE DÉMO · HORS LIGNE') is None and
                 find(items, text='Quitter la démo') is None): break
