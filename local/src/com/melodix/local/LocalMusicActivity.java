@@ -38,6 +38,7 @@ public final class LocalMusicActivity extends Activity {
         root.addView(note);
         Button back = new Button(this);
         back.setText("Retour");
+        back.setAllCaps(false);
         back.setMinHeight(dp(48));
         back.setGravity(Gravity.CENTER);
         back.setOnClickListener(view -> finish());

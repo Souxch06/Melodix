@@ -43,6 +43,7 @@ test('tracer is empty and offline, and its DEX is compiled only in opt-in demo b
   const local=read('local/src/com/melodix/local/LocalMusicActivity.java');
   assert.match(local,/class LocalMusicActivity extends Activity/);
   assert.match(local,/setText\("Ma musique"\)/);
+  assert.match(local,/setAllCaps\(false\)/);
   assert.match(local,/setOnClickListener\(view -> finish\(\)\)/);
   assert.doesNotMatch(local,/MediaPlayer|MediaStore|ContentResolver|ACTION_OPEN_DOCUMENT|java\.net|android\.net|https?:\/\//);
   const preview=read('.github/workflows/preview-apk.yml'), release=read('.github/workflows/release-apk.yml');
