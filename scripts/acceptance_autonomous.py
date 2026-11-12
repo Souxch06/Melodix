@@ -79,7 +79,13 @@ try:
         if (any(n.get('package') == pkg for n in items) and
                 find(items, text='MODE DÉMO · HORS LIGNE') is None and
                 find(items, text='Quitter la démo') is None): break
-        if time.monotonic() >= end: raise RuntimeError('demo did not exit')
+        if time.monotonic() >= end:
+            packages = sorted(set(n.get('package', '') for n in items))
+            safe_packages = [x if x in (pkg, 'com.android.systemui', 'com.google.android.permissioncontroller', 'com.android.permissioncontroller') else 'other' for x in packages]
+            labels = sorted({v for n in items for v in (n.get('text',''),n.get('content-desc','')) if v in ('MODE DÉMO · HORS LIGNE','Quitter la démo','Welcome back','Email','Continue','Ouvrir Melodix','Essayer le mode démo')})
+            diagnostic = {'packages': safe_packages, 'labels': labels, 'webview': any(n.get('class')=='android.webkit.WebView' for n in items)}
+            print('::notice title=Category A exit diagnostic::' + json.dumps(diagnostic, ensure_ascii=False), flush=True)
+            raise RuntimeError('demo did not exit')
         time.sleep(2)
     png = adb('exec-out', 'screencap', '-p')
     if not png.startswith(b'\x89PNG\r\n\x1a\n'): raise RuntimeError('invalid PNG')
