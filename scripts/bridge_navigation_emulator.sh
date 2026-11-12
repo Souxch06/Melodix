@@ -23,4 +23,9 @@ for key in gc_replaced_collected gc_replaced_result gc_retained_collected gc_ret
   [[ -n "$value" ]] || { echo "::error title=Bridge collection probe::missing $key"; exit 1; }
   echo "::notice title=Bridge collection probe::$key=$value"
 done
+for key in proxy_unretained_collected proxy_retained_collected proxy_unretained_result proxy_retained_result; do
+  value="$(sed -nE "s/^INSTRUMENTATION_RESULT: ${key}=(yes|no|number_string|null_null|[a-z]+_[a-z]+)$/\1/p" "$RUNNER_TEMP/bridge-timing.txt" | head -1)"
+  [[ -n "$value" ]] || { echo "::error title=Bridge proxy probe::missing $key"; exit 1; }
+  echo "::notice title=Bridge proxy probe::$key=$value"
+done
 echo '::notice title=Synthetic bridge navigation::account interface absent; player interface available; account return interface absent; actual retry generation checked without network; no real Spotify requests'

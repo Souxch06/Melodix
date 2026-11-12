@@ -74,6 +74,37 @@ public final class BridgeNavigationInstrumentation extends Instrumentation {
         }finally{ui(()->w[0].destroy());strong[0]=null;}
     }
 
+    // Controlled JS proxy/restoration probe using the production bridge.
+    // The original Java instance is weakly observed; the retained case is a
+    // positive control. The proxy is a fixture, not a production code path.
+    private void proxyGcProbe(Bundle result, boolean hold)throws Exception{
+        final WebView[] w=new WebView[1];final Object[] strong=new Object[1];
+        final java.lang.ref.WeakReference<?>[] old=new java.lang.ref.WeakReference<?>[1];
+        final CountDownLatch loaded=new CountDownLatch(1);
+        Class<?> bridge=getTargetContext().getClassLoader().loadClass("com.melodix.music.AndBridge");
+        ui(()->{try{
+            w[0]=new WebView(getTargetContext());w[0].getSettings().setJavaScriptEnabled(true);
+            w[0].getSettings().setBlockNetworkLoads(true);
+            w[0].setWebViewClient(new WebViewClient(){@Override public void onPageFinished(WebView v,String url){loaded.countDown();}});
+            Object first=bridge.getConstructor(android.content.Context.class).newInstance(getTargetContext());
+            old[0]=new java.lang.ref.WeakReference<>(first);if(hold)strong[0]=first;
+            w[0].addJavascriptInterface(first,"AndBridge");
+            w[0].loadDataWithBaseURL("https://open.spotify.com/fixture","<!doctype html><title>fixture</title>","text/html","UTF-8",null);
+        }catch(Exception e){throw new RuntimeException(e);}});
+        try{
+            check(loaded.await(15,TimeUnit.SECONDS));
+            check("true".equals(jsOn(w[0],"typeof AndBridge.getSessionGeneration()==='number' && typeof AndBridge.getSessionGenerationText()==='string'")));
+            check("true".equals(jsOn(w[0],"window.fixtureNativeBridge=AndBridge;window.AndBridge=new Proxy(window.fixtureNativeBridge,{get:function(t,k){var v=t[k];return typeof v==='function'?function(){return v.apply(t,arguments)}:v}});true")));
+            for(int i=0;i<15;i++){System.gc();System.runFinalization();Thread.sleep(100);}
+            boolean collected=old[0].get()==null;
+            String kind=jsOn(w[0],"(function(){window.AndBridge=window.fixtureNativeBridge;function kind(f){try{var x=f();return x===null?'null':typeof x}catch(e){return 'exception'}}return kind(function(){return AndBridge.getSessionGeneration()})+'_'+kind(function(){return AndBridge.getSessionGenerationText()})})()").replace("\"","");
+            check(kind.matches("(number|null|undefined|string|boolean|object|exception)_(number|null|undefined|string|boolean|object|exception)"));
+            String prefix=hold?"proxy_retained":"proxy_unretained";
+            result.putString(prefix+"_collected",collected?"yes":"no");result.putString(prefix+"_result",kind);
+            if(hold){phase="proxy_retained_"+kind;check(!collected);check("number_string".equals(kind));}
+        }finally{ui(()->w[0].destroy());strong[0]=null;}
+    }
+
     private String asset(String name)throws Exception{
         try(java.io.InputStream in=getTargetContext().getAssets().open(name); java.io.ByteArrayOutputStream out=new java.io.ByteArrayOutputStream()){
             byte[] b=new byte[8192];for(int n;(n=in.read(b))!=-1;)out.write(b,0,n);return new String(out.toByteArray(),StandardCharsets.UTF_8);
@@ -105,6 +136,10 @@ public final class BridgeNavigationInstrumentation extends Instrumentation {
             replacementGcProbe(outcome,false);
             phase="retained_gc_control";
             replacementGcProbe(outcome,true);
+            phase="proxy_gc_probe";
+            proxyGcProbe(outcome,false);
+            phase="proxy_gc_retained_control";
+            proxyGcProbe(outcome,true);
             prepare=getTargetContext().getClassLoader().loadClass("com.melodix.music.NativeBridgeNavigation").getMethod("prepare",WebView.class,String.class);
             policy=getTargetContext().getClassLoader().loadClass("com.melodix.music.SpotifyNavigationPolicy").getMethod("handle",WebView.class,Uri.class,boolean.class);
             ui(()->{
