@@ -10,7 +10,12 @@ cleanup() {
   rm -f "$dir/fixture.jks"
   if (( rc != 0 )); then
     echo "::error title=Ephemeral signing fixture::phase=$phase exit=$rc"
-    if [[ -f "$dir/result.txt" ]]; then grep -E '^INSTRUMENTATION_(RESULT|CODE):' "$dir/result.txt" || true; fi
+    if [[ -f "$dir/result.txt" ]]; then
+      grep -E '^INSTRUMENTATION_(RESULT|CODE|FAILED|STATUS):' "$dir/result.txt" || true
+      for category in SecurityException ClassNotFoundException AndroidException Process\ crashed; do
+        if grep -q "$category" "$dir/result.txt"; then echo "::error title=Disposable instrumentation::category=$category"; fi
+      done
+    fi
     if [[ -f "$dir/aapt-error.txt" ]]; then
       while IFS= read -r line; do echo "::error title=Disposable manifest compiler::$line"; done < "$dir/aapt-error.txt"
     fi
@@ -19,7 +24,7 @@ cleanup() {
 trap cleanup EXIT
 keytool -genkeypair -keystore "$dir/fixture.jks" -storepass test-only -keypass test-only -alias fixture -dname 'CN=Disposable Android CI Fixture' -keyalg RSA -keysize 2048 -validity 1 >/dev/null 2>&1
 cat > "$dir/app/AndroidManifest.xml" <<'EOF'
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.melodix.ci.ephemeralfixture"><uses-sdk android:minSdkVersion="24" android:targetSdkVersion="36"/><application android:label="Disposable signing fixture" android:hasCode="false" /></manifest>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.melodix.ci.ephemeralfixture"><uses-sdk android:minSdkVersion="24" android:targetSdkVersion="36"/><application android:label="Disposable signing fixture" android:hasCode="false" android:debuggable="true" /></manifest>
 EOF
 cat > "$dir/test/AndroidManifest.xml" <<'EOF'
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.melodix.ci.ephemeralfixture.test"><uses-sdk android:minSdkVersion="24" android:targetSdkVersion="36"/><application android:label="Disposable signing test"/><instrumentation android:name="com.melodix.ci.FixtureInstrumentation" android:targetPackage="com.melodix.ci.ephemeralfixture"/></manifest>
@@ -56,7 +61,7 @@ adb install "$dir/app.apk"
 adb install -r "$dir/app.apk" # Same-run fixture update, not cross-run persistent signing.
 adb install "$dir/test.apk"
 phase=instrument
-adb shell am instrument -w -r com.melodix.ci.ephemeralfixture.test/com.melodix.ci.FixtureInstrumentation > "$dir/result.txt"
+adb shell am instrument -w -r com.melodix.ci.ephemeralfixture.test/com.melodix.ci.FixtureInstrumentation > "$dir/result.txt" 2>&1
 phase=verify_instrumentation
 grep -Fxq 'INSTRUMENTATION_RESULT: overall=passed' "$dir/result.txt"
 echo '::notice title=Ephemeral signing fixture::isolated package install/update and same-key instrumentation passed; no production APK signed; persistence across runs not tested'
