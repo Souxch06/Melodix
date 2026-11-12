@@ -63,26 +63,26 @@ try:
     # Use the storage provider, not the Downloads provider: files pushed by adb
     # need not appear in DownloadManager. The picker still grants the real URI.
     deadline=time.monotonic()+60
-    opened_root=False; opened_folder=False
+    opened_root=False; opened_folder=False; attempts=[]
     while True:
         items=nodes(); audio=find(items,text='Melodix-Local-Test.wav')
         if audio is not None: tap(audio); break
         if time.monotonic()>=deadline:
             visible=[n.get('text') or n.get('content-desc') for n in items if n.get('text') or n.get('content-desc')]
-            raise RuntimeError('system picker did not show test file; controls='+repr(visible[:25]))
+            raise RuntimeError('system picker did not show test file; controls='+repr(visible[:25])+'; taps='+repr(attempts[-8:]))
         allow=next((n for n in items if n.get('resource-id','').endswith(':id/permission_allow_button')),None)
         if allow is not None: tap(allow); continue
         drawer=find(items,text='Open from') or find(items,text='Ouvrir depuis')
-        if drawer is not None and not opened_root:
+        if drawer is not None:
             device=next((n for n in items if n.get('text','').startswith('sdk_gphone')),None)
             if device is None: raise RuntimeError('emulator storage root not visible')
-            tap(device); opened_root=True; continue
+            attempts.append(('device',device.get('bounds',''))); tap(device); opened_root=True; continue
         folder=find(items,text='Download')
         if opened_root and not opened_folder and folder is not None:
-            tap(folder); opened_folder=True; continue
+            attempts.append(('folder',folder.get('bounds',''))); tap(folder); opened_folder=True; continue
         if not opened_root:
             roots=next((n for n in items if n.get('content-desc') in ('Show roots','Browse','Afficher les racines','Parcourir')),None)
-            if roots is not None: tap(roots); continue
+            if roots is not None: attempts.append(('roots',roots.get('bounds',''))); tap(roots); continue
         time.sleep(1)
     wait(ident='nativeMiniPlayer',seconds=60); tap(wait(ident='nativeMiniPlayer'))
     wait(ident='nativePlayerLargePlayPauseButton'); wait(text='1:30',seconds=35)
