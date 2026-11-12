@@ -245,9 +245,12 @@ public final class BridgeNavigationInstrumentation extends Instrumentation {
             // the fixture returns a valid bearer. This is not a real account.
             phase="synthetic_valid_token_library_401";
             ui(()->{try{gate.getField("generation").setInt(null,14);flight.getMethod("start").invoke(null);}catch(Exception e){throw new RuntimeException(e);}});
+            phase="synthetic_valid_start";
             check("true".equals(js("window.fixtureTokenMode=true;window.fixtureVerification=null;window.__sfRequestSessionVerification(14)!==false")));
             for(int i=0;i<80;i++){if("true".equals(js("window.fixtureFetches===10 && window.fixtureVerification!==null")))break;Thread.sleep(100);}
+            phase="synthetic_valid_proof";
             check("true".equals(js("window.fixtureFetches===10 && window.fixtureRoutes.slice(-2).join(',')==='api,library' && window.fixtureVerification.generation===14 && window.fixtureVerification.tokenApiHttp===200 && window.fixtureVerification.tokenFallbackHttp===0 && window.fixtureVerification.libraryHttp===401 && window.fixtureVerification.token===true && window.fixtureVerification.libraryOk===false")));
+            phase="synthetic_valid_restore_bridge";
             check("true".equals(js("window.AndBridge=window.fixtureNativeBridge;typeof AndBridge.getSessionGeneration()==='number'")));
             ui(()->{try{gate.getField("generation").setInt(null,10);}catch(Exception e){throw new RuntimeException(e);}});
             // Let the shell's scheduled updates run, as in the reported trace.

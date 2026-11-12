@@ -84,6 +84,7 @@ public final class SessionGateInstrumentation extends Instrumentation {
         final String outerPhase=phase;
         final String detail=stale ? "stale_" : "current_";
         final WebView[] local={null};final int[] gen={0},evidenceBefore={0};
+        final Object[] activePull={null};
         final java.util.concurrent.CountDownLatch loaded=new java.util.concurrent.CountDownLatch(1);
         ui(() -> {
             phase=detail+"begin";
@@ -105,15 +106,24 @@ public final class SessionGateInstrumentation extends Instrumentation {
         check(loaded.await(10,java.util.concurrent.TimeUnit.SECONDS));
         phase=detail+"pull_start";
         ui(() -> {Class<?> pull=getTargetContext().getClassLoader().loadClass("com.melodix.music.NativeSessionDiagnosticPull");
-            ((Runnable)pull.getConstructor(WebView.class,int.class).newInstance(local[0],gen[0])).run();});
+            activePull[0]=pull.getConstructor(WebView.class,int.class).newInstance(local[0],gen[0]);
+            ((Runnable)activePull[0]).run();});
+        // Observe the actual production callback, not merely absence of a row
+        // after a fixed sleep: a lost callback must fail this test as well.
+        Field status=activePull[0].getClass().getDeclaredField("lastStatus");status.setAccessible(true);
+        String expectedStatus=stale?"generation-mismatch":"accepted";
+        final String[] observedStatus={null};
+        for(int i=0;i<80;i++){
+            ui(() -> observedStatus[0]=(String)status.get(activePull[0]));
+            if(expectedStatus.equals(observedStatus[0]))break;
+            SystemClock.sleep(100);
+        }
+        phase=detail+"callback_status";
+        check(expectedStatus.equals(observedStatus[0]));
         final String key="Tentative "+gen[0]+"/71";
         final String[] details={""};
-        for(int i=0;i<(stale?15:80);i++){
-            SystemClock.sleep(100);
-            ui(() -> details[0]=(String)gate.getMethod("details").invoke(null));
-            if(!stale&&details[0].contains(key))break;
-        }
         ui(() -> {
+            details[0]=(String)gate.getMethod("details").invoke(null);
             if(stale) {
                 phase=detail+"no_current_row";
                 check(!details[0].contains(key));
@@ -126,7 +136,13 @@ public final class SessionGateInstrumentation extends Instrumentation {
                 check(details[0].contains("source=native-retry · token=inconnu"));
             }
             phase=detail+"evidence_unchanged";
-            check((Integer)evidence.getMethod("count").invoke(null)==evidenceBefore[0]);
+            int observedEvidence=(Integer)evidence.getMethod("count").invoke(null);
+            if(observedEvidence!=evidenceBefore[0]) {
+                String reason=(String)field("lastReason");
+                phase=detail+"evidence_changed_"+("presentation-deadline-not-expiration".equals(reason)?"deadline":"other")+
+                    (observedEvidence==0?"_zero":"_nonzero");
+            }
+            check(observedEvidence==evidenceBefore[0]);
             phase=detail+"not_expired";
             check(!(Boolean)field("expiredEvidence"));
             evidence.getMethod("reset").invoke(null);
