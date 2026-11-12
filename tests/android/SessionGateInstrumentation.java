@@ -81,12 +81,16 @@ public final class SessionGateInstrumentation extends Instrumentation {
     private void note() { Bundle b = new Bundle(); b.putString("phase", phase); b.putString("result", "passed"); sendStatus(1, b); }
     /** Separate network-blocked WebView; synthetic observations only, never Spotify. */
     private void diagnosticReadback(boolean stale) throws Exception {
+        final String outerPhase=phase;
+        final String detail=stale ? "stale_" : "current_";
         final WebView[] local={null};final int[] gen={0},evidenceBefore={0};
         final java.util.concurrent.CountDownLatch loaded=new java.util.concurrent.CountDownLatch(1);
         ui(() -> {
+            phase=detail+"begin";
             begin();gen[0]=(Integer)field("generation");
             if(stale) check(gen[0]>1);
             evidence.getMethod("reset").invoke(null);
+            phase=detail+"initial_evidence";
             check((Integer)evidence.getMethod("record",String.class).invoke(null,"synthetic-A")==1);
             evidenceBefore[0]=(Integer)evidence.getMethod("count").invoke(null);
             local[0]=new WebView(activity());
@@ -97,7 +101,9 @@ public final class SessionGateInstrumentation extends Instrumentation {
             String fixture="{nativeGeneration:"+observed+",attempt:71,source:'native-retry',phase:'response',requests:1,http:401}";
             local[0].loadDataWithBaseURL(null,"<html><script>window.__sfMediaLibLastDiagnostic="+fixture+";</script></html>","text/html","UTF-8",null);
         });
+        phase=detail+"fixture_load";
         check(loaded.await(10,java.util.concurrent.TimeUnit.SECONDS));
+        phase=detail+"pull_start";
         ui(() -> {Class<?> pull=getTargetContext().getClassLoader().loadClass("com.melodix.music.NativeSessionDiagnosticPull");
             ((Runnable)pull.getConstructor(WebView.class,int.class).newInstance(local[0],gen[0])).run();});
         final String key="Tentative "+gen[0]+"/71";
@@ -108,17 +114,25 @@ public final class SessionGateInstrumentation extends Instrumentation {
             if(!stale&&details[0].contains(key))break;
         }
         ui(() -> {
-            if(stale) check(!details[0].contains(key));
-            else {
+            if(stale) {
+                phase=detail+"no_current_row";
+                check(!details[0].contains(key));
+            } else {
+                phase=detail+"current_row";
                 check(details[0].contains(key));
+                phase=detail+"observation_values";
                 check(details[0].contains("token API=inconnu · repli=inconnu · bibliothèque=401 · terminée=inconnu · cookie=inconnu"));
+                phase=detail+"observation_source";
                 check(details[0].contains("source=native-retry · token=inconnu"));
             }
+            phase=detail+"evidence_unchanged";
             check((Integer)evidence.getMethod("count").invoke(null)==evidenceBefore[0]);
+            phase=detail+"not_expired";
             check(!(Boolean)field("expiredEvidence"));
             evidence.getMethod("reset").invoke(null);
             local[0].destroy();
         });
+        phase=outerPhase;
     }
     private void paintFixture(boolean baseline) throws Exception {
         set("loginActive", false);set("freshLogin",false);set("expiredEvidence",!baseline);
