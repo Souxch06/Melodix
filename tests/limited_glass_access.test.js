@@ -55,3 +55,14 @@ test('first paint hides the inflated splash even before Activity fields are init
  assert.match(show,/const v0, 0x7f0901c6[\s\S]*?NativeLimitedGlass;->visibility/);
  assert.doesNotMatch(show,/->H:Landroidx\/constraintlayout/);
 });
+
+ test('limited status and independently actionable controls use native Glass without private content',()=>{
+  const card=method(limited,'.method private static card(');
+  const action=method(limited,'.method private static action(');
+  assert.match(card,/native_glass_surface/);
+  assert.match(card,/screenWidthDp:I/);
+  assert.match(action,/native_button_green[\s\S]*?native_button_dark|native_button_dark[\s\S]*?native_button_green/);
+  assert.match(action,/setAllCaps\(Z\)V/);
+  assert.match(action,/48dp minimum touch target[\s\S]*?setMinHeight\(I\)V/);
+  assert.match(method(limited,'.method public static show('),/->card[\s\S]*?Bibliothèque Spotify indisponible[\s\S]*?retry-library[\s\S]*?open-login/);
+ });

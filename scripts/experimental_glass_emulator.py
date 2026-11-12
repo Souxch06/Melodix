@@ -122,6 +122,17 @@ if any(by_id('splashOverlay')(n) for n in nodes()):
     raise AssertionError('splash remains in the accessible window')
 phase('fresh launcher: native root, measured accessible status, login and retry visible; splash absent')
 
+# Both shortcuts belong to this experimental preview only; neither implies
+# a Spotify session. Exercise the real local Activity, not a fabricated row.
+phase('checking independent Home actions')
+find(text('Mode démo'))
+tap(find(text('Ma musique')))
+find(text('Votre musique locale'))
+find(text('Choisir un fichier audio'))
+tap(find(text('Retour')))
+find(lambda n: by_id('nativeScreenTitle')(n) and text('Accueil')(n))
+phase('local music opened and returned to unverified Glass Home')
+
 for tab, heading in [('nativeLibraryTab', 'Bibliothèque'), ('nativeSearchTab', 'Rechercher'),
                      ('nativeHomeTab', 'Accueil')]:
     tap(find(by_id(tab)))

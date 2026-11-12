@@ -87,6 +87,25 @@ public final class DemoEntry {
         lp.setMargins(dp(a,16),dp(a,8),dp(a,16),dp(a,8));
         content.addView(demo, lp);
     }
+    /** Explicit, separate local features, never Spotify data or proof. */
+    public static void bindLimitedHome(Activity a, LinearLayout content, String screen) {
+        if (!"home".equals(screen) || content == null) return;
+        TextView local = button(a, "Ma musique");
+        local.setTag("preview-local-home-entry");
+        local.setOnClickListener(view -> a.startActivity(new Intent(a, com.melodix.local.LocalMusicActivity.class)));
+        int widthDp = a.getResources().getConfiguration().screenWidthDp;
+        int width = widthDp > 672 ? dp(a, 640) : -1;
+        LinearLayout.LayoutParams localParams = new LinearLayout.LayoutParams(width, -2);
+        localParams.gravity = Gravity.CENTER_HORIZONTAL;
+        localParams.setMargins(dp(a,16),dp(a,4),dp(a,16),dp(a,4));
+        content.addView(local, localParams);
+        TextView demo = button(a, "Mode démo");
+        demo.setTag("preview-demo-home-entry");
+        LinearLayout.LayoutParams demoParams = new LinearLayout.LayoutParams(width, -2);
+        demoParams.gravity = Gravity.CENTER_HORIZONTAL;
+        demoParams.setMargins(dp(a,16),dp(a,4),dp(a,16),dp(a,12));
+        content.addView(demo, demoParams);
+    }
     public static void returnToApp(Activity a) {
         Intent intent = new Intent();
         intent.setClassName(a.getPackageName(), "com.melodix.music.MainActivity");

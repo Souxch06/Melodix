@@ -52,7 +52,7 @@ if (work/'res').exists():
     # uninitialized at bind. Match its stable label rather than the old code.
     marker='    :show_root\n    # bind() can run before MainActivity.H is assigned.'
     assert text.count(marker)==1
-    text=text.replace(marker, '    :show_root\n    invoke-static {p0, v3, v0}, Lcom/melodix/demo/DemoEntry;->bindSettings(Landroid/app/Activity;Landroid/widget/LinearLayout;Ljava/lang/String;)V\n    # bind() can run before MainActivity.H is assigned.')
+    text=text.replace(marker, '    :show_root\n    invoke-static {p0, v3, v0}, Lcom/melodix/demo/DemoEntry;->bindSettings(Landroid/app/Activity;Landroid/widget/LinearLayout;Ljava/lang/String;)V\n    invoke-static {p0, v3, v0}, Lcom/melodix/demo/DemoEntry;->bindLimitedHome(Landroid/app/Activity;Landroid/widget/LinearLayout;Ljava/lang/String;)V\n    # bind() can run before MainActivity.H is assigned.')
     p.write_text(text)
 
     p=work/'smali/com/melodix/music/MainActivity.smali'

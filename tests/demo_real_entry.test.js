@@ -80,3 +80,16 @@ assert any(x.get(a+'name')=='com.melodix.demo.DemoActivity' and x.get(a+'process
     assert.doesNotMatch(read('smali/com/melodix/music/NativeLimitedGlass.smali'), /DemoEntry/);
   } finally { fs.rmSync(dir,{recursive:true,force:true}); }
 });
+
+test('experimental limited Home exposes separate local music and clearly labelled demo without session state',()=>{
+  const helper=read('demo/src/com/melodix/demo/DemoEntry.java');
+  const start=helper.indexOf('public static void bindLimitedHome(');
+  const end=helper.indexOf('public static void returnToApp(',start);
+  assert.ok(start>=0 && end>start);
+  const section=helper.slice(start,end);
+  assert.match(section,/"home"\.equals\(screen\)/);
+  assert.match(section,/"Ma musique"[\s\S]*?LocalMusicActivity\.class/);
+  assert.match(section,/"Mode démo"/);
+  assert.doesNotMatch(section,/CookieManager|NativeSessionGate|JSONObject|playlist/i);
+  assert.match(read('scripts/prepare_demo_preview.py'),/DemoEntry;->bindLimitedHome/);
+});
