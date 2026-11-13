@@ -189,6 +189,7 @@ for tab, heading in [('nativeLibraryTab', 'Bibliothèque'), ('nativeSearchTab', 
         label = fixed_labels.get(n.get('text'), 'other')
         hits.append('%s:%s:%s:%s:%d,%d,%d,%d' % (pkg, name, cls, label, bx1, by1, bx2, by2))
     hit_summary = ','.join(hits[-8:]) or 'none'
+    diag_before = 'diagnostic panel displayed' in adb('logcat', '-d', '-s', 'MDXDIAG:E')
     print('::notice title=Experimental tab geometry::%s bounds=%d,%d,%d,%d' % (tab, x1, y1, x2, y2), flush=True)
     tap(target)
     immediate = nodes()
@@ -221,10 +222,10 @@ for tab, heading in [('nativeLibraryTab', 'Bibliothèque'), ('nativeSearchTab', 
         trace = adb('logcat', '-d', '-s', 'MDXTRACE:I')
         touch = re.findall(r'\bpreview-touch-(home|search|library|settings)\b', trace)
         last_touch = touch[-1] if touch else 'none'
-        raise AssertionError('tab=%s route=%s title_count=%d root=%s tab_visible=%s session=%s splash=%s bounds=%d,%d,%d,%d focused=%s exception=%s method=%s initial=%s initial_route=%s foreground=%s web=%s last_touch=%s hits=%s' % (
+        raise AssertionError('tab=%s route=%s title_count=%d root=%s tab_visible=%s session=%s splash=%s bounds=%d,%d,%d,%d focused=%s exception=%s method=%s initial=%s initial_route=%s foreground=%s web=%s last_touch=%s diag_before=%s hits=%s' % (
             tab, current, len(titles), categories['nativeRoot'], categories['nativeLibraryTab'],
             categories['sessionAction'], categories['splashOverlay'], x1, y1, x2, y2,
-            main_component(adb('shell', 'dumpsys', 'window'), ('mCurrentFocus', 'mFocusedApp')), error, method, initial, initial_route, foreground, web, last_touch, hit_summary))
+            main_component(adb('shell', 'dumpsys', 'window'), ('mCurrentFocus', 'mFocusedApp')), error, method, initial, initial_route, foreground, web, last_touch, diag_before, hit_summary))
     phase('native navigation: ' + tab)
 
 phase('opening limited settings')
