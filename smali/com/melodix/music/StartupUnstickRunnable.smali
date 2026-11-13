@@ -64,6 +64,11 @@
     move-result-object v1
     if-eq v0, v1, :yes
     :web
+    # Limited native Glass is a real measured surface, not authenticated Home.
+    # Preserve the stored report, but do not place a stale content verdict over it.
+    invoke-static {p0}, Lcom/melodix/music/NativeLimitedGlass;->contentVisible(Lcom/melodix/music/MainActivity;)Z
+    move-result v0
+    if-nez v0, :yes
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
     if-eqz v0, :no
     invoke-virtual {v0}, Landroid/view/View;->isShown()Z

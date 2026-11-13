@@ -33,6 +33,7 @@ function execute(signature, params, state, stopAt) {
       else if (method.includes('->getWindow()')) result=a[0].window;
       else if (method.includes('->getDecorView()')) result=a[0].decor;
       else if (method.includes('->isLoginWebPath()')) result=a[0].loginPath;
+      else if (method.includes('NativeLimitedGlass;->contentVisible(')) result=a[0].limitedVisible;
       else if (method.includes('->startsWith(')) result=a[0].startsWith(a[1]);
       else if (method.includes('->sessionSurfaceVisible(')) result=execute('.method public static sessionSurfaceVisible(',{p0:a[0]},state);
       else assert.fail('unsupported call '+method);
@@ -44,7 +45,7 @@ function execute(signature, params, state, stopAt) {
 }
 function setup(state=1) {
   const decor={}, other={};
-  const activity={window:{decor},G:{shown:false},loginPath:false};
+  const activity={window:{decor},G:{shown:false},loginPath:false,limitedVisible:false};
   return {activity, state:{state,overlay:null},decor,other};
 }
 const sig='.method public static sessionSurfaceVisible(';
@@ -59,6 +60,12 @@ test('visible current session overlay is not confused with a missing home',()=>{
     const f=setup(s);f.state.overlay={shown:true,root:f.decor};
     assert.equal(visible(f),1);assert.equal(action(f),'return');
   }
+});
+test('a measured limited surface defers only stale content reports',()=>{
+  const f=setup(4); f.activity.limitedVisible=true;
+  assert.equal(visible(f),1);assert.equal(action(f),'return');
+  assert.equal(action(f,'STARTUP STUCK - snapshot',1),':show_report');
+  f.state.state=3;assert.equal(visible(f),0);
 });
 test('a visible official login page is protected even if loginActive is false',()=>{
   const f=setup(1);f.activity.G.shown=true;f.activity.loginPath=true;

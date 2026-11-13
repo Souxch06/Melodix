@@ -276,6 +276,13 @@ public final class SessionGateInstrumentation extends Instrumentation {
                 android.view.accessibility.AccessibilityNodeInfo node=status.createAccessibilityNodeInfo();
                 check(node!=null && node.isVisibleToUser() && node.getText()!=null && node.getText().length()>0);
                 node.recycle();
+                Class<?> glass=getTargetContext().getClassLoader().loadClass("com.melodix.music.NativeLimitedGlass");
+                java.lang.reflect.Method measured=glass.getMethod("contentVisible",activity().getClass());
+                check((Boolean)measured.invoke(null,activity()));
+                View content=activity().findViewById(activity().getResources().getIdentifier("nativeContent","id",PACKAGE));
+                content.setVisibility(View.GONE);
+                check(!(Boolean)measured.invoke(null,activity()));
+                content.setVisibility(View.VISIBLE);
                 View login=findText(root,"Se connecter à Spotify");
                 View retry=findText(root,"Réessayer la bibliothèque");
                 check(login!=null && login.isShown() && login.isClickable());

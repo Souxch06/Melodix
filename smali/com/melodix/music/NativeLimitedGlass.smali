@@ -19,6 +19,52 @@
     return v0
 .end method
 
+# Measured limited content, not session proof. A missing, hidden or unlaid-out
+# root/content must not silence a genuine content watchdog report.
+.method public static contentVisible(Lcom/melodix/music/MainActivity;)Z
+    .locals 4
+    if-eqz p0, :no
+    invoke-static {}, Lcom/melodix/music/NativeLimitedGlass;->available()Z
+    move-result v0
+    if-eqz v0, :no
+    const v0, 0x7f09022f
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v0
+    if-eqz v0, :no
+    invoke-virtual {v0}, Landroid/view/View;->isShown()Z
+    move-result v1
+    if-eqz v1, :no
+    invoke-virtual {v0}, Landroid/view/View;->getWidth()I
+    move-result v1
+    if-lez v1, :no
+    invoke-virtual {v0}, Landroid/view/View;->getHeight()I
+    move-result v1
+    if-lez v1, :no
+    const v2, 0x7f090235
+    invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v2
+    instance-of v3, v2, Landroid/widget/LinearLayout;
+    if-eqz v3, :no
+    check-cast v2, Landroid/widget/LinearLayout;
+    invoke-virtual {v2}, Landroid/view/View;->isShown()Z
+    move-result v1
+    if-eqz v1, :no
+    invoke-virtual {v2}, Landroid/view/View;->getWidth()I
+    move-result v1
+    if-lez v1, :no
+    invoke-virtual {v2}, Landroid/view/View;->getHeight()I
+    move-result v1
+    if-lez v1, :no
+    invoke-virtual {v2}, Landroid/widget/LinearLayout;->getChildCount()I
+    move-result v1
+    if-lez v1, :no
+    const/4 v0, 0x1
+    return v0
+    :no
+    const/4 v0, 0x0
+    return v0
+.end method
+
 .method private static visibility(Landroid/app/Activity;II)V
     .locals 1
     invoke-virtual {p0, p1}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
