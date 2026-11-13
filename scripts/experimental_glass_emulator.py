@@ -10,6 +10,7 @@ import time
 import xml.etree.ElementTree as ET
 
 PACKAGE = 'com.melodix.music.preview'
+PUBLIC_IDS = {n.get('name') for n in ET.parse('res/values/public.xml').iter('public') if n.get('type') == 'id'}
 current_phase = 'initial'
 
 
@@ -178,9 +179,11 @@ for tab, heading in [('nativeLibraryTab', 'Bibliothèque'), ('nativeSearchTab', 
         if not (bx1 <= cx < bx2 and by1 <= cy < by2 and n.get('clickable') == 'true'):
             continue
         rid = n.get('resource-id', '').rsplit('/', 1)[-1]
-        allowed = {'nativeRoot', 'nativeHomeTab', 'nativeSearchTab', 'nativeLibraryTab', 'splashOverlay', 'hScrollView', 'webViewContainer'}
-        name = rid if rid in allowed else ('web' if 'WebView' in n.get('class', '') else 'other')
-        hits.append(name)
+        name = rid if n.get('resource-id', '').startswith(PACKAGE + ':id/') and rid in PUBLIC_IDS else 'other'
+        cls = n.get('class', '')
+        cls = next((c for c in ('WebView', 'TextView', 'Button', 'FrameLayout', 'LinearLayout', 'ImageView', 'View') if cls.endswith(c)), 'other')
+        pkg = 'app' if n.get('package') == PACKAGE else 'system'
+        hits.append('%s:%s:%s:%d,%d,%d,%d' % (pkg, name, cls, bx1, by1, bx2, by2))
     hit_summary = ','.join(hits[-8:]) or 'none'
     print('::notice title=Experimental tab geometry::%s bounds=%d,%d,%d,%d' % (tab, x1, y1, x2, y2), flush=True)
     tap(target)
