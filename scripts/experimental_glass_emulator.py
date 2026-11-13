@@ -196,10 +196,13 @@ for tab, heading in [('nativeLibraryTab', 'Bibliothèque'), ('nativeSearchTab', 
         methods = re.findall(r'\bat (com\.melodix\.music\.[A-Za-z0-9_.$]+)\(', logs)
         error = errors[-1] if errors else 'none'
         method = methods[0] if methods else 'none'
-        raise AssertionError('tab=%s route=%s title_count=%d root=%s tab_visible=%s session=%s splash=%s bounds=%d,%d,%d,%d focused=%s exception=%s method=%s initial=%s initial_route=%s foreground=%s web=%s' % (
+        trace = adb('logcat', '-d', '-s', 'MDXTRACE:I')
+        touch = re.findall(r'\bpreview-touch-(home|search|library|settings)\b', trace)
+        last_touch = touch[-1] if touch else 'none'
+        raise AssertionError('tab=%s route=%s title_count=%d root=%s tab_visible=%s session=%s splash=%s bounds=%d,%d,%d,%d focused=%s exception=%s method=%s initial=%s initial_route=%s foreground=%s web=%s last_touch=%s' % (
             tab, current, len(titles), categories['nativeRoot'], categories['nativeLibraryTab'],
             categories['sessionAction'], categories['splashOverlay'], x1, y1, x2, y2,
-            main_component(adb('shell', 'dumpsys', 'window'), ('mCurrentFocus', 'mFocusedApp')), error, method, initial, initial_route, foreground, web))
+            main_component(adb('shell', 'dumpsys', 'window'), ('mCurrentFocus', 'mFocusedApp')), error, method, initial, initial_route, foreground, web, last_touch))
     phase('native navigation: ' + tab)
 
 phase('opening limited settings')

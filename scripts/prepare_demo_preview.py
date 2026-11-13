@@ -60,6 +60,16 @@ if (work/'res').exists():
     marker='    invoke-virtual {v2}, Landroid/widget/LinearLayout;->removeAllViews()V\n\n    # Home is a set of horizontal cover shelves'
     assert text.count(marker)==1
     text=text.replace(marker,'    invoke-virtual {v2}, Landroid/widget/LinearLayout;->removeAllViews()V\n    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;\n    invoke-static {p0, v2, v0}, Lcom/melodix/demo/DemoEntry;->bindSettings(Landroid/app/Activity;Landroid/widget/LinearLayout;Ljava/lang/String;)V\n\n    # Home is a set of horizontal cover shelves')
+    # Offline-only test breadcrumb for real touch delivery. Fixed labels only;
+    # no routes, account data, UI text or credentials enter the trace.
+    for name, label in [('onNativeHomeClick','home'), ('onNativeSearchClick','search'),
+                        ('onNativeLibraryClick','library'), ('onNativeSettingsClick','settings')]:
+        marker='    .locals ' + ('2' if name == 'onNativeHomeClick' else '5' if name == 'onNativeSearchClick' else '3' if name == 'onNativeLibraryClick' else '1')
+        method='.method public final ' + name + '(Landroid/view/View;)V\n'
+        start=text.index(method)+len(method)
+        assert text[start:start+len(marker)] == marker
+        end=start+len(marker)
+        text=text[:end]+('\n    const-string v0, "preview-touch-' + label + '"\n    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V')+text[end:]
     # The session button is an actual inflated layout element. Its click calls
     # this preview-only Activity method; it does not rely on a later repaint.
     assert 'onPreviewDemoClick(Landroid/view/View;)V' not in text
