@@ -329,9 +329,11 @@ public final class SessionGateInstrumentation extends Instrumentation {
             uiImmediate(() -> { begin(); phase="valid_token_result"; noteStarted();
                 result(true, true, false, 200); phase="valid_token_assert"; noteStarted();
                 state(3); check(field("overlay") == null);
+                phase="valid_home_synthetic_render"; noteStarted();
                 Class<?> renderer=getTargetContext().getClassLoader().loadClass("com.melodix.music.NativeHomeShelfRenderer");
                 renderer.getMethod("render",activity().getClass(),String.class).invoke(null,activity(),
                     "[{\"title\":\"SYNTHETIC TEST CARD\",\"section\":\"Vos playlists\",\"uri\":\"spotify:playlist:fixture123\"}]");
+                phase="valid_home_connected_heading"; noteStarted();
                 check(findText(nativeRoot(),"Bibliothèque · Connecté")!=null);
                 phase="valid_token_assert_returned"; note(); });
             phase = "valid_token_and_library"; note();
