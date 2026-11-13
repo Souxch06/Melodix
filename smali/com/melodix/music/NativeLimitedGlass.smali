@@ -290,6 +290,20 @@
     check-cast v3, Landroid/widget/LinearLayout;
     invoke-virtual {v3}, Landroid/widget/LinearLayout;->removeAllViews()V
     move-object v6, v3
+    # Home uses the original native Glass status renderer with fixed safe data.
+    const-string v1, "home"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :limited_original_card
+    invoke-static {p0, v3}, Lcom/melodix/music/NativeHomeShelfRenderer;->renderLimitedHomeStatus(Lcom/melodix/music/MainActivity;Landroid/widget/LinearLayout;)Z
+    move-result v1
+    if-eqz v1, :limited_original_card
+    const/4 v1, 0x0
+    invoke-virtual {v3, v1}, Landroid/widget/LinearLayout;->getChildAt(I)Landroid/view/View;
+    move-result-object v3
+    check-cast v3, Landroid/widget/LinearLayout;
+    goto :limited_actions
+    :limited_original_card
     invoke-static {p0, v3}, Lcom/melodix/music/NativeLimitedGlass;->card(Lcom/melodix/music/MainActivity;Landroid/widget/LinearLayout;)Landroid/widget/LinearLayout;
     move-result-object v3
     const-string v4, "Bibliothèque Spotify indisponible"
@@ -314,6 +328,7 @@
     invoke-static {p0, v3, v4, v1}, Lcom/melodix/music/NativeLimitedGlass;->label(Lcom/melodix/music/MainActivity;Landroid/widget/LinearLayout;Ljava/lang/String;F)V
     const/high16 v1, 0x41800000    # 16sp
     invoke-static {p0, v3, v5, v1}, Lcom/melodix/music/NativeLimitedGlass;->label(Lcom/melodix/music/MainActivity;Landroid/widget/LinearLayout;Ljava/lang/String;F)V
+    :limited_actions
     const-string v4, "Réessayer la bibliothèque"
     const-string v5, "melodix:action:retry-library"
     invoke-static {p0, v3, v4, v5}, Lcom/melodix/music/NativeLimitedGlass;->action(Lcom/melodix/music/MainActivity;Landroid/widget/LinearLayout;Ljava/lang/String;Ljava/lang/String;)V

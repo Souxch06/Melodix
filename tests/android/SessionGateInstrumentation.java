@@ -329,11 +329,21 @@ public final class SessionGateInstrumentation extends Instrumentation {
             uiImmediate(() -> { begin(); phase="valid_token_result"; noteStarted();
                 result(true, true, false, 200); phase="valid_token_assert"; noteStarted();
                 state(3); check(field("overlay") == null);
+                Class<?> renderer=getTargetContext().getClassLoader().loadClass("com.melodix.music.NativeHomeShelfRenderer");
+                renderer.getMethod("render",activity().getClass(),String.class).invoke(null,activity(),
+                    "[{\"title\":\"SYNTHETIC TEST CARD\",\"section\":\"Vos playlists\",\"uri\":\"spotify:playlist:fixture123\"}]");
+                check(findText(nativeRoot(),"Bibliothèque · Connecté")!=null);
                 phase="valid_token_assert_returned"; note(); });
             phase = "valid_token_and_library"; note();
 
             phase = "network_and_isolated_401";
-            ui(() -> { begin(); result(false, false, false, 401); state(4); check(!(Boolean) field("expiredEvidence")); }); note();
+            ui(() -> { begin();
+                check(findText(nativeRoot(),"Vérification de la bibliothèque…")!=null);
+                result(false, false, false, 401); state(4); check(!(Boolean) field("expiredEvidence"));
+                check(findText(nativeRoot(),"Spotify a refusé la requête de bibliothèque (HTTP 401). La cause n’est pas établie.")!=null);
+                check(findText(nativeRoot(),"Bibliothèque · Connecté")==null);
+                check(findText(nativeRoot(),"SYNTHETIC TEST CARD")==null);
+            }); note();
 
             phase = "limited_glass_navigation_and_payload_privacy";
             ui(() -> {
@@ -375,6 +385,7 @@ public final class SessionGateInstrumentation extends Instrumentation {
             phase = "limited_glass_403_and_malformed";
             ui(() -> { begin(); result(false,false,false,403); state(4); limited("Accueil");
                 check("library-http-403".equals(field("lastReason")));
+                check(findText(nativeRoot(),"Spotify a refusé la requête de bibliothèque (HTTP 403). La cause n’est pas établie.")!=null);
                 begin(); result(false,false,false,200); state(4); limited("Accueil");
                 check("verification-failed-no-logout".equals(field("lastReason")));
             }); note();

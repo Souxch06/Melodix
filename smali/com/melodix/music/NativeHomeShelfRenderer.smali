@@ -80,6 +80,25 @@
     invoke-virtual {v4, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v3
     if-eqz v3, :shelf_render_spotify_rows
+    # An empty library can be connected too, but only under the proof gate and
+    # only for an explicit empty status, never for loading/error/unproven.
+    const-string v3, "sessionUnproven"
+    invoke-virtual {v2, v3}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;)Z
+    move-result v3
+    if-nez v3, :verified_empty_heading_done
+    const-string v3, "state"
+    invoke-virtual {v2, v3}, Lorg/json/JSONObject;->optString(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v3
+    const-string v4, "empty"
+    invoke-virtual {v4, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v3
+    if-eqz v3, :verified_empty_heading_done
+    const-string v3, "Bibliothèque · Connecté"
+    invoke-static {p0, v3}, Lcom/melodix/music/NativeUiRowFactory;->createSectionHeader(Lcom/melodix/music/MainActivity;Ljava/lang/String;)Landroid/widget/TextView;
+    move-result-object v3
+    if-eqz v3, :verified_empty_heading_done
+    invoke-virtual {v13, v3}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
+    :verified_empty_heading_done
     invoke-static {p0, v13, v2}, Lcom/melodix/music/NativeHomeShelfRenderer;->renderHomeStatus(Lcom/melodix/music/MainActivity;Landroid/widget/LinearLayout;Lorg/json/JSONObject;)Z
     move-result v3
     if-eqz v3, :shelf_no_cards
@@ -471,6 +490,15 @@
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->hasNativeHomeCardsAttached()Z
     move-result v5
     if-eqz v5, :shelf_no_cards
+    # This branch is reachable only after the validated-library gate above.
+    # Reuse the existing section-header style; no account data is fabricated.
+    const-string v5, "Bibliothèque · Connecté"
+    invoke-static {p0, v5}, Lcom/melodix/music/NativeUiRowFactory;->createSectionHeader(Lcom/melodix/music/MainActivity;Ljava/lang/String;)Landroid/widget/TextView;
+    move-result-object v5
+    if-eqz v5, :verified_heading_done
+    const/4 v6, 0x0
+    invoke-virtual {v13, v5, v6}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;I)V
+    :verified_heading_done
     const-string v5, "cards"
     invoke-static {v5}, Lcom/melodix/music/NativeHomeShelfRenderer;->traceHomeModel(Ljava/lang/String;)V
 
@@ -590,6 +618,62 @@
     const-string v2, "[{\"kind\":\"state\",\"state\":\"error\",\"title\":\"Les données n’ont pas pu être lues\",\"subtitle\":\"Touchez pour réessayer le chargement de la bibliothèque.\",\"section\":\"Accueil\",\"image\":\"\",\"uri\":\"melodix:action:retry-library\"}]"
     invoke-static {p0, v2}, Lcom/melodix/music/NativeHomeShelfRenderer;->render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
     return-void
+.end method
+
+# Only fixed, local status text can enter this unverified rendering path.
+# Private rows remain guarded by render(); no page data or proof is accepted.
+.method public static renderLimitedHomeStatus(Lcom/melodix/music/MainActivity;Landroid/widget/LinearLayout;)Z
+    .locals 4
+    if-eqz p0, :no
+    if-eqz p1, :no
+    invoke-static {}, Lcom/melodix/music/NativeLimitedGlass;->available()Z
+    move-result v0
+    if-eqz v0, :no
+    const v0, 0x7f090235
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v0
+    if-ne v0, p1, :no
+    sget v0, Lcom/melodix/music/NativeSessionGate;->state:I
+    if-nez v0, :error
+    const-string v1, "{\"state\":\"loading\",\"title\":\"Vérification de la bibliothèque…\",\"subtitle\":\"Les playlists restent masquées pendant la vérification.\",\"section\":\"Vos playlists\"}"
+    goto :render_status
+    :error
+    const-string v1, "{\"state\":\"error\",\"title\":\"Bibliothèque Spotify indisponible\",\"subtitle\":\"Spotify n’a pas confirmé l’accès à la bibliothèque. La cause n’est pas établie.\",\"section\":\"Vos playlists\"}"
+    sget v0, Lcom/melodix/music/NativeSessionGate;->libraryHttp:I
+    const/16 v2, 0x191
+    if-ne v0, v2, :check_403
+    const-string v1, "{\"state\":\"error\",\"title\":\"Bibliothèque Spotify indisponible\",\"subtitle\":\"Spotify a refusé la requête de bibliothèque (HTTP 401). La cause n’est pas établie.\",\"section\":\"Vos playlists\"}"
+    goto :render_status
+    :check_403
+    const/16 v2, 0x193
+    if-ne v0, v2, :check_429
+    const-string v1, "{\"state\":\"error\",\"title\":\"Bibliothèque Spotify indisponible\",\"subtitle\":\"Spotify a refusé la requête de bibliothèque (HTTP 403). La cause n’est pas établie.\",\"section\":\"Vos playlists\"}"
+    goto :render_status
+    :check_429
+    const/16 v2, 0x1ad
+    if-ne v0, v2, :render_status
+    const-string v1, "{\"state\":\"error\",\"title\":\"Bibliothèque Spotify indisponible\",\"subtitle\":\"Spotify limite les requêtes de bibliothèque (HTTP 429).\",\"section\":\"Vos playlists\"}"
+    :render_status
+    :try_start_fixed_status
+    new-instance v2, Lorg/json/JSONObject;
+    invoke-direct {v2, v1}, Lorg/json/JSONObject;-><init>(Ljava/lang/String;)V
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->beginNativeHomeRender()V
+    invoke-static {p0, p1, v2}, Lcom/melodix/music/NativeHomeShelfRenderer;->renderHomeStatus(Lcom/melodix/music/MainActivity;Landroid/widget/LinearLayout;Lorg/json/JSONObject;)Z
+    move-result v0
+    if-eqz v0, :no
+    const/4 v1, 0x0
+    invoke-virtual {p1, v1}, Landroid/widget/LinearLayout;->getChildAt(I)Landroid/view/View;
+    move-result-object v1
+    invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->noteNativeHomeSessionUnprovenStatusAttached(Landroid/view/View;)V
+    const/4 v0, 0x1
+    return v0
+    :try_end_fixed_status
+    .catch Lorg/json/JSONException; {:try_start_fixed_status .. :try_end_fixed_status} :bad_fixed_status
+    :bad_fixed_status
+    move-exception v0
+    :no
+    const/4 v0, 0x0
+    return v0
 .end method
 
 .method private static renderHomeStatus(Lcom/melodix/music/MainActivity;Landroid/widget/LinearLayout;Lorg/json/JSONObject;)Z
