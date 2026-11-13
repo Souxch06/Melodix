@@ -969,6 +969,15 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNetworkErrorDiagnostic(Ljava/lang/String;)V
 
+    # A network error must not put the old full-screen splash over limited
+    # Glass. Keep diagnostics, session state and the explicit retry intact.
+    # Interactive login and a proven session retain the original path.
+    invoke-static {}, Lcom/melodix/music/NativeLimitedGlass;->available()Z
+    move-result v0
+    if-eqz v0, :legacy_network_surface
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionGate;->paint(Lcom/melodix/music/MainActivity;)V
+    return-void
+    :legacy_network_surface
     sget-boolean v0, Lcom/melodix/music/AppSingleton;->m:Z
 
     .line 2

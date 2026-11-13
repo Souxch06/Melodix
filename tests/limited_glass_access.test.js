@@ -67,3 +67,11 @@ test('first paint hides the inflated splash even before Activity fields are init
   assert.doesNotMatch(action,/Landroid\/view\/View;->setMinHeight/);
   assert.match(method(limited,'.method public static show('),/->card[\s\S]*?Bibliothèque Spotify indisponible[\s\S]*?retry-library[\s\S]*?open-login/);
  });
+
+test('network error and a queued legacy animation cannot cover limited Glass',()=>{
+  const network=method(main,'.method public final D(Z)V');
+  const animate=method(read('smali/zk0.smali'),'.method public final run()V');
+  assert.match(network,/setNetworkErrorDiagnostic[\s\S]*?NativeLimitedGlass;->available\(\)Z[\s\S]*?if-eqz v0, :legacy_network_surface[\s\S]*?NativeSessionGate;->paint[\s\S]*?return-void[\s\S]*?:legacy_network_surface/);
+  assert.match(animate,/:pswitch_0[\s\S]*?NativeLimitedGlass;->available\(\)Z[\s\S]*?if-eqz v0, :legacy_error_animation[\s\S]*?NativeSessionGate;->paint[\s\S]*?return-void[\s\S]*?:legacy_error_animation[\s\S]*?->setVisibility/);
+  assert.doesNotMatch(network.slice(0,network.indexOf(':legacy_network_surface')),/removeAllCookies|NativeSessionStore;->recordVerified|sput.*state:I/);
+});

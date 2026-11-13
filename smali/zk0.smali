@@ -213,6 +213,14 @@
 
     .line 63
     :pswitch_0
+    # An error-surface runnable may have been queued before Glass became
+    # available. Recheck on execution so it cannot later cover the shell.
+    invoke-static {}, Lcom/melodix/music/NativeLimitedGlass;->available()Z
+    move-result v0
+    if-eqz v0, :legacy_error_animation
+    invoke-static {p0}, Lcom/melodix/music/NativeSessionGate;->paint(Lcom/melodix/music/MainActivity;)V
+    return-void
+    :legacy_error_animation
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->H:Landroidx/constraintlayout/widget/ConstraintLayout;
 
     .line 64

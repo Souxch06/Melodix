@@ -359,6 +359,18 @@ public final class SessionGateInstrumentation extends Instrumentation {
                 begin(); result(false,false,false,200); state(4); limited("Accueil");
                 check("verification-failed-no-logout".equals(field("lastReason")));
             }); note();
+            phase = "network_error_cannot_cover_limited_glass";
+            ui(() -> {
+                begin(); result(false,false,false,401); state(4); limited("Accueil");
+                Activity a=activity();
+                a.getClass().getMethod("D",boolean.class).invoke(a,true);
+                limited("Accueil");
+                View splash=a.findViewById(a.getResources().getIdentifier("splashOverlay","id",PACKAGE));
+                check(splash==null || !splash.isShown());
+                Class<?> task=getTargetContext().getClassLoader().loadClass("zk0");
+                Runnable queued=(Runnable)task.getConstructor(a.getClass(),boolean.class,int.class).newInstance(a,true,0);
+                queued.run(); limited("Accueil"); check(splash==null || !splash.isShown()); state(4);
+            }); note();
             phase = "limited_glass_explicit_login";
             ui(() -> { check(findText(nativeRoot(),"Se connecter à Spotify").performClick());
                 check((Boolean)field("loginActive")); check(!nativeRoot().isShown());
