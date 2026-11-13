@@ -73,10 +73,20 @@
 .end method
 
 .method protected final onDestroy()V
-    .locals 1
+    .locals 2
     iget-object v0, p0, Lcom/melodix/music/SpotifyWebPageActivity;->web:Landroid/webkit/WebView;
     if-eqz v0, :done
     invoke-virtual {v0}, Landroid/webkit/WebView;->stopLoading()V
+    invoke-virtual {v0}, Landroid/view/View;->getParent()Landroid/view/ViewParent;
+    move-result-object v1
+    instance-of v1, v1, Landroid/view/ViewGroup;
+    if-eqz v1, :destroy
+    invoke-virtual {v0}, Landroid/view/View;->getParent()Landroid/view/ViewParent;
+    move-result-object v1
+    check-cast v1, Landroid/view/ViewGroup;
+    invoke-virtual {v1, v0}, Landroid/view/ViewGroup;->removeView(Landroid/view/View;)V
+    :destroy
+    invoke-virtual {v0}, Landroid/webkit/WebView;->destroy()V
     :done
     invoke-super {p0}, Landroid/app/Activity;->onDestroy()V
     return-void

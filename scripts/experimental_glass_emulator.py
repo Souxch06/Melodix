@@ -168,6 +168,10 @@ phase('opening separate Spotify web page')
 tap(find(text('Spotify (page Web)')))
 find(lambda n: text('Spotify (page Web)')(n) and n.get('clickable') != 'true')
 find(lambda n: n.get('class') == 'android.webkit.WebView')
+window = adb('shell', 'dumpsys', 'window')
+if not any('mCurrentFocus' in line and PACKAGE in line and 'SpotifyWebPageActivity' in line
+           for line in window.splitlines()):
+    raise AssertionError('separate Spotify page activity is not focused')
 tap(find(text('Retour à Melodix')))
 find(lambda n: by_id('nativeScreenTitle')(n) and text('Accueil')(n))
 await_main_foreground()
