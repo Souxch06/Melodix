@@ -164,6 +164,13 @@ for tab, heading in [('nativeLibraryTab', 'Bibliothèque'), ('nativeSearchTab', 
     x1, y1, x2, y2 = bounds(target)
     print('::notice title=Experimental tab geometry::%s bounds=%d,%d,%d,%d' % (tab, x1, y1, x2, y2), flush=True)
     tap(target)
+    immediate = nodes()
+    # Capture only fixed categories from the synthetic/offline emulator.
+    ids = ('nativeRoot', 'nativeScreenTitle', 'nativeLibraryTab', 'sessionAction', 'splashOverlay')
+    initial = ''.join('1' if any(by_id(key)(n) for n in immediate) else '0' for key in ids)
+    packages = set(n.get('package', '') for n in immediate)
+    foreground = 'app' if PACKAGE in packages else ('system' if packages else 'none')
+    web = any('WebView' in n.get('class', '') for n in immediate)
     try:
         find(lambda n: by_id('nativeScreenTitle')(n) and text(heading)(n))
     except AssertionError:
@@ -181,10 +188,10 @@ for tab, heading in [('nativeLibraryTab', 'Bibliothèque'), ('nativeSearchTab', 
         methods = re.findall(r'\bat (com\.melodix\.music\.[A-Za-z0-9_.$]+)\(', logs)
         error = errors[-1] if errors else 'none'
         method = methods[0] if methods else 'none'
-        raise AssertionError('tab=%s route=%s title_count=%d root=%s tab_visible=%s session=%s splash=%s bounds=%d,%d,%d,%d focused=%s exception=%s method=%s' % (
+        raise AssertionError('tab=%s route=%s title_count=%d root=%s tab_visible=%s session=%s splash=%s bounds=%d,%d,%d,%d focused=%s exception=%s method=%s initial=%s foreground=%s web=%s' % (
             tab, current, len(titles), categories['nativeRoot'], categories['nativeLibraryTab'],
             categories['sessionAction'], categories['splashOverlay'], x1, y1, x2, y2,
-            main_component(adb('shell', 'dumpsys', 'window'), ('mCurrentFocus', 'mFocusedApp')), error, method))
+            main_component(adb('shell', 'dumpsys', 'window'), ('mCurrentFocus', 'mFocusedApp')), error, method, initial, foreground, web))
     phase('native navigation: ' + tab)
 
 phase('opening limited settings')
