@@ -183,7 +183,11 @@ for tab, heading in [('nativeLibraryTab', 'Bibliothèque'), ('nativeSearchTab', 
         cls = n.get('class', '')
         cls = next((c for c in ('WebView', 'TextView', 'Button', 'FrameLayout', 'LinearLayout', 'ImageView', 'View') if cls.endswith(c)), 'other')
         pkg = 'app' if n.get('package') == PACKAGE else 'system'
-        hits.append('%s:%s:%s:%d,%d,%d,%d' % (pkg, name, cls, bx1, by1, bx2, by2))
+        fixed_labels = {'Retour': 'local-return', 'Choisir un fichier audio': 'local-choose',
+                        'Réessayer la bibliothèque': 'retry', 'Se connecter à Spotify': 'login',
+                        'Ma musique': 'local-entry', 'Mode démo': 'demo-entry'}
+        label = fixed_labels.get(n.get('text'), 'other')
+        hits.append('%s:%s:%s:%s:%d,%d,%d,%d' % (pkg, name, cls, label, bx1, by1, bx2, by2))
     hit_summary = ','.join(hits[-8:]) or 'none'
     print('::notice title=Experimental tab geometry::%s bounds=%d,%d,%d,%d' % (tab, x1, y1, x2, y2), flush=True)
     tap(target)
