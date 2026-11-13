@@ -163,6 +163,16 @@ phase('local music opened and returned to unverified Glass Home')
 focus_summary()
 await_main_foreground()
 
+# Separate real WebView, explicitly opened: this is not library verification.
+phase('opening separate Spotify web page')
+tap(find(text('Spotify (page Web)')))
+find(lambda n: text('Spotify (page Web)')(n) and n.get('clickable') != 'true')
+find(lambda n: n.get('class') == 'android.webkit.WebView')
+tap(find(text('Retour à Melodix')))
+find(lambda n: by_id('nativeScreenTitle')(n) and text('Accueil')(n))
+await_main_foreground()
+phase('separate web page returned to unverified Glass Home')
+
 for tab, heading in [('nativeLibraryTab', 'Bibliothèque'), ('nativeSearchTab', 'Rechercher'),
                      ('nativeHomeTab', 'Accueil')]:
     phase('tapping native navigation: ' + tab)

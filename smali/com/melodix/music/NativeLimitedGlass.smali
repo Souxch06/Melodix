@@ -185,9 +185,18 @@
     const/4 v4, -0x2
     invoke-direct {v2, v3, v4}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
     invoke-virtual {v2, v1, v1, v1, v1}, Landroid/view/ViewGroup$MarginLayoutParams;->setMargins(IIII)V
+    const-string v3, "melodix:action:open-web-page"
+    invoke-virtual {v3, p3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v3
+    if-eqz v3, :row_listener
+    new-instance v1, Lcom/melodix/music/SpotifyWebPageOpen;
+    invoke-direct {v1, p0}, Lcom/melodix/music/SpotifyWebPageOpen;-><init>(Landroid/app/Activity;)V
+    goto :listener_ready
+    :row_listener
     new-instance v1, Lcom/melodix/music/NativeRowClickListener;
     const-string v3, ""
     invoke-direct {v1, p0, p3, v3}, Lcom/melodix/music/NativeRowClickListener;-><init>(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;)V
+    :listener_ready
     invoke-virtual {v0, v1}, Landroid/view/View;->setOnClickListener(Landroid/view/View$OnClickListener;)V
     invoke-virtual {p1, v0, v2}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
     return-void
@@ -310,6 +319,10 @@
     invoke-static {p0, v3, v4, v5}, Lcom/melodix/music/NativeLimitedGlass;->action(Lcom/melodix/music/MainActivity;Landroid/widget/LinearLayout;Ljava/lang/String;Ljava/lang/String;)V
     const-string v4, "Se connecter à Spotify"
     const-string v5, "melodix:action:open-login"
+    invoke-static {p0, v3, v4, v5}, Lcom/melodix/music/NativeLimitedGlass;->action(Lcom/melodix/music/MainActivity;Landroid/widget/LinearLayout;Ljava/lang/String;Ljava/lang/String;)V
+    # Explicit page action uses its own native listener, not WebView data.
+    const-string v4, "Spotify (page Web)"
+    const-string v5, "melodix:action:open-web-page"
     invoke-static {p0, v3, v4, v5}, Lcom/melodix/music/NativeLimitedGlass;->action(Lcom/melodix/music/MainActivity;Landroid/widget/LinearLayout;Ljava/lang/String;Ljava/lang/String;)V
     if-eqz v2, :restore_content
     const-string v4, "Notifications Android"

@@ -294,6 +294,18 @@ public final class SessionGateInstrumentation extends Instrumentation {
                 }
             }); note();
 
+            phase = "separate_web_page_navigation_allowlist";
+            ui(() -> {
+                Class<?> client=getTargetContext().getClassLoader().loadClass("com.melodix.music.SpotifyWebPageClient");
+                java.lang.reflect.Method allowed=client.getDeclaredMethod("allowed",android.net.Uri.class);
+                allowed.setAccessible(true);
+                for (String url : new String[]{"https://open.spotify.com/", "https://accounts.spotify.com/login"})
+                    check((Boolean)allowed.invoke(null,android.net.Uri.parse(url)));
+                for (String url : new String[]{"http://open.spotify.com/", "https://open.spotify.com.example.com/",
+                        "https://open.spotify.com@evil.example/", "https://open.spotify.com:444/", "file:///tmp/a"})
+                    check(!(Boolean)allowed.invoke(null,android.net.Uri.parse(url)));
+            }); note();
+
             phase = "diagnostic_real_webview_fallback";
             diagnosticReadback(false); note();
             phase = "diagnostic_real_webview_rejects_stale";
