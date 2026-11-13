@@ -41,6 +41,11 @@
     invoke-virtual {v2, v3}, Landroid/view/View;->setSaveEnabled(Z)V
     invoke-virtual {v2}, Landroid/webkit/WebView;->getSettings()Landroid/webkit/WebSettings;
     move-result-object v4
+    # Match the existing player WebView's version-derived browser profile.
+    # This is not evidence of protected-media support or successful playback.
+    invoke-static {p0}, Lcom/melodix/music/BrowserProfile;->desktopUserAgent(Landroid/content/Context;)Ljava/lang/String;
+    move-result-object v5
+    invoke-virtual {v4, v5}, Landroid/webkit/WebSettings;->setUserAgentString(Ljava/lang/String;)V
     invoke-virtual {v4, v1}, Landroid/webkit/WebSettings;->setJavaScriptEnabled(Z)V
     invoke-virtual {v4, v1}, Landroid/webkit/WebSettings;->setDomStorageEnabled(Z)V
     invoke-virtual {v4, v3}, Landroid/webkit/WebSettings;->setAllowFileAccess(Z)V

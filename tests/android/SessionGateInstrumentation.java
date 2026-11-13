@@ -489,6 +489,28 @@ public final class SessionGateInstrumentation extends Instrumentation {
             ui(() -> { check((Boolean) field("autoUsed")); state(4);
                 limited("Accueil"); }); note();
 
+            phase = "separate_web_page_browser_profile";
+            ui(() -> {
+                View button=findText(nativeRoot(),"Spotify (page Web)");
+                check(button!=null && button.performClick());
+            });
+            SystemClock.sleep(1500);
+            ui(() -> {
+                Activity page=activity();
+                check(page.getClass().getName().equals("com.melodix.music.SpotifyWebPageActivity"));
+                Field webField=page.getClass().getDeclaredField("web"); webField.setAccessible(true);
+                WebView isolated=(WebView)webField.get(page);
+                Class<?> profile=getTargetContext().getClassLoader().loadClass("com.melodix.music.BrowserProfile");
+                String expected=(String)profile.getMethod("desktopUserAgent",Context.class).invoke(null,page);
+                check(expected.equals(isolated.getSettings().getUserAgentString()));
+                check(isolated.getSettings().getJavaScriptEnabled());
+                check(!isolated.getSettings().getAllowFileAccess());
+                page.finish();
+            });
+            SystemClock.sleep(1000);
+            ui(() -> { check(activity().getClass().getName().equals("com.melodix.music.MainActivity"));
+                state(4); limited("Accueil"); }); note();
+
             phase = "back_exits_without_revealing_home";
             final Activity ending = activity();
             ui(() -> ending.onBackPressed()); check(ending.isFinishing()); note();

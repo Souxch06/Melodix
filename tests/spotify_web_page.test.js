@@ -29,3 +29,10 @@ test('web page limits main-frame navigation to exact HTTPS Spotify player and ac
  for(const marker of ['"https"','getUserInfo()','getPort()','"open.spotify.com"','"accounts.spotify.com"','equalsIgnoreCase','WebResourceRequest;->getUrl()']) assert.ok(client.includes(marker),marker);
  assert.equal((client.match(/shouldOverrideUrlLoading/g)||[]).length,2);
 });
+
+test('standalone web page uses existing WebView browser profile without granting permissions',()=>{
+ const page=read(base+'SpotifyWebPageActivity.smali');
+ assert.match(page,/BrowserProfile;->desktopUserAgent\(Landroid\/content\/Context;\)[\s\S]*?setUserAgentString\(Ljava\/lang\/String;\)V[\s\S]*?->loadUrl/);
+ assert.doesNotMatch(page,/setWebChromeClient|PermissionRequest|setAcceptThirdPartyCookies|addJavascriptInterface/);
+ assert.match(read('smali/m9.smali'),/BrowserProfile;->desktopUserAgent\(Landroid\/content\/Context;\)/);
+});
