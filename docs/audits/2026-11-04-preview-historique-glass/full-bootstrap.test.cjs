@@ -10,7 +10,7 @@ const root=process.env.MELODIX_HISTORICAL_ROOT;
 if(!root) throw new Error('MELODIX_HISTORICAL_ROOT is required');
 const asset=name=>fs.readFileSync(path.join(root,'assets',name),'utf8');
 const bridge=asset('spotify_bridge.js'),shell=asset('native_ui_shell.js'),login=asset('classic_login.js');
-function bootstrap(){
+function bootstrap(respond=null){
     const dom=new JSDOM('<!doctype html><html><head></head><body><main id="main-view"><a href="/playlist/fake1">Fictive</a></main></body></html>',{
         url:'https://open.spotify.com/',runScripts:'outside-only',virtualConsole:new VirtualConsole()
     });
@@ -18,6 +18,7 @@ function bootstrap(){
     w.fetch=async(url,init)=>{
         const body=init?.body ? JSON.parse(init.body) : null;
         requests.push({url:String(url),body});
+        if(respond) return respond({url:String(url),body});
         if(body?.operationName==='libraryV3') return {ok:true,status:200,json:async()=>({data:{me:{libraryV3:{items:[{item:{data:{__typename:'Playlist',uri:'spotify:playlist:fake1',name:'Fictive'}}}]}}}})};
         if(String(url).includes('connect-state')) return {ok:true,status:200};
         throw new Error('unhandled synthetic request');
@@ -103,6 +104,109 @@ test('full bridge handles one synthetic library response and shell refresh sends
         assert.ok(x.calls.some(c=>c.event==='home'&&c.rows.some(r=>r.uri==='spotify:playlist:fake1')));
     } finally{x.close();}
 });
+
+// Responses are completely synthetic. Deferred promises let the test explicitly
+// decide arrival order; the scheduler and Android device are not simulated.
+function libraryResponse(name){return {ok:true,status:200,json:async()=>({data:{me:{libraryV3:{items:[{item:{data:{__typename:'Playlist',uri:'spotify:playlist:'+name,name}}}]}}}})};}
+function refusal(status){return {ok:false,status,statusText:'synthetic refusal'};}
+const yieldTurn=()=>new Promise(resolve=>setImmediate(resolve));
+
+test('full bridge concurrency: two simultaneous library requests can overwrite a newer result with an older one',async()=>{
+    const pending=[];
+    const x=bootstrap(()=>new Promise(resolve=>pending.push(resolve)));
+    try {
+        x.w.eval(bridge);
+        const old=x.w.fetchMediaItems('playlists');
+        const fresh=x.w.fetchMediaItems('playlists');
+        await yieldTurn();
+        assert.equal(x.requests.length,2);
+        assert.equal(pending.length,2);
+        pending[1](libraryResponse('new'));
+        await fresh;
+        assert.equal(x.w.mediaLib.playlists[0].name,'new');
+        pending[0](libraryResponse('old'));
+        await old;
+        assert.equal(x.w.mediaLib.playlists[0].name,'old');
+        assert.ok(x.calls.some(c=>c.event==='media'&&c.rows[0]?.name==='new'));
+        assert.ok(x.calls.some(c=>c.event==='media'&&c.rows[0]?.name==='old'));
+    } finally{x.close();}
+});
+
+test('full bridge concurrency: a late earlier refusal replaces a successful later library with empty rows',async()=>{
+    const pending=[];
+    const x=bootstrap(()=>new Promise(resolve=>pending.push(resolve)));
+    try {
+        x.w.eval(bridge);
+        const old=x.w.fetchMediaItems('playlists');
+        const fresh=x.w.fetchMediaItems('playlists');
+        await yieldTurn();
+        assert.equal(pending.length,2);
+        pending[1](libraryResponse('new'));
+        await fresh;
+        assert.equal(x.w.mediaLib.playlists.length,1);
+        pending[0](refusal(403));
+        await old;
+        assert.equal(x.w.mediaLib.playlists.length,0);
+        assert.ok(x.calls.some(c=>c.event==='media'&&c.id==='playlists'&&c.rows.length===0));
+    } finally{x.close();}
+});
+
+test('full bridge concurrency: one completed overlapping fetch clears busy guard while another remains in flight',async()=>{
+    const pending=[];
+    const x=bootstrap(()=>new Promise(resolve=>pending.push(resolve)));
+    try {
+        x.w.eval(bridge);
+        const first=x.w.checkMediaLib();
+        const second=x.w.checkMediaLib();
+        await yieldTurn();
+        assert.equal(pending.length,2);
+        pending[1](libraryResponse('second'));
+        await second;
+        // The first promise is still unresolved. A third non-forced check starts.
+        const third=x.w.checkMediaLib();
+        await yieldTurn();
+        assert.equal(pending.length,3);
+        pending[2](libraryResponse('third'));
+        await third;
+        pending[0](libraryResponse('first'));
+        await first;
+        assert.equal(x.w.mediaLib.playlists[0].name,'first');
+    } finally{x.close();}
+});
+
+test('full bridge concurrency: request made after fetch starts is queued and delivered by the first response',async()=>{
+    const pending=[];
+    const x=bootstrap(()=>new Promise(resolve=>pending.push(resolve)));
+    try {
+        x.w.eval(bridge);
+        const first=x.w.fetchMediaItems('playlists');
+        await yieldTurn();
+        assert.equal(pending.length,1);
+        await x.w.fetchMediaItems('playlists');
+        assert.equal(pending.length,1);
+        assert.equal(x.w.pendingMediaRequests.has('playlists'),true);
+        pending[0](libraryResponse('first'));
+        await first;
+        assert.equal(x.w.pendingMediaRequests.size,0);
+        assert.ok(x.calls.some(c=>c.event==='media'&&c.rows[0]?.name==='first'));
+    } finally{x.close();}
+});
+
+for (const status of [401,403,429]) {
+    test(`full bridge fixture: HTTP ${status} yields empty library and a subsequent request can succeed`,async()=>{
+        let count=0;
+        const x=bootstrap(()=>++count===1?refusal(status):libraryResponse('retry'));
+        try {
+            x.w.eval(bridge);
+            await x.w.fetchMediaItems('playlists');
+            assert.equal(x.w.mediaLib.playlists.length,0);
+            assert.ok(x.calls.some(c=>c.event==='media'&&c.id==='playlists'&&c.rows.length===0));
+            await x.w.fetchMediaItems('playlists');
+            assert.equal(count,2);
+            assert.equal(x.w.mediaLib.playlists[0].name,'retry');
+        } finally{x.close();}
+    });
+}
 
 test('full bridge play function builds a fictional command without sending it to Spotify',async()=>{
     const x=bootstrap();
