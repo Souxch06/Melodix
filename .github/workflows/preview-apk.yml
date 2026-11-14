@@ -122,18 +122,24 @@ jobs:
           # It cannot be activated by push or by the reusable release workflow.
           diagnostic=false
           liked_songs_fix=false
+          playlist_count_fix=false
           if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
-            if [[ "$tag" == "v1.2.2-test.9000-preview" || "$tag" == "v1.2.2-test.9001-preview" ]]; then
+            if [[ "$tag" == "v1.2.2-test.9000-preview" || "$tag" == "v1.2.2-test.9001-preview" || "$tag" == "v1.2.2-test.9002-preview" ]]; then
               diagnostic=true
               APK_SUFFIX="-playlist-diagnostic"
             fi
-            if [[ "$tag" == "v1.2.2-test.9001-preview" ]]; then
+            if [[ "$tag" == "v1.2.2-test.9001-preview" || "$tag" == "v1.2.2-test.9002-preview" ]]; then
               liked_songs_fix=true
               APK_SUFFIX="-liked-songs-diagnostic"
+            fi
+            if [[ "$tag" == "v1.2.2-test.9002-preview" ]]; then
+              playlist_count_fix=true
+              APK_SUFFIX="-playlist-count-diagnostic"
             fi
           fi
           echo "playlist_diagnostic=$diagnostic" >> "$GITHUB_OUTPUT"
           echo "liked_songs_fix=$liked_songs_fix" >> "$GITHUB_OUTPUT"
+          echo "playlist_count_fix=$playlist_count_fix" >> "$GITHUB_OUTPUT"
           apk_name="Melodix-Preview-v${version}-test${test_number}${APK_SUFFIX}.apk"
           IFS=. read -r major minor patch <<< "$version"
           # Public release builds retain the release counter. A build-only
@@ -189,6 +195,7 @@ jobs:
         shell: bash
         env:
           LIKED_SONGS_FIX: ${{ steps.release.outputs.liked_songs_fix }}
+          PLAYLIST_COUNT_FIX: ${{ steps.release.outputs.playlist_count_fix }}
         run: |
           set -euo pipefail
           project="$GITHUB_WORKSPACE/playlist-diagnostic-base"
@@ -203,6 +210,11 @@ jobs:
             liked="$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-playlists/liked-songs-sur-test9000.patch"
             git apply --check "$liked"
             git apply "$liked"
+          fi
+          if [[ "$PLAYLIST_COUNT_FIX" == "true" ]]; then
+            count="$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-playlists/plus-de-playlists-sur-test9001.patch"
+            git apply --check "$count"
+            git apply "$count"
           fi
           cmp assets/css_hacks.css "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-playlists/css_hacks_sans_section9.css"
           test ! -s assets/adblock_hosts.txt
@@ -269,6 +281,7 @@ jobs:
           TARGET_DEBUGGABLE: ${{ inputs.target_debuggable || false }}
           PLAYLIST_DIAGNOSTIC: ${{ steps.release.outputs.playlist_diagnostic }}
           LIKED_SONGS_FIX: ${{ steps.release.outputs.liked_songs_fix }}
+          PLAYLIST_COUNT_FIX: ${{ steps.release.outputs.playlist_count_fix }}
           DEMO_BUILD: ${{ inputs.demo_build || false }}
           DEMO_GLASS_LAUNCHER: ${{ inputs.demo_glass_launcher || false }}
           MELODIX_PREVIEW_KEYSTORE_B64: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_B64 }}
@@ -596,6 +609,9 @@ jobs:
               echo "- Diagnostic: base 44902d9 plus both audited patches; WebView debugging enabled for Preview only."
               if [[ "$LIKED_SONGS_FIX" == "true" ]]; then
                 echo "- Additional patch: liked-songs-sur-test9000.patch."
+              fi
+              if [[ "$PLAYLIST_COUNT_FIX" == "true" ]]; then
+                echo "- Additional patch: plus-de-playlists-sur-test9001.patch."
               fi
             fi
             echo "- SHA-256: \`$apk_sha256\`"
