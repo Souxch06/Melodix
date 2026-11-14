@@ -1,0 +1,7 @@
+# Mode démo — preview de test seulement
+
+La preview de test ouvre d'abord une page de réglages de test indépendante de Spotify. Un appui long sur **Version de Melodix** ouvre le mode démo ; **Ouvrir Melodix** lance l'application normale, inchangée. Retour depuis l'accueil de démo ferme la démo. L'entrée est ajoutée uniquement lors de la construction `demo_build` en mode `build_only` ; les builds normaux et le workflow release ne la contiennent pas.
+
+Les écrans sont un environnement de démonstration isolé dans le processus `:demo` : textes, pochettes stylisées, playlists et commandes sont fictifs et locaux. La recherche filtre localement ; lecture/pause n'émet aucun son. Le shell, les lecteurs et la navigation emploient les layouts natifs existants. Les lignes de réglages utilisent une copie de la fabrique native, dont les actions réelles sont supprimées : les interrupteurs n'affectent que les valeurs en mémoire de la démo. Aucun objet de preuve, cookie, stockage ou pont de la session réelle n'est lu, modifié ou simulé. La démo ne crée ni WebView ni requête ; l'actualiseur est désactivé uniquement dans son processus.
+
+La démo est une présentation hors ligne, **pas une validation d'accès Spotify ni des parcours et données réels**. Si l'application normale avait déjà été ouverte, son processus séparé peut poursuivre ses propres opérations en arrière-plan ; fermer l'application normale avant la démo pour un test global hors ligne. La CI désactive Wi-Fi et données mobiles avant le lancement et utilise une installation vierge.

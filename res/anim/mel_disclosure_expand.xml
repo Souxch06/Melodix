@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A disclosure that appears instantly reads as a glitch: the eye cannot tell
+     whether the card jumped or the text was always there. 120ms of fade plus a
+     small vertical slide is enough to explain the change and short enough to
+     stay under the project's 100ms-per-frame / no-blocking-animation budget
+     (it animates the panel's own transform and alpha only, never a layout). -->
+<set xmlns:android="http://schemas.android.com/apk/res/android"
+    android:interpolator="@android:interpolator/fast_out_slow_in"
+    android:fillAfter="true">
+    <alpha
+        android:fromAlpha="0.0"
+        android:toAlpha="1.0"
+        android:duration="120" />
+    <translate
+        android:fromYDelta="-2%"
+        android:toYDelta="0%"
+        android:duration="120" />
+</set>

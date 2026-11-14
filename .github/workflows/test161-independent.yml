@@ -1,0 +1,146 @@
+name: Independent no-session and local bridge evidence
+on:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      run_fixture:
+        type: boolean
+        default: true
+      run_autonomous:
+        type: boolean
+        default: true
+      run_ephemeral:
+        type: boolean
+        default: false
+permissions:
+  actions: read
+  contents: read
+jobs:
+  autonomous:
+    if: inputs.run_autonomous != false
+    name: A autonomous demo walk (${{ matrix.profile }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [small, phone, tablet]
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: android-actions/setup-android@v4.0.4
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: Melodix-Preview-v1.2.2-test160.apk
+          run-id: 43168233767
+          github-token: ${{ github.token }}
+          path: target-apk
+      - name: Verify exact test160 bytes
+        run: echo '7d3288bca24b8316aa80316d5f9a606fbd850c4d3c058cc7c7477a26227623aa  target-apk/Melodix-Preview-v1.2.2-test160.apk' | sha256sum -c -
+      - run: sudo chmod 666 /dev/kvm
+      - name: Real autonomous demo navigation, screenshots and crash check
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
+          script: |
+            adb install target-apk/Melodix-Preview-v1.2.2-test160.apk
+            python3 scripts/acceptance_autonomous.py '${{ matrix.profile }}' 'evidence-a/${{ matrix.profile }}'
+      - uses: actions/upload-artifact@v4.6.2
+        if: always()
+        with:
+          name: test161-A-${{ matrix.profile }}
+          path: evidence-a/${{ matrix.profile }}
+          if-no-files-found: warn
+          retention-days: 14
+  fixture:
+    if: inputs.run_fixture != false
+    name: B blocked-network local WebView bridge fixture
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4.0.4
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: Melodix-Preview-v1.2.2-test160.apk
+          run-id: 43168233767
+          github-token: ${{ github.token }}
+          path: target-apk
+      - name: Verify exact test160 bytes
+        run: echo '7d3288bca24b8316aa80316d5f9a606fbd850c4d3c058cc7c7477a26227623aa  target-apk/Melodix-Preview-v1.2.2-test160.apk' | sha256sum -c -
+      - name: Compile and sign test-only instrumentation
+        env:
+          MELODIX_PREVIEW_KEYSTORE_B64: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_B64 }}
+          MELODIX_PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
+          MELODIX_PREVIEW_KEY_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEY_PASSWORD || secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
+        run: |
+          sdkmanager --install 'platforms;android-36' 'build-tools;35.0.0'
+          bash scripts/build_local_bridge_test.sh
+      - run: sudo chmod 666 /dev/kvm
+      - name: Run local-only fixture
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
+          script: bash scripts/run_local_bridge_test.sh
+      - uses: actions/upload-artifact@v4.6.2
+        if: always()
+        with:
+          name: test161-B-local-bridge
+          path: evidence-bridge
+          if-no-files-found: warn
+          retention-days: 14
+  real-session:
+    name: C Spotify real session — PENDING
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Explicit unsatisfied precondition, not a pass
+        run: |
+          mkdir -p evidence-c
+          printf '%s\n' '{"category":"C","status":"PENDING","reason":"No authorized real Spotify session was supplied; authenticated UI, OAuth and playlists are not validated."}' > evidence-c/status.json
+          echo '::notice title=Category C PENDING::No authorized real Spotify session; authenticated UI, OAuth and playlists NOT tested or passed.'
+      - uses: actions/upload-artifact@v4.6.2
+        with:
+          name: test161-C-pending
+          path: evidence-c/status.json
+          retention-days: 14
+
+  ephemeral-signing:
+    if: inputs.run_ephemeral == true
+    name: B disposable signing experiment (not QA release)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4.0.4
+      - run: sdkmanager --install 'platforms;android-36' 'build-tools;35.0.0'
+      - run: sudo chmod 666 /dev/kvm
+      - name: Sign and instrument only the disposable test package
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
+          script: bash scripts/run_ephemeral_signing_fixture.sh

@@ -1,0 +1,84 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const repo = path.resolve(__dirname, '..');
+const main = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/MainActivity.smali'), 'utf8');
+
+const LOGIN_URL = 'https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&allow_signup=1';
+
+function ensureBlock() {
+  const at = main.indexOf('.method public final ensureWebPageLoaded()V');
+  assert.ok(at >= 0, 'ensureWebPageLoaded exists');
+  return main.slice(at, main.indexOf('.end method', at));
+}
+
+// The login-first display contract is replaced by limited Glass, but the
+// official login is still explicit and never treated as library proof.
+test('MEL-BUG-042: an unproven load mounts limited Glass and keeps an explicit official login', () => {
+  const gate = fs.readFileSync(require('node:path').join(__dirname, '..', 'smali/com/melodix/music/NativeSessionGate.smali'), 'utf8');
+  const start=gate.indexOf('.method public static initialUrl('), initial=gate.slice(start,gate.indexOf('.end method',start));
+  assert.match(ensureBlock(), /NativeSessionGate;->initialUrl/);
+  assert.ok(gate.includes(LOGIN_URL), 'official accounts URL unchanged');
+  assert.match(initial, /https:\/\/open\.spotify\.com\//);
+  assert.doesNotMatch(initial,/accounts\.spotify\.com|loginActive:Z/);
+  assert.match(gate,/NativeLimitedGlass;->available[\s\S]*?NativeLimitedGlass;->repaint/);
+  assert.match(main, /showNativeUiFrom\([\s\S]*?NativeSessionGate;->blocked/);
+});
+
+test('MEL-BUG-042: cold start never wipes the persisted session cookies', () => {
+  const a = main.slice(main.indexOf('.method public final A()V'), main.indexOf('.end method', main.indexOf('.method public final A()V')));
+  // the whole cookie/storage wipe stays gated behind l0 (only set by an
+  // explicit user logout action), which is false on a cold start
+  assert.match(a, /sget-boolean v1, Lcom\/melodix\/music\/MainActivity;->l0:Z[\s\S]*?if-eqz v1, :cond_0/,
+    'cookie wipe remains gated behind the logout flag l0');
+  assert.ok(a.indexOf('removeAllCookies') > a.indexOf(':cond_0'),
+    'removeAllCookies stays inside the l0-gated block');
+  const singleton = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/AppSingleton.smali'), 'utf8');
+  assert.match(singleton, /Startup never trusts a persisted login marker/,
+    'startup still starts unconfirmed instead of trusting a stale login flag');
+});
+
+test('MEL-BUG-042: the Se connecter action keeps the official login route', () => {
+  const gate = fs.readFileSync(require('node:path').join(__dirname, '..', 'smali/com/melodix/music/NativeSessionGate.smali'), 'utf8');
+  assert.match(main, /openSpotifyLogin\(\)V[\s\S]*?NativeSessionGate;->navigateLogin/);
+  assert.ok(gate.includes(LOGIN_URL));
+  assert.match(gate, /requestLogin\([\s\S]*?expiredEvidence:Z[\s\S]*?hasCookie\(\)Z[\s\S]*?->verify[\s\S]*?->navigateLogin/);
+  assert.doesNotMatch(gate, /removeAllCookies|deleteAllData/);
+});
+
+// MEL-BUG-043: after MEL-BUG-042 the login screen flashed then the native home
+// came back before the user could sign in: postNativeUiReady/postNativeUiRoute
+// cleared nativeLoginWebRequested on any callback while the WebView had not
+// loaded a real page yet (getUrl() null/about:blank). The flag may now only be
+// cleared once a REAL non-login page is loaded.
+function methodBlock(name) {
+  const at = main.indexOf('.method public final ' + name + '(');
+  assert.ok(at >= 0, name + ' exists');
+  return main.slice(at, main.indexOf('.end method', at));
+}
+
+test('MEL-BUG-043: postNativeUiReady keeps the login surface while no real page is loaded', () => {
+  const m = methodBlock('postNativeUiReady');
+  const gate = m.slice(m.indexOf('nativeLoginWebRequested:Z'));
+  assert.match(gate, /isLoginWebPath\(\)Z[\s\S]*?getUrl\(\)Ljava\/lang\/String;[\s\S]*?"about:blank"[\s\S]*?nativeLoginWebRequested:Z/,
+    'the flag is only cleared after checking the real loaded URL (null/about:blank keep it)');
+  assert.ok(gate.indexOf('"about:blank"') < gate.lastIndexOf('iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeLoginWebRequested:Z'),
+    'clearing happens only on the real-URL branch');
+});
+
+test('MEL-BUG-043: postNativeUiRoute keeps the login surface while no real page is loaded', () => {
+  const m = methodBlock('postNativeUiRoute');
+  const gate = m.slice(m.indexOf('nativeLoginWebRequested:Z'));
+  assert.match(gate, /isLoginWebPath\(\)Z[\s\S]*?getUrl\(\)Ljava\/lang\/String;[\s\S]*?"about:blank"[\s\S]*?nativeLoginWebRequested:Z/,
+    'same guard in the route callback');
+});
+
+test('MEL-BUG-043: leaving login for a real player page still closes the login surface', () => {
+  for (const name of ['postNativeUiReady', 'postNativeUiRoute']) {
+    const m = methodBlock(name);
+    assert.ok(m.includes('isLoginWebPath()Z'), name + ' still consults the login path');
+    assert.match(m, /iput-boolean v0, p0, Lcom\/melodix\/music\/MainActivity;->nativeLoginWebRequested:Z/,
+      name + ' can still clear the flag once a real non-login page loaded');
+  }
+});

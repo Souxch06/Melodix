@@ -1,0 +1,49 @@
+name: Test162 real shell baseline (not demo)
+on:
+  workflow_call:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  production-shell:
+    name: Production shell offline on ${{ matrix.profile }} (expected failure until fixed)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [small, phone, tablet]
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: android-actions/setup-android@v4.0.4
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: Melodix-Preview-v1.2.2-test160.apk
+          run-id: 43168233767
+          github-token: ${{ github.token }}
+          path: target-apk
+      - name: Verify exact prior Preview (no rebuild)
+        run: echo '7d3288bca24b8316aa80316d5f9a606fbd850c4d3c058cc7c7477a26227623aa  target-apk/Melodix-Preview-v1.2.2-test160.apk' | sha256sum -c -
+      - run: sudo chmod 666 /dev/kvm
+      - name: Real launcher and MainActivity only, no injected session or demo
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
+          script: |
+            adb install target-apk/Melodix-Preview-v1.2.2-test160.apk
+            python3 scripts/acceptance_production_shell.py '${{ matrix.profile }}' 'test162-evidence/${{ matrix.profile }}'
+      - uses: actions/upload-artifact@v4.6.2
+        if: always()
+        with:
+          name: test162-baseline-production-${{ matrix.profile }}
+          path: test162-evidence/${{ matrix.profile }}
+          if-no-files-found: warn
+          retention-days: 14

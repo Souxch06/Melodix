@@ -1,0 +1,2 @@
+listeners installed=8
+tile click received

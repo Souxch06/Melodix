@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One foreground carries all three interaction states, because a view has only
+     one. Order matters: unavailable wins over selected, selected over the idle
+     ripple. The tint lives on the background, so states must not repaint it. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_enabled="false">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/mel_tile_unavailable_veil" />
+            <corners android:radius="@dimen/mel_tile_radius" />
+        </shape>
+    </item>
+    <item android:state_selected="true">
+        <shape android:shape="rectangle">
+            <solid android:color="@android:color/transparent" />
+            <corners android:radius="@dimen/mel_tile_radius" />
+            <stroke android:width="2.5dip" android:color="@color/mel_accent" />
+        </shape>
+    </item>
+    <item android:drawable="@drawable/native_genre_ripple" />
+</selector>

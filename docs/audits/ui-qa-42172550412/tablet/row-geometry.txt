@@ -1,0 +1,1 @@
+row-geom tag=mel_settings_row_height token_px=152 min_h=152 measured_h=160 final_h=160 final_w=1472 pad_v=28/28 density_x100=200 lp=LayoutParams-1x-2 margins=64/64 parent=LinearLayout h=2142 pad_lr=0/0 children=3

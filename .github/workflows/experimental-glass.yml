@@ -1,0 +1,95 @@
+name: Validate experimental offline Glass APK
+
+on:
+  workflow_call:
+    inputs:
+      source_ref:
+        description: Exact full source commit SHA
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build:
+    uses: ./.github/workflows/preview-apk.yml
+    with:
+      release_tag: v1.3.2-test.140-preview
+      source_ref: ${{ inputs.source_ref }}
+      build_only: true
+      target_debuggable: false
+      demo_build: true
+      demo_glass_launcher: true
+      apk_suffix: '-experimental-glass'
+      version_code_base: 1022721
+    secrets: inherit
+
+  offline-android:
+    needs: [build]
+    strategy:
+      fail-fast: false
+      matrix:
+        form: [phone, tablet]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.source_ref }}
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4.0.4
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: ${{ needs.build.outputs.apk_name }}
+          path: candidate
+      - name: Verify exact candidate identity and update version
+        env:
+          APK_NAME: ${{ needs.build.outputs.apk_name }}
+          SOURCE_SHA: ${{ inputs.source_ref }}
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$SOURCE_SHA" ]]
+          sdkmanager 'build-tools;35.0.0'
+          tools="$ANDROID_HOME/build-tools/35.0.0"
+          "$tools/apksigner" verify --print-certs "candidate/$APK_NAME" > "$RUNNER_TEMP/cert.txt"
+          "$tools/aapt" dump badging "candidate/$APK_NAME" > "$RUNNER_TEMP/badging.txt"
+          python3 scripts/verify_preview_update.py "$RUNNER_TEMP/cert.txt" "$RUNNER_TEMP/badging.txt"
+          grep -F "launchable-activity: name='com.melodix.music.MainActivity'" "$RUNNER_TEMP/badging.txt"
+          ! grep -q 'application-debuggable' "$RUNNER_TEMP/badging.txt"
+          code=$(sed -n "s/^package:.*versionCode='\([0-9]*\)'.*/\1/p" "$RUNNER_TEMP/badging.txt")
+          (( code > 1022721 ))
+          sha256sum "candidate/$APK_NAME"
+          sudo chmod 666 /dev/kvm
+      - name: Clean install and offline accessibility and navigation on Android 16
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          APK_NAME: ${{ needs.build.outputs.apk_name }}
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
+          script: bash scripts/run_experimental_glass_emulator.sh '${{ matrix.form }}'
+
+  validated-candidate:
+    needs: [build, offline-android]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: ${{ needs.build.outputs.apk_name }}
+          path: candidate
+      - name: Upload exact tested experimental candidate
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: experimental-glass-${{ inputs.source_ref }}
+          path: candidate/
+          retention-days: 14
+          if-no-files-found: error

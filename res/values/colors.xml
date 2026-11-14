@@ -63,8 +63,10 @@
     <color name="mtrl_textinput_disabled_color">#1f000000</color>
     <color name="mtrl_textinput_focused_box_stroke_color">#00000000</color>
     <color name="mtrl_textinput_hovered_box_stroke_color">#de000000</color>
-    <color name="notification_icon_bg_color">#ff9e9e9e</color>
-    <color name="notification_material_background_media_default_color">#ff424242</color>
+    <!-- Media notification chrome: the Melodix accent dot and the player sheet,
+         so the lock screen and the shaded notification read like the app. -->
+    <color name="notification_icon_bg_color">@color/mel_accent</color>
+    <color name="notification_material_background_media_default_color">@color/mel_player_mid</color>
     <color name="primary_dark_material_dark">@android:color/black</color>
     <color name="primary_dark_material_light">#ff757575</color>
     <color name="primary_material_dark">#ff212121</color>
@@ -81,13 +83,115 @@
     <color name="secondary_text_default_material_light">#8a000000</color>
     <color name="secondary_text_disabled_material_dark">#36ffffff</color>
     <color name="secondary_text_disabled_material_light">#24000000</color>
-    <color name="spotify_black">#ff121212</color>
-    <color name="spotify_green">#ff1db954</color>
+    <color name="spotify_black">#ff0a0c10</color>
+    <color name="spotify_green">#ff7c3aed</color>
     <color name="switch_thumb_material_dark">#ffbdbdbd</color>
     <color name="switch_thumb_material_light">#fff1f1f1</color>
-    <color name="teal_200">#ff00c8f0</color>
+    <color name="teal_200">#ffa78bfa</color>
     <color name="teal_700">#ff018786</color>
     <color name="tooltip_background_dark">#e6616161</color>
     <color name="tooltip_background_light">#e6ffffff</color>
     <color name="white">#ffffffff</color>
+
+    <!-- ============================================================
+         Melodix palette (mel_*). SINGLE SOURCE OF TRUTH for theming.
+         The future in-app theme settings reprogram these values (and the
+         runtime mirror MelColors). Never hardcode a color elsewhere.
+         ============================================================ -->
+    <!-- base surfaces -->
+    <color name="mel_background">#0B0B14</color>
+    <color name="mel_surface">#CC141222</color>
+    <color name="mel_surface_high">#E01A222A</color>
+    <color name="mel_surface_btn">#D9232D36</color>
+    <color name="mel_surface_btn_top">#E628323C</color>
+    <color name="mel_surface_alt">#2a2a2a</color>
+    <!-- Liquid glass tokens: alpha is intentional; no view-level blur. -->
+    <color name="mel_glass_surface">#12FFFFFF</color>
+    <color name="mel_glass_edge">#24FFFFFF</color>
+    <color name="mel_glass_reflection">#2EFFFFFF</color>
+    <color name="mel_glass_clear">#00FFFFFF</color>
+    <color name="mel_glow_left">#BB3B1D7A</color>
+    <color name="mel_glow_right">#AA6B1A55</color>
+    <color name="mel_glow_bottom">#AA2A1A6E</color>
+    <color name="mel_switch_off">#38FFFFFF</color>
+    <color name="mel_player_halo_outer">#007C3AED</color>
+    <color name="mel_player_halo_middle">#307C3AED</color>
+    <color name="mel_player_halo_center">#80DB2777</color>
+    <color name="mel_player_halo">#BB7C3AED</color>
+    <color name="mel_player_tint_top">#80342C91</color>
+    <color name="mel_player_tint_bottom">#554C1448</color>
+    <color name="mel_gradient_start">#7C3AED</color>
+    <color name="mel_gradient_end">#DB2777</color>
+    <color name="mel_glass_input">#44110B20</color>
+    <color name="mel_demo_art_blue">#342C91</color>
+    <!-- accents -->
+    <color name="mel_accent">#a78bfa</color>
+    <color name="mel_accent_deep">#7C3AED</color>
+    <color name="mel_accent_glow">#337C3AED</color>
+    <!-- text and icons -->
+    <color name="mel_text_primary">#ffffffff</color>
+    <color name="mel_text_secondary">#bfc0cb</color>
+    <color name="mel_nav_inactive">#E6E6F2</color>
+    <color name="mel_nav_scrim">#660B0B14</color>
+    <color name="mel_text_tertiary">#A1A1B5</color>
+    <color name="mel_text_dim">#aaaaaa</color>
+    <color name="mel_warning">#FF6B6B</color>
+    <color name="mel_icon_muted">#6e7684</color>
+    <!-- strokes and technical masks -->
+    <color name="mel_stroke">#24FFFFFF</color>
+    <color name="mel_stroke_accent">#2ea78bfa</color>
+    <color name="mel_mask">#ffffffff</color>
+    <!-- MEL-BUG-039: glass palette (Apple-like translucent surfaces + hairline strokes) -->
+    <color name="mel_glass_fill">#12FFFFFF</color>
+    <color name="mel_glass_stroke">#24FFFFFF</color>
+    <color name="mel_glass_tabbar">#12FFFFFF</color>
+    <color name="mel_glass_card">#12FFFFFF</color>
+    <!-- gradient roles -->
+    <color name="mel_shell_top">#150c2b</color>
+    <color name="mel_shell_mid">#0B0B14</color>
+    <!-- Floor of the shell gradient: the background minus a touch of light, so
+         the launcher icon and the top glow fade into the same night. -->
+    <color name="mel_shell_floor">#07060F</color>
+    <color name="mel_player_top">#2a1650</color>
+    <color name="mel_player_mid">#120f22</color>
+    <color name="mel_mini_top">#241a3a</color>
+    <color name="mel_mini_bottom">#1a1428</color>
+    <color name="mel_btn_light_top">#ffffffff</color>
+    <color name="mel_btn_light_bottom">#e8e8ee</color>
+    <!-- light fields -->
+    <color name="mel_search_bg">#44110B20</color>
+    <!-- splash and artwork placeholders -->
+    <color name="mel_splash_card">#120f22</color>
+    <color name="mel_art_bg">#282828</color>
+    <color name="mel_art_bg_dark">#121212</color>
+    <color name="mel_text_dark">#000000</color>
+    <color name="mel_surface_card">#1a1526</color>
+    <color name="mel_scrim">#1fffffff</color>
+    <!-- genre tile tints -->
+    <color name="mel_tile_forest">#268356</color>
+    <color name="mel_tile_sea">#1e7f63</color>
+    <color name="mel_tile_purple">#7756ff</color>
+    <color name="mel_tile_amber">#aa640b</color>
+    <color name="mel_tile_pink">#e11c5e</color>
+    <color name="mel_tile_orange">#e12900</color>
+    <color name="mel_tile_teal">#217f8d</color>
+    <color name="mel_tile_blue">#3d63d5</color>
+    <!-- Decorative glyph on a browse tile: dark, never a label. -->
+    <color name="mel_genre_glyph">#33000000</color>
+    <!-- Veil over an unavailable tile; keeps the hue readable but clearly inert. -->
+    <color name="mel_tile_unavailable_veil">#bf10161a</color>
+    <!-- Browse tile depth. Kept in the palette so drawables carry no hex. -->
+    <color name="mel_tile_shade_bottom">#ffb0b0b0</color>
+    <color name="mel_tile_edge">#1f000000</color>
+    <color name="mel_tile_press">#4dffffff</color>
+    <color name="mel_tile_label_shadow">#59000000</color>
+    <!-- Inert transport control. Nothing drives this yet: no code calls
+         setEnabled on the player buttons, so the default stays enabled and real
+         playback is untouched. The state exists so a future disabled control
+         looks inert instead of merely unresponsive. -->
+    <color name="mel_btn_disabled">#2a343d</color>
+    <color name="mel_artwork_start">#25143D</color>
+    <color name="mel_artwork_center">#351B4E</color>
+    <color name="mel_artwork_end">#45172F</color>
+    <color name="mel_artwork_stroke">#58405F</color>
 </resources>

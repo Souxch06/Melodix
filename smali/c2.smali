@@ -94,6 +94,7 @@
 
     .line 15
     .line 16
+    invoke-static {p0, p1}, Lcom/melodix/music/NativeBridgeNavigation;->prepare(Landroid/webkit/WebView;Ljava/lang/String;)V
     invoke-virtual {p0, p1}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
 
     .line 17
@@ -120,10 +121,11 @@
 
     .line 28
     .line 29
-    const-string p1, "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&method=password&allow_password=1&allow_signup=1"
+    const-string p1, "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&allow_signup=1"
 
     .line 30
     .line 31
+    invoke-static {p0, p1}, Lcom/melodix/music/NativeBridgeNavigation;->prepare(Landroid/webkit/WebView;Ljava/lang/String;)V
     invoke-virtual {p0, p1}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
 
     .line 32
