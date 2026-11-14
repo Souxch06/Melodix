@@ -121,11 +121,19 @@ jobs:
           # This reserved dispatch tag selects the isolated playlist experiment.
           # It cannot be activated by push or by the reusable release workflow.
           diagnostic=false
-          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && "$tag" == "v1.2.2-test.9000-preview" ]]; then
-            diagnostic=true
-            APK_SUFFIX="-playlist-diagnostic"
+          liked_songs_fix=false
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            if [[ "$tag" == "v1.2.2-test.9000-preview" || "$tag" == "v1.2.2-test.9001-preview" ]]; then
+              diagnostic=true
+              APK_SUFFIX="-playlist-diagnostic"
+            fi
+            if [[ "$tag" == "v1.2.2-test.9001-preview" ]]; then
+              liked_songs_fix=true
+              APK_SUFFIX="-liked-songs-diagnostic"
+            fi
           fi
           echo "playlist_diagnostic=$diagnostic" >> "$GITHUB_OUTPUT"
+          echo "liked_songs_fix=$liked_songs_fix" >> "$GITHUB_OUTPUT"
           apk_name="Melodix-Preview-v${version}-test${test_number}${APK_SUFFIX}.apk"
           IFS=. read -r major minor patch <<< "$version"
           # Public release builds retain the release counter. A build-only
@@ -179,6 +187,8 @@ jobs:
       - name: Apply isolated playlist diagnostic patches
         if: ${{ steps.release.outputs.playlist_diagnostic == 'true' }}
         shell: bash
+        env:
+          LIKED_SONGS_FIX: ${{ steps.release.outputs.liked_songs_fix }}
         run: |
           set -euo pipefail
           project="$GITHUB_WORKSPACE/playlist-diagnostic-base"
@@ -189,6 +199,11 @@ jobs:
           git apply "$full"
           git apply --check "$delta"
           git apply "$delta"
+          if [[ "$LIKED_SONGS_FIX" == "true" ]]; then
+            liked="$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-playlists/liked-songs-sur-test9000.patch"
+            git apply --check "$liked"
+            git apply "$liked"
+          fi
           cmp assets/css_hacks.css "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-playlists/css_hacks_sans_section9.css"
           test ! -s assets/adblock_hosts.txt
           git diff --check
@@ -217,6 +232,8 @@ jobs:
       - name: Test playlist diagnostic before packaging
         if: ${{ steps.release.outputs.playlist_diagnostic == 'true' }}
         shell: bash
+        env:
+          LIKED_SONGS_FIX: ${{ steps.release.outputs.liked_songs_fix }}
         run: |
           set -euo pipefail
           cd "$GITHUB_WORKSPACE/playlist-diagnostic-base"
@@ -225,6 +242,9 @@ jobs:
           node --test \
             "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-playlists/preview-check.test.cjs" \
             "$GITHUB_WORKSPACE/docs/audits/2026-11-04-profil-navigateur/profile.test.cjs"
+          if [[ "$LIKED_SONGS_FIX" == "true" ]]; then
+            node --test tests/live_library_dom.test.js tests/live_library_integration.test.js tests/native_ui.test.js
+          fi
 
       - name: Set up Java
         uses: actions/setup-java@v6.1.0
@@ -248,6 +268,7 @@ jobs:
           BUILD_ONLY: ${{ inputs.build_only || github.event_name == 'workflow_dispatch' }}
           TARGET_DEBUGGABLE: ${{ inputs.target_debuggable || false }}
           PLAYLIST_DIAGNOSTIC: ${{ steps.release.outputs.playlist_diagnostic }}
+          LIKED_SONGS_FIX: ${{ steps.release.outputs.liked_songs_fix }}
           DEMO_BUILD: ${{ inputs.demo_build || false }}
           DEMO_GLASS_LAUNCHER: ${{ inputs.demo_glass_launcher || false }}
           MELODIX_PREVIEW_KEYSTORE_B64: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_B64 }}
@@ -573,6 +594,9 @@ jobs:
             echo "- Source commit: \`$SOURCE_REF\` (also embedded as \`preview_source_commit\`)"
             if [[ "$PLAYLIST_DIAGNOSTIC" == "true" ]]; then
               echo "- Diagnostic: base 44902d9 plus both audited patches; WebView debugging enabled for Preview only."
+              if [[ "$LIKED_SONGS_FIX" == "true" ]]; then
+                echo "- Additional patch: liked-songs-sur-test9000.patch."
+              fi
             fi
             echo "- SHA-256: \`$apk_sha256\`"
           } >> "$GITHUB_STEP_SUMMARY"
