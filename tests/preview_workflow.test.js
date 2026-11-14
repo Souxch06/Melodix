@@ -1126,7 +1126,13 @@ test("historical Glass preview is explicitly dispatched and cannot run alongside
   assert.match(workflow, /historical-glass-preview:\n    if: \$\{\{ github\.event_name == 'workflow_dispatch' && inputs\.release_tag == 'v1\.2\.2-test\.9003-preview' \}\}/);
   assert.match(workflow, /test "\$INPUT_SOURCE_REF" = "\$DELIVERY_SHA"/);
   assert.match(workflow, /ref: d0f206b08b3db7c2d41a1e844f6dd4abf196a5f6/);
-  assert.match(workflow, /E3CEB66F4F67CCBD53D92272F5C6422C3B10664AA57A28512BBFADB89657802F/);
+  // Check the historical job against the same already-established public pin
+  // used to validate normal Preview updates; never test against a second typo.
+  const verifier = fs.readFileSync(path.resolve(__dirname, "..", "scripts/verify_preview_update.py"), "utf8");
+  const canonical = verifier.match(/PUBLIC_CERT_SHA256 = '([0-9a-f]{64})'/);
+  const historical = workflow.match(/test "\$cert" = ([0-9A-F]{64})/);
+  assert.ok(canonical && historical, "both public certificate pins should be present");
+  assert.equal(historical[1].toLowerCase(), canonical[1]);
   assert.match(workflow, /com\.melodix\.music\.preview/);
   assert.match(workflow, /Upload Preview artifact only \(no release\)/);
 });

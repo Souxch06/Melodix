@@ -737,7 +737,7 @@ jobs:
             -storepass:env MELODIX_PREVIEW_KEYSTORE_PASSWORD -file "$RUNNER_TEMP/preview-cert.der"
           phase="verify certificate pin"
           cert="$(sha256sum "$RUNNER_TEMP/preview-cert.der" | cut -d' ' -f1 | tr '[:lower:]' '[:upper:]')"
-          test "$cert" = E3CEB66F4F67CCBD53D92272F5C6422C3B10664AA57A28512BBFADB89657802F
+          test "$cert" = E3CEB66F4F67CCBD53D92272F5C6422C3B10664AA57A28512BBAFDB89657802F
           version_code=$((1021487 + GITHUB_RUN_NUMBER))
           phase="prepare disposable historical project"
           python3 "$audit/prepare_preview.py" "$work" "$audit/css_hacks_glass_complet.css" "$cert" "$version_code" "$DELIVERY_SHA"
