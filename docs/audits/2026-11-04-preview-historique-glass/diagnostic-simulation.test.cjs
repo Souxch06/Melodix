@@ -96,17 +96,17 @@ test('synthetic bridge: missing token leaves request pending with no native call
 function bootShell(route, html, options = {}) {
     const dom = new JSDOM(`<!doctype html><body>${html}</body>`, {url:`https://open.spotify.com${route}`});
     const document = dom.window.document;
-    const calls = [], navigations = [], timers = [], ready = [];
+    const calls = [], navigations = [], timers = [], ready = [], listeners = {};
     const location = {hostname:'open.spotify.com', pathname:route, href:`https://open.spotify.com${route}`, assign: url => navigations.push(url)};
     const w = {
         location,
         AndBridge: {onNativeUiData: (screen, data) => calls.push({screen, data}), onNativeUiReady() {ready.push(true);}, onNativeUiRoute() {}},
-        addEventListener() {}, setTimeout(fn, delay) {timers.push({fn,delay}); return timers.length;}, clearTimeout() {},
+        addEventListener(name, fn) {listeners[name] = fn;}, setTimeout(fn, delay) {timers.push({fn,delay}); return timers.length;}, clearTimeout() {},
         MutationObserver: class {observe() {}}, ...options,
     };
     vm.runInNewContext(shellText, {window:w, document, URL, console});
     assert.equal(w.__sfNativeUiShellCompleted, true);
-    return {w, calls, navigations, timers, ready, document, close: () => dom.window.close()};
+    return {w, calls, navigations, timers, ready, document, listeners, close: () => dom.window.close()};
 }
 const latest = (calls, screen) => {
     const call = calls.filter(c => c.screen === screen).at(-1);
@@ -240,4 +240,38 @@ test('synthetic Home re-scrapes a playlist mounted after the initial empty page'
         assert.equal(b.w.__sfNativeRequestHome(), true);
         assert.equal(latest(b.calls,'home')[0].title, 'Fictive tardive');
     } finally {b.close();}
+});
+
+
+test('synthetic detail DOM fallback sends at most 32 of 40 track links', () => {
+    const links=Array.from({length:40},(_,i)=>`<a href="/track/fake${i}">Piste fictive ${i}</a>`).join('');
+    const b=bootShell('/playlist/fake1', `<main id="main-view"><h1>Playlist fictive</h1>${links}</main>`);
+    try {
+        const rows=latest(b.calls,'detail');
+        assert.equal(rows.length,32);
+        assert.equal(rows[31].title,'Piste fictive 31');
+    } finally {b.close();}
+});
+
+test('synthetic detail DOM: removing the last track does not send an empty update', () => {
+    const b=bootShell('/playlist/fake1', '<main id="main-view"><a href="/track/fake1">Piste fictive</a></main>');
+    try {
+        assert.equal(latest(b.calls,'detail').length,1);
+        const count=b.calls.filter(c=>c.screen==='detail').length;
+        b.document.querySelector('#main-view').innerHTML='';
+        b.listeners.popstate();
+        const scheduled=b.timers.find(t=>t.delay===120);
+        assert.ok(scheduled);
+        scheduled.fn();
+        assert.equal(b.calls.filter(c=>c.screen==='detail').length,count);
+    } finally {b.close();}
+});
+
+test('synthetic stored library is served even when the current token is absent',async()=>{
+    const b=libraryBridge([],false);
+    b.w.mediaLib={playlists:[{id:'spotify:playlist:fake1',name:'Fictive mémoire'}]};
+    await b.w.fetchMediaItems('playlists');
+    assert.equal(b.offsets.length,0);
+    assert.equal(b.calls.length,1);
+    assert.equal(b.calls[0].rows[0].name,'Fictive mémoire');
 });

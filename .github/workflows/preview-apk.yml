@@ -690,8 +690,10 @@ jobs:
           # Test the historical code against the exact Glass CSS that will be packaged.
           cp "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/css_hacks_glass_complet.css" assets/css_hacks.css
           export NODE_PATH="$RUNNER_TEMP/test-deps/node_modules"
-          node --test tests/native_home_feed.test.js tests/native_ui.test.js
-          MELODIX_HISTORICAL_ROOT="$PWD" node --test "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/diagnostic-simulation.test.cjs"
+          node --test tests/native_home_feed.test.js tests/native_ui.test.js tests/playback_pause.test.js
+          MELODIX_HISTORICAL_ROOT="$PWD" node --test \
+            "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/diagnostic-simulation.test.cjs" \
+            "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/playlist-playback.test.cjs"
           set +e
           node --test tests/*.test.js > "$GITHUB_WORKSPACE/preview-output/historical-tests.log" 2>&1
           result=$?
