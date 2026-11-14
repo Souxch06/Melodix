@@ -1,0 +1,21 @@
+# Playlists de l’accueil : projection et diagnostic
+
+## Constat et correction limitée
+
+Le retour de la page Spotify `/collection/playlists` vers l’onglet Accueil provoquait une navigation vers `/`, même si les véritables playlists étaient déjà présentes dans le DOM de la collection. Un test jsdom reproduit le comportement et vérifie la correction : si la page courante est exactement cette collection, sur Spotify HTTPS et avec une interface signalée connectée, les liens de playlists actuellement présents sont projetés vers l’accueil natif sans rechargement. Le filtre n’accepte que les URI Spotify de playlists ; il ne reprend pas les données `mediaLib` périmées, et ne transforme pas le signal UI en preuve API. Les changements de DOM et la perte de confirmation sont reflétés, et les actions explicites de navigation arrêtent la projection. L’accueil ne projette au plus que les 32 premières lignes collectées et Spotify peut virtualiser le DOM : ni liste complète ni disponibilité garantie.
+
+C’est une correction d’un chemin démontré, pas la preuve que c’est la cause de l’accueil vide sur cet appareil. Si la collection n’a pas été chargée, ou si elle ne contient pas de liens lisibles, le correctif n’invente rien. Une preuve API et le contenu réel du compte restent inconnus. Le comportement précédent sur les limitations 429 n’est pas modifié ; aucune nouvelle tentative sur le lecteur Web n’est ajoutée.
+
+## Diagnostic natif
+
+Le bouton « Diagnostic » dans l’en-tête de l’interface native ouvre un état défilant sans titres, identifiants, URL, comptes ou jetons. Il montre si Android a reçu le dernier payload Accueil, le nombre de lignes (ou JSON invalide), son âge, si la route Accueil l’a accepté, si une carte a été attachée et si la première carte intersecte la fenêtre. L’état de carte est un booléen, non un nombre de playlists, et la première carte peut être hors de l’écran après défilement. Le nombre de lignes reçues inclut aussi les éventuels états informatifs.
+
+Le code Spotify est un instantané numérique dont l’ordre et les valeurs sont indiqués dans le dialogue : origine, catégorie de page, signal de connexion UI, état API, dernier HTTP API observé, nombre d’éléments API et de playlists transformées si l’API est prête, liens playlist sur la page et dans le tiroir du document principal, lignes DOM et finales de l’accueil, indicateur d’envoi et âge du dernier résultat API. `1000` signifie inconnu, `999` signifie 999 ou plus ; HTTP `0` signifie inconnu. Une absence de liens n’établit pas l’absence de playlists : le tiroir peut être fermé, virtualisé ou contenu dans un autre document. L’API peut être indisponible et aucun succès n’est inventé. Les mesures Android et Web sont des instantanés distincts, pas une preuve qu’elles décrivent le même payload ; l’âge Android aide à repérer une information ancienne.
+
+## Vérifications et limites
+
+Tests exécutant le shell réel et les assets en DOM simulé : 628/628 Node ; vérification de signature 4/4 Python. Le nouveau diagnostic est exécuté en jsdom sur origine autorisée et non autorisée, avec API prête ou inconnue, et vérifié comme code numérique borné. Tests ciblés : collection actuelle, suppression d’une playlist, données périmées exclues, perte/rétablissement du signal de connexion, sortie de projection. APK apktool assemblé ; ZIP et assets vérifiés ; signatures v2/v3 API 24–36 et garde de certificat concordantes. Shell généré : 108863 octets, inférieur à la limite historique de 108867 octets. APK SHA-256 `afa15083fa83af8e881d0a53a14a1734792db79311eb2c7c7d0687964827b4e5` ; certificat inchangé `725327d287615b9c22ab8f050b7d586e8b50c34e277081ac0cbba62994eb8eed`.
+
+Pas de téléphone, d’émulateur Android ni de réponse Spotify réelle disponibles ; compilation, validation de signature et tests simulés ne prouvent pas le fonctionnement ART, la visibilité du bouton ou l’affichage des playlists sur téléphone. Ce diagnostic est volontairement informatif, pas une promesse de solution universelle.
+
+Le patch complet `correctif-complet-sur-base-44902.patch`, SHA-256 `b33a2272c35dba87f2261f36d639b749675ab73f3459202dafe3d9a34c72bdcb`, a été vérifié et appliqué sur la base propre `44902d9b8d1d1d70bc72acbd66f7c0c2d4b41e0d` ; les 63 fichiers résultants correspondent au candidat construit. Aucune clé n’est incluse.
