@@ -699,7 +699,8 @@ jobs:
             "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/native-routing-characterization.test.cjs" \
             "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/native-dispatch-characterization.test.cjs" \
             "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/css-callback-characterization.test.cjs" \
-            "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/session-simulation.test.cjs"
+            "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/session-simulation.test.cjs" \
+            "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/full-bootstrap.test.cjs"
           # This is a characterization of known defects, NOT an acceptance test.
           echo "::warning::Historical native row URI guards reject non-empty URIs and generic bridge dispatch can discard data; see audit before installing."
           set +e
