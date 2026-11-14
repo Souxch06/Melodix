@@ -718,28 +718,40 @@ jobs:
           DELIVERY_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
+          phase="initialisation"
+          trap 'echo "::error::Historical Preview failed at phase: $phase"' ERR
           base=d0f206b08b3db7c2d41a1e844f6dd4abf196a5f6
           audit="$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass"
           work="$RUNNER_TEMP/historical-preview"
           mkdir -p "$work" "$RUNNER_TEMP/framework" preview-output
           for item in AndroidManifest.xml META-INF apktool.yml assets kotlin lib original res smali unknown; do
+            phase="copy historical $item"
             test -e "historical/$item"
             cp -a "historical/$item" "$work/"
           done
+          phase="decode preview keystore"
           keystore="$RUNNER_TEMP/preview-signing.jks"
           printf '%s' "$MELODIX_PREVIEW_KEYSTORE_B64" | base64 --decode > "$keystore"
+          phase="export public certificate"
           keytool -exportcert -alias MELODIX_PREVIEW -keystore "$keystore" \
             -storepass:env MELODIX_PREVIEW_KEYSTORE_PASSWORD -file "$RUNNER_TEMP/preview-cert.der"
+          phase="verify certificate pin"
           cert="$(sha256sum "$RUNNER_TEMP/preview-cert.der" | cut -d' ' -f1 | tr '[:lower:]' '[:upper:]')"
           test "$cert" = E3CEB66F4F67CCBD53D92272F5C6422C3B10664AA57A28512BBFADB89657802F
           version_code=$((1021487 + GITHUB_RUN_NUMBER))
+          phase="prepare disposable historical project"
           python3 "$audit/prepare_preview.py" "$work" "$audit/css_hacks_glass_complet.css" "$cert" "$version_code" "$DELIVERY_SHA"
+          phase="download apktool"
           curl --fail --silent --show-error --location \
             https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar --output "$RUNNER_TEMP/apktool.jar"
+          phase="install apktool framework"
           java -jar "$RUNNER_TEMP/apktool.jar" if historical/android/apktool-framework/1.apk -p "$RUNNER_TEMP/framework"
+          phase="build unsigned APK"
           java -jar "$RUNNER_TEMP/apktool.jar" b "$work" -p "$RUNNER_TEMP/framework" -o "$RUNNER_TEMP/unsigned.apk" --force-all
           # Check the actual compiled dex (decoded back to Smali), not just source.
+          phase="decode unsigned APK"
           java -jar "$RUNNER_TEMP/apktool.jar" d "$RUNNER_TEMP/unsigned.apk" -f -p "$RUNNER_TEMP/framework" -o "$RUNNER_TEMP/historical-decoded"
+          phase="test decoded APK"
           MELODIX_HISTORICAL_ROOT="$GITHUB_WORKSPACE/historical" MELODIX_SMALI_ROOT="$RUNNER_TEMP/historical-decoded" \
             NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" node --test "$audit/native-smali-characterization.test.cjs" "$audit/native-routing-characterization.test.cjs" "$audit/native-dispatch-characterization.test.cjs" "$audit/css-callback-characterization.test.cjs" "$audit/session-simulation.test.cjs"
           MELODIX_HISTORICAL_ROOT="$GITHUB_WORKSPACE/historical" MELODIX_SMALI_ROOT="$RUNNER_TEMP/historical-decoded" NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" \
@@ -750,12 +762,15 @@ jobs:
             node --test --test-name-pattern="playlist response race fixture: native ID guard" "$audit/full-bootstrap.test.cjs"
           MELODIX_HISTORICAL_ROOT="$GITHUB_WORKSPACE/historical" MELODIX_SMALI_ROOT="$RUNNER_TEMP/historical-decoded" NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" \
             node --test --test-name-pattern="search fixture: native expected-query guard|search fixture: actual JS callback" "$audit/full-bootstrap.test.cjs"
+          phase="align APK"
           tools="$ANDROID_HOME/build-tools/35.0.0"
           "$tools/zipalign" -f 4 "$RUNNER_TEMP/unsigned.apk" "$RUNNER_TEMP/aligned.apk"
           out=preview-output/Melodix-Preview-historique-glass.apk
+          phase="sign Preview APK"
           "$tools/apksigner" sign --ks "$keystore" --ks-key-alias MELODIX_PREVIEW \
             --ks-pass env:MELODIX_PREVIEW_KEYSTORE_PASSWORD --key-pass env:MELODIX_PREVIEW_KEY_PASSWORD \
             --out "$out" "$RUNNER_TEMP/aligned.apk"
+          phase="verify signed APK"
           "$tools/apksigner" verify --verbose --min-sdk-version 24 "$out"
           "$tools/apksigner" verify --print-certs "$out" > "$RUNNER_TEMP/cert.txt"
           "$tools/aapt" dump badging "$out" > "$RUNNER_TEMP/badging.txt"
@@ -767,6 +782,7 @@ jobs:
           grep -F "$DELIVERY_SHA" "$RUNNER_TEMP/resources.txt"
           fingerprint="$(echo "$cert" | fold -w 2 | paste -sd ':' -)"
           grep -F "$fingerprint" "$RUNNER_TEMP/resources.txt"
+          phase="verify packaged assets"
           python3 - "$out" "$work" "$DELIVERY_SHA" <<'PY'
           import hashlib, json, pathlib, sys, zipfile
           apk, work, delivery = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2]), sys.argv[3]
