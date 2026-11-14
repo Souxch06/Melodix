@@ -1,0 +1,15 @@
+# Candidat natif Glass — travail partiel, non distribué
+
+La capture de la Preview montre le shell Android natif, pas la WebView sur laquelle agit le CSS Glass. Ce dossier contient une **expérience séparée**, à appliquer uniquement sur une copie jetable de la base historique `d0f206b08b3db7c2d41a1e844f6dd4abf196a5f6`. Elle est intégrée au workflow exclusivement pour la variante manuelle `v1.2.2-test.9004-preview` et ne modifie ni l'application normale ni l'APK déjà distribuée.
+
+Le script conserve la hiérarchie, les identifiants et les gestionnaires du layout historique. Il remplace le fond, les surfaces du mini-lecteur et de la navigation, certains boutons et le fond des lignes par une palette violet/rose translucide. Il corrige aussi deux conditions inversées qui empêchaient les URL de pochettes non vides d'atteindre Picasso. La restriction historique `https://` demeure. Les assets de connexion, bridge, collecte et données ne sont pas modifiés. Les empreintes des dix fichiers historiques sont vérifiées avant toute écriture ; l'outil refuse notamment une deuxième application. Des erreurs d'écriture après validation peuvent néanmoins laisser une copie partiellement modifiée : ne jamais exécuter sur un projet de travail important.
+
+**Ce n'est pas encore l'interface complète demandée.** L'accueil reste une liste, pas les étagères ou cartes de la référence ; les autres écrans et l'adaptation paysage/tablette restent à traiter. Les défauts historiques de clics et de routage ne sont pas corrigés. Le changement des deux conditions ne démontre pas le chargement réel des pochettes : URL, réseau, Picasso et rendu Android restent à vérifier. Aucun test ne prouve que les playlists restent visibles ou s'ouvrent sur l'appareil avec ce candidat.
+
+## Vérifications locales
+
+- `MELODIX_HISTORICAL_ROOT=/chemin/copie-historique python3 test_native_candidate.py` : 5 tests de fixtures réussis. Ils vérifient notamment la conservation statique des IDs, de l'arbre et des méthodes `onClick`, le refus d'une base différente et les deux modifications de branche Smali.
+- Une copie historique locale avec cette expérience a été compilée avec Apktool 2.9.3, puis redécompilée ; archive ZIP valide, deux branches Smali et trois drawables vérifiés après redécodage. Ce test **ne vérifie ni l'exécution ART ni les pixels**, ni la signature Preview.
+- L'APK compilée localement est non signée, n'a pas été préparée avec l'identité Preview et ne doit pas être installée ou distribuée. La compilation locale ne constitue pas un build signé ; seul un run GitHub Actions réussi peut produire la Preview signée.
+
+Avant une livraison : terminer l'interface native sans remplacer la récupération historique, tester séparément accueil, bibliothèque, détails, recherche, lecteur et navigation, ajuster explicitement les tests qui caractérisent les anciens défauts, préparer le package Preview et vérifier sur Android en portrait et paysage. Ne pas effacer les données de l'application existante et ne jamais demander de jetons ou cookies.

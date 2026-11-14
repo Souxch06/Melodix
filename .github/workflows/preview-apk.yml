@@ -63,7 +63,7 @@ permissions:
 
 jobs:
   build-and-release-preview:
-    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && !(github.event_name == 'workflow_dispatch' && inputs.release_tag == 'v1.2.2-test.9003-preview') }}
+    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && !(github.event_name == 'workflow_dispatch' && (inputs.release_tag == 'v1.2.2-test.9003-preview' || inputs.release_tag == 'v1.2.2-test.9004-preview')) }}
     name: Build separate Preview APK artifact
     runs-on: ubuntu-latest
     outputs:
@@ -647,7 +647,7 @@ jobs:
           if-no-files-found: error
 
   historical-glass-preview:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag == 'v1.2.2-test.9003-preview' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.release_tag == 'v1.2.2-test.9003-preview' || inputs.release_tag == 'v1.2.2-test.9004-preview') }}
     name: Preview séparée d0f206b0 + Glass
     runs-on: ubuntu-latest
     steps:
@@ -691,6 +691,7 @@ jobs:
           cp "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/css_hacks_glass_complet.css" assets/css_hacks.css
           export NODE_PATH="$RUNNER_TEMP/test-deps/node_modules"
           MELODIX_HISTORICAL_ROOT="$PWD" python3 "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/prepare-preview-test.py"
+          MELODIX_HISTORICAL_ROOT="$PWD" python3 "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/native-candidat/test_native_candidate.py"
           node --test tests/native_home_feed.test.js tests/native_ui.test.js tests/playback_pause.test.js
           MELODIX_HISTORICAL_ROOT="$PWD" node --test \
             "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/diagnostic-simulation.test.cjs" \
@@ -716,6 +717,7 @@ jobs:
           MELODIX_PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
           MELODIX_PREVIEW_KEY_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEY_PASSWORD || secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
           DELIVERY_SHA: ${{ github.sha }}
+          NATIVE_CANDIDATE: ${{ inputs.release_tag == 'v1.2.2-test.9004-preview' }}
         run: |
           set -euo pipefail
           phase="initialisation"
@@ -741,6 +743,10 @@ jobs:
           version_code=$((1021487 + GITHUB_RUN_NUMBER))
           phase="prepare disposable historical project"
           python3 "$audit/prepare_preview.py" "$work" "$audit/css_hacks_glass_complet.css" "$cert" "$version_code" "$DELIVERY_SHA"
+          if [[ "$NATIVE_CANDIDATE" == "true" ]]; then
+            phase="apply native Glass candidate"
+            python3 "$audit/native-candidat/apply_native_candidate.py" "$work"
+          fi
           phase="download apktool"
           curl --fail --silent --show-error --location \
             https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar --output "$RUNNER_TEMP/apktool.jar"
@@ -752,12 +758,21 @@ jobs:
           phase="decode unsigned APK"
           java -jar "$RUNNER_TEMP/apktool.jar" d "$RUNNER_TEMP/unsigned.apk" -f -p "$RUNNER_TEMP/framework" -o "$RUNNER_TEMP/historical-decoded"
           phase="test decoded APK"
+          smali_test="$audit/native-smali-characterization.test.cjs"
+          if [[ "$NATIVE_CANDIDATE" == "true" ]]; then
+            python3 "$audit/native-candidat/test_decoded_candidate.py" "$RUNNER_TEMP/historical-decoded"
+            smali_test="$audit/native-candidat/native-smali-candidate.test.cjs"
+          fi
           MELODIX_HISTORICAL_ROOT="$GITHUB_WORKSPACE/historical" MELODIX_SMALI_ROOT="$RUNNER_TEMP/historical-decoded" \
-            NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" node --test "$audit/native-smali-characterization.test.cjs" "$audit/native-routing-characterization.test.cjs" "$audit/native-dispatch-characterization.test.cjs" "$audit/css-callback-characterization.test.cjs" "$audit/session-simulation.test.cjs"
+            NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" node --test "$smali_test" "$audit/native-routing-characterization.test.cjs" "$audit/native-dispatch-characterization.test.cjs" "$audit/css-callback-characterization.test.cjs" "$audit/session-simulation.test.cjs"
           MELODIX_HISTORICAL_ROOT="$GITHUB_WORKSPACE/historical" MELODIX_SMALI_ROOT="$RUNNER_TEMP/historical-decoded" NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" \
             node --test --test-name-pattern="synthetic JS-to-native library|synthetic Home chain" "$audit/diagnostic-simulation.test.cjs"
+          playlist_test="$audit/playlist-playback.test.cjs"
+          if [[ "$NATIVE_CANDIDATE" == "true" ]]; then
+            playlist_test="$audit/native-candidat/playlist-playback-candidate.test.cjs"
+          fi
           MELODIX_HISTORICAL_ROOT="$GITHUB_WORKSPACE/historical" MELODIX_SMALI_ROOT="$RUNNER_TEMP/historical-decoded" \
-            node --test --test-name-pattern="synthetic playlist track payload" "$audit/playlist-playback.test.cjs"
+            node --test --test-name-pattern="synthetic playlist track payload" "$playlist_test"
           MELODIX_HISTORICAL_ROOT="$GITHUB_WORKSPACE/historical" MELODIX_SMALI_ROOT="$RUNNER_TEMP/historical-decoded" NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" \
             node --test --test-name-pattern="playlist response race fixture: native ID guard" "$audit/full-bootstrap.test.cjs"
           MELODIX_HISTORICAL_ROOT="$GITHUB_WORKSPACE/historical" MELODIX_SMALI_ROOT="$RUNNER_TEMP/historical-decoded" NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" \
@@ -799,6 +814,7 @@ jobs:
           (cd preview-output && sha256sum Melodix-Preview-historique-glass.apk > Melodix-Preview-historique-glass.apk.sha256)
           {
             echo '### Preview historique Glass — non validée sur téléphone'
+            echo "- Candidat natif partiel: $NATIVE_CANDIDATE ; clics, navigation et chargement de pochettes non validés sur Android."
             echo "- Base: $base ; livraison: $DELIVERY_SHA ; versionCode: $version_code"
             echo '- Package séparé, clé Preview vérifiée. Ancienne connexion et protections historiques : consulter audit avant installation.'
             cat preview-output/Melodix-Preview-historique-glass.apk.sha256
@@ -806,7 +822,7 @@ jobs:
       - name: Upload Preview artifact only (no release)
         uses: actions/upload-artifact@v4
         with:
-          name: Melodix-Preview-historique-glass
+          name: ${{ inputs.release_tag == 'v1.2.2-test.9004-preview' && 'Melodix-Preview-historique-native-glass' || 'Melodix-Preview-historique-glass' }}
           path: preview-output/
           retention-days: 14
           if-no-files-found: error

@@ -24,7 +24,7 @@ test("Preview workflow requires an explicit full source SHA instead of defaultin
   assert.match(workflow, /source_ref must be a full 40-character commit SHA/);
   assert.match(
     workflow,
-    /if: \$\{\{ \(github\.event_name == 'push' \|\| github\.event_name == 'workflow_dispatch' \|\| github\.event_name == 'workflow_call'\) && !\(github\.event_name == 'workflow_dispatch' && inputs\.release_tag == 'v1\.2\.2-test\.9003-preview'\) \}\}/,
+    /if: \$\{\{ \(github\.event_name == 'push' \|\| github\.event_name == 'workflow_dispatch' \|\| github\.event_name == 'workflow_call'\) && !\(github\.event_name == 'workflow_dispatch' && \(inputs\.release_tag == 'v1\.2\.2-test\.9003-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9004-preview'\)\) \}\}/,
   );
   assert.match(workflow, /workflow_call:\n    inputs:/);
   assert.match(
@@ -1123,7 +1123,7 @@ test("targeted P0 replay uses only the verified historical ec6 APK and preserves
 
 
 test("historical Glass preview is explicitly dispatched and cannot run alongside the normal build", () => {
-  assert.match(workflow, /historical-glass-preview:\n    if: \$\{\{ github\.event_name == 'workflow_dispatch' && inputs\.release_tag == 'v1\.2\.2-test\.9003-preview' \}\}/);
+  assert.match(workflow, /historical-glass-preview:\n    if: \$\{\{ github\.event_name == 'workflow_dispatch' && \(inputs\.release_tag == 'v1\.2\.2-test\.9003-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9004-preview'\) \}\}/);
   assert.match(workflow, /test "\$INPUT_SOURCE_REF" = "\$DELIVERY_SHA"/);
   assert.match(workflow, /ref: d0f206b08b3db7c2d41a1e844f6dd4abf196a5f6/);
   // Check the historical job against the same already-established public pin
