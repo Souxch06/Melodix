@@ -118,6 +118,14 @@ jobs:
             echo "::error::version_code_base must be a non-negative integer."
             exit 1
           fi
+          # This reserved dispatch tag selects the isolated playlist experiment.
+          # It cannot be activated by push or by the reusable release workflow.
+          diagnostic=false
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && "$tag" == "v1.2.2-test.9000-preview" ]]; then
+            diagnostic=true
+            APK_SUFFIX="-playlist-diagnostic"
+          fi
+          echo "playlist_diagnostic=$diagnostic" >> "$GITHUB_OUTPUT"
           apk_name="Melodix-Preview-v${version}-test${test_number}${APK_SUFFIX}.apk"
           IFS=. read -r major minor patch <<< "$version"
           # Public release builds retain the release counter. A build-only
@@ -158,16 +166,65 @@ jobs:
         with:
           ref: ${{ steps.release.outputs.source_ref }}
 
-      - name: Regenerate and verify runtime assets
+      # Only the explicitly requested manual diagnostic is reconstructed from
+      # the known 44902 base; the selected source commit supplies the patches.
+      - name: Check out known diagnostic base
+        if: ${{ steps.release.outputs.playlist_diagnostic == 'true' }}
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: 44902d9b8d1d1d70bc72acbd66f7c0c2d4b41e0d
+          path: playlist-diagnostic-base
+          persist-credentials: false
+
+      - name: Apply isolated playlist diagnostic patches
+        if: ${{ steps.release.outputs.playlist_diagnostic == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
-          bash scripts/build_runtime_assets.sh
+          project="$GITHUB_WORKSPACE/playlist-diagnostic-base"
+          full="$GITHUB_WORKSPACE/docs/audits/2026-11-04-reprise-sans-delai/correctif-et-tests-sur-base-44902.patch"
+          delta="$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-playlists/diagnostic-sur-candidat-sans-delai.patch"
+          cd "$project"
+          git apply --check "$full"
+          git apply "$full"
+          git apply --check "$delta"
+          git apply "$delta"
+          cmp assets/css_hacks.css "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-playlists/css_hacks_sans_section9.css"
+          test ! -s assets/adblock_hosts.txt
           git diff --check
-          git diff --exit-code -- \
-            assets/spotify_bridge.js \
-            assets/native_ui_shell.js \
-            assets/melodix_home.js
+
+      - name: Regenerate and verify runtime assets
+        shell: bash
+        env:
+          PLAYLIST_DIAGNOSTIC: ${{ steps.release.outputs.playlist_diagnostic }}
+        run: |
+          set -euo pipefail
+          if [[ "$PLAYLIST_DIAGNOSTIC" == "true" ]]; then
+            cd "$GITHUB_WORKSPACE/playlist-diagnostic-base"
+            sha256sum assets/spotify_bridge.js assets/native_ui_shell.js assets/melodix_home.js > "$RUNNER_TEMP/assets-before.sha256"
+            bash scripts/build_runtime_assets.sh
+            sha256sum -c "$RUNNER_TEMP/assets-before.sha256"
+            git diff --check
+          else
+            bash scripts/build_runtime_assets.sh
+            git diff --check
+            git diff --exit-code -- \
+              assets/spotify_bridge.js \
+              assets/native_ui_shell.js \
+              assets/melodix_home.js
+          fi
+
+      - name: Test playlist diagnostic before packaging
+        if: ${{ steps.release.outputs.playlist_diagnostic == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE/playlist-diagnostic-base"
+          npm ci --ignore-scripts
+          export MELODIX_SOURCE_ROOT="$PWD" NODE_PATH="$PWD/node_modules"
+          node --test \
+            "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-playlists/preview-check.test.cjs" \
+            "$GITHUB_WORKSPACE/docs/audits/2026-11-04-profil-navigateur/profile.test.cjs"
 
       - name: Set up Java
         uses: actions/setup-java@v6.1.0
@@ -190,6 +247,7 @@ jobs:
           SOURCE_REF: ${{ steps.release.outputs.source_ref }}
           BUILD_ONLY: ${{ inputs.build_only || github.event_name == 'workflow_dispatch' }}
           TARGET_DEBUGGABLE: ${{ inputs.target_debuggable || false }}
+          PLAYLIST_DIAGNOSTIC: ${{ steps.release.outputs.playlist_diagnostic }}
           DEMO_BUILD: ${{ inputs.demo_build || false }}
           DEMO_GLASS_LAUNCHER: ${{ inputs.demo_glass_launcher || false }}
           MELODIX_PREVIEW_KEYSTORE_B64: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_B64 }}
@@ -198,6 +256,9 @@ jobs:
         run: |
           set -euo pipefail
           source_dir="$GITHUB_WORKSPACE"
+          if [[ "$PLAYLIST_DIAGNOSTIC" == "true" ]]; then
+            source_dir="$GITHUB_WORKSPACE/playlist-diagnostic-base"
+          fi
           work_dir="$RUNNER_TEMP/melodix-preview-apktool-project"
           framework_dir="$RUNNER_TEMP/melodix-preview-apktool-framework"
           output="$RUNNER_TEMP/$APK_NAME"
@@ -510,6 +571,9 @@ jobs:
             echo "- versionCode: \`$apk_version_code\`"
             echo "- versionName: \`$apk_version_name\`"
             echo "- Source commit: \`$SOURCE_REF\` (also embedded as \`preview_source_commit\`)"
+            if [[ "$PLAYLIST_DIAGNOSTIC" == "true" ]]; then
+              echo "- Diagnostic: base 44902d9 plus both audited patches; WebView debugging enabled for Preview only."
+            fi
             echo "- SHA-256: \`$apk_sha256\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
