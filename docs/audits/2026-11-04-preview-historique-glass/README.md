@@ -16,6 +16,8 @@ La Preview a ses données Android séparées, mais utilise le même compte Spoti
 
 ## Vérifications locales
 
+Voir aussi les [tests complémentaires sans téléphone](tests-sans-telephone.md), leurs résultats et limites.
+
 - Base historique récupérée avec le SHA ci-dessus, CSS complet et fichiers d'origine comparés par empreinte.
 - Tests historiques ciblés `native_home_feed` + `native_ui` : **56/56**. Suite historique complète avec CSS Glass : **111/129** ; **18 échecs**, dont tests sur état de session, interfaces WebView et protections ; ces résultats sont des tests locaux, pas des résultats téléphone.
 - Workflow : YAML et blocs Bash analysés ; **2/2** tests ciblés du sélecteur manuel. La suite des tests du workflow exécutée sur une copie antérieure donne **16/20** : quatre échecs existaient aussi avant ce changement dans cette copie, sur d’autres workflows non alignés ; elle ne constitue pas une validation CI complète.
