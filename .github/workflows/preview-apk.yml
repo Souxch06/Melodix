@@ -63,7 +63,7 @@ permissions:
 
 jobs:
   build-and-release-preview:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call'
+    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && !(github.event_name == 'workflow_dispatch' && inputs.release_tag == 'v1.2.2-test.9003-preview') }}
     name: Build separate Preview APK artifact
     runs-on: ubuntu-latest
     outputs:
@@ -643,5 +643,128 @@ jobs:
             ${{ steps.package.outputs.apk_path }}
             ${{ steps.package.outputs.sha_path }}
             ${{ steps.package.outputs.asset_manifest_path }}
+          retention-days: 14
+          if-no-files-found: error
+
+  historical-glass-preview:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag == 'v1.2.2-test.9003-preview' }}
+    name: Preview séparée d0f206b0 + Glass
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout delivery
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Checkout exact historical base
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: d0f206b08b3db7c2d41a1e844f6dd4abf196a5f6
+          path: historical
+          persist-credentials: false
+      - name: Verify base and signing secrets
+        env:
+          KEYSTORE_B64: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
+          INPUT_SOURCE_REF: ${{ inputs.source_ref }}
+          DELIVERY_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test "$INPUT_SOURCE_REF" = "$DELIVERY_SHA"
+          test "$(git -C historical rev-parse HEAD)" = d0f206b08b3db7c2d41a1e844f6dd4abf196a5f6
+          test -n "$KEYSTORE_B64" && test -n "$KEYSTORE_PASSWORD"
+      - name: Set up Java
+        uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4.0.4
+      - name: Install build tools
+        run: sdkmanager --install 'build-tools;35.0.0'
+      - name: Historical test report (known failures)
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/test-deps" preview-output
+          npm install --prefix "$RUNNER_TEMP/test-deps" --no-save --ignore-scripts jsdom@26.1.0
+          cd historical
+          export NODE_PATH="$RUNNER_TEMP/test-deps/node_modules"
+          node --test tests/native_home_feed.test.js tests/native_ui.test.js
+          set +e
+          node --test tests/*.test.js > "$GITHUB_WORKSPACE/preview-output/historical-tests.log" 2>&1
+          result=$?
+          set -e
+          tail -15 "$GITHUB_WORKSPACE/preview-output/historical-tests.log"
+          echo "Historical suite exit: $result (known legacy failures; not proof of phone behavior)." >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+      - name: Build separate Preview and sign with pinned key
+        env:
+          MELODIX_PREVIEW_KEYSTORE_B64: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_B64 }}
+          MELODIX_PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
+          MELODIX_PREVIEW_KEY_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEY_PASSWORD || secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
+          DELIVERY_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          base=d0f206b08b3db7c2d41a1e844f6dd4abf196a5f6
+          audit="$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass"
+          work="$RUNNER_TEMP/historical-preview"
+          mkdir -p "$work" "$RUNNER_TEMP/framework" preview-output
+          for item in AndroidManifest.xml META-INF apktool.yml assets kotlin lib original res smali unknown; do
+            test -e "historical/$item"
+            cp -a "historical/$item" "$work/"
+          done
+          keystore="$RUNNER_TEMP/preview-signing.jks"
+          printf '%s' "$MELODIX_PREVIEW_KEYSTORE_B64" | base64 --decode > "$keystore"
+          keytool -exportcert -alias MELODIX_PREVIEW -keystore "$keystore" \
+            -storepass:env MELODIX_PREVIEW_KEYSTORE_PASSWORD -file "$RUNNER_TEMP/preview-cert.der"
+          cert="$(sha256sum "$RUNNER_TEMP/preview-cert.der" | cut -d' ' -f1 | tr '[:lower:]' '[:upper:]')"
+          test "$cert" = E3CEB66F4F67CCBD53D92272F5C6422C3B10664AA57A28512BBFADB89657802F
+          version_code=$((1021487 + GITHUB_RUN_NUMBER))
+          python3 "$audit/prepare_preview.py" "$work" "$audit/css_hacks_glass_complet.css" "$cert" "$version_code" "$DELIVERY_SHA"
+          curl --fail --silent --show-error --location \
+            https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar --output "$RUNNER_TEMP/apktool.jar"
+          java -jar "$RUNNER_TEMP/apktool.jar" if historical/android/apktool-framework/1.apk -p "$RUNNER_TEMP/framework"
+          java -jar "$RUNNER_TEMP/apktool.jar" b "$work" -p "$RUNNER_TEMP/framework" -o "$RUNNER_TEMP/unsigned.apk" --force-all
+          tools="$ANDROID_HOME/build-tools/35.0.0"
+          "$tools/zipalign" -f 4 "$RUNNER_TEMP/unsigned.apk" "$RUNNER_TEMP/aligned.apk"
+          out=preview-output/Melodix-Preview-historique-glass.apk
+          "$tools/apksigner" sign --ks "$keystore" --ks-key-alias MELODIX_PREVIEW \
+            --ks-pass env:MELODIX_PREVIEW_KEYSTORE_PASSWORD --key-pass env:MELODIX_PREVIEW_KEY_PASSWORD \
+            --out "$out" "$RUNNER_TEMP/aligned.apk"
+          "$tools/apksigner" verify --verbose --min-sdk-version 24 "$out"
+          "$tools/apksigner" verify --print-certs "$out" > "$RUNNER_TEMP/cert.txt"
+          "$tools/aapt" dump badging "$out" > "$RUNNER_TEMP/badging.txt"
+          "$tools/aapt" dump --values resources "$out" > "$RUNNER_TEMP/resources.txt"
+          ACTUAL_CERT="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/cert.txt" | tr '[:lower:]' '[:upper:]')"
+          test "$ACTUAL_CERT" = "$cert"
+          grep -F "package: name='com.melodix.music.preview' versionCode='$version_code' versionName='1.2.2-d0f206b-glass'" "$RUNNER_TEMP/badging.txt"
+          grep -F "$base" "$RUNNER_TEMP/resources.txt"
+          grep -F "$DELIVERY_SHA" "$RUNNER_TEMP/resources.txt"
+          fingerprint="$(echo "$cert" | fold -w 2 | paste -sd ':' -)"
+          grep -F "$fingerprint" "$RUNNER_TEMP/resources.txt"
+          python3 - "$out" "$work" "$DELIVERY_SHA" <<'PY'
+          import hashlib, json, pathlib, sys, zipfile
+          apk, work, delivery = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2]), sys.argv[3]
+          rows = []
+          with zipfile.ZipFile(apk) as z:
+              for p in sorted((work / 'assets').rglob('*')):
+                  if not p.is_file(): continue
+                  name = p.relative_to(work).as_posix()
+                  data = p.read_bytes()
+                  if z.read(name) != data: raise SystemExit('Asset mismatch: ' + name)
+                  rows.append({'name': name, 'sha256': hashlib.sha256(data).hexdigest(), 'bytes': len(data)})
+          pathlib.Path('preview-output/assets-manifest.json').write_text(json.dumps({'historical_base': 'd0f206b08b3db7c2d41a1e844f6dd4abf196a5f6', 'delivery_commit': delivery, 'assets': rows}, indent=2) + '\n')
+          PY
+          (cd preview-output && sha256sum Melodix-Preview-historique-glass.apk > Melodix-Preview-historique-glass.apk.sha256)
+          {
+            echo '### Preview historique Glass — non validée sur téléphone'
+            echo "- Base: $base ; livraison: $DELIVERY_SHA ; versionCode: $version_code"
+            echo '- Package séparé, clé Preview vérifiée. Ancienne connexion et protections historiques : consulter audit avant installation.'
+            cat preview-output/Melodix-Preview-historique-glass.apk.sha256
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload Preview artifact only (no release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Melodix-Preview-historique-glass
+          path: preview-output/
           retention-days: 14
           if-no-files-found: error

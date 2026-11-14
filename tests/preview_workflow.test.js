@@ -24,7 +24,7 @@ test("Preview workflow requires an explicit full source SHA instead of defaultin
   assert.match(workflow, /source_ref must be a full 40-character commit SHA/);
   assert.match(
     workflow,
-    /if: github\.event_name == 'push' \|\| github\.event_name == 'workflow_dispatch' \|\| github\.event_name == 'workflow_call'/,
+    /if: \$\{\{ \(github\.event_name == 'push' \|\| github\.event_name == 'workflow_dispatch' \|\| github\.event_name == 'workflow_call'\) && !\(github\.event_name == 'workflow_dispatch' && inputs\.release_tag == 'v1\.2\.2-test\.9003-preview'\) \}\}/,
   );
   assert.match(workflow, /workflow_call:\n    inputs:/);
   assert.match(
@@ -1119,4 +1119,14 @@ test("targeted P0 replay uses only the verified historical ec6 APK and preserves
   assert.match(aggregator, /set\(report\) != EARLY_REPORT_KEYS[\s\S]*?privacy scan/);
   assert.match(aggregator, /"initial"[\s\S]*?"post_permission_force_stop_relaunch"/);
   assert.ok(aggregator.includes('"authenticated_spotify_test": "not_performed"'));
+});
+
+
+test("historical Glass preview is explicitly dispatched and cannot run alongside the normal build", () => {
+  assert.match(workflow, /historical-glass-preview:\n    if: \$\{\{ github\.event_name == 'workflow_dispatch' && inputs\.release_tag == 'v1\.2\.2-test\.9003-preview' \}\}/);
+  assert.match(workflow, /test "\$INPUT_SOURCE_REF" = "\$DELIVERY_SHA"/);
+  assert.match(workflow, /ref: d0f206b08b3db7c2d41a1e844f6dd4abf196a5f6/);
+  assert.match(workflow, /E3CEB66F4F67CCBD53D92272F5C6422C3B10664AA57A28512BBFADB89657802F/);
+  assert.match(workflow, /com\.melodix\.music\.preview/);
+  assert.match(workflow, /Upload Preview artifact only \(no release\)/);
 });
