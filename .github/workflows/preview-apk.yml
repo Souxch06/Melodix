@@ -748,6 +748,8 @@ jobs:
             node --test --test-name-pattern="synthetic playlist track payload" "$audit/playlist-playback.test.cjs"
           MELODIX_HISTORICAL_ROOT="$GITHUB_WORKSPACE/historical" MELODIX_SMALI_ROOT="$RUNNER_TEMP/historical-decoded" NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" \
             node --test --test-name-pattern="playlist response race fixture: native ID guard" "$audit/full-bootstrap.test.cjs"
+          MELODIX_HISTORICAL_ROOT="$GITHUB_WORKSPACE/historical" MELODIX_SMALI_ROOT="$RUNNER_TEMP/historical-decoded" NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" \
+            node --test --test-name-pattern="search fixture: native expected-query guard|search fixture: actual JS callback" "$audit/full-bootstrap.test.cjs"
           tools="$ANDROID_HOME/build-tools/35.0.0"
           "$tools/zipalign" -f 4 "$RUNNER_TEMP/unsigned.apk" "$RUNNER_TEMP/aligned.apk"
           out=preview-output/Melodix-Preview-historique-glass.apk

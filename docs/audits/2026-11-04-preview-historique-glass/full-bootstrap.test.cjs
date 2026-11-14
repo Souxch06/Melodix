@@ -18,7 +18,7 @@ function bootstrap(respond=null){
     w.fetch=async(url,init)=>{
         const body=init?.body ? JSON.parse(init.body) : null;
         requests.push({url:String(url),body});
-        if(respond) return respond({url:String(url),body});
+        if(respond) return respond({url:String(url),body,signal:init?.signal});
         if(body?.operationName==='libraryV3') return {ok:true,status:200,json:async()=>({data:{me:{libraryV3:{items:[{item:{data:{__typename:'Playlist',uri:'spotify:playlist:fake1',name:'Fictive'}}}]}}}})};
         if(String(url).includes('connect-state')) return {ok:true,status:200};
         throw new Error('unhandled synthetic request');
@@ -30,6 +30,7 @@ function bootstrap(respond=null){
     w.spotAuthToken='Bearer fixture';w.spotCliToken='client-fixture';w.spotDevId='device-fixture';
     const callbacks={readBundledAsset:()=>bridge,nativeFetch:()=>null,
         onMediaItemsLoaded:(id,json)=>calls.push({event:'media',id,rows:JSON.parse(json)}),
+        onSearchCompleted:(query,json)=>calls.push({event:'search',query,rows:JSON.parse(json)}),
         onNativeUiData:(id,json)=>calls.push({event:'native',id,rows:JSON.parse(json)}),
         onNativeHomeRows:json=>calls.push({event:'home',rows:JSON.parse(json)}),
         onNativeUiReady(){},onNativeUiRoute(){}};
@@ -309,6 +310,169 @@ for(const missing of ['spotAuthToken','spotDevId']) {
         } finally{x.close();}
     });
 }
+
+function searchResponse(ids){return {ok:true,status:200,json:async()=>({data:{searchV2:{tracksV2:{items:ids.map(id=>({item:{data:{uri:'spotify:track:'+id,name:id,artists:{items:[]}}}}))}}}})};}
+function pendingSearch(req, pending){
+    assert.equal(req.body?.operationName,'searchDesktop');
+    return new Promise((resolve,reject)=>{
+        const signal=req.signal;
+        assert.ok(signal);
+        const cancel=()=>reject(Object.assign(new Error('synthetic abort'),{name:'AbortError'}));
+        if(signal.aborted)cancel();else signal.addEventListener('abort',cancel,{once:true});
+        pending.set(req.body.variables.searchTerm,{resolve,signal});
+    });
+}
+
+test('search fixture: cached newer search does not abort older in-flight request and old queue wins',async()=>{
+    const pending=new Map();
+    const x=bootstrap(req=>{
+        if(req.body.variables.searchTerm==='cached') return searchResponse(['cached1','cached2']);
+        return pendingSearch(req,pending);
+    });
+    try {
+        x.w.eval(bridge);
+        await x.w.searchMediaItems('cached');
+        const old=x.w.searchMediaItems('old');
+        await yieldTurn();
+        assert.ok(pending.has('old'));
+        await x.w.searchMediaItems('CACHED');
+        assert.equal(pending.get('old').signal.aborted,false);
+        assert.equal(x.w.__sfCurrentContextUri,'spotify:search:cached');
+        pending.get('old').resolve(searchResponse(['old1','old2']));
+        await old;
+        assert.equal(x.w.__sfCurrentContextUri,'spotify:search:old');
+        assert.deepEqual(x.calls.filter(c=>c.event==='search').map(c=>c.query),['cached','CACHED','old']);
+    } finally{x.close();}
+});
+
+test('search fixture: distinct uncached query aborts an older request when fake fetch honors signal',async()=>{
+    const pending=new Map();
+    const x=bootstrap(req=>pendingSearch(req,pending));
+    try {
+        x.w.eval(bridge);
+        const old=x.w.searchMediaItems('old');
+        await yieldTurn();
+        const fresh=x.w.searchMediaItems('fresh');
+        await yieldTurn();
+        assert.equal(pending.get('old').signal.aborted,true);
+        assert.equal(pending.get('fresh').signal.aborted,false);
+        pending.get('fresh').resolve(searchResponse(['new1']));
+        await Promise.all([old,fresh]);
+        assert.deepEqual(x.calls.filter(c=>c.event==='search').map(c=>c.query),['fresh']);
+    } finally{x.close();}
+});
+
+test('search fixture: empty query returns empty callback without aborting older request',async()=>{
+    const pending=new Map();
+    const x=bootstrap(req=>pendingSearch(req,pending));
+    try {
+        x.w.eval(bridge);
+        const old=x.w.searchMediaItems('old');
+        await yieldTurn();
+        await x.w.searchMediaItems('');
+        assert.equal(pending.get('old').signal.aborted,false);
+        pending.get('old').resolve(searchResponse(['old1']));
+        await old;
+        assert.deepEqual(x.calls.filter(c=>c.event==='search').map(c=>c.query),['','old']);
+    } finally{x.close();}
+});
+
+test('search fixture: native expected-query guard rejects late old rows under hypothetical delivery',async()=>{
+    const {run:interpretRoute}=require('./native-routing-characterization.test.cjs');
+    const pending=new Map();
+    const x=bootstrap(req=>req.body.variables.searchTerm==='cached'?searchResponse(['cached1']):pendingSearch(req,pending));
+    try {
+        x.w.eval(bridge);
+        await x.w.searchMediaItems('cached');
+        const old=x.w.searchMediaItems('old');
+        await yieldTurn();
+        await x.w.searchMediaItems('cached');
+        pending.get('old').resolve(searchResponse(['old1']));
+        await old;
+        const events=x.calls.filter(c=>c.event==='search');
+        const state={nativeExpectedSearch:'cached',nativeCurrentScreen:'search'};
+        assert.equal(interpretRoute('search:'+events[1].query,JSON.stringify(events[1].rows),state).renders.length,1);
+        assert.equal(interpretRoute('search:'+events[2].query,JSON.stringify(events[2].rows),state).renders.length,0);
+        assert.equal(x.w.__sfCurrentContextUri,'spotify:search:old');
+        // Bypasses generic dispatch; native execution and WebView are not reproduced.
+    } finally{x.close();}
+});
+
+test('search fixture: actual JS callback to generic Smali dispatch with application versus activity context',async()=>{
+    const {dispatch}=require('./native-dispatch-characterization.test.cjs');
+    const {run:interpretRoute}=require('./native-routing-characterization.test.cjs');
+    const smaliRoot=process.env.MELODIX_SMALI_ROOT||root;
+    const source=fs.readFileSync(path.join(smaliRoot,'smali/com/melodix/music/AndBridge.smali'),'utf8');
+    const start=source.indexOf('.method public final onSearchCompleted('),end=source.indexOf('.end method',start);
+    assert.ok(start>=0&&end>start);
+    assert.match(source.slice(start,end),/"search:"[\s\S]*?dispatchNativeUi/);
+    const x=bootstrap(()=>searchResponse(['search1']));
+    try {
+        x.w.eval(bridge);
+        await x.w.searchMediaItems('fixture');
+        const c=x.calls.filter(c=>c.event==='search').at(-1);
+        const channel='search:'+c.query,data=JSON.stringify(c.rows);
+        const weak={kind:'activity',name:'weak'},app={kind:'application'},activity={kind:'activity',name:'activity'};
+        assert.equal(dispatch(weak,app,channel,data).length,0);
+        const posted=dispatch(weak,activity,channel,data);
+        assert.equal(posted.length,1);
+        assert.equal(interpretRoute(posted[0].screen,posted[0].data,{nativeExpectedSearch:'fixture',nativeCurrentScreen:'search'}).renders.length,1);
+        // Activity objects and callback dispatch are interpreted, not Android.
+    } finally{x.close();}
+});
+
+test('search fixture: cache is case-insensitive and reused after synthetic token disappears',async()=>{
+    let n=0;
+    const x=bootstrap(()=>{n++;return searchResponse(['first']);});
+    try {
+        x.w.eval(bridge);
+        await x.w.searchMediaItems(' Mixed ');
+        x.w.spotAuthToken=null;
+        await x.w.searchMediaItems('mixed');
+        assert.equal(n,1);
+        assert.equal(x.calls.filter(c=>c.event==='search').at(-1).rows[0].id,'spotify:track:first');
+    } finally{x.close();}
+});
+
+test('search fixture: 31 distinct successful queries evict the oldest cache entry',async()=>{
+    const x=bootstrap(req=>searchResponse([req.body.variables.searchTerm]));
+    try {
+        x.w.eval(bridge);
+        for(let i=0;i<31;i++) await x.w.searchMediaItems('query'+i);
+        assert.equal(x.w.__sfSearchCache.size,30);
+        assert.equal(x.w.__sfSearchCache.has('query0'),false);
+        assert.equal(x.w.__sfSearchCache.has('query1'),true);
+        assert.equal(x.w.__sfSearchCache.has('query30'),true);
+        assert.equal(x.requests.length,31);
+    } finally{x.close();}
+});
+
+test('search fixture: result list is capped at 24 and duplicate tracks are removed',async()=>{
+    const ids=Array.from({length:30},(_,i)=>'track'+i);
+    ids.splice(1,0,'track0');
+    const x=bootstrap(()=>searchResponse(ids));
+    try {
+        x.w.eval(bridge);
+        await x.w.searchMediaItems('fixture');
+        const rows=x.calls.filter(c=>c.event==='search').at(-1).rows;
+        assert.equal(rows.length,24);
+        assert.equal(new Set(rows.map(r=>r.id)).size,24);
+        assert.equal(rows[0].id,'spotify:track:track0');
+    } finally{x.close();}
+});
+
+test('search fixture: a refused response sends empty rows and a later request can succeed',async()=>{
+    let n=0;
+    const x=bootstrap(()=>++n===1?refusal(403):searchResponse(['retry']));
+    try {
+        x.w.eval(bridge);
+        await x.w.searchMediaItems('fixture');
+        assert.equal(x.calls.filter(c=>c.event==='search').at(-1).rows.length,0);
+        assert.equal(x.w.__sfSearchCache.has('fixture'),false);
+        await x.w.searchMediaItems('fixture');
+        assert.equal(x.calls.filter(c=>c.event==='search').at(-1).rows[0].id,'spotify:track:retry');
+    } finally{x.close();}
+});
 
 test('full bridge play function builds a fictional command without sending it to Spotify',async()=>{
     const x=bootstrap();
