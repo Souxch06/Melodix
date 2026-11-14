@@ -15,8 +15,8 @@ function method(src,prefix) {
 const body=method(bridge,'.method private final dispatchNativeUi(');
 const lines=body.split('\n').map(s=>s.trim()).filter(s=>s&&!s.startsWith('.')&&!s.startsWith('#'));
 const labels=new Map(lines.map((s,i)=>[s,i]).filter(([s])=>s.startsWith(':')));
-function dispatch(weakActivity,context) {
- const regs={p0:{a:context},p1:'media:playlists',p2:'[{"title":"Fictive"}]'};
+function dispatch(weakActivity,context,channel='media:playlists',data='[{"title":"Fictive"}]') {
+ const regs={p0:{a:context},p1:channel,p2:data};
  const staticRef=weakActivity?{referent:weakActivity}:null;
  const posts=[];let result,steps=0;
  const val=x=>{assert.ok(x in regs,`uninitialized register ${x}`);return regs[x];};
@@ -48,6 +48,8 @@ function dispatch(weakActivity,context) {
  }
  return posts;
 }
+module.exports={dispatch};
+if (require.main === module) {
 const a={kind:'activity',name:'weak-activity'}, c={kind:'activity',name:'context-activity'},app={kind:'application'};
 
 test('application context drops media dispatch even with a live activity reference',()=>{
@@ -81,3 +83,5 @@ test('separate Home callback reaches postNativeUiData via the weak activity',()=
  assert.match(home,/AppSingleton;->t:Ljava\/lang\/ref\/WeakReference;[\s\S]*?NativeHomePaintRunnable;-><init>/);
  assert.match(runnable,/"home"[\s\S]*?postNativeUiData/);
 });
+
+}

@@ -63,6 +63,8 @@ function run(channel,payload,initial={}) {
     }
     return {state,renders,screens,actions};
 }
+module.exports={run};
+if (require.main === module) {
 const rows='[{"title":"Fictive","uri":"spotify:playlist:fake1"}]';
 
 test('matching library response renders when current screen and expected ID agree',()=>{
@@ -105,3 +107,5 @@ test('an empty detail title passes that same branch and replaces current title',
 test('detail DOM response does not paint while library is active',()=>{
     const r=run('detail',rows,{nativeCurrentScreen:'library'});assert.equal(r.renders.length,0);
 });
+
+}

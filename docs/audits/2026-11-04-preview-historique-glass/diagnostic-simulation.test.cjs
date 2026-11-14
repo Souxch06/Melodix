@@ -16,12 +16,12 @@ const getBlock = (from, to) => {
     return bridgeText.slice(start, end);
 };
 
-function libraryBridge(responses, hasToken = true) {
+function libraryBridge(responses, hasToken = true, callback = null) {
     const calls = [], offsets = [];
     const w = { spotAuthToken: hasToken ? 'Bearer synthetic-token' : null, spotCliToken: null };
     const context = vm.createContext({
         window: w,
-        AndBridge: {onMediaItemsLoaded: (id, data) => calls.push({id, rows: JSON.parse(data)})},
+        AndBridge: {onMediaItemsLoaded: (id, data) => {calls.push({id, rows: JSON.parse(data)}); if (callback) callback(id,data);}},
         console: {log() {}, warn() {}, error() {}},
         ensureAuthToken: async () => Boolean(w.spotAuthToken),
         getGqlHash: (name, fallback) => fallback,
@@ -289,5 +289,55 @@ test('synthetic Home sends both the generic and dedicated native callbacks',()=>
     try {
         assert.deepEqual(events.map(e=>e.kind),['generic','dedicated']);
         assert.equal(events[0].data,events[1].data);
+    } finally {b.close();}
+});
+
+// Chain the actual historical JS with the isolated Smali interpreters.
+// The bridge objects, data, network responses, and native activity are fixtures.
+const {dispatch: interpretDispatch}=require('./native-dispatch-characterization.test.cjs');
+const {run: interpretNativeRoute}=require('./native-routing-characterization.test.cjs');
+const weakActivity={kind:'activity',name:'synthetic-activity'};
+const appContext={kind:'application'};
+const activityContext={kind:'activity',name:'synthetic-context'};
+
+test('synthetic JS-to-native library chain: 75 rows reach callback but application context drops them',async()=>{
+    const nativeRenders=[],posts=[];
+    const b=libraryBridge([success(Array.from({length:50},(_,i)=>item(i))),success(Array.from({length:25},(_,i)=>item(i+50)))],true,(id,data)=>{
+        const dispatched=interpretDispatch(weakActivity,appContext,'media:'+id,data);
+        posts.push(...dispatched);
+        for(const p of dispatched) nativeRenders.push(...interpretNativeRoute(p.screen,p.data,{nativeExpectedId:'playlists',nativeCurrentScreen:'library'}).renders);
+    });
+    await b.w.fetchMediaItems('playlists');
+    assert.ok(b.calls.some(x=>x.id==='playlists'&&x.rows.length===75));
+    assert.equal(posts.length,0);
+    assert.equal(nativeRenders.length,0);
+});
+
+test('synthetic JS-to-native library control: activity context allows the same payload to reach renderer',async()=>{
+    const nativeRenders=[];
+    const b=libraryBridge([success([item(1)])],true,(id,data)=>{
+        const posts=interpretDispatch(weakActivity,activityContext,'media:'+id,data);
+        for(const p of posts) nativeRenders.push(...interpretNativeRoute(p.screen,p.data,{nativeExpectedId:'playlists',nativeCurrentScreen:'library'}).renders);
+    });
+    await b.w.fetchMediaItems('playlists');
+    assert.ok(nativeRenders.length>0);
+    assert.equal(JSON.parse(nativeRenders[0].payload)[0].name,'Fictive 1');
+});
+
+test('synthetic Home chain: dedicated callback can reach renderer while generic callback is dropped',()=>{
+    const generic=[],nativeRenders=[];
+    const bridge={
+        onNativeUiReady(){},
+        onNativeUiData:(screen,data)=>generic.push(...interpretDispatch(weakActivity,appContext,screen,data)),
+        // Model the dedicated weak-activity callback previously verified in Smali.
+        onNativeHomeRows:data=>nativeRenders.push(...interpretNativeRoute('home',data,{nativeCurrentScreen:'home'}).renders),
+    };
+    const b=bootShell('/', '<main id="main-view"></main>',{
+        AndBridge:bridge,mediaLib:{playlists:[{id:'spotify:playlist:fake1',name:'Fictive'}]},
+    });
+    try {
+        assert.equal(generic.length,0);
+        assert.equal(nativeRenders.length,1);
+        assert.equal(JSON.parse(nativeRenders[0].payload)[0].title,'Fictive');
     } finally {b.close();}
 });
