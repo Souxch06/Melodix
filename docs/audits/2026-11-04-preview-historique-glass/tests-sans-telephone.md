@@ -6,7 +6,7 @@ Tests exécutés localement sur `assets/spotify_bridge.js` et `assets/native_ui_
 
 ## Résultats
 
-- **37/37 simulations passent**, dont : ouverture Bibliothèque en repli Web, ouverture de playlist avec et sans bridge, présence d'un élément de compte pour signaler l'interface prête, et collecte d'une carte ajoutée après le démarrage. Une simulation ne prouve pas la lecture audio réelle.
+- **42/42 simulations passent**, dont : ouverture Bibliothèque en repli Web, ouverture de playlist avec et sans bridge, présence d'un élément de compte pour signaler l'interface prête, et collecte d'une carte ajoutée après le démarrage. Une simulation ne prouve pas la lecture audio réelle.
 - Bibliothèque : 75 éléments fictifs répartis sur deux réponses `libraryV3` (50 + 25) sont convertis et transmis au callback natif. Dans ce scénario précis, deux callbacks contenant les 75 éléments sont émis ; l'effet éventuel sur Android n'a pas été mesuré. Une réponse complète est limitée à 1 000 éléments par la boucle historique.
 - Les 12 éléments maximum concernent le complément **personnel de l'accueil**, pas toute la Bibliothèque. En repli sans bridge, la collecte DOM de la page Bibliothèque renvoie au maximum **32** éléments. Le chemin bridge est différent et le test à 75 n'établit pas l'exhaustivité sur un compte réel.
 - Les réponses fictives HTTP 401, 403 et 429 en première page conduisent le bridge historique à produire une bibliothèque vide, sans état d'erreur spécifique ; un refus en seconde page produit une bibliothèque partielle de 50 éléments sans signal distinct. Une erreur GraphQL fictive en HTTP 200, sans données, devient également une bibliothèque vide. Sans jeton fictif, la demande reste en attente sans callback. Ces simulations ne prouvent **aucun** de ces statuts sur le téléphone et n'expliquent pas à elles seules l'absence réelle des playlists.
@@ -45,6 +45,17 @@ Trois nouveaux tests enchaînent les blocs JavaScript historiques et les interpr
 - L'accueil fictif envoie les mêmes lignes au callback générique et au callback dédié. Dans le modèle, le générique est abandonné avec le contexte application ; le callback dédié est modélisé suivant le chemin Smali précédemment inspecté et atteint le rendu. Il ne s'agit pas d'exécuter réellement `NativeHomePaintRunnable` ou les widgets Android.
 - Autre voie indépendante : `pullNativeHomeList` évalue `native_home_scrape.js` avec `NativeHomeJsonCallback`. Une garde de ce callback fait `"null".equals(valeur)` puis `if-eqz` vers la sortie. Un tableau JSON non nul est donc rejeté avant le parseur, tandis que la chaîne littérale `null` seule passe cette première garde. Deux tests caractérisent cette comparaison sur source et dex ; ils ne préjugent pas de la suite `JSONTokener` ni de la fréquence d'utilisation de cette voie. D'autres callbacks d'accueil subsistent.
 
+## Script de récupération d'accueil et libellé artiste
+
+Nouveaux tests exécutant le **vrai** `native_home_scrape.js` dans un DOM JSDOM isolé, avec liens et données inventés, sans chargement réseau. Une sérialisation `JSON.stringify` représente la réponse attendue au callback : ce n'est pas une WebView Android. Les instructions du callback et de la fabrique de lignes sont lues dans les sources puis dans le dex redécompilé.
+
+- Une carte fictive donne bien une ligne `{title, uri, image, section}` ; sa réponse JSON simulée est ensuite rejetée par la garde `NativeHomeJsonCallback` déjà identifiée. Cela relie maintenant la sortie du script réel à cette garde spécifique. Ce constat ne s'étend pas aux autres voies de l'accueil.
+- Si `__sfNativeHomeRowsJson` contient un tableau JSON valide, le script le renvoie sans consulter le DOM courant ni `mediaLib`. Si cette chaîne commence par `[` mais contient un JSON invalide, l'exception conduit à `[]`, sans repli vers le DOM existant. Les tests ne déterminent pas si ces situations surviennent sur appareil.
+- Le script collecte au plus 40 lignes **DOM**, puis ajoute séparément toutes les playlists distinctes du tableau `mediaLib` dans le scénario testé : 45 liens DOM plus cinq playlists fictives donnent 40 + 5 lignes. La déduplication compare les chaînes exactes ; une URL Web et une URI Spotify représentant le même identifiant ne sont pas dédupliquées dans notre cas fictif.
+- Dans la fabrique native, le chemin de secours qui construit un sous-titre à partir du tableau `artists` saute l'ajout pour un nom d'artiste non vide (`isEmpty() == 0` puis `if-eqz`). Un nom vide atteint l'ajout ; les autres chemins de sous-titres peuvent être utilisés à la place. Le test est une caractérisation du Smali, pas un rendu Android.
+
+Au total, **141/141 tests ciblés** passent. Parmi eux, plusieurs caractérisent des comportements défectueux ; ils ne prouvent pas que l'application fonctionne. Les **33/33 tests du groupe Smali/CSS/scrape** passent aussi avec le dex redécompilé, mais le JavaScript et le DOM restent exécutés sur Node/JSDOM.
+
 ## CSS et chargement des assets : limites supplémentaires
 
 - Le fichier Glass complet a son empreinte attendue et `rrweb-cssom` 0.8.0 en analyse 347 règles au total, dont les règles représentatives d'accueil et de dock attendues. Le parseur est permissif : son acceptation ne garantit ni la validité de toutes les déclarations, ni la compatibilité de la WebView, ni le rendu visuel. Les deux échecs statiques historiques restent non résolus.
@@ -70,7 +81,7 @@ L'APK locale **non signée**, reconstruite au tour précédent, a été décompi
 
 ## Reproduction et intégration
 
-Les tests sont dans `diagnostic-simulation.test.cjs` et `playlist-playback.test.cjs`. Le job manuel `v1.2.2-test.9003-preview` installe `jsdom`, applique le CSS Glass dans son checkout historique jetable puis exécute les 71 tests ciblés historiques, les 37 simulations, les 23 tests de caractérisation Smali et 4 contrôles CSS/callback ; il recompilera puis redécompilera également le dex et rejouera ces 27 contrôles et les trois nouvelles chaînes simulées ; il conserve le rapport complet historique. Le workflow **n'a pas été lancé**. Aucun fichier applicatif, en-tête, authentification ou CSS n'a été modifié pendant ces tests.
+Les tests sont dans `diagnostic-simulation.test.cjs` et `playlist-playback.test.cjs`. Le job manuel `v1.2.2-test.9003-preview` installe `jsdom`, applique le CSS Glass dans son checkout historique jetable puis exécute les 71 tests ciblés historiques, les 42 simulations, les 24 tests de caractérisation Smali et 4 contrôles CSS/callback ; il recompilera puis redécompilera également le dex et rejouera les 24 tests Smali, les 4 contrôles CSS/callback, les 5 tests de scrape et les trois chaînes simulées ; il conserve le rapport complet historique. Le workflow **n'a pas été lancé**. Aucun fichier applicatif, en-tête, authentification ou CSS n'a été modifié pendant ces tests.
 
 Sur une copie du commit historique avec `jsdom@26.1.0` disponible :
 

@@ -40,3 +40,44 @@ test('Home scrape callback: literal null alone passes the first guard',()=>{
     assert.equal(passesNullGuard('null'),true);
     // This only reaches JSONTokener; it does not assert anything about its result.
 });
+
+// Execute the unmodified scrape asset in a local DOM; WebView serialization is
+// represented by JSON.stringify, not an Android WebView execution.
+const {JSDOM}=require('jsdom');
+const scrape=fs.readFileSync(path.join(root,'assets/native_home_scrape.js'),'utf8');
+function withScrape(html,setup,check){
+    const dom=new JSDOM(html,{url:'https://open.spotify.com/',runScripts:'outside-only'});
+    try {if(setup) setup(dom.window); check(JSON.parse(JSON.stringify(dom.window.eval(scrape))));}
+    finally {dom.window.close();}
+}
+test('actual scrape asset collects a fictional DOM link, then the native null guard rejects its serialized result',()=>{
+    withScrape('<a href="/playlist/fake1" aria-label=" Playlist fictive "><img src="https://example.invalid/fake.jpg"></a>',null,rows=>{
+        assert.deepEqual(rows,[{title:'Playlist fictive',uri:'https://open.spotify.com/playlist/fake1',image:'https://example.invalid/fake.jpg',section:''}]);
+        assert.equal(passesNullGuard(JSON.stringify(rows)),false);
+    });
+});
+test('scrape cached rows take precedence over current DOM and mediaLib',()=>{
+    withScrape('<a href="/playlist/new">New</a>',w=>{
+        w.__sfNativeHomeRowsJson=JSON.stringify([{title:'Cached',uri:'spotify:playlist:old'}]);
+        w.mediaLib={playlists:[{name:'From library',uri:'spotify:playlist:lib'}]};
+    },rows=>assert.deepEqual(rows,[{title:'Cached',uri:'spotify:playlist:old'}]));
+});
+test('scrape invalid cached JSON returns empty instead of inspecting existing DOM',()=>{
+    withScrape('<a href="/playlist/fake1">Fictive</a>',w=>{w.__sfNativeHomeRowsJson='[broken';},rows=>assert.deepEqual(rows,[]));
+});
+test('scrape limits DOM rows to 40 but adds all distinct in-memory library rows afterward',()=>{
+    const html=Array.from({length:45},(_,i)=>`<a href="/playlist/dom${i}">DOM ${i}</a>`).join('');
+    withScrape(html,w=>{w.mediaLib={playlists:Array.from({length:5},(_,i)=>({name:`Lib ${i}`,uri:`spotify:playlist:lib${i}`}))};},rows=>{
+        assert.equal(rows.length,45);
+        assert.equal(rows.filter(r=>r.section==='').length,40);
+        assert.equal(rows.filter(r=>r.section==='Vos playlists').length,5);
+        assert.ok(!rows.some(r=>r.uri.endsWith('/dom40')));
+    });
+});
+test('scrape deduplicates exact URIs but not Web URL and Spotify URI representations',()=>{
+    withScrape('<a href="/playlist/fake1">A</a><a href="/playlist/fake1">Duplicate</a>',w=>{
+        w.mediaLib={playlists:[{name:'Same underlying ID',uri:'spotify:playlist:fake1'}]};
+    },rows=>{
+        assert.deepEqual(rows.map(r=>r.uri),['https://open.spotify.com/playlist/fake1','spotify:playlist:fake1']);
+    });
+});

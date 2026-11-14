@@ -83,3 +83,13 @@ test('historical JS-era tests assert these same inverted branch opcodes',()=>{
     assert.match(tests,/assert\.match\(factory, \/if-eqz v10, :native_row_return\//);
     assert.match(tests,/assert\.match\(openRow, \/if-eqz v0, :native_row_click_done\//);
 });
+
+test('non-empty artist string in native row skips appending; empty string reaches append block',()=>{
+    const body=method(row,'.method public static create(');
+    const marker='invoke-virtual {v10}, Ljava/lang/String;->isEmpty()Z';
+    const chunk=body.slice(body.indexOf(':native_artists_loop')>=0 ? body.indexOf(':native_artists_loop') : body.indexOf('Ljava/lang/StringBuilder;-><init>()V'));
+    // Locate by optString(ILjava/lang/String;) so labels may change after dex decoding.
+    const loop=chunk.slice(chunk.indexOf('Lorg/json/JSONArray;->optString(ILjava/lang/String;)Ljava/lang/String;'));
+    assert.equal(guardAllowsAction(loop,'v10',marker,'invoke-virtual {v4, v10}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)', 'Fictive Artist'),false);
+    assert.equal(guardAllowsAction(loop,'v10',marker,'invoke-virtual {v4, v10}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)', ''),true);
+});
