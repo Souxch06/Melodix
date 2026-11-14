@@ -698,7 +698,8 @@ jobs:
             "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/native-smali-characterization.test.cjs" \
             "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/native-routing-characterization.test.cjs" \
             "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/native-dispatch-characterization.test.cjs" \
-            "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/css-callback-characterization.test.cjs"
+            "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/css-callback-characterization.test.cjs" \
+            "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/session-simulation.test.cjs"
           # This is a characterization of known defects, NOT an acceptance test.
           echo "::warning::Historical native row URI guards reject non-empty URIs and generic bridge dispatch can discard data; see audit before installing."
           set +e
@@ -739,7 +740,7 @@ jobs:
           # Check the actual compiled dex (decoded back to Smali), not just source.
           java -jar "$RUNNER_TEMP/apktool.jar" d "$RUNNER_TEMP/unsigned.apk" -f -p "$RUNNER_TEMP/framework" -o "$RUNNER_TEMP/historical-decoded"
           MELODIX_HISTORICAL_ROOT="$GITHUB_WORKSPACE/historical" MELODIX_SMALI_ROOT="$RUNNER_TEMP/historical-decoded" \
-            NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" node --test "$audit/native-smali-characterization.test.cjs" "$audit/native-routing-characterization.test.cjs" "$audit/native-dispatch-characterization.test.cjs" "$audit/css-callback-characterization.test.cjs"
+            NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" node --test "$audit/native-smali-characterization.test.cjs" "$audit/native-routing-characterization.test.cjs" "$audit/native-dispatch-characterization.test.cjs" "$audit/css-callback-characterization.test.cjs" "$audit/session-simulation.test.cjs"
           MELODIX_HISTORICAL_ROOT="$GITHUB_WORKSPACE/historical" MELODIX_SMALI_ROOT="$RUNNER_TEMP/historical-decoded" NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" \
             node --test --test-name-pattern="synthetic JS-to-native library|synthetic Home chain" "$audit/diagnostic-simulation.test.cjs"
           MELODIX_HISTORICAL_ROOT="$GITHUB_WORKSPACE/historical" MELODIX_SMALI_ROOT="$RUNNER_TEMP/historical-decoded" \
