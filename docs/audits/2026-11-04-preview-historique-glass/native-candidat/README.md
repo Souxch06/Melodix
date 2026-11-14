@@ -13,3 +13,9 @@ Le script conserve la hiérarchie, les identifiants et les gestionnaires du layo
 - L'APK compilée localement est non signée, n'a pas été préparée avec l'identité Preview et ne doit pas être installée ou distribuée. La compilation locale ne constitue pas un build signé ; seul un run GitHub Actions réussi peut produire la Preview signée.
 
 Avant une livraison : terminer l'interface native sans remplacer la récupération historique, tester séparément accueil, bibliothèque, détails, recherche, lecteur et navigation, ajuster explicitement les tests qui caractérisent les anciens défauts, préparer le package Preview et vérifier sur Android en portrait et paysage. Ne pas effacer les données de l'application existante et ne jamais demander de jetons ou cookies.
+
+## Preview signée (variante partielle)
+
+Le run manuel [43642255214](https://github.com/Souxch06/Melodix/actions/runs/43642255214) a réussi les étapes de préparation, compilation, vérification et signature avec le certificat Preview épinglé. L'[artefact ZIP](https://github.com/Souxch06/Melodix/actions/runs/43642255214/artifacts/14132487165) contient `Melodix-Preview-historique-glass.apk`, ainsi que le SHA-256 de l'APK et le manifeste des assets ; son expiration est prévue le 28 novembre 2026 à 21:21 UTC. SHA-256 de l'archive : `cd673ec975dfed71839cfac1dcaab6ed8b6cde97c16b654e530a54dc268e05e8`.
+
+Le code de version calculé est `1022098`, supérieur à celui de la Preview historique précédente (`1022097`) ; le package reste `com.melodix.music.preview`. Cela ne garantit pas une mise à jour d'une autre version déjà installée. Le téléchargement des logs du run depuis cet environnement a échoué (EOF) ; le statut de réussite et les étapes sont obtenus via l'API GitHub. Cette Preview n'a pas été lancée sur téléphone : elle reste une expérience partielle avec les limites ci-dessus et la sécurité historique inchangée.
