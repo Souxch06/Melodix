@@ -8,7 +8,7 @@ La préparation opère **uniquement sur une copie temporaire** : identifiant, au
 
 Le CSS agit sur la page Web ; il ne recolore pas nécessairement tous les éléments Android natifs historiques. Il est plus volumineux que l'ancien CSS ; son injection et son rendu complets sur l'appareil n'ont pas été vérifiés. Le fonctionnement actuel de Spotify, les images et l'exhaustivité des playlists ne sont pas garantis par l'ancien code.
 
-> **Alerte tests ultérieurs :** l'analyse des branches Smali dans la base et dans l'APK locale décompilée montre que les lignes natives avec URI non vide ne reçoivent pas leur listener et que `openNativeRow` rejette une URI non vide. Les anciens tests qui disaient valider ces clics vérifiaient les opcodes inversés. Les tests JS verts ne démontrent pas l'ouverture native ; voir [le détail](tests-sans-telephone.md#alerte--branches-natives-inversées-dans-cette-version-historique). Aucun correctif n'a été appliqué à la version historique.
+> **Alerte tests ultérieurs :** l'analyse des branches Smali dans la base et dans l'APK locale décompilée montre que les lignes natives avec URI non vide ne reçoivent pas leur listener et que `openNativeRow` rejette une URI non vide. Les anciens tests qui disaient valider ces clics vérifiaient les opcodes inversés. Les tests JS verts ne démontrent pas l'ouverture native ; voir [le détail](tests-sans-telephone.md#alerte--branches-natives-inversées-dans-cette-version-historique). La branche du bridge avec contexte application peut aussi abandonner les réponses génériques de bibliothèque, tandis que l’accueil a un callback séparé. Aucun correctif n'a été appliqué à la version historique.
 
 ## Risques et différences importantes
 

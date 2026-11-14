@@ -275,3 +275,19 @@ test('synthetic stored library is served even when the current token is absent',
     assert.equal(b.calls.length,1);
     assert.equal(b.calls[0].rows[0].name,'Fictive mémoire');
 });
+
+test('synthetic Home sends both the generic and dedicated native callbacks',()=>{
+    const events=[];
+    const bridge={
+        onNativeUiReady(){},
+        onNativeUiData:(screen,data)=>{if(screen==='home')events.push({kind:'generic',data});},
+        onNativeHomeRows:data=>events.push({kind:'dedicated',data}),
+    };
+    const b=bootShell('/', '<main id="main-view"></main>',{
+        AndBridge:bridge,mediaLib:{playlists:[{id:'spotify:playlist:fake1',name:'Fictive'}]},
+    });
+    try {
+        assert.deepEqual(events.map(e=>e.kind),['generic','dedicated']);
+        assert.equal(events[0].data,events[1].data);
+    } finally {b.close();}
+});

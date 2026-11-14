@@ -6,7 +6,7 @@ Tests exécutés localement sur `assets/spotify_bridge.js` et `assets/native_ui_
 
 ## Résultats
 
-- **33/33 simulations passent**, dont : ouverture Bibliothèque en repli Web, ouverture de playlist avec et sans bridge, présence d'un élément de compte pour signaler l'interface prête, et collecte d'une carte ajoutée après le démarrage. Une simulation ne prouve pas la lecture audio réelle.
+- **34/34 simulations passent**, dont : ouverture Bibliothèque en repli Web, ouverture de playlist avec et sans bridge, présence d'un élément de compte pour signaler l'interface prête, et collecte d'une carte ajoutée après le démarrage. Une simulation ne prouve pas la lecture audio réelle.
 - Bibliothèque : 75 éléments fictifs répartis sur deux réponses `libraryV3` (50 + 25) sont convertis et transmis au callback natif. Dans ce scénario précis, deux callbacks contenant les 75 éléments sont émis ; l'effet éventuel sur Android n'a pas été mesuré. Une réponse complète est limitée à 1 000 éléments par la boucle historique.
 - Les 12 éléments maximum concernent le complément **personnel de l'accueil**, pas toute la Bibliothèque. En repli sans bridge, la collecte DOM de la page Bibliothèque renvoie au maximum **32** éléments. Le chemin bridge est différent et le test à 75 n'établit pas l'exhaustivité sur un compte réel.
 - Les réponses fictives HTTP 401, 403 et 429 en première page conduisent le bridge historique à produire une bibliothèque vide, sans état d'erreur spécifique ; un refus en seconde page produit une bibliothèque partielle de 50 éléments sans signal distinct. Une erreur GraphQL fictive en HTTP 200, sans données, devient également une bibliothèque vide. Sans jeton fictif, la demande reste en attente sans callback. Ces simulations ne prouvent **aucun** de ces statuts sur le téléphone et n'expliquent pas à elles seules l'absence réelle des playlists.
@@ -27,6 +27,16 @@ Les simulations JavaScript antérieures ne traversaient pas le code Android nati
 
 Le test `native-smali-characterization.test.cjs` caractérise ces défauts (6/6 sur les sources et 6/6 après redécompilation) ; il **réussit parce qu'il les reproduit**, pas parce qu'ils sont corrigés. Aucun correctif n'a été appliqué : la demande était de préserver la version historique complète. Le candidat ne devrait pas être présenté comme fonctionnel sans corriger ces gardes puis effectuer les tests Android/téléphone.
 
+## Nouveau : chemin des réponses du bridge vers l'interface
+
+Les tests précédents interceptaient le callback côté JavaScript ; ils ne prouvaient pas que le callback arrivait à l'écran. Nous avons exécuté un petit interpréteur du Smali réel `AndBridge.dispatchNativeUi`, puis les mêmes tests sur les classes redécompilées de l'APK non signée. Ce n'est pas un simulateur Android complet. Les objets `Activity` et `Context` sont fictifs ; le comportement de la WebView sur téléphone n'a pas été observé.
+
+- Le constructeur du bridge utilisé par la WebView reçoit le contexte stocké par `getApplicationContext()`. Quand une référence d'activité existe et que le contexte est de type application (scénario normal attendu), la branche actuelle de `dispatchNativeUi` passe par le test `instance-of MainActivity`, échoue et ne poste pas les données à l'activité. Sans référence d'activité, elle ne poste pas non plus, même avec un contexte d'activité. Avec une référence et un contexte d'activité fictifs, elle poste. **7/7 tests caractérisent ces branches**, sur source et dex redécompilé : ils réussissent en reproduisant le défaut.
+- `onNativeUiData` utilise ce dispatch générique, tout comme la partie qui envoie `onMediaItemsLoaded` à l'interface native. L'accueil dispose aussi du callback distinct `onNativeHomeRows`, qui passe par la référence d'activité et `NativeHomePaintRunnable` sans utiliser ce dispatch. Dans une simulation du shell, le même payload d'accueil est envoyé aux deux callbacks. Il est donc plausible que l'accueil et la Bibliothèque aient des résultats différents, mais ce test ne prouve ni l'existence de playlists réelles, ni le parcours exact observé sur téléphone, ni l'absence d'autres voies.
+- Un second interpréteur exécute le Smali de `applyNativeUiData` : les réponses `media:` avec ID attendu et écran correspondant arrivent au rendu dans les cas fictifs, alors que les réponses avec ancien ID ou mauvais écran sont rejetées. En revanche, un payload `home` tardif peut forcer l'écran à revenir sur l'accueil ; un payload vide peut réutiliser le JSON précédent. La garde `screen-title` rejette un titre non vide. **10/10 cas de caractérisation**, sur source et dex redécompilé ; les comportements constatés ne sont pas des correctifs.
+
+Ces résultats renforcent la nécessité de vérifier le chemin natif entier et pas seulement les résultats JS. Les simulations et les tests verts précédents ne démontrent toujours pas que la Preview fonctionne sur téléphone. Aucun code de l'application, authentification, en-tête ni CSS n'a été modifié.
+
 ## Playlist et lecture : vérifications supplémentaires
 
 - Le bridge simulé transmet jusqu'à **80 pistes** pour une playlist via une seule requête `fetchPlaylist` (offset 0) dans ce code historique. Titres likés utilise une première requête de **50 pistes**. Aucune pagination supplémentaire n'est effectuée par ces deux chemins dans le scénario testé ; cela ne détermine pas le contenu réellement reçu sur Spotify aujourd'hui.
@@ -45,7 +55,7 @@ L'APK locale **non signée**, reconstruite au tour précédent, a été décompi
 
 ## Reproduction et intégration
 
-Les tests sont dans `diagnostic-simulation.test.cjs` et `playlist-playback.test.cjs`. Le job manuel `v1.2.2-test.9003-preview` installe `jsdom`, applique le CSS Glass dans son checkout historique jetable puis exécute les 71 tests ciblés historiques, les 33 simulations et les 6 tests de caractérisation Smali ; il recompilera puis redécompilera également le dex et rejouera ces 6 tests ; il conserve le rapport complet historique. Le workflow **n'a pas été lancé**. Aucun fichier applicatif, en-tête, authentification ou CSS n'a été modifié pendant ces tests.
+Les tests sont dans `diagnostic-simulation.test.cjs` et `playlist-playback.test.cjs`. Le job manuel `v1.2.2-test.9003-preview` installe `jsdom`, applique le CSS Glass dans son checkout historique jetable puis exécute les 71 tests ciblés historiques, les 34 simulations et les 23 tests de caractérisation Smali ; il recompilera puis redécompilera également le dex et rejouera ces 23 tests ; il conserve le rapport complet historique. Le workflow **n'a pas été lancé**. Aucun fichier applicatif, en-tête, authentification ou CSS n'a été modifié pendant ces tests.
 
 Sur une copie du commit historique avec `jsdom@26.1.0` disponible :
 
