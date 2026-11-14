@@ -208,6 +208,108 @@ for (const status of [401,403,429]) {
     });
 }
 
+function playlistResponse(ids){return {ok:true,status:200,json:async()=>({data:{playlistV2:{content:{items:ids.map(id=>({itemV2:{data:{uri:'spotify:track:'+id,name:id,artists:{items:[]}}}}))}}}})};}
+async function reversedPlaylistResponses(aTracks,bTracks){
+    const pending=new Map();
+    const x=bootstrap(req=>{
+        if(req.body?.operationName==='fetchPlaylist') return new Promise(resolve=>pending.set(req.body.variables.uri,resolve));
+        if(req.body?.command?.endpoint==='play') return {ok:true,status:200};
+        throw new Error('unexpected synthetic request');
+    });
+    const a='spotify:playlist:old',b='spotify:playlist:new';
+    x.w.eval(bridge);
+    const first=x.w.fetchMediaItems(a),second=x.w.fetchMediaItems(b);
+    await yieldTurn();
+    assert.equal(pending.size,2);
+    pending.get(b)(playlistResponse(bTracks));
+    await second;
+    assert.equal(x.w.__sfCurrentContextUri,b);
+    pending.get(a)(playlistResponse(aTracks));
+    await first;
+    assert.equal(x.w.__sfCurrentContextUri,a);
+    return {x,a,b};
+}
+function latestCommand(x){return x.requests.filter(r=>r.body?.command).at(-1)?.body.command;}
+
+test('playlist response race fixture: delayed old playlist replaces queue and shared track uses old context',async()=>{
+    const {x,a,b}=await reversedPlaylistResponses(['shared','oldOther'],['shared','newOther']);
+    try {
+        assert.equal(x.w.__sfNativeOpenUri('spotify:track:shared'),true);
+        const cmd=latestCommand(x);
+        assert.equal(cmd.context.uri,a);
+        assert.notEqual(cmd.context.uri,b);
+        assert.deepEqual(cmd.context.pages[0].tracks.map(t=>t.uri),['spotify:track:shared','spotify:track:oldOther']);
+        assert.equal(cmd.options.skip_to.track_uri,'spotify:track:shared');
+    } finally{x.close();}
+});
+
+test('playlist response race fixture: new-only track falls back to a one-track queue after old response',async()=>{
+    const {x}=await reversedPlaylistResponses(['old1','old2'],['new1','new2']);
+    try {
+        assert.equal(x.w.__sfNativeOpenUri('spotify:track:new2'),true);
+        const cmd=latestCommand(x);
+        assert.equal(cmd.context.uri,'spotify:track:new2');
+        assert.deepEqual(cmd.context.pages[0].tracks.map(t=>t.uri),['spotify:track:new2']);
+    } finally{x.close();}
+});
+
+test('playlist response race fixture: explicit context chooses new playlist despite stale remembered queue',async()=>{
+    const {x,b}=await reversedPlaylistResponses(['shared','oldOther'],['shared','newOther']);
+    try {
+        x.w.playFromUri('spotify:track:shared',b);
+        const cmd=latestCommand(x);
+        assert.equal(cmd.context.uri,b);
+        assert.equal(cmd.options.skip_to.track_uri,'spotify:track:shared');
+    } finally{x.close();}
+});
+
+test('playlist response race fixture: native ID guard can reject old rows while JS queue is already overwritten',async()=>{
+    const {run:interpretRoute}=require('./native-routing-characterization.test.cjs');
+    const {x,a,b}=await reversedPlaylistResponses(['shared','oldOther'],['shared','newOther']);
+    try {
+        const media=x.calls.filter(c=>c.event==='media'&&(c.id===a||c.id===b));
+        assert.deepEqual(media.map(c=>c.id),[b,a]);
+        const state={nativeExpectedId:b,nativeCurrentScreen:'detail'};
+        const fresh=interpretRoute('media:'+b,JSON.stringify(media[0].rows),state);
+        const old=interpretRoute('media:'+a,JSON.stringify(media[1].rows),state);
+        assert.equal(fresh.renders.length,1);
+        assert.equal(old.renders.length,0);
+        assert.equal(x.w.__sfCurrentContextUri,a);
+        // This bypasses the already-known generic native dispatch defect; only
+        // the native receive guard is interpreted under hypothetical delivery.
+    } finally{x.close();}
+});
+
+test('empty playlist fixture leaves earlier nonempty remembered queue untouched',async()=>{
+    const a='spotify:playlist:old',b='spotify:playlist:new';
+    const x=bootstrap(req=>{
+        if(req.body?.operationName==='fetchPlaylist') return playlistResponse(req.body.variables.uri===a?['shared','oldOther']:[]);
+        if(req.body?.command?.endpoint==='play') return {ok:true,status:200};
+        throw new Error('unexpected synthetic request');
+    });
+    try {
+        x.w.eval(bridge);
+        await x.w.fetchMediaItems(a);
+        await x.w.fetchMediaItems(b);
+        assert.equal(x.w.__sfCurrentContextUri,a);
+        assert.ok(x.calls.some(c=>c.event==='media'&&c.id===b&&c.rows.length===0));
+        x.w.__sfNativeOpenUri('spotify:track:shared');
+        assert.equal(latestCommand(x).context.uri,a);
+    } finally{x.close();}
+});
+
+for(const missing of ['spotAuthToken','spotDevId']) {
+    test(`native-open fixture reports true even when ${missing} is absent and no play command is made`,()=>{
+        const x=bootstrap();
+        try {
+            x.w.eval(bridge);
+            x.w[missing]=null;
+            assert.equal(x.w.__sfNativeOpenUri('spotify:track:fake'),true);
+            assert.equal(x.requests.filter(r=>r.body?.command).length,0);
+        } finally{x.close();}
+    });
+}
+
 test('full bridge play function builds a fictional command without sending it to Spotify',async()=>{
     const x=bootstrap();
     try {
