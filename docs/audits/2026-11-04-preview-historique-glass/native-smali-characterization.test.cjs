@@ -35,6 +35,8 @@ function guardAllowsAction(body, receiver, start, action, value) {
     return !jump;
 }
 
+module.exports = {method, guardAllowsAction, row};
+if (require.main === module) {
 test('historical Home data goes through the native feed and row factory in source',()=>{
     const apply=method(activity,'.method public final applyNativeUiData(');
     const render=method(activity,'.method public final renderNativeRows(');
@@ -93,3 +95,5 @@ test('non-empty artist string in native row skips appending; empty string reache
     assert.equal(guardAllowsAction(loop,'v10',marker,'invoke-virtual {v4, v10}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)', 'Fictive Artist'),false);
     assert.equal(guardAllowsAction(loop,'v10',marker,'invoke-virtual {v4, v10}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)', ''),true);
 });
+
+}

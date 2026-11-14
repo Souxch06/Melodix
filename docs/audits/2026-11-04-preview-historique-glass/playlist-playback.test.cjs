@@ -182,3 +182,27 @@ test('synthetic playlist cache is reused after token disappears, without a sessi
     assert.equal(h.calls.length,2);
     assert.equal(h.calls[1].rows[0].id,'spotify:track:fake0');
 });
+
+test('synthetic playlist track payload to native row guards: click, cover and artist are skipped',async()=>{
+    // The bridge really builds this fixture's payload; the following guards are
+    // interpreted from Smali. Native JSON parsing/widgets are not executed.
+    const {method,guardAllowsAction,row}=require('./native-smali-characterization.test.cjs');
+    const h=harness([playlistResponse([track(1)])]);
+    await h.w.fetchMediaItems('spotify:playlist:fake1');
+    const data=last(h.calls).rows[0];
+    assert.equal(data.id,'spotify:track:fake1');
+    assert.deepEqual(data.artists,['Artiste fictif']);
+    assert.equal(data.image,'https://i.scdn.co/image/fake');
+    assert.equal(data.uri,undefined);
+    for (const field of ['subtitle','artist','description','type']) assert.equal(data[field],undefined);
+    const body=method(row,'.method public static create(');
+    // Confirm the fallback fields used by the guards are present in the method.
+    assert.match(body,/const-string v0, "uri"[\s\S]*?const-string v0, "id"/);
+    assert.match(body,/const-string v0, "image"[\s\S]*?move-result-object v9/);
+    assert.match(body,/const-string v0, "artists"[\s\S]*?optJSONArray/);
+    const click=body.slice(body.lastIndexOf('invoke-virtual {v8}, Ljava/lang/String;->isEmpty()Z'));
+    assert.equal(guardAllowsAction(click,'v8','invoke-virtual {v8}, Ljava/lang/String;->isEmpty()Z','->setOnClickListener(',data.id),false);
+    assert.equal(guardAllowsAction(body.slice(body.indexOf('Landroid/widget/LinearLayout;->addView')),'v9','invoke-virtual {v9}, Ljava/lang/String;->isEmpty()Z','NativeImageLoader;->load',data.image),false);
+    const artist=body.slice(body.indexOf('Lorg/json/JSONArray;->optString(ILjava/lang/String;)Ljava/lang/String;'));
+    assert.equal(guardAllowsAction(artist,'v10','invoke-virtual {v10}, Ljava/lang/String;->isEmpty()Z','invoke-virtual {v4, v10}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)',data.artists[0]),false);
+});

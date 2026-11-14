@@ -690,6 +690,7 @@ jobs:
           # Test the historical code against the exact Glass CSS that will be packaged.
           cp "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/css_hacks_glass_complet.css" assets/css_hacks.css
           export NODE_PATH="$RUNNER_TEMP/test-deps/node_modules"
+          MELODIX_HISTORICAL_ROOT="$PWD" python3 "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/prepare-preview-test.py"
           node --test tests/native_home_feed.test.js tests/native_ui.test.js tests/playback_pause.test.js
           MELODIX_HISTORICAL_ROOT="$PWD" node --test \
             "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/diagnostic-simulation.test.cjs" \
@@ -741,6 +742,8 @@ jobs:
             NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" node --test "$audit/native-smali-characterization.test.cjs" "$audit/native-routing-characterization.test.cjs" "$audit/native-dispatch-characterization.test.cjs" "$audit/css-callback-characterization.test.cjs"
           MELODIX_HISTORICAL_ROOT="$GITHUB_WORKSPACE/historical" MELODIX_SMALI_ROOT="$RUNNER_TEMP/historical-decoded" NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" \
             node --test --test-name-pattern="synthetic JS-to-native library|synthetic Home chain" "$audit/diagnostic-simulation.test.cjs"
+          MELODIX_HISTORICAL_ROOT="$GITHUB_WORKSPACE/historical" MELODIX_SMALI_ROOT="$RUNNER_TEMP/historical-decoded" \
+            node --test --test-name-pattern="synthetic playlist track payload" "$audit/playlist-playback.test.cjs"
           tools="$ANDROID_HOME/build-tools/35.0.0"
           "$tools/zipalign" -f 4 "$RUNNER_TEMP/unsigned.apk" "$RUNNER_TEMP/aligned.apk"
           out=preview-output/Melodix-Preview-historique-glass.apk

@@ -6,7 +6,7 @@ Tests exécutés localement sur `assets/spotify_bridge.js` et `assets/native_ui_
 
 ## Résultats
 
-- **42/42 simulations passent**, dont : ouverture Bibliothèque en repli Web, ouverture de playlist avec et sans bridge, présence d'un élément de compte pour signaler l'interface prête, et collecte d'une carte ajoutée après le démarrage. Une simulation ne prouve pas la lecture audio réelle.
+- **43/43 simulations passent**, dont : ouverture Bibliothèque en repli Web, ouverture de playlist avec et sans bridge, présence d'un élément de compte pour signaler l'interface prête, et collecte d'une carte ajoutée après le démarrage. Une simulation ne prouve pas la lecture audio réelle.
 - Bibliothèque : 75 éléments fictifs répartis sur deux réponses `libraryV3` (50 + 25) sont convertis et transmis au callback natif. Dans ce scénario précis, deux callbacks contenant les 75 éléments sont émis ; l'effet éventuel sur Android n'a pas été mesuré. Une réponse complète est limitée à 1 000 éléments par la boucle historique.
 - Les 12 éléments maximum concernent le complément **personnel de l'accueil**, pas toute la Bibliothèque. En repli sans bridge, la collecte DOM de la page Bibliothèque renvoie au maximum **32** éléments. Le chemin bridge est différent et le test à 75 n'établit pas l'exhaustivité sur un compte réel.
 - Les réponses fictives HTTP 401, 403 et 429 en première page conduisent le bridge historique à produire une bibliothèque vide, sans état d'erreur spécifique ; un refus en seconde page produit une bibliothèque partielle de 50 éléments sans signal distinct. Une erreur GraphQL fictive en HTTP 200, sans données, devient également une bibliothèque vide. Sans jeton fictif, la demande reste en attente sans callback. Ces simulations ne prouvent **aucun** de ces statuts sur le téléphone et n'expliquent pas à elles seules l'absence réelle des playlists.
@@ -54,7 +54,7 @@ Nouveaux tests exécutant le **vrai** `native_home_scrape.js` dans un DOM JSDOM 
 - Le script collecte au plus 40 lignes **DOM**, puis ajoute séparément toutes les playlists distinctes du tableau `mediaLib` dans le scénario testé : 45 liens DOM plus cinq playlists fictives donnent 40 + 5 lignes. La déduplication compare les chaînes exactes ; une URL Web et une URI Spotify représentant le même identifiant ne sont pas dédupliquées dans notre cas fictif.
 - Dans la fabrique native, le chemin de secours qui construit un sous-titre à partir du tableau `artists` saute l'ajout pour un nom d'artiste non vide (`isEmpty() == 0` puis `if-eqz`). Un nom vide atteint l'ajout ; les autres chemins de sous-titres peuvent être utilisés à la place. Le test est une caractérisation du Smali, pas un rendu Android.
 
-Au total, **141/141 tests ciblés** passent. Parmi eux, plusieurs caractérisent des comportements défectueux ; ils ne prouvent pas que l'application fonctionne. Les **33/33 tests du groupe Smali/CSS/scrape** passent aussi avec le dex redécompilé, mais le JavaScript et le DOM restent exécutés sur Node/JSDOM.
+Au total, **142/142 tests Node ciblés** passent. Parmi eux, plusieurs caractérisent des comportements défectueux ; ils ne prouvent pas que l'application fonctionne. Les **33/33 tests du groupe Smali/CSS/scrape** passent aussi avec le dex redécompilé, mais le JavaScript et le DOM restent exécutés sur Node/JSDOM.
 
 ## CSS et chargement des assets : limites supplémentaires
 
@@ -62,6 +62,13 @@ Au total, **141/141 tests ciblés** passent. Parmi eux, plusieurs caractérisent
 - Lecture statique de `m9.d` : le cache mémoire est prioritaire ; en l'absence de l'exception prévue par la condition debug/`AppSingleton.W`, le chargeur peut lire `filesDir/hotfixes/<nom>` s'il existe, avant l'asset embarqué. Les chemins de `spotify_bridge.js` et du CSS appellent ce chargeur. Cela signifie que les octets vérifiés dans l'APK ne prouvent pas à eux seuls quels octets seront utilisés si un hotfix local existe. Nous n'avons pas vérifié la présence, l'origine ou l'activation réelle d'un hotfix sur appareil et ne demandons pas de supprimer des données. Une Preview fraîche et séparée réduit le risque d'hériter d'un état de l'application normale, sans prouver l'absence de hotfix ultérieur.
 
 Ces tests reproduisent des défauts connus ou de nouvelles branches suspectes : leur réussite n'est pas une validation fonctionnelle. Aucun changement applicatif ou CSS n'a été effectué.
+
+## Préparation Preview et piste fictive vers les gardes natives
+
+- **8/8 tests Python**, sur des copies minimales créées dans un répertoire temporaire : ils utilisent un certificat factice en forme d'empreinte, jamais de clé. La préparation transforme les fichiers attendus, adapte le package, les autorités, la permission et les actions PIP, retire un éventuel attribut `debuggable`, et conserve les deux JS et un asset témoin. La comparaison structurée du manifeste vérifie que ses autres attributs restent identiques dans cette fixture ; elle ne vérifie pas la signature ni une installation Android.
+- Une empreinte de CSS incorrecte, l'altération de l'un des deux JS ou des paramètres invalides sont refusés avant toute écriture dans ces scénarios. Le projet déjà préparé est aussi refusé. Le script **n'est pas transactionnel** : avec un mauvais package, il a déjà remplacé le CSS avant de s'arrêter ; avec un `apktool.yml` défectueux, manifeste, CSS et chaînes ont déjà été modifiés. Il faut donc jeter la copie en cas d'échec, et ne jamais l'utiliser sur l'application normale. Le workflow prépare bien une copie distincte, mais son exécution réelle reste non vérifiée.
+- La vérification par empreinte du script couvre le CSS fourni et deux JS nommés, **pas tous les fichiers** historiques. Le workflow vérifie le commit du checkout et plus tard les assets embarqués, mais cela ne remplace pas la vérification d'une exécution réelle et signée.
+- Un nouveau test utilise une piste fictive renvoyée par le vrai bloc historique de `fetchPlaylist` : le payload contient notamment `id`, `image` et `artists`. Les valeurs obtenues sont ensuite passées aux gardes Smali ciblées de la fabrique : elles reproduisent les sauts du listener, du chargement de pochette et de l'ajout du nom d'artiste. Ce chaînage est répété sur source et dex redécompilé ; le parsing JSON Android, les widgets et le clic ne sont pas exécutés. Il relie les résultats précédents sans prouver qu'une piste réelle atteindra cette fabrique sur téléphone.
 
 ## Playlist et lecture : vérifications supplémentaires
 
@@ -81,7 +88,7 @@ L'APK locale **non signée**, reconstruite au tour précédent, a été décompi
 
 ## Reproduction et intégration
 
-Les tests sont dans `diagnostic-simulation.test.cjs` et `playlist-playback.test.cjs`. Le job manuel `v1.2.2-test.9003-preview` installe `jsdom`, applique le CSS Glass dans son checkout historique jetable puis exécute les 71 tests ciblés historiques, les 42 simulations, les 24 tests de caractérisation Smali et 4 contrôles CSS/callback ; il recompilera puis redécompilera également le dex et rejouera les 24 tests Smali, les 4 contrôles CSS/callback, les 5 tests de scrape et les trois chaînes simulées ; il conserve le rapport complet historique. Le workflow **n'a pas été lancé**. Aucun fichier applicatif, en-tête, authentification ou CSS n'a été modifié pendant ces tests.
+Les tests sont dans `diagnostic-simulation.test.cjs` et `playlist-playback.test.cjs`. Le job manuel `v1.2.2-test.9003-preview` installe `jsdom`, applique le CSS Glass dans son checkout historique jetable puis exécute les 71 tests ciblés historiques, les 43 simulations, les 24 tests de caractérisation Smali et 4 contrôles CSS/callback, ainsi que 8 tests Python de préparation sur fixtures jetables ; il recompilera puis redécompilera également le dex et rejouera les 24 tests Smali, les 4 contrôles CSS/callback, les 5 tests de scrape et les quatre chaînes simulées ; il conserve le rapport complet historique. Le workflow **n'a pas été lancé**. Aucun fichier applicatif, en-tête, authentification ou CSS n'a été modifié pendant ces tests.
 
 Sur une copie du commit historique avec `jsdom@26.1.0` disponible :
 
