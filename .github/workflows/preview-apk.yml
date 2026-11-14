@@ -693,7 +693,10 @@ jobs:
           node --test tests/native_home_feed.test.js tests/native_ui.test.js tests/playback_pause.test.js
           MELODIX_HISTORICAL_ROOT="$PWD" node --test \
             "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/diagnostic-simulation.test.cjs" \
-            "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/playlist-playback.test.cjs"
+            "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/playlist-playback.test.cjs" \
+            "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/native-smali-characterization.test.cjs"
+          # This is a characterization of known defects, NOT an acceptance test.
+          echo "::warning::Historical native row URI guards reject non-empty URIs; see audit before installing."
           set +e
           node --test tests/*.test.js > "$GITHUB_WORKSPACE/preview-output/historical-tests.log" 2>&1
           result=$?
@@ -729,6 +732,10 @@ jobs:
             https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar --output "$RUNNER_TEMP/apktool.jar"
           java -jar "$RUNNER_TEMP/apktool.jar" if historical/android/apktool-framework/1.apk -p "$RUNNER_TEMP/framework"
           java -jar "$RUNNER_TEMP/apktool.jar" b "$work" -p "$RUNNER_TEMP/framework" -o "$RUNNER_TEMP/unsigned.apk" --force-all
+          # Check the actual compiled dex (decoded back to Smali), not just source.
+          java -jar "$RUNNER_TEMP/apktool.jar" d "$RUNNER_TEMP/unsigned.apk" -f -p "$RUNNER_TEMP/framework" -o "$RUNNER_TEMP/historical-decoded"
+          MELODIX_HISTORICAL_ROOT="$GITHUB_WORKSPACE/historical" MELODIX_SMALI_ROOT="$RUNNER_TEMP/historical-decoded" \
+            node --test "$audit/native-smali-characterization.test.cjs"
           tools="$ANDROID_HOME/build-tools/35.0.0"
           "$tools/zipalign" -f 4 "$RUNNER_TEMP/unsigned.apk" "$RUNNER_TEMP/aligned.apk"
           out=preview-output/Melodix-Preview-historique-glass.apk

@@ -15,6 +15,18 @@ Tests exécutés localement sur `assets/spotify_bridge.js` et `assets/native_ui_
 - La garde Smali historique de `NativeImageLoader` a été interprétée pour des URL fictives : une URL HTTPS non vide est dirigée vers l'effacement **avant** `Picasso.load`. Les pochettes natives ne peuvent pas être attendues de ce chemin historique ; ceci ne démontre pas le comportement de toutes les images Web.
 - Le CSS complet est transmis à une affectation `style.textContent` simulée sans perte de texte. Cela ne vérifie ni son injection par `evaluateJavascript` sur Android, ni le rendu, ni les éventuels conflits CSS.
 
+## Alerte : branches natives inversées dans cette version historique
+
+Les simulations JavaScript antérieures ne traversaient pas le code Android natif. Une interprétation ciblée des instructions Smali et de leurs branchements, vérifiée sur les **sources** puis sur les classes **redécompilées de l'APK non signée**, établit les points suivants pour des valeurs fictives non vides :
+
+1. Dans `NativeUiRowFactory.create`, `String.isEmpty()` renvoie `0` pour une URI valide ; `if-eqz` saute donc l'installation de `NativeRowClickListener`. Le chemin de rendu `applyNativeUiData('home') → renderNativeRows → NativeHomeFeed.paint → NativeUiRowFactory.create` appelle cette fabrique pour les lignes de contenu.
+2. Même si `MainActivity.openNativeRow` était appelée directement, sa première garde `if-eqz` sort pour une URI valide avant le routage vers playlist ou piste. Cela invalide la conclusion que le succès des simulations JS démontrerait l'ouverture par clic natif. D'autres surfaces ou chemins Web peuvent exister ; aucun comportement sur téléphone n'est affirmé.
+3. Dans la même fabrique, une image non vide saute l'appel du chargeur ; indépendamment, la garde du chargeur historique rejette elle aussi les URL HTTPS non vides. `applyNativeListText` sort avant `NativeTextWalker` pour un texte non vide.
+
+**Important : les anciens tests `content rows keep their title, cover and tap target` et `row taps open playlists, albums and tracks` passent alors qu'ils attendent précisément ces opcodes inversés.** Ils vérifient la présence de texte Smali, et leurs commentaires interprètent mal `if-eqz` après `isEmpty()` : le chiffre de tests verts précédent ne prouve donc pas le clic ni l'ouverture.
+
+Le test `native-smali-characterization.test.cjs` caractérise ces défauts (6/6 sur les sources et 6/6 après redécompilation) ; il **réussit parce qu'il les reproduit**, pas parce qu'ils sont corrigés. Aucun correctif n'a été appliqué : la demande était de préserver la version historique complète. Le candidat ne devrait pas être présenté comme fonctionnel sans corriger ces gardes puis effectuer les tests Android/téléphone.
+
 ## Playlist et lecture : vérifications supplémentaires
 
 - Le bridge simulé transmet jusqu'à **80 pistes** pour une playlist via une seule requête `fetchPlaylist` (offset 0) dans ce code historique. Titres likés utilise une première requête de **50 pistes**. Aucune pagination supplémentaire n'est effectuée par ces deux chemins dans le scénario testé ; cela ne détermine pas le contenu réellement reçu sur Spotify aujourd'hui.
@@ -33,7 +45,7 @@ L'APK locale **non signée**, reconstruite au tour précédent, a été décompi
 
 ## Reproduction et intégration
 
-Les tests sont dans `diagnostic-simulation.test.cjs` et `playlist-playback.test.cjs`. Le job manuel `v1.2.2-test.9003-preview` installe `jsdom`, applique le CSS Glass dans son checkout historique jetable puis exécute les 71 tests ciblés historiques et les 33 simulations ; il conserve le rapport complet historique. Le workflow **n'a pas été lancé**. Aucun fichier applicatif, en-tête, authentification ou CSS n'a été modifié pendant ces tests.
+Les tests sont dans `diagnostic-simulation.test.cjs` et `playlist-playback.test.cjs`. Le job manuel `v1.2.2-test.9003-preview` installe `jsdom`, applique le CSS Glass dans son checkout historique jetable puis exécute les 71 tests ciblés historiques, les 33 simulations et les 6 tests de caractérisation Smali ; il recompilera puis redécompilera également le dex et rejouera ces 6 tests ; il conserve le rapport complet historique. Le workflow **n'a pas été lancé**. Aucun fichier applicatif, en-tête, authentification ou CSS n'a été modifié pendant ces tests.
 
 Sur une copie du commit historique avec `jsdom@26.1.0` disponible :
 
@@ -44,4 +56,4 @@ node --test docs/audits/2026-11-04-preview-historique-glass/diagnostic-simulatio
   docs/audits/2026-11-04-preview-historique-glass/playlist-playback.test.cjs
 ```
 
-L'étape restante est une compilation signée Preview, puis le test sur téléphone décrit dans [README.md](README.md), quand l'utilisateur pourra le faire. Ne pas effacer les données ni demander de cookies, jetons ou captures privées.
+Avant toute conclusion sur un build signé, les défauts natifs ci-dessus nécessitent une décision sur un éventuel correctif ; le test sur téléphone décrit dans [README.md](README.md), quand l'utilisateur pourra le faire. Ne pas effacer les données ni demander de cookies, jetons ou captures privées.
