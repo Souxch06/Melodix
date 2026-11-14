@@ -143,7 +143,7 @@ L'APK locale **non signée**, reconstruite au tour précédent, a été décompi
 
 ## Reproduction et intégration
 
-Les tests sont dans `diagnostic-simulation.test.cjs` et `playlist-playback.test.cjs`. Le job manuel `v1.2.2-test.9003-preview` installe `jsdom`, applique le CSS Glass dans son checkout historique jetable puis exécute les 71 tests ciblés historiques, les 88 simulations, les 27 tests de caractérisation Smali et 4 contrôles CSS/callback, ainsi que 8 tests Python de préparation sur fixtures jetables ; il recompilera puis redécompilera également le dex et rejouera le groupe de 49 tests Smali/CSS/scrape/session et les sept chaînes simulées ; il conserve le rapport complet historique. Le workflow **n'a pas été lancé**. Aucun fichier applicatif, en-tête, authentification ou CSS n'a été modifié pendant ces tests.
+Les tests sont dans `diagnostic-simulation.test.cjs` et `playlist-playback.test.cjs`. Le job manuel `v1.2.2-test.9003-preview` installe `jsdom`, applique le CSS Glass dans son checkout historique jetable puis exécute les 71 tests ciblés historiques, les 88 simulations, les 27 tests de caractérisation Smali et 4 contrôles CSS/callback, ainsi que 8 tests Python de préparation sur fixtures jetables ; il recompilera puis redécompilera également le dex et rejouera le groupe de 49 tests Smali/CSS/scrape/session et les sept chaînes simulées ; il conserve le rapport complet historique. Le workflow a ensuite été lancé à la demande de l’utilisateur : le [run signé 43637405591](https://github.com/Souxch06/Melodix/actions/runs/43637405591) a réussi, sans essai Android ou téléphone. Aucun fichier applicatif, en-tête, authentification ou CSS n'a été modifié pendant ces tests.
 
 Sur une copie du commit historique avec `jsdom@26.1.0` disponible :
 
