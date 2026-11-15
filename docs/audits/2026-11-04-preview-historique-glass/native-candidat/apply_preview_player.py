@@ -113,6 +113,46 @@ def prepare(root):
             if (position >= 0 && duration > 0 && position <= duration) previewSource = 'clock';
             else { position = -1; duration = -1; }
         }''')
+    # Reuse only the bridge's already published in-memory library when the
+    # bridge can positively attest it belongs to the current session. This
+    # emits existing rows immediately; the existing fetch still owns updates.
+    s = replace(s, '''        // Exact same rows that have already appeared in Home, scoped to the
+        // current in-memory bearer session. Never copy recommendation shelves.''', '''        if (typeof window.__sfNativeMediaTokenMatches === 'function' &&
+            window.__sfNativeMediaTokenMatches() === true && window.mediaLib &&
+            Array.isArray(window.mediaLib[category])) {
+            window.mediaLib[category].forEach(add);
+        }
+        // Exact same rows that have already appeared in Home, scoped to the
+        // current in-memory bearer session. Never copy recommendation shelves.''')
+    # Never force-reload the WebView during an observed playback just to
+    # display a collection: the page owns the audio session. Keep the pending
+    # bridge request alive, so a late result may still replace the status row.
+    s = replace(s, '''        function navigate() {
+            if (window.__sfNativeCollectionRequest !== requestId) return false;
+            stopCollectionFallback();
+            return window.__sfNativeOpenUri(uri);
+        }''', '''        function navigate() {
+            if (window.__sfNativeCollectionRequest !== requestId) return false;
+            stopCollectionFallback();
+            if (playbackSnapshot().playing) {
+                if (!window.__sfNativeCollectionHasData) sendNativeUiData('detail', [{title:'Chargement en attente',
+                    subtitle:'La lecture continue. Les titres apparaîtront si Spotify les fournit.', settingValue:'Info', uri:''}]);
+                return false;
+            }
+            return window.__sfNativeOpenUri(uri);
+        }''')
+    s = replace(s, '''        if (shown || path === target || path.indexOf(target + '/') === 0) return true;
+        window.location.assign('https://open.spotify.com' + target);''', '''        if (shown || path === target || path.indexOf(target + '/') === 0) return true;
+        if (playbackSnapshot().playing) {
+            sendNativeUiData('media:' + key, [{title:'Bibliothèque momentanément indisponible',
+                subtitle:'La lecture continue. Réessayez lorsque Spotify sera prêt.', settingValue:'Info', uri:''}]);
+            return false;
+        }
+        window.location.assign('https://open.spotify.com' + target);''')
+    s = replace(s, '''        if (!isSpotifyHome()) {
+            window.location.assign('https://open.spotify.com/');''', '''        if (!isSpotifyHome()) {
+            if (playbackSnapshot().playing) return false;
+            window.location.assign('https://open.spotify.com/');''')
     s = replace(s, '''            cover: cover || '',
             position: position > 0 ? Math.round(position) : 0,
             duration: duration > 0 ? Math.round(duration) : 0''', '''            cover: cover || '',
@@ -328,6 +368,23 @@ def prepare(root):
 '''
     files[path] = s
 
+    # Larger playlist title uses only the title already selected natively;
+    # no invented artwork, count, availability, or playback action.
+    s = files['smali/com/melodix/music/MainActivity.smali']
+    s = replace(s, '''    const-string v3, "Titres de la playlist"
+    invoke-virtual {v2, v3}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    const/high16 v3, 0x41600000    # 14sp''', '''    const-string v3, "Titres de la playlist"
+    iget-object v4, p0, Lcom/melodix/music/MainActivity;->nativeCurrentTitle:Ljava/lang/String;
+    if-eqz v4, :preview_heading_title_ready
+    invoke-virtual {v4}, Ljava/lang/String;->isEmpty()Z
+    move-result v5
+    if-nez v5, :preview_heading_title_ready
+    move-object v3, v4
+    :preview_heading_title_ready
+    invoke-virtual {v2, v3}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    const/high16 v3, 0x41a00000    # 20sp''')
+    files['smali/com/melodix/music/MainActivity.smali'] = s
+
     path = 'smali/m9.smali'; s = files[path]
     s = replace(s, '''.method public static g(Landroid/content/Context;)Landroid/webkit/WebView;
     .locals 4
@@ -378,6 +435,26 @@ def prepare(root):
     :preview_not_about
     const/4 v0, 0x0
     invoke-virtual {v2, v0}, Landroid/widget/LinearLayout;->setOrientation(I)V''')
+    # Modern glass card; keep settings text, enabled state and click wiring.
+    s = replace(s, '''    const v0, 0xcc141222
+    invoke-virtual {v3, v0}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
+    const/high16 v0, 0x41600000
+    invoke-virtual {v3, v0}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V''', '''    const/4 v0, 0x2
+    new-array v0, v0, [I
+    const/4 v1, 0x0
+    const v10, 0xee302342
+    aput v10, v0, v1
+    const/4 v1, 0x1
+    const v10, 0xee171421
+    aput v10, v0, v1
+    invoke-virtual {v3, v0}, Landroid/graphics/drawable/GradientDrawable;->setColors([I)V
+    sget-object v0, Landroid/graphics/drawable/GradientDrawable$Orientation;->TL_BR:Landroid/graphics/drawable/GradientDrawable$Orientation;
+    invoke-virtual {v3, v0}, Landroid/graphics/drawable/GradientDrawable;->setOrientation(Landroid/graphics/drawable/GradientDrawable$Orientation;)V
+    const/16 v0, 0x12
+    invoke-static {p0, v0}, Lcom/melodix/music/NativeSettingsRowFactory;->dp(Landroid/content/Context;I)I
+    move-result v0
+    int-to-float v0, v0
+    invoke-virtual {v3, v0}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V''')
     files[path] = s
     return files
 

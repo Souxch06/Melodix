@@ -66,3 +66,52 @@ test('native detail contains renderer fields and preserves media browser fields'
 test('canonical fetch of an open.spotify.com URL returns under the originally selected native ID',async()=>{const x=init(()=>response('one'));try{const url='https://open.spotify.com/playlist/abc';x.w.__sfOpenCollection(url);await wait();assert.equal(media(x,url).length,1);fire(x);assert.equal(x.nav.length,0)}finally{x.close()}});
 test('when bridge is absent it navigates immediately to the real collection',()=>{const x=bootstrap();try{x.nav=[];x.w.__sfNativeOpenUri=uri=>{x.nav.push(uri);return true};x.w.__sfOpenCollection('spotify:playlist:abc');assert.deepEqual(x.nav,['spotify:playlist:abc'])}finally{x.close()}});
 test('the old Spotify detail DOM cannot replace the newly selected collection or cancel its fallback',async()=>{const d=deferred(),x=init(()=>d.promise);try{x.w.history.replaceState({},'', '/playlist/old');x.w.document.querySelector('#main-view').innerHTML='<h1>Old</h1><a href="/track/oldtrack">Old Track</a>';x.w.__sfOpenCollection('spotify:playlist:new');await wait();x.calls.length=0;x.w.__sfNativeUiRefresh();assert.ok(!x.calls.some(c=>c.event==='native'&&(c.id==='detail'||c.id==='screen-title')));fire(x);assert.deepEqual(x.nav,['spotify:playlist:new']);d.resolve(response('late'));await wait();assert.equal(media(x,'spotify:playlist:new').length,0)}finally{x.close()}});
+
+test('active playback prevents the delayed collection page reload, while late bridge data remains eligible',async()=>{
+ const d=deferred(),x=init(()=>d.promise);try{
+  x.w.document.body.insertAdjacentHTML('beforeend','<button data-testid="control-button-playpause" aria-label="Pause"></button>');
+  const id='spotify:playlist:playing';x.w.__sfOpenCollection(id);await wait();fire(x);assert.equal(x.nav.length,0);
+  assert.ok(x.calls.some(c=>c.event==='native'&&c.id==='detail'&&c.rows[0]?.title==='Chargement en attente'));
+  d.resolve(response('late'));await wait();assert.equal(media(x,id).length,1);assert.equal(media(x,id)[0].rows[0].id,'spotify:track:late');
+ }finally{x.close()}
+});
+test('active playback prevents collection reload even if the bridge has not started',()=>{
+ const x=bootstrap();try{x.nav=[];x.w.__sfNativeOpenUri=u=>{x.nav.push(u);return true};
+  x.w.document.body.insertAdjacentHTML('beforeend','<button data-testid="control-button-playpause" aria-label="Pause"></button>');
+  assert.equal(x.w.__sfOpenCollection('spotify:playlist:abc'),false);assert.deepEqual(x.nav,[]);
+  assert.ok(x.calls.some(c=>c.event==='native'&&c.id==='detail'&&c.rows[0]?.title==='Chargement en attente'));
+ }finally{x.close()}
+});
+
+test('active playback prevents library fallback from reloading the web player',()=>{
+ const x=bootstrap();try{
+  x.w.document.body.insertAdjacentHTML('beforeend','<button data-testid="control-button-playpause" aria-label="Pause"></button>');
+  assert.equal(x.w.__sfOpenLibrary(),false);
+  assert.ok(x.calls.some(c=>c.event==='native'&&c.id==='media:playlists'&&c.rows[0]?.title==='Bibliothèque momentanément indisponible'));
+  assert.equal(x.w.location.pathname,'/search');assert.equal(x.requests.length,0);
+ }finally{x.close()}
+});
+test('a cancelled collection never posts the delayed playback-safe message',async()=>{
+ const d=deferred(),x=init(()=>d.promise);try{
+  x.w.document.body.insertAdjacentHTML('beforeend','<button data-testid="control-button-playpause" aria-label="Pause"></button>');
+  x.w.__sfOpenCollection('spotify:playlist:abc');await wait();x.w.__sfCancelPendingCollection();fire(x);
+  assert.ok(!x.calls.some(c=>c.event==='native'&&c.id==='detail'&&c.rows[0]?.title==='Chargement en attente'));assert.deepEqual(x.nav,[]);
+ }finally{x.close()}
+});
+
+test('library can show verified in-memory entries synchronously without a request',()=>{
+ const x=bootstrap();try{
+  x.w.mediaLib={playlists:[{name:'Existing',id:'spotify:playlist:abc'}]};x.w.__sfNativeMediaTokenMatches=()=>true;
+  assert.equal(x.w.__sfOpenLibrary(),true);
+  const call=x.calls.filter(c=>c.event==='native'&&c.id==='media:playlists').at(-1);
+  assert.equal(call.rows[0].title,'Existing');assert.equal(call.rows[0].uri,'spotify:playlist:abc');assert.equal(x.requests.length,0);
+ }finally{x.close()}
+});
+test('library refuses in-memory entries when account provenance is missing or mismatched',()=>{
+ for (const proof of [undefined,()=>false]) {const x=bootstrap();try{
+  x.w.document.body.insertAdjacentHTML('beforeend','<button data-testid="control-button-playpause" aria-label="Pause"></button>');
+  x.w.mediaLib={playlists:[{name:'Other account',id:'spotify:playlist:other'}]};x.w.__sfNativeMediaTokenMatches=proof;
+  x.w.__sfOpenLibrary();const data=x.calls.filter(c=>c.event==='native'&&c.id==='media:playlists');
+  assert.ok(data.length);assert.ok(data.every(c=>c.rows.every(r=>r.title!=='Other account')));assert.equal(x.requests.length,0);
+ }finally{x.close()}}
+});

@@ -71,6 +71,24 @@ class PreviewPlayer(unittest.TestCase):
         widget = ET.fromstring((ROOT/'res/layout/widget_expanded.xml').read_text())
         self.assertTrue(any(x.get(android+'progressDrawable') == '@drawable/widget_progress_drawable' for x in widget.iter('ProgressBar')))
 
+    def test_settings_glass_keeps_actions_and_accessibility(self):
+        settings = method(self.get('smali/com/melodix/music/NativeSettingsRowFactory.smali'), '.method public static create(')
+        self.assertIn('GradientDrawable;->setColors([I)V', settings)
+        self.assertIn('GradientDrawable;->setOrientation(', settings)
+        self.assertIn('->dp(Landroid/content/Context;I)I', settings)
+        self.assertIn('NativeRowClickListener;', settings)
+        self.assertIn('setFocusable(Z)V', settings)
+        self.assertIn('attachPreviewAbout(Landroid/view/View;)V', settings)
+
+    def test_playlist_heading_uses_selected_title_without_inventing_a_play_action(self):
+        activity = self.get('smali/com/melodix/music/MainActivity.smali')
+        heading = method(activity, '.method public final addNativePlaylistHeading(')
+        self.assertIn('nativeExpectedId:Ljava/lang/String;', heading)
+        self.assertIn('nativeCurrentTitle:Ljava/lang/String;', heading)
+        self.assertIn('Titres de la playlist', heading)
+        self.assertNotIn('playFromUri', heading)
+        self.assertNotIn('setOnClickListener', heading)
+
     def test_route_and_about_row_are_native_and_discreet(self):
         a=self.get('smali/com/melodix/music/MainActivity.smali')
         apply=method(a,'.method public final applyNativeUiData(')
