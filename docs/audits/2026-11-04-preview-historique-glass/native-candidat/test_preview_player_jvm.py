@@ -36,7 +36,8 @@ STUBS = {
 'android/widget/ImageView.java': '''package android.widget; public class ImageView extends android.view.View { public int image; public void setImageResource(int x){image=x;} }''',
 'android/widget/ProgressBar.java': '''package android.widget; public class ProgressBar extends android.view.View { public int max,progress; public android.graphics.drawable.Drawable drawable=new android.graphics.drawable.LayerDrawable(); public android.graphics.drawable.Drawable getProgressDrawable(){return drawable;} public int getMax(){return max;} public int getProgress(){return progress;} public void setMax(int x){max=x;} public void setProgress(int x){progress=x;} }''',
 'android/widget/SeekBar.java': """package android.widget; public class SeekBar extends ProgressBar { public interface OnSeekBarChangeListener { void onStartTrackingTouch(SeekBar b); void onProgressChanged(SeekBar b,int p,boolean u); void onStopTrackingTouch(SeekBar b); } public OnSeekBarChangeListener listener; public void setOnSeekBarChangeListener(OnSeekBarChangeListener x){listener=x;} }""",
-'android/webkit/WebView.java': """package android.webkit; public class WebView extends android.view.View { public int calls; public String js; public void evaluateJavascript(String s,Object callback){calls++;js=s;} }""",
+'android/webkit/ValueCallback.java': """package android.webkit; public interface ValueCallback<T> { void onReceiveValue(T value); }""",
+'android/webkit/WebView.java': """package android.webkit; public class WebView extends android.view.View { public int calls; public String js; public ValueCallback<String> callback; public void evaluateJavascript(String s,ValueCallback<String> c){calls++;js=s;callback=c;} public void reply(String s){if(callback!=null)callback.onReceiveValue(s);} }""",
 'android/app/Activity.java': '''package android.app; import java.util.*;import android.view.View; public class Activity extends android.content.Context { public Map<Integer,View> views=new HashMap<Integer,View>(); public View findViewById(int i){return views.get(i);} }''',
 'android/app/AlertDialog.java': '''package android.app;import android.content.DialogInterface; public class AlertDialog { public static DialogInterface.OnClickListener copy; public static String body; public static class Builder { public Builder(Activity a){} public Builder setTitle(CharSequence s){return this;} public Builder setMessage(CharSequence s){body=s.toString();return this;} public Builder setPositiveButton(CharSequence s,DialogInterface.OnClickListener l){copy=l;return this;} public Builder setNegativeButton(CharSequence s,DialogInterface.OnClickListener l){return this;} public AlertDialog show(){return new AlertDialog();} } }''',
 # Flat fake data format is sufficient to exercise the controller, not JSON parsing.
@@ -75,24 +76,52 @@ public class ControllerTest {
   seek.snapshot(sample("Seek","Artist",10000,120000,"playing",""));
   full.listener.onStartTrackingTouch(full);full.listener.onProgressChanged(full,500,true);
   yes(elapsed.text.equals("1:00"));eq(web.calls,0);
-  seek.snapshot(sample("Seek","Artist",11000,120000,"playing",""));yes(elapsed.text.equals("1:00"));
+  seek.snapshot(sample("Seek","Artist",11000,120000,"playing","")+";previewConfirmPositionMs=11000");yes(elapsed.text.equals("1:00"));
+  SystemClock.time+=250;
   full.listener.onStopTrackingTouch(full);full.listener.onStopTrackingTouch(full);eq(web.calls,1);yes(web.js.contains("60000"));
-  SystemClock.time+=1000;seek.snapshot(sample("Seek","Artist",60000,120000,"playing","")+";previewConfirmPositionMs=12000");yes(mini.progress>=500);
-  seek.snapshot(sample("Seek","Artist",60000,120000,"playing","")+";previewConfirmPositionMs=61000");SystemClock.time+=5000;Handler.flush();eq(Toast.count,0);
+  SystemClock.time+=40;web.reply("true");
+  SystemClock.time+=960;seek.snapshot(sample("Seek","Artist",60000,120000,"playing","")+";previewConfirmPositionMs=12000");yes(mini.progress>=500);
+  SystemClock.time+=400;seek.snapshot(sample("Seek","Artist",60000,120000,"playing","")+";previewConfirmPositionMs=61000");
+  report=(String)reportMethod.invoke(seek);yes(report.contains("envoi WebView : 0 ms ; fin JS : 40 ms (action invoquée)"));
+  yes(report.contains("première position UI différente : 1000 ms ; position UI confirmée : 1400 ms"));
+  yes(report.contains("âge dernière observation reçue au relâchement : 250 ms"));yes(report.contains("position UI ≠ son"));
+  yes(!report.contains("Artist"));
+  SystemClock.time+=5000;Handler.flush();eq(Toast.count,0);
   // Tap / release beyond the right edge is clamped, including while paused.
   seek.snapshot(sample("Seek","Artist",61000,120000,"paused",""));
   full.listener.onStartTrackingTouch(full);full.listener.onProgressChanged(full,1500,true);full.listener.onStopTrackingTouch(full);eq(web.calls,2);yes(web.js.contains("120000"));yes(elapsed.text.equals("2:00"));
+  web.reply("false");
   seek.snapshot(sample("Seek","Artist",120000,120000,"paused","")+";previewConfirmPositionMs=70000");SystemClock.time+=5001;Handler.flush();yes(elapsed.text.equals("1:10"));eq(Toast.count,1);
+  report=(String)reportMethod.invoke(seek);yes(report.contains("action refusée"));yes(report.contains("non confirmée après 5 s"));
   // Track change during drag cancels; track change after dispatch cancels timeout.
   full.listener.onStartTrackingTouch(full);full.listener.onProgressChanged(full,200,true);
   seek.snapshot(sample("Next","Artist",1000,120000,"playing",""));full.listener.onStopTrackingTouch(full);eq(web.calls,2);yes(elapsed.text.equals("0:01"));
   full.listener.onStartTrackingTouch(full);full.listener.onProgressChanged(full,400,true);full.listener.onStopTrackingTouch(full);eq(web.calls,3);
   seek.snapshot(sample("Next2","Artist",2000,120000,"playing",""));SystemClock.time+=5001;Handler.flush();eq(Toast.count,1);yes(!elapsed.text.equals("0:48"));
+  report=(String)reportMethod.invoke(seek);yes(report.contains("annulé (identité changée ou invalide)"));
   // A cancelled gesture must not dispatch a seek.
   full.listener.onStartTrackingTouch(full);full.listener.onProgressChanged(full,600,true);
   seek.onTouch(full,new MotionEvent());full.listener.onStopTrackingTouch(full);eq(web.calls,3);
   // Hour formatting comes from the same real duration and clamped target.
   seek.snapshot(sample("Long","Artist",1000,7200000,"paused",""));full.listener.onStartTrackingTouch(full);full.listener.onProgressChanged(full,500,true);yes(elapsed.text.equals("1:00:00"));full.listener.onStopTrackingTouch(full);
+  // No baseline: absence is not reported as an observed change. Missing WebView
+  // is also explicit; neither case invents an acknowledgement.
+  PreviewPlayerController absent=new PreviewPlayerController(a);absent.attachSeek(null);SystemClock.time+=100;
+  absent.snapshot(sample("Unknown","Artist",1000,120000,"playing",""));
+  full.listener.onStartTrackingTouch(full);full.listener.onProgressChanged(full,500,true);full.listener.onStopTrackingTouch(full);
+  SystemClock.time+=800;absent.snapshot(sample("Unknown","Artist",60000,120000,"playing","")+";previewConfirmPositionMs=2000");
+  report=(String)reportMethod.invoke(absent);yes(report.contains("envoi WebView : —"));yes(report.contains("WebView indisponible"));
+  yes(report.contains("première position UI différente : —"));yes(report.contains("âge dernière observation reçue au relâchement : —"));
+  // Only eight seeks retained; a late callback from an overwritten slot cannot
+  // overwrite another gesture's diagnostics or issue extra commands.
+  PreviewPlayerController ring=new PreviewPlayerController(a);android.webkit.WebView w2=new android.webkit.WebView();ring.attachSeek(w2);
+  ring.snapshot(sample("PrivateTitle","PrivateArtist",10000,120000,"playing","")+";previewConfirmPositionMs=10000");
+  android.webkit.ValueCallback<String> oldCallback=null;
+  for(int i=0;i<9;i++){full.listener.onStartTrackingTouch(full);full.listener.onProgressChanged(full,300+i,true);full.listener.onStopTrackingTouch(full);if(i==0)oldCallback=w2.callback;}
+  oldCallback.onReceiveValue("true");eq(w2.calls,9);
+  report=(String)reportMethod.invoke(ring);yes(!report.contains("#1 relâchement"));yes(report.contains("#9 relâchement"));
+  yes(!report.contains("action invoquée"));yes(!report.contains("PrivateTitle")&&!report.contains("PrivateArtist"));
+  yes(report.contains("remplacé par un nouveau geste"));
   // Playlist timing is monotonic, anonymous, and only uses observed phases.
   PreviewPlayerController metrics=new PreviewPlayerController(a);SystemClock.time=300000;metrics.playlistOpened("spotify:playlist:Secret");metrics.loadState("waiting-bridge:unknown");
   SystemClock.time+=3000;metrics.phase("bridge-ready");SystemClock.time+=100;metrics.phase("navigation");SystemClock.time+=500;metrics.phase("page-ready|spotify:playlist:Wrong");

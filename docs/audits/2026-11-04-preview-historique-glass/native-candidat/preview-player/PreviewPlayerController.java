@@ -20,6 +20,7 @@ import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.SeekBar;
 import android.webkit.WebView;
+import android.webkit.ValueCallback;
 import android.widget.TextView;
 import android.widget.Toast;
 import org.json.JSONArray;
@@ -42,6 +43,18 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     private WeakReference<WebView> seekWeb = new WeakReference<WebView>(null);
     private boolean dragging, seekPending;
     private long seekTarget, seekAt, seekSerial, seekFallbackAt, seekFallbackPosition;
+    // Last eight gestures, in memory only. Times use Android's monotonic clock.
+    // The baseline is a UI observation, not audio and not a Spotify ack.
+    private final long[] seekDiagSeq = new long[8], seekDiagRelease = new long[8], seekDiagSubmit = new long[8],
+        seekDiagCallback = new long[8], seekDiagDifferent = new long[8], seekDiagConfirm = new long[8],
+        seekDiagAge = new long[8], seekDiagBaseline = new long[8];
+    private final String[] seekDiagResult = new String[8], seekDiagOutcome = new String[8];
+    private int seekDiagIndex = -1, seekDiagCount;
+    private long seekDiagSequence, independentObservationAt = -1, independentObservation = -1;
+    private void seekDiagFinish(String outcome) {
+        if (seekDiagIndex >= 0 && seekDiagRelease[seekDiagIndex] >= 0 && seekDiagConfirm[seekDiagIndex] < 0)
+            seekDiagOutcome[seekDiagIndex] = outcome;
+    }
     public void attachSeek(WebView web) {
         seekWeb = new WeakReference<WebView>(web);
         Activity a = activity.get(); View v = a == null ? null : a.findViewById(FULL);
@@ -54,11 +67,15 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         if (event.getActionMasked() == MotionEvent.ACTION_CANCEL && dragging) { dragging = false; renderProgress(); }
         return false; // SeekBar retains native tap, drag and out-of-bounds release handling.
     }
-    private void cancelSeek() { dragging = false; seekPending = false; seekSerial++; }
+    private void cancelSeek() {
+        if (seekPending) seekDiagFinish("annulé (identité changée ou invalide)");
+        dragging = false; seekPending = false; seekSerial++;
+    }
     @Override public void onStartTrackingTouch(SeekBar bar) {
         if (valid && tupleIdentity && duration > 0) {
             long t = now(); long shown = (long) positionUnderlying(t);
             if (seekPending) {
+                seekDiagFinish("remplacé par un nouveau geste");
                 seekPending = false; seekSerial++;
                 base = Math.max(0, Math.min(duration, seekFallbackPosition + (playbackState.equals("playing") ? Math.max(0, t - seekFallbackAt) : 0)));
                 anchor = t; correction = 0;
@@ -76,6 +93,14 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         dragging = false;
         if (!valid || !tupleIdentity) { renderProgress(); return; }
         long t = now();
+        seekDiagIndex = (seekDiagIndex + 1) % seekDiagSeq.length;
+        if (seekDiagCount < seekDiagSeq.length) seekDiagCount++;
+        final int diag = seekDiagIndex; final long diagId = ++seekDiagSequence;
+        seekDiagSeq[diag] = diagId; seekDiagRelease[diag] = t;
+        seekDiagSubmit[diag] = seekDiagCallback[diag] = seekDiagDifferent[diag] = seekDiagConfirm[diag] = -1;
+        seekDiagAge[diag] = independentObservationAt < 0 ? -1 : Math.max(0, t - independentObservationAt);
+        seekDiagBaseline[diag] = independentObservation;
+        seekDiagResult[diag] = "en attente"; seekDiagOutcome[diag] = "en attente";
         seekFallbackPosition = (long) positionUnderlying(t); seekFallbackAt = t;
         seekAt = t; seekPending = true; final long id = ++seekSerial;
         base = seekTarget; anchor = t; correction = 0;
@@ -85,11 +110,20 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         if (w != null) {
             String js = "window.__sfPreviewSeek&&window.__sfPreviewSeek(" + seekTarget + "," +
                 JSONObject.quote(identityTitle) + "," + JSONObject.quote(identityArtist) + "," + duration + "," + JSONObject.quote(track) + ");";
-            w.evaluateJavascript(js, null);
-        }
+            seekDiagSubmit[diag] = now();
+            w.evaluateJavascript(js, new ValueCallback<String>() {
+                public void onReceiveValue(String result) {
+                    if (seekDiagSeq[diag] != diagId) return;
+                    seekDiagCallback[diag] = now();
+                    seekDiagResult[diag] = "true".equals(result) ? "action invoquée" :
+                        ("false".equals(result) ? "action refusée" : "résultat indisponible");
+                }
+            });
+        } else seekDiagResult[diag] = "WebView indisponible";
         handler.postDelayed(new Runnable() { public void run() {
             if (!seekPending || id != seekSerial) return;
             long at = now(); seekPending = false;
+            seekDiagFinish("non confirmée après 5 s");
             base = Math.max(0, Math.min(duration, seekFallbackPosition + (playbackState.equals("playing") ? Math.max(0, at - seekFallbackAt) : 0)));
             anchor = at; correction = 0; moving = playbackState.equals("playing") && tupleIdentity;
             renderProgress(); scheduleFrame();
@@ -366,15 +400,25 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             glowSampleValid = snapshotValid;
             tupleIdentity = identified;
             if (changed) {
-                cancelSeek(); valid = false; moving = false; previous = Double.NaN;
+                cancelSeek(); independentObservationAt = independentObservation = -1;
+                valid = false; moving = false; previous = Double.NaN;
                 measurementAt = measurementPosition = -1;
             }
             identityTitle = identified ? title : ""; identityArtist = identified ? artist : "";
             identityDuration = identified ? dur : -1;
             if (!uri.isEmpty() || changed) track = uri;
+            // Do not use previewPositionMs: actSeek itself writes its range property.
+            // These are received UI samples, which may already be stale in Spotify.
+            long observed = o.optLong("previewConfirmPositionMs", -1);
+            if (identified && observed >= 0 && observed <= dur) {
+                if (seekPending && !changed && seekDiagIndex >= 0 && seekDiagBaseline[seekDiagIndex] >= 0 &&
+                    seekDiagDifferent[seekDiagIndex] < 0 && observed != seekDiagBaseline[seekDiagIndex])
+                    seekDiagDifferent[seekDiagIndex] = t;
+                independentObservation = observed; independentObservationAt = t;
+            }
             boolean seekConfirmed = false;
             if (seekPending && !changed) {
-                long confirm = o.optLong("previewConfirmPositionMs", -1);
+                long confirm = observed;
                 long elapsed = real ? Math.max(0, t - seekAt) : 0;
                 long expected = Math.min(dur, seekTarget + elapsed);
                 if (confirm >= 0 && confirm <= dur) {
@@ -388,6 +432,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 }
                 // A clock separate from the written range has reached the
                 // target. Smoothly reconcile from the optimistic display.
+                if (seekDiagIndex >= 0) { seekDiagConfirm[seekDiagIndex] = t; seekDiagOutcome[seekDiagIndex] = "position UI proche de la cible"; }
                 seekPending = false; seekSerial++; seekConfirmed = true; pos = confirm;
                 snapshotValid = true; backward = false; changedMeasure = true;
                 measurementPosition = measurementAt = -1;
@@ -514,6 +559,21 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             .append(" ; rendu natif : ").append(rowsAt < 0 ? "non observé" : "lignes visibles");
         out.append("\nPhase dominante : ").append(dominantPhase());
         out.append(" ; waiting-bridge avec lignes : ").append(rowsAt < 0 ? "indéterminé" : ((stageAtRows.startsWith("waiting-bridge") || staleWaitingObserved) ? "oui (corrigé à la réception)" : "non"));
+        out.append("\nSeek — 8 derniers gestes (durées depuis le relâchement) :");
+        if (seekDiagCount == 0) out.append(" aucun");
+        for (int i = 0; i < seekDiagCount; i++) {
+            int n = (seekDiagIndex - seekDiagCount + 1 + i + seekDiagSeq.length) % seekDiagSeq.length;
+            out.append("\n#").append(seekDiagSeq[n]).append(" relâchement : 0 ms ; envoi WebView : ")
+                .append(phaseDuration(seekDiagRelease[n], seekDiagSubmit[n]));
+            out.append(" ; fin JS : ").append(phaseDuration(seekDiagRelease[n], seekDiagCallback[n]))
+                .append(" (").append(seekDiagResult[n]).append(")");
+            out.append(" ; première position UI différente : ").append(phaseDuration(seekDiagRelease[n], seekDiagDifferent[n]));
+            out.append(" ; position UI confirmée : ").append(phaseDuration(seekDiagRelease[n], seekDiagConfirm[n]))
+                .append(" (").append(seekDiagOutcome[n]).append(")");
+            out.append(" ; âge dernière observation reçue au relâchement : ")
+                .append(seekDiagAge[n] < 0 ? "—" : Long.toString(seekDiagAge[n]) + " ms");
+        }
+        out.append("\nSeek : observation UI périodique (~1 s), potentiellement déjà périmée ; un changement peut être la progression normale. Fin JS ≠ accusé Spotify ; position UI ≠ son. Délai Spotify/audio non isolable ici.");
         out.append("\nIntervalles position : ");
         if (intervalCount == 0) out.append("—");
         for (int i = 0; i < intervalCount; i++) {
