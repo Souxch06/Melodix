@@ -13,7 +13,7 @@ class TestRefresh(unittest.TestCase):
  def get(self,name):return self.data[name] if INPUT else (ROOT/name).read_text(encoding='utf8')
  def test_pinned_and_protected(self):
   if INPUT:
-   self.assertEqual(set(self.data),{refresh.ACTIVITY,refresh.HELPER})
+   self.assertEqual(set(self.data),{refresh.ACTIVITY,refresh.RETRY,refresh.HELPER})
    from verify_9016_protected_assets import ASSET_SHA256
    self.assertFalse(set(self.data)&set(ASSET_SHA256))
   self.assertEqual(hashlib.sha256((HERE/'glass-refresh/GlassScreenStyler.java').read_bytes()).hexdigest(),refresh.SOURCE_SHA)
@@ -36,6 +36,11 @@ class TestRefresh(unittest.TestCase):
   helper=self.get(refresh.HELPER)
   self.assertNotIn('setOnClickListener',helper);self.assertNotIn('playFromUri',helper)
   self.assertNotIn('\ufffd',helper)
+ def test_home_retry_register_does_not_alias_receiver(self):
+  text=self.get(refresh.RETRY);start=text.index('.method public final run()V');run=text[start:text.index('.end method',start)]
+  self.assertIn('.locals 5',run)
+  self.assertIn('const-wide/16 v3, 0x190',run)
+  self.assertIn('invoke-virtual {v2, p0, v3, v4}',run)
  def test_no_change_to_protected_and_input(self):
   if not INPUT:self.skipTest('input only')
   orig=(ROOT/refresh.ACTIVITY).read_text();new=self.get(refresh.ACTIVITY)

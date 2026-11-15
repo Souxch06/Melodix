@@ -9,6 +9,8 @@ from pathlib import Path
 HERE=Path(__file__).resolve().parent
 ACTIVITY='smali/com/melodix/music/MainActivity.smali'
 HELPER='smali/com/melodix/music/GlassScreenStyler.smali'
+RETRY='smali/com/melodix/music/NativeHomeRetryRunnable.smali'
+RETRY_SHA='95c78f85877e64c390743dcb77fcd4ff98541638fad8c8d3c85904ef3fd5b703'
 EXPECTED='01a66bb8c2da219a47dda338b620d93a48698d899bdfafec8d87364841b387dd'
 SOURCE_SHA='1ad0da37b2964996f2efc4638ca9ab00c01624a56172b1559f466a3ae22b03f3'
 HELPER_SHA='0fc8d76f46cf325fd7a980f7c7e237b66542634a134f3aacd20c1accbdb5c157'
@@ -20,7 +22,7 @@ def method(s,name):
     i=s.index('.method public final '+name+'(');j=s.index('.end method',i)+len('.end method');return i,j,s[i:j]
 def prepare(root):
     root=Path(root);src=HERE/'glass-refresh/GlassScreenStyler.java';helper=HERE/'glass-refresh/smali/GlassScreenStyler.smali'
-    if sha(root/ACTIVITY)!=EXPECTED:raise ValueError('unexpected MainActivity input')
+    if sha(root/ACTIVITY)!=EXPECTED or sha(root/RETRY)!=RETRY_SHA:raise ValueError('unexpected native input')
     if sha(src)!=SOURCE_SHA or sha(helper)!=HELPER_SHA:raise ValueError('refresh helper not regenerated')
     if (root/HELPER).exists():raise ValueError('refresh helper already present')
     s=(root/ACTIVITY).read_text(encoding='utf-8')
@@ -50,7 +52,11 @@ def prepare(root):
     return-void''','''    invoke-virtual {v2, v6}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
 '''+decorate+'''    return-void''')
     s=s[:a]+new+s[b:]
-    return {ACTIVITY:s,HELPER:helper.read_text(encoding='utf-8')}
+    # v3/v4 are a wide delay. With .locals 4, p0 aliases v4 and ART
+    # rejects run(): p0 is overwritten by the high half of the delay.
+    retry=(root/RETRY).read_text(encoding='utf-8')
+    retry=replace(retry, '.method public final run()V\n    .locals 4', '.method public final run()V\n    .locals 5')
+    return {ACTIVITY:s,RETRY:retry,HELPER:helper.read_text(encoding='utf-8')}
 def main():
     ap=argparse.ArgumentParser();ap.add_argument('root',type=Path);args=ap.parse_args()
     for name,data in prepare(args.root).items():
