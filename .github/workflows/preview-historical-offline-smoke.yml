@@ -23,18 +23,18 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v4.0.4
-      - name: Download exact signed APK 1022128
+      - name: Download exact signed APK 1022131
         uses: actions/download-artifact@v4.3.0
         with:
           name: Melodix-Preview-lot1
-          run-id: 43728844925
+          run-id: 43731627612
           github-token: ${{ github.token }}
           path: target-apk
       - name: Check exact signed APK hash
         run: |
           set -euo pipefail
           test -f target-apk/Melodix-Preview-historique-glass.apk
-          echo '02d02bbeabc90551884c4e29cf54afccb95663b5cb408c8cdebcb8896eec0ac7  target-apk/Melodix-Preview-historique-glass.apk' | sha256sum --check
+          echo '32b5ad175bb04666201e5082f8644b5f01c7fe194e17930365dd2148e0b4af48  target-apk/Melodix-Preview-historique-glass.apk' | sha256sum --check
       - name: Check offline safety preconditions in isolation
         run: python3 docs/audits/2026-11-04-preview-historique-glass/native-candidat/test_preview_offline_smoke.py
       - name: Allow emulator access
@@ -47,4 +47,4 @@ jobs:
           arch: x86_64
           disable-animations: false
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          script: bash docs/audits/2026-11-04-preview-historique-glass/native-candidat/preview-offline-smoke.sh target-apk/Melodix-Preview-historique-glass.apk 02d02bbeabc90551884c4e29cf54afccb95663b5cb408c8cdebcb8896eec0ac7
+          script: bash docs/audits/2026-11-04-preview-historique-glass/native-candidat/preview-offline-smoke.sh target-apk/Melodix-Preview-historique-glass.apk 32b5ad175bb04666201e5082f8644b5f01c7fe194e17930365dd2148e0b4af48
