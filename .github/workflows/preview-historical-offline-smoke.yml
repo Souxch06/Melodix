@@ -1,0 +1,44 @@
+name: Preview historical APK offline Android smoke
+on:
+  push:
+    branches:
+      - arena/6b935c3e-melodix
+permissions:
+  actions: read
+  contents: read
+jobs:
+  offline-smoke:
+    if: contains(github.event.head_commit.message, '[preview-offline-smoke]')
+    name: Exact signed Preview — offline Android smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4.0.4
+      - name: Download exact signed APK 1022121
+        uses: actions/download-artifact@v4.3.0
+        with:
+          name: Melodix-Preview-lot1
+          run-id: 43717824064
+          github-token: ${{ github.token }}
+          path: target-apk
+      - name: Check exact signed APK hash
+        run: |
+          set -euo pipefail
+          test -f target-apk/Melodix-Preview-historique-glass.apk
+          echo '7a8c75562f532a209a8d33e9f91917d977db91454468c6c926bd870385a31473  target-apk/Melodix-Preview-historique-glass.apk' | sha256sum --check
+      - name: Allow emulator access
+        run: test -e /dev/kvm && sudo chmod 666 /dev/kvm
+      - name: Launch offline with no Spotify account
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: false
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: bash docs/audits/2026-11-04-preview-historique-glass/native-candidat/preview-offline-smoke.sh target-apk/Melodix-Preview-historique-glass.apk
