@@ -2,6 +2,7 @@
 """Preview player presentation only; never changes player commands or data."""
 from pathlib import Path
 import hashlib
+import json
 
 EXPECTED = {
     'res/layout/activity_main.xml': 'eb85a1f5d18d97d67834a564f92b9bc815122df857591a8bca9f1f0e128831a5',
@@ -10,6 +11,21 @@ EXPECTED = {
     'res/drawable/native_button_white.xml': '11d9172eac04718f095f936dc1bb0c68cea4041e1410f77ef56eb2b8cd502099',
     'res/drawable/widget_progress_drawable.xml': '6c186a221e3661881e1bde06766f3eab3a518b68a80a75797c3c357d9a3b5e3e',
     'res/drawable/native_cover_placeholder.xml': '7de3b7388690db7fe29181beebcdf2095d71f2e7901f142f1fd0ce4f6d89f554',
+}
+
+EXTRAS = {
+    'smali/PreviewPlayerMode$1.smali': '3832e5c012f4f520778da6b2ca21b2acf7a26b4386b5d533f76c6f2d032901eb',
+    'smali/PreviewPlayerMode$2.smali': 'f507a223dfedfbbd8e029e21d0c1ccfaae0e7a58b3dc4ff595194318eaab894a',
+    'smali/PreviewPlayerMode$3.smali': 'a93913b09f293fb918a7b2b68670c443e598a7b435da77e26f4937306e188267',
+    'smali/PreviewPlayerMode$4.smali': '7c421524c37134fe217739988615aa6487ebfc32970f08c8de63fb28d9ba1fd6',
+    'smali/PreviewPlayerMode$5.smali': '948749d7ca6a6f3ccc6906eabb860a50632dea3eac4d0ab95e97b70d0a92e41b',
+    'smali/PreviewPlayerMode$6.smali': '5b09ef6e39478eba452b8f9962bb0537847314638766e5345cf8f6c3a6c40030',
+    'smali/PreviewPlayerMode.smali': '0bb8c71a1a2bd35350ea70758274e18b315b7ecbb836c1ac576de1bf0204b050',
+    'smali/PreviewPlayerTiles$1.smali': '9daef4b22b5b64286b0467ae9d2a7af50bef94b317cbb55f25335dc8ce09cdf7',
+    'smali/PreviewPlayerTiles.smali': '9c53c429b46558ed8880b89d2225c7cd4f4902e5a3c839cb0a17de3360dda130',
+    'control.js': '1f8b82ccdbc72111805b635b8c43d04411357f3680290bde47407f4d5740f932',
+    'PreviewPlayerMode.java': '434e949ddf79214193c884ce1ed429d24f03fe400994751f3e06b7c085bd2c11',
+    'PreviewPlayerTiles.java': 'c9e3e0baee657c95050786461bd1c6ffd894d0d22d04f3d37ddcf69ab395db5c',
 }
 
 def one(s, old, new):
@@ -28,7 +44,7 @@ def player_layout(source):
     header='''            <LinearLayout android:orientation="horizontal" android:gravity="center_vertical" android:layout_width="fill_parent" android:layout_height="44.0dip">
                 <ImageButton android:src="@drawable/ic_arrow_down_24dp" android:tint="#ffffffff" android:scaleType="centerInside" android:padding="10.0dip" android:background="@drawable/native_button_dark" android:layout_width="48.0dip" android:layout_height="48.0dip" android:onClick="onNativeBackClick" android:contentDescription="Réduire le lecteur" />
                 <TextView android:text="LECTURE EN COURS" android:gravity="center" android:textSize="11.0sp" android:textStyle="bold" android:letterSpacing="0.14" android:textColor="#ffcfc6f2" android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_weight="1.0" />
-                <Space android:layout_width="48.0dip" android:layout_height="44.0dip" />
+                <TextView android:text="•••" android:textColor="#ffc9c0ea" android:textSize="18.0sp" android:gravity="center" android:background="@drawable/native_button_dark" android:alpha="0.38" android:enabled="false" android:contentDescription="Menu indisponible" android:layout_width="48.0dip" android:layout_height="48.0dip" />
             </LinearLayout>
 '''
     panel=one(panel,marker,marker+header)
@@ -60,6 +76,16 @@ def player_layout(source):
     # Align title and artist with the seek bar; retain identity and max lines.
     panel=panel.replace('android:gravity="center"\n                android:maxLines=', 'android:gravity="start"\n                android:maxLines=')
     panel=one(panel,'android:paddingTop="4.0dip"','android:paddingTop="6.0dip"')
+    # The existing player title keeps its ID; the adjacent like is an
+    # independently guarded optional command, disabled until observed.
+    i=panel.index('            <TextView\n                android:id="@id/nativePlayerLargeTitle"')
+    j=panel.index('/>',i)+2
+    title=panel[i:j].replace('android:layout_width="fill_parent"','android:layout_width="0.0dip" android:layout_weight="1.0"')
+    title='''            <LinearLayout android:orientation="horizontal" android:gravity="center_vertical" android:layout_width="fill_parent" android:layout_height="wrap_content">
+'''+title+'''
+              <com.melodix.music.PreviewPlayerMode android:tag="like" android:background="@drawable/native_button_dark" android:padding="10.0dip" android:layout_width="48.0dip" android:layout_height="48.0dip" android:contentDescription="Like indisponible" />
+            </LinearLayout>'''
+    panel=panel[:i]+title+panel[j:]
     badge='''            <TextView
                 android:text="● Lu via Spotify"
                 android:textSize="12.0sp"
@@ -75,12 +101,24 @@ def player_layout(source):
     panel=one(panel,'android:layout_marginTop="16.0dip"','android:layout_marginTop="22.0dip"')
     for ident in ('nativePlayerShuffleButton','nativePlayerRepeatButton'):
         old='android:id="@id/'+ident+'"'; panel=one(panel,old,old+' android:visibility="gone"')
+    for ident,mode,label in (('nativePlayerShuffleButton','shuffle','Aléatoire indisponible'),('nativePlayerRepeatButton','repeat','Répétition indisponible')):
+        anchor='                <ImageView android:id="@id/'+ident+'"'
+        control='                <com.melodix.music.PreviewPlayerMode android:tag="'+mode+'" android:background="@drawable/native_button_dark" android:padding="10.0dip" android:layout_width="0.0dip" android:layout_weight="1.0" android:layout_height="48.0dip" android:contentDescription="'+label+'" />\n'
+        panel=one(panel,anchor,control+anchor)
     for ident in ('nativePlayerPreviousButton','nativePlayerNextButton'):
         i=panel.index('android:id="@id/'+ident+'"'); j=panel.index('/>',i); part=panel[i:j]
-        part=part.replace('54.0dip','56.0dip').replace('Previous track','Titre précédent').replace('Next track','Titre suivant')
+        part=part.replace('android:layout_width="54.0dip"','android:layout_width="0.0dip" android:layout_weight="1.0"').replace('android:layout_height="54.0dip"','android:layout_height="56.0dip"').replace('android:layout_marginLeft="12.0dip"','').replace('android:layout_marginRight="12.0dip"','').replace('Previous track','Titre précédent').replace('Next track','Titre suivant')
         panel=panel[:i]+part+panel[j:]
     i=panel.index('android:id="@id/nativePlayerLargePlayPauseButton"');j=panel.index('/>',i)
-    panel=panel[:i]+panel[i:j].replace('72.0dip','76.0dip')+panel[j:]
+    panel=panel[:i]+panel[i:j].replace('72.0dip','64.0dip').replace('android:layout_marginLeft="14.0dip"','').replace('android:layout_marginRight="14.0dip"','')+panel[j:]
+    ending='''            </LinearLayout>
+            </LinearLayout>
+        </ScrollView>'''
+    tiles='''            </LinearLayout>
+            <com.melodix.music.PreviewPlayerTiles android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="26.0dip" />
+            </LinearLayout>
+        </ScrollView>'''
+    panel=one(panel,ending,tiles)
     return source[:start]+panel+source[end:]
 
 def landscape_layout(source):
@@ -97,10 +135,10 @@ def landscape_layout(source):
     panel=one(panel,art,landscape)
     panel=one(panel,'            </androidx.constraintlayout.widget.ConstraintLayout>', '''            </androidx.constraintlayout.widget.ConstraintLayout>
             <LinearLayout android:orientation="vertical" android:layout_width="0.0dip" android:layout_weight="0.56" android:layout_height="wrap_content" android:layout_marginTop="12.0dip">''')
-    ending='''            </LinearLayout>
+    ending='''            <com.melodix.music.PreviewPlayerTiles android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="26.0dip" />
             </LinearLayout>
         </ScrollView>'''
-    panel=one(panel,ending,'''            </LinearLayout>
+    panel=one(panel,ending,'''            <com.melodix.music.PreviewPlayerTiles android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="26.0dip" />
             </LinearLayout>
             </LinearLayout>
             </LinearLayout>
@@ -109,6 +147,12 @@ def landscape_layout(source):
 
 def apply(root):
     root=Path(root); data={}
+    here=Path(__file__).resolve().parent/'preview-extras'
+    for name,digest in EXTRAS.items():
+        if hashlib.sha256((here/name).read_bytes()).hexdigest()!=digest: raise ValueError('unexpected optional control '+name)
+    js=(here/'control.js').read_text(encoding='utf8')
+    if json.dumps(js,ensure_ascii=True) not in (here/'PreviewPlayerMode.java').read_text(encoding='utf8'):
+        raise ValueError('control script/source mismatch')
     for name,digest in EXPECTED.items():
         raw=(root/name).read_bytes()
         if hashlib.sha256(raw).hexdigest()!=digest: raise ValueError('unexpected visual input '+name)
@@ -139,3 +183,8 @@ def apply(root):
 '''
     for name,text in data.items():
         path=root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(text,encoding='utf8')
+    for name in EXTRAS:
+        if name.startswith('smali/'):
+            dest=root/'smali/com/melodix/music'/Path(name).name
+            if dest.exists(): raise ValueError('optional controller already exists')
+            dest.write_bytes((here/name).read_bytes())
