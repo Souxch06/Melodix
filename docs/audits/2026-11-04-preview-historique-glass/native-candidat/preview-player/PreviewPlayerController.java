@@ -45,12 +45,21 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     private int operation; // 1 play/pause, 2 previous, 3 next
     private String trackBefore = "";
     // Durations only; process-local, no Spotify identifiers in the report.
-    private static long firstCreateAt = -1, firstHomeFrameMs = -1;
+    private static long firstCreateAt = -1, processStartAt = -1, firstHomeFrameMs = -1, processHomeFrameMs = -1;
     private boolean measureHomeFrame, measurePlaylistFrame;
     private long playlistStart = -1, playlistFrameMs = -1;
     private String pendingPlaylist = "";
     public void activityCreated() {
-        if (firstCreateAt < 0) firstCreateAt = now();
+        if (firstCreateAt >= 0) return;
+        firstCreateAt = now();
+        // Public API starting in Android 12. On older versions, explicitly
+        // report unavailable instead of using hidden APIs or guessing.
+        if (android.os.Build.VERSION.SDK_INT >= 31) {
+            try {
+                long start = android.os.Process.getStartElapsedRealtime();
+                if (start >= 0 && start <= firstCreateAt) processStartAt = start;
+            } catch (LinkageError ignored) { } catch (RuntimeException ignored) { }
+        }
     }
     public void playlistOpened(String uri) {
         playlistStart = -1; playlistFrameMs = -1; pendingPlaylist = ""; measurePlaylistFrame = false;
@@ -137,7 +146,10 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         frameScheduled = false;
         if (activity.get() == null) return;
         long t = now();
-        if (measureHomeFrame && firstHomeFrameMs < 0 && firstCreateAt >= 0) firstHomeFrameMs = Math.max(0, t - firstCreateAt);
+        if (measureHomeFrame && firstHomeFrameMs < 0 && firstCreateAt >= 0) {
+            firstHomeFrameMs = Math.max(0, t - firstCreateAt);
+            if (processStartAt >= 0 && processStartAt <= t) processHomeFrameMs = t - processStartAt;
+        }
         if (measurePlaylistFrame && playlistStart >= 0) {
             playlistFrameMs = Math.max(0, t - playlistStart); playlistStart = -1; pendingPlaylist = "";
         }
@@ -226,6 +238,8 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         out.append("\nInterface optimiste : ").append(delta(optimisticAt));
         out.append("\nÉtat du lecteur observé : ").append(delta(stateAt));
         out.append("\nInterface confirmée : ").append(delta(uiAt));
+        out.append("\nDémarrage : processus → prochaine frame accueil avec données (Android 12+) : ")
+            .append(processHomeFrameMs < 0 ? "—" : Long.toString(processHomeFrameMs) + " ms");
         out.append("\nDémarrage : activité → prochaine frame accueil avec données : ")
             .append(firstHomeFrameMs < 0 ? "—" : Long.toString(firstHomeFrameMs) + " ms");
         out.append("\nPlaylist : appui → prochaine frame avec titres : ")
@@ -237,7 +251,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             int index = (intervalIndex - intervalCount + i + intervals.length) % intervals.length;
             out.append(intervals[index]).append(" ms");
         }
-        out.append("\nMesures de préparation de frame, pas présentation écran. Démarrage hors création du processus ; premier son non mesuré. La réception du pont n'est pas un accusé Spotify.");
+        out.append("\nMesures de préparation de frame, pas présentation écran. Démarrage hors lanceur ; premier son non mesuré. La réception du pont n'est pas un accusé Spotify.");
         return out.toString();
     }
     public void showDiagnostics() {

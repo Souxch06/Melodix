@@ -15,12 +15,12 @@ EXPECTED = {
     'smali/com/melodix/music/MainActivity.smali': 'dd14f96c2e3143b1e015e58a4c881911147e8312df1938a59e7ba3fa1b9a6f53',
     'smali/com/melodix/music/NativeSettingsRowFactory.smali': '87af4ac75e344b84f94374db7b94018b524a9af981f2367f8a9631f8b1c8ed63',
 }
-SOURCE_SHA = 'd5314463593f83ea1b7bdcce9f24f18050bd3f4ddb066864a55a10675dc6a279'
+SOURCE_SHA = 'e5668a41e5470feea9170033c116e3977a4146d570d1e4825631faaab8ee7591'
 HELPER_SHA = {
-    'PreviewPlayerController$1.smali': '0aad79d348e0a7886a0a2e11646d4ca1b6b1a4c5c8eb4bf3e29c7d0feab89e54',
-    'PreviewPlayerController$2.smali': '23aca4b26eeb9683bd9898bf059485ed8a75a391288752ee050c6922c65ab6d1',
-    'PreviewPlayerController$3.smali': 'fdc41b1bbf98bff5b81b254ac3a0c833fbab8c01b57bb34ce2e069a2667c5678',
-    'PreviewPlayerController.smali': 'fa7aed165c7a707d3bfc2f02b66c0b6370c607b7dca05d66acb0e8efd1672b14',
+    'PreviewPlayerController$1.smali': '37a6f06afcbad5ec2d156c80eb0b42dc265817aacac0fe7e336848d09a9b5477',
+    'PreviewPlayerController$2.smali': '640710090bd57a6f3f9168efd29dea875201d2570e95e9b9d3b7a3c3ff6b6e87',
+    'PreviewPlayerController$3.smali': 'ed05ae8d9270d8a86e6d3262e668f4f3f8d7483e9af412876a7a0fb3d726cc02',
+    'PreviewPlayerController.smali': 'a709c1296537ca0cd631e1c5785551ad1e6850cce633cc7479b19e01e769e93c',
 }
 
 def replace(text, old, new):

@@ -18,6 +18,8 @@ STUBS = {
 'android/content/ClipData.java': '''package android.content; public class ClipData { public final String text; private ClipData(String s){text=s;} public static ClipData newPlainText(CharSequence l,CharSequence s){return new ClipData(s.toString());} }''',
 'android/content/ClipboardManager.java': '''package android.content; public class ClipboardManager { public static String copied; public void setPrimaryClip(ClipData d){copied=d.text;} }''',
 'android/os/Looper.java': '''package android.os; public class Looper { public static Looper getMainLooper(){return new Looper();} }''',
+'android/os/Build.java': """package android.os; public class Build { public static class VERSION { public static int SDK_INT=31; } }""",
+'android/os/Process.java': """package android.os; public class Process { public static long start; public static int calls; public static long getStartElapsedRealtime(){calls++;return start;} }""",
 'android/os/SystemClock.java': '''package android.os; public class SystemClock { public static long time; public static long elapsedRealtime(){return time;} }''',
 'android/os/Handler.java': '''package android.os; import java.util.*; public class Handler { static class T { Runnable r;long at;T(Runnable x,long y){r=x;at=y;} } static List<T> tasks=new ArrayList<T>(); public Handler(Looper l){} public boolean postDelayed(Runnable r,long d){tasks.add(new T(r,SystemClock.time+d));return true;} public static void flush(){List<T> copy=new ArrayList<T>(tasks);for(T t:copy)if(t.at<=SystemClock.time){tasks.remove(t);t.r.run();}} }''',
 'android/view/Choreographer.java': '''package android.view; public class Choreographer { public interface FrameCallback { void doFrame(long n); } private static Choreographer c=new Choreographer(); public FrameCallback next; public static Choreographer getInstance(){return c;} public void postFrameCallback(FrameCallback f){next=f;} public static void frame(){FrameCallback f=c.next;c.next=null;if(f!=null)f.doFrame(0);} }''',
@@ -74,18 +76,26 @@ public class ControllerTest {
   }
   eq(mini.progress,1000);
   // Instrumentation uses frame preparation, not display presentation.
-  SystemClock.time=200000;PreviewPlayerController metrics=new PreviewPlayerController(a);metrics.activityCreated();
+  SystemClock.time=200000;android.os.Process.start=199950;PreviewPlayerController metrics=new PreviewPlayerController(a);metrics.activityCreated();
   metrics.rowsPainted("home", "", "uri=spotify:track:One");SystemClock.time=200123;Choreographer.frame();
   metrics.playlistOpened("spotify:playlist:Visible");
   metrics.rowsPainted("detail", "spotify:playlist:Wrong", "uri=spotify:track:One");
   metrics.rowsPainted("detail", "spotify:playlist:Visible", "");
   SystemClock.time=200200;Choreographer.frame();
-  report=(String)m.invoke(metrics);yes(report.contains("123 ms"));yes(report.contains("avec titres : —"));
+  report=(String)m.invoke(metrics);yes(report.contains("123 ms"));yes(report.contains("173 ms"));yes(report.contains("avec titres : —"));
   metrics.rowsPainted("detail", "spotify:playlist:Visible", "uri=spotify:track:One");
   SystemClock.time=200250;Choreographer.frame();report=(String)m.invoke(metrics);
   yes(report.contains("127 ms"));yes(!report.contains("Visible"));yes(!report.contains("track:One"));
   metrics.playlistOpened("spotify:collection:tracks");metrics.rowsPainted("detail", "spotify:collection:tracks", "uri=spotify:track:One");
   SystemClock.time=200300;Choreographer.frame();report=(String)m.invoke(metrics);yes(report.contains("avec titres : —"));
+  // On Android below API 31, never call the process-start API and report unknown.
+  for(String field:new String[]{"firstCreateAt","processStartAt","firstHomeFrameMs","processHomeFrameMs"}) {
+   java.lang.reflect.Field fld=PreviewPlayerController.class.getDeclaredField(field);fld.setAccessible(true);fld.setLong(null,-1);
+  }
+  Build.VERSION.SDK_INT=30;int oldCalls=android.os.Process.calls;SystemClock.time=250000;
+  PreviewPlayerController older=new PreviewPlayerController(a);older.activityCreated();older.rowsPainted("home","","");
+  SystemClock.time=250050;Choreographer.frame();report=(String)m.invoke(older);
+  eq(android.os.Process.calls,oldCalls);yes(report.contains("Android 12+) : —"));yes(report.contains("50 ms"));
   // Unconfirmed pause/play is reconciled and gets exactly one discreet message.
   SystemClock.time=300000;Handler.flush();PreviewPlayerController timeout=new PreviewPlayerController(a);timeout.snapshot(sample(t,1000,120000,false,false,true));
   int count=Toast.count;eq(timeout.tapPlayPause(),1);SystemClock.time+=8000;Handler.flush();eq(Toast.count,count+1);eq(b1.image,0x7f080122);
