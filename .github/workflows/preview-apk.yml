@@ -858,6 +858,10 @@ jobs:
             phase="test and remove empty native subtitles"
             MELODIX_PREVIEW_ROOT="$work" MELODIX_PATCH_INPUT=1 python3 "$audit/native-candidat/test_lot1_empty_subtitle.py"
             python3 "$audit/native-candidat/apply_lot1_empty_subtitle.py" "$work"
+            phase="test and apply Lot 1 follow-up presentation and native Back"
+            MELODIX_PREVIEW_ROOT="$work" MELODIX_PATCH_INPUT=1 python3 "$audit/native-candidat/test_lot1_followup.py"
+            python3 "$audit/native-candidat/apply_lot1_followup.py" "$work"
+            node --check "$work/assets/native_ui_shell.js"
             python3 "$audit/native-candidat/verify_9016_protected_assets.py" project "$work"
           fi
           phase="build unsigned APK"
@@ -906,7 +910,11 @@ jobs:
                 exit 1
               }
             phase="test decoded native Back routing"
-            MELODIX_PREVIEW_ROOT="$RUNNER_TEMP/historical-decoded" python3 "$audit/native-candidat/test_lot1_back.py"
+            MELODIX_PREVIEW_ROOT="$RUNNER_TEMP/historical-decoded" MELODIX_ROOT_BACKGROUND=1 python3 "$audit/native-candidat/test_lot1_back.py"
+            phase="test decoded Lot 1 follow-up presentation"
+            MELODIX_PREVIEW_ROOT="$RUNNER_TEMP/historical-decoded" python3 "$audit/native-candidat/test_lot1_followup.py"
+            MELODIX_CANDIDATE_ROOT="$RUNNER_TEMP/historical-decoded" NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" \
+              node --test "$audit/native-candidat/lot1-followup-artist.test.cjs"
             phase="test decoded remaining-time layout"
             MELODIX_PREVIEW_ROOT="$RUNNER_TEMP/historical-decoded" python3 "$audit/native-candidat/test_lot1_remaining.py"
             phase="test decoded native rows without empty subtitles"

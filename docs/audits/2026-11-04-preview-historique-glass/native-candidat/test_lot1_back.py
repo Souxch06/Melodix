@@ -60,6 +60,7 @@ def execute(src,name,state,args=None):
             elif 'ArrayDeque;->isEmpty' in target:result=not values[0]
             elif 'ArrayDeque;->clear' in target:values[0].clear()
             elif 'Activity;->findViewById' in target:result={'shown':state.get('shown',False)} if state.get('hasRoot',True) else None
+            elif 'Activity;->moveTaskToBack' in target:state['backgrounded']=True;result=True
             elif 'View;->isShown' in target:result=values[0]['shown']
             elif 'String;->equals' in target:result=values[0]==values[1]
             elif '->lot1PushBack' in target:execute(src,'lot1PushBack',state)
@@ -115,11 +116,27 @@ class Tests(unittest.TestCase):
         self.assertEqual(s['nativeCurrentScreen'],'library');self.assertEqual(s['nativeExpectedId'],'playlists')
         self.assertEqual(s['renders'][-1],('Library','library data'))
 
-    def test_hidden_shell_and_top_level_are_not_consumed(self):
-        for shown,screen in [(False,'detail'),(False,'settings'),(True,'home'),(True,'search'),(True,'library')]:
+    def test_synthetic_playlist_return_to_home_and_library_without_player_mutation(self):
+        for origin in ('home','library'):
+            with self.subTest(origin=origin):
+                s={'shown':True,'renders':[],'nativeCurrentScreen':origin,'nativeCurrentTitle':origin,
+                   'nativeCurrentJson':'saved '+origin,'nativeExpectedId':'saved-id',
+                   'nativeExpectedSearch':None,'miniPlayer':{'track':'unchanged','playing':True}}
+                execute(self.activity,'lot1PushBack',s)
+                s.update(nativeCurrentScreen='detail',nativeCurrentTitle='Playlist',nativeCurrentJson='tracks')
+                self.assertEqual(execute(self.activity,'tryLot1NativeBack',s),1)
+                self.assertEqual(s['nativeCurrentScreen'],origin)
+                self.assertEqual(s['renders'],[(origin,'saved '+origin)])
+                self.assertEqual(s['miniPlayer'],{'track':'unchanged','playing':True})
+
+    def test_hidden_shell_and_top_level_follow_expected_route(self):
+        followup = bool(os.environ.get('MELODIX_ROOT_BACKGROUND'))
+        for shown,screen in [(False,'detail'),(False,'settings'),(False,'home'),(True,'home'),(True,'search'),(True,'library')]:
             with self.subTest(shown=shown,screen=screen):
                 s={'shown':shown,'renders':[],'nativeCurrentScreen':screen}
-                self.assertEqual(execute(self.activity,'tryLot1NativeBack',s),0)
+                expected = int(followup and shown and screen in ('home','search','library'))
+                self.assertEqual(execute(self.activity,'tryLot1NativeBack',s),expected)
+                self.assertEqual(s.get('backgrounded',False),bool(expected))
                 self.assertEqual(s['nativeCurrentScreen'],screen);self.assertEqual(s['renders'],[])
 
 

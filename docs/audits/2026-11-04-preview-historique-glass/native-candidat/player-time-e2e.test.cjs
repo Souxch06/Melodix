@@ -131,6 +131,13 @@ test('remaining duration handles missing and out-of-range input',()=>{
  assert.equal(render({duration:3600,position:3661}).remaining,'Temps restant : 0:00');
  assert.equal(render({duration:3661,position:-10}).remaining,'Temps restant : 1:01:01');
 });
+test('decoded native player writes the artist into mini and full player views',()=>{
+ const views={0x7f090236:{},0x7f09023b:{},0x7f090237:{},0x7f09023c:{}};
+ const native={screen:'player',views};
+ interpret('updateNativePlayer',{p0:native,p1:JSON.stringify({track:'Song',artist:'YXMI',position:0,duration:0})});
+ assert.equal(views[0x7f090237].text,'YXMI');
+ assert.equal(views[0x7f09023c].text,'YXMI');
+});
 test('clamps negative native input and pads both hour components',()=>{
  assert.equal(interpret('formatNativeTime',{p0:-5}),'0:00');
  assert.equal(interpret('formatNativeTime',{p0:3665}),'1:01:05');
