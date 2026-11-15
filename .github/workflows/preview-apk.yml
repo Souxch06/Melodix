@@ -990,8 +990,10 @@ jobs:
             MELODIX_HISTORICAL_ROOT="$GITHUB_WORKSPACE/historical" MELODIX_SMALI_ROOT="$GITHUB_WORKSPACE/historical" \
               NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" node --test "$audit/css-callback-characterization.test.cjs"
             if [[ "$INCREMENTAL_LIBRARY" == "true" ]]; then
+              incremental_test="$audit/native-candidat/incremental-library.test.cjs"
+              if [[ "$PLAYER_PATCH" == "true" ]]; then incremental_test="$audit/native-candidat/preview-incremental-library.test.cjs"; fi
               MELODIX_CANDIDATE_ROOT="$RUNNER_TEMP/historical-decoded" NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" \
-                node --test "$audit/native-candidat/incremental-library.test.cjs"
+                node --test "$incremental_test"
             fi
             if [[ "$PUBLIC_HOME" == "true" ]]; then
               MELODIX_CANDIDATE_ROOT="$RUNNER_TEMP/historical-decoded" NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" \
