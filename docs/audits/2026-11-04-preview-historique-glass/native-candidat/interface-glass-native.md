@@ -18,3 +18,9 @@ C'est **une première passe**, pas une reproduction complète ni une validation 
 - Transformation sur une base 9011 strictement épinglée et référence Glass épinglée : 6/6 tests, y compris conservation des IDs et onClick, refus des fichiers modifiés et comportement simulé des gardes de ressources. Contraste blanc sur les extrémités du dégradé ≥ 4,5:1.
 - Chaîne complète depuis l'archive `d0f206b0` et toutes les transformations 9004–9011 rejouée, puis adaptation Glass appliquée sans écart d'empreinte.
 - Compilation APK non signée, redécodage et intégrité ZIP réussis. Sur le résultat : 56/56 tests synthétiques chargement et bibliothèque, 3/3 bootstrap et 40/40 tests natifs/session ciblés ; 3+1+3 chaînes historiques ; vérifications XML, gardes de drawable, dock et player redécodés. Ce ne sont pas des essais ART, Spotify ou visuels ; les tests de caractérisation conservent aussi des défauts historiques.
+
+## Preview signée 9012
+
+- [Build réussi](https://github.com/Souxch06/Melodix/actions/runs/43693071026), source `8739d4f2e17f9a7080548fa1c8d4b11861908316`, run 619, versionCode calculé `1022106`.
+- [ZIP Preview](https://github.com/Souxch06/Melodix/actions/runs/43693071026/artifacts/14152684999), expire le 29 novembre 2026 à 08:08 UTC ; SHA-256 ZIP selon l'API GitHub `77fe0c26c8177ce26775e13321be6f57c7c80710522254f7a70c2584c45c0cc4`.
+- Package `com.melodix.music.preview`, certificat Preview épinglé, pas de release publique ni de test sur appareil.
