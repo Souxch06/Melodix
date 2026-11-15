@@ -17,3 +17,9 @@ Sur 9009, la bibliothèque est toujours vide. Sur la capture de l'accueil figure
 - 46/46 tests synthétiques ciblés sur les assets redécodés : entrée dans Bibliothèque à partir des vraies données Home simulées, titres likés, exclusion des recommandations, catégorie, route native interprétée, réponse vide/tardive, sidebar tardive, duplication, trous DOM, expiration, token remplacé et conservation 9008/9009. Aucun réseau ou utilisateur réel.
 - Chargement complet du shell et du bridge candidats : 3/3 tests synthétiques ciblés ; 40/40 tests natifs/session ciblés, chaînes historiques 3/3 + 1/1 + 3/3. Les tests de caractérisation historiques restent inchangés ; une copie cible le canal Home non dupliqué.
 - Aucun appareil ou exécution ART. Le test reste nécessaire sur le téléphone ; le correctif ne garantit pas la disparition totale du problème.
+
+## Preview signée 9010
+
+- [Build réussi](https://github.com/Souxch06/Melodix/actions/runs/43690451301), source `30a49ea54aafd6a93ab1402bde2c9c906fef9ab6`, run 617, versionCode calculé `1022104`.
+- [ZIP Preview](https://github.com/Souxch06/Melodix/actions/runs/43690451301/artifacts/14152376394), expire le 29 novembre 2026 à 07:34 UTC ; SHA-256 ZIP selon l'API GitHub `68924d05310b292656c56a9c5c0ad723a6841be363338160e1596bbe455c66f1`.
+- Package séparé `com.melodix.music.preview`, signature Preview épinglée, aucune release publique. Pas de test Android réel.
