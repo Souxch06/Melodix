@@ -23,18 +23,18 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v4.0.4
-      - name: Download exact signed APK 1022135
+      - name: Download exact signed APK 1022136
         uses: actions/download-artifact@v4.3.0
         with:
           name: Melodix-Preview-lot1
-          run-id: 43737489852
+          run-id: 43737912021
           github-token: ${{ github.token }}
           path: target-apk
       - name: Check exact signed APK hash
         run: |
           set -euo pipefail
           test -f target-apk/Melodix-Preview-historique-glass.apk
-          echo '04035e34579ae03f91864715377e178cb61a9d18abbae8bc10eac7404f46d68c  target-apk/Melodix-Preview-historique-glass.apk' | sha256sum --check
+          echo '55fc795d402f77b2b4c09351230e3e13c2d9d749859ecdf1d127be8e794586ce  target-apk/Melodix-Preview-historique-glass.apk' | sha256sum --check
       - name: Check offline safety preconditions in isolation
         run: python3 docs/audits/2026-11-04-preview-historique-glass/native-candidat/test_preview_offline_smoke.py
       - name: Install fixture build tools
@@ -54,7 +54,7 @@ jobs:
           disable-animations: false
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: |
-            bash docs/audits/2026-11-04-preview-historique-glass/native-candidat/preview-offline-smoke.sh target-apk/Melodix-Preview-historique-glass.apk 04035e34579ae03f91864715377e178cb61a9d18abbae8bc10eac7404f46d68c
+            bash docs/audits/2026-11-04-preview-historique-glass/native-candidat/preview-offline-smoke.sh target-apk/Melodix-Preview-historique-glass.apk 55fc795d402f77b2b4c09351230e3e13c2d9d749859ecdf1d127be8e794586ce
             bash docs/audits/2026-11-04-preview-historique-glass/native-candidat/glass-refresh/fixture/run-offline-visual-fixture.sh
       - name: Upload synthetic screenshots
         if: success()
