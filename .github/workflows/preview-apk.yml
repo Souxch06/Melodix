@@ -851,6 +851,10 @@ jobs:
             phase="test and apply native remaining-time display"
             MELODIX_PREVIEW_ROOT="$work" MELODIX_PATCH_INPUT=1 python3 "$audit/native-candidat/test_lot1_remaining.py"
             python3 "$audit/native-candidat/apply_lot1_remaining.py" "$work"
+            phase="test and apply visible duration presentation"
+            MELODIX_PREVIEW_ROOT="$work" python3 "$audit/native-candidat/test_lot1_duration_presentation.py"
+            python3 "$audit/native-candidat/apply_lot1_duration_presentation.py" "$work"
+            node --check "$work/assets/native_ui_shell.js"
             python3 "$audit/native-candidat/verify_9016_protected_assets.py" project "$work"
           fi
           phase="build unsigned APK"
@@ -902,6 +906,9 @@ jobs:
             MELODIX_PREVIEW_ROOT="$RUNNER_TEMP/historical-decoded" python3 "$audit/native-candidat/test_lot1_back.py"
             phase="test decoded remaining-time layout"
             MELODIX_PREVIEW_ROOT="$RUNNER_TEMP/historical-decoded" python3 "$audit/native-candidat/test_lot1_remaining.py"
+            phase="test decoded visible duration presentation"
+            MELODIX_CANDIDATE_ROOT="$RUNNER_TEMP/historical-decoded" NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" \
+              node --test "$audit/native-candidat/lot1-duration-presentation.test.cjs"
             phase="simulate shell to decoded native player labels"
             MELODIX_CANDIDATE_ROOT="$RUNNER_TEMP/historical-decoded" NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" \
               node --test "$audit/native-candidat/player-time-e2e.test.cjs" > "$RUNNER_TEMP/lot1-time-tests.log" 2>&1 || {
