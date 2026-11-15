@@ -19,3 +19,9 @@ Base : Preview 9006, elle-même basée sur `d0f206b08b3db7c2d41a1e844f6dd4abf196
 ## Limites importantes
 
 Aucun émulateur ni téléphone : affichage et temps réels, navigation, clics et lecture Spotify restent à vérifier. Les gardes historiques de clic des lignes et de `openNativeRow` restent inversées ; la sélection d'une playlist peut donc encore ne pas fonctionner. Le bridge historique a aussi des courses et caches connus ; pas de garantie sur un changement de compte. Test avec un compte secondaire recommandé à cause des protections anciennes (voir rapports précédents). Le défaut de la capture peut avoir d'autres causes que le scrape corrigé. Les retries natifs historiques n'ont pas été modifiés car leur correction pourrait réveiller l'accueil tardivement après changement d'onglet.
+
+## Preview signée 9007
+
+- [Build réussi](https://github.com/Souxch06/Melodix/actions/runs/43681091226), source `5a38ad933694fae390633fa7f3379a2be4ed7194`, numéro de run 614, versionCode calculé `1022101`.
+- [Télécharger le ZIP Preview](https://github.com/Souxch06/Melodix/actions/runs/43681091226/artifacts/14148705396), expire le 29 novembre 2026 à 05:27 UTC. SHA-256 ZIP (API GitHub) : `bf52b840ec8970b1ad919e650489891df978f60ea4a4798b093c8509743a9cc6`.
+- Signature Preview épinglée vérifiée par le workflow, package `com.melodix.music.preview`, pas de publication release. Le succès du build ne valide pas le fonctionnement sur Android.
