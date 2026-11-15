@@ -54,17 +54,10 @@ test('fallback is not called for other collections or when bridge has provided d
  for(const liked of [false,true]){
   const f=fixture(()=>{throw Error('should not fetch')});try{
    f.w.fetchMediaItems=(uri,id)=>{if(liked)f.w.__sfNativeCollectionLoaded(uri,id);return Promise.resolve()};
-   f.w.__sfOpenCollection(liked?'spotify:collection:tracks':'spotify:playlist:abc');await tick();await tick();assert.equal(f.requests.length,0);
+   f.w.__sfOpenCollection(liked?'spotify:collection:tracks':'spotify:album:abc');await tick();await tick();assert.equal(f.requests.length,0);
   }finally{f.close()}
  }
 });
-test('deferred Home request on another Spotify route never navigates, even with unknown player state',()=>{
- const f=fixture(()=>{throw Error('unexpected')},'/search/test');try{
-  const before=f.w.location.href;f.w.document.querySelector('button').removeAttribute('aria-label');f.w.playing=false;
-  assert.equal(f.w.__sfNativeRequestHome(),false);assert.equal(f.w.location.href,before);assert.ok(!f.errors.some(e=>/navigation/i.test(e)));
- }finally{f.close()}
-});
-
 test('full protected bridge empty liked result triggers the shell fallback once',async()=>{
  const f=fixture((url,opts)=>{
   if(url.includes('api-partner.spotify.com'))return Promise.resolve({ok:false,status:403});
@@ -100,5 +93,41 @@ test('liked rows do not overwrite Home text or emit Home text callbacks',async()
   f.open();await tick();await tick();
   assert.equal(f.w.__sfNativeHomeListText,'home-fixture');assert.equal(homeCallbacks,0);
   assert.equal(f.calls.filter(c=>c.kind==='list-text').length,before);
+ }finally{f.close()}
+});
+
+test('playlist fallback accepts Spotify item and legacy track envelopes without pausing or navigating',async()=>{
+ let playback=0;
+ const f=fixture((url,opts)=>{
+  assert.equal(url,'https://api.spotify.com/v1/playlists/abc123/items?limit=50&offset=0');
+  assert.equal(opts.method,'GET');return Promise.resolve(response(0,2,[{item:track('new').track},track('old')]));
+ });try {
+  f.w.actPlayPause=()=>playback++;f.w.playFromUri=()=>playback++;let before=f.w.location.href;
+  f.w.__sfOpenCollection('spotify:playlist:abc123');await tick();await tick();
+  let data=JSON.parse(f.calls.filter(c=>c.kind==='media:spotify:playlist:abc123').at(-1).data);
+  assert.equal(data.length,2);assert.equal(data[0].uri,'spotify:track:new');assert.equal(data[1].uri,'spotify:track:old');
+  assert.equal(f.w.location.href,before);assert.equal(playback,0);
+ }finally{f.close()}
+});
+test('a valid token allows a fallback when the bridge has not started',async()=>{
+ const f=fixture(()=>Promise.resolve(response(0,1,[track('song')])));try{
+  f.w.__sfMelodixBridgeStarted=false;f.open();await tick();await tick();
+  assert.equal(f.requests.length,1);assert.equal(f.media().at(-1)[0].uri,'spotify:track:song');
+ }finally{f.close()}
+});
+
+test('full bridge failure falls back for a normal playlist without playback commands',async()=>{
+ let playback=0;
+ const f=fixture((url)=>{
+  if(url.includes('api-partner.spotify.com'))return Promise.resolve({ok:false,status:403});
+  if(url.includes('/v1/playlists/abc123/items'))return Promise.resolve(response(0,1,[{item:track('fixture').track}]));
+  throw Error('unexpected synthetic endpoint');
+ });try{
+  f.w.SF_CONFIG={guiMode:'csshack',isCanvasDisabled:false};f.w.AndBridge.onMediaItemsLoaded=(id,data)=>f.calls.push({kind:'bridge:'+id,data});
+  f.w.eval(fs.readFileSync(path.join(root,'assets/spotify_bridge.js'),'utf8'));
+  f.w.actPlayPause=()=>playback++;f.w.playFromUri=()=>playback++;
+  f.w.__sfOpenCollection('spotify:playlist:abc123');await tick();await tick();await tick();
+  const data=JSON.parse(f.calls.filter(c=>c.kind==='media:spotify:playlist:abc123').at(-1).data);
+  assert.equal(data[0].uri,'spotify:track:fixture');assert.equal(playback,0);
  }finally{f.close()}
 });

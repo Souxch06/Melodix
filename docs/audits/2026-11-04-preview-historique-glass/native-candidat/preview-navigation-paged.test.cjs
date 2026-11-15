@@ -121,10 +121,10 @@ function fireNext(x,ms){const t=x.timers.find(t=>t.kind==='timeout'&&t.ms===ms&&
 function stages(x){return x.calls.filter(c=>c.event==='native-text'&&c.id==='preview-load').map(c=>c.text)}
 test('bridge startup after a tap retries the current collection once without navigation',async()=>{
  const x=bootstrap();try{
-  const requests=[];x.w.__sfOpenCollection('spotify:playlist:secret');
+  const requests=[];x.w.__sfOpenCollection('spotify:album:secret');
   assert.equal(stages(x).at(-1),'waiting-bridge:token');
   x.w.__sfMelodixBridgeStarted=true;x.w.fetchMediaItems=(uri,id)=>{requests.push(uri);x.w.__sfNativeCollectionLoaded(uri,id);return Promise.resolve()};
-  fireNext(x,1000);await wait();assert.deepEqual(requests,['spotify:playlist:secret']);assert.equal(stages(x).at(-1),'data:token');
+  fireNext(x,1000);await wait();assert.deepEqual(requests,['spotify:album:secret']);assert.equal(stages(x).at(-1),'data:token');
   fire(x);assert.equal(requests.length,1);
   assert.ok(stages(x).every(s=>!s.includes('secret')&&!s.includes('fixture')));
  }finally{x.close()}
@@ -133,7 +133,7 @@ test('missing token retries once after token arrives, with no overlapping reques
  const x=bootstrap();try{
   x.w.spotAuthToken=null;x.w.__sfMelodixBridgeStarted=true;let count=0;const first=deferred();
   x.w.fetchMediaItems=(uri,id)=>{count++;if(count===1)return first.promise;x.w.__sfNativeCollectionLoaded(uri,id);return Promise.resolve()};
-  x.w.__sfOpenCollection('spotify:playlist:secret');assert.equal(count,1);
+  x.w.__sfOpenCollection('spotify:album:secret');assert.equal(count,1);
   x.w.spotAuthToken='Bearer secret-token';await wait();assert.equal(count,1);
   first.resolve();await wait();assert.equal(stages(x).at(-1),'waiting-token:token');fireNext(x,1000);await wait();
   assert.equal(count,2);assert.equal(stages(x).at(-1),'data:token');
@@ -143,9 +143,9 @@ test('missing token retries once after token arrives, with no overlapping reques
 test('authenticated empty responses are not automatically retried and cancellation suppresses late readiness',async()=>{
  const x=bootstrap();try{
   x.w.__sfMelodixBridgeStarted=true;let count=0;x.w.fetchMediaItems=()=>{count++;return Promise.resolve()};
-  x.w.__sfOpenCollection('spotify:playlist:first');await wait();assert.equal(count,1);assert.equal(stages(x).at(-1),'no-data:token');
+  x.w.__sfOpenCollection('spotify:album:first');await wait();assert.equal(count,1);assert.equal(stages(x).at(-1),'no-data:token');
   assert.ok(!x.timers.some(t=>t.kind==='timeout'&&t.ms===1000&&!t.cleared));
-  x.w.__sfMelodixBridgeStarted=false;x.w.__sfOpenCollection('spotify:playlist:second');
+  x.w.__sfMelodixBridgeStarted=false;x.w.__sfOpenCollection('spotify:album:second');
   x.w.__sfCancelPendingCollection();x.w.__sfMelodixBridgeStarted=true;
   for(const t of x.timers.filter(t=>t.kind==='timeout'&&t.ms===1000&&t.cleared))t.fn();
   assert.equal(count,1);
@@ -153,7 +153,7 @@ test('authenticated empty responses are not automatically retried and cancellati
 });
 test('bridge readiness polling is bounded and does not reload the page',()=>{
  const x=bootstrap();try{
-  const before=x.w.location.href;x.w.__sfOpenCollection('spotify:playlist:secret');
+  const before=x.w.location.href;x.w.__sfOpenCollection('spotify:album:secret');
   for(let i=0;i<20;i++)fireNext(x,1000);
   assert.equal(stages(x).at(-1),'unavailable:token');assert.equal(x.w.location.href,before);
   assert.ok(!x.timers.some(t=>t.kind==='timeout'&&t.ms===1000&&!t.cleared));assert.equal(x.requests.length,0);

@@ -20,10 +20,11 @@ function fixture(customHtml){
  w.eval(shell);
  return {w,events,commands,errors,step(ms){t+=ms;intervals.find(i=>i.ms===1000).fn()},payload(){return JSON.parse(events.filter(e=>e.kind==='player').at(-1).json)},close(){dom.window.close()}};
 }
-test('real shell publishes only observed identity and movement; freezes on unchanged position',()=>{
+test('real shell retains brief duplicate samples and freezes without fresh movement',()=>{
  const x=fixture();try{
   let p=x.payload();assert.equal(p.previewTrackUri,'spotify:track:abc123');assert.equal(p.previewProgressValid,true);assert.equal(p.previewAdvancing,false);
   x.w.document.querySelector('[data-testid="playback-position"]').textContent='0:01';x.step(1000);p=x.payload();assert.equal(p.previewPositionMs,1000);assert.equal(p.previewAdvancing,true);
+  x.step(1000);p=x.payload();assert.equal(p.previewAdvancing,true);
   x.step(1000);p=x.payload();assert.equal(p.previewAdvancing,false);
   x.w.document.querySelector('[data-testid="now-playing-bar"] a').removeAttribute('href');x.step(1000);p=x.payload();
   assert.equal(p.previewTrackUri,'');assert.equal(p.previewProgressValid,true);assert.equal(p.previewAdvancing,false);
@@ -131,4 +132,23 @@ test('native keyboard submit cancels pending live-search callback before submitt
  assert.ok(method.indexOf('removeCallbacks(Ljava/lang/Runnable;)Z')>=0);
  assert.ok(method.indexOf('->pendingQuery:Ljava/lang/String;')>method.indexOf('removeCallbacks'));
  assert.ok(method.indexOf('onNativeSearchSubmit')>method.indexOf('->pendingQuery:Ljava/lang/String;'));
+});
+
+test('actual now-playing anchor can identify progress without a bar; unrelated links cannot',()=>{
+ const html='<main id="main-view"><a href="/track/wrong">Page track</a></main><a data-testid="context-item-link" href="/track/right">Song</a><span data-testid="playback-position">0:00</span><span data-testid="playback-duration">2:00</span><button data-testid="control-button-playpause" aria-label="Pause"></button>';
+ const x=fixture(html);try{
+  assert.equal(x.payload().previewTrackUri,'spotify:track:right');
+  x.w.document.querySelector('[data-testid="playback-position"]').textContent='0:01';x.step(1000);assert.equal(x.payload().previewAdvancing,true);
+  x.w.document.querySelector('[data-testid="context-item-link"]').remove();x.step(1000);
+  assert.equal(x.payload().previewTrackUri,'');assert.equal(x.payload().previewAdvancing,false);
+ }finally{x.close()}
+});
+test('pause, seek backwards, and track change invalidate recent observed motion immediately',()=>{
+ const x=fixture();try{
+  x.w.document.querySelector('[data-testid="playback-position"]').textContent='0:02';x.step(1000);assert.equal(x.payload().previewAdvancing,true);
+  x.w.document.querySelector('[data-testid="playback-position"]').textContent='0:01';x.step(500);assert.equal(x.payload().previewAdvancing,false);
+  x.w.document.querySelector('[data-testid="playback-position"]').textContent='0:02';x.step(500);assert.equal(x.payload().previewAdvancing,true);
+  x.w.document.querySelector('button').setAttribute('aria-label','Play');x.step(100);assert.equal(x.payload().previewAdvancing,false);
+  x.w.document.querySelector('button').setAttribute('aria-label','Pause');x.w.document.querySelector('[data-testid="context-item-link"]').setAttribute('href','/track/other');x.step(100);assert.equal(x.payload().previewAdvancing,false);
+ }finally{x.close()}
 });

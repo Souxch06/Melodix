@@ -1,4 +1,4 @@
-    // Fallback for the native Liked Songs screen only. The protected bridge
+    // Fallback for native playlists and Liked Songs only. The protected bridge
     // remains the primary source; no browsing operation controls playback.
     // The token stays in memory and is sent only to this fixed Spotify origin.
     var previewLikedAbort = null;
@@ -6,8 +6,12 @@
         if (previewLikedAbort) { try { previewLikedAbort.abort(); } catch (_) {} }
         previewLikedAbort = null;
     }
-    function previewFallbackLiked(uri, rawValue, requestId) {
-        if (uri !== 'spotify:collection:tracks' || typeof window.fetch !== 'function') return false;
+    function previewFallbackCollection(uri, rawValue, requestId) {
+        var liked = uri === 'spotify:collection:tracks';
+        var match = /^spotify:playlist:([a-z0-9]+)$/i.exec(uri);
+        if ((!liked && !match) || typeof window.fetch !== 'function') return false;
+        var endpoint = liked ? 'https://api.spotify.com/v1/me/tracks' :
+            'https://api.spotify.com/v1/playlists/' + match[1] + '/items';
         var token = window.spotAuthToken;
         if (typeof token !== 'string' || !/^Bearer \S+$/.test(token)) return false;
         var controller = typeof window.AbortController === 'function' ? new window.AbortController() : null;
@@ -27,7 +31,7 @@
             if (!live()) return;
             previewLoadState('unavailable');
             if (rows.length) publish('Titres partiellement chargés', 'La suite est momentanément indisponible.');
-            else publish('Titres likés indisponibles', 'Spotify n’a pas autorisé ou fourni cette liste.');
+            else publish(liked ? 'Titres likés indisponibles' : 'Titres indisponibles', 'Spotify n’a pas autorisé ou fourni cette liste.');
         }
         (async function() {
             try {
@@ -36,7 +40,7 @@
                     var options = {method:'GET', headers:{Authorization:token}, credentials:'omit', redirect:'error'};
                     if (controller) options.signal = controller.signal;
                     var offset = page * limit;
-                    var response = await window.fetch('https://api.spotify.com/v1/me/tracks?limit=50&offset=' + offset, options);
+                    var response = await window.fetch(endpoint + '?limit=50&offset=' + offset, options);
                     if (!live()) return;
                     if (!response || !response.ok) { unavailable(); return; }
                     var data = await response.json();
@@ -48,7 +52,7 @@
                     }
                     var received = data.items;
                     received.forEach(function(item) {
-                        var track = item && item.track;
+                        var track = item && (item.item || item.track);
                         var trackUri = track && typeof track.uri === 'string' ? track.uri : '';
                         var title = track && typeof track.name === 'string' ? track.name.trim() : '';
                         if (!track || !/^spotify:track:[a-z0-9]+$/i.test(trackUri) || !title) { skipped = true; return; }
@@ -73,11 +77,11 @@
                         window.__sfNativeCollectionLoaded(uri, requestId);
                         published = true;
                         publish(done && skipped ? 'Certains titres sont indisponibles' :
-                            (!done ? 'Chargement des titres likés' : ''),
+                            (!done ? 'Chargement des titres' : ''),
                             !done ? 'Les titres suivants arrivent…' : '');
                     } else if (!rows.length && done && data.total === 0) {
                         window.__sfNativeCollectionLoaded(uri, requestId);
-                        publish('Aucun titre liké', 'Cette liste Spotify est vide.');
+                        publish(liked ? 'Aucun titre liké' : 'Aucun titre', 'Cette liste Spotify est vide.');
                     } else if (!rows.length && done) { unavailable(); return; }
                     if (done) return;
                 }
