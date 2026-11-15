@@ -63,7 +63,7 @@ permissions:
 
 jobs:
   build-and-release-preview:
-    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && !(github.event_name == 'workflow_dispatch' && (inputs.release_tag == 'v1.2.2-test.9003-preview' || inputs.release_tag == 'v1.2.2-test.9004-preview' || inputs.release_tag == 'v1.2.2-test.9005-preview' || inputs.release_tag == 'v1.2.2-test.9006-preview' || inputs.release_tag == 'v1.2.2-test.9007-preview' || inputs.release_tag == 'v1.2.2-test.9008-preview' || inputs.release_tag == 'v1.2.2-test.9009-preview' || inputs.release_tag == 'v1.2.2-test.9010-preview' || inputs.release_tag == 'v1.2.2-test.9011-preview' || inputs.release_tag == 'v1.2.2-test.9012-preview')) }}
+    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && !(github.event_name == 'workflow_dispatch' && (inputs.release_tag == 'v1.2.2-test.9003-preview' || inputs.release_tag == 'v1.2.2-test.9004-preview' || inputs.release_tag == 'v1.2.2-test.9005-preview' || inputs.release_tag == 'v1.2.2-test.9006-preview' || inputs.release_tag == 'v1.2.2-test.9007-preview' || inputs.release_tag == 'v1.2.2-test.9008-preview' || inputs.release_tag == 'v1.2.2-test.9009-preview' || inputs.release_tag == 'v1.2.2-test.9010-preview' || inputs.release_tag == 'v1.2.2-test.9011-preview' || inputs.release_tag == 'v1.2.2-test.9012-preview' || inputs.release_tag == 'v1.2.2-test.9013-preview')) }}
     name: Build separate Preview APK artifact
     runs-on: ubuntu-latest
     outputs:
@@ -647,7 +647,7 @@ jobs:
           if-no-files-found: error
 
   historical-glass-preview:
-    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.release_tag == 'v1.2.2-test.9003-preview' || inputs.release_tag == 'v1.2.2-test.9004-preview' || inputs.release_tag == 'v1.2.2-test.9005-preview' || inputs.release_tag == 'v1.2.2-test.9006-preview' || inputs.release_tag == 'v1.2.2-test.9007-preview' || inputs.release_tag == 'v1.2.2-test.9008-preview' || inputs.release_tag == 'v1.2.2-test.9009-preview' || inputs.release_tag == 'v1.2.2-test.9010-preview' || inputs.release_tag == 'v1.2.2-test.9011-preview' || inputs.release_tag == 'v1.2.2-test.9012-preview') }}
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.release_tag == 'v1.2.2-test.9003-preview' || inputs.release_tag == 'v1.2.2-test.9004-preview' || inputs.release_tag == 'v1.2.2-test.9005-preview' || inputs.release_tag == 'v1.2.2-test.9006-preview' || inputs.release_tag == 'v1.2.2-test.9007-preview' || inputs.release_tag == 'v1.2.2-test.9008-preview' || inputs.release_tag == 'v1.2.2-test.9009-preview' || inputs.release_tag == 'v1.2.2-test.9010-preview' || inputs.release_tag == 'v1.2.2-test.9011-preview' || inputs.release_tag == 'v1.2.2-test.9012-preview' || inputs.release_tag == 'v1.2.2-test.9013-preview') }}
     name: Preview séparée d0f206b0 + Glass
     runs-on: ubuntu-latest
     steps:
@@ -720,15 +720,16 @@ jobs:
           MELODIX_PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
           MELODIX_PREVIEW_KEY_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEY_PASSWORD || secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
           DELIVERY_SHA: ${{ github.sha }}
-          NATIVE_CANDIDATE: ${{ inputs.release_tag == 'v1.2.2-test.9004-preview' || inputs.release_tag == 'v1.2.2-test.9005-preview' || inputs.release_tag == 'v1.2.2-test.9006-preview' || inputs.release_tag == 'v1.2.2-test.9007-preview' || inputs.release_tag == 'v1.2.2-test.9008-preview' || inputs.release_tag == 'v1.2.2-test.9009-preview' || inputs.release_tag == 'v1.2.2-test.9010-preview' || inputs.release_tag == 'v1.2.2-test.9011-preview' || inputs.release_tag == 'v1.2.2-test.9012-preview' }}
-          HOME_SHELVES: ${{ inputs.release_tag == 'v1.2.2-test.9005-preview' || inputs.release_tag == 'v1.2.2-test.9006-preview' || inputs.release_tag == 'v1.2.2-test.9007-preview' || inputs.release_tag == 'v1.2.2-test.9008-preview' || inputs.release_tag == 'v1.2.2-test.9009-preview' || inputs.release_tag == 'v1.2.2-test.9010-preview' || inputs.release_tag == 'v1.2.2-test.9011-preview' || inputs.release_tag == 'v1.2.2-test.9012-preview' }}
-          SCREEN_ROUTING: ${{ inputs.release_tag == 'v1.2.2-test.9006-preview' || inputs.release_tag == 'v1.2.2-test.9007-preview' || inputs.release_tag == 'v1.2.2-test.9008-preview' || inputs.release_tag == 'v1.2.2-test.9009-preview' || inputs.release_tag == 'v1.2.2-test.9010-preview' || inputs.release_tag == 'v1.2.2-test.9011-preview' || inputs.release_tag == 'v1.2.2-test.9012-preview' }}
-          HOME_LIBRARY: ${{ inputs.release_tag == 'v1.2.2-test.9007-preview' || inputs.release_tag == 'v1.2.2-test.9008-preview' || inputs.release_tag == 'v1.2.2-test.9009-preview' || inputs.release_tag == 'v1.2.2-test.9010-preview' || inputs.release_tag == 'v1.2.2-test.9011-preview' || inputs.release_tag == 'v1.2.2-test.9012-preview' }}
-          INCREMENTAL_LIBRARY: ${{ inputs.release_tag == 'v1.2.2-test.9008-preview' || inputs.release_tag == 'v1.2.2-test.9009-preview' || inputs.release_tag == 'v1.2.2-test.9010-preview' || inputs.release_tag == 'v1.2.2-test.9011-preview' || inputs.release_tag == 'v1.2.2-test.9012-preview' }}
-          PUBLIC_HOME: ${{ inputs.release_tag == 'v1.2.2-test.9009-preview' || inputs.release_tag == 'v1.2.2-test.9010-preview' || inputs.release_tag == 'v1.2.2-test.9011-preview' || inputs.release_tag == 'v1.2.2-test.9012-preview' }}
-          STABLE_HOME_LIBRARY: ${{ inputs.release_tag == 'v1.2.2-test.9010-preview' || inputs.release_tag == 'v1.2.2-test.9011-preview' || inputs.release_tag == 'v1.2.2-test.9012-preview' }}
-          FAST_COLD_HOME: ${{ inputs.release_tag == 'v1.2.2-test.9011-preview' || inputs.release_tag == 'v1.2.2-test.9012-preview' }}
-          GLASS_NATIVE_UI: ${{ inputs.release_tag == 'v1.2.2-test.9012-preview' }}
+          NATIVE_CANDIDATE: ${{ inputs.release_tag == 'v1.2.2-test.9004-preview' || inputs.release_tag == 'v1.2.2-test.9005-preview' || inputs.release_tag == 'v1.2.2-test.9006-preview' || inputs.release_tag == 'v1.2.2-test.9007-preview' || inputs.release_tag == 'v1.2.2-test.9008-preview' || inputs.release_tag == 'v1.2.2-test.9009-preview' || inputs.release_tag == 'v1.2.2-test.9010-preview' || inputs.release_tag == 'v1.2.2-test.9011-preview' || inputs.release_tag == 'v1.2.2-test.9012-preview' || inputs.release_tag == 'v1.2.2-test.9013-preview' }}
+          HOME_SHELVES: ${{ inputs.release_tag == 'v1.2.2-test.9005-preview' || inputs.release_tag == 'v1.2.2-test.9006-preview' || inputs.release_tag == 'v1.2.2-test.9007-preview' || inputs.release_tag == 'v1.2.2-test.9008-preview' || inputs.release_tag == 'v1.2.2-test.9009-preview' || inputs.release_tag == 'v1.2.2-test.9010-preview' || inputs.release_tag == 'v1.2.2-test.9011-preview' || inputs.release_tag == 'v1.2.2-test.9012-preview' || inputs.release_tag == 'v1.2.2-test.9013-preview' }}
+          SCREEN_ROUTING: ${{ inputs.release_tag == 'v1.2.2-test.9006-preview' || inputs.release_tag == 'v1.2.2-test.9007-preview' || inputs.release_tag == 'v1.2.2-test.9008-preview' || inputs.release_tag == 'v1.2.2-test.9009-preview' || inputs.release_tag == 'v1.2.2-test.9010-preview' || inputs.release_tag == 'v1.2.2-test.9011-preview' || inputs.release_tag == 'v1.2.2-test.9012-preview' || inputs.release_tag == 'v1.2.2-test.9013-preview' }}
+          HOME_LIBRARY: ${{ inputs.release_tag == 'v1.2.2-test.9007-preview' || inputs.release_tag == 'v1.2.2-test.9008-preview' || inputs.release_tag == 'v1.2.2-test.9009-preview' || inputs.release_tag == 'v1.2.2-test.9010-preview' || inputs.release_tag == 'v1.2.2-test.9011-preview' || inputs.release_tag == 'v1.2.2-test.9012-preview' || inputs.release_tag == 'v1.2.2-test.9013-preview' }}
+          INCREMENTAL_LIBRARY: ${{ inputs.release_tag == 'v1.2.2-test.9008-preview' || inputs.release_tag == 'v1.2.2-test.9009-preview' || inputs.release_tag == 'v1.2.2-test.9010-preview' || inputs.release_tag == 'v1.2.2-test.9011-preview' || inputs.release_tag == 'v1.2.2-test.9012-preview' || inputs.release_tag == 'v1.2.2-test.9013-preview' }}
+          PUBLIC_HOME: ${{ inputs.release_tag == 'v1.2.2-test.9009-preview' || inputs.release_tag == 'v1.2.2-test.9010-preview' || inputs.release_tag == 'v1.2.2-test.9011-preview' || inputs.release_tag == 'v1.2.2-test.9012-preview' || inputs.release_tag == 'v1.2.2-test.9013-preview' }}
+          STABLE_HOME_LIBRARY: ${{ inputs.release_tag == 'v1.2.2-test.9010-preview' || inputs.release_tag == 'v1.2.2-test.9011-preview' || inputs.release_tag == 'v1.2.2-test.9012-preview' || inputs.release_tag == 'v1.2.2-test.9013-preview' }}
+          FAST_COLD_HOME: ${{ inputs.release_tag == 'v1.2.2-test.9011-preview' || inputs.release_tag == 'v1.2.2-test.9012-preview' || inputs.release_tag == 'v1.2.2-test.9013-preview' }}
+          GLASS_NATIVE_UI: ${{ inputs.release_tag == 'v1.2.2-test.9012-preview' || inputs.release_tag == 'v1.2.2-test.9013-preview' }}
+          NAVIGATION_ACCESS: ${{ inputs.release_tag == 'v1.2.2-test.9013-preview' }}
         run: |
           set -euo pipefail
           phase="initialisation"
@@ -795,6 +796,11 @@ jobs:
             MELODIX_PREVIEW_ROOT="$work" python3 "$audit/native-candidat/test_glass_native_ui.py"
             python3 "$audit/native-candidat/apply_glass_native_ui.py" "$work"
           fi
+          if [[ "$NAVIGATION_ACCESS" == "true" ]]; then
+            phase="test and apply native navigation access"
+            MELODIX_PREVIEW_ROOT="$work" MELODIX_PATCH_INPUT=1 python3 "$audit/native-candidat/test_native_navigation_access.py"
+            python3 "$audit/native-candidat/apply_native_navigation_access.py" "$work"
+          fi
           phase="download apktool"
           curl --fail --silent --show-error --location \
             https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar --output "$RUNNER_TEMP/apktool.jar"
@@ -812,10 +818,18 @@ jobs:
           if [[ "$GLASS_NATIVE_UI" == "true" ]]; then
             python3 "$audit/native-candidat/test_glass_native_decoded.py" "$RUNNER_TEMP/historical-decoded"
           fi
+          if [[ "$NAVIGATION_ACCESS" == "true" ]]; then
+            MELODIX_PREVIEW_ROOT="$RUNNER_TEMP/historical-decoded" python3 "$audit/native-candidat/test_native_navigation_access.py"
+            MELODIX_CANDIDATE_ROOT="$RUNNER_TEMP/historical-decoded" NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" \
+              node --test "$audit/native-candidat/native-navigation-access.test.cjs"
+          fi
           smali_test="$audit/native-smali-characterization.test.cjs"
           if [[ "$NATIVE_CANDIDATE" == "true" ]]; then
             python3 "$audit/native-candidat/test_decoded_candidate.py" "$RUNNER_TEMP/historical-decoded"
             smali_test="$audit/native-candidat/native-smali-candidate.test.cjs"
+          fi
+          if [[ "$NAVIGATION_ACCESS" == "true" ]]; then
+            smali_test="$audit/native-candidat/native-smali-navigation.test.cjs"
           fi
           routing_tests=("$audit/native-routing-characterization.test.cjs" "$audit/native-dispatch-characterization.test.cjs")
           diagnostic_test="$audit/diagnostic-simulation.test.cjs"
@@ -864,6 +878,9 @@ jobs:
           playlist_test="$audit/playlist-playback.test.cjs"
           if [[ "$NATIVE_CANDIDATE" == "true" ]]; then
             playlist_test="$audit/native-candidat/playlist-playback-candidate.test.cjs"
+          fi
+          if [[ "$NAVIGATION_ACCESS" == "true" ]]; then
+            playlist_test="$audit/native-candidat/playlist-playback-navigation.test.cjs"
           fi
           MELODIX_HISTORICAL_ROOT="$GITHUB_WORKSPACE/historical" MELODIX_SMALI_ROOT="$RUNNER_TEMP/historical-decoded" \
             node --test --test-name-pattern="synthetic playlist track payload" "$playlist_test"
@@ -916,7 +933,7 @@ jobs:
       - name: Upload Preview artifact only (no release)
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.release_tag == 'v1.2.2-test.9012-preview' && 'Melodix-Preview-historique-glass-native' || (inputs.release_tag == 'v1.2.2-test.9011-preview' && 'Melodix-Preview-historique-demarrage' || (inputs.release_tag == 'v1.2.2-test.9010-preview' && 'Melodix-Preview-historique-bibliotheque-stable' || (inputs.release_tag == 'v1.2.2-test.9009-preview' && 'Melodix-Preview-historique-home-public' || (inputs.release_tag == 'v1.2.2-test.9008-preview' && 'Melodix-Preview-historique-progressive' || (inputs.release_tag == 'v1.2.2-test.9007-preview' && 'Melodix-Preview-historique-bibliotheque' || (inputs.release_tag == 'v1.2.2-test.9006-preview' && 'Melodix-Preview-historique-ecrans' || (inputs.release_tag == 'v1.2.2-test.9005-preview' && 'Melodix-Preview-historique-shelves' || (inputs.release_tag == 'v1.2.2-test.9004-preview' && 'Melodix-Preview-historique-native-glass' || 'Melodix-Preview-historique-glass')))))))) }}
+          name: ${{ inputs.release_tag == 'v1.2.2-test.9013-preview' && 'Melodix-Preview-historique-glass-navigation' || inputs.release_tag == 'v1.2.2-test.9012-preview' && 'Melodix-Preview-historique-glass-native' || (inputs.release_tag == 'v1.2.2-test.9011-preview' && 'Melodix-Preview-historique-demarrage' || (inputs.release_tag == 'v1.2.2-test.9010-preview' && 'Melodix-Preview-historique-bibliotheque-stable' || (inputs.release_tag == 'v1.2.2-test.9009-preview' && 'Melodix-Preview-historique-home-public' || (inputs.release_tag == 'v1.2.2-test.9008-preview' && 'Melodix-Preview-historique-progressive' || (inputs.release_tag == 'v1.2.2-test.9007-preview' && 'Melodix-Preview-historique-bibliotheque' || (inputs.release_tag == 'v1.2.2-test.9006-preview' && 'Melodix-Preview-historique-ecrans' || (inputs.release_tag == 'v1.2.2-test.9005-preview' && 'Melodix-Preview-historique-shelves' || (inputs.release_tag == 'v1.2.2-test.9004-preview' && 'Melodix-Preview-historique-native-glass' || 'Melodix-Preview-historique-glass')))))))) }}
           path: preview-output/
           retention-days: 14
           if-no-files-found: error
