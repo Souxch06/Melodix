@@ -4,7 +4,7 @@ import hashlib,sys
 from pathlib import Path
 HERE=Path(__file__).resolve().parent
 EXPECTED='7143bd2a1d8ba4719412d200d4d14a86b5a3bc855feffc6fb282c301d8555b4e'
-HELPER_SHA='f73883e0c760710c65d162b157efeec02c14c524a83e111b9cb0e640768b97d7'
+HELPER_SHA='a090f2dd6fa8eb642a1041d456159d9d66dd98c5c92d6f692b8784f00f4205ca'
 
 def one(text, old, new):
     if text.count(old)!=1: raise ValueError('unexpected anchor: '+old[:90])
@@ -24,6 +24,34 @@ def apply(root):
           "        rows = (path === '/collection/tracks' || /^\\/(playlist|album|show)\\//i.test(path))\n            ? collectDetailRows(mainView) : collectHomeRows(mainView);")
     s=one(s, "        if (rows.length && /^\\/(playlist|album|show)\\//i.test(path)) {",
           "        if (rows.length && (path === '/collection/tracks' || /^\\/(playlist|album|show)\\//i.test(path))) {")
+    # Only the liked URL needs special canonicalization; preserve every other
+    # collection's existing ownership guard, including stale playlist pages.
+    s=one(s, """        if (window.__sfNativeCollectionUri &&
+            nativeSpotifyUri(window.location.href) !== window.__sfNativeCollectionUri) return;""", """        if (window.__sfNativeCollectionUri &&
+            (window.__sfNativeCollectionUri === 'spotify:collection:tracks'
+                ? spotifyResourceUri(window.location.href) : nativeSpotifyUri(window.location.href)) !== window.__sfNativeCollectionUri) {
+            if (window.__sfNativeCollectionUri === 'spotify:collection:tracks') previewPhase('liked-route-other');
+            return;
+        }""")
+    s=one(s, """        signature = JSON.stringify(rows);
+        window.__sfNativeUiDetailRowsCount = rows.length;""", """        signature = JSON.stringify(rows);
+        if (path === '/collection/tracks') previewPhase(rows.length ? 'liked-dom-rows' : 'liked-dom-empty');
+        window.__sfNativeUiDetailRowsCount = rows.length;""")
+    s=one(s, """        var displayedRows = rows;
+        if (rows.length && (path === '/collection/tracks'""", """        // On a ready, freshly navigated liked page, empty DOM is not proof of
+        // an empty library. Show a manual retry; a later real row replaces it.
+        if (path === '/collection/tracks' && !window.__sfNativeCollectionUri && window.__sfNativeUiReadyNotified && !rows.length && !previewLikedUnavailableShown) {
+            previewLikedUnavailableShown = true;
+            previewLoadState('unavailable');
+            sendNativeUiData('detail', [
+                {title:'Titres likés indisponibles', subtitle:'Spotify n’affiche pas encore de titres.', settingValue:'Info', uri:''},
+                {title:'Réessayer', subtitle:'Une nouvelle tentative', uri:'melodix:retry-collection'}
+            ]);
+        }
+        if (rows.length || path !== '/collection/tracks') previewLikedUnavailableShown = false;
+        var displayedRows = rows;
+        if (rows.length && (path === '/collection/tracks'""")
+    s=one(s, '    function updateDetailRows(mainView) {', '    var previewLikedUnavailableShown = false;\n    function updateDetailRows(mainView) {')
     # Only an anonymous timing event; retain the previous collection route,
     # readiness guard, navigation policy and one-call retrieval flow unchanged.
     s=one(s, """        if (rows.length > 0 && signature !== lastInitialDetailSignature && sendNativeUiData('detail', displayedRows)) {""", """        if (rows.length > 0 && signature !== lastInitialDetailSignature) previewPhase('rows-received');

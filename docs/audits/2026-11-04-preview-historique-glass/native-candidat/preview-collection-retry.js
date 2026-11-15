@@ -65,6 +65,10 @@
         function failed(stage) {
             if (!current() || failedOnce) return;
             failedOnce = true;
+            if (uri === 'spotify:collection:tracks' && window.__sfNativeCollectionDomReady) {
+                stopPreviewCollectionRetry(); stopCollectionFallback();
+                previewLoadState('data'); return;
+            }
             stopPreviewCollectionRetry();
             stopCollectionFallback();
             previewLoadState(stage);
@@ -76,7 +80,7 @@
                 return;
             }
             sendNativeUiData('detail', [
-                {title:'Titres indisponibles', subtitle:'La lecture continue.', settingValue:'Info', uri:''},
+                {title:'Titres indisponibles', subtitle:uri === 'spotify:collection:tracks' ? 'Titres likés indisponibles. La lecture continue.' : 'La lecture continue.', settingValue:'Info', uri:''},
                 {title:'Réessayer', subtitle:'Une nouvelle tentative', uri:'melodix:retry-collection'}
             ]);
         }
@@ -101,6 +105,13 @@
             previewLoadState('waiting-bridge');
             previewCollectionRetry = window.setTimeout(function() { waitForBridge(remaining - 1); }, 250);
         }
+        // Re-publish only the already visible liked DOM for this explicit tap;
+        // clear its presentation signature so an earlier native screen cannot
+        // suppress the new detail. No navigation or extra request is added.
+        if (uri === 'spotify:collection:tracks' && spotifyResourceUri(window.location.href) === uri) {
+            lastInitialDetailSignature = null;
+            updateDetailRows(homeScrapeRoot());
+        }
         openCollectionTimer = window.setTimeout(function() {
             if (current() && !done) failed('timeout');
         }, 6000);
@@ -109,5 +120,8 @@
     };
     window.__sfRetryCollection = function() {
         var value = previewCollectionValue;
+        // A paused-only navigation starts a fresh WebView page; retain no
+        // account state, but allow an explicit retry of its visible liked route.
+        if (!value && spotifyRoutePath() === '/collection/tracks') value = 'spotify:collection:tracks';
         return value ? window.__sfOpenCollection(value) : false;
     };
