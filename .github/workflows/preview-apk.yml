@@ -881,6 +881,9 @@ jobs:
             MELODIX_PREVIEW_ROOT="$work" MELODIX_PATCH_INPUT=1 python3 "$audit/native-candidat/test_glass_screen_refresh.py"
             python3 "$audit/native-candidat/test_glass_screen_refresh_jvm.py"
             python3 "$audit/native-candidat/apply_glass_screen_refresh.py" "$work"
+            phase="apply 1022131 feedback: progress and search"
+            python3 "$audit/native-candidat/apply_preview_2131_followup.py" "$work"
+            node --check "$work/assets/native_ui_shell.js"
           fi
           if [[ "$PLAYLIST_TAP_PATCH" == "true" ]]; then
             phase="apply required native playlist tap patch"

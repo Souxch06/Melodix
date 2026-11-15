@@ -105,3 +105,22 @@ test('late playlist response remains eligible after the non-destructive timeout'
   assert.equal(x.w.__sfNativeCollectionHasData,true);
  }finally{x.close()}
 });
+
+test('live slider property updates are read even if its initial value attribute is stale',()=>{
+ const html='<main id="main-view"></main><div data-testid="now-playing-bar"><a data-testid="context-item-link" href="/track/abc123">Song</a></div><div data-testid="playback-progressbar"><input type="range" min="0" max="141000" value="38000"></div><button data-testid="control-button-playpause" aria-label="Pause"></button>';
+ const x=fixture(html);try {
+  const slider=x.w.document.querySelector('input');
+  assert.equal(x.payload().previewPositionMs,38000);
+  slider.value='39000';assert.equal(slider.getAttribute('value'),'38000');
+  x.step(1000);assert.equal(x.payload().previewPositionMs,39000);assert.equal(x.payload().previewAdvancing,true);
+ }finally{x.close()}
+});
+test('search submitted after a late bridge start uses the bridge without page navigation',()=>{
+ const x=fixture();try {
+  assert.equal(typeof x.w.__sfSubmitSearch,'function');
+  let queries=[];x.w.__sfMelodixBridgeStarted=true;x.w.searchMediaItems=q=>queries.push(q);
+  let href=x.w.location.href;assert.equal(x.w.__sfSubmitSearch('  Nina  '),true);
+  assert.deepEqual(queries,['Nina']);assert.equal(x.w.location.href,href);assert.deepEqual(x.commands,[]);
+  assert.ok(!x.errors.some(e=>/navigation/i.test(e)));
+ }finally{x.close()}
+});
