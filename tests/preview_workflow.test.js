@@ -24,7 +24,7 @@ test("Preview workflow requires an explicit full source SHA instead of defaultin
   assert.match(workflow, /source_ref must be a full 40-character commit SHA/);
   assert.match(
     workflow,
-    /if: \$\{\{ \(github\.event_name == 'push' \|\| github\.event_name == 'workflow_dispatch' \|\| github\.event_name == 'workflow_call'\) && !\(github\.event_name == 'workflow_dispatch' && \(inputs\.release_tag == 'v1\.2\.2-test\.9003-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9004-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9005-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9006-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9007-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9008-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9009-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9010-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9011-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9012-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9013-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9014-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9015-preview'\)\) \}\}/,
+    /if: \$\{\{ \(github\.event_name == 'push' \|\| github\.event_name == 'workflow_dispatch' \|\| github\.event_name == 'workflow_call'\) && !\(github\.event_name == 'workflow_dispatch' && \(inputs\.release_tag == 'v1\.2\.2-test\.9003-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9004-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9005-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9006-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9007-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9008-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9009-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9010-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9011-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9012-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9013-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9014-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9015-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9016-preview'\)\) \}\}/,
   );
   assert.match(workflow, /workflow_call:\n    inputs:/);
   assert.match(
@@ -1123,7 +1123,7 @@ test("targeted P0 replay uses only the verified historical ec6 APK and preserves
 
 
 test("historical Glass preview is explicitly dispatched and cannot run alongside the normal build", () => {
-  assert.match(workflow, /historical-glass-preview:\n    if: \$\{\{ github\.event_name == 'workflow_dispatch' && \(inputs\.release_tag == 'v1\.2\.2-test\.9003-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9004-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9005-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9006-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9007-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9008-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9009-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9010-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9011-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9012-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9013-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9014-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9015-preview'\) \}\}/);
+  assert.match(workflow, /historical-glass-preview:\n    if: \$\{\{ github\.event_name == 'workflow_dispatch' && \(inputs\.release_tag == 'v1\.2\.2-test\.9003-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9004-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9005-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9006-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9007-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9008-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9009-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9010-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9011-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9012-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9013-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9014-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9015-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9016-preview'\) \}\}/);
   assert.match(workflow, /test "\$INPUT_SOURCE_REF" = "\$DELIVERY_SHA"/);
   assert.match(workflow, /ref: d0f206b08b3db7c2d41a1e844f6dd4abf196a5f6/);
   // Check the historical job against the same already-established public pin
@@ -1138,20 +1138,26 @@ test("historical Glass preview is explicitly dispatched and cannot run alongside
 });
 
 test("Glass navigation Preview is separately tested after Glass and after decoding", () => {
-  assert.match(workflow, /NAVIGATION_ACCESS: \$\{\{ inputs\.release_tag == 'v1\.2\.2-test\.9013-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9014-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9015-preview' \}\}/);
+  assert.match(workflow, /NAVIGATION_ACCESS: \$\{\{ inputs\.release_tag == 'v1\.2\.2-test\.9013-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9014-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9015-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9016-preview' \}\}/);
   assert.match(workflow, /apply_glass_native_ui\.py[\s\S]*?test_native_navigation_access\.py[\s\S]*?apply_native_navigation_access\.py[\s\S]*?build unsigned APK/);
   assert.match(workflow, /test decoded APK[\s\S]*?test_native_navigation_access\.py[\s\S]*?native-navigation-access\.test\.cjs/);
   assert.match(workflow, /smali_test="\$audit\/native-candidat\/native-smali-navigation\.test\.cjs"/);
 });
 
 test("Glass detail and library Preview is tested after navigation and after decoding", () => {
-  assert.match(workflow, /DETAIL_LIBRARY: \$\{\{ inputs\.release_tag == 'v1\.2\.2-test\.9014-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9015-preview' \}\}/);
+  assert.match(workflow, /DETAIL_LIBRARY: \$\{\{ inputs\.release_tag == 'v1\.2\.2-test\.9014-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9015-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9016-preview' \}\}/);
   assert.match(workflow, /apply_native_navigation_access\.py[\s\S]*?test_glass_detail_library\.py[\s\S]*?apply_glass_detail_library\.py[\s\S]*?build unsigned APK/);
   assert.match(workflow, /test decoded APK[\s\S]*?test_glass_detail_library\.py[\s\S]*?glass-detail-library(?:-paged)?\.test\.cjs/);
 });
 
 test("Paged playlists Preview has source and decoded tests", () => {
-  assert.match(workflow, /PAGED_PLAYLISTS: \$\{\{ inputs\.release_tag == 'v1\.2\.2-test\.9015-preview' \}\}/);
+  assert.match(workflow, /PAGED_PLAYLISTS: \$\{\{ inputs\.release_tag == 'v1\.2\.2-test\.9015-preview' \|\| inputs\.release_tag == 'v1\.2\.2-test\.9016-preview' \}\}/);
   assert.match(workflow, /apply_glass_detail_library\.py[\s\S]*?test_playlist_pages_home_sections\.py[\s\S]*?apply_playlist_pages_home_sections\.py[\s\S]*?build unsigned APK/);
   assert.match(workflow, /test decoded APK[\s\S]*?test_playlist_pages_home_sections\.py[\s\S]*?playlist-pages-home\.test\.cjs/);
+});
+
+test("Home and playlist polish Preview tests source and decoded resources", () => {
+  assert.match(workflow, /HOME_PLAYLIST_POLISH: \$\{\{ inputs\.release_tag == 'v1\.2\.2-test\.9016-preview' \}\}/);
+  assert.match(workflow, /apply_playlist_pages_home_sections\.py[\s\S]*?test_glass_home_playlist_polish\.py[\s\S]*?apply_glass_home_playlist_polish\.py[\s\S]*?build unsigned APK/);
+  assert.match(workflow, /test decoded APK[\s\S]*?MELODIX_PRIOR_PUBLIC[\s\S]*?test_glass_home_playlist_polish\.py/);
 });
