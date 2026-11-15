@@ -14,3 +14,9 @@ Sur la 9010, l'utilisateur confirme que la bibliothèque affiche désormais ses 
 ## Vérification
 
 Tests sur scripts et Smali redécodés depuis l'APK locale non signée : 56/56 tests ciblés (dont 10 nouveaux sur démarrage, absence/changement de jeton, hashes et erreurs), 3/3 bootstrap et 40/40 tests natifs/session ciblés ; test de transformation 2/2 ; compilation, redécodage, intégrité ZIP et ressources OK. Requêtes et réponses simulées, aucun Android ou Spotify réel, pas de mesure du temps de chargement sur téléphone. L'APK locale non signée ne doit pas être distribuée.
+
+## Preview signée 9011
+
+- [Build réussi](https://github.com/Souxch06/Melodix/actions/runs/43691376485), source `f9fcff505019885ab379ef577d891926ceb8c322`, run 618, versionCode calculé `1022105`.
+- [ZIP Preview](https://github.com/Souxch06/Melodix/actions/runs/43691376485/artifacts/14152257742), expire le 29 novembre 2026 à 07:46 UTC ; SHA-256 ZIP selon l'API GitHub `8911ecc3d21eeece11ce1c36ab0291016aaf10d9bce41a35a2595da0132d063c`.
+- Package `com.melodix.music.preview`, certificat Preview épinglé, pas de release publique ni de test sur appareil.
