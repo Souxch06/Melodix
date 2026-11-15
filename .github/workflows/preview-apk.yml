@@ -818,6 +818,9 @@ jobs:
             phase="test and apply Home and playlist visual polish"
             MELODIX_PREVIEW_ROOT="$work" MELODIX_PATCH_INPUT=1 python3 "$audit/native-candidat/test_glass_home_playlist_polish.py"
             python3 "$audit/native-candidat/apply_glass_home_playlist_polish.py" "$work"
+            phase="verify protected 9016 project assets"
+            python3 "$audit/native-candidat/test_9016_protected_assets.py"
+            python3 "$audit/native-candidat/verify_9016_protected_assets.py" project "$work"
           fi
           phase="download apktool"
           curl --fail --silent --show-error --location \
@@ -946,6 +949,10 @@ jobs:
           grep -F "$DELIVERY_SHA" "$RUNNER_TEMP/resources.txt"
           fingerprint="$(echo "$cert" | fold -w 2 | paste -sd ':' -)"
           grep -F "$fingerprint" "$RUNNER_TEMP/resources.txt"
+          if [[ "$HOME_PLAYLIST_POLISH" == "true" ]]; then
+            phase="verify protected 9016 assets in signed APK"
+            python3 "$audit/native-candidat/verify_9016_protected_assets.py" apk "$out"
+          fi
           phase="verify packaged assets"
           python3 - "$out" "$work" "$DELIVERY_SHA" <<'PY'
           import hashlib, json, pathlib, sys, zipfile
