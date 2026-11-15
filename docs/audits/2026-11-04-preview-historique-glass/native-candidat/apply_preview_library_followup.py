@@ -211,6 +211,11 @@ def apply(root):
 """)
     rows.write_text(r,encoding='utf8')
     p.write_text(s,encoding='utf8')
+    # Separate player presentation, with pinned inputs and no playback changes.
+    import importlib.util
+    visual=HERE/'apply_preview_player_visual.py'
+    spec=importlib.util.spec_from_file_location('preview_player_visual',visual)
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);module.apply(root)
 if __name__=='__main__':
     if len(sys.argv)!=2: raise SystemExit('usage: apply_preview_library_followup.py PROJECT')
     apply(Path(sys.argv[1]))
