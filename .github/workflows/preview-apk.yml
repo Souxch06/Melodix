@@ -877,6 +877,10 @@ jobs:
             python3 "$audit/native-candidat/apply_preview_player.py" "$work"
             node --check "$work/assets/native_ui_shell.js"
             python3 "$audit/native-candidat/verify_9016_protected_assets.py" project "$work"
+            phase="test and apply Glass settings and playlist presentation"
+            MELODIX_PREVIEW_ROOT="$work" MELODIX_PATCH_INPUT=1 python3 "$audit/native-candidat/test_glass_screen_refresh.py"
+            python3 "$audit/native-candidat/test_glass_screen_refresh_jvm.py"
+            python3 "$audit/native-candidat/apply_glass_screen_refresh.py" "$work"
           fi
           if [[ "$PLAYLIST_TAP_PATCH" == "true" ]]; then
             phase="apply required native playlist tap patch"
@@ -957,6 +961,7 @@ jobs:
           if [[ "$PLAYER_PATCH" == "true" ]]; then
             phase="verify decoded native player and simulated WebView"
             MELODIX_PREVIEW_ROOT="$RUNNER_TEMP/historical-decoded" python3 "$audit/native-candidat/test_preview_player_patch.py"
+            MELODIX_PREVIEW_ROOT="$RUNNER_TEMP/historical-decoded" python3 "$audit/native-candidat/test_glass_screen_refresh.py"
             MELODIX_CANDIDATE_ROOT="$RUNNER_TEMP/historical-decoded" NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" \
               node --test "$audit/native-candidat/preview-player-shell.test.cjs" \
                 "$audit/native-candidat/preview-player-clock-model.test.cjs" \
