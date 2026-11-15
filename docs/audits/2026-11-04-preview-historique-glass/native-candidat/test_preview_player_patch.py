@@ -62,7 +62,8 @@ class PreviewPlayer(unittest.TestCase):
         for layout in ('res/layout/activity_main.xml', 'res/layout-w600dp/activity_main.xml'):
             root = ET.fromstring(self.get(layout))
             for name in ('nativePlayerProgress', 'nativeMiniProgress'):
-                bar = next(x for x in root.iter('ProgressBar') if x.get(android+'id') == '@id/'+name)
+                bar = next(x for x in root.iter() if x.tag in ('ProgressBar','SeekBar') and x.get(android+'id') == '@id/'+name)
+                self.assertEqual(bar.tag, 'SeekBar' if name == 'nativePlayerProgress' else 'ProgressBar')
                 self.assertEqual(bar.get(android+'progressDrawable'), '@drawable/widget_progress_drawable')
                 self.assertEqual(bar.get(android+'progressTint'), '@null')
                 self.assertEqual(bar.get(android+'progressBackgroundTint'), '@null')
@@ -136,6 +137,11 @@ class PreviewPlayer(unittest.TestCase):
         self.assertLess(before_debug.index('const/4 v0, 0x1'),before_debug.index(':try_start_0'))
         self.assertIn('invoke-static {v2}',before_debug)
         self.assertIn('invoke-virtual {v1, v0}, Landroid/webkit/CookieManager;->setAcceptCookie(Z)V',text)
+
+    def test_seek_reattaches_after_webview_creation(self):
+        activity=self.get('smali/com/melodix/music/MainActivity.smali')
+        self.assertIn('PreviewPlayerController;->attachSeek(Landroid/webkit/WebView;)V',method(activity,'.method public final onResume()'))
+        self.assertIn('PreviewPlayerController;->attachSeek(Landroid/webkit/WebView;)V',method(activity,'.method public final C()V'))
 
     def test_controls_have_no_playlist_rate_limit(self):
         a=self.get('smali/com/melodix/music/MainActivity.smali')
