@@ -903,9 +903,12 @@ jobs:
                 exit 1
               }
           fi
+          phase="check decoded candidate artwork and native resources"
           smali_test="$audit/native-smali-characterization.test.cjs"
           if [[ "$NATIVE_CANDIDATE" == "true" ]]; then
-            python3 "$audit/native-candidat/test_decoded_candidate.py" "$RUNNER_TEMP/historical-decoded"
+            decoded_test="$audit/native-candidat/test_decoded_candidate.py"
+            if [[ "$LOT1_WIP" == "true" ]]; then decoded_test="$audit/native-candidat/test_decoded_candidate_lot1.py"; fi
+            python3 "$decoded_test" "$RUNNER_TEMP/historical-decoded"
             smali_test="$audit/native-candidat/native-smali-candidate.test.cjs"
           fi
           if [[ "$NAVIGATION_ACCESS" == "true" ]]; then
