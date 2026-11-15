@@ -160,6 +160,23 @@ def apply(root):
 
     const v1, 0x7f090236""")
     a=prefix+anchor_player+method
+    # Playlist-only placeholders are inert, local presentation. The original
+    # image/title rendering call already occurs here; no image or list fetch is
+    # added. rowsPainted ignores these entries because they have no track URI.
+    a=one(a, """    const-string v2, "[]"
+    if-eqz p2, :native_collection_default_title""", """    const-string v2, "[]"
+    const-string v3, ":playlist:"
+    invoke-virtual {p1, v3}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v3
+    if-nez v3, :preview_playlist_loading_rows
+    const-string v3, "/playlist/"
+    invoke-virtual {p1, v3}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v3
+    if-eqz v3, :preview_playlist_loading_done
+    :preview_playlist_loading_rows
+    const-string v2, "[{\\\"title\\\":\\\"Chargement…\\\",\\\"settingValue\\\":\\\"Info\\\"},{\\\"title\\\":\\\"────────────\\\",\\\"settingValue\\\":\\\"Info\\\"},{\\\"title\\\":\\\"──────────\\\",\\\"settingValue\\\":\\\"Info\\\"}]"
+    :preview_playlist_loading_done
+    if-eqz p2, :native_collection_default_title""")
     activity.write_text(a,encoding='utf8')
     rows=root/'smali/com/melodix/music/NativeUiRowFactory.smali'
     r=rows.read_text(encoding='utf8')

@@ -168,7 +168,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         loadStage = state;
     }
     private boolean measureHomeFrame, measurePlaylistFrame;
-    private long playlistStart = -1, playlistFrameMs = -1;
+    private long playlistStart = -1, playlistFrameMs = -1, previousPlaylistFrameMs = -1;
     private long bridgeAt = -1, navigationAt = -1, pageReadyAt = -1, receivedAt = -1, rowsAt = -1, frameAt = -1;
     private String likedObservation = "non observée";
     public void phase(String event) {
@@ -197,6 +197,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         }
     }
     public void playlistOpened(String uri) {
+        if (playlistFrameMs >= 0) previousPlaylistFrameMs = playlistFrameMs;
         playlistStart = -1; playlistFrameMs = -1; pendingPlaylist = ""; measurePlaylistFrame = false; loadStage = "—";
         bridgeAt = navigationAt = pageReadyAt = receivedAt = rowsAt = frameAt = -1; stageAtRows = "—"; likedObservation = "non observée"; staleWaitingObserved = false;
         likedCollection = "spotify:collection:tracks".equals(uri);
@@ -543,6 +544,9 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             .append(firstHomeFrameMs < 0 ? "—" : Long.toString(firstHomeFrameMs) + " ms");
         out.append("\nPlaylist : appui → prochaine frame avec titres : ")
             .append(playlistFrameMs < 0 ? "—" : Long.toString(playlistFrameMs) + " ms");
+        out.append("\nPlaylist : mesure précédente appui → frame avec titres : ")
+            .append(previousPlaylistFrameMs < 0 ? "—" : Long.toString(previousPlaylistFrameMs) + " ms")
+            .append(" (peut concerner une autre playlist ; comparaison indicative)");
         out.append("\nChargement playlist (état local, sans identifiant) : ").append(loadStage);
         out.append("\nSource position : ").append(progressSource);
         out.append(" ; identité de titre présente : ").append(tupleIdentity ? "oui" : "non");
