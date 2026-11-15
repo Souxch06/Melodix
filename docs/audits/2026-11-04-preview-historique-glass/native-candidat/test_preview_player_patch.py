@@ -71,6 +71,8 @@ class PreviewPlayer(unittest.TestCase):
         # It must remain initialized on all exceptions and never receive a string.
         self.assertIn('const/4 v0, 0x1', before_debug)
         self.assertNotIn('const-string v0, "com.melodix.music.preview"', before_debug)
+        self.assertNotIn('move-result v0', before_debug)
+        self.assertLess(before_debug.index('const/4 v0, 0x1'),before_debug.index(':try_start_0'))
         self.assertIn('invoke-static {v2}',before_debug)
         self.assertIn('invoke-virtual {v1, v0}, Landroid/webkit/CookieManager;->setAcceptCookie(Z)V',text)
 
