@@ -17,3 +17,9 @@ Dans le fallback Web, le collecteur général transformait tous les liens d'une 
 ## Validation
 
 Simulations JSDOM : plusieurs liens par piste, artistes et badge, répétitions réelles, fallback sans structure, artist pages, bridge/DOM et réponses vides ou en erreur. Tests statiques des branches Smali, de l'espacement et de son isolement, compilation apktool et contrôle après redécodage. Pas d'exécution Android, ni de test de la playlist réelle ni de mesure de rendu : une vérification sur téléphone reste indispensable.
+
+## Livraison 9014
+
+- [Workflow signé réussi](https://github.com/Souxch06/Melodix/actions/runs/43696283286), source `ee550568b7d0952239bbcbf4486c9fb515fa1b4b`.
+- [ZIP Preview](https://github.com/Souxch06/Melodix/actions/runs/43696283286/artifacts/14154308108), SHA-256 indiqué par GitHub `d25022d162070f4d8f30bc2ebaf9cc82503722b0b6bdcaa2168d371693a31d95`, expiration 2026-11-29 08:50 UTC. Package `com.melodix.music.preview`, versionCode 1022108 calculé pour le run 621. La signature utilise le certificat Preview épinglé ; il ne s'agit pas d'une release publique.
+- Local : 117 tests JS ciblés, 5 tests de patch, vérifications statiques après redécodage et compilation APK réussis. Ils ne prouvent pas le résultat sur téléphone.
