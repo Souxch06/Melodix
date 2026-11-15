@@ -52,10 +52,16 @@ public class ControllerTest {
   c.snapshot(sample("spotify:track:other",-1,-1,true,false,false));eq(mini.progress,8);eq(full.progress,8);yes(elapsed.text.equals("0:01"));
   SystemClock.time=9500;Choreographer.frame();eq(mini.progress,8);
   c.snapshot(sample("",-1,-1,true,false,false));yes(elapsed.text.equals("—"));yes(remain.text.equals("Temps restant : —"));
+  // Numeric, anonymous samples are displayed but never extrapolated as though
+  // they belonged to the previously identified track.
+  c.snapshot(sample("",23000,120000,true,true,true));eq(mini.progress,192);eq(full.progress,192);yes(elapsed.text.equals("0:23"));
+  SystemClock.time=9900;Choreographer.frame();eq(mini.progress,192);
+  c.snapshot(sample("",24000,120000,true,true,true));eq(mini.progress,200);
+  c.snapshot(sample("",-1,-1,true,false,false));yes(elapsed.text.equals("—"));
   c.snapshot(sample(t,1000,120000,false,false,true));SystemClock.time=10000;eq(c.tapPlayPause(),1);eq(b1.image,0x7f080121);eq(b2.image,0x7f080121);
   SystemClock.time=10005;c.command();c.snapshot(sample(t,1000,120000,false,false,true));eq(b1.image,0x7f080121);
   SystemClock.time=10015;c.snapshot(sample(t,1100,120000,true,true,true));eq(b1.image,0x7f080121);
-  java.lang.reflect.Method m=PreviewPlayerController.class.getDeclaredMethod("report");m.setAccessible(true);String report=(String)m.invoke(c);yes(report.contains("5 ms"));yes(report.contains("15 ms"));yes(!report.contains(t));yes(!report.contains("secretTrack"));
+  java.lang.reflect.Method m=PreviewPlayerController.class.getDeclaredMethod("report");m.setAccessible(true);String report=(String)m.invoke(c);yes(report.contains("5 ms"));yes(report.contains("15 ms"));yes(report.contains("400 ms"));yes(!report.contains(t));yes(!report.contains("secretTrack"));
   View about=new View();c.attachAbout(about);yes(about.listener.onLongClick(about));yes(AlertDialog.body.contains("Diagnostic Preview"));AlertDialog.copy.onClick(null,0);yes(ClipboardManager.copied.equals(AlertDialog.body));
   // A stale playing snapshot cannot restart an optimistically paused clock.
   SystemClock.time=11000; c.snapshot(sample(t,2000,120000,true,true,true));
@@ -113,7 +119,7 @@ def main():
         java = os.environ.get('PREVIEW_TEST_JAVA', 'java')
         ecj = os.environ.get('PREVIEW_TEST_ECJ')
         compile_command = ([java, '-cp', ecj, 'org.eclipse.jdt.internal.compiler.batch.Main'] if ecj else ['javac'])
-        subprocess.run(compile_command + ['-source', '8', '-target', '8', '-d', str(out)] + files, check=True)
+        subprocess.run(compile_command + ['-encoding', 'UTF-8', '-source', '8', '-target', '8', '-d', str(out)] + files, check=True)
         subprocess.run([java, '-cp', str(out), 'com.melodix.music.ControllerTest'], check=True)
 
 if __name__ == '__main__': main()

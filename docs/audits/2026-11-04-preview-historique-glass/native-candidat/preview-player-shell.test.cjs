@@ -6,8 +6,8 @@ const {JSDOM,VirtualConsole}=require('jsdom');
 const root=process.env.MELODIX_CANDIDATE_ROOT;
 if(!root)throw Error('MELODIX_CANDIDATE_ROOT required');
 const shell=fs.readFileSync(path.join(root,'assets/native_ui_shell.js'),'utf8');
-function fixture(){
- const html='<main id="main-view"></main><div data-testid="now-playing-bar"><a data-testid="context-item-link" href="/track/abc123">Song</a></div><span data-testid="playback-position">0:00</span><span data-testid="playback-duration">2:00</span><button data-testid="control-button-playpause" aria-label="Pause"></button>';
+function fixture(customHtml){
+ const html=customHtml || '<main id="main-view"></main><div data-testid="now-playing-bar"><a data-testid="context-item-link" href="/track/abc123">Song</a></div><span data-testid="playback-position">0:00</span><span data-testid="playback-duration">2:00</span><button data-testid="control-button-playpause" aria-label="Pause"></button>';
  const dom=new JSDOM('<!doctype html><body>'+html+'</body>',{url:'https://open.spotify.com/',runScripts:'outside-only',virtualConsole:new VirtualConsole()});
  const w=dom.window,events=[],intervals=[],commands=[];let t=0;
  w.fetch=()=>{throw Error('unexpected network')};
@@ -24,7 +24,9 @@ test('real shell publishes only observed identity and movement; freezes on uncha
   let p=x.payload();assert.equal(p.previewTrackUri,'spotify:track:abc123');assert.equal(p.previewProgressValid,true);assert.equal(p.previewAdvancing,false);
   x.w.document.querySelector('[data-testid="playback-position"]').textContent='0:01';x.step(1000);p=x.payload();assert.equal(p.previewPositionMs,1000);assert.equal(p.previewAdvancing,true);
   x.step(1000);p=x.payload();assert.equal(p.previewAdvancing,false);
-  x.w.document.querySelector('[data-testid="now-playing-bar"] a').removeAttribute('href');x.step(1000);p=x.payload();assert.equal(p.previewProgressValid,false);
+  x.w.document.querySelector('[data-testid="now-playing-bar"] a').removeAttribute('href');x.step(1000);p=x.payload();
+  assert.equal(p.previewTrackUri,'');assert.equal(p.previewProgressValid,true);assert.equal(p.previewAdvancing,false);
+  x.w.document.querySelector('[data-testid="playback-duration"]').textContent='';x.step(1000);p=x.payload();assert.equal(p.previewProgressValid,false);
  }finally{x.close()}
 });
 test('explicit playback target invokes the simulated existing command once without a scheduled retry',()=>{
@@ -33,5 +35,41 @@ test('explicit playback target invokes the simulated existing command once witho
   assert.deepEqual(x.commands,[false]);assert.equal(x.events.filter(e=>e.kind==='preview-command').length,1);
   x.step(1000);x.step(1000);assert.deepEqual(x.commands,[false]);
   assert.ok(x.events.filter(e=>e.kind==='preview-command').every(e=>e.json===''));
+ }finally{x.close()}
+});
+
+test('reads the existing player slider in milliseconds without network or a second command',()=>{
+ const html='<main id="main-view"></main><div data-testid="now-playing-bar"><a data-testid="context-item-link" href="/track/abc123">Song</a></div><div data-testid="playback-progressbar"><input type="range" min="0" max="141000" value="38000"></div><button data-testid="control-button-playpause" aria-label="Pause"></button>';
+ const x=fixture(html);try{
+  let p=x.payload();assert.equal(p.previewProgressSource,'range');assert.equal(p.previewPositionMs,38000);assert.equal(p.previewDurationMs,141000);
+  x.w.document.querySelector('input').setAttribute('value','39000');x.step(1000);p=x.payload();assert.equal(p.previewPositionMs,39000);assert.equal(p.previewAdvancing,true);assert.deepEqual(x.commands,[]);
+ }finally{x.close()}
+});
+test('anonymous slider samples stay directly observed and never animate across an unknown track',()=>{
+ const html='<main id="main-view"></main><div data-testid="now-playing-bar"><span data-testid="context-item-link">Song</span></div><div data-testid="playback-progressbar"><input type="range" min="0" max="120000" value="22000"></div><button data-testid="control-button-playpause" aria-label="Pause"></button>';
+ const x=fixture(html);try{
+  let p=x.payload();assert.equal(p.previewTrackUri,'');assert.equal(p.previewProgressValid,true);assert.equal(p.previewPositionMs,22000);assert.equal(p.previewAdvancing,false);
+  x.w.document.querySelector('input').setAttribute('value','23000');x.step(1000);p=x.payload();assert.equal(p.previewPositionMs,23000);assert.equal(p.previewAdvancing,false);
+ }finally{x.close()}
+});
+test('percent and incomplete sliders are not invented as millisecond durations',()=>{
+ for(const attrs of ['max="100" value="38"','max="120000"','value="38000"','min="20" max="120000" value="38000"','max="120000" value=""','max="120000" value="999999"']) {
+  const html='<main id="main-view"></main><div data-testid="now-playing-bar"><a data-testid="context-item-link" href="/track/abc123">Song</a></div><div data-testid="playback-progressbar"><input type="range" '+attrs+'></div><button data-testid="control-button-playpause" aria-label="Pause"></button>';
+  const x=fixture(html);try{const p=x.payload();assert.equal(p.previewProgressValid,false);assert.equal(p.previewProgressSource,'none');}finally{x.close()}
+ }
+});
+
+test('position and duration are accepted only from one complete source',()=>{
+ const html='<main id="main-view"></main><div data-testid="now-playing-bar"><a href="/track/abc123">Song</a></div><span data-testid="playback-position">0:20</span><button data-testid="control-button-playpause" aria-label="Pause"></button>';
+ const x=fixture(html);try{
+  const p=x.payload();assert.equal(p.previewProgressValid,false);assert.equal(p.previewProgressSource,'none');
+ }finally{x.close()}
+});
+test('switching sources cannot count as observed movement',()=>{
+ const html='<main id="main-view"></main><div data-testid="now-playing-bar"><a href="/track/abc123">Song</a></div><span data-testid="playback-position">0:20</span><span data-testid="playback-duration">2:00</span><button data-testid="control-button-playpause" aria-label="Pause"></button>';
+ const x=fixture(html);try{
+  assert.equal(x.payload().previewProgressSource,'clock');
+  const n=x.w.document.createElement('div');n.setAttribute('data-testid','playback-progressbar');n.innerHTML='<input type="range" max="120000" value="21000">';x.w.document.body.append(n);
+  x.step(1000);assert.equal(x.payload().previewProgressSource,'range');assert.equal(x.payload().previewAdvancing,false);
  }finally{x.close()}
 });

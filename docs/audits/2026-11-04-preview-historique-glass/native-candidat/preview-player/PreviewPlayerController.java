@@ -37,6 +37,8 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     private String elapsedText = "—", durationText = "—", remainingText = "Temps restant : —";
     private double base, correction;
     private String track = "";
+    private String progressSource = "none";
+    private boolean progressHasUri;
     // Diagnostic measurements contain only monotonic time differences.
     private long tapAt = -1, commandAt = -1, stateAt = -1, optimisticAt = -1, uiAt = -1;
     private long previousProgressAt = -1, previousPosition = -1;
@@ -166,19 +168,28 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             boolean real = o.optBoolean("playing", false);
             String uri = o.optString("previewTrackUri", "");
             long pos = o.optLong("previewPositionMs", -1), dur = o.optLong("previewDurationMs", -1);
-            boolean snapshotValid = o.optBoolean("previewProgressValid", false) && !uri.isEmpty() && dur > 0 && pos >= 0 && pos <= dur;
+            boolean snapshotValid = o.optBoolean("previewProgressValid", false) && dur > 0 && pos >= 0 && pos <= dur;
+            String source = o.optString("previewProgressSource", "none");
+            String oldSource = progressSource;
+            progressSource = source.equals("range") || source.equals("media") || source.equals("clock") ? source : "none";
+            progressHasUri = !uri.isEmpty();
             double previous = position(t);
-            boolean changedTrack = !uri.equals(track);
+            // An anonymous sample can be shown but cannot establish track
+            // continuity: never extrapolate it or inherit a previous track.
+            String previousTrack = track;
+            boolean changedTrack = uri.isEmpty() || !uri.equals(track);
             boolean freezePendingPause = pending && !pendingTarget && real && valid && !changedTrack && !Double.isNaN(previous);
-            boolean advances = snapshotValid && real && !freezePendingPause && o.optBoolean("previewAdvancing", false);
-            boolean reset = !valid || !snapshotValid || changedTrack || Double.isNaN(previous) ||
+            boolean advances = snapshotValid && !uri.isEmpty() && real && !freezePendingPause && o.optBoolean("previewAdvancing", false);
+            boolean reset = !valid || !snapshotValid || changedTrack || !progressSource.equals(oldSource) || Double.isNaN(previous) ||
                 Math.abs(previous - pos) > 2000 || !moving || !advances;
             if (snapshotValid) {
                 duration = dur; anchor = t; track = uri;
                 base = freezePendingPause ? Math.max(0, Math.min(dur, previous)) : (reset ? pos : Math.max(0, Math.min(dur, previous)));
                 correction = reset || freezePendingPause ? 0 : pos - previous;
                 moving = advances; valid = true;
-                if (changedTrack) { previousProgressAt = -1; previousPosition = -1; }
+                if (!uri.equals(previousTrack) || (uri.isEmpty() && previousPosition >= 0 && pos < previousPosition)) {
+                    previousProgressAt = -1; previousPosition = -1;
+                }
                 if (real && previousPosition >= 0 && pos != previousPosition && previousProgressAt >= 0) {
                     intervals[intervalIndex] = t - previousProgressAt;
                     intervalIndex = (intervalIndex + 1) % intervals.length;
@@ -244,6 +255,8 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             .append(firstHomeFrameMs < 0 ? "—" : Long.toString(firstHomeFrameMs) + " ms");
         out.append("\nPlaylist : appui → prochaine frame avec titres : ")
             .append(playlistFrameMs < 0 ? "—" : Long.toString(playlistFrameMs) + " ms");
+        out.append("\nSource position : ").append(progressSource);
+        out.append(" ; identité de titre présente : ").append(progressHasUri ? "oui" : "non");
         out.append("\nIntervalles position : ");
         if (intervalCount == 0) out.append("—");
         for (int i = 0; i < intervalCount; i++) {

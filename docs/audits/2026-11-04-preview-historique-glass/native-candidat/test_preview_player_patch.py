@@ -38,6 +38,17 @@ class PreviewPlayer(unittest.TestCase):
             data=(HERE/'preview-player/smali'/name).read_bytes()
             self.assertEqual(hashlib.sha256(data).hexdigest(),digest)
             if INPUT: self.assertEqual(self.files['smali/com/melodix/music/'+name],data.decode())
+    def test_compiled_helpers_have_no_replacement_characters(self):
+        # The exact generated dex/Smali must not contain Unicode replacement
+        # characters; JVM source-only tests missed a compiler encoding error.
+        for name in self.patch.HELPER_SHA:
+            helper=self.get('smali/com/melodix/music/'+name)
+            self.assertNotIn('\ufffd', helper)
+            self.assertNotIn(r'\ufffd', helper.lower())
+        helper=self.get('smali/com/melodix/music/PreviewPlayerController.smali')
+        self.assertTrue('—' in helper or r'\u2014' in helper)
+        self.assertTrue('é' in helper or r'\u00e9' in helper)
+
     def test_route_and_about_row_are_native_and_discreet(self):
         a=self.get('smali/com/melodix/music/MainActivity.smali')
         apply=method(a,'.method public final applyNativeUiData(')

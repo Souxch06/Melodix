@@ -28,7 +28,7 @@
     .locals 0
 
     .prologue
-    .line 215
+    .line 226
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerController$1;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     iput-wide p2, p0, Lcom/melodix/music/PreviewPlayerController$1;->val$id:J
@@ -46,7 +46,7 @@
     .prologue
     const/4 v4, 0x0
 
-    .line 216
+    .line 227
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$1;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$0(Lcom/melodix/music/PreviewPlayerController;)Z
@@ -67,7 +67,7 @@
 
     if-nez v0, :cond_0
 
-    .line 217
+    .line 228
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$1;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     invoke-static {v0, v4}, Lcom/melodix/music/PreviewPlayerController;->access$2(Lcom/melodix/music/PreviewPlayerController;Z)V
@@ -86,7 +86,7 @@
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$5(Lcom/melodix/music/PreviewPlayerController;)V
 
-    .line 218
+    .line 229
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$1;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$6(Lcom/melodix/music/PreviewPlayerController;)Ljava/lang/ref/WeakReference;
@@ -99,10 +99,10 @@
 
     check-cast v0, Landroid/app/Activity;
 
-    .line 219
+    .line 230
     if-eqz v0, :cond_0
 
-    const-string v1, "Commande non confirm\ufffd\ufffde"
+    const-string v1, "Commande non confirm\u00e9e"
 
     invoke-static {v0, v1, v4}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
 
@@ -110,7 +110,7 @@
 
     invoke-virtual {v0}, Landroid/widget/Toast;->show()V
 
-    .line 221
+    .line 232
     :cond_0
     return-void
 .end method

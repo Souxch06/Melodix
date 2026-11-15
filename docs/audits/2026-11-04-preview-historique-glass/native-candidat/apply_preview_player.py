@@ -16,12 +16,12 @@ EXPECTED = {
     'smali/com/melodix/music/NativeSettingsRowFactory.smali': '87af4ac75e344b84f94374db7b94018b524a9af981f2367f8a9631f8b1c8ed63',
     'smali/m9.smali': '85110d08bf6c642ea6201c152a4e219721ae542927a16a701d6018bedee83b06',
 }
-SOURCE_SHA = 'e5668a41e5470feea9170033c116e3977a4146d570d1e4825631faaab8ee7591'
+SOURCE_SHA = 'f7e4256f1d539ae96c7bb30f219276da49ef6692c6decb07d7bb4365b21cc5a2'
 HELPER_SHA = {
-    'PreviewPlayerController$1.smali': '37a6f06afcbad5ec2d156c80eb0b42dc265817aacac0fe7e336848d09a9b5477',
-    'PreviewPlayerController$2.smali': '640710090bd57a6f3f9168efd29dea875201d2570e95e9b9d3b7a3c3ff6b6e87',
-    'PreviewPlayerController$3.smali': 'ed05ae8d9270d8a86e6d3262e668f4f3f8d7483e9af412876a7a0fb3d726cc02',
-    'PreviewPlayerController.smali': 'a709c1296537ca0cd631e1c5785551ad1e6850cce633cc7479b19e01e769e93c',
+    'PreviewPlayerController$1.smali': '17f102ffaf62878fadfe5a231b536840715c23624cb43d3b4d61d3212c91b767',
+    'PreviewPlayerController$2.smali': 'd938a127bdbf4e2d4c38334b2e1fe23ec58a74686058d04c64ba37743874008e',
+    'PreviewPlayerController$3.smali': '6c1168f3fc65b05401d2c40ff565008c91a83fa7af9890d75f3c80b92391a968',
+    'PreviewPlayerController.smali': '259e6cb3a0781d41cfe05cb49b92735e3ecd3bba308b39efddfee5ba810f13d4',
 }
 
 def replace(text, old, new):
@@ -46,12 +46,44 @@ def prepare(root):
         files[dest] = p.read_text()
 
     path = 'assets/native_ui_shell.js'; s = files[path]
+    s = replace(s, '''    function readMediaProgress() {''', '''    // Read the actual Spotify player slider already used by the existing
+    // bridge. Its max/value are milliseconds; reject absent, invalid or
+    // percent-style controls rather than inventing a position or duration.
+    function previewReadRange() {
+        var input = document.querySelector('div[data-testid="playback-progressbar"] input[type="range"]');
+        if (!input || !input.hasAttribute('max') || !input.hasAttribute('value')) return null;
+        var rawMax = input.getAttribute('max');
+        var rawValue = input.getAttribute('value');
+        var rawMin = input.hasAttribute('min') ? input.getAttribute('min') : '0';
+        if (!/^\\d+$/.test(rawMax) || !/^\\d+$/.test(rawValue) || !/^\\d+$/.test(rawMin)) return null;
+        var max = Number(rawMax), min = Number(rawMin), value = Number(rawValue);
+        if (!isFinite(max) || max < 1000 || !isFinite(value) || min !== 0 || value < 0 || value > max) return null;
+        return {position: value / 1000, duration: max / 1000, source: 'range'};
+    }
+
+    function readMediaProgress() {''')
+    s = replace(s, '''        var progress = readMediaProgress();
+        var position = progress.position;
+        var duration = progress.duration;
+        if (position < 0) position = readClock(['[data-testid="playback-position"]']);
+        if (duration <= 0) duration = readClock(['[data-testid="playback-duration"]']);''', '''        var progress = previewReadRange() || readMediaProgress();
+        var position = progress.position;
+        var duration = progress.duration;
+        var previewSource = progress.source || (isFinite(position) && position >= 0 && isFinite(duration) && duration > 0 && position <= duration ? 'media' : 'none');
+        if (previewSource === 'none') {
+            // Never combine a position from one source with another source's duration.
+            position = readClock(['[data-testid="playback-position"]']);
+            duration = readClock(['[data-testid="playback-duration"]']);
+            if (position >= 0 && duration > 0 && position <= duration) previewSource = 'clock';
+            else { position = -1; duration = -1; }
+        }''')
     s = replace(s, '''            cover: cover || '',
             position: position > 0 ? Math.round(position) : 0,
             duration: duration > 0 ? Math.round(duration) : 0''', '''            cover: cover || '',
             position: position > 0 ? Math.round(position) : 0,
             duration: duration > 0 ? Math.round(duration) : 0,
             previewTrackUri: /^spotify:(?:track|episode):[a-z0-9]+$/i.test(trackUri) ? trackUri : '',
+            previewProgressSource: previewSource,
             previewPositionMs: isFinite(position) && position >= 0 ? Math.round(position * 1000) : -1,
             previewDurationMs: isFinite(duration) && duration > 0 ? Math.round(duration * 1000) : -1''')
     s = replace(s, '''    function playerPayload() {
@@ -59,17 +91,19 @@ def prepare(root):
         return {''', '''    // Preview-only progress samples. No requests or persistent data. Advance
     // only after observing real motion, and freeze while position is unchanged.
     var previewLastTrack = '';
+    var previewLastSource = 'none';
     var previewLastPosition = -1;
     var previewLastObservation = 0;
     function playerPayload() {
         var info = readNowPlaying();
         var playing = playbackSnapshot().playing;
         var at = window.performance && typeof window.performance.now === 'function' ? window.performance.now() : Date.now();
-        var valid = !!info.previewTrackUri && info.previewDurationMs > 0 && info.previewPositionMs >= 0 && info.previewPositionMs <= info.previewDurationMs;
-        var advancing = valid && playing && info.previewTrackUri === previewLastTrack &&
+        var valid = info.previewDurationMs > 0 && info.previewPositionMs >= 0 && info.previewPositionMs <= info.previewDurationMs;
+        var advancing = valid && playing && !!info.previewTrackUri && info.previewTrackUri === previewLastTrack && info.previewProgressSource === previewLastSource &&
             previewLastPosition >= 0 && info.previewPositionMs > previewLastPosition &&
             at >= previewLastObservation && at - previewLastObservation <= 5000;
         previewLastTrack = valid ? info.previewTrackUri : '';
+        previewLastSource = valid ? info.previewProgressSource : 'none';
         previewLastPosition = valid ? info.previewPositionMs : -1;
         previewLastObservation = at;
         return {''')
@@ -83,6 +117,7 @@ def prepare(root):
             position: info.position,
             duration: info.duration,
             previewTrackUri: info.previewTrackUri,
+            previewProgressSource: info.previewProgressSource,
             previewPositionMs: info.previewPositionMs,
             previewDurationMs: info.previewDurationMs,
             previewProgressValid: valid,
@@ -95,6 +130,7 @@ def prepare(root):
             Math.floor(payload.position / 5)
         ].join('|');''', '''            payload.duration,
             payload.previewTrackUri,
+            payload.previewProgressSource,
             Math.floor(payload.previewPositionMs / 1000),
             payload.previewProgressValid ? '1' : '0',
             payload.previewAdvancing ? '1' : '0'
