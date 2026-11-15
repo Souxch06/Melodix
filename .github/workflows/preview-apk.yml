@@ -63,7 +63,7 @@ permissions:
 
 jobs:
   build-and-release-preview:
-    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && !(github.event_name == 'workflow_dispatch' && (inputs.release_tag == 'v1.2.2-test.9003-preview' || inputs.release_tag == 'v1.2.2-test.9004-preview' || inputs.release_tag == 'v1.2.2-test.9005-preview' || inputs.release_tag == 'v1.2.2-test.9006-preview')) }}
+    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && !(github.event_name == 'workflow_dispatch' && (inputs.release_tag == 'v1.2.2-test.9003-preview' || inputs.release_tag == 'v1.2.2-test.9004-preview' || inputs.release_tag == 'v1.2.2-test.9005-preview' || inputs.release_tag == 'v1.2.2-test.9006-preview' || inputs.release_tag == 'v1.2.2-test.9007-preview')) }}
     name: Build separate Preview APK artifact
     runs-on: ubuntu-latest
     outputs:
@@ -647,7 +647,7 @@ jobs:
           if-no-files-found: error
 
   historical-glass-preview:
-    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.release_tag == 'v1.2.2-test.9003-preview' || inputs.release_tag == 'v1.2.2-test.9004-preview' || inputs.release_tag == 'v1.2.2-test.9005-preview' || inputs.release_tag == 'v1.2.2-test.9006-preview') }}
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.release_tag == 'v1.2.2-test.9003-preview' || inputs.release_tag == 'v1.2.2-test.9004-preview' || inputs.release_tag == 'v1.2.2-test.9005-preview' || inputs.release_tag == 'v1.2.2-test.9006-preview' || inputs.release_tag == 'v1.2.2-test.9007-preview') }}
     name: Preview séparée d0f206b0 + Glass
     runs-on: ubuntu-latest
     steps:
@@ -694,6 +694,7 @@ jobs:
           MELODIX_HISTORICAL_ROOT="$PWD" python3 "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/native-candidat/test_native_candidate.py"
           MELODIX_HISTORICAL_ROOT="$PWD" python3 "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/native-candidat/test_home_shelves.py"
           MELODIX_HISTORICAL_ROOT="$PWD" python3 "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/native-candidat/test_screen_patch.py"
+          MELODIX_HISTORICAL_ROOT="$PWD" python3 "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/native-candidat/test_home_library_patch.py"
           node --test tests/native_home_feed.test.js tests/native_ui.test.js tests/playback_pause.test.js
           MELODIX_HISTORICAL_ROOT="$PWD" node --test \
             "$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/diagnostic-simulation.test.cjs" \
@@ -719,9 +720,10 @@ jobs:
           MELODIX_PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
           MELODIX_PREVIEW_KEY_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEY_PASSWORD || secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
           DELIVERY_SHA: ${{ github.sha }}
-          NATIVE_CANDIDATE: ${{ inputs.release_tag == 'v1.2.2-test.9004-preview' || inputs.release_tag == 'v1.2.2-test.9005-preview' || inputs.release_tag == 'v1.2.2-test.9006-preview' }}
-          HOME_SHELVES: ${{ inputs.release_tag == 'v1.2.2-test.9005-preview' || inputs.release_tag == 'v1.2.2-test.9006-preview' }}
-          SCREEN_ROUTING: ${{ inputs.release_tag == 'v1.2.2-test.9006-preview' }}
+          NATIVE_CANDIDATE: ${{ inputs.release_tag == 'v1.2.2-test.9004-preview' || inputs.release_tag == 'v1.2.2-test.9005-preview' || inputs.release_tag == 'v1.2.2-test.9006-preview' || inputs.release_tag == 'v1.2.2-test.9007-preview' }}
+          HOME_SHELVES: ${{ inputs.release_tag == 'v1.2.2-test.9005-preview' || inputs.release_tag == 'v1.2.2-test.9006-preview' || inputs.release_tag == 'v1.2.2-test.9007-preview' }}
+          SCREEN_ROUTING: ${{ inputs.release_tag == 'v1.2.2-test.9006-preview' || inputs.release_tag == 'v1.2.2-test.9007-preview' }}
+          HOME_LIBRARY: ${{ inputs.release_tag == 'v1.2.2-test.9007-preview' }}
         run: |
           set -euo pipefail
           phase="initialisation"
@@ -759,6 +761,10 @@ jobs:
             phase="apply experimental screen separation"
             python3 "$audit/native-candidat/apply_screen_routing.py" "$work"
           fi
+          if [[ "$HOME_LIBRARY" == "true" ]]; then
+            phase="apply Home and Library candidate"
+            python3 "$audit/native-candidat/apply_home_library.py" "$work"
+          fi
           phase="download apktool"
           curl --fail --silent --show-error --location \
             https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar --output "$RUNNER_TEMP/apktool.jar"
@@ -787,8 +793,19 @@ jobs:
             diagnostic_test="$audit/native-candidat/screen-diagnostic-simulation.test.cjs"
             bootstrap_test="$audit/native-candidat/screen-full-bootstrap.test.cjs"
           fi
+          # The legacy callback test intentionally asserts the historical defect.
+          # Run it against the original base, not the corrected 9007 callback.
+          if [[ "$HOME_LIBRARY" == "true" ]]; then
+            MELODIX_CANDIDATE_ROOT="$RUNNER_TEMP/historical-decoded" MELODIX_SMALI_ROOT="$RUNNER_TEMP/historical-decoded" \
+              NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" node --test "$audit/native-candidat/home-library.test.cjs"
+            MELODIX_HISTORICAL_ROOT="$GITHUB_WORKSPACE/historical" MELODIX_SMALI_ROOT="$GITHUB_WORKSPACE/historical" \
+              NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" node --test "$audit/css-callback-characterization.test.cjs"
+            callback_tests=()
+          else
+            callback_tests=("$audit/css-callback-characterization.test.cjs")
+          fi
           MELODIX_HISTORICAL_ROOT="$GITHUB_WORKSPACE/historical" MELODIX_SMALI_ROOT="$RUNNER_TEMP/historical-decoded" \
-            NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" node --test "$smali_test" "${routing_tests[@]}" "$audit/css-callback-characterization.test.cjs" "$audit/session-simulation.test.cjs"
+            NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" node --test "$smali_test" "${routing_tests[@]}" "${callback_tests[@]}" "$audit/session-simulation.test.cjs"
           MELODIX_HISTORICAL_ROOT="$GITHUB_WORKSPACE/historical" MELODIX_SMALI_ROOT="$RUNNER_TEMP/historical-decoded" NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" \
             node --test --test-name-pattern="synthetic JS-to-native library|synthetic Home chain" "$diagnostic_test"
           playlist_test="$audit/playlist-playback.test.cjs"
@@ -838,7 +855,7 @@ jobs:
           (cd preview-output && sha256sum Melodix-Preview-historique-glass.apk > Melodix-Preview-historique-glass.apk.sha256)
           {
             echo '### Preview historique Glass — non validée sur téléphone'
-            echo "- Candidat natif partiel: $NATIVE_CANDIDATE ; étagères: $HOME_SHELVES ; routage expérimental: $SCREEN_ROUTING ; aucun test sur Android."
+            echo "- Candidat natif partiel: $NATIVE_CANDIDATE ; étagères: $HOME_SHELVES ; routage expérimental: $SCREEN_ROUTING ; accueil/bibliothèque: $HOME_LIBRARY ; aucun test sur Android."
             echo "- Base: $base ; livraison: $DELIVERY_SHA ; versionCode: $version_code"
             echo '- Package séparé, clé Preview vérifiée. Ancienne connexion et protections historiques : consulter audit avant installation.'
             cat preview-output/Melodix-Preview-historique-glass.apk.sha256
@@ -846,7 +863,7 @@ jobs:
       - name: Upload Preview artifact only (no release)
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.release_tag == 'v1.2.2-test.9006-preview' && 'Melodix-Preview-historique-ecrans' || (inputs.release_tag == 'v1.2.2-test.9005-preview' && 'Melodix-Preview-historique-shelves' || (inputs.release_tag == 'v1.2.2-test.9004-preview' && 'Melodix-Preview-historique-native-glass' || 'Melodix-Preview-historique-glass')) }}
+          name: ${{ inputs.release_tag == 'v1.2.2-test.9007-preview' && 'Melodix-Preview-historique-bibliotheque' || (inputs.release_tag == 'v1.2.2-test.9006-preview' && 'Melodix-Preview-historique-ecrans' || (inputs.release_tag == 'v1.2.2-test.9005-preview' && 'Melodix-Preview-historique-shelves' || (inputs.release_tag == 'v1.2.2-test.9004-preview' && 'Melodix-Preview-historique-native-glass' || 'Melodix-Preview-historique-glass'))) }}
           path: preview-output/
           retention-days: 14
           if-no-files-found: error
