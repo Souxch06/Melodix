@@ -20,16 +20,14 @@ function fixture(customHtml){
  w.eval(shell);
  return {w,events,commands,errors,step(ms){t+=ms;intervals.find(i=>i.ms===1000).fn()},payload(){return JSON.parse(events.filter(e=>e.kind==='player').at(-1).json)},close(){dom.window.close()}};
 }
-test('real shell retains brief duplicate samples and freezes without fresh movement',()=>{
+test('tuple identity does not need a URI and missing artist never animates',()=>{
  const x=fixture();try{
-  let p=x.payload();assert.equal(p.previewTrackUri,'spotify:track:abc123');assert.equal(p.previewProgressValid,true);assert.equal(p.previewAdvancing,false);
-  x.w.document.querySelector('[data-testid="playback-position"]').textContent='0:01';x.step(1000);p=x.payload();assert.equal(p.previewPositionMs,1000);assert.equal(p.previewAdvancing,true);
-  x.step(1000);p=x.payload();assert.equal(p.previewAdvancing,true);
-  x.step(1000);p=x.payload();assert.equal(p.previewAdvancing,true);
-  x.step(1000);p=x.payload();assert.equal(p.previewAdvancing,false);
-  x.w.document.querySelector('[data-testid="now-playing-bar"] a').removeAttribute('href');x.step(1000);p=x.payload();
-  assert.equal(p.previewTrackUri,'');assert.equal(p.previewProgressValid,true);assert.equal(p.previewAdvancing,false);
-  x.w.document.querySelector('[data-testid="playback-duration"]').textContent='';x.step(1000);p=x.payload();assert.equal(p.previewProgressValid,false);
+  assert.equal(x.payload().previewAdvancing,false);
+  const bar=x.w.document.querySelector('[data-testid="now-playing-bar"]');bar.insertAdjacentHTML('beforeend','<span data-testid="context-item-info-artist">Artist</span>');
+  x.step(1000);let p=x.payload();assert.equal(p.previewPlaybackState,'playing');assert.equal(p.previewAdvancing,true);
+  bar.querySelector('a').removeAttribute('href');x.step(1000);p=x.payload();assert.equal(p.previewTrackUri,'');assert.equal(p.previewAdvancing,true);
+  x.w.document.querySelector('button').setAttribute('aria-label','');x.step(1000);p=x.payload();assert.equal(p.previewPlaybackState,'unknown');assert.equal(p.previewAdvancing,false);
+  x.w.document.querySelector('button').setAttribute('aria-label','Play');x.step(1000);assert.equal(x.payload().previewPlaybackState,'paused');
  }finally{x.close()}
 });
 test('explicit playback target invokes the simulated existing command once without a scheduled retry',()=>{
@@ -45,7 +43,7 @@ test('reads the existing player slider in milliseconds without network or a seco
  const html='<main id="main-view"></main><div data-testid="now-playing-bar"><a data-testid="context-item-link" href="/track/abc123">Song</a></div><div data-testid="playback-progressbar"><input type="range" min="0" max="141000" value="38000"></div><button data-testid="control-button-playpause" aria-label="Pause"></button>';
  const x=fixture(html);try{
   let p=x.payload();assert.equal(p.previewProgressSource,'range');assert.equal(p.previewPositionMs,38000);assert.equal(p.previewDurationMs,141000);
-  x.w.document.querySelector('input').setAttribute('value','39000');x.step(1000);p=x.payload();assert.equal(p.previewPositionMs,39000);assert.equal(p.previewAdvancing,true);assert.deepEqual(x.commands,[]);
+  x.w.document.querySelector('input').setAttribute('value','39000');x.step(1000);p=x.payload();assert.equal(p.previewPositionMs,39000);assert.equal(p.previewAdvancing,false);assert.deepEqual(x.commands,[]);
  }finally{x.close()}
 });
 test('anonymous slider samples stay directly observed and never animate across an unknown track',()=>{
@@ -114,7 +112,7 @@ test('live slider property updates are read even if its initial value attribute 
   const slider=x.w.document.querySelector('input');
   assert.equal(x.payload().previewPositionMs,38000);
   slider.value='39000';assert.equal(slider.getAttribute('value'),'38000');
-  x.step(1000);assert.equal(x.payload().previewPositionMs,39000);assert.equal(x.payload().previewAdvancing,true);
+  x.step(1000);assert.equal(x.payload().previewPositionMs,39000);assert.equal(x.payload().previewAdvancing,false);
  }finally{x.close()}
 });
 test('search submitted after a late bridge start uses the bridge without page navigation',()=>{
@@ -135,21 +133,7 @@ test('native keyboard submit cancels pending live-search callback before submitt
  assert.ok(method.indexOf('onNativeSearchSubmit')>method.indexOf('->pendingQuery:Ljava/lang/String;'));
 });
 
-test('actual now-playing anchor can identify progress without a bar; unrelated links cannot',()=>{
- const html='<main id="main-view"><a href="/track/wrong">Page track</a></main><a data-testid="context-item-link" href="/track/right">Song</a><span data-testid="playback-position">0:00</span><span data-testid="playback-duration">2:00</span><button data-testid="control-button-playpause" aria-label="Pause"></button>';
- const x=fixture(html);try{
-  assert.equal(x.payload().previewTrackUri,'spotify:track:right');
-  x.w.document.querySelector('[data-testid="playback-position"]').textContent='0:01';x.step(1000);assert.equal(x.payload().previewAdvancing,true);
-  x.w.document.querySelector('[data-testid="context-item-link"]').remove();x.step(1000);
-  assert.equal(x.payload().previewTrackUri,'');assert.equal(x.payload().previewAdvancing,false);
- }finally{x.close()}
-});
-test('pause, seek backwards, and track change invalidate recent observed motion immediately',()=>{
- const x=fixture();try{
-  x.w.document.querySelector('[data-testid="playback-position"]').textContent='0:02';x.step(1000);assert.equal(x.payload().previewAdvancing,true);
-  x.w.document.querySelector('[data-testid="playback-position"]').textContent='0:01';x.step(500);assert.equal(x.payload().previewAdvancing,false);
-  x.w.document.querySelector('[data-testid="playback-position"]').textContent='0:02';x.step(500);assert.equal(x.payload().previewAdvancing,true);
-  x.w.document.querySelector('button').setAttribute('aria-label','Play');x.step(100);assert.equal(x.payload().previewAdvancing,false);
-  x.w.document.querySelector('button').setAttribute('aria-label','Pause');x.w.document.querySelector('[data-testid="context-item-link"]').setAttribute('href','/track/other');x.step(100);assert.equal(x.payload().previewAdvancing,false);
- }finally{x.close()}
+test('tuple metadata and tri-state do not adopt arbitrary page artists',()=>{
+ const html='<main id="main-view"><a href="/artist/wrong">Wrong</a></main><a data-testid="context-item-link" href="/track/right">Song</a><span data-testid="playback-position">0:00</span><span data-testid="playback-duration">2:00</span><button data-testid="control-button-playpause" aria-label="Pause"></button>';
+ const x=fixture(html);try{let p=x.payload();assert.equal(p.previewTrackUri,'spotify:track:right');assert.equal(p.previewAdvancing,false);assert.equal(p.artist,'');assert.equal(p.previewPlaybackState,'playing');}finally{x.close()}
 });

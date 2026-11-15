@@ -6,6 +6,10 @@
     var pendingCollectionUri = null;
     var previewCollectionValue = null;
     var nativeCollectionSequence = 0;
+    function previewPhase(stage) {
+        try { if (window.AndBridge && typeof window.AndBridge.onNativeUiData === 'function')
+            window.AndBridge.onNativeUiData('preview-phase', stage); } catch (_) {}
+    }
     function previewLoadState(stage) {
         try {
             if (window.AndBridge && typeof window.AndBridge.onNativeUiData === 'function')
@@ -66,6 +70,7 @@
             if (previewDefinitelyStopped()) {
                 // Historical 9016 fallback; the current playback page is only
                 // replaced when paused/stopped is positively observed.
+                previewPhase('navigation');
                 window.__sfNativeOpenUri(uri);
                 return;
             }
@@ -77,6 +82,7 @@
         function request() {
             if (!current() || started) return;
             started = true;
+            previewPhase('bridge-ready');
             previewLoadState('pending');
             try {
                 Promise.resolve(window.fetchMediaItems(uri, requestId, String(value))).then(function() {

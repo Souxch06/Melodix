@@ -31,7 +31,7 @@ function bootstrap(respond=null){
     const callbacks={readBundledAsset:()=>bridge,nativeFetch:()=>null,
         onMediaItemsLoaded:(id,json)=>calls.push({event:'media',id,rows:JSON.parse(json)}),
         onSearchCompleted:(query,json)=>calls.push({event:'search',query,rows:JSON.parse(json)}),
-        onNativeUiData:(id,json)=>calls.push(id==='list-text' || id==='screen-title' || id==='preview-load' ? {event:'native-text',id,text:json} : {event:'native',id,rows:JSON.parse(json)}),
+        onNativeUiData:(id,json)=>calls.push(id==='list-text' || id==='screen-title' || id==='preview-load' || id==='preview-phase' ? {event:'native-text',id,text:json} : {event:'native',id,rows:JSON.parse(json)}),
         onNativeHomeRows:json=>calls.push({event:'home',rows:JSON.parse(json)}),
         onNativeUiReady(){},onNativeUiRoute(){}};
     w.AndBridge=new Proxy(callbacks,{get:(target,key)=>key in target?target[key]:()=>{}});

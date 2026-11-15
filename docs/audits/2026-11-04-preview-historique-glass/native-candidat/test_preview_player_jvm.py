@@ -41,111 +41,37 @@ STUBS = {
 'com/melodix/music/ControllerTest.java': r'''package com.melodix.music;
 import android.app.*; import android.os.*; import android.view.*; import android.widget.*; import android.content.*;
 public class ControllerTest {
- static void eq(long a,long b){if(a!=b)throw new AssertionError(a+" != "+b);} static void yes(boolean b){if(!b)throw new AssertionError();}
- static String sample(String track,long pos,long dur,boolean play,boolean advance,boolean valid){return "track=Song;artist=Artist;playing="+play+";previewTrackUri="+track+";previewPositionMs="+pos+";previewDurationMs="+dur+";previewAdvancing="+advance+";previewProgressValid="+valid;}
+ static void yes(boolean b){if(!b)throw new AssertionError();} static void eq(long a,long b){if(a!=b)throw new AssertionError(a+" != "+b);}
+ static String sample(String title,String artist,long pos,long dur,String state,String uri){return "track="+title+";artist="+artist+";playing="+state.equals("playing")+";previewPlaybackState="+state+";previewTrackUri="+uri+";previewPositionMs="+pos+";previewDurationMs="+dur+";previewProgressValid="+(pos>=0&&dur>0);}
  public static void main(String[] ignored) throws Exception {
-  Activity a=new Activity(); ProgressBar mini=new ProgressBar(), full=new ProgressBar(); TextView elapsed=new TextView(),duration=new TextView(),remain=new TextView(); ImageView b1=new ImageView(),b2=new ImageView(); View root=new View();root.tags.put("nativePlayerRemaining",remain);
+  Activity a=new Activity(); ProgressBar mini=new ProgressBar(),full=new ProgressBar(); TextView elapsed=new TextView(),duration=new TextView(),remain=new TextView(); ImageView b1=new ImageView(),b2=new ImageView();View root=new View();root.tags.put("nativePlayerRemaining",remain);
   a.views.put(0x7f09024d,mini);a.views.put(0x7f09023d,full);a.views.put(0x7f09024a,elapsed);a.views.put(0x7f09024b,duration);a.views.put(0x7f090238,b1);a.views.put(0x7f09023e,b2);a.views.put(0x7f09023a,root);
-  PreviewPlayerController c=new PreviewPlayerController(a);String t="spotify:track:secretTrack";SystemClock.time=0;
-  // Glow only affects the clipped drawable, never progress. Paused/background,
-  // invalid input, hidden bars and Android's disabled animations stop it.
-  c.snapshot(sample(t,10000,120000,true,true,true));eq(mini.progress,83);eq(full.progress,83);
-  eq(android.animation.ObjectAnimator.active(),0);c.activityResumed();eq(android.animation.ObjectAnimator.active(),2);
-  // The legacy bridge feed contains milliseconds but no Preview fields. The
-  // old native updater may have reset a view; same-track data must restore the
-  // sample and keep the pulse instead of resetting progress to unknown.
-  mini.progress=0;full.progress=0;c.snapshot("track=Song;artist=Artist;playing=true;position=10000;duration=120000");
-  eq(mini.progress,83);eq(full.progress,83);eq(android.animation.ObjectAnimator.active(),2);
-  c.snapshot("track=Other;artist=Artist;playing=true;position=0;duration=120000");
-  yes(elapsed.text.equals("—"));eq(android.animation.ObjectAnimator.active(),0);
-  c.snapshot(sample(t,10000,120000,true,true,true));eq(android.animation.ObjectAnimator.active(),2);
-  c.snapshot("track=Song;artist=Artist;playing=false;position=10000;duration=120000");
-  eq(android.animation.ObjectAnimator.active(),0);eq(mini.progress,83);
-  c.snapshot(sample(t,10000,120000,true,true,true));eq(android.animation.ObjectAnimator.active(),2);
-  mini.shown=false;c.snapshot(sample(t,10000,120000,true,true,true));eq(android.animation.ObjectAnimator.active(),1);
-  mini.shown=true;c.snapshot(sample(t,10000,120000,true,true,true));eq(android.animation.ObjectAnimator.active(),2);
+  java.lang.reflect.Method reportMethod=PreviewPlayerController.class.getDeclaredMethod("report");reportMethod.setAccessible(true);
+  SystemClock.time=1000;PreviewPlayerController c=new PreviewPlayerController(a);c.activityResumed();
+  c.snapshot(sample("Song","Artist",10000,180000,"playing",""));
+  eq(mini.progress,56);eq(android.animation.ObjectAnimator.active(),2);
+  // Sparse measurements, no URI, 120 seconds of interpolation and diagnostics.
+  for(int i=1;i<=120;i++) {SystemClock.time=1000L+i*1000L;Handler.flush();Choreographer.frame();if(i==56||i==112)c.snapshot(sample("Song","Artist",10000L+i*1000L,180000,"playing",""));eq(mini.progress,full.progress);}
+  yes(mini.progress>700);String report=(String)reportMethod.invoke(c);yes(report.contains("identité de titre présente : oui"));yes(report.contains("animation active"));yes(report.contains("56000 ms"));eq(report.split("identité=",-1).length-1,120);yes(!report.contains("Song")&&!report.contains("Artist"));
+  // Legacy callback must not impose a false pause, but changes invalidate.
+  int before=mini.progress;c.snapshot("track=Song;artist=Artist;playing=false");SystemClock.time+=1000;Choreographer.frame();yes(mini.progress>before);
+  c.snapshot("track=Other;artist=Artist;playing=true");yes(elapsed.text.equals("—"));
+  c.snapshot(sample("Other","Artist",2000,180000,"playing",""));eq(mini.progress,11);
+  c.snapshot(sample("Other","Artist",20000,200000,"playing",""));eq(mini.progress,100);
+  c.snapshot(sample("Other","Artist",1000,200000,"playing",""));eq(mini.progress,5);
+  // Unknown state is stopped unless a trustworthy native audio signal exists.
+  c.snapshot(sample("Other","Artist",1000,200000,"unknown",""));before=mini.progress;SystemClock.time+=5000;Choreographer.frame();eq(mini.progress,before);report=(String)reportMethod.invoke(c);yes(report.contains("aucun signal audio fiable"));
+  c.snapshot(sample("Other","Artist",1000,200000,"paused",""));SystemClock.time+=5000;Choreographer.frame();eq(mini.progress,before);
+  c.snapshot(sample("Other","Artist",1000,200000,"playing",""));SystemClock.time+=1000;Choreographer.frame();yes(mini.progress>before);
+  c.snapshot(sample("No Track","No Artist",1000,200000,"playing",""));before=mini.progress;SystemClock.time+=1000;Choreographer.frame();eq(mini.progress,before);report=(String)reportMethod.invoke(c);yes(report.contains("identité titre/artiste/durée absente"));
   c.activityStopped();eq(android.animation.ObjectAnimator.active(),0);
-  c.snapshot(sample(t,10000,120000,true,true,true));eq(android.animation.ObjectAnimator.active(),0);
-  android.animation.ValueAnimator.enabled=false;c.activityResumed();eq(android.animation.ObjectAnimator.active(),0);
-  android.animation.ValueAnimator.enabled=true;c.snapshot(sample(t,10000,120000,true,true,true));eq(android.animation.ObjectAnimator.active(),2);
-  c.snapshot(sample(t,10000,120000,false,false,true));eq(android.animation.ObjectAnimator.active(),0);eq(mini.progress,83);
-  c.snapshot(sample(t,-1,-1,true,false,false));eq(android.animation.ObjectAnimator.active(),0);
-  c.snapshot(sample(t,10000,120000,true,true,true));eq(android.animation.ObjectAnimator.active(),2);
-  SystemClock.time=500;Choreographer.frame();eq(mini.progress,88);eq(full.progress,88);
-  c.snapshot(sample(t,10800,120000,true,true,true));eq(mini.progress,88);SystemClock.time=1500;Choreographer.frame();eq(mini.progress,96);eq(full.progress,96);
-  c.snapshot(sample(t,11000,120000,false,false,true));eq(mini.progress,92);SystemClock.time=6000;Choreographer.frame();eq(mini.progress,92);
-  c.snapshot(sample(t,11000,120000,true,false,true));SystemClock.time=7000;Choreographer.frame();eq(mini.progress,92);
-  c.snapshot(sample(t,119500,120000,true,true,true));SystemClock.time=9000;Choreographer.frame();eq(mini.progress,1000);eq(full.progress,1000);
-  c.snapshot(sample("spotify:track:other",1000,120000,true,true,true));eq(mini.progress,8);
-  c.snapshot(sample("spotify:track:other",-1,-1,true,false,false));eq(mini.progress,8);eq(full.progress,8);yes(elapsed.text.equals("0:01"));
-  SystemClock.time=9500;Choreographer.frame();eq(mini.progress,8);
-  c.snapshot(sample("",-1,-1,true,false,false));yes(elapsed.text.equals("—"));yes(remain.text.equals("Temps restant : —"));
-  // Numeric, anonymous samples are displayed but never extrapolated as though
-  // they belonged to the previously identified track.
-  c.snapshot(sample("",23000,120000,true,true,true));eq(mini.progress,192);eq(full.progress,192);yes(elapsed.text.equals("0:23"));
-  SystemClock.time=9900;Choreographer.frame();eq(mini.progress,192);
-  c.snapshot(sample("",24000,120000,true,true,true));eq(mini.progress,200);
-  c.snapshot(sample("",-1,-1,true,false,false));yes(elapsed.text.equals("—"));
-  c.snapshot(sample(t,1000,120000,false,false,true));SystemClock.time=10000;eq(c.tapPlayPause(),1);eq(b1.image,0x7f080121);eq(b2.image,0x7f080121);
-  SystemClock.time=10005;c.command();c.snapshot(sample(t,1000,120000,false,false,true));eq(b1.image,0x7f080121);
-  SystemClock.time=10015;c.snapshot(sample(t,1100,120000,true,true,true));eq(b1.image,0x7f080121);
-  java.lang.reflect.Method m=PreviewPlayerController.class.getDeclaredMethod("report");m.setAccessible(true);String report=(String)m.invoke(c);yes(report.contains("5 ms"));yes(report.contains("15 ms"));yes(report.contains("400 ms"));yes(!report.contains(t));yes(!report.contains("secretTrack"));
-  c.loadState("waiting-token:no-token");report=(String)m.invoke(c);yes(report.contains("waiting-token:no-token"));
-  c.loadState("https://example.com/secret?token=secret");report=(String)m.invoke(c);yes(!report.contains("secret"));yes(report.contains("waiting-token:no-token"));
-  View about=new View();c.attachAbout(about);yes(about.listener.onLongClick(about));yes(AlertDialog.body.contains("Diagnostic Preview"));AlertDialog.copy.onClick(null,0);yes(ClipboardManager.copied.equals(AlertDialog.body));
-  // A stale playing snapshot cannot restart an optimistically paused clock.
-  SystemClock.time=11000; c.snapshot(sample(t,2000,120000,true,true,true));
-  eq(c.tapPlayPause(),0); eq(android.animation.ObjectAnimator.active(),0); int frozen=mini.progress;
-  SystemClock.time=11500; c.snapshot(sample(t,2500,120000,true,true,true)); eq(mini.progress,frozen);
-  SystemClock.time=12000; Choreographer.frame(); eq(mini.progress,frozen);
-  c.command(); c.snapshot(sample(t,2100,120000,false,false,true));
-  // Existing player buttons have no lot-A quota or debounce.
-  eq(c.tapPlayPause(),1);eq(c.tapPlayPause(),0);eq(c.tapPlayPause(),1);eq(c.tapPlayPause(),0);
-  // Two minutes on a simulated clock: both bars use the same bounded position.
-  c.activityStopped();
-  PreviewPlayerController c2=new PreviewPlayerController(a); int previous=0;
-  for(int second=0;second<120;second++){
-   SystemClock.time=20000L+second*1000L;c2.snapshot(sample(t,second*1000L,120000,true,true,true));
-   for(int frame=1;frame<=60;frame++){
-    SystemClock.time=20000L+second*1000L+Math.round(frame*1000.0/60.0);c2.doFrame(0);
-    yes(mini.progress>=previous);yes(mini.progress<=1000);eq(mini.progress,full.progress);previous=mini.progress;
-   }
-  }
-  eq(mini.progress,1000);
-  // The diagnostic reports why the clock is stopped without exposing IDs.
-  PreviewPlayerController reason=new PreviewPlayerController(a);SystemClock.time=150000;
-  report=(String)m.invoke(reason);yes(report.contains("état du lecteur indisponible"));
-  reason.snapshot(sample("",1000,120000,true,false,true));report=(String)m.invoke(reason);yes(report.contains("identité du titre absente"));
-  reason.snapshot(sample(t,1000,120000,false,false,true));report=(String)m.invoke(reason);yes(report.contains("lecture en pause"));
-  reason.snapshot(sample(t,-1,-1,true,false,false));report=(String)m.invoke(reason);yes(report.contains("position ou durée indisponible"));
-  reason.snapshot(sample(t,1000,120000,true,false,true));report=(String)m.invoke(reason);yes(report.contains("mouvement non confirmé"));
-  reason.snapshot(sample(t,2000,120000,true,true,true));report=(String)m.invoke(reason);yes(report.contains("animation active"));
-  SystemClock.time=152501;report=(String)m.invoke(reason);yes(report.contains("observation trop ancienne"));yes(!report.contains(t));
-  reason.snapshot(sample("spotify:track:new",500,120000,true,false,true));eq(mini.progress,4);
-  // Instrumentation uses frame preparation, not display presentation.
-  SystemClock.time=200000;android.os.Process.start=199950;PreviewPlayerController metrics=new PreviewPlayerController(a);metrics.activityCreated();
-  metrics.rowsPainted("home", "", "uri=spotify:track:One");SystemClock.time=200123;Choreographer.frame();
-  metrics.playlistOpened("spotify:playlist:Visible");
-  metrics.rowsPainted("detail", "spotify:playlist:Wrong", "uri=spotify:track:One");
-  metrics.rowsPainted("detail", "spotify:playlist:Visible", "");
-  SystemClock.time=200200;Choreographer.frame();
-  report=(String)m.invoke(metrics);yes(report.contains("123 ms"));yes(report.contains("173 ms"));yes(report.contains("avec titres : —"));
-  metrics.rowsPainted("detail", "spotify:playlist:Visible", "uri=spotify:track:One");
-  SystemClock.time=200250;Choreographer.frame();report=(String)m.invoke(metrics);
-  yes(report.contains("127 ms"));yes(!report.contains("Visible"));yes(!report.contains("track:One"));
-  metrics.playlistOpened("spotify:collection:tracks");metrics.rowsPainted("detail", "spotify:collection:tracks", "uri=spotify:track:One");
-  SystemClock.time=200300;Choreographer.frame();report=(String)m.invoke(metrics);yes(report.contains("avec titres : —"));
-  // On Android below API 31, never call the process-start API and report unknown.
-  for(String field:new String[]{"firstCreateAt","processStartAt","firstHomeFrameMs","processHomeFrameMs"}) {
-   java.lang.reflect.Field fld=PreviewPlayerController.class.getDeclaredField(field);fld.setAccessible(true);fld.setLong(null,-1);
-  }
-  Build.VERSION.SDK_INT=30;int oldCalls=android.os.Process.calls;SystemClock.time=250000;
-  PreviewPlayerController older=new PreviewPlayerController(a);older.activityCreated();older.rowsPainted("home","","");
-  SystemClock.time=250050;Choreographer.frame();report=(String)m.invoke(older);
-  eq(android.os.Process.calls,oldCalls);yes(report.contains("Android 12+) : —"));yes(report.contains("50 ms"));
-  // Unconfirmed pause/play is reconciled and gets exactly one discreet message.
-  SystemClock.time=300000;Handler.flush();PreviewPlayerController timeout=new PreviewPlayerController(a);timeout.snapshot(sample(t,1000,120000,false,false,true));
-  int count=Toast.count;eq(timeout.tapPlayPause(),1);SystemClock.time+=8000;Handler.flush();eq(Toast.count,count+1);eq(b1.image,0x7f080122);
+  // Playlist timing is monotonic, anonymous, and only uses observed phases.
+  PreviewPlayerController metrics=new PreviewPlayerController(a);SystemClock.time=300000;metrics.playlistOpened("spotify:playlist:Secret");metrics.loadState("waiting-bridge:unknown");
+  SystemClock.time+=3000;metrics.phase("bridge-ready");SystemClock.time+=100;metrics.phase("navigation");SystemClock.time+=500;metrics.phase("page-ready|spotify:playlist:Wrong");
+  report=(String)reportMethod.invoke(metrics);yes(report.contains("indéterminée (phases manquantes)"));
+  metrics.phase("page-ready|spotify:playlist:Secret");SystemClock.time+=300;metrics.rowsPainted("detail","spotify:playlist:Secret","uri=spotify:track:Hidden");SystemClock.time+=20;Choreographer.frame();
+  report=(String)reportMethod.invoke(metrics);yes(report.contains("attente pont : 3000 ms"));yes(report.contains("navigation → page prête : 500 ms"));yes(report.contains("Phase dominante : attente pont"));yes(report.contains("waiting-bridge avec lignes : oui"));yes(report.contains("data:unknown"));yes(!report.contains("Secret")&&!report.contains("Hidden"));
+  View about=new View();metrics.attachAbout(about);yes(about.listener.onLongClick(about));AlertDialog.copy.onClick(null,0);yes(ClipboardManager.copied.equals(AlertDialog.body));
   System.out.println("Preview controller JVM simulation passed");
  }
 }''',

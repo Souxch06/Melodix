@@ -4,7 +4,7 @@ import hashlib,sys
 from pathlib import Path
 HERE=Path(__file__).resolve().parent
 EXPECTED='7143bd2a1d8ba4719412d200d4d14a86b5a3bc855feffc6fb282c301d8555b4e'
-HELPER_SHA='b88f3a8e62109360a501c50bc17233a78da2a28471c16e901793838bc885387c'
+HELPER_SHA='83f2d7c871dae8fd0fcb9e3c30e1b609e8d85ab9c54853ea4c66e1a48f7ec803'
 
 def one(text, old, new):
     if text.count(old)!=1: raise ValueError('unexpected anchor: '+old[:90])
@@ -49,6 +49,15 @@ def apply(root):
         var advancing = !!(same && (increased || (info.previewPositionMs === previewLastPosition &&
             previewLastMovementAt >= 0 && at >= previewLastMovementAt && at - previewLastMovementAt <= 2000)));
         previewLastTrack = valid ? info.previewTrackUri : '';""")
+    tuple_bytes=(HERE/'preview-player-tuple.js').read_bytes()
+    if hashlib.sha256(tuple_bytes).hexdigest() != '73ba5fd1a007b15034d001cc7e4e4e7dcc78cf27e1c0e059a276f259d67426ca': raise ValueError('unexpected tuple helper')
+    start=s.index('    // Preview-only progress samples.')
+    end=s.index('    function publishPlayerState(force)', start)
+    s=s[:start]+tuple_bytes.decode('utf8')+'\n'+s[end:]
+    s=one(s, "            payload.playing ? '1' : '0',\n            payload.duration,", "            payload.playing ? '1' : '0',\n            payload.previewPlaybackState,\n            payload.duration,")
+    # Native timing spans survive a WebView reload; include only the already
+    # visible route to reject a stale ready event from a different collection.
+    s=one(s, "        try {\n            bridge.onNativeUiReady();", "        try {\n            previewPhase('page-ready|' + spotifyResourceUri(window.location.href));\n            bridge.onNativeUiReady();")
     # Replace the entire previous auto-retry/token-aware flow with one bridge
     # attempt and the historical paused-only navigation fallback.
     start=s.index('    var openCollectionTimer = null;')
@@ -72,6 +81,53 @@ def apply(root):
     const-string v2, "spotify:settings:"
 """)
     a=prefix+anchor+rest
+    a=one(a, """    :cond_1
+    if-eqz p2, :cond_14
+""", """    :cond_1
+    const-string v0, "preview-phase"
+    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :preview_not_phase
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->previewPlayer()Lcom/melodix/music/PreviewPlayerController;
+    move-result-object v0
+    invoke-virtual {v0, p2}, Lcom/melodix/music/PreviewPlayerController;->phase(Ljava/lang/String;)V
+    return-void
+    :preview_not_phase
+    if-eqz p2, :cond_14
+""")
+    anchor_player='.method public final updateNativePlayer(Ljava/lang/String;)V'
+    prefix, method = a.split(anchor_player, 1)
+    method=one(method, """    move-result-object v3
+
+    const v1, 0x7f090236""", """    move-result-object v3
+
+    const-string v1, "No Track"
+    invoke-virtual {v1, v2}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :preview_empty_title
+    const-string v1, "Aucune lecture en cours"
+    invoke-virtual {v1, v2}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :preview_empty_title
+    invoke-virtual {v2}, Ljava/lang/String;->isEmpty()Z
+    move-result v1
+    if-eqz v1, :preview_title_localized
+    :preview_empty_title
+    const-string v2, "Aucun titre"
+    :preview_title_localized
+    const-string v1, "No Artist"
+    invoke-virtual {v1, v3}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :preview_empty_artist
+    invoke-virtual {v3}, Ljava/lang/String;->isEmpty()Z
+    move-result v1
+    if-eqz v1, :preview_artist_localized
+    :preview_empty_artist
+    const-string v3, "Lecture arrêtée"
+    :preview_artist_localized
+
+    const v1, 0x7f090236""")
+    a=prefix+anchor_player+method
     activity.write_text(a,encoding='utf8')
     rows=root/'smali/com/melodix/music/NativeUiRowFactory.smali'
     r=rows.read_text(encoding='utf8')
