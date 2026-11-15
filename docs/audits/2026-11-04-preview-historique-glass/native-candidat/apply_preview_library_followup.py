@@ -4,7 +4,7 @@ import hashlib,sys
 from pathlib import Path
 HERE=Path(__file__).resolve().parent
 EXPECTED='7143bd2a1d8ba4719412d200d4d14a86b5a3bc855feffc6fb282c301d8555b4e'
-HELPER_SHA='d7f2a7ef57f60c6c78ef5ba94e3e530da80b550ec188555fa4706032889738cb'
+HELPER_SHA='f4ca81e2078880bfa9e208edf142d049f31048a16997093d2a61840f8030c6f0'
 
 def one(text, old, new):
     if text.count(old)!=1: raise ValueError('unexpected anchor: '+old[:90])

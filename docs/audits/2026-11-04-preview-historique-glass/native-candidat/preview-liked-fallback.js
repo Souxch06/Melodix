@@ -30,6 +30,7 @@
         function unavailable() {
             if (!live()) return;
             previewLoadState('unavailable');
+            stopCollectionFallback();
             if (rows.length) publish('Titres partiellement chargés', 'La suite est momentanément indisponible.');
             else publish(liked ? 'Titres likés indisponibles' : 'Titres indisponibles', 'Spotify n’a pas autorisé ou fourni cette liste.');
         }

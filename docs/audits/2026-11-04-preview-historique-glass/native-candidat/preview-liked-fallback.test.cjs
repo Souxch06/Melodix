@@ -131,3 +131,13 @@ test('full bridge failure falls back for a normal playlist without playback comm
   assert.equal(data[0].uri,'spotify:track:fixture');assert.equal(playback,0);
  }finally{f.close()}
 });
+
+test('a refusal cancels the generic six-second placeholder',async()=>{
+ const f=fixture(()=>Promise.resolve({ok:false,status:403}));try{
+  let timeout;let active=true;
+  f.w.setTimeout=(fn,ms)=>{if(ms===6000)timeout=fn;return 27};
+  f.w.clearTimeout=id=>{if(id===27)active=false};
+  f.open();await tick();await tick();assert.ok(timeout);assert.equal(active,false);
+  assert.match(f.media().at(-1)[0].title,/likés indisponibles/);
+ }finally{f.close()}
+});
