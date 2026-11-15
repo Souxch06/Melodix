@@ -49,6 +49,28 @@ class PreviewPlayer(unittest.TestCase):
         self.assertTrue('—' in helper or r'\u2014' in helper)
         self.assertTrue('é' in helper or r'\u00e9' in helper)
 
+    def test_player_progress_style_keeps_real_clipping_and_no_tint_override(self):
+        import xml.etree.ElementTree as ET
+        android = '{http://schemas.android.com/apk/res/android}'
+        drawable = ET.fromstring(self.get('res/drawable/widget_progress_drawable.xml'))
+        items = {x.get(android+'id'): x for x in drawable.findall('item')}
+        self.assertEqual(set(items), {'@android:id/background', '@android:id/progress'})
+        self.assertIsNotNone(items['@android:id/background'].find('./shape/gradient'))
+        gradient = items['@android:id/progress'].find('./clip/shape/gradient')
+        self.assertIsNotNone(gradient)
+        self.assertNotEqual(gradient.get(android+'startColor'), gradient.get(android+'endColor'))
+        for layout in ('res/layout/activity_main.xml', 'res/layout-w600dp/activity_main.xml'):
+            root = ET.fromstring(self.get(layout))
+            for name in ('nativePlayerProgress', 'nativeMiniProgress'):
+                bar = next(x for x in root.iter('ProgressBar') if x.get(android+'id') == '@id/'+name)
+                self.assertEqual(bar.get(android+'progressDrawable'), '@drawable/widget_progress_drawable')
+                self.assertEqual(bar.get(android+'progressTint'), '@null')
+                self.assertEqual(bar.get(android+'progressBackgroundTint'), '@null')
+                self.assertEqual(bar.get(android+'max'), '1000')
+        # Widget still uses the same clipped drawable (also adopts the gradient).
+        widget = ET.fromstring((ROOT/'res/layout/widget_expanded.xml').read_text())
+        self.assertTrue(any(x.get(android+'progressDrawable') == '@drawable/widget_progress_drawable' for x in widget.iter('ProgressBar')))
+
     def test_route_and_about_row_are_native_and_discreet(self):
         a=self.get('smali/com/melodix/music/MainActivity.smali')
         apply=method(a,'.method public final applyNativeUiData(')

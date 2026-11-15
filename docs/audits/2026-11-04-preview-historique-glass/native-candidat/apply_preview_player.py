@@ -15,6 +15,9 @@ EXPECTED = {
     'smali/com/melodix/music/MainActivity.smali': 'dd14f96c2e3143b1e015e58a4c881911147e8312df1938a59e7ba3fa1b9a6f53',
     'smali/com/melodix/music/NativeSettingsRowFactory.smali': '87af4ac75e344b84f94374db7b94018b524a9af981f2367f8a9631f8b1c8ed63',
     'smali/m9.smali': '85110d08bf6c642ea6201c152a4e219721ae542927a16a701d6018bedee83b06',
+    'res/layout/activity_main.xml': '245649abbe8e4c683ab5dcfe5bd3cfbe39a1942131fd636b6e3d1ab890707634',
+    'res/layout-w600dp/activity_main.xml': '4d110f1df062fdf7676b9aa5e70146dd7ec148da3c0c614a553b5586ad5af8fe',
+    'res/drawable/widget_progress_drawable.xml': '3a5f8f51ea984c7a8226d5acd69bf6b20383ca9622843d617b055c9fe18d772f',
 }
 SOURCE_SHA = 'f7e4256f1d539ae96c7bb30f219276da49ef6692c6decb07d7bb4365b21cc5a2'
 HELPER_SHA = {
@@ -44,6 +47,39 @@ def prepare(root):
         dest = 'smali/com/melodix/music/' + p.name
         if (root / dest).exists(): raise ValueError('controller already exists')
         files[dest] = p.read_text()
+
+    # Visual only: the existing clipped progress drawable is also used by
+    # the player widget, so it receives the same restrained gradient. No new
+    # resource IDs or always-running animation are introduced.
+    path = 'res/drawable/widget_progress_drawable.xml'
+    files[path] = '''<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@android:id/background">
+        <shape>
+            <corners android:radius="3.0dip" />
+            <gradient android:angle="0" android:startColor="#ff302b3b" android:endColor="#ff433b50" />
+        </shape>
+    </item>
+    <item android:id="@android:id/progress">
+        <clip>
+            <shape>
+                <corners android:radius="3.0dip" />
+                <gradient android:angle="0" android:startColor="#ff956fe9" android:centerColor="#ffc0a2ff" android:endColor="#ffe8d9ff" />
+            </shape>
+        </clip>
+    </item>
+</layer-list>
+'''
+    for path in ('res/layout/activity_main.xml', 'res/layout-w600dp/activity_main.xml'):
+        s = files[path]
+        old = '''android:progressDrawable="@drawable/widget_progress_drawable"
+                android:progressTint="#ffa78bfa"
+                android:progressBackgroundTint="#ff2a2a2a"'''
+        new = '''android:progressDrawable="@drawable/widget_progress_drawable"
+                android:progressTint="@null"
+                android:progressBackgroundTint="@null"'''
+        if s.count(old) != 2: raise ValueError('unexpected player progress layout: ' + path)
+        files[path] = s.replace(old, new)
 
     path = 'assets/native_ui_shell.js'; s = files[path]
     s = replace(s, '''    function readMediaProgress() {''', '''    // Read the actual Spotify player slider already used by the existing
