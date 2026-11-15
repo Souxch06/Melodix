@@ -880,11 +880,18 @@ jobs:
               python3 "$audit/native-candidat/test_glass_home_playlist_polish.py"
           fi
           if [[ "$LOT1_WIP" == "true" ]]; then
-            phase="test decoded lot 1 work in progress"
+            phase="validate decoded visual invariants"
             MELODIX_PREVIEW_ROOT="$RUNNER_TEMP/historical-decoded" MELODIX_PRIOR_PUBLIC="$RUNNER_TEMP/lot1-prior-decoded/res/values/public.xml" \
-              python3 "$audit/native-candidat/test_lot1_visual.py"
+              python3 "$audit/native-candidat/test_lot1_visual.py" > "$RUNNER_TEMP/lot1-visual-tests.log" 2>&1 || {
+                grep -E '^(FAIL:|ERROR:|AssertionError:|Error:)' "$RUNNER_TEMP/lot1-visual-tests.log" | head -20 | while IFS= read -r line; do echo "::error title=Lot 1 visual test::$line"; done
+                exit 1
+              }
+            phase="simulate shell to decoded native player labels"
             MELODIX_CANDIDATE_ROOT="$RUNNER_TEMP/historical-decoded" NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" \
-              node --test "$audit/native-candidat/player-time-e2e.test.cjs"
+              node --test "$audit/native-candidat/player-time-e2e.test.cjs" > "$RUNNER_TEMP/lot1-time-tests.log" 2>&1 || {
+                grep -E '^(not ok|  error:)' "$RUNNER_TEMP/lot1-time-tests.log" | head -20 | while IFS= read -r line; do echo "::error title=Lot 1 time test::$line"; done
+                exit 1
+              }
           fi
           smali_test="$audit/native-smali-characterization.test.cjs"
           if [[ "$NATIVE_CANDIDATE" == "true" ]]; then
