@@ -1,0 +1,5 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.melodix.visualfixture">
+  <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="35"/>
+  <application android:label="Offline visual fixture" android:debuggable="true" />
+  <instrumentation android:name=".VisualFixture" android:targetPackage="com.melodix.music.preview" android:label="Offline visual fixture" />
+</manifest>
