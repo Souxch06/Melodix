@@ -62,8 +62,7 @@ class PreviewPlayer(unittest.TestCase):
         for layout in ('res/layout/activity_main.xml', 'res/layout-w600dp/activity_main.xml'):
             root = ET.fromstring(self.get(layout))
             for name in ('nativePlayerProgress', 'nativeMiniProgress'):
-                bar = next(x for x in root.iter() if x.tag in ('ProgressBar','SeekBar') and x.get(android+'id') == '@id/'+name)
-                self.assertEqual(bar.tag, 'SeekBar' if name == 'nativePlayerProgress' else 'ProgressBar')
+                bar = next(x for x in root.iter('ProgressBar') if x.get(android+'id') == '@id/'+name)
                 self.assertEqual(bar.get(android+'progressDrawable'), '@drawable/widget_progress_drawable')
                 self.assertEqual(bar.get(android+'progressTint'), '@null')
                 self.assertEqual(bar.get(android+'progressBackgroundTint'), '@null')
@@ -138,10 +137,24 @@ class PreviewPlayer(unittest.TestCase):
         self.assertIn('invoke-static {v2}',before_debug)
         self.assertIn('invoke-virtual {v1, v0}, Landroid/webkit/CookieManager;->setAcceptCookie(Z)V',text)
 
-    def test_seek_reattaches_after_webview_creation(self):
-        activity=self.get('smali/com/melodix/music/MainActivity.smali')
-        self.assertIn('PreviewPlayerController;->attachSeek(Landroid/webkit/WebView;)V',method(activity,'.method public final onResume()'))
-        self.assertIn('PreviewPlayerController;->attachSeek(Landroid/webkit/WebView;)V',method(activity,'.method public final C()V'))
+    def test_seek_quarantined_and_previous_bridge_readiness_restored(self):
+        # The user observed audio instability after the synthetic range change.
+        # Do not make either player bar interactive until an acknowledged seek
+        # path has been verified on the real player.
+        source = (HERE/'preview-player/PreviewPlayerController.java').read_text()
+        self.assertNotIn('actSeek', source)
+        self.assertNotIn('evaluateJavascript', source)
+        for layout in ('res/layout/activity_main.xml', 'res/layout-w600dp/activity_main.xml'):
+            import xml.etree.ElementTree as ET
+            root=ET.fromstring(self.get(layout)); android='{http://schemas.android.com/apk/res/android}'
+            for name in ('nativePlayerProgress','nativeMiniProgress'):
+                view=next(x for x in root.iter() if x.get(android+'id') == '@id/'+name)
+                self.assertEqual(view.tag,'ProgressBar')
+        if not INPUT:
+            shell=self.get('assets/native_ui_shell.js')
+            self.assertNotIn('__sfPreviewSeek', shell)
+            flow=shell[shell.index('    var openCollectionTimer = null;'):shell.index('    // Search normally goes through the bridge.')]
+            self.assertIn("window.__sfMelodixBridgeCompleted === true && typeof window.fetchMediaItems === 'function'",flow)
 
     def test_controls_have_no_playlist_rate_limit(self):
         a=self.get('smali/com/melodix/music/MainActivity.smali')

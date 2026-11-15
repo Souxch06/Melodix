@@ -137,25 +137,3 @@ test('tuple metadata and tri-state do not adopt arbitrary page artists',()=>{
  const html='<main id="main-view"><a href="/artist/wrong">Wrong</a></main><a data-testid="context-item-link" href="/track/right">Song</a><span data-testid="playback-position">0:00</span><span data-testid="playback-duration">2:00</span><button data-testid="control-button-playpause" aria-label="Pause"></button>';
  const x=fixture(html);try{let p=x.payload();assert.equal(p.previewTrackUri,'spotify:track:right');assert.equal(p.previewAdvancing,false);assert.equal(p.artist,'');assert.equal(p.previewPlaybackState,'playing');}finally{x.close()}
 });
-
-test('seek calls the existing action once, clamps and rejects a changed track',()=>{
- const html='<main id="main-view"></main><div data-testid="now-playing-bar"><a data-testid="context-item-link" href="/track/abc123">Song</a><a data-testid="context-item-info-artist" href="/artist/artist">Artist</a></div><span data-testid="playback-position">0:10</span><span data-testid="playback-duration">2:00</span><div data-testid="playback-progressbar"><input type="range" min="0" max="120000" value="10000"></div><button data-testid="control-button-playpause" aria-label="Pause"></button>';
- const x=fixture(html);try {
-  const values=[];x.w.actSeek=n=>{values.push(n);x.w.document.querySelector('input').value=n;};
-  assert.equal(x.w.__sfPreviewSeek(130000,'Song','Artist',120000,'spotify:track:abc123'),true);
-  assert.deepEqual(values,[120000]);x.step(1000);assert.equal(x.payload().previewConfirmPositionMs,10000);
-  assert.equal(x.w.__sfPreviewSeek(20000,'Other','Artist',120000,'spotify:track:abc123'),false);
-  assert.equal(x.w.__sfPreviewSeek(20000,'Song','Artist',120000,'spotify:track:wrong'),false);
-  assert.deepEqual(values,[120000]);assert.deepEqual(x.commands,[]);
- }finally{x.close()}
-});
-
-test('seek confirmation ignores the range property it wrote and notices later page attribute updates',()=>{
- const html='<main id="main-view"></main><div data-testid="now-playing-bar"><a data-testid="context-item-link" href="/track/abc">Song</a><a data-testid="context-item-info-artist" href="/artist/a">Artist</a></div><div data-testid="playback-progressbar"><input type="range" max="120000" value="10000"></div><button data-testid="control-button-playpause" aria-label="Pause"></button>';
- const x=fixture(html);try {
-  const slider=x.w.document.querySelector('input');x.w.actSeek=n=>{slider.value=n};
-  assert.equal(x.w.__sfPreviewSeek(60000,'Song','Artist',120000,'spotify:track:abc'),true);
-  x.step(1000);assert.equal(x.payload().previewConfirmPositionMs,-1);
-  slider.setAttribute('value','61000');x.step(1000);assert.equal(x.payload().previewConfirmPositionMs,61000);
- }finally{x.close()}
-});

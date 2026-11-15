@@ -15,11 +15,8 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.view.Choreographer;
 import android.view.View;
-import android.view.MotionEvent;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
-import android.widget.SeekBar;
-import android.webkit.WebView;
 import android.widget.TextView;
 import android.widget.Toast;
 import org.json.JSONArray;
@@ -28,7 +25,7 @@ import java.lang.ref.WeakReference;
 import java.util.Locale;
 
 /** Preview-only display controller. No network access and no persistent data. */
-public final class PreviewPlayerController implements Choreographer.FrameCallback, Runnable, SeekBar.OnSeekBarChangeListener, View.OnTouchListener {
+public final class PreviewPlayerController implements Choreographer.FrameCallback, Runnable {
     private static final int MINI = 0x7f09024d, FULL = 0x7f09023d;
     private static final int ELAPSED = 0x7f09024a, DURATION = 0x7f09024b;
     private static final int MINI_BUTTON = 0x7f090238, FULL_BUTTON = 0x7f09023e;
@@ -39,63 +36,6 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     private final Handler handler = new Handler(Looper.getMainLooper());
     private boolean valid, moving, frameScheduled, haveReal, realPlaying, shownPlaying, pending;
     private boolean pendingTarget;
-    private WeakReference<WebView> seekWeb = new WeakReference<WebView>(null);
-    private boolean dragging, seekPending;
-    private long seekTarget, seekAt, seekSerial, seekFallbackAt, seekFallbackPosition;
-    public void attachSeek(WebView web) {
-        seekWeb = new WeakReference<WebView>(web);
-        Activity a = activity.get(); View v = a == null ? null : a.findViewById(FULL);
-        if (v instanceof SeekBar) {
-            ((SeekBar) v).setOnSeekBarChangeListener(this);
-            v.setOnTouchListener(this);
-        }
-    }
-    @Override public boolean onTouch(View v, MotionEvent event) {
-        if (event.getActionMasked() == MotionEvent.ACTION_CANCEL && dragging) { dragging = false; renderProgress(); }
-        return false; // SeekBar retains native tap, drag and out-of-bounds release handling.
-    }
-    private void cancelSeek() { dragging = false; seekPending = false; seekSerial++; }
-    @Override public void onStartTrackingTouch(SeekBar bar) {
-        if (valid && tupleIdentity && duration > 0) {
-            long t = now(); long shown = (long) positionUnderlying(t);
-            if (seekPending) {
-                seekPending = false; seekSerial++;
-                base = Math.max(0, Math.min(duration, seekFallbackPosition + (playbackState.equals("playing") ? Math.max(0, t - seekFallbackAt) : 0)));
-                anchor = t; correction = 0;
-            }
-            dragging = true; seekTarget = shown;
-        }
-    }
-    @Override public void onProgressChanged(SeekBar bar, int progress, boolean fromUser) {
-        if (!fromUser || !dragging || !valid) return;
-        seekTarget = Math.max(0, Math.min(duration, Math.round(duration * Math.max(0, Math.min(1000, progress)) / 1000.0)));
-        renderProgress();
-    }
-    @Override public void onStopTrackingTouch(SeekBar bar) {
-        if (!dragging) { renderProgress(); return; }
-        dragging = false;
-        if (!valid || !tupleIdentity) { renderProgress(); return; }
-        long t = now();
-        seekFallbackPosition = (long) positionUnderlying(t); seekFallbackAt = t;
-        seekAt = t; seekPending = true; final long id = ++seekSerial;
-        base = seekTarget; anchor = t; correction = 0;
-        moving = playbackState.equals("playing");
-        renderProgress(); scheduleFrame();
-        WebView w = seekWeb.get();
-        if (w != null) {
-            String js = "window.__sfPreviewSeek&&window.__sfPreviewSeek(" + seekTarget + "," +
-                JSONObject.quote(identityTitle) + "," + JSONObject.quote(identityArtist) + "," + duration + "," + JSONObject.quote(track) + ");";
-            w.evaluateJavascript(js, null);
-        }
-        handler.postDelayed(new Runnable() { public void run() {
-            if (!seekPending || id != seekSerial) return;
-            long at = now(); seekPending = false;
-            base = Math.max(0, Math.min(duration, seekFallbackPosition + (playbackState.equals("playing") ? Math.max(0, at - seekFallbackAt) : 0)));
-            anchor = at; correction = 0; moving = playbackState.equals("playing") && tupleIdentity;
-            renderProgress(); scheduleFrame();
-            Activity a = activity.get(); if (a != null) Toast.makeText(a, "Réessayer", Toast.LENGTH_SHORT).show();
-        }}, 5000);
-    }
     private long serial, anchor, duration;
     private long cachedElapsed = -1, cachedDuration = -1, cachedRemaining = -1;
     private String elapsedText = "—", durationText = "—", remainingText = "Temps restant : —";
@@ -124,27 +64,17 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     private static long firstCreateAt = -1, processStartAt = -1, firstHomeFrameMs = -1, processHomeFrameMs = -1;
     // Only a small allowlist; no token, title, playlist ID or URL is retained.
     private String loadStage = "—", stageAtRows = "—";
-    private boolean staleWaitingObserved, likedCollection;
     public void loadState(String state) {
-        if (state == null || !state.matches("(waiting-bridge|waiting-token|pending|failed|no-data|data|timeout|unavailable):(token|no-token|unknown)")) return;
-        if (rowsAt >= 0) {
-            if (state.startsWith("waiting-bridge")) staleWaitingObserved = true;
-            loadStage = "data:unknown"; return;
-        }
-        loadStage = state;
+        if (state != null && state.matches("(waiting-bridge|waiting-token|pending|failed|no-data|data|timeout|unavailable):(token|no-token|unknown)"))
+            loadStage = state;
     }
     private boolean measureHomeFrame, measurePlaylistFrame;
     private long playlistStart = -1, playlistFrameMs = -1;
-    private long bridgeAt = -1, navigationAt = -1, pageReadyAt = -1, receivedAt = -1, rowsAt = -1, frameAt = -1;
-    private String likedObservation = "non observée";
+    private long bridgeAt = -1, navigationAt = -1, pageReadyAt = -1, rowsAt = -1, frameAt = -1;
     public void phase(String event) {
         if (playlistStart < 0 || event == null) return;
         long t = now();
-        if (event.equals("rows-received") && receivedAt < 0) receivedAt = t;
-        else if (event.equals("liked-route-other")) likedObservation = "page différente";
-        else if (event.equals("liked-dom-empty")) likedObservation = "page likés vue, aucune ligne DOM observée";
-        else if (event.equals("liked-dom-rows")) likedObservation = "page likés vue, lignes DOM présentes";
-        else if (event.equals("bridge-ready") && bridgeAt < 0) bridgeAt = t;
+        if (event.equals("bridge-ready") && bridgeAt < 0) bridgeAt = t;
         else if (event.equals("navigation") && navigationAt < 0) navigationAt = t;
         else if (event.startsWith("page-ready|") && navigationAt >= 0 && pageReadyAt < 0 &&
                  event.substring("page-ready|".length()).equals(pendingPlaylist)) pageReadyAt = t;
@@ -164,8 +94,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     }
     public void playlistOpened(String uri) {
         playlistStart = -1; playlistFrameMs = -1; pendingPlaylist = ""; measurePlaylistFrame = false; loadStage = "—";
-        bridgeAt = navigationAt = pageReadyAt = receivedAt = rowsAt = frameAt = -1; stageAtRows = "—"; likedObservation = "non observée"; staleWaitingObserved = false;
-        likedCollection = "spotify:collection:tracks".equals(uri);
+        bridgeAt = navigationAt = pageReadyAt = rowsAt = frameAt = -1; stageAtRows = "—";
         if (uri != null && (uri.matches("(?i)^spotify:playlist:[a-z0-9]+$") || uri.equals("spotify:collection:tracks"))) {
             pendingPlaylist = uri; playlistStart = now();
         }
@@ -191,16 +120,13 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     public PreviewPlayerController(Activity a) { activity = new WeakReference<Activity>(a); }
     private long now() { return SystemClock.elapsedRealtime(); }
     private double position(long t) {
-        return dragging && valid ? seekTarget : positionUnderlying(t);
-    }
-    private double positionUnderlying(long t) {
         if (!valid) return Double.NaN;
         long elapsed = Math.max(0, t - anchor);
         long motion = moving ? elapsed : 0;
         // A large negative correction must not make the visible clock run
         // backwards while playing. Spread it over a sufficiently long period.
         double window = Math.max((double) CORRECTION_MS, Math.max(0, -correction) * 1.25);
-        double adjust = correction * Math.min(1.0, (double) elapsed / window);
+        double adjust = moving ? correction * Math.min(1.0, (double) motion / window) : 0;
         return Math.max(0, Math.min(duration, base + motion + adjust));
     }
     private static String clock(long ms) {
@@ -260,7 +186,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         if (traceCount < trace.length) traceCount++;
         scheduleTrace();
     }
-    public void activityStopped() { dragging = false; foreground = false; stopGlow(0); stopGlow(1); }
+    public void activityStopped() { foreground = false; stopGlow(0); stopGlow(1); }
     private void stopGlow(int index) {
         if (glow[index] != null) { glow[index].cancel(); glow[index] = null; }
         if (glowFill[index] != null) { glowFill[index].setAlpha(255); glowFill[index] = null; }
@@ -301,12 +227,8 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         if (mini instanceof ImageView) ((ImageView) mini).setImageResource(icon);
         if (full instanceof ImageView) ((ImageView) full).setImageResource(icon);
     }
-    private boolean correctionInProgress(long t) {
-        double window = Math.max((double) CORRECTION_MS, Math.max(0, -correction) * 1.25);
-        return correction != 0 && t - anchor < window;
-    }
     private void scheduleFrame() {
-        if (((valid && (moving || correctionInProgress(now()))) || measureHomeFrame || measurePlaylistFrame) && !frameScheduled) { frameScheduled = true; Choreographer.getInstance().postFrameCallback(this); }
+        if (((valid && moving) || measureHomeFrame || measurePlaylistFrame) && !frameScheduled) { frameScheduled = true; Choreographer.getInstance().postFrameCallback(this); }
     }
     @Override public void doFrame(long frameTimeNanos) {
         frameScheduled = false;
@@ -322,7 +244,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         measureHomeFrame = measurePlaylistFrame = false;
         if (!valid) return;
         renderProgress();
-        if ((moving && position(now()) < duration) || correctionInProgress(now())) scheduleFrame();
+        if (moving && position(now()) < duration) scheduleFrame();
     }
     private static boolean realMetadata(String s) {
         return s != null && !s.trim().isEmpty() && !s.equalsIgnoreCase("No Track") &&
@@ -339,7 +261,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 // but cannot assert pause over the explicit tri-state feed.
                 String title = o.optString("track", ""), artist = o.optString("artist", "");
                 if (tupleIdentity && (!identityTitle.equals(title) || !identityArtist.equals(artist))) {
-                    cancelSeek(); valid = false; moving = false; tupleIdentity = false; glowSampleValid = false;
+                    valid = false; moving = false; tupleIdentity = false; glowSampleValid = false;
                     measurementAt = measurementPosition = -1;
                 }
                 renderProgress(); renderButtons(); syncGlow();
@@ -356,7 +278,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             boolean changed = !identified || !tupleIdentity || !identityTitle.equals(title) ||
                 !identityArtist.equals(artist) || identityDuration != dur ||
                 (!track.isEmpty() && !uri.isEmpty() && !track.equals(uri));
-            double previous = positionUnderlying(t);
+            double previous = position(t);
             boolean backward = !changed && snapshotValid && measurementPosition >= 0 && pos < measurementPosition - 2000;
             boolean changedMeasure = snapshotValid && (changed || backward || measurementPosition < 0 || pos != measurementPosition);
             boolean freezePendingPause = pending && !pendingTarget && real && valid && !changed;
@@ -366,38 +288,16 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             glowSampleValid = snapshotValid;
             tupleIdentity = identified;
             if (changed) {
-                cancelSeek(); valid = false; moving = false; previous = Double.NaN;
+                valid = false; moving = false; previous = Double.NaN;
                 measurementAt = measurementPosition = -1;
             }
             identityTitle = identified ? title : ""; identityArtist = identified ? artist : "";
             identityDuration = identified ? dur : -1;
             if (!uri.isEmpty() || changed) track = uri;
-            boolean seekConfirmed = false;
-            if (seekPending && !changed) {
-                long confirm = o.optLong("previewConfirmPositionMs", -1);
-                long elapsed = real ? Math.max(0, t - seekAt) : 0;
-                long expected = Math.min(dur, seekTarget + elapsed);
-                if (confirm >= 0 && confirm <= dur) {
-                    seekFallbackPosition = confirm; seekFallbackAt = t;
-                }
-                if (confirm < 0 || Math.abs(confirm - expected) > 2500) {
-                    if (moving && !real) { base = positionUnderlying(t); anchor = t; correction = 0; }
-                    moving = real; playbackState = state; haveReal = true;
-                    if (!state.equals("unknown")) { realPlaying = real; if (!pending) shownPlaying = real; }
-                    renderProgress(); renderButtons(); syncGlow(); scheduleFrame(); return;
-                }
-                // A clock separate from the written range has reached the
-                // target. Smoothly reconcile from the optimistic display.
-                seekPending = false; seekSerial++; seekConfirmed = true; pos = confirm;
-                snapshotValid = true; backward = false; changedMeasure = true;
-                measurementPosition = measurementAt = -1;
-            }
             if (snapshotValid) {
                 duration = dur;
                 if (!valid || changed || backward || Double.isNaN(previous)) {
                     base = pos; anchor = t; correction = 0;
-                } else if (seekConfirmed && !real) {
-                    base = Math.max(0, Math.min(dur, previous)); anchor = t; correction = pos - previous;
                 } else if (changedMeasure && !real && !freezePendingPause) {
                     base = pos; anchor = t; correction = 0;
                 } else if (changedMeasure && !freezePendingPause) {
@@ -477,11 +377,11 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     }
     private String dominantPhase() {
         // Missing branches are not zero duration and cannot be compared.
-        if (playlistStart < 0 || bridgeAt < 0 || receivedAt < 0 || rowsAt < 0 || frameAt < 0 ||
-            bridgeAt > receivedAt || (navigationAt >= 0 && (pageReadyAt < 0 || pageReadyAt > receivedAt))) return "indéterminée (phases manquantes ou non séquentielles)";
+        if (playlistStart < 0 || bridgeAt < 0 || rowsAt < 0 || frameAt < 0 ||
+            (navigationAt >= 0 && pageReadyAt < 0)) return "indéterminée (phases manquantes)";
         long[] spans = {bridgeAt - playlistStart, navigationAt >= 0 ? pageReadyAt - navigationAt : -1,
-            receivedAt - (pageReadyAt >= 0 ? pageReadyAt : bridgeAt), rowsAt - receivedAt, frameAt - rowsAt};
-        String[] labels = {"attente pont", "navigation → page prête", "page/pont → lignes reçues", "réception → rendu natif", "rendu → frame"};
+            rowsAt - (pageReadyAt >= 0 ? pageReadyAt : bridgeAt), frameAt - rowsAt};
+        String[] labels = {"attente pont", "navigation → page prête", "page/pont → lignes", "lignes → frame"};
         long max = -1; String result = "indéterminée";
         for (int i=0; i<spans.length; i++) if (spans[i] >= 0 && spans[i] > max) { max=spans[i]; result=labels[i]; }
         return result + " (phases observées uniquement)";
@@ -507,13 +407,10 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         out.append(" ; âge de la mesure : ").append(measurementAt < 0 ? "—" : Long.toString(Math.max(0, now() - measurementAt)) + " ms");
         out.append("\nPlaylist — attente pont : ").append(phaseDuration(playlistStart, bridgeAt));
         out.append(" ; navigation → page prête : ").append(phaseDuration(navigationAt, pageReadyAt));
-        out.append(" ; page prête/pont → lignes reçues : ").append(phaseDuration(pageReadyAt >= 0 ? pageReadyAt : bridgeAt, receivedAt));
-        out.append(" ; réception → rendu natif : ").append(phaseDuration(receivedAt, rowsAt));
-        out.append(" ; rendu → frame préparée : ").append(phaseDuration(rowsAt, frameAt));
-        if (likedCollection) out.append("\nLikés : ").append(likedObservation)
-            .append(" ; rendu natif : ").append(rowsAt < 0 ? "non observé" : "lignes visibles");
+        out.append(" ; page prête/pont → lignes : ").append(phaseDuration(pageReadyAt >= 0 ? pageReadyAt : bridgeAt, rowsAt));
+        out.append(" ; lignes → frame préparée : ").append(phaseDuration(rowsAt, frameAt));
         out.append("\nPhase dominante : ").append(dominantPhase());
-        out.append(" ; waiting-bridge avec lignes : ").append(rowsAt < 0 ? "indéterminé" : ((stageAtRows.startsWith("waiting-bridge") || staleWaitingObserved) ? "oui (corrigé à la réception)" : "non"));
+        out.append(" ; waiting-bridge avec lignes : ").append(rowsAt < 0 ? "indéterminé" : (stageAtRows.startsWith("waiting-bridge") ? "oui (corrigé à la réception)" : "non"));
         out.append("\nIntervalles position : ");
         if (intervalCount == 0) out.append("—");
         for (int i = 0; i < intervalCount; i++) {

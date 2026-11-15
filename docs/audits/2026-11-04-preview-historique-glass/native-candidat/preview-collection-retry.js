@@ -10,11 +10,6 @@
         try { if (window.AndBridge && typeof window.AndBridge.onNativeUiData === 'function')
             window.AndBridge.onNativeUiData('preview-phase', stage); } catch (_) {}
     }
-    var previewLastLikedState = '';
-    var previewLikedUnavailableShown = false;
-    function previewLikedState(state) {
-        if (state !== previewLastLikedState) { previewLastLikedState = state; previewPhase(state); }
-    }
     function previewLoadState(stage) {
         try {
             if (window.AndBridge && typeof window.AndBridge.onNativeUiData === 'function')
@@ -42,7 +37,6 @@
     window.__sfCancelPendingCollection = cancelPendingCollectionNavigation;
     window.__sfNativeCollectionLoaded = function(uri, requestId) {
         if (requestId && requestId === window.__sfNativeCollectionRequest && uri === window.__sfNativeCollectionUri) {
-            previewPhase('rows-received');
             window.__sfNativeCollectionHasData = true;
             previewLoadState('data');
             stopPreviewCollectionRetry();
@@ -61,21 +55,14 @@
         var uri = nativeSpotifyUri(value), requestId, started = false, done = false, failedOnce = false;
         if (!uri) return false;
         cancelPendingCollectionNavigation();
-        previewLastLikedState = '';
         requestId = ++nativeCollectionSequence;
         window.__sfNativeCollectionRequest = requestId;
         window.__sfNativeCollectionUri = uri;
         pendingCollectionUri = uri;
         previewCollectionValue = String(value);
-        if (uri === 'spotify:collection:tracks' && spotifyResourceUri(window.location.href) !== uri)
-            previewLikedState('liked-route-other');
         function current() { return window.__sfNativeCollectionRequest === requestId && !window.__sfNativeCollectionHasData; }
         function failed(stage) {
             if (!current() || failedOnce) return;
-            if (window.__sfNativeCollectionDomReady) {
-                stopPreviewCollectionRetry(); stopCollectionFallback();
-                previewLoadState('data'); return;
-            }
             failedOnce = true;
             stopPreviewCollectionRetry();
             stopCollectionFallback();
@@ -88,7 +75,7 @@
                 return;
             }
             sendNativeUiData('detail', [
-                {title:uri === 'spotify:collection:tracks' ? 'Titres likés indisponibles' : 'Titres indisponibles', subtitle:'La lecture continue.', settingValue:'Info', uri:''},
+                {title:'Titres indisponibles', subtitle:'La lecture continue.', settingValue:'Info', uri:''},
                 {title:'Réessayer', subtitle:'Une nouvelle tentative', uri:'melodix:retry-collection'}
             ]);
         }
@@ -106,10 +93,7 @@
         }
         function waitForBridge(remaining) {
             if (!current()) return;
-            // The bridge assigns fetchMediaItems after all of its dependencies are
-            // initialized. JS runs to completion, so the exposed function is
-            // callable even if unrelated later bootstrap work fails.
-            if (window.__sfMelodixBridgeStarted === true && typeof window.fetchMediaItems === 'function') {
+            if (window.__sfMelodixBridgeCompleted === true && typeof window.fetchMediaItems === 'function') {
                 request(); return;
             }
             if (remaining <= 0) { failed('waiting-bridge'); return; }
@@ -119,16 +103,10 @@
         openCollectionTimer = window.setTimeout(function() {
             if (current() && !done) failed('timeout');
         }, 6000);
-        // If this collection is already the visible Spotify page, publish its
-        // existing DOM rows immediately; no navigation, scroll or extra fetch.
-        if (spotifyResourceUri(window.location.href) === uri) {
-            lastInitialDetailSignature = null;
-            runUpdate();
-        }
         waitForBridge(20);
         return true;
     };
     window.__sfRetryCollection = function() {
-        var value = previewCollectionValue || (spotifyResourceUri(window.location.href) === 'spotify:collection:tracks' ? 'spotify:collection:tracks' : null);
+        var value = previewCollectionValue;
         return value ? window.__sfOpenCollection(value) : false;
     };

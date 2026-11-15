@@ -119,20 +119,20 @@ test('library refuses in-memory entries when account provenance is missing or mi
 // Full shell and synthetic bridge/timers only: not Spotify or Android audio.
 function fireNext(x,ms){const t=x.timers.find(t=>t.kind==='timeout'&&t.ms===ms&&!t.cleared);assert.ok(t,'missing timer '+ms);t.cleared=true;t.fn()}
 function stages(x){return x.calls.filter(c=>c.event==='native-text'&&c.id==='preview-load').map(c=>c.text)}
-test('bridge startup invokes the exposed function once without waiting for unrelated completion',async()=>{
+test('bridge startup waits for completion before making its single request',async()=>{
  const x=bootstrap();try{
   const requests=[];x.w.__sfOpenCollection('spotify:album:secret');
   assert.equal(stages(x).at(-1),'waiting-bridge:unknown');
   x.w.__sfMelodixBridgeStarted=true;x.w.fetchMediaItems=(uri,id)=>{requests.push(uri);x.w.__sfNativeCollectionLoaded(uri,id);return Promise.resolve()};
-  fireNext(x,250);await wait();
-  x.w.__sfMelodixBridgeStarted=true;x.w.__sfMelodixBridgeCompleted=true;
+  fireNext(x,250);assert.equal(requests.length,0);
+  x.w.__sfMelodixBridgeCompleted=true;fireNext(x,250);await wait();
   assert.deepEqual(requests,['spotify:album:secret']);assert.equal(stages(x).at(-1),'data:unknown');
   fire(x);assert.equal(requests.length,1);
  }finally{x.close()}
 });
 test('failed request is never automatically repeated',async()=>{
  const x=bootstrap();try{
-  x.w.__sfMelodixBridgeStarted=true;x.w.__sfMelodixBridgeStarted=true;x.w.__sfMelodixBridgeCompleted=true;
+  x.w.__sfMelodixBridgeStarted=true;x.w.__sfMelodixBridgeCompleted=true;
   x.w.document.body.insertAdjacentHTML('beforeend','<button data-testid="control-button-playpause" aria-label="Pause"></button>');
   let count=0;x.w.fetchMediaItems=()=>{count++;return Promise.resolve()};
   x.w.__sfOpenCollection('spotify:album:first');await wait();assert.equal(count,1);
@@ -156,7 +156,7 @@ for(const uri of ['spotify:playlist:abc123','spotify:collection:tracks']) {
  test('paused failure uses the historical navigation once: '+uri,async()=>{
   const x=bootstrap();try{
    x.w.document.body.insertAdjacentHTML('beforeend','<button data-testid="control-button-playpause" aria-label="Play"></button>');
-   x.w.__sfMelodixBridgeStarted=true;x.w.__sfMelodixBridgeCompleted=true;let count=0;x.nav=[];
+   x.w.__sfMelodixBridgeCompleted=true;let count=0;x.nav=[];
    x.w.fetchMediaItems=()=>{count++;return Promise.resolve()};
    x.w.__sfNativeOpenUri=u=>{x.nav.push(u);x.w.__sfCancelPendingCollection();return true};
    x.w.__sfOpenCollection(uri);await wait();fire(x);
@@ -166,13 +166,13 @@ for(const uri of ['spotify:playlist:abc123','spotify:collection:tracks']) {
  test('playing failure offers one manual retry and never auto-reloads: '+uri,async()=>{
   const x=bootstrap();try{
    x.w.document.body.insertAdjacentHTML('beforeend','<button data-testid="control-button-playpause" aria-label="Pause"></button>');
-   x.w.__sfMelodixBridgeStarted=true;x.w.__sfMelodixBridgeCompleted=true;let count=0;const first=deferred();x.nav=[];
+   x.w.__sfMelodixBridgeCompleted=true;let count=0;const first=deferred();x.nav=[];
    x.w.fetchMediaItems=()=>{count++;return count===1?first.promise:Promise.resolve()};
    x.w.__sfNativeOpenUri=u=>{x.nav.push(u);return true};
    Object.defineProperty(x.w,'spotAuthToken',{configurable:true,get(){throw Error('new code read credential')}});
    x.w.__sfOpenCollection(uri);fire(x);assert.equal(count,1);assert.deepEqual(x.nav,[]);
    let rows=x.calls.filter(c=>c.event==='native'&&c.id==='detail').at(-1).rows;
-   assert.equal(rows[0].title,uri==='spotify:collection:tracks'?'Titres likés indisponibles':'Titres indisponibles');assert.equal(rows[1].title,'Réessayer');
+   assert.equal(rows[0].title,'Titres indisponibles');assert.equal(rows[1].title,'Réessayer');
    // A late empty resolution must not navigate even after pausing; it belongs
    // to the already failed attempt, not a fresh user request.
    x.w.document.querySelector('button').setAttribute('aria-label','Play');first.resolve();await wait();
@@ -211,52 +211,9 @@ test('the existing Liked Songs page publishes real DOM track rows to detail',()=
 test('recent play request blocks navigation even if the pause button is stale',async()=>{
  const x=bootstrap();try {
   x.w.document.body.insertAdjacentHTML('beforeend','<button data-testid="control-button-playpause" aria-label="Play"></button>');
-  x.w.__sfLastPlayRequestAt=Date.now();x.w.__sfMelodixBridgeStarted=true;x.w.__sfMelodixBridgeCompleted=true;x.w.fetchMediaItems=()=>Promise.resolve();x.nav=[];
+  x.w.__sfLastPlayRequestAt=Date.now();x.w.__sfMelodixBridgeCompleted=true;x.w.fetchMediaItems=()=>Promise.resolve();x.nav=[];
   x.w.__sfNativeOpenUri=u=>{x.nav.push(u);return true};
   x.w.__sfOpenCollection('spotify:playlist:abc');await wait();assert.deepEqual(x.nav,[]);
   assert.equal(x.calls.filter(c=>c.event==='native'&&c.id==='detail').at(-1).rows[1].title,'Réessayer');
- }finally{x.close()}
-});
-
-// Real pending route gate: unlike a direct-page-only fixture, opening the
-// native detail sets a pending URI before the DOM scrape runs.
-test('visible liked page is published with a pending collection URI',async()=>{
- const x=bootstrap();try {
-  x.w.history.replaceState({},'', '/collection/tracks');
-  x.w.document.querySelector('#main-view').innerHTML='<h1>Liked</h1><div data-testid="tracklist-row"><a href="/track/real1">Real title</a><a href="/artist/real2">Artist</a></div>';
-  x.w.document.body.insertAdjacentHTML('beforeend','<button data-testid="control-button-playpause" aria-label="Pause"></button>');
-  x.w.__sfMelodixBridgeStarted=true;x.w.__sfMelodixBridgeCompleted=true;let requests=0;
-  x.w.fetchMediaItems=()=>{requests++;return Promise.resolve()};
-  x.w.__sfOpenCollection('spotify:collection:tracks');await wait();
-  const rows=x.calls.filter(c=>c.event==='native'&&c.id==='detail').at(-1).rows;
-  assert.equal(rows[0].title,'Real title');assert.equal(rows[0].uri,'spotify:track:real1');
-  assert.equal(x.w.__sfNativeCollectionDomReady,true);assert.equal(stages(x).at(-1),'data:unknown');
-  assert.equal(requests,1);assert.equal(x.requests.length,0);
- }finally{x.close()}
-});
-
-test('visible liked DOM survives an empty protected bridge response',async()=>{
- const x=init(req=>{throw Error('simulated bridge response failure')});try {
-  x.w.history.replaceState({},'', '/collection/tracks');
-  x.w.document.querySelector('#main-view').innerHTML='<div data-testid="tracklist-row"><a href="/track/visible">Shown</a></div>';
-  x.w.document.body.insertAdjacentHTML('beforeend','<button data-testid="control-button-playpause" aria-label="Pause"></button>');
-  x.w.__sfOpenCollection('spotify:collection:tracks');await wait();
-  const details=x.calls.filter(c=>c.event==='native'&&c.id==='detail');
-  assert.equal(details.at(-1).rows[0].title,'Shown');
-  assert.equal(media(x,'spotify:collection:tracks').length,0);
-  assert.equal(stages(x).at(-1),'data:unknown');
- }finally{x.close()}
-});
-
-test('ready empty liked page exposes retry and replaces it when DOM rows appear',async()=>{
- const x=bootstrap();try {
-  x.w.history.replaceState({},'', '/collection/tracks');x.w.document.querySelector('#main-view').innerHTML='<h1>Liked</h1>';
-  x.w.document.body.insertAdjacentHTML('beforeend','<button data-testid="user-widget-link"></button><button data-testid="control-button-playpause" aria-label="Pause"></button>');
-  x.w.__sfNativeUiRefresh();let details=x.calls.filter(c=>c.event==='native'&&c.id==='detail');
-  assert.equal(details.at(-1).rows[0].title,'Titres likés indisponibles');assert.equal(details.at(-1).rows[1].title,'Réessayer');
-  x.w.document.querySelector('#main-view').insertAdjacentHTML('beforeend','<div data-testid="tracklist-row"><a href="/track/new">Appeared</a></div>');
-  x.w.__sfNativeUiRefresh();details=x.calls.filter(c=>c.event==='native'&&c.id==='detail');assert.equal(details.at(-1).rows[0].title,'Appeared');
-  let requests=0;x.w.__sfMelodixBridgeStarted=true;x.w.fetchMediaItems=()=>{requests++;return Promise.resolve()};
-  x.w.__sfRetryCollection();await wait();assert.equal(requests,1);
  }finally{x.close()}
 });

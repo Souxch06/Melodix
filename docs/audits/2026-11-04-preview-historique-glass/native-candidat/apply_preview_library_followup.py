@@ -4,7 +4,7 @@ import hashlib,sys
 from pathlib import Path
 HERE=Path(__file__).resolve().parent
 EXPECTED='7143bd2a1d8ba4719412d200d4d14a86b5a3bc855feffc6fb282c301d8555b4e'
-HELPER_SHA='6ccfda054d6a252a61f45119d3e262fa9777b3f1b07aba053f1dc6762fd316b4'
+HELPER_SHA='83f2d7c871dae8fd0fcb9e3c30e1b609e8d85ab9c54853ea4c66e1a48f7ec803'
 
 def one(text, old, new):
     if text.count(old)!=1: raise ValueError('unexpected anchor: '+old[:90])
@@ -24,37 +24,6 @@ def apply(root):
           "        rows = (path === '/collection/tracks' || /^\\/(playlist|album|show)\\//i.test(path))\n            ? collectDetailRows(mainView) : collectHomeRows(mainView);")
     s=one(s, "        if (rows.length && /^\\/(playlist|album|show)\\//i.test(path)) {",
           "        if (rows.length && (path === '/collection/tracks' || /^\\/(playlist|album|show)\\//i.test(path))) {")
-    # Canonicalize the actual route like the pending URI. nativeSpotifyUri does
-    # not recognize /collection/tracks, so it otherwise rejects visible likes.
-    s=one(s, "            nativeSpotifyUri(window.location.href) !== window.__sfNativeCollectionUri) return;", "            spotifyResourceUri(window.location.href) !== window.__sfNativeCollectionUri) return;")
-    # Anonymous observations distinguish a visible liked page from an unseen
-    # one; no title, identifier or account information enters diagnostics.
-    s=one(s, """        if (window.__sfNativeCollectionUri &&
-            spotifyResourceUri(window.location.href) !== window.__sfNativeCollectionUri) return;""", """        if (window.__sfNativeCollectionUri &&
-            spotifyResourceUri(window.location.href) !== window.__sfNativeCollectionUri) {
-            if (window.__sfNativeCollectionUri === 'spotify:collection:tracks') previewLikedState('liked-route-other');
-            return;
-        }""")
-    s=one(s, """        signature = JSON.stringify(rows);
-        window.__sfNativeUiDetailRowsCount = rows.length;""", """        signature = JSON.stringify(rows);
-        if (path === '/collection/tracks') previewLikedState(rows.length ? 'liked-dom-rows' : 'liked-dom-empty');
-        window.__sfNativeUiDetailRowsCount = rows.length;""")
-    s=one(s, """        if (rows.length > 0 && signature !== lastInitialDetailSignature && sendNativeUiData('detail', displayedRows)) {""", """        if (rows.length > 0 && signature !== lastInitialDetailSignature) previewPhase('rows-received');
-        if (rows.length > 0 && signature !== lastInitialDetailSignature && sendNativeUiData('detail', displayedRows)) {""")
-    s=one(s, """        var displayedRows = rows;
-""", """        // After the paused-only page navigation, no in-flight bridge request
-        // survives the reload. A ready-but-empty page must not stay blank.
-        if (path === '/collection/tracks' && !window.__sfNativeCollectionUri && window.__sfNativeUiReadyNotified && !rows.length && !previewLikedUnavailableShown) {
-            previewLikedUnavailableShown = true;
-            previewLoadState('unavailable');
-            sendNativeUiData('detail', [
-                {title:'Titres likés indisponibles', subtitle:'Spotify n’affiche pas encore de titres.', settingValue:'Info', uri:''},
-                {title:'Réessayer', subtitle:'Une nouvelle tentative', uri:'melodix:retry-collection'}
-            ]);
-        }
-        if (rows.length) previewLikedUnavailableShown = false;
-        var displayedRows = rows;
-""")
     # Non-Home rows used to overwrite the Home-only text cache and send two
     # unnecessary native text callbacks on every library/detail refresh.
     s=one(s, "            if (lines.length) {\n                var listText = lines.join('\\n');",
@@ -81,11 +50,11 @@ def apply(root):
             previewLastMovementAt >= 0 && at >= previewLastMovementAt && at - previewLastMovementAt <= 2000)));
         previewLastTrack = valid ? info.previewTrackUri : '';""")
     tuple_bytes=(HERE/'preview-player-tuple.js').read_bytes()
-    if hashlib.sha256(tuple_bytes).hexdigest() != '3697e5d291b1de1500b89684a618dc66145947fce9275416ed3bb52ad7ad9d6a': raise ValueError('unexpected tuple helper')
+    if hashlib.sha256(tuple_bytes).hexdigest() != '73ba5fd1a007b15034d001cc7e4e4e7dcc78cf27e1c0e059a276f259d67426ca': raise ValueError('unexpected tuple helper')
     start=s.index('    // Preview-only progress samples.')
     end=s.index('    function publishPlayerState(force)', start)
     s=s[:start]+tuple_bytes.decode('utf8')+'\n'+s[end:]
-    s=one(s, "            payload.playing ? '1' : '0',\n            payload.duration,", "            payload.playing ? '1' : '0',\n            payload.previewPlaybackState,\n            payload.previewConfirmPositionMs,\n            payload.duration,")
+    s=one(s, "            payload.playing ? '1' : '0',\n            payload.duration,", "            payload.playing ? '1' : '0',\n            payload.previewPlaybackState,\n            payload.duration,")
     # Native timing spans survive a WebView reload; include only the already
     # visible route to reject a stale ready event from a different collection.
     s=one(s, "        try {\n            bridge.onNativeUiReady();", "        try {\n            previewPhase('page-ready|' + spotifyResourceUri(window.location.href));\n            bridge.onNativeUiReady();")
@@ -159,11 +128,6 @@ def apply(root):
 
     const v1, 0x7f090236""")
     a=prefix+anchor_player+method
-    # Immediately paint the selected heading and inert loading rows; never
-    # fabricate a playable item or a request.
-    a=one(a, """    const-string v2, "[]"
-    if-eqz p2, :native_collection_default_title""", """    const-string v2, "[{\\\"title\\\":\\\"Chargement…\\\",\\\"settingValue\\\":\\\"Info\\\"},{\\\"title\\\":\\\"────────────\\\",\\\"settingValue\\\":\\\"Info\\\"},{\\\"title\\\":\\\"──────────\\\",\\\"settingValue\\\":\\\"Info\\\"}]"
-    if-eqz p2, :native_collection_default_title""")
     activity.write_text(a,encoding='utf8')
     rows=root/'smali/com/melodix/music/NativeUiRowFactory.smali'
     r=rows.read_text(encoding='utf8')
