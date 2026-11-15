@@ -60,6 +60,14 @@ class PreviewPlayer(unittest.TestCase):
         self.assertIn('préparation de frame',report)
         self.assertIn('firstHomeFrameMs',report); self.assertIn('playlistFrameMs',report)
 
+    def test_webview_debugging_is_confined_to_exact_preview_package(self):
+        text=method(self.get('smali/m9.smali'),'.method public static g(Landroid/content/Context;)Landroid/webkit/WebView;')
+        package=text.index('com.melodix.music.preview')
+        self.assertIn('getPackageName()Ljava/lang/String;',text[:package])
+        self.assertIn('Ljava/lang/String;->equals(Ljava/lang/Object;)Z',text[package:])
+        self.assertLess(package,text.index('setWebContentsDebuggingEnabled(Z)V'))
+        self.assertNotIn('const/4 v0, 0x1', text[:text.index('setWebContentsDebuggingEnabled(Z)V')])
+
     def test_controls_have_no_playlist_rate_limit(self):
         a=self.get('smali/com/melodix/music/MainActivity.smali')
         for name in ('onNativePlayPauseClick','onNativePlayerPreviousClick','onNativePlayerNextClick'):

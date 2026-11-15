@@ -14,6 +14,7 @@ EXPECTED = {
     'assets/native_ui_shell.js': '7b171ed4773c34571cd5bc4974f764d303edb300f49f13bbdf5f6f3940d84004',
     'smali/com/melodix/music/MainActivity.smali': 'dd14f96c2e3143b1e015e58a4c881911147e8312df1938a59e7ba3fa1b9a6f53',
     'smali/com/melodix/music/NativeSettingsRowFactory.smali': '87af4ac75e344b84f94374db7b94018b524a9af981f2367f8a9631f8b1c8ed63',
+    'smali/m9.smali': '85110d08bf6c642ea6201c152a4e219721ae542927a16a701d6018bedee83b06',
 }
 SOURCE_SHA = 'e5668a41e5470feea9170033c116e3977a4146d570d1e4825631faaab8ee7591'
 HELPER_SHA = {
@@ -253,6 +254,40 @@ def prepare(root):
     return-void
 .end method
 '''
+    files[path] = s
+
+    path = 'smali/m9.smali'; s = files[path]
+    s = replace(s, '''.method public static g(Landroid/content/Context;)Landroid/webkit/WebView;
+    .locals 4
+
+    .line 1
+    invoke-virtual {p0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+
+    .line 2
+    .line 3
+    .line 4
+    const/4 v0, 0x1
+
+    .line 5
+    :try_start_0
+    invoke-static {v0}, Landroid/webkit/WebView;->setWebContentsDebuggingEnabled(Z)V''', '''.method public static g(Landroid/content/Context;)Landroid/webkit/WebView;
+    .locals 4
+
+    .line 1
+    invoke-virtual {p0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+
+    .line 2
+    .line 3
+    .line 4
+    # Restrict the existing WebView diagnostic to this exact Preview package.
+    # This patch is applied only to the separate Preview reconstruction.
+    :try_start_0
+    invoke-virtual {p0}, Landroid/content/Context;->getPackageName()Ljava/lang/String;
+    move-result-object v1
+    const-string v0, "com.melodix.music.preview"
+    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    invoke-static {v0}, Landroid/webkit/WebView;->setWebContentsDebuggingEnabled(Z)V''')
     files[path] = s
 
     path = 'smali/com/melodix/music/NativeSettingsRowFactory.smali'; s = files[path]
