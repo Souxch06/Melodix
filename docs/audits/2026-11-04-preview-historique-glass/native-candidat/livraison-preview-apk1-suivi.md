@@ -29,3 +29,11 @@ La liste CI contient exactement ces 17 fichiers : `apktool.yml` (version) ; `ass
 - Tests du contrôleur Java sur stubs Android avec horloge fictive : maintien/gel de position, changement inconnu, expiration et message, mesures avec contexte correspondant ou non, confidentialité et deux minutes simulées. Cinq tests structurels sur entrée puis APK redécodée, 13 tests Node ciblés, compilation/décodage local et contrôle 7/7 local. La CI répète ses contrôles, puis compare les deux APK signées. Aucune simulation ne vaut test ART/Spotify/téléphone.
 
 [Plan téléphone spécifique](plan-test-telephone-apk1-suivi.md). Lot A non inclus.
+
+## Essai Android additionnel hors ligne
+
+[Run 43718636412](https://github.com/Souxch06/Melodix/actions/runs/43718636412) : téléchargement de **l'APK signée exacte** ci-dessus et contrôle SHA, émulateur Android 15 x86_64 neuf sans compte, absence de réseau par défaut vérifiée avant installation/lancement, activité reprise puis encore reprise après rotation paysage et portrait. Cela exerce un chemin de démarrage ART et les changements d'orientation, pas Spotify, le rendu des listes, le son, les commandes, le retour, la latence ou un téléphone. Les quatre tests du script avec faux `adb` vérifient notamment que l'installation ne démarre pas si le réseau par défaut subsiste ou si le SHA est faux.
+
+Un [premier run 43718370594](https://github.com/Souxch06/Melodix/actions/runs/43718370594) avait échoué dans l'étape d'émulateur, sans cause déterminable depuis les annotations ; ses logs complets n'étaient pas accessibles dans cet environnement. Le second run ajoute des annotations de phase et a réussi avec la même APK. Ne pas assimiler ce succès à une preuve de fiabilité générale.
+
+Les timestamps « interface optimiste/confirmée » sont pris après la mutation synchrone de l'interface native, non après présentation effective à l'écran ; un seuil de latence visible doit être mesuré séparément.
