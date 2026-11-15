@@ -1,0 +1,200 @@
+package com.melodix.music;
+
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
+import android.content.DialogInterface;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.SystemClock;
+import android.view.Choreographer;
+import android.view.View;
+import android.widget.ImageView;
+import android.widget.ProgressBar;
+import android.widget.TextView;
+import org.json.JSONObject;
+import java.lang.ref.WeakReference;
+import java.util.Locale;
+
+/** Preview-only display controller. No network access and no persistent data. */
+public final class PreviewPlayerController implements Choreographer.FrameCallback {
+    private static final int MINI = 0x7f09024d, FULL = 0x7f09023d;
+    private static final int ELAPSED = 0x7f09024a, DURATION = 0x7f09024b;
+    private static final int MINI_BUTTON = 0x7f090238, FULL_BUTTON = 0x7f09023e;
+    private static final int PAUSE_ICON = 0x7f080121, PLAY_ICON = 0x7f080122;
+    private static final long MAX_STALE_MS = 1500, CORRECTION_MS = 4000;
+    private static final long RECONCILE_MS = 8000;
+    private final WeakReference<Activity> activity;
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private boolean valid, moving, frameScheduled, haveReal, realPlaying, shownPlaying, pending;
+    private boolean pendingTarget;
+    private long serial, anchor, duration;
+    private long cachedElapsed = -1, cachedDuration = -1, cachedRemaining = -1;
+    private String elapsedText = "—", durationText = "—", remainingText = "Temps restant : —";
+    private double base, correction;
+    private String track = "";
+    // Diagnostic measurements contain only monotonic time differences.
+    private long tapAt = -1, commandAt = -1, stateAt = -1, optimisticAt = -1, uiAt = -1;
+    private long previousProgressAt = -1, previousPosition = -1;
+    private final long[] intervals = new long[60];
+    private int intervalCount, intervalIndex;
+    private int operation; // 1 play/pause, 2 previous, 3 next
+    private String trackBefore = "";
+
+    public PreviewPlayerController(Activity a) { activity = new WeakReference<Activity>(a); }
+    private long now() { return SystemClock.elapsedRealtime(); }
+    private double position(long t) {
+        if (!valid) return Double.NaN;
+        long elapsed = Math.max(0, t - anchor);
+        long motion = moving ? Math.min(elapsed, MAX_STALE_MS) : 0;
+        double adjust = moving ? correction * Math.min(1.0, (double) motion / CORRECTION_MS) : 0;
+        return Math.max(0, Math.min(duration, base + motion + adjust));
+    }
+    private static String clock(long ms) {
+        long seconds = Math.max(0, ms / 1000), s = seconds % 60, m = (seconds / 60) % 60, h = seconds / 3600;
+        return h > 0 ? String.format(Locale.ROOT, "%d:%02d:%02d", h, m, s) : String.format(Locale.ROOT, "%d:%02d", m, s);
+    }
+    private void text(Activity a, int id, String value) {
+        View v = a.findViewById(id);
+        if (v instanceof TextView && !value.contentEquals(((TextView) v).getText())) ((TextView) v).setText(value);
+    }
+    private void renderProgress() {
+        Activity a = activity.get(); if (a == null) return;
+        double pos = position(now());
+        if (Double.isNaN(pos)) {
+            text(a, ELAPSED, "—"); text(a, DURATION, "—");
+            setProgress(a, MINI, 0); setProgress(a, FULL, 0);
+            View root = a.findViewById(0x7f09023a);
+            View remaining = root == null ? null : root.findViewWithTag("nativePlayerRemaining");
+            if (remaining instanceof TextView && !"Temps restant : —".contentEquals(((TextView) remaining).getText()))
+                ((TextView) remaining).setText("Temps restant : —");
+            return;
+        }
+        long value = (long) Math.floor(pos), left = Math.max(0, duration - value);
+        if (cachedElapsed != value / 1000) { cachedElapsed = value / 1000; elapsedText = clock(value); }
+        if (cachedDuration != duration / 1000) { cachedDuration = duration / 1000; durationText = clock(duration); }
+        if (cachedRemaining != left / 1000) { cachedRemaining = left / 1000; remainingText = "Temps restant : " + clock(left); }
+        int progress = (int) Math.max(0, Math.min(1000, Math.round(pos * 1000.0 / duration)));
+        setProgress(a, MINI, progress); setProgress(a, FULL, progress);
+        text(a, ELAPSED, elapsedText); text(a, DURATION, durationText);
+        View root = a.findViewById(0x7f09023a);
+        View remaining = root == null ? null : root.findViewWithTag("nativePlayerRemaining");
+        if (remaining instanceof TextView && !remainingText.contentEquals(((TextView) remaining).getText()))
+            ((TextView) remaining).setText(remainingText);
+    }
+    private void setProgress(Activity a, int id, int p) {
+        View v = a.findViewById(id);
+        if (v instanceof ProgressBar) {
+            ProgressBar bar = (ProgressBar) v;
+            if (bar.getMax() != 1000) bar.setMax(1000);
+            if (bar.getProgress() != p) bar.setProgress(p);
+        }
+    }
+    private void renderButtons() {
+        Activity a = activity.get(); if (a == null || !haveReal) return;
+        int icon = shownPlaying ? PAUSE_ICON : PLAY_ICON;
+        View mini = a.findViewById(MINI_BUTTON), full = a.findViewById(FULL_BUTTON);
+        if (mini instanceof ImageView) ((ImageView) mini).setImageResource(icon);
+        if (full instanceof ImageView) ((ImageView) full).setImageResource(icon);
+    }
+    private void scheduleFrame() {
+        if (valid && moving && !frameScheduled) { frameScheduled = true; Choreographer.getInstance().postFrameCallback(this); }
+    }
+    @Override public void doFrame(long frameTimeNanos) {
+        frameScheduled = false;
+        if (activity.get() == null || !valid) return;
+        renderProgress();
+        // Stop requesting frames once the last reliable sample is stale.
+        if (moving && now() - anchor < MAX_STALE_MS && position(now()) < duration) scheduleFrame();
+    }
+    public void snapshot(String json) {
+        try {
+            JSONObject o = new JSONObject(json);
+            long t = now();
+            boolean real = o.optBoolean("playing", false);
+            String uri = o.optString("previewTrackUri", "");
+            long pos = o.optLong("previewPositionMs", -1), dur = o.optLong("previewDurationMs", -1);
+            boolean snapshotValid = o.optBoolean("previewProgressValid", false) && !uri.isEmpty() && dur > 0 && pos >= 0 && pos <= dur;
+            double previous = position(t);
+            boolean changedTrack = !uri.equals(track);
+            boolean freezePendingPause = pending && !pendingTarget && real && valid && !changedTrack && !Double.isNaN(previous);
+            boolean advances = snapshotValid && real && !freezePendingPause && o.optBoolean("previewAdvancing", false);
+            boolean reset = !valid || !snapshotValid || changedTrack || Double.isNaN(previous) ||
+                Math.abs(previous - pos) > 2000 || !moving || !advances;
+            if (snapshotValid) {
+                duration = dur; anchor = t; track = uri;
+                base = freezePendingPause ? Math.max(0, Math.min(dur, previous)) : (reset ? pos : Math.max(0, Math.min(dur, previous)));
+                correction = reset || freezePendingPause ? 0 : pos - previous;
+                moving = advances; valid = true;
+                if (changedTrack) { previousProgressAt = -1; previousPosition = -1; }
+                if (real && previousPosition >= 0 && pos != previousPosition && previousProgressAt >= 0) {
+                    intervals[intervalIndex] = t - previousProgressAt;
+                    intervalIndex = (intervalIndex + 1) % intervals.length;
+                    if (intervalCount < intervals.length) intervalCount++;
+                }
+                if (pos != previousPosition) { previousPosition = pos; previousProgressAt = t; }
+            } else { valid = false; moving = false; track = uri; previousProgressAt = -1; previousPosition = -1; }
+            haveReal = true; realPlaying = real;
+            if (pending && real == pendingTarget) { pending = false; serial++; }
+            if (!pending) shownPlaying = real;
+            renderProgress(); renderButtons(); scheduleFrame();
+            if (tapAt >= 0 && commandAt >= 0 && stateAt < 0 &&
+                ((operation == 1 && real == pendingTarget) || (operation != 1 && !uri.isEmpty() && !uri.equals(trackBefore)))) {
+                stateAt = t; uiAt = now();
+            }
+        } catch (Exception ignored) { valid = false; moving = false; renderProgress(); }
+    }
+    public int tapPlayPause() {
+        begin(1);
+        if (!haveReal) return -1;
+        long t = now();
+        if (valid && shownPlaying) { base = position(t); anchor = t; moving = false; correction = 0; renderProgress(); }
+        pendingTarget = !shownPlaying; pending = true; shownPlaying = pendingTarget;
+        final long id = ++serial;
+        renderButtons(); optimisticAt = now();
+        handler.postDelayed(new Runnable() { public void run() {
+            if (pending && serial == id) { pending = false; shownPlaying = realPlaying; renderButtons(); }
+        }}, RECONCILE_MS);
+        return pendingTarget ? 1 : 0;
+    }
+    public void begin(int kind) {
+        tapAt = now(); commandAt = stateAt = optimisticAt = uiAt = -1;
+        operation = kind; trackBefore = track;
+    }
+    public void command() { if (tapAt >= 0 && commandAt < 0) commandAt = now(); }
+    public void attachAbout(View view) {
+        view.setOnLongClickListener(new View.OnLongClickListener() {
+            public boolean onLongClick(View v) { showDiagnostics(); return true; }
+        });
+    }
+    private String delta(long value) { return value < 0 || tapAt < 0 ? "—" : Long.toString(value - tapAt) + " ms"; }
+    private String report() {
+        StringBuilder out = new StringBuilder("Diagnostic Preview (mesures locales)\n");
+        out.append(tapAt < 0 ? "Appui : —\nCommande reçue du pont : " : "Appui : 0 ms\nCommande reçue du pont : ").append(delta(commandAt));
+        out.append("\nInterface optimiste : ").append(delta(optimisticAt));
+        out.append("\nÉtat du lecteur observé : ").append(delta(stateAt));
+        out.append("\nInterface confirmée : ").append(delta(uiAt));
+        out.append("\nIntervalles position : ");
+        if (intervalCount == 0) out.append("—");
+        for (int i = 0; i < intervalCount; i++) {
+            if (i > 0) out.append(", ");
+            int index = (intervalIndex - intervalCount + i + intervals.length) % intervals.length;
+            out.append(intervals[index]).append(" ms");
+        }
+        out.append("\nLa réception du pont n'est pas un accusé Spotify ; le premier son n'est pas mesuré.");
+        return out.toString();
+    }
+    public void showDiagnostics() {
+        final Activity a = activity.get(); if (a == null) return;
+        final String report = report();
+        new AlertDialog.Builder(a).setTitle("Diagnostic Preview").setMessage(report)
+            .setPositiveButton("Copier", new DialogInterface.OnClickListener() {
+                public void onClick(DialogInterface dialog, int which) {
+                    Object service = a.getSystemService(Context.CLIPBOARD_SERVICE);
+                    if (service instanceof ClipboardManager) ((ClipboardManager) service).setPrimaryClip(ClipData.newPlainText("Diagnostic Preview", report));
+                }
+            }).setNegativeButton("Fermer", null).show();
+    }
+}
