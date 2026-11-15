@@ -650,6 +650,9 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' && (inputs.release_tag == 'v1.2.2-test.9003-preview' || inputs.release_tag == 'v1.2.2-test.9004-preview' || inputs.release_tag == 'v1.2.2-test.9005-preview' || inputs.release_tag == 'v1.2.2-test.9006-preview' || inputs.release_tag == 'v1.2.2-test.9007-preview' || inputs.release_tag == 'v1.2.2-test.9008-preview' || inputs.release_tag == 'v1.2.2-test.9009-preview' || inputs.release_tag == 'v1.2.2-test.9010-preview' || inputs.release_tag == 'v1.2.2-test.9011-preview' || inputs.release_tag == 'v1.2.2-test.9012-preview' || inputs.release_tag == 'v1.2.2-test.9013-preview' || inputs.release_tag == 'v1.2.2-test.9014-preview' || inputs.release_tag == 'v1.2.2-test.9015-preview' || inputs.release_tag == 'v1.2.2-test.9016-preview' || inputs.release_tag == 'v1.2.2-test.9017-preview') }}
     name: Preview séparée d0f206b0 + Glass
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     steps:
       - name: Checkout delivery
         uses: actions/checkout@v7.0.1
@@ -842,6 +845,12 @@ jobs:
             phase="test and apply guarded native Back routing"
             MELODIX_PREVIEW_ROOT="$work" MELODIX_PATCH_INPUT=1 python3 "$audit/native-candidat/test_lot1_back.py"
             python3 "$audit/native-candidat/apply_lot1_back.py" "$work"
+            phase="test and apply widget time formatter"
+            MELODIX_PREVIEW_ROOT="$work" python3 "$audit/native-candidat/test_lot1_widget_time.py"
+            python3 "$audit/native-candidat/apply_lot1_widget_time.py" "$work"
+            phase="test and apply native remaining-time display"
+            MELODIX_PREVIEW_ROOT="$work" MELODIX_PATCH_INPUT=1 python3 "$audit/native-candidat/test_lot1_remaining.py"
+            python3 "$audit/native-candidat/apply_lot1_remaining.py" "$work"
             python3 "$audit/native-candidat/verify_9016_protected_assets.py" project "$work"
           fi
           phase="build unsigned APK"
@@ -891,6 +900,8 @@ jobs:
               }
             phase="test decoded native Back routing"
             MELODIX_PREVIEW_ROOT="$RUNNER_TEMP/historical-decoded" python3 "$audit/native-candidat/test_lot1_back.py"
+            phase="test decoded remaining-time layout"
+            MELODIX_PREVIEW_ROOT="$RUNNER_TEMP/historical-decoded" python3 "$audit/native-candidat/test_lot1_remaining.py"
             phase="simulate shell to decoded native player labels"
             MELODIX_CANDIDATE_ROOT="$RUNNER_TEMP/historical-decoded" NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" \
               node --test "$audit/native-candidat/player-time-e2e.test.cjs" > "$RUNNER_TEMP/lot1-time-tests.log" 2>&1 || {
@@ -1017,6 +1028,17 @@ jobs:
             echo '- Package séparé, clé Preview vérifiée. Ancienne connexion et protections historiques : consulter audit avant installation.'
             cat preview-output/Melodix-Preview-historique-glass.apk.sha256
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Compare protected bytes with original signed 9016 artifact
+        if: ${{ inputs.release_tag == 'v1.2.2-test.9017-preview' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          audit="$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/native-candidat"
+          python3 "$audit/test_compare_9016_artifact.py"
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/14156257401/zip" > "$RUNNER_TEMP/reference-9016.zip"
+          python3 "$audit/compare_9016_artifact.py" "$RUNNER_TEMP/reference-9016.zip" preview-output/Melodix-Preview-historique-glass.apk | tee "$RUNNER_TEMP/protected-comparison.log"
+          { echo '### Fichiers protégés : comparaison octet par octet avec APK 9016 signé'; echo '```'; cat "$RUNNER_TEMP/protected-comparison.log"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload Preview artifact only (no release)
         if: ${{ inputs.release_tag != 'v1.2.2-test.9017-preview' }}
         uses: actions/upload-artifact@v4

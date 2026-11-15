@@ -11,12 +11,13 @@ const root=process.env.MELODIX_CANDIDATE_ROOT;
 if(!root) throw new Error('MELODIX_CANDIDATE_ROOT required');
 const activity=fs.readFileSync(path.join(root,'smali/com/melodix/music/MainActivity.smali'),'utf8');
 const shell=fs.readFileSync(path.join(root,'assets/native_ui_shell.js'),'utf8');
-function method(name){
+const widget=fs.readFileSync(path.join(root,'smali/com/melodix/music/a.smali'),'utf8');
+function method(name,source=activity){
  const r=new RegExp('^\\.method [^\\n]*\\b'+name+'\\([^\\n]*\\n([\\s\\S]*?)^\\.end method','m');
- const match=activity.match(r); assert.ok(match,`missing ${name}`);return match[1];
+ const match=source.match(r); assert.ok(match,`missing ${name}`);return match[1];
 }
-function interpret(name,params){
- const text=method(name), labels={}, code=[];
+function interpret(name,params,source=activity){
+ const text=method(name,source), labels={}, code=[];
  for(const raw of text.split('\n')){
   const line=raw.trim().replace(/\s+#.*$/,'');
   if(!line||line.startsWith('.')||line.startsWith('#'))continue;
@@ -45,6 +46,8 @@ function interpret(name,params){
   else if(op==='rem-long/2addr')r[a[0]]=val(a[0])%val(a[1]);
   else if(op==='div-long')r[a[0]]=Math.trunc(val(a[1])/val(a[2]));
   else if(op==='mul-long')r[a[0]]=val(a[1])*val(a[2]);
+  else if(op==='sub-long')r[a[0]]=val(a[1])-val(a[2]);
+  else if(op==='move-wide')r[a[0]]=val(a[1]);
   else if(op==='goto')pc=labels[args];
   else if(op==='if-eqz'||op==='if-nez'||op==='if-ltz'||op==='if-gez'||op==='if-lez'){
    const x=val(a[0]), pass=op==='if-eqz'?!x:op==='if-nez'?!!x:op==='if-ltz'?x<0:op==='if-gez'?x>=0:x<=0;
@@ -65,6 +68,8 @@ function interpret(name,params){
    else if(target.includes('String;->isEmpty'))result=values[0].length===0;
    else if(target.includes('String;->equals'))result=values[0]===values[1];
    else if(target.includes('Activity;->findViewById'))result=values[0].views[values[1]]??null;
+   else if(target.includes('View;->findViewWithTag'))result=values[0].tags[values[1]]??null;
+   else if(target.includes('MainActivity;->updateLot1Remaining'))interpret('updateLot1Remaining',{p0:values[0],p1:values[1],p3:values[3]});
    else if(target.includes('MainActivity;->formatNativeTime'))result=interpret('formatNativeTime',{p0:values[0]});
    else if(target.includes('Long;->valueOf'))result=values[0];
    else if(target.includes('String;->format')){
@@ -101,19 +106,30 @@ function capturePayload(position,duration,useMedia=false){
 function render(payload){
  const views={};
  for(const id of [0x7f090236,0x7f09023b,0x7f090237,0x7f09023c,0x7f090244,0x7f090245,0x7f09023d,0x7f09024d,0x7f09024a,0x7f09024b,0x7f090238,0x7f09023e,0x7f09024c])views[id]={};
+ const remaining={}; views[0x7f09023a]={tags:{nativePlayerRemaining:remaining}};
  const native={screen:'player',views};
  interpret('updateNativePlayer',{p0:native,p1:JSON.stringify(payload)});
- return {position:views[0x7f09024a].text,duration:views[0x7f09024b].text};
+ return {position:views[0x7f09024a].text,duration:views[0x7f09024b].text,remaining:remaining.text};
 }
-for(const [clock,seconds] of [['0:05',5],['0:59',59],['1:00',60],['9:59',599],['10:00',600],['59:59',3599],['1:00:00',3600]]){
+for(const [clock,seconds] of [['0:05',5],['0:59',59],['1:00',60],['9:59',599],['10:00',600],['59:59',3599],['1:00:00',3600],['1:01:01',3661]]){
  test(`shell → native labels: ${clock} (${seconds} seconds)`,()=>{
   const payload=capturePayload(clock,clock);assert.equal(payload.position,seconds);assert.equal(payload.duration,seconds);
-  assert.deepEqual(render(payload),{position:clock,duration:clock});
+  assert.deepEqual(render(payload),{position:clock,duration:clock,remaining:'Temps restant : 0:00'});
+  const remainingPayload=capturePayload('0:00',clock);
+  assert.equal(render(remainingPayload).remaining,`Temps restant : ${clock}`);
+ });
+ test(`decoded widget formatter: ${clock} (${seconds * 1000} ms)`,()=>{
+  assert.equal(interpret('b',{p0:seconds*1000},widget),clock);
  });
 }
 test('HTML media values are seconds and are not divided by 1000',()=>{
  const p=capturePayload('0:00','0:00',true);assert.equal(p.position,38);assert.equal(p.duration,141);
- assert.deepEqual(render(p),{position:'0:38',duration:'2:21'});
+ assert.deepEqual(render(p),{position:'0:38',duration:'2:21',remaining:'Temps restant : 1:43'});
+});
+test('remaining duration handles missing and out-of-range input',()=>{
+ assert.equal(render({duration:0,position:0}).remaining,'Temps restant : —');
+ assert.equal(render({duration:3600,position:3661}).remaining,'Temps restant : 0:00');
+ assert.equal(render({duration:3661,position:-10}).remaining,'Temps restant : 1:01:01');
 });
 test('clamps negative native input and pads both hour components',()=>{
  assert.equal(interpret('formatNativeTime',{p0:-5}),'0:00');
