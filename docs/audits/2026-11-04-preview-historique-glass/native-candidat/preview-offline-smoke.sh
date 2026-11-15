@@ -12,10 +12,20 @@ test -f "$apk"
 test "$(sha256sum "$apk" | cut -d' ' -f1)" = "$expected"
 # Before the app is installed/launched, remove both emulated transports and
 # fail closed unless Android reports that there is no default network.
-phase='disable emulator connectivity'
-adb shell cmd connectivity airplane-mode enable >/dev/null
-adb shell svc wifi disable >/dev/null
-adb shell svc data disable >/dev/null
+retry_device_command() {
+  local attempt
+  for attempt in 1 2 3; do
+    if "$@" >/dev/null 2>&1; then return 0; fi
+    sleep 2
+  done
+  return 1
+}
+phase='enable airplane mode on emulator'
+retry_device_command adb shell cmd connectivity airplane-mode enable
+phase='disable emulator wifi'
+retry_device_command adb shell svc wifi disable
+phase='disable emulator mobile data'
+retry_device_command adb shell svc data disable
 phase='verify no default network'
 for attempt in $(seq 1 30); do
   if adb shell dumpsys connectivity | tr -d '\r' | grep -Eq '^[[:space:]]*Active default network: (null|none)[[:space:]]*$'; then
@@ -34,8 +44,28 @@ phase='start activity offline'
 adb shell am start -W -n "$pkg/$activity" >/dev/null
 sleep 5
 check_resumed() {
-  adb shell pidof "$pkg" >/dev/null
-  adb shell dumpsys activity activities | tr -d '\r' | grep -E 'mResumedActivity|topResumedActivity' | grep -F "$pkg/" | grep -F 'MainActivity' >/dev/null
+  local attempt
+  for attempt in $(seq 1 30); do
+    if adb shell pidof "$pkg" >/dev/null 2>&1 &&
+       adb shell dumpsys activity activities | tr -d '\r' | grep -E 'mResumedActivity|topResumedActivity' | grep -F "$pkg/" | grep -F 'MainActivity' >/dev/null; then
+      return 0
+    fi
+    sleep 1
+  done
+  # Fresh offline emulator only. Classify a fatal without exposing log lines,
+  # page URLs, application data or other process output in CI annotations.
+  python3 - "$pkg" <<'PYCODE'
+import re,subprocess,sys
+p=subprocess.run(['adb','logcat','-d','-v','brief','-s','AndroidRuntime:E'],capture_output=True,text=True)
+blocks=re.split(r'(?=FATAL EXCEPTION)', p.stdout)
+block=next((b for b in blocks if b.startswith('FATAL EXCEPTION') and ('Process: '+sys.argv[1]) in b), '')
+if block:
+    kind=next((x for x in ('VerifyError','NoSuchMethodError','NoClassDefFoundError','NullPointerException','SecurityException') if x in block),'other')
+    print('::error title=Offline smoke crash classification::fatal=true; type='+kind)
+else:
+    print('::error title=Offline smoke crash classification::fatal_not_observed; activity_not_confirmed')
+PYCODE
+  return 1
 }
 phase='verify first resumed activity'
 check_resumed
