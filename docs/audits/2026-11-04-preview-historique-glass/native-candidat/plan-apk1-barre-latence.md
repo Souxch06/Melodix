@@ -1,4 +1,6 @@
-# APK 1 — barre, latence et diagnostic (travail en cours)
+# APK 1 — barre, latence et diagnostic : plan initial
+
+**Mise à jour :** l'implémentation et la CI signée ont été réalisées après la rédaction du plan ci-dessous. Voir [la livraison APK 1](livraison-preview-apk1.md) pour l'identité, la comparaison bloquante des deux APK signées et les limites. Aucun essai sur téléphone n'est encore déclaré. Les passages ci-dessous décrivent l'état au début du travail.
 
 ## Garde de la référence
 
