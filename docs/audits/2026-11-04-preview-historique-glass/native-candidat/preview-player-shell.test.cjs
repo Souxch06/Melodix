@@ -124,3 +124,11 @@ test('search submitted after a late bridge start uses the bridge without page na
   assert.ok(!x.errors.some(e=>/navigation/i.test(e)));
  }finally{x.close()}
 });
+
+test('native keyboard submit cancels pending live-search callback before submitting',()=>{
+ const text=fs.readFileSync(path.join(root,'smali/com/melodix/music/NativeSearchWatcher.smali'),'utf8');
+ const method=text.split('.method public final onEditorAction(')[1].split('.end method')[0];
+ assert.ok(method.indexOf('removeCallbacks(Ljava/lang/Runnable;)Z')>=0);
+ assert.ok(method.indexOf('->pendingQuery:Ljava/lang/String;')>method.indexOf('removeCallbacks'));
+ assert.ok(method.indexOf('onNativeSearchSubmit')>method.indexOf('->pendingQuery:Ljava/lang/String;'));
+});
