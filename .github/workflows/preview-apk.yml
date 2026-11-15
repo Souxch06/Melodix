@@ -884,7 +884,7 @@ jobs:
             phase="apply 1022131 feedback: progress and search"
             python3 "$audit/native-candidat/apply_preview_2131_followup.py" "$work"
             node --check "$work/assets/native_ui_shell.js"
-            phase="apply playlist and Liked Songs fallback"
+            phase="apply playback-safe collection retry"
             python3 "$audit/native-candidat/apply_preview_library_followup.py" "$work"
             node --check "$work/assets/native_ui_shell.js"
           fi
@@ -970,7 +970,6 @@ jobs:
             MELODIX_PREVIEW_ROOT="$RUNNER_TEMP/historical-decoded" python3 "$audit/native-candidat/test_glass_screen_refresh.py"
             MELODIX_CANDIDATE_ROOT="$RUNNER_TEMP/historical-decoded" NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" \
               node --test "$audit/native-candidat/preview-player-shell.test.cjs" \
-                "$audit/native-candidat/preview-liked-fallback.test.cjs" \
                 "$audit/native-candidat/preview-player-clock-model.test.cjs" \
                 "$audit/native-candidat/preview-optimistic-play-model.test.cjs"
           fi

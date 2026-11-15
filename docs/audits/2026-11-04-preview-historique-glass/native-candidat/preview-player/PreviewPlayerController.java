@@ -30,7 +30,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     private static final int ELAPSED = 0x7f09024a, DURATION = 0x7f09024b;
     private static final int MINI_BUTTON = 0x7f090238, FULL_BUTTON = 0x7f09023e;
     private static final int PAUSE_ICON = 0x7f080121, PLAY_ICON = 0x7f080122;
-    private static final long MAX_STALE_MS = 1500, CORRECTION_MS = 4000;
+    private static final long MAX_STALE_MS = 2500, CORRECTION_MS = 4000;
     private static final long RECONCILE_MS = 8000;
     private final WeakReference<Activity> activity;
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -62,7 +62,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     // Only a small allowlist; no token, title, playlist ID or URL is retained.
     private String loadStage = "—";
     public void loadState(String state) {
-        if (state != null && state.matches("(waiting-bridge|waiting-token|pending|failed|no-data|data|timeout|unavailable):(token|no-token)"))
+        if (state != null && state.matches("(waiting-bridge|waiting-token|pending|failed|no-data|data|timeout|unavailable):(token|no-token|unknown)"))
             loadStage = state;
     }
     private boolean measureHomeFrame, measurePlaylistFrame;
@@ -317,6 +317,17 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         });
     }
     private String delta(long value) { return value < 0 || tapAt < 0 ? "—" : Long.toString(value - tapAt) + " ms"; }
+    private String progressStopReason() {
+        if (!haveReal) return "état du lecteur indisponible";
+        if (pending && !pendingTarget) return "pause demandée";
+        if (!realPlaying) return "lecture en pause";
+        if (!progressHasUri) return "identité du titre absente";
+        if (!glowSampleValid || !valid) return "position ou durée indisponible";
+        if (!moving) return "mouvement non confirmé ou lecture en attente";
+        if (now() - anchor >= MAX_STALE_MS) return "observation trop ancienne";
+        if (position(now()) >= duration) return "fin du titre";
+        return "animation active";
+    }
     private String report() {
         StringBuilder out = new StringBuilder("Diagnostic Preview (mesures locales)\n");
         out.append(tapAt < 0 ? "Appui : —\nCommande reçue du pont : " : "Appui : 0 ms\nCommande reçue du pont : ").append(delta(commandAt));
@@ -332,6 +343,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         out.append("\nChargement playlist (état local, sans identifiant) : ").append(loadStage);
         out.append("\nSource position : ").append(progressSource);
         out.append(" ; identité de titre présente : ").append(progressHasUri ? "oui" : "non");
+        out.append("\nAnimation barre : ").append(progressStopReason());
         out.append("\nIntervalles position : ");
         if (intervalCount == 0) out.append("—");
         for (int i = 0; i < intervalCount; i++) {

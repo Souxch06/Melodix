@@ -112,6 +112,16 @@ public class ControllerTest {
    }
   }
   eq(mini.progress,1000);
+  // The diagnostic reports why the clock is stopped without exposing IDs.
+  PreviewPlayerController reason=new PreviewPlayerController(a);SystemClock.time=150000;
+  report=(String)m.invoke(reason);yes(report.contains("état du lecteur indisponible"));
+  reason.snapshot(sample("",1000,120000,true,false,true));report=(String)m.invoke(reason);yes(report.contains("identité du titre absente"));
+  reason.snapshot(sample(t,1000,120000,false,false,true));report=(String)m.invoke(reason);yes(report.contains("lecture en pause"));
+  reason.snapshot(sample(t,-1,-1,true,false,false));report=(String)m.invoke(reason);yes(report.contains("position ou durée indisponible"));
+  reason.snapshot(sample(t,1000,120000,true,false,true));report=(String)m.invoke(reason);yes(report.contains("mouvement non confirmé"));
+  reason.snapshot(sample(t,2000,120000,true,true,true));report=(String)m.invoke(reason);yes(report.contains("animation active"));
+  SystemClock.time=152501;report=(String)m.invoke(reason);yes(report.contains("observation trop ancienne"));yes(!report.contains(t));
+  reason.snapshot(sample("spotify:track:new",500,120000,true,false,true));eq(mini.progress,4);
   // Instrumentation uses frame preparation, not display presentation.
   SystemClock.time=200000;android.os.Process.start=199950;PreviewPlayerController metrics=new PreviewPlayerController(a);metrics.activityCreated();
   metrics.rowsPainted("home", "", "uri=spotify:track:One");SystemClock.time=200123;Choreographer.frame();

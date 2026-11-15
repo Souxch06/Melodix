@@ -4,7 +4,7 @@ import hashlib,sys
 from pathlib import Path
 HERE=Path(__file__).resolve().parent
 EXPECTED='7143bd2a1d8ba4719412d200d4d14a86b5a3bc855feffc6fb282c301d8555b4e'
-HELPER_SHA='f4ca81e2078880bfa9e208edf142d049f31048a16997093d2a61840f8030c6f0'
+HELPER_SHA='b88f3a8e62109360a501c50bc17233a78da2a28471c16e901793838bc885387c'
 
 def one(text, old, new):
     if text.count(old)!=1: raise ValueError('unexpected anchor: '+old[:90])
@@ -13,9 +13,17 @@ def one(text, old, new):
 def apply(root):
     p=root/'assets/native_ui_shell.js';raw=p.read_bytes()
     if hashlib.sha256(raw).hexdigest()!=EXPECTED: raise ValueError('unexpected shell input; no changes made')
-    helper_bytes=(HERE/'preview-liked-fallback.js').read_bytes()
+    helper_bytes=(HERE/'preview-collection-retry.js').read_bytes()
     if hashlib.sha256(helper_bytes).hexdigest()!=HELPER_SHA: raise ValueError('unexpected helper; no changes made')
     s=raw.decode('utf8'); helper=helper_bytes.decode('utf8')
+    # The liked tracks page is a detail view, not the library's category
+    # index. The 9016 page fallback otherwise cannot publish its track rows.
+    s=one(s, "        if (path === '/collection' || path.indexOf('/collection/') === 0 || path.indexOf('/your-library') === 0) return 'library';",
+          "        if (path === '/collection/tracks') return 'detail';\n        if (path === '/collection' || path.indexOf('/collection/') === 0 || path.indexOf('/your-library') === 0) return 'library';")
+    s=one(s, "        rows = /^\\/(playlist|album|show)\\//i.test(path)\n            ? collectDetailRows(mainView) : collectHomeRows(mainView);",
+          "        rows = (path === '/collection/tracks' || /^\\/(playlist|album|show)\\//i.test(path))\n            ? collectDetailRows(mainView) : collectHomeRows(mainView);")
+    s=one(s, "        if (rows.length && /^\\/(playlist|album|show)\\//i.test(path)) {",
+          "        if (rows.length && (path === '/collection/tracks' || /^\\/(playlist|album|show)\\//i.test(path))) {")
     # Non-Home rows used to overwrite the Home-only text cache and send two
     # unnecessary native text callbacks on every library/detail refresh.
     s=one(s, "            if (lines.length) {\n                var listText = lines.join('\\n');",
@@ -36,26 +44,67 @@ def apply(root):
         var increased = same && info.previewPositionMs > previewLastPosition;
         if (increased) previewLastMovementAt = at;
         else if (!same || info.previewPositionMs < previewLastPosition) previewLastMovementAt = -1;
-        // A duplicate callback within one second of observed movement must not
+        // A duplicate callback within two seconds of observed movement must not
         // freeze the native clock. Extended buffering and pause still stop it.
         var advancing = !!(same && (increased || (info.previewPositionMs === previewLastPosition &&
-            previewLastMovementAt >= 0 && at >= previewLastMovementAt && at - previewLastMovementAt <= 1000)));
+            previewLastMovementAt >= 0 && at >= previewLastMovementAt && at - previewLastMovementAt <= 2000)));
         previewLastTrack = valid ? info.previewTrackUri : '';""")
-    s=one(s, '    var openCollectionTimer = null;', helper+'\n    var openCollectionTimer = null;')
-    s=one(s, '    function cancelPendingCollectionNavigation() {\n        stopCollectionFallback();',
-             '    function cancelPendingCollectionNavigation() {\n        cancelPreviewLiked();\n        stopCollectionFallback();')
-    s=one(s, '''                previewLoadState(failed ? 'failed' : 'no-data');
-                // Only retry a tokenless attempt''', '''                previewLoadState(failed ? 'failed' : 'no-data');
-                // Try once after the existing bridge yields no usable data.
-                if (previewFallbackCollection(uri, String(value), requestId)) return;
-                // Only retry a tokenless attempt''')
-    s=one(s, """                if (bridgeReady && (!needsToken || !!window.spotAuthToken)) request();
-                else waitForReady(needsToken);""", """                if (bridgeReady && (!needsToken || !!window.spotAuthToken)) request();
-                else if (!bridgeReady && previewFallbackCollection(uri, String(value), requestId)) return;
-                else waitForReady(needsToken);""")
-    s=one(s, """        if (window.__sfMelodixBridgeStarted === true && typeof window.fetchMediaItems === 'function') request();
-        else waitForReady(false);""", """        if (window.__sfMelodixBridgeStarted === true && typeof window.fetchMediaItems === 'function') request();
-        else if (!previewFallbackCollection(uri, String(value), requestId)) waitForReady(false);""")
+    # Replace the entire previous auto-retry/token-aware flow with one bridge
+    # attempt and the historical paused-only navigation fallback.
+    start=s.index('    var openCollectionTimer = null;')
+    end=s.index('    // Search normally goes through the bridge.', start)
+    s=s[:start]+helper+'\n'+s[end:]
+    activity=root/'smali/com/melodix/music/MainActivity.smali'
+    a=activity.read_text(encoding='utf8')
+    anchor = ".method public final openNativeRow(Ljava/lang/String;Ljava/lang/String;)V"
+    prefix, rest = a.split(anchor, 1)
+    rest=one(rest, """    const-string v2, "spotify:settings:"
+""", """    # Dedicated retry action, never treat it as a Spotify URI or push Back.
+    const-string v2, "melodix:retry-collection"
+    invoke-virtual {v2, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v3
+    if-eqz v3, :preview_not_retry_collection
+    const-string v2, "window.__sfRetryCollection"
+    invoke-virtual {p0, v2, p1}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
+    return-void
+    :preview_not_retry_collection
+
+    const-string v2, "spotify:settings:"
+""")
+    a=prefix+anchor+rest
+    activity.write_text(a,encoding='utf8')
+    rows=root/'smali/com/melodix/music/NativeUiRowFactory.smali'
+    r=rows.read_text(encoding='utf8')
+    anchor='.method public static create(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;\n    .locals 12\n'
+    r=one(r, anchor, anchor+"""
+    const-string v0, "uri"
+    const-string v1, ""
+    invoke-virtual {p1, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v2
+    const-string v3, "melodix:retry-collection"
+    invoke-virtual {v3, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v4
+    if-eqz v4, :preview_normal_row
+    new-instance v0, Landroid/widget/LinearLayout;
+    invoke-direct {v0, p0}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
+    new-instance v1, Landroid/widget/Button;
+    invoke-direct {v1, p0}, Landroid/widget/Button;-><init>(Landroid/content/Context;)V
+    const-string v4, "Réessayer"
+    invoke-virtual {v1, v4}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    const/4 v5, 0x0
+    invoke-virtual {v1, v5}, Landroid/widget/TextView;->setAllCaps(Z)V
+    new-instance v5, Lcom/melodix/music/NativeRowClickListener;
+    invoke-direct {v5, p0, v2, v4}, Lcom/melodix/music/NativeRowClickListener;-><init>(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;)V
+    invoke-virtual {v1, v5}, Landroid/view/View;->setOnClickListener(Landroid/view/View$OnClickListener;)V
+    new-instance v5, Landroid/widget/LinearLayout$LayoutParams;
+    const/4 v6, -0x1
+    const/4 v7, -0x2
+    invoke-direct {v5, v6, v7}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    invoke-virtual {v0, v1, v5}, Landroid/view/ViewGroup;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    return-object v0
+    :preview_normal_row
+""")
+    rows.write_text(r,encoding='utf8')
     p.write_text(s,encoding='utf8')
 if __name__=='__main__':
     if len(sys.argv)!=2: raise SystemExit('usage: apply_preview_library_followup.py PROJECT')

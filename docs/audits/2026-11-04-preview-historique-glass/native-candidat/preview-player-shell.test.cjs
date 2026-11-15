@@ -25,6 +25,7 @@ test('real shell retains brief duplicate samples and freezes without fresh movem
   let p=x.payload();assert.equal(p.previewTrackUri,'spotify:track:abc123');assert.equal(p.previewProgressValid,true);assert.equal(p.previewAdvancing,false);
   x.w.document.querySelector('[data-testid="playback-position"]').textContent='0:01';x.step(1000);p=x.payload();assert.equal(p.previewPositionMs,1000);assert.equal(p.previewAdvancing,true);
   x.step(1000);p=x.payload();assert.equal(p.previewAdvancing,true);
+  x.step(1000);p=x.payload();assert.equal(p.previewAdvancing,true);
   x.step(1000);p=x.payload();assert.equal(p.previewAdvancing,false);
   x.w.document.querySelector('[data-testid="now-playing-bar"] a').removeAttribute('href');x.step(1000);p=x.payload();
   assert.equal(p.previewTrackUri,'');assert.equal(p.previewProgressValid,true);assert.equal(p.previewAdvancing,false);
@@ -88,7 +89,7 @@ test('library and playlist browsing never reload or issue playback when playing 
    const lib=x.events.filter(e=>e.kind==='media:playlists').at(-1);
    const detail=x.events.filter(e=>e.kind==='detail').at(-1);
    assert.match(JSON.parse(lib.json)[0].title,/indisponible/);
-   assert.equal(detail,undefined);assert.ok(x.events.some(e=>e.kind==='preview-load' && e.json==='waiting-bridge:no-token'));
+   assert.equal(detail,undefined);assert.ok(x.events.some(e=>e.kind==='preview-load' && e.json==='waiting-bridge:unknown'));
   }finally{x.close()}
  }
 });
@@ -97,7 +98,7 @@ test('late playlist response remains eligible after the non-destructive timeout'
  const x=fixture();try{
   let timer, navigation=0, request;
   x.w.setTimeout=(fn,ms)=>{if(ms===6000)timer=fn;return 1};
-  x.w.__sfMelodixBridgeStarted=true;
+  x.w.__sfMelodixBridgeStarted=true;x.w.__sfMelodixBridgeCompleted=true;
   x.w.fetchMediaItems=(uri,id)=>{request={uri,id};return new Promise(()=>{})};
   x.w.__sfNativeOpenUri=()=>{navigation++;return true};
   assert.equal(x.w.__sfOpenCollection('spotify:playlist:abc123'),true);

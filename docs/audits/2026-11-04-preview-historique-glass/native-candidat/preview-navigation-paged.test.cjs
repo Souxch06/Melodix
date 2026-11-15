@@ -71,7 +71,7 @@ test('active playback prevents the delayed collection page reload, while late br
  const d=deferred(),x=init(()=>d.promise);try{
   x.w.document.body.insertAdjacentHTML('beforeend','<button data-testid="control-button-playpause" aria-label="Pause"></button>');
   const id='spotify:playlist:playing';x.w.__sfOpenCollection(id);await wait();fire(x);assert.equal(x.nav.length,0);
-  assert.ok(x.calls.some(c=>c.event==='native'&&c.id==='detail'&&c.rows[0]?.title==='Titres momentanément indisponibles'));
+  assert.ok(x.calls.some(c=>c.event==='native'&&c.id==='detail'&&c.rows[0]?.title==='Titres indisponibles'));
   d.resolve(response('late'));await wait();assert.equal(media(x,id).length,1);assert.equal(media(x,id)[0].rows[0].id,'spotify:track:late');
  }finally{x.close()}
 });
@@ -79,7 +79,7 @@ test('active playback prevents collection reload even if the bridge has not star
  const x=bootstrap();try{x.nav=[];x.w.__sfNativeOpenUri=u=>{x.nav.push(u);return true};
   x.w.document.body.insertAdjacentHTML('beforeend','<button data-testid="control-button-playpause" aria-label="Pause"></button>');
   assert.equal(x.w.__sfOpenCollection('spotify:playlist:abc'),true);fire(x);assert.deepEqual(x.nav,[]);
-  assert.ok(x.calls.some(c=>c.event==='native'&&c.id==='detail'&&c.rows[0]?.title==='Titres momentanément indisponibles'));
+  assert.ok(x.calls.some(c=>c.event==='native'&&c.id==='detail'&&c.rows[0]?.title==='Titres indisponibles'));
  }finally{x.close()}
 });
 
@@ -95,7 +95,7 @@ test('a cancelled collection never posts the delayed playback-safe message',asyn
  const d=deferred(),x=init(()=>d.promise);try{
   x.w.document.body.insertAdjacentHTML('beforeend','<button data-testid="control-button-playpause" aria-label="Pause"></button>');
   x.w.__sfOpenCollection('spotify:playlist:abc');await wait();x.w.__sfCancelPendingCollection();fire(x);
-  assert.ok(!x.calls.some(c=>c.event==='native'&&c.id==='detail'&&c.rows[0]?.title==='Titres momentanément indisponibles'));assert.deepEqual(x.nav,[]);
+  assert.ok(!x.calls.some(c=>c.event==='native'&&c.id==='detail'&&c.rows[0]?.title==='Titres indisponibles'));assert.deepEqual(x.nav,[]);
  }finally{x.close()}
 });
 
@@ -119,43 +119,101 @@ test('library refuses in-memory entries when account provenance is missing or mi
 // Full shell and synthetic bridge/timers only: not Spotify or Android audio.
 function fireNext(x,ms){const t=x.timers.find(t=>t.kind==='timeout'&&t.ms===ms&&!t.cleared);assert.ok(t,'missing timer '+ms);t.cleared=true;t.fn()}
 function stages(x){return x.calls.filter(c=>c.event==='native-text'&&c.id==='preview-load').map(c=>c.text)}
-test('bridge startup after a tap retries the current collection once without navigation',async()=>{
+test('bridge startup waits for completion before making its single request',async()=>{
  const x=bootstrap();try{
   const requests=[];x.w.__sfOpenCollection('spotify:album:secret');
-  assert.equal(stages(x).at(-1),'waiting-bridge:token');
+  assert.equal(stages(x).at(-1),'waiting-bridge:unknown');
   x.w.__sfMelodixBridgeStarted=true;x.w.fetchMediaItems=(uri,id)=>{requests.push(uri);x.w.__sfNativeCollectionLoaded(uri,id);return Promise.resolve()};
-  fireNext(x,1000);await wait();assert.deepEqual(requests,['spotify:album:secret']);assert.equal(stages(x).at(-1),'data:token');
+  fireNext(x,250);assert.equal(requests.length,0);
+  x.w.__sfMelodixBridgeCompleted=true;fireNext(x,250);await wait();
+  assert.deepEqual(requests,['spotify:album:secret']);assert.equal(stages(x).at(-1),'data:unknown');
   fire(x);assert.equal(requests.length,1);
-  assert.ok(stages(x).every(s=>!s.includes('secret')&&!s.includes('fixture')));
  }finally{x.close()}
 });
-test('missing token retries once after token arrives, with no overlapping request',async()=>{
+test('failed request is never automatically repeated',async()=>{
  const x=bootstrap();try{
-  x.w.spotAuthToken=null;x.w.__sfMelodixBridgeStarted=true;let count=0;const first=deferred();
-  x.w.fetchMediaItems=(uri,id)=>{count++;if(count===1)return first.promise;x.w.__sfNativeCollectionLoaded(uri,id);return Promise.resolve()};
-  x.w.__sfOpenCollection('spotify:album:secret');assert.equal(count,1);
-  x.w.spotAuthToken='Bearer secret-token';await wait();assert.equal(count,1);
-  first.resolve();await wait();assert.equal(stages(x).at(-1),'waiting-token:token');fireNext(x,1000);await wait();
-  assert.equal(count,2);assert.equal(stages(x).at(-1),'data:token');
-  assert.ok(stages(x).every(s=>!s.includes('secret')&&!s.includes('Bearer')));
+  x.w.__sfMelodixBridgeStarted=true;x.w.__sfMelodixBridgeCompleted=true;
+  x.w.document.body.insertAdjacentHTML('beforeend','<button data-testid="control-button-playpause" aria-label="Pause"></button>');
+  let count=0;x.w.fetchMediaItems=()=>{count++;return Promise.resolve()};
+  x.w.__sfOpenCollection('spotify:album:first');await wait();assert.equal(count,1);
+  assert.equal(stages(x).at(-1),'no-data:unknown');fire(x);assert.equal(count,1);
+  const rows=x.calls.filter(c=>c.event==='native'&&c.id==='detail').at(-1).rows;
+  assert.equal(rows[0].title,'Titres indisponibles');assert.equal(rows[1].title,'Réessayer');
+  assert.equal(rows[1].uri,'melodix:retry-collection');
+  x.w.__sfRetryCollection();await wait();assert.equal(count,2);fire(x);assert.equal(count,2);
  }finally{x.close()}
 });
-test('authenticated empty responses are not automatically retried and cancellation suppresses late readiness',async()=>{
- const x=bootstrap();try{
-  x.w.__sfMelodixBridgeStarted=true;let count=0;x.w.fetchMediaItems=()=>{count++;return Promise.resolve()};
-  x.w.__sfOpenCollection('spotify:album:first');await wait();assert.equal(count,1);assert.equal(stages(x).at(-1),'no-data:token');
-  assert.ok(!x.timers.some(t=>t.kind==='timeout'&&t.ms===1000&&!t.cleared));
-  x.w.__sfMelodixBridgeStarted=false;x.w.__sfOpenCollection('spotify:album:second');
-  x.w.__sfCancelPendingCollection();x.w.__sfMelodixBridgeStarted=true;
-  for(const t of x.timers.filter(t=>t.kind==='timeout'&&t.ms===1000&&t.cleared))t.fn();
-  assert.equal(count,1);
- }finally{x.close()}
-});
-test('bridge readiness polling is bounded and does not reload the page',()=>{
+test('bridge readiness polling is bounded without inspecting a token',()=>{
  const x=bootstrap();try{
   const before=x.w.location.href;x.w.__sfOpenCollection('spotify:album:secret');
-  for(let i=0;i<20;i++)fireNext(x,1000);
-  assert.equal(stages(x).at(-1),'unavailable:token');assert.equal(x.w.location.href,before);
-  assert.ok(!x.timers.some(t=>t.kind==='timeout'&&t.ms===1000&&!t.cleared));assert.equal(x.requests.length,0);
+  for(let i=0;i<20;i++)fireNext(x,250);
+  assert.equal(stages(x).at(-1),'waiting-bridge:unknown');assert.equal(x.w.location.href,before);
+  assert.ok(!x.timers.some(t=>t.kind==='timeout'&&t.ms===250&&!t.cleared));assert.equal(x.requests.length,0);
+ }finally{x.close()}
+});
+
+for(const uri of ['spotify:playlist:abc123','spotify:collection:tracks']) {
+ test('paused failure uses the historical navigation once: '+uri,async()=>{
+  const x=bootstrap();try{
+   x.w.document.body.insertAdjacentHTML('beforeend','<button data-testid="control-button-playpause" aria-label="Play"></button>');
+   x.w.__sfMelodixBridgeCompleted=true;let count=0;x.nav=[];
+   x.w.fetchMediaItems=()=>{count++;return Promise.resolve()};
+   x.w.__sfNativeOpenUri=u=>{x.nav.push(u);x.w.__sfCancelPendingCollection();return true};
+   x.w.__sfOpenCollection(uri);await wait();fire(x);
+   assert.equal(count,1);assert.deepEqual(x.nav,[uri]);assert.equal(x.requests.length,0);
+  }finally{x.close()}
+ });
+ test('playing failure offers one manual retry and never auto-reloads: '+uri,async()=>{
+  const x=bootstrap();try{
+   x.w.document.body.insertAdjacentHTML('beforeend','<button data-testid="control-button-playpause" aria-label="Pause"></button>');
+   x.w.__sfMelodixBridgeCompleted=true;let count=0;const first=deferred();x.nav=[];
+   x.w.fetchMediaItems=()=>{count++;return count===1?first.promise:Promise.resolve()};
+   x.w.__sfNativeOpenUri=u=>{x.nav.push(u);return true};
+   Object.defineProperty(x.w,'spotAuthToken',{configurable:true,get(){throw Error('new code read credential')}});
+   x.w.__sfOpenCollection(uri);fire(x);assert.equal(count,1);assert.deepEqual(x.nav,[]);
+   let rows=x.calls.filter(c=>c.event==='native'&&c.id==='detail').at(-1).rows;
+   assert.equal(rows[0].title,'Titres indisponibles');assert.equal(rows[1].title,'Réessayer');
+   // A late empty resolution must not navigate even after pausing; it belongs
+   // to the already failed attempt, not a fresh user request.
+   x.w.document.querySelector('button').setAttribute('aria-label','Play');first.resolve();await wait();
+   assert.deepEqual(x.nav,[]);assert.equal(count,1);
+   x.w.document.querySelector('button').setAttribute('aria-label','Pause');
+   x.w.__sfRetryCollection();await wait();assert.equal(count,2);assert.deepEqual(x.nav,[]);
+   assert.equal(x.requests.length,0);
+  }finally{x.close()}
+ });
+}
+test('native retry row is intercepted before Spotify URI handling',()=>{
+ const a=fs.readFileSync(path.join(root,'smali/com/melodix/music/MainActivity.smali'),'utf8');
+ const m=a.split('.method public final openNativeRow(')[1].split('.end method')[0];
+ assert.ok(m.indexOf('melodix:retry-collection')>=0);
+ assert.ok(m.indexOf('window.__sfRetryCollection')<m.indexOf('window.__sfNativeOpenUri'));
+ const rows=fs.readFileSync(path.join(root,'smali/com/melodix/music/NativeUiRowFactory.smali'),'utf8');
+ assert.ok(rows.includes('new-instance v1, Landroid/widget/Button;'));
+ assert.ok(rows.includes('melodix:retry-collection'));
+ const flow=shell.slice(shell.indexOf('    var openCollectionTimer = null;'),shell.indexOf('    // Search normally goes through the bridge.'));
+ for(const forbidden of ['spotAuthToken','spotCliToken','localStorage','api.spotify.com','window.fetch(']) assert.ok(!flow.includes(forbidden));
+});
+
+test('the existing Liked Songs page publishes real DOM track rows to detail',()=>{
+ const dom=new JSDOM('<!doctype html><button data-testid="user-widget-link"></button><main id="main-view"><h1>Liked Songs</h1><div data-testid="tracklist-row"><a href="/track/example">Real title</a><a href="/artist/exampleartist">Artist</a></div></main>',{url:'https://open.spotify.com/collection/tracks',runScripts:'outside-only',virtualConsole:new VirtualConsole()});
+ const w=dom.window,calls=[],routes=[];
+ try{
+  w.AndBridge={onNativeUiData:(id,data)=>calls.push({id,data}),onNativeUiReady(){},onNativeUiRoute:r=>routes.push(r)};
+  w.fetch=()=>{throw Error('unexpected network')};w.setTimeout=()=>1;w.clearTimeout=()=>{};w.setInterval=()=>1;w.clearInterval=()=>{};w.MutationObserver=class{observe(){}disconnect(){}};
+  w.eval(shell);w.__sfNativeUiRefresh();
+  const rows=JSON.parse(calls.filter(c=>c.id==='detail').at(-1).data);
+  assert.equal(routes[0],'detail');assert.equal(rows[0].title,'Real title');assert.equal(rows[0].uri,'spotify:track:example');
+  assert.equal(rows[0].subtitle,'Artist');assert.equal(rows[1].title,'Aperçu Spotify');
+ }finally{dom.window.close()}
+});
+
+test('recent play request blocks navigation even if the pause button is stale',async()=>{
+ const x=bootstrap();try {
+  x.w.document.body.insertAdjacentHTML('beforeend','<button data-testid="control-button-playpause" aria-label="Play"></button>');
+  x.w.__sfLastPlayRequestAt=Date.now();x.w.__sfMelodixBridgeCompleted=true;x.w.fetchMediaItems=()=>Promise.resolve();x.nav=[];
+  x.w.__sfNativeOpenUri=u=>{x.nav.push(u);return true};
+  x.w.__sfOpenCollection('spotify:playlist:abc');await wait();assert.deepEqual(x.nav,[]);
+  assert.equal(x.calls.filter(c=>c.event==='native'&&c.id==='detail').at(-1).rows[1].title,'Réessayer');
  }finally{x.close()}
 });
