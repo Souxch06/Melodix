@@ -1,5 +1,7 @@
 # APK 1 — diagnostic et garde WebView Preview (non testée sur téléphone)
 
+**NE PAS INSTALLER :** malgré la garde signée verte, les essais Android hors ligne ont révélé un `VerifyError` au démarrage (Android 11 et 15, [run 43719985708](https://github.com/Souxch06/Melodix/actions/runs/43719985708)). Archive conservée à titre de traçabilité ; utiliser la version 1022122 ou une correction ultérieure qui a passé les deux contrôles.
+
 - [Archive CI 43719529233](https://github.com/Souxch06/Melodix/actions/runs/43719529233/artifacts/14163866819), nom de l'archive `Melodix-Preview-lot1`, fichier `Melodix-Preview-historique-glass.apk` ; package `com.melodix.music.preview`, versionCode **1022123**, versionName `1.2.2-d0f206b-glass`.
 - Source `72785f6c562e576b44bd14d303d7326e9d5c9ffe` ; SHA-256 de l'APK signée `77a947abec153fe7bf9a8bf61a41fa315f621d7d32c93d5f834d19d68952ed0e` ; SHA-256 de l'archive ZIP GitHub `e87c404b20070ff03c082eac05c8e322c8d4ff959abcedfcdfbeb38340247960`.
 - Signature Preview et comparaison effective avec 9016 signée : [CI verte](https://github.com/Souxch06/Melodix/actions/runs/43719529233), garde bloquante avant upload. Les anciennes archives sont conservées : [APK 1 code 1022122](livraison-preview-apk1-final.md), [APK 1 code 1022121](livraison-preview-apk1-suivi.md), [APK 1 code 1022120](livraison-preview-apk1.md), [suivi code 1022119](livraison-preview-lot1-suivi.md) et [référence 9016](https://github.com/Souxch06/Melodix/actions/runs/43701210947/artifacts/14156257401).

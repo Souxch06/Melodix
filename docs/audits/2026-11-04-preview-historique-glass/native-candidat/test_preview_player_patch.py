@@ -66,7 +66,13 @@ class PreviewPlayer(unittest.TestCase):
         self.assertIn('getPackageName()Ljava/lang/String;',text[:package])
         self.assertIn('Ljava/lang/String;->equals(Ljava/lang/Object;)Z',text[package:])
         self.assertLess(package,text.index('setWebContentsDebuggingEnabled(Z)V'))
-        self.assertNotIn('const/4 v0, 0x1', text[:text.index('setWebContentsDebuggingEnabled(Z)V')])
+        before_debug=text[:text.index('setWebContentsDebuggingEnabled(Z)V')]
+        # The historical factory reuses v0=1 for cookies and WebView settings.
+        # It must remain initialized on all exceptions and never receive a string.
+        self.assertIn('const/4 v0, 0x1', before_debug)
+        self.assertNotIn('const-string v0, "com.melodix.music.preview"', before_debug)
+        self.assertIn('invoke-static {v2}',before_debug)
+        self.assertIn('invoke-virtual {v1, v0}, Landroid/webkit/CookieManager;->setAcceptCookie(Z)V',text)
 
     def test_controls_have_no_playlist_rate_limit(self):
         a=self.get('smali/com/melodix/music/MainActivity.smali')

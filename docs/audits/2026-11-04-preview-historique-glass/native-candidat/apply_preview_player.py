@@ -279,15 +279,16 @@ def prepare(root):
     .line 2
     .line 3
     .line 4
-    # Restrict the existing WebView diagnostic to this exact Preview package.
-    # This patch is applied only to the separate Preview reconstruction.
+    # Preserve the historical v0=1 for cookie and WebView settings, including
+    # every exception path. The package check must use separate registers.
+    const/4 v0, 0x1
     :try_start_0
     invoke-virtual {p0}, Landroid/content/Context;->getPackageName()Ljava/lang/String;
     move-result-object v1
-    const-string v0, "com.melodix.music.preview"
-    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v0
-    invoke-static {v0}, Landroid/webkit/WebView;->setWebContentsDebuggingEnabled(Z)V''')
+    const-string v2, "com.melodix.music.preview"
+    invoke-virtual {v2, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v2
+    invoke-static {v2}, Landroid/webkit/WebView;->setWebContentsDebuggingEnabled(Z)V''')
     files[path] = s
 
     path = 'smali/com/melodix/music/NativeSettingsRowFactory.smali'; s = files[path]
