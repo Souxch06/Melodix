@@ -15,3 +15,9 @@ La lecture historique de playlist ne demandait que 80 éléments (`fetchPlaylist
 ## Limites et tests
 
 Vérification statique des gardes Smali et ressources, compilation/redécodage APK, tests JS avec pages fictives : pagination, première page progressive, total inconnu, pages courtes, échec, cache, changement de compte/écran, répétitions légitimes, replay d'offset et séparation des sources. Pas de téléphone, Spotify réel ni ART disponibles : pas de garantie que Spotify accepte ces requêtes sur le compte de l'utilisateur. Le rendu natif crée encore des vues pour chaque titre et peut être coûteux sur de très longues playlists ; la performance et le rendu doivent être validés sur appareil.
+
+## Livraison 9015
+
+- [Workflow signé réussi](https://github.com/Souxch06/Melodix/actions/runs/43699181801), source `aece622567f082ea82b5e7be4a7282a7b6dec382`.
+- [ZIP Preview](https://github.com/Souxch06/Melodix/actions/runs/43699181801/artifacts/14155438011), SHA-256 indiqué par GitHub `664e9f1aab80e228bfab69a862d7b66054a2e424a6fb97fe95f61535be6f62b7`, expiration 2026-11-29 09:26 UTC. Package `com.melodix.music.preview`, versionCode 1022109 calculé pour le run 622. Signature par la clé Preview épinglée ; aucune release publique.
+- En local : 133 tests JS ciblés, tests de patch et contrôles statiques de l'APK redécodée réussis. Ces vérifications ne remplacent pas un test réel sur téléphone.
