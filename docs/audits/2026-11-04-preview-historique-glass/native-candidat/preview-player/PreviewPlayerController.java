@@ -1,11 +1,15 @@
 package com.melodix.music;
 
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.LayerDrawable;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
@@ -39,6 +43,10 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     private String track = "";
     private String progressSource = "none";
     private boolean progressHasUri;
+    // Cosmetic only: animate the clipped fill, never the position or track.
+    private boolean foreground, glowSampleValid;
+    private final ObjectAnimator[] glow = new ObjectAnimator[2];
+    private final Drawable[] glowFill = new Drawable[2];
     // Diagnostic measurements contain only monotonic time differences.
     private long tapAt = -1, commandAt = -1, stateAt = -1, optimisticAt = -1, uiAt = -1;
     private long previousProgressAt = -1, previousPosition = -1;
@@ -134,6 +142,41 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             if (bar.getProgress() != p) bar.setProgress(p);
         }
     }
+    public void activityResumed() { foreground = true; syncGlow(); }
+    public void activityStopped() { foreground = false; stopGlow(0); stopGlow(1); }
+    private void stopGlow(int index) {
+        if (glow[index] != null) { glow[index].cancel(); glow[index] = null; }
+        if (glowFill[index] != null) { glowFill[index].setAlpha(255); glowFill[index] = null; }
+    }
+    private void syncGlow() {
+        Activity a = activity.get();
+        boolean enabled = android.os.Build.VERSION.SDK_INT < 26 || ValueAnimator.areAnimatorsEnabled();
+        double current = position(now());
+        boolean show = a != null && foreground && enabled && valid && glowSampleValid &&
+            haveReal && realPlaying && shownPlaying && !Double.isNaN(current) && current > 0 && current < duration;
+        int[] ids = {MINI, FULL};
+        for (int i = 0; i < ids.length; i++) {
+            View view = a == null ? null : a.findViewById(ids[i]);
+            Drawable fill = null;
+            if (show && view instanceof ProgressBar && view.isShown()) {
+                Drawable root = ((ProgressBar) view).getProgressDrawable();
+                if (root instanceof LayerDrawable) {
+                    root.mutate();
+                    fill = ((LayerDrawable) root).findDrawableByLayerId(android.R.id.progress);
+                }
+            }
+            if (fill == null) { stopGlow(i); continue; }
+            if (fill == glowFill[i] && glow[i] != null && glow[i].isStarted()) continue;
+            stopGlow(i);
+            glowFill[i] = fill;
+            ObjectAnimator pulse = ObjectAnimator.ofInt(fill, "alpha", 208, 255);
+            pulse.setDuration(1600);
+            pulse.setRepeatMode(ValueAnimator.REVERSE);
+            pulse.setRepeatCount(ValueAnimator.INFINITE);
+            glow[i] = pulse;
+            pulse.start();
+        }
+    }
     private void renderButtons() {
         Activity a = activity.get(); if (a == null || !haveReal) return;
         int icon = shownPlaying ? PAUSE_ICON : PLAY_ICON;
@@ -169,6 +212,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             String uri = o.optString("previewTrackUri", "");
             long pos = o.optLong("previewPositionMs", -1), dur = o.optLong("previewDurationMs", -1);
             boolean snapshotValid = o.optBoolean("previewProgressValid", false) && dur > 0 && pos >= 0 && pos <= dur;
+            glowSampleValid = snapshotValid;
             String source = o.optString("previewProgressSource", "none");
             String oldSource = progressSource;
             progressSource = source.equals("range") || source.equals("media") || source.equals("clock") ? source : "none";
@@ -208,12 +252,12 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             haveReal = true; realPlaying = real;
             if (pending && real == pendingTarget) { pending = false; serial++; }
             if (!pending) shownPlaying = real;
-            renderProgress(); renderButtons(); scheduleFrame();
+            renderProgress(); renderButtons(); syncGlow(); scheduleFrame();
             if (tapAt >= 0 && commandAt >= 0 && stateAt < 0 &&
                 ((operation == 1 && real == pendingTarget) || (operation != 1 && !uri.isEmpty() && !uri.equals(trackBefore)))) {
                 stateAt = t; uiAt = now();
             }
-        } catch (Exception ignored) { valid = false; moving = false; renderProgress(); }
+        } catch (Exception ignored) { valid = false; moving = false; glowSampleValid = false; renderProgress(); syncGlow(); }
     }
     public int tapPlayPause() {
         begin(1);
@@ -222,10 +266,10 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         if (valid && shownPlaying) { base = position(t); anchor = t; moving = false; correction = 0; renderProgress(); }
         pendingTarget = !shownPlaying; pending = true; shownPlaying = pendingTarget;
         final long id = ++serial;
-        renderButtons(); optimisticAt = now();
+        renderButtons(); syncGlow(); optimisticAt = now();
         handler.postDelayed(new Runnable() { public void run() {
             if (pending && serial == id) {
-                pending = false; shownPlaying = realPlaying; renderButtons();
+                pending = false; shownPlaying = realPlaying; renderButtons(); syncGlow();
                 Activity a = activity.get();
                 if (a != null) Toast.makeText(a, "Commande non confirmée", Toast.LENGTH_SHORT).show();
             }

@@ -28,7 +28,7 @@
     .locals 0
 
     .prologue
-    .line 226
+    .line 270
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerController$1;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     iput-wide p2, p0, Lcom/melodix/music/PreviewPlayerController$1;->val$id:J
@@ -46,7 +46,7 @@
     .prologue
     const/4 v4, 0x0
 
-    .line 227
+    .line 271
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$1;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$0(Lcom/melodix/music/PreviewPlayerController;)Z
@@ -67,7 +67,7 @@
 
     if-nez v0, :cond_0
 
-    .line 228
+    .line 272
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$1;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     invoke-static {v0, v4}, Lcom/melodix/music/PreviewPlayerController;->access$2(Lcom/melodix/music/PreviewPlayerController;Z)V
@@ -86,10 +86,14 @@
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$5(Lcom/melodix/music/PreviewPlayerController;)V
 
-    .line 229
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$1;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$6(Lcom/melodix/music/PreviewPlayerController;)Ljava/lang/ref/WeakReference;
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$6(Lcom/melodix/music/PreviewPlayerController;)V
+
+    .line 273
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$1;->this$0:Lcom/melodix/music/PreviewPlayerController;
+
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$7(Lcom/melodix/music/PreviewPlayerController;)Ljava/lang/ref/WeakReference;
 
     move-result-object v0
 
@@ -99,7 +103,7 @@
 
     check-cast v0, Landroid/app/Activity;
 
-    .line 230
+    .line 274
     if-eqz v0, :cond_0
 
     const-string v1, "Commande non confirm\u00e9e"
@@ -110,7 +114,7 @@
 
     invoke-virtual {v0}, Landroid/widget/Toast;->show()V
 
-    .line 232
+    .line 276
     :cond_0
     return-void
 .end method

@@ -89,6 +89,16 @@ class PreviewPlayer(unittest.TestCase):
         self.assertNotIn('playFromUri', heading)
         self.assertNotIn('setOnClickListener', heading)
 
+    def test_glow_is_cosmetic_and_respects_lifecycle_and_motion_settings(self):
+        activity = self.get('smali/com/melodix/music/MainActivity.smali')
+        self.assertIn('PreviewPlayerController;->activityResumed()V', method(activity, '.method public final onResume()'))
+        self.assertIn('PreviewPlayerController;->activityStopped()V', method(activity, '.method public final onStop()'))
+        source = (HERE/'preview-player/PreviewPlayerController.java').read_text()
+        for part in ('ValueAnimator.areAnimatorsEnabled()', 'view.isShown()', 'findDrawableByLayerId(android.R.id.progress)',
+                     'ObjectAnimator.ofInt(fill, "alpha", 208, 255)', 'glowSampleValid', 'realPlaying && shownPlaying',
+                     'glow[index].cancel()', 'glowFill[index].setAlpha(255)'):
+            self.assertIn(part, source)
+
     def test_route_and_about_row_are_native_and_discreet(self):
         a=self.get('smali/com/melodix/music/MainActivity.smali')
         apply=method(a,'.method public final applyNativeUiData(')

@@ -19,12 +19,12 @@ EXPECTED = {
     'res/layout-w600dp/activity_main.xml': '4d110f1df062fdf7676b9aa5e70146dd7ec148da3c0c614a553b5586ad5af8fe',
     'res/drawable/widget_progress_drawable.xml': '3a5f8f51ea984c7a8226d5acd69bf6b20383ca9622843d617b055c9fe18d772f',
 }
-SOURCE_SHA = 'f7e4256f1d539ae96c7bb30f219276da49ef6692c6decb07d7bb4365b21cc5a2'
+SOURCE_SHA = 'ce52c385fce38d3dea1984ca0ab8da254104a9e1db144acc1b485545248e9f8d'
 HELPER_SHA = {
-    'PreviewPlayerController$1.smali': '17f102ffaf62878fadfe5a231b536840715c23624cb43d3b4d61d3212c91b767',
-    'PreviewPlayerController$2.smali': 'd938a127bdbf4e2d4c38334b2e1fe23ec58a74686058d04c64ba37743874008e',
-    'PreviewPlayerController$3.smali': '6c1168f3fc65b05401d2c40ff565008c91a83fa7af9890d75f3c80b92391a968',
-    'PreviewPlayerController.smali': '259e6cb3a0781d41cfe05cb49b92735e3ecd3bba308b39efddfee5ba810f13d4',
+    'PreviewPlayerController$1.smali': 'af55309ead621e60886b1bd1888d72607e964a4161ec44cd310150628a451ad0',
+    'PreviewPlayerController$2.smali': 'eeff585d1ca0ae0fead728bc8d917245dde0622b2cc7082becae196f0e63d56f',
+    'PreviewPlayerController$3.smali': '290e6c85d26b035080812d2f386c39234010eea9f035cc2679eafe0b421c5788',
+    'PreviewPlayerController.smali': 'bcd8bfbc0bc0101987346b744e8521f7b7cd084c190add479f8bbf05663c7f86',
 }
 
 def replace(text, old, new):
@@ -267,6 +267,29 @@ def prepare(root):
     invoke-virtual {v0}, Lcom/melodix/music/MainActivity;->previewPlayer()Lcom/melodix/music/PreviewPlayerController;
     move-result-object v1
     invoke-virtual {v1}, Lcom/melodix/music/PreviewPlayerController;->activityCreated()V''')
+    s = replace(s, '''.method public final onResume()V
+    .locals 6
+
+    .line 1
+    invoke-super {p0}, Landroidx/activity/a;->onResume()V''', '''.method public final onResume()V
+    .locals 6
+
+    .line 1
+    invoke-super {p0}, Landroidx/activity/a;->onResume()V
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->previewPlayer()Lcom/melodix/music/PreviewPlayerController;
+    move-result-object v0
+    invoke-virtual {v0}, Lcom/melodix/music/PreviewPlayerController;->activityResumed()V''')
+    s = replace(s, '''.method public final onStop()V
+    .locals 2
+
+    const/4 v0, 0x1''', '''.method public final onStop()V
+    .locals 2
+
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativePreviewPlayer:Lcom/melodix/music/PreviewPlayerController;
+    if-eqz v0, :preview_animation_stopped
+    invoke-virtual {v0}, Lcom/melodix/music/PreviewPlayerController;->activityStopped()V
+    :preview_animation_stopped
+    const/4 v0, 0x1''')
     s = replace(s, '''    iput-object p1, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;
     const-string v1, "detail"''', '''    iput-object p1, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->previewPlayer()Lcom/melodix/music/PreviewPlayerController;
