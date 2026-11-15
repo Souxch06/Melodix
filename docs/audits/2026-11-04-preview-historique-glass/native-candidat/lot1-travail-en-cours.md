@@ -2,6 +2,10 @@
 
 Référence de non-régression : Preview 9016, livraison `f5f32ffe61dea424486639468b1729cbbeea6c9f`, base historique `d0f206b08b3db7c2d41a1e844f6dd4abf196a5f6`. Voir [diagnostic des deux bases](../diagnostic-lot1-reference.md). Ni les tests ni la mesure de l'application racine ne sont modifiés. L'utilisateur accepte la limite sur les durées de listes et a demandé la publication d'un candidat Preview pour test téléphone. Ce candidat n'a pas été validé sur appareil.
 
+## Livraison
+
+Le [candidat Preview signé](livraison-preview-lot1.md) a été publié sur demande avec la limite de durées de listes acceptée. Le document de livraison précise l'APK, ses empreintes, la comparaison exacte à 9016 et les limites des tests.
+
 ## Travaux préparés
 
 - Un garde épingle les sept assets protégés de la 9016 et compare leurs octets par SHA-256 dans le projet transformé puis dans l'APK signé. Des tests vérifient le rejet d'une modification, d'une absence et d'un doublon dans le ZIP. Il est activé dans la chaîne historique, y compris le travail en cours.
