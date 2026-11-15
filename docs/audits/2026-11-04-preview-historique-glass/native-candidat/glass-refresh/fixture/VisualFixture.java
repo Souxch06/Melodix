@@ -27,7 +27,10 @@ public final class VisualFixture extends Instrumentation {
         return null;
     }
     private void call(String method,Class<?>[] types,Object... args) throws Exception {
-        Method m=activity.getClass().getMethod(method,types); m.invoke(activity,args);
+        Method m=activity.getClass().getMethod(method,types);
+        try { m.invoke(activity,args); } catch(java.lang.reflect.InvocationTargetException e) {
+            throw new RuntimeException("call="+method, e.getCause());
+        }
     }
     private void require(boolean condition,String message) { if(!condition)throw new AssertionError(message); }
     private void screen(final String kind) throws Exception {
@@ -70,6 +73,10 @@ public final class VisualFixture extends Instrumentation {
             Intent intent=new Intent().setClassName("com.melodix.music.preview","com.melodix.music.MainActivity");
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);activity=startActivitySync(intent);waitForIdleSync();
             screen("settings");screen("playlist");result.putString("result","GLASS_FIXTURE_OK");finish(Activity.RESULT_OK,result);
-        } catch(Throwable e) {result.putString("result","GLASS_FIXTURE_FAIL: "+e.toString()+" cause="+String.valueOf(e.getCause()));finish(Activity.RESULT_CANCELED,result);}
+        } catch(Throwable e) {
+            StringBuilder summary=new StringBuilder("GLASS_FIXTURE_FAIL: ");
+            for(int i=0;e!=null && i<5;i++,e=e.getCause())summary.append(e.toString()).append(" <- ");
+            result.putString("result",summary.toString());finish(Activity.RESULT_CANCELED,result);
+        }
     }
 }
