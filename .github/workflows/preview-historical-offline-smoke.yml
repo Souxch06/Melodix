@@ -31,6 +31,8 @@ jobs:
           set -euo pipefail
           test -f target-apk/Melodix-Preview-historique-glass.apk
           echo '7a8c75562f532a209a8d33e9f91917d977db91454468c6c926bd870385a31473  target-apk/Melodix-Preview-historique-glass.apk' | sha256sum --check
+      - name: Check offline safety preconditions in isolation
+        run: python3 docs/audits/2026-11-04-preview-historique-glass/native-candidat/test_preview_offline_smoke.py
       - name: Allow emulator access
         run: test -e /dev/kvm && sudo chmod 666 /dev/kvm
       - name: Launch offline with no Spotify account
