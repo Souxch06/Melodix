@@ -17,3 +17,9 @@ La Preview 9008 affiche les playlists personnelles à l'apparition de l'écran. 
 - 33/33 tests synthétiques (10 accueil public, 14 récupération progressive, 9 précédent correctif) sur l'APK redécodée : surveillance après playlist personnelle immédiate, attributs différés, fin bornée, changement de route, séparation DOM, source non masquée et conservation du mode Web historique. Pas d'Android ni Spotify réel.
 - Chargement complet des deux scripts redécodés en JSDOM : 3/3 tests ciblés. 40/40 tests de routage/Smali/session et 3/3 + 1/1 + 3/3 chaînes historiques ciblées. Un essai de la suite de caractérisation complète avec le nouveau bridge a donné 3 échecs et 26 annulations : ses tests attendent notamment les anciennes courses de la bibliothèque et bloquent avec la promesse partagée 9008 ; elle ne constitue pas une validation complète de ce candidat.
 - Pas de mesure sur appareil et pas de garantie que l'affichage public sera plus rapide en conditions réelles. Les clics natifs, lecture, risques historiques et caches entre comptes ne sont pas modifiés ni validés.
+
+## Preview signée 9009
+
+- [Build réussi](https://github.com/Souxch06/Melodix/actions/runs/43684627560), source `82559fbe933d6f95d0413b59e72d65d2b172e132`, run 616, versionCode calculé `1022103`.
+- [ZIP Preview](https://github.com/Souxch06/Melodix/actions/runs/43684627560/artifacts/14149872475), expire le 29 novembre 2026 à 06:16 UTC ; SHA-256 ZIP selon l'API GitHub `6cfa580c54161789f4c049739ba960871c0854fbe9dc3e73163fd496aaab94b3`.
+- Package séparé `com.melodix.music.preview`, signature Preview épinglée, aucune release publique. Pas de test Android réel.
