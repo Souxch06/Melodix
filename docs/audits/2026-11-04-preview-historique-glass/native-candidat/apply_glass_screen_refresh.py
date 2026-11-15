@@ -11,7 +11,7 @@ ACTIVITY='smali/com/melodix/music/MainActivity.smali'
 HELPER='smali/com/melodix/music/GlassScreenStyler.smali'
 RETRY='smali/com/melodix/music/NativeHomeRetryRunnable.smali'
 RETRY_SHA='95c78f85877e64c390743dcb77fcd4ff98541638fad8c8d3c85904ef3fd5b703'
-EXPECTED='01a66bb8c2da219a47dda338b620d93a48698d899bdfafec8d87364841b387dd'
+EXPECTED='9efa92a9144bc612f7d191963c1b13d11139518a08684dcacb209cfb6088e00e'
 SOURCE_SHA='1ad0da37b2964996f2efc4638ca9ab00c01624a56172b1559f466a3ae22b03f3'
 HELPER_SHA='0fc8d76f46cf325fd7a980f7c7e237b66542634a134f3aacd20c1accbdb5c157'
 def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()

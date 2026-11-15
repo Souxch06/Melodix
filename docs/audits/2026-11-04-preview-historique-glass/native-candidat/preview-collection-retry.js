@@ -37,6 +37,7 @@
     window.__sfCancelPendingCollection = cancelPendingCollectionNavigation;
     window.__sfNativeCollectionLoaded = function(uri, requestId) {
         if (requestId && requestId === window.__sfNativeCollectionRequest && uri === window.__sfNativeCollectionUri) {
+            previewPhase('rows-received');
             window.__sfNativeCollectionHasData = true;
             previewLoadState('data');
             stopPreviewCollectionRetry();

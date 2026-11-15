@@ -19,12 +19,13 @@ EXPECTED = {
     'res/layout-w600dp/activity_main.xml': '4d110f1df062fdf7676b9aa5e70146dd7ec148da3c0c614a553b5586ad5af8fe',
     'res/drawable/widget_progress_drawable.xml': '3a5f8f51ea984c7a8226d5acd69bf6b20383ca9622843d617b055c9fe18d772f',
 }
-SOURCE_SHA = '38eaaceaf1bdcf6d1a83581e3304589614cd43f722a0045df4830c6f38ccfcd1'
+SOURCE_SHA = '6d1cca73427d9f53f5b414ae9730a7937e450fb9991dbb3ecb3045bde3c95a31'
 HELPER_SHA = {
-    'PreviewPlayerController$1.smali': '3e2290fd6709478a50b4430834a4214c49b9dff90d5f6c18c23005d606004968',
-    'PreviewPlayerController$2.smali': '4eed76e5621c3732fdcd3745cef555f9ce9e038de84cb8bd84286f885de903e5',
-    'PreviewPlayerController$3.smali': 'bbe81b69c89fa70524fe902ae9d69f49b3ecb123f5d412da54b270290cd9ffb9',
-    'PreviewPlayerController.smali': 'a0e3219587f064ca1d7db08012c168ce754d8760044234a9e3d635327a6509ce',
+    'PreviewPlayerController$1.smali': '866a74621528316060b9db43f8780a9b55200a6ad4d72cc484e3cd519fdb1c55',
+    'PreviewPlayerController$2.smali': '75649cebc5eeca0d70a193480cfb56ef2b14e5b732979528e81e5e084e10d7d8',
+    'PreviewPlayerController$3.smali': 'e11354645a6a19fa463aaa689cce57254c6c36f9ffd6b92e916012129b2cdb44',
+    'PreviewPlayerController$4.smali': '1997749d1cc60e649e602d3279687b04d8328fda5ef3034b0f81437a03d9928c',
+    'PreviewPlayerController.smali': 'cb8875e71a9a07b6073738bdfa4c90b1cc5e5b45c654cc25dae11f256893d76d',
 }
 
 def replace(text, old, new):
@@ -48,6 +49,16 @@ def prepare(root):
         if (root / dest).exists(): raise ValueError('controller already exists')
         files[dest] = p.read_text()
 
+    # Only the full player is interactive. Keep the mini progress as a plain
+    # ProgressBar. SeekBar supplies a thumb and captures release outside bounds.
+    for layout in ('res/layout/activity_main.xml', 'res/layout-w600dp/activity_main.xml'):
+        data = files[layout]
+        start = data.index('            <ProgressBar\n                android:id="@id/nativePlayerProgress"')
+        end = data.index('/>', start) + 2
+        bar = data[start:end].replace('<ProgressBar', '<SeekBar', 1)
+        bar = bar.replace('style="?android:progressBarStyleHorizontal"', 'style="?android:attr/seekBarStyle"')
+        bar = bar.replace('android:layout_height="6.0dip"', 'android:layout_height="32.0dip"\n                android:maxHeight="6.0dip"\n                android:thumbTint="#ffc0a2ff"\n                android:contentDescription="Déplacer la lecture"')
+        files[layout] = data[:start] + bar + data[end:]
     # Visual only: the existing clipped progress drawable is also used by
     # the player widget, so it receives the same restrained gradient. No new
     # resource IDs or always-running animation are introduced.
@@ -319,6 +330,14 @@ def prepare(root):
     files[path] = s
 
     path = 'smali/com/melodix/music/MainActivity.smali'; s = files[path]
+    # WebView can be created later in onResume, after the first listener hook.
+    start=s.index('.method public final C()V'); end=s.index('.end method', start)
+    body=s[start:end]
+    body=replace(body, "    iput-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;", """    iput-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->previewPlayer()Lcom/melodix/music/PreviewPlayerController;
+    move-result-object v1
+    invoke-virtual {v1, v0}, Lcom/melodix/music/PreviewPlayerController;->attachSeek(Landroid/webkit/WebView;)V""")
+    s=s[:start]+body+s[end:]
     s = replace(s, '''.method public final onCreate(Landroid/os/Bundle;)V
     .locals 17
 
@@ -342,7 +361,9 @@ def prepare(root):
     invoke-super {p0}, Landroidx/activity/a;->onResume()V
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->previewPlayer()Lcom/melodix/music/PreviewPlayerController;
     move-result-object v0
-    invoke-virtual {v0}, Lcom/melodix/music/PreviewPlayerController;->activityResumed()V''')
+    invoke-virtual {v0}, Lcom/melodix/music/PreviewPlayerController;->activityResumed()V
+    iget-object v1, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+    invoke-virtual {v0, v1}, Lcom/melodix/music/PreviewPlayerController;->attachSeek(Landroid/webkit/WebView;)V''')
     s = replace(s, '''.method public final onStop()V
     .locals 2
 

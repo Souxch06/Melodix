@@ -4,7 +4,7 @@ import hashlib,sys
 from pathlib import Path
 HERE=Path(__file__).resolve().parent
 EXPECTED='7143bd2a1d8ba4719412d200d4d14a86b5a3bc855feffc6fb282c301d8555b4e'
-HELPER_SHA='83f2d7c871dae8fd0fcb9e3c30e1b609e8d85ab9c54853ea4c66e1a48f7ec803'
+HELPER_SHA='f73883e0c760710c65d162b157efeec02c14c524a83e111b9cb0e640768b97d7'
 
 def one(text, old, new):
     if text.count(old)!=1: raise ValueError('unexpected anchor: '+old[:90])
@@ -24,6 +24,10 @@ def apply(root):
           "        rows = (path === '/collection/tracks' || /^\\/(playlist|album|show)\\//i.test(path))\n            ? collectDetailRows(mainView) : collectHomeRows(mainView);")
     s=one(s, "        if (rows.length && /^\\/(playlist|album|show)\\//i.test(path)) {",
           "        if (rows.length && (path === '/collection/tracks' || /^\\/(playlist|album|show)\\//i.test(path))) {")
+    # Only an anonymous timing event; retain the previous collection route,
+    # readiness guard, navigation policy and one-call retrieval flow unchanged.
+    s=one(s, """        if (rows.length > 0 && signature !== lastInitialDetailSignature && sendNativeUiData('detail', displayedRows)) {""", """        if (rows.length > 0 && signature !== lastInitialDetailSignature) previewPhase('rows-received');
+        if (rows.length > 0 && signature !== lastInitialDetailSignature && sendNativeUiData('detail', displayedRows)) {""")
     # Non-Home rows used to overwrite the Home-only text cache and send two
     # unnecessary native text callbacks on every library/detail refresh.
     s=one(s, "            if (lines.length) {\n                var listText = lines.join('\\n');",
@@ -50,11 +54,11 @@ def apply(root):
             previewLastMovementAt >= 0 && at >= previewLastMovementAt && at - previewLastMovementAt <= 2000)));
         previewLastTrack = valid ? info.previewTrackUri : '';""")
     tuple_bytes=(HERE/'preview-player-tuple.js').read_bytes()
-    if hashlib.sha256(tuple_bytes).hexdigest() != '73ba5fd1a007b15034d001cc7e4e4e7dcc78cf27e1c0e059a276f259d67426ca': raise ValueError('unexpected tuple helper')
+    if hashlib.sha256(tuple_bytes).hexdigest() != '3697e5d291b1de1500b89684a618dc66145947fce9275416ed3bb52ad7ad9d6a': raise ValueError('unexpected tuple helper')
     start=s.index('    // Preview-only progress samples.')
     end=s.index('    function publishPlayerState(force)', start)
     s=s[:start]+tuple_bytes.decode('utf8')+'\n'+s[end:]
-    s=one(s, "            payload.playing ? '1' : '0',\n            payload.duration,", "            payload.playing ? '1' : '0',\n            payload.previewPlaybackState,\n            payload.duration,")
+    s=one(s, "            payload.playing ? '1' : '0',\n            payload.duration,", "            payload.playing ? '1' : '0',\n            payload.previewPlaybackState,\n            payload.previewConfirmPositionMs,\n            payload.duration,")
     # Native timing spans survive a WebView reload; include only the already
     # visible route to reject a stale ready event from a different collection.
     s=one(s, "        try {\n            bridge.onNativeUiReady();", "        try {\n            previewPhase('page-ready|' + spotifyResourceUri(window.location.href));\n            bridge.onNativeUiReady();")

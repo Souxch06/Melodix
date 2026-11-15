@@ -12,6 +12,18 @@
         var s = typeof value === 'string' ? value.trim() : '';
         return /^(?:no track|no artist|aucun titre|lecture arrêtée|aucune lecture en cours)$/i.test(s) ? '' : s.slice(0,120);
     }
+    var previewSeekInput = null, previewSeekAttributeBefore = null;
+    function previewSeekObservation() {
+        var clock = readClock(['[data-testid="playback-position"]']);
+        if (clock >= 0) return clock * 1000;
+        // actSeek writes the range property, not its attribute. An attribute
+        // subsequently rewritten by the page is a separate UI observation.
+        if (previewSeekInput && previewSeekInput.isConnected) {
+            var attr = previewSeekInput.getAttribute('value');
+            if (attr !== previewSeekAttributeBefore && /^\d+$/.test(String(attr))) return Number(attr);
+        }
+        return -1;
+    }
     function playerPayload() {
         var info = readNowPlaying();
         var title = previewRealText(info.title), artist = previewRealText(info.artist);
@@ -28,6 +40,21 @@
             position: info.position, duration: info.duration,
             previewTrackUri: info.previewTrackUri, previewProgressSource: info.previewProgressSource,
             previewPositionMs: info.previewPositionMs, previewDurationMs: info.previewDurationMs,
+            // The text clock is independent of the slider property that actSeek writes.
+            previewConfirmPositionMs: previewSeekObservation(),
             previewProgressValid: valid, previewAdvancing: valid && identity && state === 'playing'
         };
     }
+
+    // Calling the existing action is the only operation here. Recheck the
+    // identity in the WebView to avoid seeking a track changed in transit.
+    window.__sfPreviewSeek = function(pos, title, artist, duration, uri) {
+        var p = playerPayload();
+        if (!p.previewProgressValid || p.track !== title || p.artist !== artist ||
+            p.previewDurationMs !== duration || (uri && p.previewTrackUri && uri !== p.previewTrackUri) ||
+            typeof window.actSeek !== 'function' || !document.querySelector('div[data-testid="playback-progressbar"] input[type="range"]')) return false;
+        previewSeekInput = document.querySelector('div[data-testid="playback-progressbar"] input[type="range"]');
+        previewSeekAttributeBefore = previewSeekInput.getAttribute('value');
+        window.actSeek(Math.max(0, Math.min(duration, Math.round(Number(pos)))));
+        return true; // invocation only, not a Spotify acknowledgement
+    };

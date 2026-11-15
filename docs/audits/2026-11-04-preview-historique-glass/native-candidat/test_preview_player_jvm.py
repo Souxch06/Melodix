@@ -27,24 +27,27 @@ STUBS = {
 'android/os/Process.java': """package android.os; public class Process { public static long start; public static int calls; public static long getStartElapsedRealtime(){calls++;return start;} }""",
 'android/os/SystemClock.java': '''package android.os; public class SystemClock { public static long time; public static long elapsedRealtime(){return time;} }''',
 'android/os/Handler.java': '''package android.os; import java.util.*; public class Handler { static class T { Runnable r;long at;T(Runnable x,long y){r=x;at=y;} } static List<T> tasks=new ArrayList<T>(); public Handler(Looper l){} public boolean postDelayed(Runnable r,long d){tasks.add(new T(r,SystemClock.time+d));return true;} public static void flush(){List<T> copy=new ArrayList<T>(tasks);for(T t:copy)if(t.at<=SystemClock.time){tasks.remove(t);t.r.run();}} }''',
+'android/view/MotionEvent.java': """package android.view; public class MotionEvent { public static final int ACTION_CANCEL=3; public int getActionMasked(){return 3;} }""",
 'android/view/Choreographer.java': '''package android.view; public class Choreographer { public interface FrameCallback { void doFrame(long n); } private static Choreographer c=new Choreographer(); public FrameCallback next; public static Choreographer getInstance(){return c;} public void postFrameCallback(FrameCallback f){next=f;} public static void frame(){FrameCallback f=c.next;c.next=null;if(f!=null)f.doFrame(0);} }''',
-'android/view/View.java': '''package android.view; import java.util.*; public class View { public interface OnLongClickListener{ boolean onLongClick(View v); } public OnLongClickListener listener; public boolean shown=true; public boolean isShown(){return shown;} public Map<String,View> tags=new HashMap<String,View>(); public void setOnLongClickListener(OnLongClickListener l){listener=l;} public View findViewWithTag(Object tag){return tags.get(tag);} }''',
+'android/view/View.java': '''package android.view; import java.util.*; public class View { public interface OnLongClickListener{ boolean onLongClick(View v); } public interface OnTouchListener{boolean onTouch(View v,MotionEvent e);} public void setOnTouchListener(OnTouchListener x){} public OnLongClickListener listener; public boolean shown=true; public boolean isShown(){return shown;} public Map<String,View> tags=new HashMap<String,View>(); public void setOnLongClickListener(OnLongClickListener l){listener=l;} public View findViewWithTag(Object tag){return tags.get(tag);} }''',
 'android/widget/Toast.java': """package android.widget; import android.content.Context; public class Toast { public static int count; public static final int LENGTH_SHORT=0; public static Toast makeText(Context c,CharSequence s,int n){return new Toast();} public void show(){count++;} }""",
 'org/json/JSONArray.java': """package org.json; public class JSONArray { private String[] rows; public JSONArray(String s){rows=s.isEmpty()?new String[0]:s.split(\"\\\\|\");} public int length(){return rows.length;} public JSONObject optJSONObject(int i){return new JSONObject(rows[i]);} }""",
 'android/widget/TextView.java': '''package android.widget; public class TextView extends android.view.View { public String text=""; public CharSequence getText(){return text;} public void setText(CharSequence s){text=s.toString();} }''',
 'android/widget/ImageView.java': '''package android.widget; public class ImageView extends android.view.View { public int image; public void setImageResource(int x){image=x;} }''',
 'android/widget/ProgressBar.java': '''package android.widget; public class ProgressBar extends android.view.View { public int max,progress; public android.graphics.drawable.Drawable drawable=new android.graphics.drawable.LayerDrawable(); public android.graphics.drawable.Drawable getProgressDrawable(){return drawable;} public int getMax(){return max;} public int getProgress(){return progress;} public void setMax(int x){max=x;} public void setProgress(int x){progress=x;} }''',
+'android/widget/SeekBar.java': """package android.widget; public class SeekBar extends ProgressBar { public interface OnSeekBarChangeListener { void onStartTrackingTouch(SeekBar b); void onProgressChanged(SeekBar b,int p,boolean u); void onStopTrackingTouch(SeekBar b); } public OnSeekBarChangeListener listener; public void setOnSeekBarChangeListener(OnSeekBarChangeListener x){listener=x;} }""",
+'android/webkit/WebView.java': """package android.webkit; public class WebView extends android.view.View { public int calls; public String js; public void evaluateJavascript(String s,Object callback){calls++;js=s;} }""",
 'android/app/Activity.java': '''package android.app; import java.util.*;import android.view.View; public class Activity extends android.content.Context { public Map<Integer,View> views=new HashMap<Integer,View>(); public View findViewById(int i){return views.get(i);} }''',
 'android/app/AlertDialog.java': '''package android.app;import android.content.DialogInterface; public class AlertDialog { public static DialogInterface.OnClickListener copy; public static String body; public static class Builder { public Builder(Activity a){} public Builder setTitle(CharSequence s){return this;} public Builder setMessage(CharSequence s){body=s.toString();return this;} public Builder setPositiveButton(CharSequence s,DialogInterface.OnClickListener l){copy=l;return this;} public Builder setNegativeButton(CharSequence s,DialogInterface.OnClickListener l){return this;} public AlertDialog show(){return new AlertDialog();} } }''',
 # Flat fake data format is sufficient to exercise the controller, not JSON parsing.
-'org/json/JSONObject.java': '''package org.json; import java.util.*;public class JSONObject { private Map<String,String> m=new HashMap<String,String>();public JSONObject(String s){for(String p:s.split(";")){int i=p.indexOf('=');if(i>0)m.put(p.substring(0,i),p.substring(i+1));}}public boolean has(String k){return m.containsKey(k);}public boolean optBoolean(String k,boolean d){String s=m.get(k);return s==null?d:Boolean.parseBoolean(s);}public String optString(String k,String d){String s=m.get(k);return s==null?d:s;}public long optLong(String k,long d){try{return Long.parseLong(m.get(k));}catch(Exception e){return d;}}}''',
+'org/json/JSONObject.java': '''package org.json; import java.util.*;public class JSONObject { private Map<String,String> m=new HashMap<String,String>();public JSONObject(String s){for(String p:s.split(";")){int i=p.indexOf('=');if(i>0)m.put(p.substring(0,i),p.substring(i+1));}}public static String quote(String s){return (char)34+s+(char)34;}public boolean has(String k){return m.containsKey(k);}public boolean optBoolean(String k,boolean d){String s=m.get(k);return s==null?d:Boolean.parseBoolean(s);}public String optString(String k,String d){String s=m.get(k);return s==null?d:s;}public long optLong(String k,long d){try{return Long.parseLong(m.get(k));}catch(Exception e){return d;}}}''',
 'com/melodix/music/ControllerTest.java': r'''package com.melodix.music;
 import android.app.*; import android.os.*; import android.view.*; import android.widget.*; import android.content.*;
 public class ControllerTest {
  static void yes(boolean b){if(!b)throw new AssertionError();} static void eq(long a,long b){if(a!=b)throw new AssertionError(a+" != "+b);}
  static String sample(String title,String artist,long pos,long dur,String state,String uri){return "track="+title+";artist="+artist+";playing="+state.equals("playing")+";previewPlaybackState="+state+";previewTrackUri="+uri+";previewPositionMs="+pos+";previewDurationMs="+dur+";previewProgressValid="+(pos>=0&&dur>0);}
  public static void main(String[] ignored) throws Exception {
-  Activity a=new Activity(); ProgressBar mini=new ProgressBar(),full=new ProgressBar(); TextView elapsed=new TextView(),duration=new TextView(),remain=new TextView(); ImageView b1=new ImageView(),b2=new ImageView();View root=new View();root.tags.put("nativePlayerRemaining",remain);
+  Activity a=new Activity(); ProgressBar mini=new ProgressBar(); SeekBar full=new SeekBar(); TextView elapsed=new TextView(),duration=new TextView(),remain=new TextView(); ImageView b1=new ImageView(),b2=new ImageView();View root=new View();root.tags.put("nativePlayerRemaining",remain);
   a.views.put(0x7f09024d,mini);a.views.put(0x7f09023d,full);a.views.put(0x7f09024a,elapsed);a.views.put(0x7f09024b,duration);a.views.put(0x7f090238,b1);a.views.put(0x7f09023e,b2);a.views.put(0x7f09023a,root);
   java.lang.reflect.Method reportMethod=PreviewPlayerController.class.getDeclaredMethod("report");reportMethod.setAccessible(true);
   SystemClock.time=1000;PreviewPlayerController c=new PreviewPlayerController(a);c.activityResumed();
@@ -65,11 +68,37 @@ public class ControllerTest {
   c.snapshot(sample("Other","Artist",1000,200000,"playing",""));SystemClock.time+=1000;Choreographer.frame();yes(mini.progress>before);
   c.snapshot(sample("No Track","No Artist",1000,200000,"playing",""));before=mini.progress;SystemClock.time+=1000;Choreographer.frame();eq(mini.progress,before);report=(String)reportMethod.invoke(c);yes(report.contains("identité titre/artiste/durée absente"));
   c.activityStopped();eq(android.animation.ObjectAnimator.active(),0);
+  // Real controller touch listener: one command on release, optimistic preview,
+  // independent clock confirmation, bounds, pause, timeout and track change.
+  android.webkit.WebView web=new android.webkit.WebView();PreviewPlayerController seek=new PreviewPlayerController(a);
+  seek.attachSeek(web);yes(full.listener==seek);SystemClock.time=200000;
+  seek.snapshot(sample("Seek","Artist",10000,120000,"playing",""));
+  full.listener.onStartTrackingTouch(full);full.listener.onProgressChanged(full,500,true);
+  yes(elapsed.text.equals("1:00"));eq(web.calls,0);
+  seek.snapshot(sample("Seek","Artist",11000,120000,"playing",""));yes(elapsed.text.equals("1:00"));
+  full.listener.onStopTrackingTouch(full);full.listener.onStopTrackingTouch(full);eq(web.calls,1);yes(web.js.contains("60000"));
+  SystemClock.time+=1000;seek.snapshot(sample("Seek","Artist",60000,120000,"playing","")+";previewConfirmPositionMs=12000");yes(mini.progress>=500);
+  seek.snapshot(sample("Seek","Artist",60000,120000,"playing","")+";previewConfirmPositionMs=61000");SystemClock.time+=5000;Handler.flush();eq(Toast.count,0);
+  // Tap / release beyond the right edge is clamped, including while paused.
+  seek.snapshot(sample("Seek","Artist",61000,120000,"paused",""));
+  full.listener.onStartTrackingTouch(full);full.listener.onProgressChanged(full,1500,true);full.listener.onStopTrackingTouch(full);eq(web.calls,2);yes(web.js.contains("120000"));yes(elapsed.text.equals("2:00"));
+  seek.snapshot(sample("Seek","Artist",120000,120000,"paused","")+";previewConfirmPositionMs=70000");SystemClock.time+=5001;Handler.flush();yes(elapsed.text.equals("1:10"));eq(Toast.count,1);
+  // Track change during drag cancels; track change after dispatch cancels timeout.
+  full.listener.onStartTrackingTouch(full);full.listener.onProgressChanged(full,200,true);
+  seek.snapshot(sample("Next","Artist",1000,120000,"playing",""));full.listener.onStopTrackingTouch(full);eq(web.calls,2);yes(elapsed.text.equals("0:01"));
+  full.listener.onStartTrackingTouch(full);full.listener.onProgressChanged(full,400,true);full.listener.onStopTrackingTouch(full);eq(web.calls,3);
+  seek.snapshot(sample("Next2","Artist",2000,120000,"playing",""));SystemClock.time+=5001;Handler.flush();eq(Toast.count,1);yes(!elapsed.text.equals("0:48"));
+  // A cancelled gesture must not dispatch a seek.
+  full.listener.onStartTrackingTouch(full);full.listener.onProgressChanged(full,600,true);
+  seek.onTouch(full,new MotionEvent());full.listener.onStopTrackingTouch(full);eq(web.calls,3);
+  // Hour formatting comes from the same real duration and clamped target.
+  seek.snapshot(sample("Long","Artist",1000,7200000,"paused",""));full.listener.onStartTrackingTouch(full);full.listener.onProgressChanged(full,500,true);yes(elapsed.text.equals("1:00:00"));full.listener.onStopTrackingTouch(full);
   // Playlist timing is monotonic, anonymous, and only uses observed phases.
   PreviewPlayerController metrics=new PreviewPlayerController(a);SystemClock.time=300000;metrics.playlistOpened("spotify:playlist:Secret");metrics.loadState("waiting-bridge:unknown");
   SystemClock.time+=3000;metrics.phase("bridge-ready");SystemClock.time+=100;metrics.phase("navigation");SystemClock.time+=500;metrics.phase("page-ready|spotify:playlist:Wrong");
-  report=(String)reportMethod.invoke(metrics);yes(report.contains("indéterminée (phases manquantes)"));
-  metrics.phase("page-ready|spotify:playlist:Secret");SystemClock.time+=300;metrics.rowsPainted("detail","spotify:playlist:Secret","uri=spotify:track:Hidden");SystemClock.time+=20;Choreographer.frame();
+  report=(String)reportMethod.invoke(metrics);yes(report.contains("indéterminée (phases manquantes ou non séquentielles)"));
+  metrics.phase("page-ready|spotify:playlist:Secret");SystemClock.time+=300;metrics.phase("rows-received");metrics.rowsPainted("detail","spotify:playlist:Secret","uri=spotify:track:Hidden");SystemClock.time+=20;Choreographer.frame();
+  metrics.loadState("waiting-bridge:unknown");
   report=(String)reportMethod.invoke(metrics);yes(report.contains("attente pont : 3000 ms"));yes(report.contains("navigation → page prête : 500 ms"));yes(report.contains("Phase dominante : attente pont"));yes(report.contains("waiting-bridge avec lignes : oui"));yes(report.contains("data:unknown"));yes(!report.contains("Secret")&&!report.contains("Hidden"));
   View about=new View();metrics.attachAbout(about);yes(about.listener.onLongClick(about));AlertDialog.copy.onClick(null,0);yes(ClipboardManager.copied.equals(AlertDialog.body));
   System.out.println("Preview controller JVM simulation passed");

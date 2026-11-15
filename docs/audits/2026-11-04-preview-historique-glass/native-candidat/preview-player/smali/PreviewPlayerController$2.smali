@@ -3,12 +3,12 @@
 .source "PreviewPlayerController.java"
 
 # interfaces
-.implements Landroid/view/View$OnLongClickListener;
+.implements Ljava/lang/Runnable;
 
 
 # annotations
 .annotation system Ldalvik/annotation/EnclosingMethod;
-    value = Lcom/melodix/music/PreviewPlayerController;->attachAbout(Landroid/view/View;)V
+    value = Lcom/melodix/music/PreviewPlayerController;->tapPlayPause()I
 .end annotation
 
 .annotation system Ldalvik/annotation/InnerClass;
@@ -20,14 +20,18 @@
 # instance fields
 .field final synthetic this$0:Lcom/melodix/music/PreviewPlayerController;
 
+.field private final synthetic val$id:J
+
 
 # direct methods
-.method constructor <init>(Lcom/melodix/music/PreviewPlayerController;)V
+.method constructor <init>(Lcom/melodix/music/PreviewPlayerController;J)V
     .locals 0
 
     .prologue
-    .line 359
+    .line 444
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerController$2;->this$0:Lcom/melodix/music/PreviewPlayerController;
+
+    iput-wide p2, p0, Lcom/melodix/music/PreviewPlayerController$2;->val$id:J
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
@@ -36,16 +40,81 @@
 
 
 # virtual methods
-.method public onLongClick(Landroid/view/View;)Z
-    .locals 1
+.method public run()V
+    .locals 5
 
     .prologue
-    .line 360
+    const/4 v4, 0x0
+
+    .line 445
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$2;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
-    invoke-virtual {v0}, Lcom/melodix/music/PreviewPlayerController;->showDiagnostics()V
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$16(Lcom/melodix/music/PreviewPlayerController;)Z
 
-    const/4 v0, 0x1
+    move-result v0
 
-    return v0
+    if-eqz v0, :cond_0
+
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$2;->this$0:Lcom/melodix/music/PreviewPlayerController;
+
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$17(Lcom/melodix/music/PreviewPlayerController;)J
+
+    move-result-wide v0
+
+    iget-wide v2, p0, Lcom/melodix/music/PreviewPlayerController$2;->val$id:J
+
+    cmp-long v0, v0, v2
+
+    if-nez v0, :cond_0
+
+    .line 446
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$2;->this$0:Lcom/melodix/music/PreviewPlayerController;
+
+    invoke-static {v0, v4}, Lcom/melodix/music/PreviewPlayerController;->access$18(Lcom/melodix/music/PreviewPlayerController;Z)V
+
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$2;->this$0:Lcom/melodix/music/PreviewPlayerController;
+
+    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$2;->this$0:Lcom/melodix/music/PreviewPlayerController;
+
+    invoke-static {v1}, Lcom/melodix/music/PreviewPlayerController;->access$19(Lcom/melodix/music/PreviewPlayerController;)Z
+
+    move-result v1
+
+    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerController;->access$20(Lcom/melodix/music/PreviewPlayerController;Z)V
+
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$2;->this$0:Lcom/melodix/music/PreviewPlayerController;
+
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$21(Lcom/melodix/music/PreviewPlayerController;)V
+
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$2;->this$0:Lcom/melodix/music/PreviewPlayerController;
+
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$22(Lcom/melodix/music/PreviewPlayerController;)V
+
+    .line 447
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$2;->this$0:Lcom/melodix/music/PreviewPlayerController;
+
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$15(Lcom/melodix/music/PreviewPlayerController;)Ljava/lang/ref/WeakReference;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/ref/WeakReference;->get()Ljava/lang/Object;
+
+    move-result-object v0
+
+    check-cast v0, Landroid/app/Activity;
+
+    .line 448
+    if-eqz v0, :cond_0
+
+    const-string v1, "Commande non confirm\u00e9e"
+
+    invoke-static {v0, v1, v4}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Landroid/widget/Toast;->show()V
+
+    .line 450
+    :cond_0
+    return-void
 .end method
