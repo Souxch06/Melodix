@@ -1,4 +1,4 @@
-# Lot 1 — plan de test téléphone (préparatoire, sans APK livrable)
+# Lot 1 — plan de test téléphone
 
 N'installer un candidat qu'après publication explicite d'un artefact CI du lot 1. La Preview est distincte de l'application normale, mais la compatibilité de mise à jour depuis une version installée dépend notamment de sa signature et de son `versionCode`. Ne pas désinstaller une version existante sans comprendre la perte éventuelle de ses données. Les scénarios ci-dessous doivent être exécutés avec de vraies données ; ces résultats ne sont pas encore disponibles.
 
