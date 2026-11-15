@@ -839,6 +839,9 @@ jobs:
             phase="test and apply Preview visual work in progress"
             MELODIX_PREVIEW_ROOT="$work" MELODIX_PATCH_INPUT=1 python3 "$audit/native-candidat/test_lot1_visual.py"
             python3 "$audit/native-candidat/apply_lot1_visual.py" "$work"
+            phase="test and apply guarded native Back routing"
+            MELODIX_PREVIEW_ROOT="$work" MELODIX_PATCH_INPUT=1 python3 "$audit/native-candidat/test_lot1_back.py"
+            python3 "$audit/native-candidat/apply_lot1_back.py" "$work"
             python3 "$audit/native-candidat/verify_9016_protected_assets.py" project "$work"
           fi
           phase="build unsigned APK"
@@ -886,10 +889,17 @@ jobs:
                 grep -E '^(FAIL:|ERROR:|AssertionError:|Error:)' "$RUNNER_TEMP/lot1-visual-tests.log" | head -20 | while IFS= read -r line; do echo "::error title=Lot 1 visual test::$line"; done
                 exit 1
               }
+            phase="test decoded native Back routing"
+            MELODIX_PREVIEW_ROOT="$RUNNER_TEMP/historical-decoded" python3 "$audit/native-candidat/test_lot1_back.py"
             phase="simulate shell to decoded native player labels"
             MELODIX_CANDIDATE_ROOT="$RUNNER_TEMP/historical-decoded" NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" \
               node --test "$audit/native-candidat/player-time-e2e.test.cjs" > "$RUNNER_TEMP/lot1-time-tests.log" 2>&1 || {
-                grep -E '^(not ok|  error:)' "$RUNNER_TEMP/lot1-time-tests.log" | head -20 | while IFS= read -r line; do echo "::error title=Lot 1 time test::$line"; done
+                python3 - "$RUNNER_TEMP/lot1-time-tests.log" <<'PY'
+          import pathlib, sys
+          text = pathlib.Path(sys.argv[1]).read_text(errors='replace')[:5000]
+          text = text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print('::error title=Lot 1 time test::' + text)
+          PY
                 exit 1
               }
           fi
