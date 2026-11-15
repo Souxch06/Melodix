@@ -63,7 +63,7 @@ permissions:
 
 jobs:
   build-and-release-preview:
-    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && !(github.event_name == 'workflow_dispatch' && (inputs.release_tag == 'v1.2.2-test.9003-preview' || inputs.release_tag == 'v1.2.2-test.9004-preview' || inputs.release_tag == 'v1.2.2-test.9005-preview' || inputs.release_tag == 'v1.2.2-test.9006-preview' || inputs.release_tag == 'v1.2.2-test.9007-preview')) }}
+    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && !(github.event_name == 'workflow_dispatch' && (inputs.release_tag == 'v1.2.2-test.9003-preview' || inputs.release_tag == 'v1.2.2-test.9004-preview' || inputs.release_tag == 'v1.2.2-test.9005-preview' || inputs.release_tag == 'v1.2.2-test.9006-preview' || inputs.release_tag == 'v1.2.2-test.9007-preview' || inputs.release_tag == 'v1.2.2-test.9008-preview')) }}
     name: Build separate Preview APK artifact
     runs-on: ubuntu-latest
     outputs:
@@ -647,7 +647,7 @@ jobs:
           if-no-files-found: error
 
   historical-glass-preview:
-    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.release_tag == 'v1.2.2-test.9003-preview' || inputs.release_tag == 'v1.2.2-test.9004-preview' || inputs.release_tag == 'v1.2.2-test.9005-preview' || inputs.release_tag == 'v1.2.2-test.9006-preview' || inputs.release_tag == 'v1.2.2-test.9007-preview') }}
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.release_tag == 'v1.2.2-test.9003-preview' || inputs.release_tag == 'v1.2.2-test.9004-preview' || inputs.release_tag == 'v1.2.2-test.9005-preview' || inputs.release_tag == 'v1.2.2-test.9006-preview' || inputs.release_tag == 'v1.2.2-test.9007-preview' || inputs.release_tag == 'v1.2.2-test.9008-preview') }}
     name: Preview séparée d0f206b0 + Glass
     runs-on: ubuntu-latest
     steps:
@@ -720,10 +720,11 @@ jobs:
           MELODIX_PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
           MELODIX_PREVIEW_KEY_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEY_PASSWORD || secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
           DELIVERY_SHA: ${{ github.sha }}
-          NATIVE_CANDIDATE: ${{ inputs.release_tag == 'v1.2.2-test.9004-preview' || inputs.release_tag == 'v1.2.2-test.9005-preview' || inputs.release_tag == 'v1.2.2-test.9006-preview' || inputs.release_tag == 'v1.2.2-test.9007-preview' }}
-          HOME_SHELVES: ${{ inputs.release_tag == 'v1.2.2-test.9005-preview' || inputs.release_tag == 'v1.2.2-test.9006-preview' || inputs.release_tag == 'v1.2.2-test.9007-preview' }}
-          SCREEN_ROUTING: ${{ inputs.release_tag == 'v1.2.2-test.9006-preview' || inputs.release_tag == 'v1.2.2-test.9007-preview' }}
-          HOME_LIBRARY: ${{ inputs.release_tag == 'v1.2.2-test.9007-preview' }}
+          NATIVE_CANDIDATE: ${{ inputs.release_tag == 'v1.2.2-test.9004-preview' || inputs.release_tag == 'v1.2.2-test.9005-preview' || inputs.release_tag == 'v1.2.2-test.9006-preview' || inputs.release_tag == 'v1.2.2-test.9007-preview' || inputs.release_tag == 'v1.2.2-test.9008-preview' }}
+          HOME_SHELVES: ${{ inputs.release_tag == 'v1.2.2-test.9005-preview' || inputs.release_tag == 'v1.2.2-test.9006-preview' || inputs.release_tag == 'v1.2.2-test.9007-preview' || inputs.release_tag == 'v1.2.2-test.9008-preview' }}
+          SCREEN_ROUTING: ${{ inputs.release_tag == 'v1.2.2-test.9006-preview' || inputs.release_tag == 'v1.2.2-test.9007-preview' || inputs.release_tag == 'v1.2.2-test.9008-preview' }}
+          HOME_LIBRARY: ${{ inputs.release_tag == 'v1.2.2-test.9007-preview' || inputs.release_tag == 'v1.2.2-test.9008-preview' }}
+          INCREMENTAL_LIBRARY: ${{ inputs.release_tag == 'v1.2.2-test.9008-preview' }}
         run: |
           set -euo pipefail
           phase="initialisation"
@@ -765,6 +766,11 @@ jobs:
             phase="apply Home and Library candidate"
             python3 "$audit/native-candidat/apply_home_library.py" "$work"
           fi
+          if [[ "$INCREMENTAL_LIBRARY" == "true" ]]; then
+            phase="test and apply incremental library candidate"
+            MELODIX_PREVIEW_ROOT="$work" python3 "$audit/native-candidat/test_incremental_patch.py"
+            python3 "$audit/native-candidat/apply_incremental_library.py" "$work"
+          fi
           phase="download apktool"
           curl --fail --silent --show-error --location \
             https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar --output "$RUNNER_TEMP/apktool.jar"
@@ -800,6 +806,10 @@ jobs:
               NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" node --test "$audit/native-candidat/home-library.test.cjs"
             MELODIX_HISTORICAL_ROOT="$GITHUB_WORKSPACE/historical" MELODIX_SMALI_ROOT="$GITHUB_WORKSPACE/historical" \
               NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" node --test "$audit/css-callback-characterization.test.cjs"
+            if [[ "$INCREMENTAL_LIBRARY" == "true" ]]; then
+              MELODIX_CANDIDATE_ROOT="$RUNNER_TEMP/historical-decoded" NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" \
+                node --test "$audit/native-candidat/incremental-library.test.cjs"
+            fi
             callback_tests=()
           else
             callback_tests=("$audit/css-callback-characterization.test.cjs")
@@ -855,7 +865,7 @@ jobs:
           (cd preview-output && sha256sum Melodix-Preview-historique-glass.apk > Melodix-Preview-historique-glass.apk.sha256)
           {
             echo '### Preview historique Glass — non validée sur téléphone'
-            echo "- Candidat natif partiel: $NATIVE_CANDIDATE ; étagères: $HOME_SHELVES ; routage expérimental: $SCREEN_ROUTING ; accueil/bibliothèque: $HOME_LIBRARY ; aucun test sur Android."
+            echo "- Candidat natif partiel: $NATIVE_CANDIDATE ; étagères: $HOME_SHELVES ; routage expérimental: $SCREEN_ROUTING ; accueil/bibliothèque: $HOME_LIBRARY ; pagination progressive: $INCREMENTAL_LIBRARY ; aucun test sur Android."
             echo "- Base: $base ; livraison: $DELIVERY_SHA ; versionCode: $version_code"
             echo '- Package séparé, clé Preview vérifiée. Ancienne connexion et protections historiques : consulter audit avant installation.'
             cat preview-output/Melodix-Preview-historique-glass.apk.sha256
@@ -863,7 +873,7 @@ jobs:
       - name: Upload Preview artifact only (no release)
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.release_tag == 'v1.2.2-test.9007-preview' && 'Melodix-Preview-historique-bibliotheque' || (inputs.release_tag == 'v1.2.2-test.9006-preview' && 'Melodix-Preview-historique-ecrans' || (inputs.release_tag == 'v1.2.2-test.9005-preview' && 'Melodix-Preview-historique-shelves' || (inputs.release_tag == 'v1.2.2-test.9004-preview' && 'Melodix-Preview-historique-native-glass' || 'Melodix-Preview-historique-glass'))) }}
+          name: ${{ inputs.release_tag == 'v1.2.2-test.9008-preview' && 'Melodix-Preview-historique-progressive' || (inputs.release_tag == 'v1.2.2-test.9007-preview' && 'Melodix-Preview-historique-bibliotheque' || (inputs.release_tag == 'v1.2.2-test.9006-preview' && 'Melodix-Preview-historique-ecrans' || (inputs.release_tag == 'v1.2.2-test.9005-preview' && 'Melodix-Preview-historique-shelves' || (inputs.release_tag == 'v1.2.2-test.9004-preview' && 'Melodix-Preview-historique-native-glass' || 'Melodix-Preview-historique-glass')))) }}
           path: preview-output/
           retention-days: 14
           if-no-files-found: error
