@@ -81,9 +81,9 @@ def apply(root):
     const-string v2, "spotify:settings:"
 """)
     a=prefix+anchor+rest
-    a=one(a, """    :cond_1
-    if-eqz p2, :cond_14
-""", """    :cond_1
+    a=one(a, """    :preview_not_load
+    if-eqz p2, :apply_done
+""", """    :preview_not_load
     const-string v0, "preview-phase"
     invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
@@ -93,7 +93,7 @@ def apply(root):
     invoke-virtual {v0, p2}, Lcom/melodix/music/PreviewPlayerController;->phase(Ljava/lang/String;)V
     return-void
     :preview_not_phase
-    if-eqz p2, :cond_14
+    if-eqz p2, :apply_done
 """)
     anchor_player='.method public final updateNativePlayer(Ljava/lang/String;)V'
     prefix, method = a.split(anchor_player, 1)
