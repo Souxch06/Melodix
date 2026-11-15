@@ -14,6 +14,8 @@ import android.view.View;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
+import org.json.JSONArray;
 import org.json.JSONObject;
 import java.lang.ref.WeakReference;
 import java.util.Locale;
@@ -42,6 +44,35 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     private int intervalCount, intervalIndex;
     private int operation; // 1 play/pause, 2 previous, 3 next
     private String trackBefore = "";
+    // Durations only; process-local, no Spotify identifiers in the report.
+    private static long firstCreateAt = -1, firstHomeFrameMs = -1;
+    private boolean measureHomeFrame, measurePlaylistFrame;
+    private long playlistStart = -1, playlistFrameMs = -1;
+    private String pendingPlaylist = "";
+    public void activityCreated() {
+        if (firstCreateAt < 0) firstCreateAt = now();
+    }
+    public void playlistOpened(String uri) {
+        playlistStart = -1; playlistFrameMs = -1; pendingPlaylist = ""; measurePlaylistFrame = false;
+        if (uri != null && uri.matches("(?i)^spotify:playlist:[a-z0-9]+$")) {
+            pendingPlaylist = uri; playlistStart = now();
+        }
+    }
+    public void rowsPainted(String screen, String context, String rows) {
+        if ("home".equals(screen) && firstCreateAt >= 0 && firstHomeFrameMs < 0) measureHomeFrame = true;
+        if ("detail".equals(screen) && playlistStart >= 0 && pendingPlaylist.equals(context)) {
+            try {
+                JSONArray data = new JSONArray(rows);
+                for (int i = 0; i < data.length(); i++) {
+                    JSONObject row = data.optJSONObject(i);
+                    if (row != null && row.optString("uri", row.optString("id", "")).matches("(?i)^spotify:track:[a-z0-9]+$")) {
+                        measurePlaylistFrame = true; break;
+                    }
+                }
+            } catch (Exception ignored) { }
+        }
+        scheduleFrame();
+    }
 
     public PreviewPlayerController(Activity a) { activity = new WeakReference<Activity>(a); }
     private long now() { return SystemClock.elapsedRealtime(); }
@@ -100,11 +131,18 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         if (full instanceof ImageView) ((ImageView) full).setImageResource(icon);
     }
     private void scheduleFrame() {
-        if (valid && moving && !frameScheduled) { frameScheduled = true; Choreographer.getInstance().postFrameCallback(this); }
+        if (((valid && moving) || measureHomeFrame || measurePlaylistFrame) && !frameScheduled) { frameScheduled = true; Choreographer.getInstance().postFrameCallback(this); }
     }
     @Override public void doFrame(long frameTimeNanos) {
         frameScheduled = false;
-        if (activity.get() == null || !valid) return;
+        if (activity.get() == null) return;
+        long t = now();
+        if (measureHomeFrame && firstHomeFrameMs < 0 && firstCreateAt >= 0) firstHomeFrameMs = Math.max(0, t - firstCreateAt);
+        if (measurePlaylistFrame && playlistStart >= 0) {
+            playlistFrameMs = Math.max(0, t - playlistStart); playlistStart = -1; pendingPlaylist = "";
+        }
+        measureHomeFrame = measurePlaylistFrame = false;
+        if (!valid) return;
         renderProgress();
         // Stop requesting frames once the last reliable sample is stale.
         if (moving && now() - anchor < MAX_STALE_MS && position(now()) < duration) scheduleFrame();
@@ -135,7 +173,15 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                     if (intervalCount < intervals.length) intervalCount++;
                 }
                 if (pos != previousPosition) { previousPosition = pos; previousProgressAt = t; }
-            } else { valid = false; moving = false; track = uri; previousProgressAt = -1; previousPosition = -1; }
+            } else {
+                // Keep a frozen last reliable value only when the same track is
+                // positively identified. Unknown or different track must not
+                // inherit another track's position.
+                if (valid && !uri.isEmpty() && uri.equals(track) && !Double.isNaN(previous)) {
+                    base = previous; anchor = t; correction = 0; moving = false;
+                } else { valid = false; moving = false; track = uri; }
+                previousProgressAt = -1; previousPosition = -1;
+            }
             haveReal = true; realPlaying = real;
             if (pending && real == pendingTarget) { pending = false; serial++; }
             if (!pending) shownPlaying = real;
@@ -155,7 +201,11 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         final long id = ++serial;
         renderButtons(); optimisticAt = now();
         handler.postDelayed(new Runnable() { public void run() {
-            if (pending && serial == id) { pending = false; shownPlaying = realPlaying; renderButtons(); }
+            if (pending && serial == id) {
+                pending = false; shownPlaying = realPlaying; renderButtons();
+                Activity a = activity.get();
+                if (a != null) Toast.makeText(a, "Commande non confirmée", Toast.LENGTH_SHORT).show();
+            }
         }}, RECONCILE_MS);
         return pendingTarget ? 1 : 0;
     }
@@ -176,6 +226,10 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         out.append("\nInterface optimiste : ").append(delta(optimisticAt));
         out.append("\nÉtat du lecteur observé : ").append(delta(stateAt));
         out.append("\nInterface confirmée : ").append(delta(uiAt));
+        out.append("\nDémarrage : activité → prochaine frame accueil avec données : ")
+            .append(firstHomeFrameMs < 0 ? "—" : Long.toString(firstHomeFrameMs) + " ms");
+        out.append("\nPlaylist : appui → prochaine frame avec titres : ")
+            .append(playlistFrameMs < 0 ? "—" : Long.toString(playlistFrameMs) + " ms");
         out.append("\nIntervalles position : ");
         if (intervalCount == 0) out.append("—");
         for (int i = 0; i < intervalCount; i++) {
@@ -183,7 +237,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             int index = (intervalIndex - intervalCount + i + intervals.length) % intervals.length;
             out.append(intervals[index]).append(" ms");
         }
-        out.append("\nLa réception du pont n'est pas un accusé Spotify ; le premier son n'est pas mesuré.");
+        out.append("\nMesures de préparation de frame, pas présentation écran. Démarrage hors création du processus ; premier son non mesuré. La réception du pont n'est pas un accusé Spotify.");
         return out.toString();
     }
     public void showDiagnostics() {

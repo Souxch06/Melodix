@@ -49,6 +49,17 @@ class PreviewPlayer(unittest.TestCase):
         helper=self.get('smali/com/melodix/music/PreviewPlayerController.smali')
         self.assertIn('setOnLongClickListener',helper)
         self.assertIn('setPositiveButton',helper)
+    def test_metrics_are_wired_to_real_native_paths(self):
+        a=self.get('smali/com/melodix/music/MainActivity.smali')
+        self.assertIn('PreviewPlayerController;->activityCreated()V',method(a,'.method public final onCreate('))
+        self.assertIn('PreviewPlayerController;->playlistOpened(Ljava/lang/String;)V',method(a,'.method public final openNativeRow('))
+        self.assertIn('PreviewPlayerController;->rowsPainted(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V',method(a,'.method public final renderNativeRows('))
+        source=(HERE/'preview-player/PreviewPlayerController.java').read_text()
+        report=source[source.index('    private String report()'):source.index('    public void showDiagnostics()')]
+        self.assertNotIn('pendingPlaylist',report)
+        self.assertIn('préparation de frame',report)
+        self.assertIn('firstHomeFrameMs',report); self.assertIn('playlistFrameMs',report)
+
     def test_controls_have_no_playlist_rate_limit(self):
         a=self.get('smali/com/melodix/music/MainActivity.smali')
         for name in ('onNativePlayPauseClick','onNativePlayerPreviousClick','onNativePlayerNextClick'):

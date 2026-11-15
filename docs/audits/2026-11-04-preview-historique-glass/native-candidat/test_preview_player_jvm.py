@@ -22,6 +22,8 @@ STUBS = {
 'android/os/Handler.java': '''package android.os; import java.util.*; public class Handler { static class T { Runnable r;long at;T(Runnable x,long y){r=x;at=y;} } static List<T> tasks=new ArrayList<T>(); public Handler(Looper l){} public boolean postDelayed(Runnable r,long d){tasks.add(new T(r,SystemClock.time+d));return true;} public static void flush(){List<T> copy=new ArrayList<T>(tasks);for(T t:copy)if(t.at<=SystemClock.time){tasks.remove(t);t.r.run();}} }''',
 'android/view/Choreographer.java': '''package android.view; public class Choreographer { public interface FrameCallback { void doFrame(long n); } private static Choreographer c=new Choreographer(); public FrameCallback next; public static Choreographer getInstance(){return c;} public void postFrameCallback(FrameCallback f){next=f;} public static void frame(){FrameCallback f=c.next;c.next=null;if(f!=null)f.doFrame(0);} }''',
 'android/view/View.java': '''package android.view; import java.util.*; public class View { public interface OnLongClickListener{ boolean onLongClick(View v); } public OnLongClickListener listener; public Map<String,View> tags=new HashMap<String,View>(); public void setOnLongClickListener(OnLongClickListener l){listener=l;} public View findViewWithTag(Object tag){return tags.get(tag);} }''',
+'android/widget/Toast.java': """package android.widget; import android.content.Context; public class Toast { public static int count; public static final int LENGTH_SHORT=0; public static Toast makeText(Context c,CharSequence s,int n){return new Toast();} public void show(){count++;} }""",
+'org/json/JSONArray.java': """package org.json; public class JSONArray { private String[] rows; public JSONArray(String s){rows=s.isEmpty()?new String[0]:s.split(\"\\\\|\");} public int length(){return rows.length;} public JSONObject optJSONObject(int i){return new JSONObject(rows[i]);} }""",
 'android/widget/TextView.java': '''package android.widget; public class TextView extends android.view.View { public String text=""; public CharSequence getText(){return text;} public void setText(CharSequence s){text=s.toString();} }''',
 'android/widget/ImageView.java': '''package android.widget; public class ImageView extends android.view.View { public int image; public void setImageResource(int x){image=x;} }''',
 'android/widget/ProgressBar.java': '''package android.widget; public class ProgressBar extends android.view.View { public int max,progress; public int getMax(){return max;} public int getProgress(){return progress;} public void setMax(int x){max=x;} public void setProgress(int x){progress=x;} }''',
@@ -45,6 +47,8 @@ public class ControllerTest {
   c.snapshot(sample(t,11000,120000,true,false,true));SystemClock.time=7000;Choreographer.frame();eq(mini.progress,92);
   c.snapshot(sample(t,119500,120000,true,true,true));SystemClock.time=9000;Choreographer.frame();eq(mini.progress,1000);eq(full.progress,1000);
   c.snapshot(sample("spotify:track:other",1000,120000,true,true,true));eq(mini.progress,8);
+  c.snapshot(sample("spotify:track:other",-1,-1,true,false,false));eq(mini.progress,8);eq(full.progress,8);yes(elapsed.text.equals("0:01"));
+  SystemClock.time=9500;Choreographer.frame();eq(mini.progress,8);
   c.snapshot(sample("",-1,-1,true,false,false));yes(elapsed.text.equals("—"));yes(remain.text.equals("Temps restant : —"));
   c.snapshot(sample(t,1000,120000,false,false,true));SystemClock.time=10000;eq(c.tapPlayPause(),1);eq(b1.image,0x7f080121);eq(b2.image,0x7f080121);
   SystemClock.time=10005;c.command();c.snapshot(sample(t,1000,120000,false,false,true));eq(b1.image,0x7f080121);
@@ -69,6 +73,22 @@ public class ControllerTest {
    }
   }
   eq(mini.progress,1000);
+  // Instrumentation uses frame preparation, not display presentation.
+  SystemClock.time=200000;PreviewPlayerController metrics=new PreviewPlayerController(a);metrics.activityCreated();
+  metrics.rowsPainted("home", "", "uri=spotify:track:One");SystemClock.time=200123;Choreographer.frame();
+  metrics.playlistOpened("spotify:playlist:Visible");
+  metrics.rowsPainted("detail", "spotify:playlist:Wrong", "uri=spotify:track:One");
+  metrics.rowsPainted("detail", "spotify:playlist:Visible", "");
+  SystemClock.time=200200;Choreographer.frame();
+  report=(String)m.invoke(metrics);yes(report.contains("123 ms"));yes(report.contains("avec titres : —"));
+  metrics.rowsPainted("detail", "spotify:playlist:Visible", "uri=spotify:track:One");
+  SystemClock.time=200250;Choreographer.frame();report=(String)m.invoke(metrics);
+  yes(report.contains("127 ms"));yes(!report.contains("Visible"));yes(!report.contains("track:One"));
+  metrics.playlistOpened("spotify:collection:tracks");metrics.rowsPainted("detail", "spotify:collection:tracks", "uri=spotify:track:One");
+  SystemClock.time=200300;Choreographer.frame();report=(String)m.invoke(metrics);yes(report.contains("avec titres : —"));
+  // Unconfirmed pause/play is reconciled and gets exactly one discreet message.
+  SystemClock.time=300000;Handler.flush();PreviewPlayerController timeout=new PreviewPlayerController(a);timeout.snapshot(sample(t,1000,120000,false,false,true));
+  int count=Toast.count;eq(timeout.tapPlayPause(),1);SystemClock.time+=8000;Handler.flush();eq(Toast.count,count+1);eq(b1.image,0x7f080122);
   System.out.println("Preview controller JVM simulation passed");
  }
 }''',

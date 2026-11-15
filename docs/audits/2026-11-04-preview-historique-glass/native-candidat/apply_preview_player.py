@@ -15,12 +15,12 @@ EXPECTED = {
     'smali/com/melodix/music/MainActivity.smali': 'dd14f96c2e3143b1e015e58a4c881911147e8312df1938a59e7ba3fa1b9a6f53',
     'smali/com/melodix/music/NativeSettingsRowFactory.smali': '87af4ac75e344b84f94374db7b94018b524a9af981f2367f8a9631f8b1c8ed63',
 }
-SOURCE_SHA = 'f880584c8fe1d6ebe7fe32b5c5a3bb8b4514ba86279c56b34bd1c535815a39fb'
+SOURCE_SHA = 'd5314463593f83ea1b7bdcce9f24f18050bd3f4ddb066864a55a10675dc6a279'
 HELPER_SHA = {
-    'PreviewPlayerController$1.smali': '35ae2c8563dd60300b61c931bbc1947d926dc493c1412a9679cf63a23d0fc15b',
-    'PreviewPlayerController$2.smali': '57d65b199add2596ba2a03b90bb8f128d17b26e0799e1b39e485b8ba7842d312',
-    'PreviewPlayerController$3.smali': '44f01da99b7ef54fc8a360d87ffa4d0a7c626ebb1a63ca01daa9b3096def8fba',
-    'PreviewPlayerController.smali': '8518465b4bc8927bae2857b368c3415199152685ea05c6c460a76b79b171fb1d',
+    'PreviewPlayerController$1.smali': '0aad79d348e0a7886a0a2e11646d4ca1b6b1a4c5c8eb4bf3e29c7d0feab89e54',
+    'PreviewPlayerController$2.smali': '23aca4b26eeb9683bd9898bf059485ed8a75a391288752ee050c6922c65ab6d1',
+    'PreviewPlayerController$3.smali': 'fdc41b1bbf98bff5b81b254ac3a0c833fbab8c01b57bb34ce2e069a2667c5678',
+    'PreviewPlayerController.smali': 'fa7aed165c7a707d3bfc2f02b66c0b6370c607b7dca05d66acb0e8efd1672b14',
 }
 
 def replace(text, old, new):
@@ -142,6 +142,40 @@ def prepare(root):
     files[path] = s
 
     path = 'smali/com/melodix/music/MainActivity.smali'; s = files[path]
+    s = replace(s, '''.method public final onCreate(Landroid/os/Bundle;)V
+    .locals 17
+
+    .line 1
+    move-object/from16 v0, p0''', '''.method public final onCreate(Landroid/os/Bundle;)V
+    .locals 17
+
+    .line 1
+    move-object/from16 v0, p0
+    invoke-virtual {v0}, Lcom/melodix/music/MainActivity;->previewPlayer()Lcom/melodix/music/PreviewPlayerController;
+    move-result-object v1
+    invoke-virtual {v1}, Lcom/melodix/music/PreviewPlayerController;->activityCreated()V''')
+    s = replace(s, '''    iput-object p1, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;
+    const-string v1, "detail"''', '''    iput-object p1, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->previewPlayer()Lcom/melodix/music/PreviewPlayerController;
+    move-result-object v0
+    invoke-virtual {v0, p1}, Lcom/melodix/music/PreviewPlayerController;->playlistOpened(Ljava/lang/String;)V
+    const-string v1, "detail"''')
+    s = replace(s, '''    if-lez v3, :preview_historical_feed
+    return-void''', '''    if-lez v3, :preview_historical_feed
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->previewPlayer()Lcom/melodix/music/PreviewPlayerController;
+    move-result-object v0
+    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;
+    invoke-virtual {v0, v1, v2, p2}, Lcom/melodix/music/PreviewPlayerController;->rowsPainted(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    return-void''')
+    s = replace(s, '''    :native_rows_rendered
+    return-void''', '''    :native_rows_rendered
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->previewPlayer()Lcom/melodix/music/PreviewPlayerController;
+    move-result-object v0
+    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;
+    invoke-virtual {v0, v1, v2, p2}, Lcom/melodix/music/PreviewPlayerController;->rowsPainted(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    return-void''')
     s = replace(s, '.field private nativeBackStack:Ljava/util/ArrayDeque;\n', '.field private nativePreviewPlayer:Lcom/melodix/music/PreviewPlayerController;\n.field private nativeBackStack:Ljava/util/ArrayDeque;\n')
     s = replace(s, '''.method public final applyNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
     .locals 10
