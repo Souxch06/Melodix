@@ -4,7 +4,8 @@ set -Eeuo pipefail
 phase='integrity'
 trap 'echo "::error title=Offline smoke phase::${phase}" >&2' ERR
 apk="${1:?exact signed APK path required}"
-expected='7a8c75562f532a209a8d33e9f91917d977db91454468c6c926bd870385a31473'
+expected="${2:-7a8c75562f532a209a8d33e9f91917d977db91454468c6c926bd870385a31473}"
+[[ "$expected" =~ ^[0-9a-f]{64}$ ]]
 pkg='com.melodix.music.preview'
 activity='com.melodix.music.MainActivity'
 test -f "$apk"
