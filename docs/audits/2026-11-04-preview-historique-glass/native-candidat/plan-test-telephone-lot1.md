@@ -1,0 +1,17 @@
+# Lot 1 — plan de test téléphone (préparatoire, sans APK livrable)
+
+N'installer un candidat qu'après publication explicite d'un artefact CI du lot 1. La Preview est distincte de l'application normale, mais la compatibilité de mise à jour depuis une version installée dépend notamment de sa signature et de son `versionCode`. Ne pas désinstaller une version existante sans comprendre la perte éventuelle de ses données. Les scénarios ci-dessous doivent être exécutés avec de vraies données ; ces résultats ne sont pas encore disponibles.
+
+| Parcours | Manipulation | Attendu | Échec si… |
+|---|---|---|---|
+| Accueil | Ouvrir, laisser charger puis défiler jusqu'à la dernière carte. Essayer une pochette indisponible si possible. | Playlists personnelles et sélections Spotify visibles ; attente dégradée puis note en cas d'échec ; dernier élément au-dessus du mini-lecteur et des onglets. | Rangée manquante, images bloquées, dernier élément masqué ou sélection inaccessible. |
+| Bibliothèque | Ouvrir, parcourir ses catégories puis descendre tout en bas. | Liste cohérente, derniers éléments lisibles et cliquables. | Données manquantes, mélangées, doublées à tort ou masquées par le dock. |
+| Playlist | Ouvrir une playlist personnelle longue, attendre toutes les pages et comparer avec Spotify ; descendre à la fin. | Bons titres et ordre, doublons légitimes conservés, dernier titre accessible. | Troncature, ordre incorrect, titre manquant ou dernier titre masqué. Une durée absente doit être notée séparément, non considérée comme validée. |
+| Lecture | Lancer un titre depuis une playlist, pause et reprise, ouvrir le lecteur. | Le bon titre joue, mini-lecteur et lecteur concordent ; commandes fonctionnelles. | Mauvais titre, lecture silencieuse, pause ou affichages désynchronisés. |
+| Durées | Contrôler la position, durée totale et temps restant ; essayer un contenu de plus d'une heure si disponible. Observer aussi les durées présentes dans les listes. | `m:ss` sous une heure et `h:mm:ss` dès une heure ; temps restant cohérent. | `60:00`, valeur incohérente, champ masqué ou durée absente là où elle devrait être disponible. |
+| Recherche | Rechercher puis descendre les résultats, utiliser retour. | Résultats exploitables et dernier élément accessible. | Résultat tronqué ou action impossible. |
+| Réglages | Ouvrir et défiler jusqu'au dernier réglage ; observer les marges, l'engrenage et les mentions. | Marges lisibles, engrenage masqué, dernier réglage accessible. | Coupure, engrenage visible, mention indésirable ou retour erroné. |
+| Retour Android | Depuis playlist, lecteur, réglages ; essayer bouton, geste, et parcours imbriqué playlist → lecteur → réglages. | Retour à l'écran précédent correct sans perdre ou remplacer la playlist ; les écrans Web/session gardent leur comportement. | Fermeture inattendue, mauvais écran, liste incorrecte, geste ou bouton inopérant. |
+| Rotation | Tourner sur accueil, playlist et lecteur, puis revenir en portrait. | Affichage lisible, lecture et navigation cohérentes, contrôles accessibles. | Crash, écran vide, coupure, perte de lecture ou retour incorrect. |
+
+Noter modèle, version Android, orientation, taille de texte, séquence exacte, capture sans informations personnelles et résultat attendu/observé. Ces contrôles réels ne sont pas remplacés par la CI synthétique.
