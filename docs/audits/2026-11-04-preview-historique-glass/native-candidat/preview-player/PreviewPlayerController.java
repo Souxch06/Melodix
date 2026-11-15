@@ -42,6 +42,9 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     private double base, correction;
     private String track = "";
     private String progressSource = "none";
+    // Private, process-local metadata used solely to avoid retaining a clock
+    // when the legacy player feed reports a different visible title.
+    private String observedTitle = "", observedArtist = "";
     private boolean progressHasUri;
     // Cosmetic only: animate the clipped fill, never the position or track.
     private boolean foreground, glowSampleValid;
@@ -56,6 +59,12 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     private String trackBefore = "";
     // Durations only; process-local, no Spotify identifiers in the report.
     private static long firstCreateAt = -1, processStartAt = -1, firstHomeFrameMs = -1, processHomeFrameMs = -1;
+    // Only a small allowlist; no token, title, playlist ID or URL is retained.
+    private String loadStage = "—";
+    public void loadState(String state) {
+        if (state != null && state.matches("(waiting-bridge|waiting-token|pending|failed|no-data|data|timeout|unavailable):(token|no-token)"))
+            loadStage = state;
+    }
     private boolean measureHomeFrame, measurePlaylistFrame;
     private long playlistStart = -1, playlistFrameMs = -1;
     private String pendingPlaylist = "";
@@ -72,7 +81,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         }
     }
     public void playlistOpened(String uri) {
-        playlistStart = -1; playlistFrameMs = -1; pendingPlaylist = ""; measurePlaylistFrame = false;
+        playlistStart = -1; playlistFrameMs = -1; pendingPlaylist = ""; measurePlaylistFrame = false; loadStage = "—";
         if (uri != null && uri.matches("(?i)^spotify:playlist:[a-z0-9]+$")) {
             pendingPlaylist = uri; playlistStart = now();
         }
@@ -169,7 +178,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             if (fill == glowFill[i] && glow[i] != null && glow[i].isStarted()) continue;
             stopGlow(i);
             glowFill[i] = fill;
-            ObjectAnimator pulse = ObjectAnimator.ofInt(fill, "alpha", 208, 255);
+            ObjectAnimator pulse = ObjectAnimator.ofInt(fill, "alpha", 150, 255);
             pulse.setDuration(1600);
             pulse.setRepeatMode(ValueAnimator.REVERSE);
             pulse.setRepeatCount(ValueAnimator.INFINITE);
@@ -208,6 +217,27 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         try {
             JSONObject o = new JSONObject(json);
             long t = now();
+            // AndBridge.recMediaStatus also dispatches a legacy "player"
+            // payload. It has no Preview progress fields: it is not an invalid
+            // Preview sample. updateNativePlayer already touched the views, so
+            // restore our last reliable display without mixing its milliseconds
+            // with the shell's seconds. A different/unknown title must reset.
+            if (!o.has("previewProgressValid")) {
+                String title = o.optString("track", ""), artist = o.optString("artist", "");
+                boolean same = !observedTitle.isEmpty() && observedTitle.equals(title) &&
+                    (observedArtist.isEmpty() || artist.isEmpty() || observedArtist.equals(artist));
+                if (!same) { valid = false; moving = false; glowSampleValid = false; }
+                else if (o.has("playing") && !o.optBoolean("playing", false)) {
+                    double frozen = position(t);
+                    if (!Double.isNaN(frozen)) { base = frozen; anchor = t; correction = 0; }
+                    moving = false; glowSampleValid = false; realPlaying = false;
+                    if (!pending) shownPlaying = false;
+                }
+                renderProgress(); renderButtons(); syncGlow();
+                return;
+            }
+            observedTitle = o.optString("track", "");
+            observedArtist = o.optString("artist", "");
             boolean real = o.optBoolean("playing", false);
             String uri = o.optString("previewTrackUri", "");
             long pos = o.optLong("previewPositionMs", -1), dur = o.optLong("previewDurationMs", -1);
@@ -299,6 +329,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             .append(firstHomeFrameMs < 0 ? "—" : Long.toString(firstHomeFrameMs) + " ms");
         out.append("\nPlaylist : appui → prochaine frame avec titres : ")
             .append(playlistFrameMs < 0 ? "—" : Long.toString(playlistFrameMs) + " ms");
+        out.append("\nChargement playlist (état local, sans identifiant) : ").append(loadStage);
         out.append("\nSource position : ").append(progressSource);
         out.append(" ; identité de titre présente : ").append(progressHasUri ? "oui" : "non");
         out.append("\nIntervalles position : ");

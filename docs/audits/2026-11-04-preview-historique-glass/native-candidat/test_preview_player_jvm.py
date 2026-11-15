@@ -17,7 +17,7 @@ STUBS = {
 'android/graphics/drawable/Drawable.java': """package android.graphics.drawable; public class Drawable { public int alpha=255; public Drawable mutate(){return this;} public void setAlpha(int a){alpha=a;} }""",
 'android/graphics/drawable/LayerDrawable.java': """package android.graphics.drawable; public class LayerDrawable extends Drawable { public Drawable fill=new Drawable(); public Drawable findDrawableByLayerId(int id){return id==android.R.id.progress?fill:null;} }""",
 'android/animation/ValueAnimator.java': """package android.animation; public class ValueAnimator { public static final int REVERSE=2, INFINITE=-1; public static boolean enabled=true; public static boolean areAnimatorsEnabled(){return enabled;} }""",
-'android/animation/ObjectAnimator.java': """package android.animation; import android.graphics.drawable.Drawable; import java.util.*; public class ObjectAnimator extends ValueAnimator { public static List<ObjectAnimator> all=new ArrayList<ObjectAnimator>(); public Drawable target; public boolean started; public static ObjectAnimator ofInt(Object d,String p,int...v){if(!p.equals("alpha"))throw new AssertionError();ObjectAnimator a=new ObjectAnimator();a.target=(Drawable)d;all.add(a);return a;} public ObjectAnimator setDuration(long ms){if(ms!=1600)throw new AssertionError();return this;} public void setRepeatMode(int n){if(n!=REVERSE)throw new AssertionError();} public void setRepeatCount(int n){if(n!=INFINITE)throw new AssertionError();} public void start(){started=true;target.setAlpha(208);} public void cancel(){started=false;} public boolean isStarted(){return started;} public static int active(){int n=0;for(ObjectAnimator a:all)if(a.started)n++;return n;} }""",
+'android/animation/ObjectAnimator.java': """package android.animation; import android.graphics.drawable.Drawable; import java.util.*; public class ObjectAnimator extends ValueAnimator { public static List<ObjectAnimator> all=new ArrayList<ObjectAnimator>(); public Drawable target; public boolean started; public static ObjectAnimator ofInt(Object d,String p,int...v){if(!p.equals("alpha"))throw new AssertionError();ObjectAnimator a=new ObjectAnimator();a.target=(Drawable)d;all.add(a);return a;} public ObjectAnimator setDuration(long ms){if(ms!=1600)throw new AssertionError();return this;} public void setRepeatMode(int n){if(n!=REVERSE)throw new AssertionError();} public void setRepeatCount(int n){if(n!=INFINITE)throw new AssertionError();} public void start(){started=true;target.setAlpha(150);} public void cancel(){started=false;} public boolean isStarted(){return started;} public static int active(){int n=0;for(ObjectAnimator a:all)if(a.started)n++;return n;} }""",
 'android/content/Context.java': '''package android.content; public class Context { public static final String CLIPBOARD_SERVICE="clipboard"; public Object getSystemService(String x){ return new ClipboardManager(); } }''',
 'android/content/DialogInterface.java': '''package android.content; public interface DialogInterface { interface OnClickListener { void onClick(DialogInterface d,int i); } }''',
 'android/content/ClipData.java': '''package android.content; public class ClipData { public final String text; private ClipData(String s){text=s;} public static ClipData newPlainText(CharSequence l,CharSequence s){return new ClipData(s.toString());} }''',
@@ -37,12 +37,12 @@ STUBS = {
 'android/app/Activity.java': '''package android.app; import java.util.*;import android.view.View; public class Activity extends android.content.Context { public Map<Integer,View> views=new HashMap<Integer,View>(); public View findViewById(int i){return views.get(i);} }''',
 'android/app/AlertDialog.java': '''package android.app;import android.content.DialogInterface; public class AlertDialog { public static DialogInterface.OnClickListener copy; public static String body; public static class Builder { public Builder(Activity a){} public Builder setTitle(CharSequence s){return this;} public Builder setMessage(CharSequence s){body=s.toString();return this;} public Builder setPositiveButton(CharSequence s,DialogInterface.OnClickListener l){copy=l;return this;} public Builder setNegativeButton(CharSequence s,DialogInterface.OnClickListener l){return this;} public AlertDialog show(){return new AlertDialog();} } }''',
 # Flat fake data format is sufficient to exercise the controller, not JSON parsing.
-'org/json/JSONObject.java': '''package org.json; import java.util.*;public class JSONObject { private Map<String,String> m=new HashMap<String,String>();public JSONObject(String s){for(String p:s.split(";")){int i=p.indexOf('=');if(i>0)m.put(p.substring(0,i),p.substring(i+1));}}public boolean optBoolean(String k,boolean d){String s=m.get(k);return s==null?d:Boolean.parseBoolean(s);}public String optString(String k,String d){String s=m.get(k);return s==null?d:s;}public long optLong(String k,long d){try{return Long.parseLong(m.get(k));}catch(Exception e){return d;}}}''',
+'org/json/JSONObject.java': '''package org.json; import java.util.*;public class JSONObject { private Map<String,String> m=new HashMap<String,String>();public JSONObject(String s){for(String p:s.split(";")){int i=p.indexOf('=');if(i>0)m.put(p.substring(0,i),p.substring(i+1));}}public boolean has(String k){return m.containsKey(k);}public boolean optBoolean(String k,boolean d){String s=m.get(k);return s==null?d:Boolean.parseBoolean(s);}public String optString(String k,String d){String s=m.get(k);return s==null?d:s;}public long optLong(String k,long d){try{return Long.parseLong(m.get(k));}catch(Exception e){return d;}}}''',
 'com/melodix/music/ControllerTest.java': r'''package com.melodix.music;
 import android.app.*; import android.os.*; import android.view.*; import android.widget.*; import android.content.*;
 public class ControllerTest {
  static void eq(long a,long b){if(a!=b)throw new AssertionError(a+" != "+b);} static void yes(boolean b){if(!b)throw new AssertionError();}
- static String sample(String track,long pos,long dur,boolean play,boolean advance,boolean valid){return "playing="+play+";previewTrackUri="+track+";previewPositionMs="+pos+";previewDurationMs="+dur+";previewAdvancing="+advance+";previewProgressValid="+valid;}
+ static String sample(String track,long pos,long dur,boolean play,boolean advance,boolean valid){return "track=Song;artist=Artist;playing="+play+";previewTrackUri="+track+";previewPositionMs="+pos+";previewDurationMs="+dur+";previewAdvancing="+advance+";previewProgressValid="+valid;}
  public static void main(String[] ignored) throws Exception {
   Activity a=new Activity(); ProgressBar mini=new ProgressBar(), full=new ProgressBar(); TextView elapsed=new TextView(),duration=new TextView(),remain=new TextView(); ImageView b1=new ImageView(),b2=new ImageView(); View root=new View();root.tags.put("nativePlayerRemaining",remain);
   a.views.put(0x7f09024d,mini);a.views.put(0x7f09023d,full);a.views.put(0x7f09024a,elapsed);a.views.put(0x7f09024b,duration);a.views.put(0x7f090238,b1);a.views.put(0x7f09023e,b2);a.views.put(0x7f09023a,root);
@@ -51,6 +51,17 @@ public class ControllerTest {
   // invalid input, hidden bars and Android's disabled animations stop it.
   c.snapshot(sample(t,10000,120000,true,true,true));eq(mini.progress,83);eq(full.progress,83);
   eq(android.animation.ObjectAnimator.active(),0);c.activityResumed();eq(android.animation.ObjectAnimator.active(),2);
+  // The legacy bridge feed contains milliseconds but no Preview fields. The
+  // old native updater may have reset a view; same-track data must restore the
+  // sample and keep the pulse instead of resetting progress to unknown.
+  mini.progress=0;full.progress=0;c.snapshot("track=Song;artist=Artist;playing=true;position=10000;duration=120000");
+  eq(mini.progress,83);eq(full.progress,83);eq(android.animation.ObjectAnimator.active(),2);
+  c.snapshot("track=Other;artist=Artist;playing=true;position=0;duration=120000");
+  yes(elapsed.text.equals("—"));eq(android.animation.ObjectAnimator.active(),0);
+  c.snapshot(sample(t,10000,120000,true,true,true));eq(android.animation.ObjectAnimator.active(),2);
+  c.snapshot("track=Song;artist=Artist;playing=false;position=10000;duration=120000");
+  eq(android.animation.ObjectAnimator.active(),0);eq(mini.progress,83);
+  c.snapshot(sample(t,10000,120000,true,true,true));eq(android.animation.ObjectAnimator.active(),2);
   mini.shown=false;c.snapshot(sample(t,10000,120000,true,true,true));eq(android.animation.ObjectAnimator.active(),1);
   mini.shown=true;c.snapshot(sample(t,10000,120000,true,true,true));eq(android.animation.ObjectAnimator.active(),2);
   c.activityStopped();eq(android.animation.ObjectAnimator.active(),0);
@@ -79,6 +90,8 @@ public class ControllerTest {
   SystemClock.time=10005;c.command();c.snapshot(sample(t,1000,120000,false,false,true));eq(b1.image,0x7f080121);
   SystemClock.time=10015;c.snapshot(sample(t,1100,120000,true,true,true));eq(b1.image,0x7f080121);
   java.lang.reflect.Method m=PreviewPlayerController.class.getDeclaredMethod("report");m.setAccessible(true);String report=(String)m.invoke(c);yes(report.contains("5 ms"));yes(report.contains("15 ms"));yes(report.contains("400 ms"));yes(!report.contains(t));yes(!report.contains("secretTrack"));
+  c.loadState("waiting-token:no-token");report=(String)m.invoke(c);yes(report.contains("waiting-token:no-token"));
+  c.loadState("https://example.com/secret?token=secret");report=(String)m.invoke(c);yes(!report.contains("secret"));yes(report.contains("waiting-token:no-token"));
   View about=new View();c.attachAbout(about);yes(about.listener.onLongClick(about));yes(AlertDialog.body.contains("Diagnostic Preview"));AlertDialog.copy.onClick(null,0);yes(ClipboardManager.copied.equals(AlertDialog.body));
   // A stale playing snapshot cannot restart an optimistically paused clock.
   SystemClock.time=11000; c.snapshot(sample(t,2000,120000,true,true,true));

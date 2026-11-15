@@ -19,12 +19,12 @@ EXPECTED = {
     'res/layout-w600dp/activity_main.xml': '4d110f1df062fdf7676b9aa5e70146dd7ec148da3c0c614a553b5586ad5af8fe',
     'res/drawable/widget_progress_drawable.xml': '3a5f8f51ea984c7a8226d5acd69bf6b20383ca9622843d617b055c9fe18d772f',
 }
-SOURCE_SHA = 'ce52c385fce38d3dea1984ca0ab8da254104a9e1db144acc1b485545248e9f8d'
+SOURCE_SHA = 'ebef87a8197aad1a05452964226613034888fef46d3a062236293efac4d5e57e'
 HELPER_SHA = {
-    'PreviewPlayerController$1.smali': 'af55309ead621e60886b1bd1888d72607e964a4161ec44cd310150628a451ad0',
-    'PreviewPlayerController$2.smali': 'eeff585d1ca0ae0fead728bc8d917245dde0622b2cc7082becae196f0e63d56f',
-    'PreviewPlayerController$3.smali': '290e6c85d26b035080812d2f386c39234010eea9f035cc2679eafe0b421c5788',
-    'PreviewPlayerController.smali': 'bcd8bfbc0bc0101987346b744e8521f7b7cd084c190add479f8bbf05663c7f86',
+    'PreviewPlayerController$1.smali': '8c2c04bcc48f403366888936179825fc5c27bb2e125d214badb47cdb81fdc862',
+    'PreviewPlayerController$2.smali': 'c295eb5c69d1d69535ad023ee7b4cbecee617adb91d75c5b0a70d6cd59596efb',
+    'PreviewPlayerController$3.smali': 'f814daa06e5e4222b620f87d3c910cb1245ea8a48551d0b93eb986017c9b4152',
+    'PreviewPlayerController.smali': '67e4018a25fff17a84fcd5be570f23b9141e608cf9d3734be690183a838b4ab1',
 }
 
 def replace(text, old, new):
@@ -124,9 +124,26 @@ def prepare(root):
         }
         // Exact same rows that have already appeared in Home, scoped to the
         // current in-memory bearer session. Never copy recommendation shelves.''')
-    # Never force-reload the WebView during an observed playback just to
-    # display a collection: the page owns the audio session. Keep the pending
-    # bridge request alive, so a late result may still replace the status row.
+    # Retry only after the bridge starts or an absent token appears. Never
+    # overlap requests or poll a failing authenticated Spotify request.
+    s = replace(s, "    var openCollectionTimer = null;\n    var pendingCollectionUri = null;", """    var openCollectionTimer = null;
+    var previewCollectionRetry = null;
+    var pendingCollectionUri = null;
+    function previewLoadState(stage) {
+        try {
+            if (window.AndBridge && typeof window.AndBridge.onNativeUiData === 'function')
+                window.AndBridge.onNativeUiData('preview-load', stage + (window.spotAuthToken ? ':token' : ':no-token'));
+        } catch (_) {}
+    }
+    function stopPreviewCollectionRetry() {
+        if (previewCollectionRetry) window.clearTimeout(previewCollectionRetry);
+        previewCollectionRetry = null;
+    }""")
+    s = replace(s, "    function cancelPendingCollectionNavigation() {\n        stopCollectionFallback();", "    function cancelPendingCollectionNavigation() {\n        stopCollectionFallback();\n        stopPreviewCollectionRetry();")
+    s = replace(s, "            window.__sfNativeCollectionHasData = true;\n            stopCollectionFallback();", "            window.__sfNativeCollectionHasData = true;\n            previewLoadState('data');\n            stopPreviewCollectionRetry();\n            stopCollectionFallback();")
+    # Never reload Spotify as a side effect of browsing. A false/unknown
+    # playing state is not proof that the page is safe to reload. Preserve the
+    # outstanding request so an eventual bridge response can still render.
     s = replace(s, '''        function navigate() {
             if (window.__sfNativeCollectionRequest !== requestId) return false;
             stopCollectionFallback();
@@ -134,21 +151,68 @@ def prepare(root):
         }''', '''        function navigate() {
             if (window.__sfNativeCollectionRequest !== requestId) return false;
             stopCollectionFallback();
-            if (playbackSnapshot().playing) {
-                if (!window.__sfNativeCollectionHasData) sendNativeUiData('detail', [{title:'Chargement en attente',
-                    subtitle:'La lecture continue. Les titres apparaîtront si Spotify les fournit.', settingValue:'Info', uri:''}]);
-                return false;
+            if (!window.__sfNativeCollectionHasData) {
+                if (inFlight) previewLoadState('timeout');
+                sendNativeUiData('detail', [{title:'Titres momentanément indisponibles',
+                    subtitle:'Spotify n’a pas encore fourni les titres.', settingValue:'Info', uri:''}]);
             }
-            return window.__sfNativeOpenUri(uri);
+            return false;
         }''')
+    s = replace(s, '''        if (window.__sfMelodixBridgeStarted === true && typeof window.fetchMediaItems === 'function') {
+            try {
+                // Arm first: the bridge may synchronously serve its cache.
+                openCollectionTimer = window.setTimeout(navigate, 6000);
+                Promise.resolve(window.fetchMediaItems(uri, requestId, String(value))).catch(function() {});
+                return true;
+            } catch (_) {
+                stopCollectionFallback();
+            }
+        }
+        return navigate();''', '''        var remaining = 20, attempts = 0, inFlight = false;
+        function current() {
+            return window.__sfNativeCollectionRequest === requestId && !window.__sfNativeCollectionHasData;
+        }
+        function waitForReady(needsToken) {
+            if (!current()) return;
+            if (remaining-- <= 0) { previewLoadState('unavailable'); return; }
+            previewLoadState(needsToken ? 'waiting-token' : 'waiting-bridge');
+            previewCollectionRetry = window.setTimeout(function() {
+                previewCollectionRetry = null;
+                if (!current()) return;
+                var bridgeReady = window.__sfMelodixBridgeStarted === true && typeof window.fetchMediaItems === 'function';
+                if (bridgeReady && (!needsToken || !!window.spotAuthToken)) request();
+                else waitForReady(needsToken);
+            }, 1000);
+        }
+        function request() {
+            if (!current() || inFlight || attempts >= 2) return;
+            var hadToken = !!window.spotAuthToken;
+            attempts += 1; inFlight = true; previewLoadState('pending');
+            function settled(failed) {
+                inFlight = false;
+                if (!current()) return;
+                previewLoadState(failed ? 'failed' : 'no-data');
+                // Only retry a tokenless attempt, after a token becomes
+                // available. An authenticated error can be a real empty
+                // playlist or a refusal; do not repeatedly hammer Spotify.
+                if (!hadToken && attempts < 2) waitForReady(true);
+            }
+            try {
+                Promise.resolve(window.fetchMediaItems(uri, requestId, String(value)))
+                    .then(function() { settled(false); }, function() { settled(true); });
+            } catch (_) { settled(true); }
+        }
+        // Arm before requesting: a cache hit can call back synchronously.
+        openCollectionTimer = window.setTimeout(navigate, 6000);
+        if (window.__sfMelodixBridgeStarted === true && typeof window.fetchMediaItems === 'function') request();
+        else waitForReady(false);
+        return true;''')
     s = replace(s, '''        if (shown || path === target || path.indexOf(target + '/') === 0) return true;
         window.location.assign('https://open.spotify.com' + target);''', '''        if (shown || path === target || path.indexOf(target + '/') === 0) return true;
-        if (playbackSnapshot().playing) {
-            sendNativeUiData('media:' + key, [{title:'Bibliothèque momentanément indisponible',
-                subtitle:'La lecture continue. Réessayez lorsque Spotify sera prêt.', settingValue:'Info', uri:''}]);
-            return false;
-        }
-        window.location.assign('https://open.spotify.com' + target);''')
+        sendNativeUiData('media:' + key, [{title:'Bibliothèque momentanément indisponible',
+            subtitle:'Spotify n’a pas encore fourni les listes. Réessayez dans un instant.', settingValue:'Info', uri:''}]);
+        return false;''')
+    s = replace(s, "        return false;\n        return true;\n    }\n\n    window.__sfOpenLibrary", "        return false;\n    }\n\n    window.__sfOpenLibrary")
     s = replace(s, '''        if (!isSpotifyHome()) {
             window.location.assign('https://open.spotify.com/');''', '''        if (!isSpotifyHome()) {
             if (playbackSnapshot().playing) return false;
@@ -328,7 +392,16 @@ def prepare(root):
     move-result-object v0
     invoke-virtual {v0}, Lcom/melodix/music/PreviewPlayerController;->command()V
     return-void
-    :preview_not_command''')
+    :preview_not_command
+    const-string v0, "preview-load"
+    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :preview_not_load
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->previewPlayer()Lcom/melodix/music/PreviewPlayerController;
+    move-result-object v0
+    invoke-virtual {v0, p2}, Lcom/melodix/music/PreviewPlayerController;->loadState(Ljava/lang/String;)V
+    return-void
+    :preview_not_load''')
     s = replace(s, '''    :check_player
     const-string v0, "player"
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z

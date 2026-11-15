@@ -899,6 +899,7 @@ jobs:
             MELODIX_PREVIEW_ROOT="$RUNNER_TEMP/historical-decoded" python3 "$audit/native-candidat/test_native_navigation_access.py"
             navigation_test="$audit/native-candidat/native-navigation-access.test.cjs"
             if [[ "$PAGED_PLAYLISTS" == "true" ]]; then navigation_test="$audit/native-candidat/native-navigation-paged.test.cjs"; fi
+            if [[ "$PLAYER_PATCH" == "true" ]]; then navigation_test="$audit/native-candidat/preview-navigation-paged.test.cjs"; fi
             MELODIX_CANDIDATE_ROOT="$RUNNER_TEMP/historical-decoded" NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" \
               node --test "$navigation_test"
           fi
@@ -998,8 +999,10 @@ jobs:
               full_bootstrap="$audit/native-candidat/screen-full-bootstrap.test.cjs"
               if [[ "$STABLE_HOME_LIBRARY" == "true" ]]; then
                 full_bootstrap="$audit/native-candidat/stable-full-bootstrap.test.cjs"
+                stable_test="$audit/native-candidat/stable-home-library.test.cjs"
+                if [[ "$PLAYER_PATCH" == "true" ]]; then stable_test="$audit/native-candidat/preview-stable-home-library.test.cjs"; fi
                 MELODIX_CANDIDATE_ROOT="$RUNNER_TEMP/historical-decoded" MELODIX_SMALI_ROOT="$RUNNER_TEMP/historical-decoded" NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" \
-                  node --test "$audit/native-candidat/stable-home-library.test.cjs"
+                  node --test "$stable_test"
               fi
               if [[ "$FAST_COLD_HOME" == "true" ]]; then
                 MELODIX_CANDIDATE_ROOT="$RUNNER_TEMP/historical-decoded" NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" \

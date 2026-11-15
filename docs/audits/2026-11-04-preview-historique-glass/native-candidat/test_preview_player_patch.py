@@ -95,7 +95,7 @@ class PreviewPlayer(unittest.TestCase):
         self.assertIn('PreviewPlayerController;->activityStopped()V', method(activity, '.method public final onStop()'))
         source = (HERE/'preview-player/PreviewPlayerController.java').read_text()
         for part in ('ValueAnimator.areAnimatorsEnabled()', 'view.isShown()', 'findDrawableByLayerId(android.R.id.progress)',
-                     'ObjectAnimator.ofInt(fill, "alpha", 208, 255)', 'glowSampleValid', 'realPlaying && shownPlaying',
+                     'ObjectAnimator.ofInt(fill, "alpha", 150, 255)', 'glowSampleValid', 'realPlaying && shownPlaying',
                      'glow[index].cancel()', 'glowFill[index].setAlpha(255)'):
             self.assertIn(part, source)
 

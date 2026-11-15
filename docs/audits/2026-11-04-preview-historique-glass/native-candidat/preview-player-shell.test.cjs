@@ -8,7 +8,8 @@ if(!root)throw Error('MELODIX_CANDIDATE_ROOT required');
 const shell=fs.readFileSync(path.join(root,'assets/native_ui_shell.js'),'utf8');
 function fixture(customHtml){
  const html=customHtml || '<main id="main-view"></main><div data-testid="now-playing-bar"><a data-testid="context-item-link" href="/track/abc123">Song</a></div><span data-testid="playback-position">0:00</span><span data-testid="playback-duration">2:00</span><button data-testid="control-button-playpause" aria-label="Pause"></button>';
- const dom=new JSDOM('<!doctype html><body>'+html+'</body>',{url:'https://open.spotify.com/',runScripts:'outside-only',virtualConsole:new VirtualConsole()});
+ const errors=[], vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e.message));
+ const dom=new JSDOM('<!doctype html><body>'+html+'</body>',{url:'https://open.spotify.com/',runScripts:'outside-only',virtualConsole:vc});
  const w=dom.window,events=[],intervals=[],commands=[];let t=0;
  w.fetch=()=>{throw Error('unexpected network')};
  w.AndBridge={onNativeUiData:(kind,json)=>events.push({kind,json}),onNativeUiReady(){},onNativeUiRoute(){}};
@@ -17,7 +18,7 @@ function fixture(customHtml){
  w.setTimeout=()=>1;w.clearTimeout=()=>{};w.MutationObserver=class{observe(){}disconnect(){}};
  Object.defineProperty(w.performance,'now',{value:()=>t});
  w.eval(shell);
- return {w,events,commands,step(ms){t+=ms;intervals.find(i=>i.ms===1000).fn()},payload(){return JSON.parse(events.filter(e=>e.kind==='player').at(-1).json)},close(){dom.window.close()}};
+ return {w,events,commands,errors,step(ms){t+=ms;intervals.find(i=>i.ms===1000).fn()},payload(){return JSON.parse(events.filter(e=>e.kind==='player').at(-1).json)},close(){dom.window.close()}};
 }
 test('real shell publishes only observed identity and movement; freezes on unchanged position',()=>{
  const x=fixture();try{
@@ -71,5 +72,36 @@ test('switching sources cannot count as observed movement',()=>{
   assert.equal(x.payload().previewProgressSource,'clock');
   const n=x.w.document.createElement('div');n.setAttribute('data-testid','playback-progressbar');n.innerHTML='<input type="range" max="120000" value="21000">';x.w.document.body.append(n);
   x.step(1000);assert.equal(x.payload().previewProgressSource,'range');assert.equal(x.payload().previewAdvancing,false);
+ }finally{x.close()}
+});
+
+test('library and playlist browsing never reload or issue playback when playing is false or unknown',()=>{
+ for (const label of ['Play','', 'Pause']) {
+  const html='<main id="main-view"></main><button data-testid="control-button-playpause" aria-label="'+label+'"></button>';
+  const x=fixture(html);try{
+   let navigation=0;x.w.__sfNativeOpenUri=()=>{navigation++;return true};
+   const before=x.w.location.href;
+   assert.equal(x.w.__sfOpenLibrary(),false);
+   assert.equal(x.w.__sfOpenCollection('spotify:playlist:abc123'),true);
+   assert.equal(x.w.location.href,before);assert.equal(navigation,0);assert.deepEqual(x.commands,[]);assert.ok(!x.errors.some(e=>/navigation/i.test(e)));
+   const lib=x.events.filter(e=>e.kind==='media:playlists').at(-1);
+   const detail=x.events.filter(e=>e.kind==='detail').at(-1);
+   assert.match(JSON.parse(lib.json)[0].title,/indisponible/);
+   assert.equal(detail,undefined);assert.ok(x.events.some(e=>e.kind==='preview-load' && e.json==='waiting-bridge:no-token'));
+  }finally{x.close()}
+ }
+});
+
+test('late playlist response remains eligible after the non-destructive timeout',()=>{
+ const x=fixture();try{
+  let timer, navigation=0, request;
+  x.w.setTimeout=(fn,ms)=>{if(ms===6000)timer=fn;return 1};
+  x.w.__sfMelodixBridgeStarted=true;
+  x.w.fetchMediaItems=(uri,id)=>{request={uri,id};return new Promise(()=>{})};
+  x.w.__sfNativeOpenUri=()=>{navigation++;return true};
+  assert.equal(x.w.__sfOpenCollection('spotify:playlist:abc123'),true);
+  assert.ok(timer);timer();assert.equal(navigation,0);assert.deepEqual(x.commands,[]);
+  x.w.__sfNativeCollectionLoaded(request.uri,request.id);
+  assert.equal(x.w.__sfNativeCollectionHasData,true);
  }finally{x.close()}
 });
