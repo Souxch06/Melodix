@@ -9,3 +9,7 @@ Base A et 1022165 ; aucun téléphone ni session Spotify réelle disponible.
 - **BLOQUÉ : aléatoire et Like** : leur absence/échec sur téléphone est signalé, mais leur DOM réel et son état ne sont pas fournis. Pas de clic à l'aveugle ni retrait de Like ; sélecteurs prudents et sonde restent en place. Aucune garantie d'amélioration réelle.
 
 La WebView n'est jamais rendue visible. Tests DOM et JVM synthétiques ; pas de preuve du rendu, du volume sonore, du cycle de répétition ni du contenu Spotify réel. Aucune lecture de jeton, cookie ou en-tête et aucune requête réseau ajoutée.
+
+## Retour téléphone ultérieur
+
+L'utilisateur signale que répétition, aléatoire et Like ne fonctionnent toujours pas ; la capture montre le panneau à trois boutons gris, curseur vert et sans poignée ni carte. Cela correspond à l'ancien style, pas à celui du candidat `0d4785d0` (poignée, carte et actions côte à côte). **Le numéro de version installé et la cause des trois échecs ne sont pas visibles** : ne pas attribuer ce retour à un build précis, ni en déduire que le nouveau style ou les nouveaux comportements sont validés. Le même problème peut persister dans le nouveau candidat. La sonde précédente observait aléatoire et Like absents/inconnus ; la répétition réelle et ses attributs restent inconnus. Ne pas simuler leur succès.
