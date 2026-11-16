@@ -25,11 +25,11 @@ public final class PreviewPlayerPlayButton extends ImageView {
         }
         lastIcon=id;
         post(new Runnable() { public void run() {
-            if (!isAttachedToWindow()) return;
+            if (!isAttachedToWindow() || id != lastIcon) return;
             View art = getRootView().findViewWithTag("previewPlayerArtCard");
             if (art == null) return;
             float scale = id == 0x7f080122 ? 0.92f : 1f;
-            if (lastScale == scale) return;
+            if (lastScale == scale && Math.abs(art.getScaleX()-scale)<0.001f && Math.abs(art.getScaleY()-scale)<0.001f) return;
             lastScale = scale;
             art.animate().cancel();
             if (Build.VERSION.SDK_INT >= 26 && !ValueAnimator.areAnimatorsEnabled()) {

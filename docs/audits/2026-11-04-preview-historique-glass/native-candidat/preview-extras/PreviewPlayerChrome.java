@@ -29,11 +29,16 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
     private View root, panel;
     private Drawable rootBackground, panelBackground, appliedBackground;
     private PreviewPlayerDecoration repeatArt, shuffleDot;
+    private PreviewPlayerLikeArt likeArt;
+    private View likeControl;
     private View repeatControl, shuffleControl;
     private final Runnable visualTick = new Runnable() { public void run() {
         if (!playerVisible()) { ticking=false; return; }
         if (repeatArt!=null && repeatControl!=null) {
             repeatArt.setBounds(0,0,repeatControl.getWidth(),repeatControl.getHeight()); repeatArt.invalidateSelf();
+        }
+        if (likeArt!=null && likeControl!=null) {
+            likeArt.setBounds(0,0,likeControl.getWidth(),likeControl.getHeight());likeArt.invalidateSelf();
         }
         if (shuffleDot!=null && shuffleControl!=null) {
             CharSequence label=shuffleControl.getContentDescription();
@@ -123,6 +128,12 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         View art=p.findViewWithTag("previewPlayerArtCard"),frame=p.findViewWithTag("previewPlayerArtFrame");
         if(frame instanceof ViewGroup){((ViewGroup)frame).setClipChildren(false);((ViewGroup)frame).setClipToPadding(false);}
         if(art!=null && Build.VERSION.SDK_INT>=28){art.setOutlineSpotShadowColor(0xffe0489e);art.setOutlineAmbientShadowColor(0xffe0489e);}
+        if(like instanceof ImageView){
+            likeControl=like;
+            GradientDrawable glass=new GradientDrawable();glass.setShape(GradientDrawable.OVAL);glass.setColor(0x17ffffff);glass.setStroke(dp(1),0x24ffffff);
+            like.setBackgroundTintList(null);like.setBackground(new RippleDrawable(ColorStateList.valueOf(0x44ffffff),glass,null));
+            ((ImageView)like).setImageAlpha(0);likeArt=new PreviewPlayerLikeArt(like);like.getOverlay().add(likeArt);
+        }
         ((ImageView)repeatControl).setImageAlpha(0);
         repeatArt=new PreviewPlayerDecoration(repeatControl,true);repeatControl.getOverlay().add(repeatArt);
         shuffleDot=new PreviewPlayerDecoration(shuffleControl,false);shuffleControl.getOverlay().add(shuffleDot);
@@ -172,7 +183,7 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         if(f instanceof ViewGroup.MarginLayoutParams){ViewGroup.MarginLayoutParams m=(ViewGroup.MarginLayoutParams)f;used+=m.topMargin+m.bottomMargin;}
         int available=panel.getHeight()-panel.getPaddingTop()-panel.getPaddingBottom()-used;
         int limit=Math.min(dp(318),frame.getWidth());
-        if(getResources().getConfiguration().fontScale<=1.3f && frame.getWidth()<=dp(342) && available>=frame.getWidth())limit=frame.getWidth();
+        if(getResources().getConfiguration().fontScale<=1.3f && available>=limit)limit=Math.min(dp(342),frame.getWidth());
         int side=getResources().getConfiguration().fontScale>1.3f?limit:Math.min(limit,Math.max(dp(80),available));
         if(side<=0)return;
         ViewGroup.LayoutParams c=card.getLayoutParams();

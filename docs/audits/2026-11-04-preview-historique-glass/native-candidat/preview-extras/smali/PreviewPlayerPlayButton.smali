@@ -28,7 +28,17 @@
     return-void
 .end method
 
-.method static synthetic access$0(Lcom/melodix/music/PreviewPlayerPlayButton;)F
+.method static synthetic access$0(Lcom/melodix/music/PreviewPlayerPlayButton;)I
+    .locals 1
+
+    .prologue
+    .line 14
+    iget v0, p0, Lcom/melodix/music/PreviewPlayerPlayButton;->lastIcon:I
+
+    return v0
+.end method
+
+.method static synthetic access$1(Lcom/melodix/music/PreviewPlayerPlayButton;)F
     .locals 1
 
     .prologue
@@ -38,7 +48,7 @@
     return v0
 .end method
 
-.method static synthetic access$1(Lcom/melodix/music/PreviewPlayerPlayButton;F)V
+.method static synthetic access$2(Lcom/melodix/music/PreviewPlayerPlayButton;F)V
     .locals 0
 
     .prologue

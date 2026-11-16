@@ -26,7 +26,7 @@
     .locals 0
 
     .prologue
-    .line 94
+    .line 99
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
     iput-boolean p1, p0, Lcom/melodix/music/PreviewPlayerChrome$PressEffect;->ownHaptic:Z
@@ -50,32 +50,32 @@
 
     const/high16 v4, 0x3f800000    # 1.0f
 
-    .line 96
+    .line 101
     invoke-virtual {p1}, Landroid/view/View;->isEnabled()Z
 
     move-result v2
 
     if-nez v2, :cond_1
 
-    .line 104
+    .line 109
     :cond_0
     :goto_0
     return v1
 
-    .line 97
+    .line 102
     :cond_1
     invoke-virtual {p2}, Landroid/view/MotionEvent;->getActionMasked()I
 
     move-result v2
 
-    .line 98
+    .line 103
     if-eqz v2, :cond_2
 
     if-eq v2, v0, :cond_2
 
     if-ne v2, v6, :cond_0
 
-    .line 99
+    .line 104
     :cond_2
     if-nez v2, :cond_3
 
@@ -85,11 +85,11 @@
 
     invoke-virtual {p1, v6}, Landroid/view/View;->performHapticFeedback(I)Z
 
-    .line 100
+    .line 105
     :cond_3
     if-nez v2, :cond_4
 
-    .line 101
+    .line 106
     :goto_1
     invoke-virtual {p1}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
 
@@ -97,7 +97,7 @@
 
     invoke-virtual {v2}, Landroid/view/ViewPropertyAnimator;->cancel()V
 
-    .line 102
+    .line 107
     sget v2, Landroid/os/Build$VERSION;->SDK_INT:I
 
     const/16 v5, 0x1a
@@ -119,10 +119,10 @@
     :cond_4
     move v0, v1
 
-    .line 100
+    .line 105
     goto :goto_1
 
-    .line 103
+    .line 108
     :cond_5
     invoke-virtual {p1}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
 

@@ -14,16 +14,18 @@ EXPECTED = {
 }
 
 EXTRAS = {
-    'PreviewPlayerPlayButton.java': '371da381b5326a599850c5788330e8f27c55a0760193c3a2761ea3f1823f1af2',
+    'PreviewPlayerLikeArt.java': '68a805cc8e85d11919cb0bfcd8b338897e03ba526738d3adb60822bae3234fae',
+    'smali/PreviewPlayerLikeArt.smali': 'ec283643ab325a329d6db490a5871d0b780c8f8442a8a37ad264028859074a7a',
+    'PreviewPlayerPlayButton.java': '7b080ee533f8e3c2be8d2bba9457d0bf51c32fa44606d4e7fd4604af5189e36a',
     'PreviewPlayerDecoration.java': 'a21b4dffe6c2ba7cbce2d29012e601b88c1a5ac43b56d6cf5b578f0bc104f44d',
-    'smali/PreviewPlayerPlayButton.smali': '1a5c3c6f592238f634948876cf6bd3530a6a1fc3013513492239f6f9db9fe242',
-    'smali/PreviewPlayerPlayButton$1.smali': 'd042bab303f67b9f7359c94fb99d7958d82753ae5f0bc83b08a123999ea72399',
+    'smali/PreviewPlayerPlayButton.smali': '10fa7289606a9481f8f6af0cac9e36790c1bf1ba73d9218d551ad194e9287e27',
+    'smali/PreviewPlayerPlayButton$1.smali': '4fd83f3fd7382c2861383c9b7197d59d28b8dc96808e0cd32f157ccddb4af3a0',
     'smali/PreviewPlayerDecoration.smali': 'd6603b418eaf73a509548f2f74b5a89489d5259dc8b52832f9c720ded5f96f41',
-    'smali/PreviewPlayerChrome$PressEffect.smali': '40af42b9fc75aa7bc09615aad55113006f2b7340917fef48f7ca34e9cf5d6c4a',
-    'smali/PreviewPlayerChrome$2.smali': '16450de0b018caf9e9c06dd7e1dcf782063db31cdb6470a16ac4cd1371108d86',
-    'smali/PreviewPlayerChrome$1.smali': 'e942b18ff1db4481932183f09daab9d409119ec1736c52bc4c615d34b0d2a036',
-    'smali/PreviewPlayerChrome.smali': '2856092ce68f09e825020b740a0e4b23a8e017008dcd7566520e057129ff9420',
-    'PreviewPlayerChrome.java': '60d3a1d9f694de68949490a7860d9617b25bf62cb67b188cd269c41ef9cc205c',
+    'smali/PreviewPlayerChrome$PressEffect.smali': 'a4b76803f7c59d13bd0b677df685dd65304c9a97aeabc9fd2ace1d4f0c0d3c74',
+    'smali/PreviewPlayerChrome$2.smali': 'ba62bbb10b7d3fbeaca8a2217330ede1844ba6300d9ba51afe5e752fb736b4a1',
+    'smali/PreviewPlayerChrome$1.smali': 'acdbf8b8bdd3cb853d57fb257f50292330279e7a119e2409c927b247aa0c539b',
+    'smali/PreviewPlayerChrome.smali': '6b4b8f8763859707e6d211de741b26491ec20245713238329581d263033aca5d',
+    'PreviewPlayerChrome.java': 'c1741fdd8ddb22b8ed63565fc280b609fc35dba90327255cdc5d5664d2851546',
     'smali/PreviewPlayerMode$1.smali': '3832e5c012f4f520778da6b2ca21b2acf7a26b4386b5d533f76c6f2d032901eb',
     'smali/PreviewPlayerMode$2.smali': 'f507a223dfedfbbd8e029e21d0c1ccfaae0e7a58b3dc4ff595194318eaab894a',
     'smali/PreviewPlayerMode$3.smali': 'a93913b09f293fb918a7b2b68670c443e598a7b435da77e26f4937306e188267',
@@ -32,10 +34,10 @@ EXTRAS = {
     'smali/PreviewPlayerMode$6.smali': '5b09ef6e39478eba452b8f9962bb0537847314638766e5345cf8f6c3a6c40030',
     'smali/PreviewPlayerMode.smali': '0bb8c71a1a2bd35350ea70758274e18b315b7ecbb836c1ac576de1bf0204b050',
     'smali/PreviewPlayerTiles$1.smali': '9daef4b22b5b64286b0467ae9d2a7af50bef94b317cbb55f25335dc8ce09cdf7',
-    'smali/PreviewPlayerTiles.smali': 'eb26650d0b04a371a3e37bdc2b2014c77a887e27232274e6b5d3b3898249216e',
+    'smali/PreviewPlayerTiles.smali': 'bf0e541c3726675ba791da84b77b5f8a9bd552d0e9f8c4ed1e0e0ade72bcb73d',
     'control.js': '1f8b82ccdbc72111805b635b8c43d04411357f3680290bde47407f4d5740f932',
     'PreviewPlayerMode.java': '434e949ddf79214193c884ce1ed429d24f03fe400994751f3e06b7c085bd2c11',
-    'PreviewPlayerTiles.java': '360d7100529e2da626e30ebe5d1f758b3ca31eba73a7d1ba1e2a44fef6a185e8',
+    'PreviewPlayerTiles.java': 'd104eb2f9b745d428771f0e347ad97af090d53a4cb01686696f870251a8092e1',
 }
 
 def one(s, old, new):
@@ -49,12 +51,12 @@ def player_layout(source):
     panel=one(panel,'android:paddingLeft="16.0dip"','android:paddingLeft="24.0dip"')
     panel=one(panel,'android:paddingRight="16.0dip"','android:paddingRight="24.0dip"')
     panel=one(panel,'android:paddingTop="10.0dip"','android:paddingTop="12.0dip"')
-    panel=one(panel,'android:paddingBottom="18.0dip"','android:paddingBottom="34.0dip"')
+    panel=one(panel,'android:paddingBottom="18.0dip"','android:paddingBottom="24.0dip"')
     marker='            <LinearLayout android:orientation="vertical" android:gravity="center" android:layout_width="fill_parent" android:layout_height="wrap_content">\n'
     header='''            <LinearLayout android:orientation="horizontal" android:gravity="center_vertical" android:layout_width="fill_parent" android:layout_height="wrap_content" android:minHeight="48.0dip">
                 <ImageButton android:src="@drawable/ic_arrow_down_24dp" android:tint="#ffffffff" android:scaleType="centerInside" android:padding="10.0dip" android:background="@drawable/native_button_dark" android:layout_width="48.0dip" android:layout_height="48.0dip" android:onClick="onNativeBackClick" android:contentDescription="Réduire le lecteur" />
                 <TextView android:text="LECTURE EN COURS" android:gravity="center" android:textSize="11.0sp" android:textStyle="bold" android:letterSpacing="0.14" android:textColor="#ffcfc6f2" android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_weight="1.0" />
-                <TextView android:visibility="invisible" android:text="•••" android:textColor="#ffc9c0ea" android:textSize="18.0sp" android:gravity="center" android:background="@drawable/native_button_dark" android:alpha="0.38" android:enabled="false" android:contentDescription="Menu indisponible" android:layout_width="48.0dip" android:layout_height="48.0dip" />
+                <Space android:tag="previewPlayerHeaderSpacer" android:layout_width="48.0dip" android:layout_height="48.0dip" />
             </LinearLayout>
 '''
     panel=one(panel,marker,marker.replace('android:gravity="center"','android:gravity="top"')+'            <com.melodix.music.PreviewPlayerChrome android:layout_width="0.0dip" android:layout_height="0.0dip" />\n'+header)
@@ -68,14 +70,14 @@ def player_layout(source):
                 app:cardElevation="18.0dip">'''
     new='''            <androidx.constraintlayout.widget.ConstraintLayout
                 android:tag="previewPlayerArtFrame" android:layout_width="fill_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="20.0dip" android:layout_marginBottom="24.0dip">
+                android:layout_marginTop="16.0dip" android:layout_marginBottom="20.0dip">
               <androidx.cardview.widget.CardView
                 android:tag="previewPlayerArtCard" android:layout_width="0.0dip" android:layout_height="0.0dip"
                 app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="parent" app:layout_constraintDimensionRatio="1:1"
                 app:layout_constraintWidth_max="318dp"
                 app:contentPadding="1.0dip"
-                app:cardBackgroundColor="#1fffffff" app:cardCornerRadius="30.0dip" app:cardElevation="22.0dip">'''
+                app:cardBackgroundColor="#1fffffff" app:cardCornerRadius="30.0dip" app:cardElevation="26.0dip">'''
     panel=one(panel,old,new)
     panel=one(panel,'            </androidx.cardview.widget.CardView>','              </androidx.cardview.widget.CardView>\n            </androidx.constraintlayout.widget.ConstraintLayout>')
     panel=one(panel,'android:contentDescription="Current track artwork"','android:contentDescription="Pochette du titre"')
@@ -98,7 +100,7 @@ def player_layout(source):
     title=panel[i:j].replace('android:layout_width="fill_parent"','android:layout_width="0.0dip" android:layout_weight="1.0"')
     title='''            <LinearLayout android:orientation="horizontal" android:gravity="center_vertical" android:layout_width="fill_parent" android:layout_height="wrap_content">
 '''+title+'''
-              <com.melodix.music.PreviewPlayerMode android:tag="like" android:layout_marginLeft="16.0dip" android:background="@drawable/native_button_dark" android:padding="10.0dip" android:layout_width="48.0dip" android:layout_height="48.0dip" android:contentDescription="Like indisponible" />
+              <com.melodix.music.PreviewPlayerMode android:tag="like" android:layout_marginLeft="16.0dip" android:background="@drawable/native_button_dark" android:padding="10.0dip" android:layout_width="44.0dip" android:layout_height="44.0dip" android:contentDescription="Like indisponible" />
             </LinearLayout>'''
     panel=panel[:i]+title+panel[j:]
     badge='''            <TextView
@@ -113,10 +115,9 @@ def player_layout(source):
 '''
     panel=one(panel,badge,'')
     panel=one(panel,'android:thumbTint="#ffc0a2ff"','android:thumbTint="#ffffffff"')
-    panel=one(panel,'android:layout_marginTop="16.0dip"','android:layout_marginTop="20.0dip"')
     panel=one(panel,'android:maxHeight="6.0dip"','android:maxHeight="5.0dip"')
     seek_start=panel.index('android:id="@id/nativePlayerProgress"'); seek_end=panel.index('/>',seek_start)
-    seek=panel[seek_start:seek_end].replace('android:layout_width="fill_parent"','android:layout_width="fill_parent" android:layout_marginLeft="-12.0dip" android:layout_marginRight="-12.0dip"')
+    seek=panel[seek_start:seek_end].replace('android:layout_width="fill_parent"','android:layout_width="fill_parent" android:layout_marginLeft="-12.0dip" android:layout_marginRight="-12.0dip"').replace('android:layout_marginTop="16.0dip"','android:layout_marginTop="20.0dip"')
     panel=panel[:seek_start]+seek+panel[seek_end:]
     controls='            <LinearLayout\n                android:orientation="horizontal"\n                android:gravity="center"'
     panel=one(panel,controls,controls+' android:clipChildren="false" android:clipToPadding="false" android:paddingTop="8.0dip" android:paddingBottom="8.0dip"')
@@ -165,7 +166,7 @@ def landscape_layout(source):
     panel=source[start:end]
     art='''            <androidx.constraintlayout.widget.ConstraintLayout
                 android:tag="previewPlayerArtFrame" android:layout_width="fill_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="20.0dip" android:layout_marginBottom="24.0dip">'''
+                android:layout_marginTop="16.0dip" android:layout_marginBottom="20.0dip">'''
     landscape='''            <LinearLayout android:orientation="horizontal" android:gravity="top" android:layout_width="fill_parent" android:layout_height="wrap_content">
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:tag="previewPlayerArtFrame" android:layout_width="0.0dip" android:layout_weight="0.44" android:layout_height="wrap_content"
@@ -206,7 +207,7 @@ def apply(root):
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
   <item><shape><gradient android:angle="270" android:startColor="#ff2b1456" android:centerColor="#ff170b33" android:endColor="#ff0a0614" /></shape></item>
   <item android:gravity="top|left" android:width="260dp" android:height="260dp"><shape><gradient android:type="radial" android:gradientRadius="130dp" android:startColor="#737b3fe4" android:endColor="#007b3fe4" /></shape></item>
-  <item android:gravity="bottom|right" android:width="240dp" android:height="240dp"><shape><gradient android:type="radial" android:gradientRadius="120dp" android:startColor="#59e0489e" android:endColor="#00e0489e" /></shape></item>
+  <item android:gravity="bottom|right" android:bottom="150dp" android:width="240dp" android:height="240dp"><shape><gradient android:type="radial" android:gradientRadius="120dp" android:startColor="#59e0489e" android:endColor="#00e0489e" /></shape></item>
 </layer-list>
 '''
     data['res/drawable/native_button_white.xml']=data['res/drawable/native_button_white.xml'].replace('#7C3AED','#7B3FE4').replace('#DB2777','#E0489E').replace('android:angle="0"','android:angle="135"')

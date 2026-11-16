@@ -26,9 +26,10 @@ class Polish(unittest.TestCase):
     self.assertEqual(row.get(A+'clipChildren'),'false')
     self.assertEqual(row.get(A+'clipToPadding'),'false')
     self.assertEqual(play.get(A+'onClick'),'onNativePlayPauseClick')
-    menu=next(e for e in panel.iter() if e.get(A+'contentDescription')=='Menu indisponible')
-    self.assertEqual(menu.get(A+'visibility'),'invisible')
-    self.assertEqual(menu.get(A+'layout_width'),'48.0dip')
+    spacer=next(e for e in panel.iter() if e.get(A+'tag')=='previewPlayerHeaderSpacer')
+    self.assertEqual(spacer.tag,'Space')
+    self.assertEqual(spacer.get(A+'layout_width'),'48.0dip')
+    self.assertNotEqual(spacer.get(A+'clickable'),'true')
     card=next(e for e in panel.iter() if e.get(A+'tag')=='previewPlayerArtCard')
     self.assertEqual(card.get(APP+'cardBackgroundColor').lower(),'#1fffffff')
  def test_geometry_for_requested_portrait_widths(self):
@@ -53,7 +54,7 @@ class Polish(unittest.TestCase):
   self.assertIn('tile.setColor(0x14ffffff)',tiles);self.assertIn('tile.setStroke(dp(1),0x1fffffff)',tiles)
   self.assertIn('b.setEnabled(i==3);b.setAlpha(1f);b.setSelected(false);b.setActivated(false)',tiles)
   self.assertIn('LayoutParams.WRAP_CONTENT:dp(56),1f)',tiles)
-  self.assertIn('available>=frame.getWidth())limit=frame.getWidth()',chrome)
+  self.assertIn('available>=limit)limit=Math.min(dp(342),frame.getWidth())',chrome)
   self.assertIn('setDuration(250)',chrome)
   for n in ['assets/native_ui_shell.js','assets/spotify_bridge.js','smali/com/melodix/music/MainActivity.smali',
             *['smali/com/melodix/music/PreviewPlayerController'+x+'.smali' for x in ('','$1','$2','$3','$4','$5')],
