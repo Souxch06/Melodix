@@ -20,8 +20,16 @@ mode=(here/'PreviewPlayerMode.java').read_text(encoding='utf-8')
 tiles=(here/'PreviewPlayerTiles.java').read_text(encoding='utf-8')
 assert '0xd9ffffff' in art and 'kind.equals("like")?(pending?0.65f:known?1f:0.35f)' in mode
 assert 'Chargement :' in mode and 'Indisponible :' in mode and 'reasonText()' in mode
-assert 'reasonText(reasons[i])' in tiles and 'disponible quand le contrôle Spotify est présent' in tiles
-assert 'FLAG_NOT_TOUCH_MODAL' in tiles and 'root.setVisibility(previous)' in tiles
+assert 'Indisponible dans cette version' in tiles and 'setOnDismissListener' in tiles
+for forbidden in ('import android.webkit', 'evaluateJavascript(', 'setVisibility(', 'AudioManager', 'FLAG_NOT_TOUCH_MODAL'):
+    assert forbidden not in tiles, forbidden
 for forbidden in ('loadUrl(', 'reload(', 'fetch(', 'api.spotify.com'):
     assert forbidden not in tiles
 print('Symmetric player headers, like contrast and disabled reasons checked structurally')
+
+# This guard checks the actual packaged implementation, not the Java source alone.
+compiled='\n'.join(p.read_text(encoding='utf8') for p in (root/'smali/com/melodix/music').glob('PreviewPlayerTiles*.smali'))
+assert compiled
+for forbidden in ('Landroid/webkit/WebView;', 'evaluateJavascript', '->setVisibility(', 'Landroid/media/AudioManager;', 'FLAG_NOT_TOUCH_MODAL'):
+    assert forbidden not in compiled, forbidden
+print('Native panel Smali cannot reveal WebView or alter Android audio via this component')

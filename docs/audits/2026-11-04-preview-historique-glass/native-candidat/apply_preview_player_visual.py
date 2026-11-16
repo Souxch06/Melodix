@@ -24,9 +24,7 @@ EXTRAS = {
     'smali/PreviewPlayerChrome$1.smali': 'acdbf8b8bdd3cb853d57fb257f50292330279e7a119e2409c927b247aa0c539b',
     'smali/PreviewPlayerChrome.smali': '6b4b8f8763859707e6d211de741b26491ec20245713238329581d263033aca5d',
     'PreviewPlayerChrome.java': 'c1741fdd8ddb22b8ed63565fc280b609fc35dba90327255cdc5d5664d2851546',
-    'tiles-control.js': '01d5a184459378d90be7346049f99667c85309077c4aa534f23cf209e5dbf7fa',
     'PreviewPlayerMode.java': '62395b89a44d6cb083e882a97c2f60c5ec7f086253976b4f30ff9fb27d36c892',
-    'PreviewPlayerTiles.java': 'bed2530def1cfdc59f59893184202cc1d07af0e39a461b2aec2bce7c4fee5a1a',
     'PreviewPlayerLikeArt.java': '49892fbb54b2c66dd9fe477fc851e55dedb2a4f8a31670e53530e5f03c289979',
     'control.js': '175738bc5d4dd14322760aa3477b49d31060cca57c3bf0624474ea3e447aa562',
     'control-diagnostic.js': '3e79954d32610bd58deda00e3e0dc79f811e70bdb15b9797b58e9d3bfa3d5f71',
@@ -39,17 +37,15 @@ EXTRAS = {
     'smali/PreviewPlayerMode$7.smali': '218fc74a0ccc367727b5f0a4492e0313c5d735c6513fa3386239b11197961ede',
     'smali/PreviewPlayerMode$8.smali': '322ae12a88fa8d6d6893f3a01786e02a1fd7a4393e16270738e9f9e35297cc31',
     'smali/PreviewPlayerMode.smali': 'cb20011116b20250c016af7b0c6153abdf0c1038258abb9f93ad6309780c5a06',
-    'smali/PreviewPlayerTiles$1.smali': 'd82048a78de0451ba52e6f3bdd241ef8c239303068ef5249c75ab6c1411a316a',
-    'smali/PreviewPlayerTiles$2.smali': 'a3bb88efc2d4dc68ef97603558b8cb68bb549b61d52a47d062f7693fb6ffbd7c',
-    'smali/PreviewPlayerTiles$3.smali': '3a217f96086bb6d2932d37469b2372553f343fd14ed5f568f64ca5e9a14ab628',
-    'smali/PreviewPlayerTiles$4.smali': '3539f24fd1946f1e19a827241c8d825efd717c30426c0788175f009334e9462b',
-    'smali/PreviewPlayerTiles$5.smali': '2167cd2a7b83ccabc7a0cf46f74164a65e88d0b14c7e22a8c7d0ad01195e1bb4',
-    'smali/PreviewPlayerTiles$6.smali': 'd5d37a769bd86819b3b06e01f6bff852e5c6acacfae464c9433453203aac250e',
-    'smali/PreviewPlayerTiles$7.smali': '19365ef19c3cf4f0f034034b248f43193cfead65f9ff8e2597ba7756b861b7c0',
-    'smali/PreviewPlayerTiles$8.smali': 'f2d62d51ddb1f2cc7ca7896639dfe1bf63f9bf00b3ee9baa9ad552ba3245b283',
-    'smali/PreviewPlayerTiles$9.smali': '0de599aca3f31263abd13bf6e82df4ae4be591f035c39e326c9fcd7b93632bf2',
-    'smali/PreviewPlayerTiles.smali': 'a9d552363db11f0f7cea973583a9d5fe6cf53eea7893d584a0db680eef88dcae',
     'smali/PreviewPlayerLikeArt.smali': '8caf0d0292ff562b70b85aef9fbe20f306e6bdf7239b337971c063f6fe9888ca',
+    'PreviewPlayerTiles.java': 'ccaf7ba915b1774c8f1a948c14645989e9c348723194744326bca34973b063fe',
+    'smali/PreviewPlayerTiles$1.smali': '9edf3b8af774e96e0fd37bd015dabc7b7a4eb7f19b5c7c894097b91b273786fd',
+    'smali/PreviewPlayerTiles$2.smali': '021657cf3dbdb1d42f086d48f2598ccacc76517712262d0bf82bb032ec9ac553',
+    'smali/PreviewPlayerTiles$3.smali': 'd1aaae5b72848aef08c4c7732e59c069b52cad0fd502217d418ce9c9d3a18871',
+    'smali/PreviewPlayerTiles$4.smali': '6f08a4a312a3e9fcbba8e71dee7d76926b298f0e88b3da577ecdb00a56ed5229',
+    'smali/PreviewPlayerTiles$5.smali': 'c57e68366bfedaf4f2154b1afd2e87c5ad36e5d0c89d7ec1247d4a2f82aab3b2',
+    'smali/PreviewPlayerTiles$6.smali': '63204d92b7d48e1d4eb50b87d210957d05e63709a14caa23399e7febed6ee330',
+    'smali/PreviewPlayerTiles.smali': '1a5938e42e89a64b2efa837d2905c79b2cb0ddbe91fdcfb21cd7945cde8fbcd0',
 }
 
 def one(s, old, new):
@@ -208,9 +204,6 @@ def apply(root):
         raise ValueError('control script/source mismatch')
     if json.dumps((here/'control-diagnostic.js').read_text(encoding='utf8'),ensure_ascii=True) not in (here/'PreviewPlayerMode.java').read_text(encoding='utf8'):
         raise ValueError('diagnostic script/source mismatch')
-    tiles_js=(here/'tiles-control.js').read_text(encoding='utf8')
-    if json.dumps(tiles_js,ensure_ascii=True) not in (here/'PreviewPlayerTiles.java').read_text(encoding='utf8'):
-        raise ValueError('tile script/source mismatch')
     for name,digest in EXPECTED.items():
         raw=(root/name).read_bytes()
         if hashlib.sha256(raw).hexdigest()!=digest: raise ValueError('unexpected visual input '+name)

@@ -24,5 +24,5 @@ for value in ('☰\\nFile', '♬\\nParoles', '▣\\nAppareils', '◖))\\nVolume'
 mode = text(smali / 'PreviewPlayerMode.smali')
 for value in ('Titre aimé', 'Action non confirmée. Réessayer', 'Lecture aléatoire activée'):
     assert value in mode, f'missing compiled mode text {value!r}'
-assert 'Réessayer' in ''.join(text(p) for p in smali.glob('PreviewPlayerTiles*.smali'))
+assert 'Indisponible dans cette version' in ''.join(text(p) for p in smali.glob('PreviewPlayerTiles*.smali'))
 print('Player tile glyphs and French text verified in compiled Smali')
