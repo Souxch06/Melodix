@@ -55,7 +55,7 @@ public final class PreviewPlayerVolume extends Button {
     private JSONObject parse(String s){try{Object v=new JSONTokener(s).nextValue();return v instanceof String?new JSONObject((String)v):null;}catch(Exception ignored){return null;}}
     private void paint(){
         // Same layout as the other tiles: enlarged icon line, then one short line.
-        String label=(percent==0?"◖×":"◖))")+"\n"+(percent<0?"Volume —":"Volume · "+percent+" %");
+        String label=(percent==0?"◖×":"◖))")+"\n"+(percent<0?"Volume":percent+" %");
         android.text.SpannableString styled=new android.text.SpannableString(label);
         styled.setSpan(new android.text.style.RelativeSizeSpan(2.2f),0,label.indexOf('\n'),android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         setText(styled);setContentDescription(percent<0?"Volume du lecteur indisponible : "+reason:"Volume du lecteur : "+percent+" pour cent");

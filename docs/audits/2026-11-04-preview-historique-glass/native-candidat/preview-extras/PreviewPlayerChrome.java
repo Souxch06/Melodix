@@ -5,6 +5,9 @@ import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.res.ColorStateList;
+import android.graphics.Bitmap;
+import android.graphics.Color;
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.LayerDrawable;
@@ -18,6 +21,8 @@ import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.view.ViewTreeObserver;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.SeekBar;
 
 /** Player-only layout and chrome. No player command, state or WebView access. */
@@ -34,6 +39,7 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
     private View repeatControl, shuffleControl;
     private final Runnable visualTick = new Runnable() { public void run() {
         if (!playerVisible()) { ticking=false; return; }
+        Activity host=activity(); if (host!=null) updateTint(host);
         if (repeatArt!=null && repeatControl!=null) {
             repeatArt.setBounds(0,0,repeatControl.getWidth(),repeatControl.getHeight()); repeatArt.invalidateSelf();
         }
@@ -82,7 +88,9 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         rootBackground=root.getBackground();panelBackground=panel.getBackground();
         appliedBackground=getResources().getDrawable(0x7f08013c,getContext().getTheme());
         int left=root.getPaddingLeft(),top=root.getPaddingTop(),right=root.getPaddingRight(),bottom=root.getPaddingBottom();
-        root.setBackground(appliedBackground);root.setPadding(left,top,right,bottom);panel.setBackground(null);
+        tintLayer=new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,new int[]{0,0});
+        appliedBackground=new LayerDrawable(new Drawable[]{appliedBackground,tintLayer});
+        root.setBackground(appliedBackground);root.setPadding(left,top,right,bottom);panel.setBackground(null);tintSource=null;
         chromeApplied=true;
     }
     private void restoreBackground() {
@@ -92,7 +100,59 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
             root.setBackground(rootBackground);root.setPadding(left,top,right,bottom);
         }
         if(panel!=null && panel.getBackground()==null)panel.setBackground(panelBackground);
-        root=null;panel=null;rootBackground=null;panelBackground=null;appliedBackground=null;chromeApplied=false;
+        root=null;panel=null;rootBackground=null;panelBackground=null;appliedBackground=null;tintLayer=null;tintSource=null;chromeApplied=false;
+    }
+    private GradientDrawable tintLayer;
+    private Drawable tintSource;
+    /** Average colour of the artwork bitmap already on screen; no loading, no request. */
+    static int dominant(Bitmap b){
+        if(b==null||b.isRecycled()||b.getWidth()<=0||b.getHeight()<=0)return 0;
+        long r=0,g=0,bl=0,n=0;int step=Math.max(1,Math.min(b.getWidth(),b.getHeight())/24);
+        for(int y=0;y<b.getHeight();y+=step)for(int x=0;x<b.getWidth();x+=step){
+            int c=b.getPixel(x,y);if(Color.alpha(c)<128)continue;
+            int max=Math.max(Color.red(c),Math.max(Color.green(c),Color.blue(c))),min=Math.min(Color.red(c),Math.min(Color.green(c),Color.blue(c)));
+            int w=1+(max-min)/32; // favour coloured pixels over greys
+            r+=Color.red(c)*w;g+=Color.green(c)*w;bl+=Color.blue(c)*w;n+=w;
+        }
+        if(n==0)return 0;
+        return Color.rgb((int)(r/n),(int)(g/n),(int)(bl/n));
+    }
+    private void updateTint(Activity a){
+        if(tintLayer==null)return;
+        View v=a.findViewById(0x7f090245);if(!(v instanceof ImageView))return;
+        Drawable d=((ImageView)v).getDrawable();if(d==tintSource)return;tintSource=d;
+        int c=d instanceof BitmapDrawable?dominant(((BitmapDrawable)d).getBitmap()):0;
+        // Light tint: violet stays the base; the cover colour only washes the top.
+        tintLayer.setColors(c==0?new int[]{0,0}:new int[]{(0x66<<24)|(c&0xffffff),(0x1f<<24)|(c&0xffffff),0});
+        View art=a.findViewById(0x7f09023a);art=art==null?null:art.findViewWithTag("previewPlayerArtCard");
+        if(art!=null&&Build.VERSION.SDK_INT>=28){int glow=c==0?0xffe0489e:(0xff000000|c);art.setOutlineSpotShadowColor(glow);art.setOutlineAmbientShadowColor(glow);}
+    }
+    /** Keep skip icons a readable size whatever width their slot gets. */
+    private void sizeSkips(Activity a){
+        for(int id:new int[]{0x7f09023f,0x7f090240}){
+            View v=a.findViewById(id);if(!(v instanceof ImageView)||v.getWidth()<=0)continue;
+            int pad=Math.max(dp(4),(Math.min(v.getWidth(),v.getHeight())-dp(28))/2);
+            if(v.getPaddingLeft()!=pad||v.getPaddingTop()!=pad){((ImageView)v).setScaleType(ImageView.ScaleType.FIT_CENTER);v.setPadding(pad,pad,pad,pad);}
+        }
+    }
+    /** Landscape: centre the two columns vertically and let the cover use the height. */
+    private void landscape(Activity a){
+        View p=a.findViewById(0x7f09023a);if(!(p instanceof ScrollView))return;
+        View frame=p.findViewWithTag("previewPlayerArtFrame"),card=p.findViewWithTag("previewPlayerArtCard");
+        if(frame==null||card==null||!(frame.getParent() instanceof LinearLayout))return;
+        LinearLayout row=(LinearLayout)frame.getParent();
+        if(row.getOrientation()!=LinearLayout.HORIZONTAL||!(row.getParent() instanceof LinearLayout))return;
+        ScrollView scroll=(ScrollView)p;if(!scroll.isFillViewport())scroll.setFillViewport(true);
+        ViewGroup.LayoutParams lp=row.getLayoutParams();
+        if(lp instanceof LinearLayout.LayoutParams&&((LinearLayout.LayoutParams)lp).weight!=1f){
+            LinearLayout.LayoutParams l=(LinearLayout.LayoutParams)lp;l.height=0;l.weight=1f;row.setLayoutParams(l);row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        }
+        int h=row.getHeight()-dp(24),w=frame.getWidth();
+        if(h<=0||w<=0)return;
+        int side=Math.max(dp(120),Math.min(w,Math.min(h,dp(520))));
+        ViewGroup.LayoutParams c=card.getLayoutParams(),f=frame.getLayoutParams();
+        if(c.width!=side||c.height!=side){c.width=side;c.height=side;card.setLayoutParams(c);}
+        if(f.height!=side){f.height=side;frame.setLayoutParams(f);}
     }
     private static final class PressEffect implements View.OnTouchListener {
         private final boolean ownHaptic;
@@ -204,7 +264,7 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
                 content.animate().alpha(1f).translationY(0f).setDuration(250).start();
             }
         }
-        hideHeader(a);applyBackground(a);stylePlay(a);sizeArtwork(a);setupCosmetics(a);
+        hideHeader(a);applyBackground(a);stylePlay(a);sizeArtwork(a);landscape(a);sizeSkips(a);setupCosmetics(a);updateTint(a);
         if(setupDone && !ticking){ticking=true;post(visualTick);}
     }
     @Override public void onGlobalLayout(){sync();}
