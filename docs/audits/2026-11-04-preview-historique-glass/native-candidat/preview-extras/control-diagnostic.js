@@ -38,11 +38,14 @@
     var raw=b.getAttribute('aria-checked');if(raw===null)raw=b.getAttribute('aria-pressed');
     out.state=raw==='true'||raw==='false'||(kind==='shuffle'&&raw==='mixed')?raw:raw===null?(out.label==='on-action'?'true':out.label==='off-action'?'false':'unknown'):'unknown';
     out.smart=kind==='shuffle' && out.state==='mixed';
+    var id=String(b.getAttribute('data-testid')||'').toLowerCase();
+    var conflict=kind==='like' && ((out.state==='false' && (out.label==='on-action'||/^(remove-button|remove-from-library-button)$/.test(id))) || (out.state==='true' && out.label==='off-action'));
+    var unverified=kind==='like' && out.state==='false' && out.label!=='off-action' && id!=='add-to-library-button';
     var popup=String(b.getAttribute('aria-haspopup')||'').toLowerCase();
     if(kind==='like')out.command=popup==='true'||popup==='menu'||popup==='dialog'?'menu':'unspecified';
     else out.command='toggle';
     var description=String(b.getAttribute('aria-description')||'').trim();
     var restricted=kind==='shuffle' && out.disabled && /^(shuffle is not available (with|for) (this account|this playback)|l['’]aléatoire n['’]est pas disponible avec (ce compte|cette lecture))$/i.test(description);
-    out.reason=restricted?'restriction':out.disabled?'disabled':out.state==='unknown'?'state':'observed';
+    out.reason=restricted?'restriction':out.disabled?'disabled':conflict?'conflict':unverified?'unverified':out.state==='unknown'?'state':'observed';
     return JSON.stringify(out);
 })

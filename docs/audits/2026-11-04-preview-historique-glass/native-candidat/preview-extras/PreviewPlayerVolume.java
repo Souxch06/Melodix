@@ -26,11 +26,22 @@ import org.json.JSONTokener;
 
 /** Spotify DOM range only; never modifies Android AudioManager. */
 public final class PreviewPlayerVolume extends Button {
-    private static final String SCRIPT = "(function(action, requested) {\n    'use strict';\n    // Only a uniquely identified native range inside Spotify's volume-bar.\n    // No session data, network, Android audio or synthetic playback command.\n    var nodes=Array.from(document.querySelectorAll('[data-testid=\"volume-bar\"] input[type=\"range\"], input[data-testid=\"volume-bar\"][type=\"range\"]')).filter(function(n){return n.isConnected;});\n    if(nodes.length!==1)return JSON.stringify({ok:false,reason:nodes.length?'ambiguous':'absent'});\n    var input=nodes[0];if(input.disabled||input.getAttribute('aria-disabled')==='true')return JSON.stringify({ok:false,reason:'disabled'});\n    var min=input.hasAttribute('min')?Number(input.min):0, max=input.hasAttribute('max')?Number(input.max):100, current=Number(input.value);\n    if(!isFinite(min)||!isFinite(max)||max<=min||!isFinite(current)||current<min||current>max)return JSON.stringify({ok:false,reason:'range'});\n    if(action==='query')return JSON.stringify({ok:true,percent:Math.round(100*(current-min)/(max-min))});\n    if(action!=='set'||!isFinite(Number(requested))||Number(requested)<0||Number(requested)>100)return JSON.stringify({ok:false,reason:'request'});\n    try{\n        var value=min+(max-min)*Number(requested)/100;\n        var setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;\n        setter.call(input,String(value));input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));\n        return JSON.stringify({ok:true,sent:true});\n    }catch(_){return JSON.stringify({ok:false,reason:'command'});}\n})\n";
+    private static final String SCRIPT = "(function(action, requested) {\n    'use strict';\n    // Only a uniquely identified native range inside Spotify's volume-bar.\n    // No session data, network, Android audio or synthetic playback command.\n    var nodes=Array.from(document.querySelectorAll('[data-testid=\"volume-bar\"] input[type=\"range\"], input[data-testid=\"volume-bar\"][type=\"range\"]')).filter(function(n){return n.isConnected;});\n    if(nodes.length!==1)return JSON.stringify({ok:false,reason:nodes.length?'ambiguous':'absent'});\n    var input=nodes[0];if(input.disabled||input.matches(':disabled')||input.closest('[aria-disabled=\"true\"]'))return JSON.stringify({ok:false,reason:'disabled'});\n    var min=input.hasAttribute('min')?Number(input.min):0, max=input.hasAttribute('max')?Number(input.max):100, current=Number(input.value);\n    if(!isFinite(min)||!isFinite(max)||max<=min||!isFinite(current)||current<min||current>max)return JSON.stringify({ok:false,reason:'range'});\n    if(action==='query')return JSON.stringify({ok:true,percent:Math.round(100*(current-min)/(max-min))});\n    if(action!=='set'||!isFinite(Number(requested))||Number(requested)<0||Number(requested)>100)return JSON.stringify({ok:false,reason:'request'});\n    try{\n        var value=min+(max-min)*Number(requested)/100;\n        var setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;\n        setter.call(input,String(value));input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));\n        return JSON.stringify({ok:true,sent:true});\n    }catch(_){return JSON.stringify({ok:false,reason:'command'});}\n})\n";
     private final Handler handler=new Handler(Looper.getMainLooper());
     private boolean running,readBusy,dragging,sendScheduled;
     private long readAt,serial,lastSent=-1000;
     private int percent=-1,queued=-1,lastNonZero=-1;
+    private String reason="page non accessible";
+    private static String lastPage="non observée", lastAction="aucune";
+    public static String diagnosticReport(){return "\nVolume lecteur — page : "+lastPage+" ; action : "+lastAction+" ; son non vérifié";}
+    private static String reasonText(String code){
+        if(code.equals("absent"))return "curseur Spotify absent";
+        if(code.equals("ambiguous"))return "plusieurs curseurs possibles";
+        if(code.equals("disabled"))return "curseur Spotify désactivé";
+        if(code.equals("range"))return "valeur du curseur invalide";
+        if(code.equals("command"))return "commande non confirmée";
+        return "page ou réponse inaccessible";
+    }
     private Dialog dialog;private TextView valueLabel;private SeekBar slider;private Button mute;
     private final Runnable tick=new Runnable(){public void run(){if(!running || !isShown() || getWindowVisibility()!=View.VISIBLE)return;read();handler.postDelayed(this,800);}};
     private final Runnable sendTask=new Runnable(){public void run(){sendScheduled=false;send();}};
@@ -39,24 +50,40 @@ public final class PreviewPlayerVolume extends Button {
     private Activity activity(){Context c=getContext();for(int i=0;i<8&&c instanceof ContextWrapper;i++){if(c instanceof Activity)return (Activity)c;Context n=((ContextWrapper)c).getBaseContext();if(n==c)break;c=n;}return c instanceof Activity?(Activity)c:null;}
     private WebView web(){Activity a=activity();if(a==null)return null;try{Object w=a.getClass().getField("G").get(a);return w instanceof WebView?(WebView)w:null;}catch(Exception ignored){return null;}}
     private JSONObject parse(String s){try{Object v=new JSONTokener(s).nextValue();return v instanceof String?new JSONObject((String)v):null;}catch(Exception ignored){return null;}}
-    private void paint(){String label=percent<0?"◖))\nVolume —":(percent==0?"◖×":"◖))")+"\nVolume "+percent+" %";setText(label);setContentDescription(percent<0?"Volume du lecteur indisponible":"Volume du lecteur : "+percent+" pour cent");setEnabled(running&&percent>=0);setAlpha(percent<0?0.45f:1f);}
+    private void paint(){
+        String label=percent<0?"◖))\nVolume —":(percent==0?"◖×":"◖))")+"\nVolume "+percent+" %";
+        setText(label);setContentDescription(percent<0?"Volume du lecteur indisponible : "+reason:"Volume du lecteur : "+percent+" pour cent");
+        setEnabled(running&&percent>=0);setAlpha(percent<0?0.45f:1f);
+        if(dialog!=null&&slider!=null&&mute!=null&&valueLabel!=null){
+            slider.setEnabled(percent>=0);mute.setEnabled(percent>=0);
+            if(percent<0)valueLabel.setText("Indisponible : "+reason);
+            else if(!dragging&&queued<0){slider.setProgress(percent);showValue(percent);}
+        }
+    }
     private void read(){
-        final WebView w=web();if(w==null){percent=-1;paint();return;}
+        final WebView w=web();if(w==null){percent=-1;reason=reasonText("web");lastPage=reason;paint();return;}
         long now=SystemClock.elapsedRealtime();if(dragging||queued>=0||(readBusy&&now-readAt<2400))return;
         readBusy=true;readAt=now;final long id=++serial;
         try{w.evaluateJavascript(SCRIPT+"(\"query\",0);",new ValueCallback<String>(){public void onReceiveValue(String value){
             if(id!=serial||!running||!isShown())return;readBusy=false;JSONObject o=parse(value);
             int p=o==null?-1:o.optInt("percent",-1);percent=o!=null&&o.optBoolean("ok",false)&&p>=0&&p<=100?p:-1;
-            if(percent>0)lastNonZero=percent;paint();if(dialog!=null&&!dragging&&percent>=0){slider.setProgress(percent);showValue(percent);}
-        }});}catch(RuntimeException ignored){readBusy=false;percent=-1;paint();}
+            if(percent<0){reason=reasonText(o==null?"web":o.optString("reason","web"));lastPage=reason;}
+            else {lastPage=percent+" % observé";if(percent>0)lastNonZero=percent;}
+            paint();
+        }});}catch(RuntimeException ignored){readBusy=false;percent=-1;reason=reasonText("web");lastPage=reason;paint();}
     }
     private void showValue(int n){if(valueLabel!=null)valueLabel.setText(n+" %");if(mute!=null)mute.setText(n==0?"Réactiver":"Silence");}
     private void enqueue(int n){queued=Math.max(0,Math.min(100,n));if(!sendScheduled){sendScheduled=true;long delay=Math.max(0,100-(SystemClock.elapsedRealtime()-lastSent));handler.postDelayed(sendTask,delay);}}
     private void send(){
         if(!running||queued<0)return;final int n=queued;queued=-1;lastSent=SystemClock.elapsedRealtime();final long sentId=++serial;readBusy=false;
-        WebView w=web();if(w==null){percent=-1;paint();return;}
-        try{w.evaluateJavascript(SCRIPT+"(\"set\","+n+");",new ValueCallback<String>(){public void onReceiveValue(String value){JSONObject o=parse(value);if(running&&sentId==serial&&(o==null||!o.optBoolean("sent",false))){percent=-1;paint();Toast.makeText(getContext(),"Volume lecteur indisponible",Toast.LENGTH_SHORT).show();}}});}
-        catch(RuntimeException ignored){percent=-1;paint();}
+        WebView w=web();if(w==null){percent=-1;reason=reasonText("web");lastAction="échec";paint();return;}
+        lastAction="en attente";
+        try{w.evaluateJavascript(SCRIPT+"(\"set\","+n+");",new ValueCallback<String>(){public void onReceiveValue(String value){
+            if(!running||sentId!=serial)return;JSONObject o=parse(value);
+            if(o==null||!o.optBoolean("sent",false)){percent=-1;reason=reasonText(o==null?"web":o.optString("reason","command"));lastAction="échec : "+reason;paint();Toast.makeText(getContext(),"Volume lecteur indisponible",Toast.LENGTH_SHORT).show();}
+            else lastAction="événements envoyés (effet sonore inconnu)";
+        }});}
+        catch(RuntimeException ignored){percent=-1;reason=reasonText("command");lastAction="échec : "+reason;paint();}
         if(!dragging)handler.postDelayed(new Runnable(){public void run(){if(running)read();}},350);
     }
     private void open(){

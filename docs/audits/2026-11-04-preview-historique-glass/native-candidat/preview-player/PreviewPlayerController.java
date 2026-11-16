@@ -733,6 +733,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         }
         out.append("\nMesures de préparation de frame, pas présentation écran. Démarrage hors lanceur ; premier son non mesuré. La réception du pont n'est pas un accusé Spotify.");
         out.append(PreviewPlayerMode.diagnosticReport());
+        out.append(PreviewPlayerVolume.diagnosticReport());
         return out.toString();
     }
     public void showDiagnostics() {

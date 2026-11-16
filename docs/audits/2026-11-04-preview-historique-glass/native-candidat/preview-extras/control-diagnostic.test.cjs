@@ -26,7 +26,7 @@ test('embedded WebView wrapper keeps diagnostic categorical while control retain
  const java=fs.readFileSync(path.join(__dirname,'PreviewPlayerMode.java'),'utf8');
  const embedded=(name)=>JSON.parse(java.match(new RegExp("private static final String "+name+" = (\".*\");"))[1]);
  assert.equal(embedded("SCRIPT"),control);assert.equal(embedded("DIAGNOSTIC"),code);
- const d=new JSDOM(bar('<a data-testid="context-item-link" href="/track/secret">Private title</a><button data-testid="add-button" aria-checked="false"></button>'),{runScripts:'outside-only',url:'https://open.spotify.com/'});
+ const d=new JSDOM(bar('<a data-testid="context-item-link" href="/track/secret">Private title</a><button data-testid="add-button" aria-checked="false" aria-label="Save to your library"></button>'),{runScripts:'outside-only',url:'https://open.spotify.com/'});
  try{
   let js=`(function(){var r=JSON.parse((${control})("like","query","","",""));r.diagnostic=(${code})("like");return JSON.stringify(r);})()`;
   let result=JSON.parse(d.window.eval(js)),diag=JSON.parse(result.diagnostic);
@@ -37,4 +37,9 @@ test('embedded WebView wrapper keeps diagnostic categorical while control retain
 test('structural counts redact arbitrary testids, labels, title and account',()=>{
  let x=run(bar('<button data-testid="control-button-playpause" aria-label="Pause"></button><button data-testid="account-Alice" aria-label="Song by Private Artist"></button><input type="range" role="slider" data-testid="volume-slider">'),'shuffle');
  let st=JSON.parse(x.structure);assert.equal(st.bar,1);assert.equal(st.nodes,3);assert.equal(st.playpause,1);assert.equal(st.volume,1);assert.equal(st.aria_other,1);assert.equal(st.aria_pause,1);assert.ok(!x.structure.includes('Alice'));assert.ok(!x.structure.includes('Private'));
+});
+
+test('contradictory and unspecified like actions are categorized without raw labels',()=>{
+ let x=run(bar('<button data-testid="remove-button" aria-checked="false" aria-label="Remove from your library"></button>'),'like');assert.equal(x.reason,'conflict');assert.ok(!JSON.stringify(x).includes('Remove from'));
+ x=run(bar('<button data-testid="add-button" aria-checked="false"></button>'),'like');assert.equal(x.reason,'unverified');
 });

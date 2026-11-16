@@ -14,6 +14,7 @@ HERE = Path(__file__).resolve().parent
 SOURCE = HERE / 'preview-player/PreviewPlayerController.java'
 STUBS = {
 'com/melodix/music/PreviewPlayerMode.java': 'package com.melodix.music; public class PreviewPlayerMode { public static String diagnosticReport(){return "\\nControl diagnostic";} }',
+'com/melodix/music/PreviewPlayerVolume.java': 'package com.melodix.music; public class PreviewPlayerVolume { public static String diagnosticReport(){return "\\nVolume diagnostic";} }',
 'android/R.java': """package android; public final class R { public static final class id { public static final int progress=0x0102000d; } }""",
 'android/graphics/drawable/Drawable.java': """package android.graphics.drawable; public class Drawable { public int alpha=255; public Drawable mutate(){return this;} public void setAlpha(int a){alpha=a;} }""",
 'android/graphics/drawable/LayerDrawable.java': """package android.graphics.drawable; public class LayerDrawable extends Drawable { public Drawable fill=new Drawable(); public Drawable findDrawableByLayerId(int id){return id==android.R.id.progress?fill:null;} }""",

@@ -35,14 +35,17 @@ stubs.update({
 'android/media/AudioManager.java':'''package android.media;public class AudioManager {public static final int STREAM_MUSIC=3,ADJUST_SAME=0,FLAG_SHOW_UI=1;public int value=5,calls=0;public boolean fail;public int getStreamMaxVolume(int x){return 10;}public int getStreamVolume(int x){return value;}public void adjustStreamVolume(int a,int b,int c){calls++;if(fail)throw new RuntimeException();}}''',
 'com/melodix/music/TilesTest.java':'''package com.melodix.music;import android.app.*;import android.view.*;import android.os.*;import android.media.*;import android.widget.*;public class TilesTest {
  static void ok(boolean b){if(!b)throw new AssertionError();}
- public static void main(String[] a){
+ public static void main(String[] a) throws Exception {
   Handler.clear();Activity c=new Activity();AudioManager audio=new AudioManager();c.audio=audio;c.root=new View(c);c.G=new android.webkit.WebView(c);
   PreviewPlayerTiles t=new PreviewPlayerTiles(c,null);t.onAttachedToWindow();int original=c.root.getVisibility();
   for(int i=0;i<3;i++){Handler.advance(401);t.children.get(i).performClick();ok(Dialog.last.shown);ok(c.root.getVisibility()==original);Dialog.last.dismiss();}
   PreviewPlayerVolume volume=(PreviewPlayerVolume)t.children.get(3);volume.onAttachedToWindow();Handler.step();ok(c.G.js.contains("query"));c.G.reply("ok=true;percent=45");ok(volume.enabled&&volume.text.contains("45 %"));
   volume.performClick();Dialog d=Dialog.last;ok(d.shown);LinearLayout l=(LinearLayout)d.content;SeekBar bar=(SeekBar)l.children.get(2);bar.listener.onStartTrackingTouch(bar);
   bar.simulate(10);Handler.advance(0);int sent=c.G.setCalls;ok(sent==1);bar.simulate(20);bar.simulate(30);Handler.advance(99);ok(c.G.setCalls==sent);Handler.advance(1);ok(c.G.setCalls==sent+1);ok(c.G.js.contains("30"));
-  bar.listener.onStopTrackingTouch(bar);Handler.advance(100);ok(c.G.setCalls==sent+2);ok(audio.calls==0&&c.root.getVisibility()==original);d.dismiss();volume.onDetachedFromWindow();t.onDetachedFromWindow();
+  bar.listener.onStopTrackingTouch(bar);Handler.advance(100);ok(c.G.setCalls==sent+2);
+  c.G.reply("sent=false;reason=disabled");ok(!volume.enabled&&!bar.enabled&&!((Button)l.children.get(3)).enabled);ok(((TextView)l.children.get(1)).text.contains("désactivé"));ok(PreviewPlayerVolume.diagnosticReport().contains("échec"));
+  java.lang.reflect.Method read=PreviewPlayerVolume.class.getDeclaredMethod("read");read.setAccessible(true);read.invoke(volume);c.G.reply("ok=true;percent=30");ok(volume.enabled&&bar.enabled&&((Button)l.children.get(3)).enabled);ok(((TextView)l.children.get(1)).text.contains("30 %"));ok(PreviewPlayerVolume.diagnosticReport().contains("son non vérifié"));
+  ok(audio.calls==0&&c.root.getVisibility()==original);d.dismiss();volume.onDetachedFromWindow();t.onDetachedFromWindow();
   System.out.println("Native panel and volume JVM simulation passed");
  }
 }'''

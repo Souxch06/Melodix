@@ -4,7 +4,7 @@
     // No session data, network, Android audio or synthetic playback command.
     var nodes=Array.from(document.querySelectorAll('[data-testid="volume-bar"] input[type="range"], input[data-testid="volume-bar"][type="range"]')).filter(function(n){return n.isConnected;});
     if(nodes.length!==1)return JSON.stringify({ok:false,reason:nodes.length?'ambiguous':'absent'});
-    var input=nodes[0];if(input.disabled||input.getAttribute('aria-disabled')==='true')return JSON.stringify({ok:false,reason:'disabled'});
+    var input=nodes[0];if(input.disabled||input.matches(':disabled')||input.closest('[aria-disabled="true"]'))return JSON.stringify({ok:false,reason:'disabled'});
     var min=input.hasAttribute('min')?Number(input.min):0, max=input.hasAttribute('max')?Number(input.max):100, current=Number(input.value);
     if(!isFinite(min)||!isFinite(max)||max<=min||!isFinite(current)||current<min||current>max)return JSON.stringify({ok:false,reason:'range'});
     if(action==='query')return JSON.stringify({ok:true,percent:Math.round(100*(current-min)/(max-min))});

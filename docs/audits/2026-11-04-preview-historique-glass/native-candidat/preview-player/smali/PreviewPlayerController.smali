@@ -3112,6 +3112,13 @@
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     .line 736
+    invoke-static {}, Lcom/melodix/music/PreviewPlayerVolume;->diagnosticReport()Ljava/lang/String;
+
+    move-result-object v0
+
+    invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    .line 737
     invoke-virtual {v3}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
     move-result-object v0
@@ -6294,7 +6301,7 @@
     .locals 5
 
     .prologue
-    .line 739
+    .line 740
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController;->activity:Ljava/lang/ref/WeakReference;
 
     invoke-virtual {v0}, Ljava/lang/ref/WeakReference;->get()Ljava/lang/Object;
@@ -6305,17 +6312,17 @@
 
     if-nez v0, :cond_0
 
-    .line 748
+    .line 749
     :goto_0
     return-void
 
-    .line 740
+    .line 741
     :cond_0
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerController;->report()Ljava/lang/String;
 
     move-result-object v1
 
-    .line 741
+    .line 742
     new-instance v2, Landroid/app/AlertDialog$Builder;
 
     invoke-direct {v2, v0}, Landroid/app/AlertDialog$Builder;-><init>(Landroid/content/Context;)V
@@ -6330,7 +6337,7 @@
 
     move-result-object v2
 
-    .line 742
+    .line 743
     const-string v3, "Copier"
 
     new-instance v4, Lcom/melodix/music/PreviewPlayerController$5;
@@ -6341,7 +6348,7 @@
 
     move-result-object v0
 
-    .line 747
+    .line 748
     const-string v1, "Fermer"
 
     const/4 v2, 0x0

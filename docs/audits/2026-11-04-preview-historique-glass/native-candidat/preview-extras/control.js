@@ -46,6 +46,16 @@
             kind !== 'repeat' && labels[kind].off.test(label) ? 'false' : 'unknown';
     } else if (raw !== 'true' && raw !== 'false' && !(kind !== 'like' && raw === 'mixed')) raw='unknown';
     if (kind === 'like') {
+        // A false ARIA value must never override a removal action. An
+        // unlabeled generic add-button can be a playlist menu, not a like.
+        var testId=String(button.getAttribute('data-testid')||'').toLowerCase();
+        var removeId=/^(remove-button|remove-from-library-button)$/.test(testId);
+        var addId=testId==='add-to-library-button';
+        var offLabel=labels.like.off.test(label), onLabel=labels.like.on.test(label);
+        if ((raw==='false' && (onLabel||removeId)) || (raw==='true' && offLabel)) {
+            result.reason='conflict';return JSON.stringify(result);
+        }
+        if (raw==='false' && !offLabel && !addId) {result.reason='unverified';return JSON.stringify(result);}
         var bar=button.closest('[data-testid="now-playing-widget"], [data-testid="now-playing-bar"]');
         if (!bar) bar=document.querySelector('[data-testid="now-playing-widget"], [data-testid="now-playing-bar"]');
         var link=bar && bar.querySelector('a[data-testid="context-item-link"], a[data-testid="nowplaying-track-link"]');

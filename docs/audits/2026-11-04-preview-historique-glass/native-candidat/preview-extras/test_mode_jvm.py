@@ -32,14 +32,14 @@ stubs={
  public static void main(String[] z) throws Exception {
  for(String kind:new String[]{"like","shuffle","repeat"}){
   Handler.clear();Toast.count=0;Activity a=new Activity();a.G=new WebView(a);TextView title=new TextView(a);title.text="Titre";a.title=title;
-  PreviewPlayerMode m=new PreviewPlayerMode(a,null);m.setTag(kind);m.onAttachedToWindow();ok(m.enabled==kind.equals("shuffle"));ok(m.description.startsWith("Chargement :"));Handler.step();ok(a.G.calls==1);a.G.reply(data("unknown")+";reason=control");ok(m.enabled==kind.equals("shuffle"));
+  PreviewPlayerMode m=new PreviewPlayerMode(a,null);m.setTag(kind);m.onAttachedToWindow();ok(!m.enabled);ok(m.description.startsWith("Chargement :"));Handler.step();ok(a.G.calls==1);a.G.reply(data("unknown")+";reason=control");ok(!m.enabled);
   Handler.step();a.G.reply(data("false"));ok(m.enabled);int n=a.G.calls;m.performClick();ok(a.G.calls==n+1);if(kind.equals("shuffle"))ok(m.description.startsWith("Lecture aléatoire activée"));m.performClick();ok(a.G.calls==n+1);a.G.reply("sent=true");
   // Confirmation may arrive instantly; second tap within 400 ms is blocked.
   java.lang.reflect.Method observe=PreviewPlayerMode.class.getDeclaredMethod("observe");observe.setAccessible(true);observe.invoke(m);a.G.reply(data("true"));ok(m.enabled);n=a.G.calls;m.performClick();ok(a.G.calls==n);
-  SystemClock.t+=401;if(kind.equals("like")){m.performClick();ok(a.G.calls==n);observe.invoke(m);a.G.reply(data("false"));n=a.G.calls;}m.performClick();ok(a.G.calls==n+1);if(kind.equals("shuffle"))ok(m.description.startsWith("Lecture aléatoire désactivée"));a.G.reply("sent=false");ok(m.enabled==kind.equals("shuffle"));ok(Toast.count==1);ok(Toast.message.contains("Réessayer"));
+  SystemClock.t+=401;if(kind.equals("like")){m.performClick();ok(a.G.calls==n);observe.invoke(m);a.G.reply(data("false"));n=a.G.calls;}m.performClick();ok(a.G.calls==n+1);if(kind.equals("shuffle"))ok(m.description.startsWith("Lecture aléatoire désactivée"));a.G.reply("sent=false");ok(!m.enabled);ok(Toast.count==1);ok(Toast.message.contains("Réessayer"));
   Handler.step();a.G.reply(data(kind.equals("like")?"false":"true"));ok(m.enabled);SystemClock.t+=401;m.performClick();ok(!m.enabled);android.webkit.ValueCallback<String> late=a.G.cb;
   // Lost JS callback: independent deadline unlocks without inventing success.
-  Handler.advance(5001);ok(m.enabled==kind.equals("shuffle"));ok(m.description.startsWith("Indisponible :"));ok(Toast.count==2);late.onReceiveValue("sent=false");ok(Toast.count==2);
+  Handler.advance(5001);ok(!m.enabled);ok(m.description.startsWith("Indisponible :"));ok(Toast.count==2);late.onReceiveValue("sent=false");ok(Toast.count==2);
   m.shown=false;m.onVisibilityChanged(m,8);ok(!m.enabled);m.performClick();
   m.shown=true;m.onVisibilityChanged(m,0);Handler.step();a.G.reply(data("false"));ok(m.enabled);m.onDetachedFromWindow();ok(!m.enabled);
  }
@@ -47,9 +47,9 @@ stubs={
  Handler.clear();Activity slow=new Activity();slow.G=new WebView(slow);TextView title=new TextView(slow);title.text="Titre";slow.title=title;
  PreviewPlayerMode mode=new PreviewPlayerMode(slow,null);mode.setTag("shuffle");mode.onAttachedToWindow();Handler.step();android.webkit.ValueCallback<String> first=slow.G.cb;Handler.advance(1600);ok(slow.G.calls==1);first.onReceiveValue(data("false"));ok(mode.enabled);mode.onDetachedFromWindow();
  // A missing response is bounded and an expired callback cannot re-enable it.
- Handler.clear();mode=new PreviewPlayerMode(slow,null);mode.setTag("shuffle");mode.onAttachedToWindow();Handler.step();first=slow.G.cb;Handler.advance(2500);ok(mode.description.startsWith("Indisponible :"));first.onReceiveValue(data("true"));ok(mode.enabled && mode.description.startsWith("Indisponible :"));slow.G.reply(data("false"));ok(mode.enabled);mode.onDetachedFromWindow();
- // Unavailable shuffle remains tappable; no action is sent.
- Handler.clear();Toast.count=0;Activity t=new Activity();t.G=new WebView(t);PreviewPlayerMode sh=new PreviewPlayerMode(t,null);sh.setTag("shuffle");sh.onAttachedToWindow();Handler.step();t.G.reply("state=unknown;reason=bar");int before=t.G.calls;sh.performClick();ok(t.G.calls==before);ok(Toast.message.contains("Lance un titre"));sh.onDetachedFromWindow();
+ Handler.clear();mode=new PreviewPlayerMode(slow,null);mode.setTag("shuffle");mode.onAttachedToWindow();Handler.step();first=slow.G.cb;Handler.advance(2500);ok(mode.description.startsWith("Indisponible :"));first.onReceiveValue(data("true"));ok(!mode.enabled && mode.description.startsWith("Indisponible :"));slow.G.reply(data("false"));ok(mode.enabled);mode.onDetachedFromWindow();
+ // Unavailable shuffle is disabled with an accessible reason; no action is sent.
+ Handler.clear();Toast.count=0;Activity t=new Activity();t.G=new WebView(t);PreviewPlayerMode sh=new PreviewPlayerMode(t,null);sh.setTag("shuffle");sh.onAttachedToWindow();Handler.step();t.G.reply("state=unknown;reason=bar");int before=t.G.calls;ok(!sh.enabled);ok(sh.description.contains("barre du lecteur Spotify absente"));sh.performClick();ok(t.G.calls==before);sh.onDetachedFromWindow();
  // Optimistic on/off, smart mode neutral while pending, and timeout reconciles only observed state.
  Handler.clear();t=new Activity();t.G=new WebView(t);sh=new PreviewPlayerMode(t,null);sh.setTag("shuffle");sh.onAttachedToWindow();Handler.step();t.G.reply(data("false"));sh.performClick();ok(sh.description.startsWith("Lecture aléatoire activée"));ok(sh.description.contains("en attente"));t.G.reply("sent=true");
  java.lang.reflect.Method obs=PreviewPlayerMode.class.getDeclaredMethod("observe");obs.setAccessible(true);obs.invoke(sh);t.G.reply(data("false"));Handler.advance(5001);ok(sh.description.startsWith("Lecture aléatoire désactivée"));ok(Toast.message.contains("Aléatoire indisponible"));
