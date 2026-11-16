@@ -52,7 +52,9 @@ public final class PreviewPlayerVolume extends Button {
     private WebView web(){Activity a=activity();if(a==null)return null;try{Object w=a.getClass().getField("G").get(a);return w instanceof WebView?(WebView)w:null;}catch(Exception ignored){return null;}}
     private JSONObject parse(String s){try{Object v=new JSONTokener(s).nextValue();return v instanceof String?new JSONObject((String)v):null;}catch(Exception ignored){return null;}}
     private void paint(){
-        String label=percent<0?"◖))\nVolume —":(percent==0?"◖×":"◖))")+"\nVolume "+percent+" %";
+        // Keep the tile to two lines; the precise percentage is available in
+        // its accessibility label and in the volume sheet, never clipped.
+        String label=(percent==0?"◖×":"◖))")+"\nVolume";
         setText(label);setContentDescription(percent<0?"Volume du lecteur indisponible : "+reason:"Volume du lecteur : "+percent+" pour cent");
         setEnabled(running);setAlpha(percent<0?0.60f:1f);
         if(dialog!=null&&slider!=null&&mute!=null&&valueLabel!=null){

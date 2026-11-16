@@ -49,7 +49,7 @@ stubs.update({
   // callback is ignored after the bounded timeout.
   Handler.advance(401);t.children.get(0).performClick();LinearLayout pendingSheet=(LinearLayout)Dialog.last.content;TextView pendingBody=(TextView)((ScrollView)pendingSheet.children.get(2)).child;android.webkit.ValueCallback<String> late=c.G.cb;
   Handler.advance(3501);ok(pendingBody.text.contains("Indisponible"));late.onReceiveValue("ok=true;body=Late");ok(pendingBody.text.contains("Indisponible"));Dialog.last.dismiss();
-  PreviewPlayerVolume volume=(PreviewPlayerVolume)t.children.get(3);volume.onAttachedToWindow();Handler.step();ok(c.G.js.contains("query"));c.G.reply("ok=true;percent=45");ok(volume.enabled&&volume.text.contains("45 %"));
+  PreviewPlayerVolume volume=(PreviewPlayerVolume)t.children.get(3);volume.onAttachedToWindow();Handler.step();ok(c.G.js.contains("query"));c.G.reply("ok=true;percent=45");ok(volume.enabled&&volume.text.endsWith("Volume")&&!volume.text.contains("45 %")&&volume.description.contains("45 pour cent"));
   volume.performClick();Dialog d=Dialog.last;ok(d.shown);LinearLayout l=(LinearLayout)d.content;LinearLayout card=(LinearLayout)l.children.get(3), actions=(LinearLayout)l.children.get(4);SeekBar bar=(SeekBar)card.children.get(1);bar.listener.onStartTrackingTouch(bar);
   bar.simulate(10);Handler.advance(0);int sent=c.G.setCalls;ok(sent==1);bar.simulate(20);bar.simulate(30);Handler.advance(99);ok(c.G.setCalls==sent);Handler.advance(1);ok(c.G.setCalls==sent+1);ok(c.G.js.contains("30"));
   bar.listener.onStopTrackingTouch(bar);Handler.advance(100);ok(c.G.setCalls==sent+2);
