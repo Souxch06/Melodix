@@ -82,6 +82,13 @@ stubs.update({
   // Even without a page range, tapping volume opens a native explanation
   // and retry action; it never fabricates a setting or calls Android audio.
   Handler.clear();PreviewPlayerVolume missing=new PreviewPlayerVolume(c);missing.onAttachedToWindow();Handler.step();c.G.reply("ok=false;reason=absent");ok(missing.enabled);missing.performClick();d=Dialog.last;ok(d.shown);l=(LinearLayout)d.content;card=(LinearLayout)l.children.get(3);actions=(LinearLayout)l.children.get(4);bar=(SeekBar)card.children.get(1);ok(!bar.enabled);ok(((TextView)card.children.get(0)).text.contains("absent"));ok(((Button)actions.children.get(1)).text.equals("Actualiser"));ok(audio.calls==0&&c.root.getVisibility()==original);d.dismiss();missing.onDetachedFromWindow();
+  // Collection-open counters: numbers and fixed phase codes only; anything else is discarded.
+  String tr=PreviewPlayerTiles.formatTrace("liked,classified,1,1,42,30,0,-,-,3");
+  ok(tr.contains("type=likés")&&tr.contains("lignes DOM=42")&&tr.contains("lignes classées=30")&&tr.contains("lignes envoyées au natif=0")&&tr.contains("première liste=—"));
+  ok(PreviewPlayerTiles.formatTrace("playlist,rendered,1,1,20,20,20,850,1900,2").contains("liste complète=1900 ms"));
+  ok(PreviewPlayerTiles.formatTrace("").equals("aucune ouverture observée"));
+  ok(PreviewPlayerTiles.formatTrace("liked,Mon titre,1,1,1,1,1,1,1,1").equals("illisible"));
+  ok(PreviewPlayerTiles.formatTrace("spotify:track:abc,open,1,1,1,1,1,1,1,1").equals("illisible"));
   System.out.println("Native panel and volume JVM simulation passed");
  }
 }'''

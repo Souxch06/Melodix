@@ -179,3 +179,24 @@ test('devices: transfer clicks only the named device, verifies it, never clicks 
   const out = run(dom, panel, 'devices', 'poll');
   assert.equal(out.transferred, true); assert.equal(picks, 1);
 });
+
+test('duplicate controls: the player-bar copy is used; two copies outside it are refused, untouched', async () => {
+  const panelSrc = fs.readFileSync(path.join(__dirname, 'panel-job.js'), 'utf8');
+  const dom = page(`<div data-testid="now-playing-bar"><button data-testid="lyrics-button" aria-label="Paroles" aria-pressed="false">p</button></div>
+    <section><button data-testid="lyrics-button" aria-label="Paroles">copy</button></section><main id="m"></main>`);
+  const doc = dom.window.document, [inBar, copy] = doc.querySelectorAll('button'); let copyClicks = 0;
+  copy.addEventListener('click', () => copyClicks++);
+  inBar.addEventListener('click', () => {
+    if (inBar.getAttribute('aria-pressed') === 'false') { inBar.setAttribute('aria-pressed', 'true'); doc.getElementById('m').innerHTML = '<div data-testid="lyrics-container"><div data-testid="fullscreen-lyric">Un</div></div>'; }
+    else { inBar.setAttribute('aria-pressed', 'false'); doc.getElementById('m').innerHTML = ''; }
+  });
+  run(dom, panelSrc, 'lyrics', 'run', ''); await settle(500);
+  const out = run(dom, panelSrc, 'lyrics', 'poll');
+  assert.equal(out.ok, true); assert.equal(copyClicks, 0);
+  const two = page(`<button data-testid="control-button-queue" aria-label="File d’attente">a</button><button data-testid="queue-button" aria-label="File d’attente">b</button>`);
+  let clicks = 0; two.window.document.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => clicks++));
+  run(two, queue, 'run'); await settle(50);
+  const q = run(two, queue, 'poll');
+  assert.equal(q.ok, false); assert.equal(q.reason, 'ambiguous'); assert.equal(clicks, 0);
+  assert.ok(q.journal.some((c) => /^button:ambiguous:2$/.test(c)));
+});

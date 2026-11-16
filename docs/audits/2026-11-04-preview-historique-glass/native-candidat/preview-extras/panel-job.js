@@ -24,17 +24,27 @@
             roots: '[data-testid="device-picker"], [data-testid="connect-device-list"], [data-testid="connect-device-picker"], [role="dialog"][aria-label*="appareil" i], [role="dialog"][aria-label*="device" i]'
         }
     };
-    var spec = specs[kind];
+    var spec = specs[kind], found = 0;
+    // Several copies of a control can exist (player bar and full view). Prefer
+    // the one in the player bar, then the only visible one; otherwise refuse.
+    function pickOne(list) {
+        if (list.length <= 1) return list[0] || null;
+        var bar = list.filter(function(b) { return !!b.closest('[data-testid="now-playing-bar"]'); });
+        if (bar.length === 1) return bar[0];
+        var shown = (bar.length ? bar : list).filter(function(b) { return b.getClientRects().length > 0; });
+        return shown.length === 1 ? shown[0] : null;
+    }
     function button() {
         var list = Array.from(document.querySelectorAll('button, [role="button"]')).filter(function(b) {
             return b.isConnected && (spec.ids.test(String(b.getAttribute('data-testid') || '')) || spec.label.test(String(b.getAttribute('aria-label') || '').trim()));
         });
-        return list.length === 1 ? list[0] : null;
+        found = list.length;
+        return pickOne(list);
     }
     function isOpen(b) { return b.getAttribute('aria-pressed') === 'true' || b.getAttribute('aria-expanded') === 'true' || b.getAttribute('data-active') === 'true'; }
     function root(b) {
-        var found = Array.from(document.querySelectorAll(spec.roots)).filter(function(n) { return n.isConnected; });
-        if (found.length >= 1) return found[0];
+        var hits = Array.from(document.querySelectorAll(spec.roots)).filter(function(n) { return n.isConnected; });
+        if (hits.length >= 1) return hits[0];
         var id = b && b.getAttribute('aria-controls'), c = id ? document.getElementById(id) : null;
         return c && c.isConnected ? c : null;
     }
@@ -64,7 +74,7 @@
     function finish(ok, reason) { job.status = 'done'; job.ok = ok; job.reason = reason || ''; }
     try {
         var b = button(), already = root(b);
-        if (!b && !already) { log('button:absent'); finish(false, 'absent'); return JSON.stringify({status: 'started'}); }
+        if (!b && !already) { log(found > 1 ? 'button:ambiguous:' + Math.min(found, 9) : 'button:absent'); finish(false, found > 1 ? 'ambiguous' : 'absent'); return JSON.stringify({status: 'started'}); }
         var wasOpen = !!already || (b && isOpen(b));
         if (!wasOpen) { try { b.click(); log('opened'); } catch (_) { log('open-error'); finish(false, 'command'); return JSON.stringify({status: 'started'}); } }
         else log('already-open');

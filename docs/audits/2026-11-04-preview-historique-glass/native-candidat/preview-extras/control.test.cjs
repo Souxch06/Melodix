@@ -60,3 +60,10 @@ test('localized repeat action uses a unique button, never the helper with playba
  b.setAttribute('aria-label','Désactiver la répétition');assert.equal(q(x,'repeat').state,'true');assert.equal(invoke(x,'repeat','false'),false);b.setAttribute('aria-checked','mixed');assert.equal(q(x,'repeat').state,'mixed');
  let clone=b.cloneNode();x.w.document.body.append(clone);assert.equal(q(x,'repeat').reason,'ambiguous');assert.equal(invoke(x,'repeat','mixed'),false);assert.equal(clicks,1);
  }finally{x.close()}});
+
+test('no such control with the player bar present is reported as absent, never as a state',()=>{const x=boot();try{
+ Object.defineProperty(x.w.document,'readyState',{value:'complete',configurable:true});
+ x.w.document.querySelector('[data-testid=control-button-shuffle]').remove();
+ const p=q(x,'shuffle');assert.equal(p.state,'unknown');assert.equal(p.reason,'absent');
+ x.w.document.querySelector('[data-testid=now-playing-widget]').removeAttribute('data-testid');assert.equal(q(x,'shuffle').reason,'bar');
+ }finally{x.close()}});

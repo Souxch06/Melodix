@@ -34,7 +34,7 @@ stubs={
  public static void main(String[] z) throws Exception {
  for(String kind:new String[]{"like","shuffle","repeat"}){
   Activity a=page();PreviewPlayerMode m=boot(a,kind);ok(!m.enabled);ok(m.description.startsWith("Chargement :"));
-  // Control absent in the narrow bar: the button stays usable but neutral, never a fake state.
+  // Control not recognised in the narrow bar: the button stays usable but neutral, never a fake state.
   Handler.step();a.G.reply(data("unknown")+";reason=control");Handler.advance(2500);ok(m.enabled);ok(m.description.startsWith("État inconnu"));
   // Known state: one tap starts one page job with the shown state and native title; second tap blocked.
   a.G.reply(data("false"));ok(m.enabled);int n=a.G.calls;m.performClick();ok(a.G.calls==n+1);ok(a.G.js.contains("\\"run\\"")&&a.G.js.contains("\\"false\\"")&&a.G.js.contains("\\"Titre\\""));ok(!m.enabled);m.performClick();ok(a.G.calls==n+1);
@@ -57,6 +57,11 @@ stubs={
  t=page();sh=boot(t,"shuffle");Handler.step();t.G.reply("state=unknown;reason=restriction");Handler.advance(2500);ok(!sh.enabled);ok(sh.description.contains("pas disponible"));sh.onDetachedFromWindow();
  // Like read-only outcome updates the state without claiming an action.
  t=page();PreviewPlayerMode like=boot(t,"like");Handler.step();t.G.reply(data("unknown")+";reason=control");Handler.advance(2500);like.performClick();ok(t.G.js.contains("\\"unknown\\""));t.G.reply("status=started");Handler.advance(250);t.G.reply("status=done;outcome=read;state=true;method=now-playing-view");ok(like.description.startsWith("Titre aimé"));ok(Toast.message.contains("Déjà"));like.onDetachedFromWindow();
+ // No such control anywhere in the page (reason=absent): never a fake state.
+ // Like (add-only, needs a read state) is greyed with its reason and sends
+ // nothing; shuffle keeps its keyboard attempt, said to be unverifiable.
+ t=page();like=boot(t,"like");Handler.step();t.G.reply(data("unknown")+";reason=absent");Handler.advance(2500);before=t.G.calls;ok(!like.enabled);ok(like.description.startsWith("Like indisponible : bouton absent"));like.performClick();ok(t.G.calls==before);like.onDetachedFromWindow();
+ t=page();sh=boot(t,"shuffle");Handler.step();t.G.reply(data("unknown")+";reason=absent");Handler.advance(2500);ok(sh.enabled);ok(sh.description.startsWith("Aléatoire : bouton absent")&&sh.description.contains("non vérifiable"));sh.onDetachedFromWindow();
  System.out.println("Player mode JVM simulation passed"); }
 }'''
 }

@@ -3,7 +3,7 @@
 .source "PreviewPlayerTiles.java"
 
 # interfaces
-.implements Landroid/content/DialogInterface$OnDismissListener;
+.implements Landroid/view/View$OnClickListener;
 
 
 # annotations
@@ -20,21 +20,33 @@
 # instance fields
 .field final synthetic this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
+.field final synthetic val$dialog:Landroid/app/Dialog;
+
 
 # direct methods
-.method constructor <init>(Lcom/melodix/music/PreviewPlayerTiles;)V
+.method constructor <init>(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Dialog;)V
     .locals 0
     .annotation system Ldalvik/annotation/MethodParameters;
         accessFlags = {
-            0x8010
+            0x8010,
+            0x1010
         }
         names = {
+            null,
             null
         }
     .end annotation
 
-    .line 242
+    .annotation system Ldalvik/annotation/Signature;
+        value = {
+            "()V"
+        }
+    .end annotation
+
+    .line 262
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$15;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
+
+    iput-object p2, p0, Lcom/melodix/music/PreviewPlayerTiles$15;->val$dialog:Landroid/app/Dialog;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
@@ -43,23 +55,13 @@
 
 
 # virtual methods
-.method public onDismiss(Landroid/content/DialogInterface;)V
-    .locals 1
+.method public onClick(Landroid/view/View;)V
+    .locals 0
 
-    .line 242
-    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$15;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
+    .line 262
+    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$15;->val$dialog:Landroid/app/Dialog;
 
-    const/4 v0, 0x0
-
-    invoke-static {p1, v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$402(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Dialog;)Landroid/app/Dialog;
-
-    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$15;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
-
-    invoke-static {p1}, Lcom/melodix/music/PreviewPlayerTiles;->access$508(Lcom/melodix/music/PreviewPlayerTiles;)J
-
-    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$15;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
-
-    invoke-static {p1}, Lcom/melodix/music/PreviewPlayerTiles;->access$1508(Lcom/melodix/music/PreviewPlayerTiles;)J
+    invoke-virtual {p1}, Landroid/app/Dialog;->dismiss()V
 
     return-void
 .end method

@@ -42,7 +42,7 @@
         }
     .end annotation
 
-    .line 174
+    .line 183
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerMode$7$1;->this$1:Lcom/melodix/music/PreviewPlayerMode$7;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -63,7 +63,7 @@
         }
     .end annotation
 
-    .line 174
+    .line 183
     check-cast p1, Ljava/lang/String;
 
     invoke-virtual {p0, p1}, Lcom/melodix/music/PreviewPlayerMode$7$1;->onReceiveValue(Ljava/lang/String;)V
@@ -74,7 +74,7 @@
 .method public onReceiveValue(Ljava/lang/String;)V
     .locals 4
 
-    .line 176
+    .line 185
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode$7$1;->this$1:Lcom/melodix/music/PreviewPlayerMode$7;
 
     iget-wide v0, v0, Lcom/melodix/music/PreviewPlayerMode$7;->val$g:J
@@ -112,7 +112,7 @@
 
     move-result-object p1
 
-    .line 177
+    .line 186
     if-eqz p1, :cond_2
 
     const-string v0, "status"
@@ -133,7 +133,7 @@
 
     goto :goto_0
 
-    .line 178
+    .line 187
     :cond_1
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode$7$1;->this$1:Lcom/melodix/music/PreviewPlayerMode$7;
 
@@ -141,10 +141,10 @@
 
     invoke-static {v0, p1}, Lcom/melodix/music/PreviewPlayerMode;->access$2900(Lcom/melodix/music/PreviewPlayerMode;Lorg/json/JSONObject;)V
 
-    .line 179
+    .line 188
     return-void
 
-    .line 177
+    .line 186
     :cond_2
     :goto_0
     iget-object p1, p0, Lcom/melodix/music/PreviewPlayerMode$7$1;->this$1:Lcom/melodix/music/PreviewPlayerMode$7;
@@ -165,7 +165,7 @@
 
     return-void
 
-    .line 176
+    .line 185
     :cond_3
     :goto_1
     return-void
