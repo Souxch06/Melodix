@@ -275,7 +275,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         long motion = moving ? elapsed : 0;
         // A large negative correction must not make the visible clock run
         // backwards while playing. Spread it over a sufficiently long period.
-        double window = Math.max((double) CORRECTION_MS, Math.max(0, -correction) * 1.25);
+        double window = Math.max((double) CORRECTION_MS, correction > 0 ? correction * 4.0 : -correction * 1.25);
         double adjust = correction * Math.min(1.0, (double) elapsed / window);
         return Math.max(0, Math.min(duration, base + motion + adjust));
     }
@@ -408,7 +408,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         if (full instanceof ImageView) ((ImageView) full).setImageResource(icon);
     }
     private boolean correctionInProgress(long t) {
-        double window = Math.max((double) CORRECTION_MS, Math.max(0, -correction) * 1.25);
+        double window = Math.max((double) CORRECTION_MS, correction > 0 ? correction * 4.0 : -correction * 1.25);
         return correction != 0 && t - anchor < window;
     }
     private void scheduleFrame() {
@@ -479,14 +479,18 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 return;
             }
             double difference = Double.isNaN(previous) ? Double.NaN : pos - previous;
+            boolean resumeReady = interrupted && returnAt >= 0 && t - returnAt >= 1000 &&
+                snapshotValid && age >= 0 && age < MAX_OBSERVATION_AGE_MS && identified && !state.equals("unknown");
+            long deviationLimit = progressSource.equals("range") ? 8000 : MAX_DEVIATION_MS;
             String rejection = !snapshotValid ? "invalide" : age < 0 ? "âge inconnu" :
                 age >= MAX_OBSERVATION_AGE_MS ? "observation ancienne" :
                 !identified ? "identité incomplète" :
-                (!changed && valid && !seekPending && !Double.isNaN(previous) &&
-                 Math.abs(pos - previous) >= MAX_DEVIATION_MS) ? "écart >= 5 s" : "";
+                (interrupted && !resumeReady) ? "attente retour 1 s" :
+                (!resumeReady && !changed && valid && !seekPending && !Double.isNaN(previous) &&
+                 Math.abs(pos - previous) >= deviationLimit) ? "écart >= seuil" : "";
             // Ten seconds of repeated, fresh, same-source discrepancies on
             // the same side: reconcile visually, never assume background audio.
-            if (rejection.equals("écart >= 5 s")) {
+            if (rejection.equals("écart >= seuil")) {
                 int sign = difference > 0 ? 1 : -1;
                 if (divergentSince < 0 || t - divergentLastAt > 5000 || sign != divergentSign || !progressSource.equals(divergentSource)) {
                     divergentSince = t; divergentCount = 0; divergentSign = sign; divergentSource = progressSource;
@@ -524,12 +528,9 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 independentObservation = observed; independentObservationAt = t;
             }
             if (snapshotValid && resyncing && !interrupted) resyncing = false;
-            if (interrupted && snapshotValid && real) {
-                // Continue from the frozen (or smoothly reconciled) display,
-                // not from the wall time spent out of the foreground.
-                if (!Double.isNaN(previous)) { base = previous; anchor = t; correction = 0; }
+            if (resumeReady && snapshotValid) {
                 interrupted = false; resyncing = false;
-                recordReturn("lecture confirmée par observation cohérente");
+                recordReturn("retour confirmé par observation cohérente ; son non vérifié");
             }
             boolean seekConfirmed = false;
             if (seekPending && !changed) {
@@ -556,6 +557,12 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 duration = dur;
                 if (!valid || changed || backward || Double.isNaN(previous)) {
                     base = pos; anchor = t; correction = 0;
+                } else if (resumeReady && !seekPending) {
+                    // Small discrepancies reconcile at <=1.25x; larger ones
+                    // jump. Neither is evidence that background audio played.
+                    boolean jump = !real || Math.abs(pos - previous) >= 3000;
+                    base = jump ? pos : previous; anchor = t; correction = jump ? 0 : pos - previous;
+                    recordReturn(jump ? "retour : saut" : "retour : correction <=1,25x");
                 } else if (seekConfirmed && !real) {
                     base = Math.max(0, Math.min(dur, previous)); anchor = t; correction = pos - previous;
                 } else if (changedMeasure && !real && !freezePendingPause) {

@@ -107,7 +107,7 @@ public class ControllerTest {
   seek.snapshot(sample("Long","Artist",1000,7200000,"paused",""));full.listener.onStartTrackingTouch(full);full.listener.onProgressChanged(full,500,true);yes(elapsed.text.equals("1:00:00"));full.listener.onStopTrackingTouch(full);
   // No baseline: absence is not reported as an observed change. Missing WebView
   // is also explicit; neither case invents an acknowledgement.
-  PreviewPlayerController absent=new PreviewPlayerController(a);absent.activityResumed();absent.attachSeek(null);SystemClock.time+=100;
+  PreviewPlayerController absent=new PreviewPlayerController(a);absent.activityResumed();absent.attachSeek(null);SystemClock.time+=1000;
   absent.snapshot(sample("Unknown","Artist",1000,120000,"playing",""));
   full.listener.onStartTrackingTouch(full);full.listener.onProgressChanged(full,500,true);full.listener.onStopTrackingTouch(full);
   SystemClock.time+=800;absent.snapshot(sample("Unknown","Artist",60000,120000,"playing","")+";previewConfirmPositionMs=2000");
@@ -115,7 +115,7 @@ public class ControllerTest {
   yes(report.contains("première position UI différente : —"));yes(report.contains("âge dernière observation reçue au relâchement : —"));
   // Only eight seeks retained; a late callback from an overwritten slot cannot
   // overwrite another gesture's diagnostics or issue extra commands.
-  PreviewPlayerController ring=new PreviewPlayerController(a);ring.activityResumed();android.webkit.WebView w2=new android.webkit.WebView();ring.attachSeek(w2);
+  PreviewPlayerController ring=new PreviewPlayerController(a);ring.activityResumed();android.webkit.WebView w2=new android.webkit.WebView();ring.attachSeek(w2);SystemClock.time+=1000;
   ring.snapshot(sample("PrivateTitle","PrivateArtist",10000,120000,"playing","")+";previewConfirmPositionMs=10000");
   android.webkit.ValueCallback<String> oldCallback=null;
   for(int i=0;i<9;i++){full.listener.onStartTrackingTouch(full);full.listener.onProgressChanged(full,300+i,true);full.listener.onStopTrackingTouch(full);if(i==0)oldCallback=w2.callback;}
@@ -159,26 +159,25 @@ public class ControllerTest {
   life.activityPaused();life.activityStopped();SystemClock.time+=60000;PreviewPlayerController rotated=new PreviewPlayerController(a);rotated.activityResumed();yes(elapsed.text.equals("1:40"));
   saved.setBoolean(null,false);PreviewPlayerController recreated=new PreviewPlayerController(a);recreated.activityResumed();yes(elapsed.text.equals("-:--"));eq(mini.progress,0);
   recreated.snapshot(sample("New","Artist",3000,229000,"paused",""));yes(elapsed.text.equals("0:03"));
-  recreated.activityPaused();recreated.activityStopped();SystemClock.time+=60000;recreated.activityResumed();recreated.snapshot(sample("Next","Artist",1000,229000,"playing",""));yes(elapsed.text.equals("0:01"));
+  recreated.activityPaused();recreated.activityStopped();SystemClock.time+=60000;recreated.activityResumed();SystemClock.time+=1000;recreated.snapshot(sample("Next","Artist",1000,229000,"playing",""));yes(elapsed.text.equals("0:01"));
   // Seek gesture before leaving: confirmed target freezes during absence.
   recreated.attachSeek(web);full.listener.onStartTrackingTouch(full);full.listener.onProgressChanged(full,500,true);full.listener.onStopTrackingTouch(full);
   recreated.snapshot(sample("Next","Artist",114500,229000,"playing","")+";previewConfirmPositionMs=114500");
   recreated.activityPaused();recreated.activityStopped();SystemClock.time+=60000;recreated.activityResumed();yes(elapsed.text.equals("1:54"));
   // A fresh new identity after background is not confused with old position.
-  recreated.snapshot(sample("Next3","Artist",1000,229000,"playing",""));yes(elapsed.text.equals("0:01"));
-  // Audio continuing behind a locked screen is not inferred from a global
-  // AudioManager signal; fresh discrepant observations can reconcile after
-  // ten seconds without inventing sound or extrapolating the absence.
-  recreated.snapshot(sample("Next3","Artist",1000,229000,"playing",""));recreated.activityPaused();recreated.activityStopped();SystemClock.time+=60000;recreated.activityResumed();yes(elapsed.text.equals("0:01"));
-  for(int i=0;i<=10;i++){recreated.snapshot(sample("Next3","Artist",61000+i*1000,229000,"playing","")+";previewProgressSource=range");if(i<10){SystemClock.time+=1000;Handler.flush();recreated.doFrame(0);}}
-  report=(String)reportMethod.invoke(recreated);yes(report.contains("resynchronisation douce"));yes(elapsed.text.equals("0:01"));
-  SystemClock.time+=2000;recreated.doFrame(0);yes(mini.progress>4);eq(b2.image,0x7f080122);
-  // Gaps or source changes do not count as ten seconds of continuous evidence.
-  saved.setBoolean(null,false);PreviewPlayerController gaps=new PreviewPlayerController(a);gaps.activityResumed();gaps.snapshot(sample("Gap","Artist",10000,229000,"playing",""));gaps.activityPaused();gaps.activityStopped();SystemClock.time+=10000;gaps.activityResumed();
-  gaps.snapshot(sample("Gap","Artist",30000,229000,"playing",""));SystemClock.time+=11000;gaps.snapshot(sample("Gap","Artist",30000,229000,"playing",""));
-  report=(String)reportMethod.invoke(gaps);yes(!report.contains("resynchronisation douce"));yes(elapsed.text.equals("0:10"));
-  for(int i=0;i<10;i++){SystemClock.time+=1000;Handler.flush();gaps.doFrame(0);}
-  report=(String)reportMethod.invoke(gaps);yes(report.contains("retour +"));yes(report.contains("pas fraîcheur garantie"));
+  SystemClock.time+=1000;recreated.snapshot(sample("Next3","Artist",1000,229000,"playing",""));yes(elapsed.text.equals("0:01"));
+  // A fresh same-track sample is accepted at 1 s; small forward correction
+  // never exceeds 1.25x, while a large gap jumps. Audio is not inferred.
+  recreated.snapshot(sample("Next3","Artist",1000,229000,"playing",""));recreated.activityPaused();recreated.activityStopped();SystemClock.time+=60000;recreated.activityResumed();
+  recreated.snapshot(sample("Next3","Artist",2000,229000,"playing",""));yes(elapsed.text.equals("0:01"));
+  SystemClock.time+=1000;recreated.snapshot(sample("Next3","Artist",3000,229000,"playing",""));
+  java.lang.reflect.Method posMethod=PreviewPlayerController.class.getDeclaredMethod("positionUnderlying",long.class);posMethod.setAccessible(true);
+  double p0=(Double)posMethod.invoke(recreated,SystemClock.time);SystemClock.time+=1000;double p1=(Double)posMethod.invoke(recreated,SystemClock.time);yes(p1-p0<=1250.001);yes(p1-p0>=1000);
+  recreated.activityPaused();recreated.activityStopped();SystemClock.time+=60000;recreated.activityResumed();SystemClock.time+=1000;
+  recreated.snapshot(sample("Next3","Artist",61000,229000,"playing",""));yes(elapsed.text.equals("1:01"));
+  report=(String)reportMethod.invoke(recreated);yes(report.contains("retour : saut"));yes(report.contains("son non vérifié"));
+  for(int i=0;i<10;i++){SystemClock.time+=1000;Handler.flush();recreated.doFrame(0);}
+  report=(String)reportMethod.invoke(recreated);yes(report.contains("retour +"));yes(report.contains("pas fraîcheur garantie"));
   saved.setBoolean(null,false);PreviewPlayerController edges=new PreviewPlayerController(a);edges.activityResumed();
   edges.snapshot(sample("End","Artist",227000,229000,"playing",""));edges.activityPaused();edges.activityStopped();SystemClock.time+=600000;edges.activityResumed();yes(elapsed.text.equals("3:47"));
   for(int i=0;i<10;i++){SystemClock.time+=1000;Handler.flush();edges.doFrame(0);}

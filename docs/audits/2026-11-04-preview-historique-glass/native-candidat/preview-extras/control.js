@@ -14,8 +14,8 @@
     };
     if (['like','shuffle','repeat'].indexOf(kind) < 0) return JSON.stringify({state:'unknown',reason:'control'});
     var selector = kind === 'like' ?
-        '[data-testid="now-playing-widget"] button, [data-testid="now-playing-bar"] button' :
-        kind === 'shuffle' ? 'button[data-testid*="shuffle" i], button[aria-label]' :
+        '[data-testid="now-playing-widget"] button, [data-testid="now-playing-bar"] button, [data-testid="now-playing-view"] button, [data-testid="now-playing-panel"] button, [data-testid="now-playing-view"] [role="button"], [data-testid="now-playing-bar"] [role="button"]' :
+        kind === 'shuffle' ? 'button[data-testid*="shuffle" i], button[aria-label], [role="button"][aria-label], [role="switch"][aria-label]' :
         'button[data-testid="control-button-repeat"]';
     var nodes = Array.from(document.querySelectorAll(selector)).filter(function(b) {
         if (!b.isConnected) return false;
@@ -47,6 +47,7 @@
     } else if (raw !== 'true' && raw !== 'false' && !(kind !== 'like' && raw === 'mixed')) raw='unknown';
     if (kind === 'like') {
         var bar=button.closest('[data-testid="now-playing-widget"], [data-testid="now-playing-bar"]');
+        if (!bar) bar=document.querySelector('[data-testid="now-playing-widget"], [data-testid="now-playing-bar"]');
         var link=bar && bar.querySelector('a[data-testid="context-item-link"], a[data-testid="nowplaying-track-link"]');
         result.title=link ? String(link.textContent||'').trim() : '';
         var href=link ? String(link.getAttribute('href')||'') : '';

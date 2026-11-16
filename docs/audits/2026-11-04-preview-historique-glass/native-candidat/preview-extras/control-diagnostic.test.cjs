@@ -33,3 +33,8 @@ test('embedded WebView wrapper keeps diagnostic categorical while control retain
   assert.equal(result.title,'Private title');assert.equal(diag.state,'false');assert.equal(diag.reason,'observed');assert.ok(!result.diagnostic.includes('Private'));assert.ok(!result.diagnostic.includes('secret'));
  }finally{d.window.close();}
 });
+
+test('structural counts redact arbitrary testids, labels, title and account',()=>{
+ let x=run(bar('<button data-testid="control-button-playpause" aria-label="Pause"></button><button data-testid="account-Alice" aria-label="Song by Private Artist"></button><input type="range" role="slider" data-testid="volume-slider">'),'shuffle');
+ let st=JSON.parse(x.structure);assert.equal(st.bar,1);assert.equal(st.nodes,3);assert.equal(st.playpause,1);assert.equal(st.volume,1);assert.equal(st.aria_other,1);assert.equal(st.aria_pause,1);assert.ok(!x.structure.includes('Alice'));assert.ok(!x.structure.includes('Private'));
+});

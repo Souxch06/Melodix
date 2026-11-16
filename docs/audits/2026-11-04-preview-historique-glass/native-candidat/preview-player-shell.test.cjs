@@ -71,7 +71,8 @@ test('switching sources cannot count as observed movement',()=>{
  const x=fixture(html);try{
   assert.equal(x.payload().previewProgressSource,'clock');
   const n=x.w.document.createElement('div');n.setAttribute('data-testid','playback-progressbar');n.innerHTML='<input type="range" max="120000" value="21000">';x.w.document.body.append(n);
-  x.step(1000);assert.equal(x.payload().previewProgressSource,'range');assert.equal(x.payload().previewAdvancing,false);
+  x.step(1000);assert.equal(x.payload().previewProgressSource,'clock');assert.equal(x.payload().previewAdvancing,false);
+  x.w.document.querySelector('[data-testid=playback-position]').remove();x.step(1000);assert.equal(x.payload().previewProgressSource,'range');assert.equal(x.payload().previewAdvancing,false);
  }finally{x.close()}
 });
 
@@ -158,4 +159,8 @@ test('seek confirmation ignores the range property it wrote and notices later pa
   x.step(1000);assert.equal(x.payload().previewConfirmPositionMs,-1);
   slider.setAttribute('value','61000');x.step(1000);assert.equal(x.payload().previewConfirmPositionMs,61000);
  }finally{x.close()}
+});
+
+test('displayed clock takes precedence over stale range; invalid clock falls back',()=>{
+ const x=fixture('<div data-testid="now-playing-bar"><a data-testid="context-item-link" href="/track/abc">Song</a></div><span data-testid="playback-position">0:41</span><span data-testid="playback-duration">2:00</span><div data-testid="playback-progressbar"><input type="range" max="120000" value="40000"></div><button data-testid="control-button-playpause" aria-label="Pause"></button>');try{let p=x.payload();assert.equal(p.previewProgressSource,'clock');assert.equal(p.previewPositionMs,41000);x.w.document.querySelector('[data-testid=playback-position]').textContent='0:99';x.step(1000);p=x.payload();assert.equal(p.previewProgressSource,'range');assert.equal(p.previewPositionMs,40000)}finally{x.close()}
 });

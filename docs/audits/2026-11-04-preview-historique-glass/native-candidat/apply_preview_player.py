@@ -20,14 +20,14 @@ EXPECTED = {
     'res/layout-w600dp/activity_main.xml': '4d110f1df062fdf7676b9aa5e70146dd7ec148da3c0c614a553b5586ad5af8fe',
     'res/drawable/widget_progress_drawable.xml': '3a5f8f51ea984c7a8226d5acd69bf6b20383ca9622843d617b055c9fe18d772f',
 }
-SOURCE_SHA = 'd69fe374510b6fb121b5c00d8ae381bdd0702e442fea56422325e40aef78b463'
+SOURCE_SHA = '8dbe3ea93fb015539377a3e2f18e1773b7dc50f5dd07915fd7dee57ce1f1bb42'
 HELPER_SHA = {
     'PreviewPlayerController$1.smali': 'a4bd434739e15f95710716206e6f67fcf9088d90f6a5ea710667b5b99e82e0f4',
     'PreviewPlayerController$2.smali': '47c427951af4a3c2329b97514a14e1c49090e583b929b1ebcd69dd0982aad08e',
-    'PreviewPlayerController$3.smali': '95802b5dde10699d650c7f9ed28ba3d5d747371066def0a4d277a4f6a534593f',
-    'PreviewPlayerController$4.smali': '4245bb3feea75776fa69d4f2b3529f56e385e69025938c4c3bf0972a20ea9a65',
-    'PreviewPlayerController$5.smali': 'f5cf7b202b4b6458973f0c59747997cd9e40e1b521aa52dbe685dc0ba7d13afa',
-    'PreviewPlayerController.smali': 'b31def2d6211a952751683f7ebd73beb8a6bc1d067d49d9dfe088a8762cb0060',
+    'PreviewPlayerController$3.smali': '5c64b23adda026641157ffc11cc2c6909b6c28dd6505b1beea939e7c29c76e05',
+    'PreviewPlayerController$4.smali': '0aa670a26adcb2e9047fba456fe235e7750ead390a0f7387e460523356013183',
+    'PreviewPlayerController$5.smali': '1ebf1e1195ed05178b05a2084949eaef24bda76c7bdacf38e56bedad5df05fb8',
+    'PreviewPlayerController.smali': '49cc85a0c7b43646e3ed4500a87c639eb484170a40c4f0e480ebfdc084eafddb',
 }
 
 def replace(text, old, new):
@@ -116,21 +116,29 @@ def prepare(root):
         return {position: value / 1000, duration: max / 1000, source: 'range'};
     }
 
+    function previewClockStrict(selector) {
+        var node = document.querySelector(selector), text = node ? String(node.textContent || '').trim() : '';
+        if (!/^(?:\\d+:)?\\d{1,3}:\\d{2}$/.test(text)) return -1;
+        var p = text.split(':').map(Number);
+        if (p[p.length - 1] >= 60 || (p.length === 3 && p[1] >= 60)) return -1;
+        return p.reduce(function(total, n) { return total * 60 + n; }, 0);
+    }
+
     function readMediaProgress() {''')
     s = replace(s, '''        var progress = readMediaProgress();
         var position = progress.position;
         var duration = progress.duration;
         if (position < 0) position = readClock(['[data-testid="playback-position"]']);
-        if (duration <= 0) duration = readClock(['[data-testid="playback-duration"]']);''', '''        var progress = previewReadRange() || readMediaProgress();
-        var position = progress.position;
-        var duration = progress.duration;
-        var previewSource = progress.source || (isFinite(position) && position >= 0 && isFinite(duration) && duration > 0 && position <= duration ? 'media' : 'none');
+        if (duration <= 0) duration = readClock(['[data-testid="playback-duration"]']);''', '''        // Prefer the displayed clock pair (second precision). Do not mix
+        // a position and duration from different sources.
+        var position = previewClockStrict('[data-testid="playback-position"]');
+        var duration = previewClockStrict('[data-testid="playback-duration"]');
+        var previewSource = position >= 0 && duration > 0 && position <= duration ? 'clock' : 'none';
         if (previewSource === 'none') {
-            // Never combine a position from one source with another source's duration.
-            position = readClock(['[data-testid="playback-position"]']);
-            duration = readClock(['[data-testid="playback-duration"]']);
-            if (position >= 0 && duration > 0 && position <= duration) previewSource = 'clock';
-            else { position = -1; duration = -1; }
+            var progress = previewReadRange() || readMediaProgress();
+            position = progress.position; duration = progress.duration;
+            previewSource = progress.source || (isFinite(position) && position >= 0 && isFinite(duration) && duration > 0 && position <= duration ? 'media' : 'none');
+            if (previewSource === 'none') { position = -1; duration = -1; }
         }''')
     # Reuse only the bridge's already published in-memory library when the
     # bridge can positively attest it belongs to the current session. This

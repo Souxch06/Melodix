@@ -3,12 +3,12 @@
 .source "PreviewPlayerTiles.java"
 
 # interfaces
-.implements Landroid/view/View$OnTouchListener;
+.implements Landroid/content/DialogInterface$OnDismissListener;
 
 
 # annotations
 .annotation system Ldalvik/annotation/EnclosingMethod;
-    value = Lcom/melodix/music/PreviewPlayerTiles;->showPanel(I)V
+    value = Lcom/melodix/music/PreviewPlayerTiles;->activate(I)V
 .end annotation
 
 .annotation system Ldalvik/annotation/InnerClass;
@@ -18,22 +18,16 @@
 
 
 # instance fields
-.field down:F
-
 .field final synthetic this$0:Lcom/melodix/music/PreviewPlayerTiles;
-
-.field private final synthetic val$dialog:Landroid/app/Dialog;
 
 
 # direct methods
-.method constructor <init>(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Dialog;)V
+.method constructor <init>(Lcom/melodix/music/PreviewPlayerTiles;)V
     .locals 0
 
     .prologue
-    .line 68
+    .line 59
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$2;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
-
-    iput-object p2, p0, Lcom/melodix/music/PreviewPlayerTiles$2;->val$dialog:Landroid/app/Dialog;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
@@ -42,63 +36,16 @@
 
 
 # virtual methods
-.method public onTouch(Landroid/view/View;Landroid/view/MotionEvent;)Z
-    .locals 4
+.method public onDismiss(Landroid/content/DialogInterface;)V
+    .locals 2
 
     .prologue
-    const/4 v3, 0x1
+    .line 59
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$2;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-    .line 69
-    invoke-virtual {p2}, Landroid/view/MotionEvent;->getActionMasked()I
+    const/4 v1, 0x0
 
-    move-result v0
+    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->access$0(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Dialog;)V
 
-    if-nez v0, :cond_1
-
-    invoke-virtual {p2}, Landroid/view/MotionEvent;->getRawY()F
-
-    move-result v0
-
-    iput v0, p0, Lcom/melodix/music/PreviewPlayerTiles$2;->down:F
-
-    .line 71
-    :cond_0
-    :goto_0
-    return v3
-
-    .line 70
-    :cond_1
-    invoke-virtual {p2}, Landroid/view/MotionEvent;->getActionMasked()I
-
-    move-result v0
-
-    if-ne v0, v3, :cond_0
-
-    invoke-virtual {p2}, Landroid/view/MotionEvent;->getRawY()F
-
-    move-result v0
-
-    iget v1, p0, Lcom/melodix/music/PreviewPlayerTiles$2;->down:F
-
-    sub-float/2addr v0, v1
-
-    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerTiles$2;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
-
-    const/high16 v2, 0x42480000    # 50.0f
-
-    invoke-static {v1, v2}, Lcom/melodix/music/PreviewPlayerTiles;->access$1(Lcom/melodix/music/PreviewPlayerTiles;F)I
-
-    move-result v1
-
-    int-to-float v1, v1
-
-    cmpl-float v0, v0, v1
-
-    if-lez v0, :cond_0
-
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$2;->val$dialog:Landroid/app/Dialog;
-
-    invoke-virtual {v0}, Landroid/app/Dialog;->dismiss()V
-
-    goto :goto_0
+    return-void
 .end method

@@ -20,16 +20,17 @@ mode=(here/'PreviewPlayerMode.java').read_text(encoding='utf-8')
 tiles=(here/'PreviewPlayerTiles.java').read_text(encoding='utf-8')
 assert '0xd9ffffff' in art and 'kind.equals("like")?(pending?0.65f:known?1f:0.35f)' in mode
 assert 'Chargement :' in mode and 'Indisponible :' in mode and 'reasonText()' in mode
-assert 'Indisponible dans cette version' in tiles and 'setOnDismissListener' in tiles
-for forbidden in ('import android.webkit', 'evaluateJavascript(', 'setVisibility(', 'AudioManager', 'FLAG_NOT_TOUCH_MODAL'):
-    assert forbidden not in tiles, forbidden
+assert 'Indisponible dans cette version' in tiles
+assert 'setVisibility(' not in tiles and 'FLAG_NOT_TOUCH_MODAL' not in tiles
+volume=(here/'PreviewPlayerVolume.java').read_text(encoding='utf-8')
+assert 'AudioManager' not in volume.replace('never modifies Android AudioManager','')
+assert 'enqueue(' in volume and '100-(SystemClock.elapsedRealtime()-lastSent)' in volume
 for forbidden in ('loadUrl(', 'reload(', 'fetch(', 'api.spotify.com'):
     assert forbidden not in tiles
 print('Symmetric player headers, like contrast and disabled reasons checked structurally')
 
-# This guard checks the actual packaged implementation, not the Java source alone.
 compiled='\n'.join(p.read_text(encoding='utf8') for p in (root/'smali/com/melodix/music').glob('PreviewPlayerTiles*.smali'))
-assert compiled
-for forbidden in ('Landroid/webkit/WebView;', 'evaluateJavascript', '->setVisibility(', 'Landroid/media/AudioManager;', 'FLAG_NOT_TOUCH_MODAL'):
-    assert forbidden not in compiled, forbidden
-print('Native panel Smali cannot reveal WebView or alter Android audio via this component')
+assert compiled and '->setVisibility(' not in compiled and 'Landroid/webkit/WebView;' not in compiled
+volume_smali='\n'.join(p.read_text(encoding='utf8') for p in (root/'smali/com/melodix/music').glob('PreviewPlayerVolume*.smali'))
+assert volume_smali and 'Landroid/media/AudioManager;' not in volume_smali and '->setVisibility(' not in volume_smali
+print('Panel/volume compiled guards verified')
