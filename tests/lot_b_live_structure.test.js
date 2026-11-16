@@ -121,9 +121,17 @@ test('patched copy expression parses, returns {live, samples} and tolerates a mi
 
   dom.window.eval(PROBE);
   const withProbe = dom.window.eval(expr);
-  assert.equal(withProbe.live.version, 'lot-b-b1-1');
+  assert.equal(withProbe.live.version, 'lot-b-b1-2');
   assert.equal(withProbe.samples, null);
 
   const other = new JSDOM('<!doctype html><html><body></body></html>', { url: 'https://example.com/', runScripts: 'outside-only' });
   assert.equal(other.window.eval(expr), null);
+});
+
+test('open trace exposes counts, codes and durations only', () => {
+  const dom = pageWith(PLAYER_PAGE);
+  dom.window.__melodixOpenTrace = {kind: 'liked', phase: 'classified-empty', nav: 1, ready: 1, dom: 12, classified: 0, rendered: 0, tap: 1, first: -1, full: -1, updates: 0, secret: 'SECRET TITRE'};
+  const out = dom.window.__melodixLiveStructure();
+  assert.equal(out.openTrace.phase, 'classified-empty'); assert.equal(out.openTrace.domRows, 12); assert.equal(out.openTrace.classifiedRows, 0);
+  assert.equal(JSON.stringify(out).includes('SECRET'), false);
 });

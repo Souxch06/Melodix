@@ -10,6 +10,21 @@ def one(text, old, new):
     if text.count(old)!=1: raise ValueError('unexpected anchor: '+old[:90])
     return text.replace(old,new,1)
 
+MELODIX_TRACE = r"""    window.__melodixOpenTrace = window.__melodixOpenTrace || {kind: '', phase: 'none', nav: 0, ready: 0, dom: 0, classified: 0, rendered: 0, tap: 0, first: -1, full: -1, updates: 0};
+    function melodixTrace(step, n) {
+        try {
+            var t = window.__melodixOpenTrace, now = Date.now();
+            if (step === 'open') { t.kind = n; t.phase = 'open'; t.nav = 1; t.ready = 0; t.dom = 0; t.classified = 0; t.rendered = 0; t.tap = now; t.first = -1; t.full = -1; t.updates = 0; return; }
+            if (!t.tap) return;
+            if (step === 'ready') { t.ready++; t.phase = 'ready'; }
+            else if (step === 'dom') { t.dom = n; t.phase = n ? 'dom' : 'dom-empty'; }
+            else if (step === 'classified') { t.classified = n; t.phase = n ? 'classified' : 'classified-empty'; }
+            else if (step === 'rendered') { if (n > t.rendered) { t.rendered = n; t.updates++; if (t.first < 0) t.first = now - t.tap; t.full = now - t.tap; } t.phase = 'rendered'; }
+            else if (step === 'unavailable') t.phase = 'unavailable';
+        } catch (_) {}
+    }
+"""
+
 def apply(root):
     p=root/'assets/native_ui_shell.js';raw=p.read_bytes()
     if hashlib.sha256(raw).hexdigest()!=EXPECTED: raise ValueError('unexpected shell input; no changes made')
@@ -42,6 +57,7 @@ def apply(root):
         // an empty library. Show a manual retry; a later real row replaces it.
         if (path === '/collection/tracks' && !window.__sfNativeCollectionUri && window.__sfNativeUiReadyNotified && !rows.length && !previewLikedUnavailableShown) {
             previewLikedUnavailableShown = true;
+            melodixTrace('unavailable', 0);
             previewLoadState('unavailable');
             sendNativeUiData('detail', [
                 {title:'Titres likés indisponibles', subtitle:'Spotify n’affiche pas encore de titres.', settingValue:'Info', uri:''},
@@ -51,7 +67,16 @@ def apply(root):
         if (rows.length || path !== '/collection/tracks') previewLikedUnavailableShown = false;
         var displayedRows = rows;
         if (rows.length && (path === '/collection/tracks'""")
-    s=one(s, '    function updateDetailRows(mainView) {', '    var previewLikedUnavailableShown = false;\n    function updateDetailRows(mainView) {')
+    s=one(s, '    function updateDetailRows(mainView) {', '    var previewLikedUnavailableShown = false;\n' + MELODIX_TRACE + '    function updateDetailRows(mainView) {')
+    # Counts and timings only (no title, artist or identifier): which step of
+    # an opened collection fails, and how long the first and full lists take.
+    s=one(s, """        if (rows.length > 0 && signature !== lastInitialDetailSignature && sendNativeUiData('detail', displayedRows)) {""",
+             """        if (path === '/collection/tracks' || /^\\/(playlist|album)\\//i.test(path)) {
+            melodixTrace('dom', mainView ? mainView.querySelectorAll('[data-testid="tracklist-row"]').length : 0);
+            melodixTrace('classified', rows.length);
+        }
+        if (rows.length > 0 && signature !== lastInitialDetailSignature && sendNativeUiData('detail', displayedRows)) {
+            melodixTrace('rendered', displayedRows.length);""")
     # Only an anonymous timing event; retain the previous collection route,
     # readiness guard, navigation policy and one-call retrieval flow unchanged.
     s=one(s, """        if (rows.length > 0 && signature !== lastInitialDetailSignature && sendNativeUiData('detail', displayedRows)) {""", """        if (rows.length > 0 && signature !== lastInitialDetailSignature) previewPhase('rows-received');
@@ -89,12 +114,14 @@ def apply(root):
     s=one(s, "            payload.playing ? '1' : '0',\n            payload.duration,", "            payload.playing ? '1' : '0',\n            payload.previewPlaybackState,\n            payload.previewConfirmPositionMs,\n            payload.duration,")
     # Native timing spans survive a WebView reload; include only the already
     # visible route to reject a stale ready event from a different collection.
-    s=one(s, "        try {\n            bridge.onNativeUiReady();", "        try {\n            previewPhase('page-ready|' + spotifyResourceUri(window.location.href));\n            bridge.onNativeUiReady();")
+    s=one(s, "        try {\n            bridge.onNativeUiReady();", "        try {\n            previewPhase('page-ready|' + spotifyResourceUri(window.location.href));\n            melodixTrace('ready', 0);\n            bridge.onNativeUiReady();")
     # Replace the entire previous auto-retry/token-aware flow with one bridge
     # attempt and the historical paused-only navigation fallback.
     start=s.index('    var openCollectionTimer = null;')
     end=s.index('    // Search normally goes through the bridge.', start)
     s=s[:start]+helper+'\n'+s[end:]
+    s=one(s, "        if (!uri) return false;\n        cancelPendingCollectionNavigation();",
+             "        if (!uri) return false;\n        melodixTrace('open', uri === 'spotify:collection:tracks' ? 'liked' : 'playlist');\n        cancelPendingCollectionNavigation();")
     activity=root/'smali/com/melodix/music/MainActivity.smali'
     a=activity.read_text(encoding='utf8')
     anchor = ".method public final openNativeRow(Ljava/lang/String;Ljava/lang/String;)V"

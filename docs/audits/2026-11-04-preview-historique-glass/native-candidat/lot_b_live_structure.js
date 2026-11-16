@@ -64,13 +64,24 @@
       var controls = {};
       TESTIDS.forEach(function (id) { controls[id] = pick(id); });
       return {
-        version: 'lot-b-b1-1',
+        version: 'lot-b-b1-2',
         nowPlayingBarPresent: bar !== null,
         nowPlayingBarButtonCount: barButtons.length,
         nowPlayingBarButtons: barButtons,
         controls: controls,
         queueControlPresent: document.querySelector('[data-testid="control-button-queue"]') !== null,
-        volumeBarPresent: document.querySelector('[data-testid="volume-bar"]') !== null
+        volumeBarPresent: document.querySelector('[data-testid="volume-bar"]') !== null,
+        openTrace: (function () {
+          var t = window.__melodixOpenTrace, num = function (x) { return typeof x === 'number' && isFinite(x) ? Math.round(x) : null; };
+          if (!t || typeof t !== 'object') return null;
+          var phases = ['none', 'open', 'ready', 'dom', 'dom-empty', 'classified', 'classified-empty', 'rendered', 'unavailable'];
+          return {
+            kind: t.kind === 'liked' || t.kind === 'playlist' ? t.kind : null,
+            phase: phases.indexOf(t.phase) >= 0 ? t.phase : null,
+            navigation: num(t.nav), ready: num(t.ready), domRows: num(t.dom), classifiedRows: num(t.classified),
+            sentToNative: num(t.rendered), firstRowsMs: num(t.first), fullListMs: num(t.full), updates: num(t.updates)
+          };
+        })()
       };
     } catch (_) {
       return { error: 'probe-failed' };
