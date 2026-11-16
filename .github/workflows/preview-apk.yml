@@ -62,8 +62,45 @@ permissions:
   contents: read
 
 jobs:
+  read-only-guard-log:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag == 'diagnose-preview-guard' }}
+    permissions:
+      actions: read
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report previous comparison step
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_ID: ${{ inputs.source_ref }}
+        run: |
+          set -euo pipefail
+          [[ "$JOB_ID" =~ ^[0-9]+$ ]]
+          if gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$JOB_ID/logs" > "$RUNNER_TEMP/job.log" 2> "$RUNNER_TEMP/fetch-error"; then
+            python3 - "$RUNNER_TEMP/job.log" <<'PY'
+          import pathlib,re,sys
+          lines=pathlib.Path(sys.argv[1]).read_text(errors='replace').splitlines()
+          # Only the comparison and guard steps; suppress any URLs and tokens.
+          selected=[]; active=False
+          for line in lines:
+              if '##[group]Run set -euo pipefail' in line: active=False
+              if 'test_signed_candidate_gate.py' in line: active=True
+              if active and any(x.lower() in line.lower() for x in ('error','failed','failure','mismatch','different','differs','expired','not found','forbidden','http 4','http 5','protected','9016','artifact','sha256','traceback','exception','assert','no space','too many','bad zip','permission')):
+                  line=re.sub(r'https?://\S+','[URL removed]',line)
+                  line=re.sub(r'(?i)(token|authorization|signature|sig)=\S+',r'\1=[redacted]',line)
+                  selected.append(line[-800:])
+          text='\n'.join(selected[-45:]) or 'No filtered diagnostics found in the job log.'
+          safe=text.replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+          print('::notice title=Previous Preview guard diagnostic::'+safe)
+          with open(__import__('os').environ['GITHUB_STEP_SUMMARY'],'a') as out: out.write('### Previous Preview guard diagnostic\n```\n'+text+'\n```\n')
+          PY
+          else
+            echo '::error title=Previous Preview guard diagnostic::Unable to retrieve previous job log using the GitHub runner.'
+            echo 'Previous job log could not be retrieved.' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
   build-and-release-preview:
-    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && !(github.event_name == 'workflow_dispatch' && (inputs.release_tag == 'v1.2.2-test.9003-preview' || inputs.release_tag == 'v1.2.2-test.9004-preview' || inputs.release_tag == 'v1.2.2-test.9005-preview' || inputs.release_tag == 'v1.2.2-test.9006-preview' || inputs.release_tag == 'v1.2.2-test.9007-preview' || inputs.release_tag == 'v1.2.2-test.9008-preview' || inputs.release_tag == 'v1.2.2-test.9009-preview' || inputs.release_tag == 'v1.2.2-test.9010-preview' || inputs.release_tag == 'v1.2.2-test.9011-preview' || inputs.release_tag == 'v1.2.2-test.9012-preview' || inputs.release_tag == 'v1.2.2-test.9013-preview' || inputs.release_tag == 'v1.2.2-test.9014-preview' || inputs.release_tag == 'v1.2.2-test.9015-preview' || inputs.release_tag == 'v1.2.2-test.9016-preview' || (inputs.release_tag == 'v1.2.2-test.9017-preview' || (inputs.release_tag == 'v1.2.2-test.9018-preview' || (inputs.release_tag == 'v1.2.2-test.9020-preview' || (inputs.release_tag == 'v1.2.2-test.9021-preview' || (inputs.release_tag == 'v1.2.2-test.9022-preview' || (inputs.release_tag == 'v1.2.2-test.9023-preview' || (inputs.release_tag == 'v1.2.2-test.9024-preview' || inputs.release_tag == 'v1.2.2-test.9026-preview')))))) || inputs.release_tag == 'v1.2.2-test.9019-preview'))) }}
+    if: ${{ inputs.release_tag != 'diagnose-preview-guard' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && !(github.event_name == 'workflow_dispatch' && (inputs.release_tag == 'v1.2.2-test.9003-preview' || inputs.release_tag == 'v1.2.2-test.9004-preview' || inputs.release_tag == 'v1.2.2-test.9005-preview' || inputs.release_tag == 'v1.2.2-test.9006-preview' || inputs.release_tag == 'v1.2.2-test.9007-preview' || inputs.release_tag == 'v1.2.2-test.9008-preview' || inputs.release_tag == 'v1.2.2-test.9009-preview' || inputs.release_tag == 'v1.2.2-test.9010-preview' || inputs.release_tag == 'v1.2.2-test.9011-preview' || inputs.release_tag == 'v1.2.2-test.9012-preview' || inputs.release_tag == 'v1.2.2-test.9013-preview' || inputs.release_tag == 'v1.2.2-test.9014-preview' || inputs.release_tag == 'v1.2.2-test.9015-preview' || inputs.release_tag == 'v1.2.2-test.9016-preview' || (inputs.release_tag == 'v1.2.2-test.9017-preview' || (inputs.release_tag == 'v1.2.2-test.9018-preview' || (inputs.release_tag == 'v1.2.2-test.9020-preview' || (inputs.release_tag == 'v1.2.2-test.9021-preview' || (inputs.release_tag == 'v1.2.2-test.9022-preview' || (inputs.release_tag == 'v1.2.2-test.9023-preview' || (inputs.release_tag == 'v1.2.2-test.9024-preview' || inputs.release_tag == 'v1.2.2-test.9026-preview')))))) || inputs.release_tag == 'v1.2.2-test.9019-preview'))) }}
     name: Build separate Preview APK artifact
     runs-on: ubuntu-latest
     outputs:
