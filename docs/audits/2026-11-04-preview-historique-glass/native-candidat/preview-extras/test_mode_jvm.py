@@ -58,7 +58,7 @@ stubs={
  Handler.clear();t=new Activity();t.G=new WebView(t);sh=new PreviewPlayerMode(t,null);sh.setTag("shuffle");sh.onAttachedToWindow();Handler.step();
  t.G.reply(data("false")+";diagnostic=diag:state:false,reason:observed,command:toggle,label:off-action");sh.performClick();t.G.reply("sent=true");obs.invoke(sh);
  t.G.reply(data("true")+";diagnostic=diag:state:true,reason:observed,command:toggle,label:on-action");
- String report=PreviewPlayerMode.diagnosticReport();ok(report.contains("avant : état=false"));ok(report.contains("après : état=true"));ok(report.contains("changement observé"));ok(!report.contains("Titre")&&!report.contains("track:abc"));sh.onDetachedFromWindow();
+ String report=PreviewPlayerMode.diagnosticReport();ok(report.contains("Répétition — actuel"));ok(report.contains("avant : état=false"));ok(report.contains("après : état=true"));ok(report.contains("changement observé"));ok(!report.contains("Titre")&&!report.contains("track:abc"));sh.onDetachedFromWindow();
  System.out.println("Player mode JVM simulation passed"); }
 }'''
 

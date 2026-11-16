@@ -21,9 +21,39 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.Toast;
+import android.widget.TextView;
+import android.webkit.WebView;
+import android.webkit.ValueCallback;
+import org.json.JSONObject;
+import org.json.JSONTokener;
 
 /** Native fallback panels and a separate Spotify volume control. */
 public final class PreviewPlayerTiles extends LinearLayout {
+    private static final String PANEL_PROBE = "(function(kind) {\n    'use strict';\n    // Observation only. Never open a panel, navigate, click, or read its text.\n    // Fixed categories and bounded counts only; no arbitrary testids or labels.\n    var selectors={\n        queue:'[data-testid=\"queue-page\"], [data-testid=\"queue-view\"]',\n        lyrics:'[data-testid=\"lyrics-page\"], [data-testid=\"lyrics-lyricsContent\"], [data-testid=\"lyrics-container\"]',\n        devices:'[data-testid=\"device-picker\"], [data-testid=\"connect-device-list\"]'\n    };\n    if(!Object.prototype.hasOwnProperty.call(selectors,kind))return JSON.stringify({reason:'kind',roots:0,rows:0,buttons:0,roles:0,testids:0});\n    var roots=Array.from(document.querySelectorAll(selectors[kind])).filter(function(n){return n.isConnected;});\n    var nodes=[];roots.forEach(function(r){Array.from(r.querySelectorAll('[role], [data-testid], button')).forEach(function(n){if(nodes.indexOf(n)<0)nodes.push(n);});});\n    function count(test){return Math.min(99,nodes.filter(test).length);}\n    return JSON.stringify({reason:roots.length?'observed':'absent',roots:Math.min(roots.length,99),\n        rows:count(function(n){return n.getAttribute('role')==='listitem'||/^(queue-tracklist-row|device-list-item|lyrics-line)$/.test(n.getAttribute('data-testid')||'');}),\n        buttons:count(function(n){return n.tagName==='BUTTON'||n.getAttribute('role')==='button';}),\n        roles:count(function(n){return n.hasAttribute('role');}),testids:count(function(n){return n.hasAttribute('data-testid');})});\n})\n";
+    private static final String[] observations={"non observée","non observée","non observée"};
+    private static final long[] probeSerial={0,0,0};
+    public static String diagnosticReport(){return "\nStructure File : "+observations[0]+"\nStructure Paroles : "+observations[1]+"\nStructure Appareils : "+observations[2];}
+    private static int count(JSONObject o,String key){return Math.max(0,Math.min(99,o.optInt(key,0)));}
+    private void probe(final int i,Activity a){
+        String kind=i==0?"queue":i==1?"lyrics":"devices";final long serial=++probeSerial[i];
+        try {
+            Object view=a.getClass().getField("G").get(a);
+            if(!(view instanceof WebView)){observations[i]="page inaccessible";return;}
+            ((WebView)view).evaluateJavascript("("+PANEL_PROBE+")("+JSONObject.quote(kind)+");",new ValueCallback<String>(){
+                public void onReceiveValue(String value){
+                    if(serial!=probeSerial[i])return;
+                    try {
+                        Object decoded=new JSONTokener(value).nextValue();
+                        if(!(decoded instanceof String)){observations[i]="réponse illisible";return;}
+                        JSONObject data=new JSONObject((String)decoded);String reason=data.optString("reason","unknown");
+                        if(!reason.equals("observed")&&!reason.equals("absent"))reason="unknown";
+                        observations[i]="motif="+reason+", racines="+count(data,"roots")+", lignes="+count(data,"rows")+
+                            ", boutons="+count(data,"buttons")+", rôles="+count(data,"roles")+", testids="+count(data,"testids");
+                    } catch(Exception ignored){observations[i]="réponse illisible";}
+                }
+            });
+        }catch(Exception ignored){observations[i]="page inaccessible";}
+    }
     private final String[] names={"File","Paroles","Appareils"};
     private final String[] icons={"☰","♬","▣"};
     private final Button[] controls=new Button[3];
@@ -49,13 +79,18 @@ public final class PreviewPlayerTiles extends LinearLayout {
     private void activate(final int i){
         long now=SystemClock.elapsedRealtime();final Activity a=activity();
         if(!volumeRunning || !isShown() || getWindowVisibility()!=View.VISIBLE || a==null || a.isFinishing() || a.isDestroyed() || webDialog!=null || now-lastAction<400)return;
-        lastAction=now;controls[i].performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+        lastAction=now;controls[i].performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);probe(i,a);
         try {
-            final Dialog dialog=new Dialog(a);Button close=new Button(a);
-            close.setText("Indisponible dans cette version\nFermer");close.setContentDescription(names[i]+" : indisponible dans cette version. Fermer");close.setMinimumHeight(dp(48));
-            GradientDrawable glass=new GradientDrawable();glass.setColor(0xeb170b33);glass.setStroke(dp(1),0x1fffffff);glass.setCornerRadius(dp(28));close.setBackground(glass);
-            close.setOnClickListener(new View.OnClickListener(){public void onClick(View v){dialog.dismiss();}});
-            dialog.setTitle(names[i]);dialog.setContentView(close);dialog.setCanceledOnTouchOutside(true);
+            final Dialog dialog=new Dialog(a);
+            LinearLayout panel=new LinearLayout(a);panel.setOrientation(VERTICAL);panel.setPadding(dp(20),dp(12),dp(20),dp(24));
+            GradientDrawable glass=new GradientDrawable();glass.setColor(0xeb170b33);glass.setStroke(dp(1),0x1fffffff);glass.setCornerRadius(dp(28));panel.setBackground(glass);
+            TextView handle=new TextView(a);handle.setText("━━━━");handle.setTextColor(0x99ffffff);panel.addView(handle,new LinearLayout.LayoutParams(-1,dp(24)));
+            TextView title=new TextView(a);title.setText(names[i]);title.setTextColor(Color.WHITE);title.setTextSize(20);panel.addView(title,new LinearLayout.LayoutParams(-1,dp(48)));
+            TextView unavailable=new TextView(a);unavailable.setText("Indisponible dans cette version");unavailable.setTextColor(0xffd8d0e8);unavailable.setTextSize(16);panel.addView(unavailable,new LinearLayout.LayoutParams(-1,dp(48)));
+            Button retry=new Button(a);retry.setText("Réessayer");retry.setMinimumHeight(dp(48));retry.setOnClickListener(new View.OnClickListener(){public void onClick(View v){probe(i,a);message("Indisponible dans cette version");}});panel.addView(retry,new LinearLayout.LayoutParams(-1,dp(48)));
+            Button close=new Button(a);close.setText("Fermer");close.setContentDescription(names[i]+" : indisponible dans cette version. Fermer");close.setMinimumHeight(dp(48));
+            close.setOnClickListener(new View.OnClickListener(){public void onClick(View v){dialog.dismiss();}});panel.addView(close,new LinearLayout.LayoutParams(-1,dp(48)));
+            dialog.setTitle(names[i]);dialog.setContentView(panel);dialog.setCanceledOnTouchOutside(true);
             dialog.setOnDismissListener(new DialogInterface.OnDismissListener(){public void onDismiss(DialogInterface ignored){webDialog=null;}});
             webDialog=dialog;dialog.show();Window w=dialog.getWindow();if(w==null){dialog.dismiss();return;}
             w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));w.setGravity(android.view.Gravity.BOTTOM);w.setLayout(-1,-2);

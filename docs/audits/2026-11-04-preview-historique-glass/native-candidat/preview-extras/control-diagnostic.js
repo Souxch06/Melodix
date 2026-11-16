@@ -3,6 +3,9 @@
     // Passive, bounded, allowlisted observations only. No account, track or
     // arbitrary page text is returned. This probe does not click or send data.
     var specs={
+        repeat:{selector:'button[data-testid="control-button-repeat"], [role="button"][data-testid="control-button-repeat"], button[aria-label], [role="button"][aria-label]', ids:/^control-button-repeat$/i,
+            off:/^(enable repeat|turn repeat on|activer la répétition|wiederholung aktivieren|activar repetición|ativar repetição)$/i,
+            on:/^(disable repeat|turn repeat off|désactiver la répétition|wiederholung deaktivieren|desactivar repetición|desativar repetição)$/i},
         shuffle:{selector:'button[data-testid*="shuffle" i], button[aria-label], [role="button"][aria-label], [role="switch"][aria-label]', ids:/shuffle/i,
             off:/^(enable shuffle|turn shuffle on|activate shuffle|activer (la lecture |le mode |l['’])?aléatoire|zufallswiedergabe aktivieren|activar (el modo |la reproducción )?aleatori[oa]|ativar (a reprodução )?aleatória)$/i,
             on:/^(disable shuffle|turn shuffle off|deactivate shuffle|désactiver (la lecture |le mode |l['’])?aléatoire|zufallswiedergabe deaktivieren|desactivar (el modo |la reproducción )?aleatori[oa]|desativar (a reprodução )?aleatória)$/i},
@@ -25,7 +28,7 @@
         });
         Object.keys(st).forEach(function(k){st[k]=Math.min(st[k],99);});return JSON.stringify(st);
     }
-    var spec=specs[kind], out={kind:kind==='shuffle'?'shuffle':kind==='like'?'like':'unknown',reason:'control',count:0,state:'unknown',label:'unknown',command:'unknown',disabled:false,smart:false,structure:structure()};
+    var spec=specs[kind], out={kind:kind==='shuffle'?'shuffle':kind==='like'?'like':kind==='repeat'?'repeat':'unknown',reason:'control',count:0,state:'unknown',label:'unknown',command:'unknown',disabled:false,smart:false,structure:structure()};
     if(!spec)return JSON.stringify(out);
     var nodes=Array.from(document.querySelectorAll(spec.selector)).filter(function(b){
         return b.isConnected && (spec.ids.test(String(b.getAttribute('data-testid')||'')) || spec.off.test(String(b.getAttribute('aria-label')||'').trim()) || spec.on.test(String(b.getAttribute('aria-label')||'').trim()));
@@ -36,7 +39,7 @@
     out.label=spec.on.test(label)?'on-action':spec.off.test(label)?'off-action':label?'unrecognized':'absent';
     out.disabled=!!b.disabled || b.getAttribute('aria-disabled')==='true';
     var raw=b.getAttribute('aria-checked');if(raw===null)raw=b.getAttribute('aria-pressed');
-    out.state=raw==='true'||raw==='false'||(kind==='shuffle'&&raw==='mixed')?raw:raw===null?(out.label==='on-action'?'true':out.label==='off-action'?'false':'unknown'):'unknown';
+    out.state=raw==='true'||raw==='false'||(kind!=='like'&&raw==='mixed')?raw:raw===null?(out.label==='on-action'?'true':out.label==='off-action'?'false':'unknown'):'unknown';
     out.smart=kind==='shuffle' && out.state==='mixed';
     var id=String(b.getAttribute('data-testid')||'').toLowerCase();
     var conflict=kind==='like' && ((out.state==='false' && (out.label==='on-action'||/^(remove-button|remove-from-library-button)$/.test(id))) || (out.state==='true' && out.label==='off-action'));

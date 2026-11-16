@@ -53,7 +53,7 @@ public final class PreviewPlayerVolume extends Button {
     private void paint(){
         String label=percent<0?"◖))\nVolume —":(percent==0?"◖×":"◖))")+"\nVolume "+percent+" %";
         setText(label);setContentDescription(percent<0?"Volume du lecteur indisponible : "+reason:"Volume du lecteur : "+percent+" pour cent");
-        setEnabled(running&&percent>=0);setAlpha(percent<0?0.45f:1f);
+        setEnabled(running);setAlpha(percent<0?0.60f:1f);
         if(dialog!=null&&slider!=null&&mute!=null&&valueLabel!=null){
             slider.setEnabled(percent>=0);mute.setEnabled(percent>=0);
             if(percent<0)valueLabel.setText("Indisponible : "+reason);
@@ -87,19 +87,20 @@ public final class PreviewPlayerVolume extends Button {
         if(!dragging)handler.postDelayed(new Runnable(){public void run(){if(running)read();}},350);
     }
     private void open(){
-        final Activity a=activity();if(a==null||a.isFinishing()||a.isDestroyed()||percent<0||dialog!=null)return;
+        final Activity a=activity();if(a==null||a.isFinishing()||a.isDestroyed()||dialog!=null)return;
         try{
             final Dialog d=new Dialog(a);dialog=d;LinearLayout content=new LinearLayout(a);content.setOrientation(LinearLayout.VERTICAL);content.setPadding(dp(20),dp(20),dp(20),dp(24));
             GradientDrawable glass=new GradientDrawable();glass.setColor(0xeb170b33);glass.setStroke(dp(1),0x1fffffff);glass.setCornerRadius(dp(28));content.setBackground(glass);
             TextView title=new TextView(a);title.setText("Volume du lecteur");title.setTextSize(20);title.setTextColor(Color.WHITE);content.addView(title,new LinearLayout.LayoutParams(-1,dp(48)));
             valueLabel=new TextView(a);valueLabel.setTextColor(Color.WHITE);valueLabel.setTextSize(18);content.addView(valueLabel,new LinearLayout.LayoutParams(-1,dp(44)));
-            slider=new SeekBar(a);slider.setMax(100);slider.setProgress(percent);slider.setContentDescription("Volume du lecteur, de zéro à cent pour cent");content.addView(slider,new LinearLayout.LayoutParams(-1,dp(48)));
+            slider=new SeekBar(a);slider.setMax(100);slider.setProgress(Math.max(0,percent));slider.setContentDescription("Volume du lecteur, de zéro à cent pour cent");content.addView(slider,new LinearLayout.LayoutParams(-1,dp(48)));
             mute=new Button(a);mute.setMinHeight(dp(48));content.addView(mute,new LinearLayout.LayoutParams(-1,dp(48)));showValue(percent);
             mute.setOnClickListener(new View.OnClickListener(){public void onClick(View v){int p=slider.getProgress();if(p>0)lastNonZero=p;int target=p>0?0:lastNonZero;if(target<0){Toast.makeText(getContext(),"Utilisez le curseur pour réactiver",Toast.LENGTH_SHORT).show();return;}slider.setProgress(target);showValue(target);enqueue(target);}});
             slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onStartTrackingTouch(SeekBar b){dragging=true;}public void onProgressChanged(SeekBar b,int p,boolean user){if(user){if(p>0)lastNonZero=p;showValue(p);enqueue(p);}}public void onStopTrackingTouch(SeekBar b){dragging=false;enqueue(b.getProgress());}});
+            Button retry=new Button(a);retry.setText("Actualiser");retry.setMinHeight(dp(48));retry.setOnClickListener(new View.OnClickListener(){public void onClick(View v){read();}});content.addView(retry,new LinearLayout.LayoutParams(-1,dp(48)));
             Button close=new Button(a);close.setText("Fermer");close.setMinHeight(dp(48));close.setOnClickListener(new View.OnClickListener(){public void onClick(View v){d.dismiss();}});content.addView(close,new LinearLayout.LayoutParams(-1,dp(48)));
             d.setContentView(content);d.setCanceledOnTouchOutside(true);d.setOnDismissListener(new DialogInterface.OnDismissListener(){public void onDismiss(DialogInterface x){dialog=null;dragging=false;slider=null;valueLabel=null;mute=null;if(running)handler.postDelayed(new Runnable(){public void run(){read();}},350);}});
-            d.show();Window w=d.getWindow();if(w==null){d.dismiss();return;}w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));w.setGravity(Gravity.BOTTOM);w.setLayout(-1,-2);
+            d.show();Window w=d.getWindow();if(w==null){d.dismiss();return;}w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));w.setGravity(Gravity.BOTTOM);w.setLayout(-1,-2);paint();if(percent<0)read();
         }catch(RuntimeException e){if(dialog!=null){dialog.dismiss();dialog=null;}Toast.makeText(getContext(),"Volume lecteur indisponible",Toast.LENGTH_SHORT).show();}
     }
     private void sync(){boolean show=isAttachedToWindow()&&isShown()&&getWindowVisibility()==View.VISIBLE;if(show&&!running){running=true;paint();handler.post(tick);}else if(!show&&running){running=false;serial++;readBusy=false;queued=-1;handler.removeCallbacks(tick);handler.removeCallbacks(sendTask);sendScheduled=false;percent=-1;if(dialog!=null)dialog.dismiss();paint();}}

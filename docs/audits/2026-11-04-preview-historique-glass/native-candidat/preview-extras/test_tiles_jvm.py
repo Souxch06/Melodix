@@ -38,14 +38,21 @@ stubs.update({
  public static void main(String[] a) throws Exception {
   Handler.clear();Activity c=new Activity();AudioManager audio=new AudioManager();c.audio=audio;c.root=new View(c);c.G=new android.webkit.WebView(c);
   PreviewPlayerTiles t=new PreviewPlayerTiles(c,null);t.onAttachedToWindow();int original=c.root.getVisibility();
-  for(int i=0;i<3;i++){Handler.advance(401);t.children.get(i).performClick();ok(Dialog.last.shown);ok(c.root.getVisibility()==original);Dialog.last.dismiss();}
+  for(int i=0;i<3;i++){
+   Handler.advance(401);int calls=c.G.calls;t.children.get(i).performClick();ok(Dialog.last.shown);ok(c.root.getVisibility()==original);ok(c.G.calls==calls+1);
+   LinearLayout sheet=(LinearLayout)Dialog.last.content;ok(((TextView)sheet.children.get(2)).text.contains("Indisponible"));
+   c.G.reply("reason=observed;roots=1;rows=2;buttons=1;roles=2;testids=3");ok(PreviewPlayerTiles.diagnosticReport().contains("lignes=2"));ok(!PreviewPlayerTiles.diagnosticReport().contains("Private"));Dialog.last.dismiss();
+  }
   PreviewPlayerVolume volume=(PreviewPlayerVolume)t.children.get(3);volume.onAttachedToWindow();Handler.step();ok(c.G.js.contains("query"));c.G.reply("ok=true;percent=45");ok(volume.enabled&&volume.text.contains("45 %"));
   volume.performClick();Dialog d=Dialog.last;ok(d.shown);LinearLayout l=(LinearLayout)d.content;SeekBar bar=(SeekBar)l.children.get(2);bar.listener.onStartTrackingTouch(bar);
   bar.simulate(10);Handler.advance(0);int sent=c.G.setCalls;ok(sent==1);bar.simulate(20);bar.simulate(30);Handler.advance(99);ok(c.G.setCalls==sent);Handler.advance(1);ok(c.G.setCalls==sent+1);ok(c.G.js.contains("30"));
   bar.listener.onStopTrackingTouch(bar);Handler.advance(100);ok(c.G.setCalls==sent+2);
-  c.G.reply("sent=false;reason=disabled");ok(!volume.enabled&&!bar.enabled&&!((Button)l.children.get(3)).enabled);ok(((TextView)l.children.get(1)).text.contains("désactivé"));ok(PreviewPlayerVolume.diagnosticReport().contains("échec"));
+  c.G.reply("sent=false;reason=disabled");ok(volume.enabled&&!bar.enabled&&!((Button)l.children.get(3)).enabled);ok(((TextView)l.children.get(1)).text.contains("désactivé"));ok(PreviewPlayerVolume.diagnosticReport().contains("échec"));
   java.lang.reflect.Method read=PreviewPlayerVolume.class.getDeclaredMethod("read");read.setAccessible(true);read.invoke(volume);c.G.reply("ok=true;percent=30");ok(volume.enabled&&bar.enabled&&((Button)l.children.get(3)).enabled);ok(((TextView)l.children.get(1)).text.contains("30 %"));ok(PreviewPlayerVolume.diagnosticReport().contains("son non vérifié"));
   ok(audio.calls==0&&c.root.getVisibility()==original);d.dismiss();volume.onDetachedFromWindow();t.onDetachedFromWindow();
+  // Even without a page range, tapping volume opens a native explanation
+  // and retry action; it never fabricates a setting or calls Android audio.
+  Handler.clear();PreviewPlayerVolume missing=new PreviewPlayerVolume(c);missing.onAttachedToWindow();Handler.step();c.G.reply("ok=false;reason=absent");ok(missing.enabled);missing.performClick();d=Dialog.last;ok(d.shown);l=(LinearLayout)d.content;bar=(SeekBar)l.children.get(2);ok(!bar.enabled);ok(((TextView)l.children.get(1)).text.contains("absent"));ok(((Button)l.children.get(4)).text.equals("Actualiser"));ok(audio.calls==0&&c.root.getVisibility()==original);d.dismiss();missing.onDetachedFromWindow();
   System.out.println("Native panel and volume JVM simulation passed");
  }
 }'''

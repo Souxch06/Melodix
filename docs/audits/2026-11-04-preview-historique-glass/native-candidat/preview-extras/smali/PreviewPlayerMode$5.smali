@@ -28,7 +28,7 @@
     .locals 0
 
     .prologue
-    .line 138
+    .line 139
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerMode$5;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
     iput-wide p2, p0, Lcom/melodix/music/PreviewPlayerMode$5;->val$g:J
@@ -44,7 +44,7 @@
     .locals 4
 
     .prologue
-    .line 139
+    .line 140
     iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerMode$5;->val$g:J
 
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerMode$5;->this$0:Lcom/melodix/music/PreviewPlayerMode;
@@ -69,7 +69,7 @@
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$23(Lcom/melodix/music/PreviewPlayerMode;)V
 
-    .line 140
+    .line 141
     :cond_0
     return-void
 .end method

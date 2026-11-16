@@ -43,3 +43,5 @@ test('contradictory and unspecified like actions are categorized without raw lab
  let x=run(bar('<button data-testid="remove-button" aria-checked="false" aria-label="Remove from your library"></button>'),'like');assert.equal(x.reason,'conflict');assert.ok(!JSON.stringify(x).includes('Remove from'));
  x=run(bar('<button data-testid="add-button" aria-checked="false"></button>'),'like');assert.equal(x.reason,'unverified');
 });
+
+test('repeat probe is categorical and preserves explicit mixed state',()=>{let x=run('<button data-testid="control-button-repeat" aria-checked="mixed" aria-label="Private title"></button>','repeat');assert.equal(x.state,'mixed');assert.equal(x.reason,'observed');assert.ok(!JSON.stringify(x).includes('Private'));x=run('<button aria-label="Activer la répétition"></button>','repeat');assert.equal(x.state,'false')});

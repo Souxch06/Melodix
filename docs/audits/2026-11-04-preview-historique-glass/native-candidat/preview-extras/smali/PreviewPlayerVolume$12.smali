@@ -8,7 +8,7 @@
 
 # annotations
 .annotation system Ldalvik/annotation/EnclosingMethod;
-    value = Lcom/melodix/music/PreviewPlayerVolume;->onWindowVisibilityChanged(I)V
+    value = Lcom/melodix/music/PreviewPlayerVolume;->onVisibilityChanged(Landroid/view/View;I)V
 .end annotation
 
 .annotation system Ldalvik/annotation/InnerClass;

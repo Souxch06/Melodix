@@ -15,6 +15,7 @@ SOURCE = HERE / 'preview-player/PreviewPlayerController.java'
 STUBS = {
 'com/melodix/music/PreviewPlayerMode.java': 'package com.melodix.music; public class PreviewPlayerMode { public static String diagnosticReport(){return "\\nControl diagnostic";} }',
 'com/melodix/music/PreviewPlayerVolume.java': 'package com.melodix.music; public class PreviewPlayerVolume { public static String diagnosticReport(){return "\\nVolume diagnostic";} }',
+'com/melodix/music/PreviewPlayerTiles.java': 'package com.melodix.music; public class PreviewPlayerTiles { public static String diagnosticReport(){return "\\nPanels diagnostic";} }',
 'android/R.java': """package android; public final class R { public static final class id { public static final int progress=0x0102000d; } }""",
 'android/graphics/drawable/Drawable.java': """package android.graphics.drawable; public class Drawable { public int alpha=255; public Drawable mutate(){return this;} public void setAlpha(int a){alpha=a;} }""",
 'android/graphics/drawable/LayerDrawable.java': """package android.graphics.drawable; public class LayerDrawable extends Drawable { public Drawable fill=new Drawable(); public Drawable findDrawableByLayerId(int id){return id==android.R.id.progress?fill:null;} }""",
@@ -31,7 +32,7 @@ STUBS = {
 'android/os/Handler.java': '''package android.os; import java.util.*; public class Handler { static class T { Runnable r;long at;T(Runnable x,long y){r=x;at=y;} } static List<T> tasks=new ArrayList<T>(); public Handler(Looper l){} public boolean postDelayed(Runnable r,long d){tasks.add(new T(r,SystemClock.time+d));return true;} public static void flush(){List<T> copy=new ArrayList<T>(tasks);for(T t:copy)if(t.at<=SystemClock.time){tasks.remove(t);t.r.run();}} }''',
 'android/view/MotionEvent.java': """package android.view; public class MotionEvent { public static final int ACTION_CANCEL=3; public int getActionMasked(){return 3;} }""",
 'android/view/Choreographer.java': '''package android.view; public class Choreographer { public interface FrameCallback { void doFrame(long n); } private static Choreographer c=new Choreographer(); public FrameCallback next; public static Choreographer getInstance(){return c;} public void postFrameCallback(FrameCallback f){next=f;} public static void frame(){FrameCallback f=c.next;c.next=null;if(f!=null)f.doFrame(0);} }''',
-'android/view/View.java': '''package android.view; import java.util.*; public class View { public interface OnLongClickListener{ boolean onLongClick(View v); } public interface OnTouchListener{boolean onTouch(View v,MotionEvent e);} public void setOnTouchListener(OnTouchListener x){} public OnLongClickListener listener; public boolean shown=true; public boolean isShown(){return shown;} public Map<String,View> tags=new HashMap<String,View>(); public void setOnLongClickListener(OnLongClickListener l){listener=l;} public View findViewWithTag(Object tag){return tags.get(tag);} }''',
+'android/view/View.java': '''package android.view; import java.util.*; public class View { public interface OnLongClickListener{ boolean onLongClick(View v); } public interface OnTouchListener{boolean onTouch(View v,MotionEvent e);} public void setOnTouchListener(OnTouchListener x){} public OnLongClickListener listener; public String description=""; public void setContentDescription(CharSequence s){description=s.toString();} public boolean shown=true; public boolean isShown(){return shown;} public Map<String,View> tags=new HashMap<String,View>(); public void setOnLongClickListener(OnLongClickListener l){listener=l;} public View findViewWithTag(Object tag){return tags.get(tag);} }''',
 'android/widget/Toast.java': """package android.widget; import android.content.Context; public class Toast { public static int count; public static final int LENGTH_SHORT=0; public static Toast makeText(Context c,CharSequence s,int n){return new Toast();} public void show(){count++;} }""",
 'org/json/JSONArray.java': """package org.json; public class JSONArray { private String[] rows; public JSONArray(String s){rows=s.isEmpty()?new String[0]:s.split(\"\\\\|\");} public int length(){return rows.length;} public JSONObject optJSONObject(int i){return new JSONObject(rows[i]);} }""",
 'android/widget/TextView.java': '''package android.widget; public class TextView extends android.view.View { public String text=""; public CharSequence getText(){return text;} public void setText(CharSequence s){text=s.toString();} }''',
@@ -187,6 +188,10 @@ public class ControllerTest {
   report=(String)reportMethod.invoke(edges);String post=report.substring(report.indexOf("Retour — relevés pendant 10 secondes :"),report.indexOf("Historique (120"));
   eq(post.split("retour [+]",-1).length-1,10);yes(report.contains("pas fraîcheur garantie"));
   edges.snapshot(sample("Zero","Artist",0,229000,"paused",""));yes(elapsed.text.equals("0:00"));
+  // Cosmetic response is immediate and clearly pending; no audio is inferred.
+  saved.setBoolean(null,false);SystemClock.time+=10000;PreviewPlayerController visual=new PreviewPlayerController(a);visual.activityResumed();
+  visual.snapshot(sample("Visual","Artist",1000,229000,"paused",""));eq(b2.image,0x7f080122);eq(visual.tapPlayPause(),1);eq(b2.image,0x7f080121);yes(b2.description.contains("en attente"));
+  visual.snapshot(sample("Visual","Artist",1000,229000,"playing",""));eq(b2.image,0x7f080121);eq(visual.tapPlayPause(),0);eq(b2.image,0x7f080122);yes(b2.description.contains("en attente"));
   System.out.println("Preview controller JVM simulation passed");
  }
 }''',

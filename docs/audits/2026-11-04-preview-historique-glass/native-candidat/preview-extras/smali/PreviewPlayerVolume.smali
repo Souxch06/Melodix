@@ -337,7 +337,7 @@
     .locals 0
 
     .prologue
-    .line 105
+    .line 106
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerVolume;->sync()V
 
     return-void
@@ -629,15 +629,11 @@
 
     if-nez v1, :cond_0
 
-    iget v1, p0, Lcom/melodix/music/PreviewPlayerVolume;->percent:I
-
-    if-ltz v1, :cond_0
-
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerVolume;->dialog:Landroid/app/Dialog;
 
     if-eqz v1, :cond_1
 
-    .line 104
+    .line 105
     :cond_0
     :goto_0
     return-void
@@ -797,7 +793,13 @@
 
     iget-object v3, p0, Lcom/melodix/music/PreviewPlayerVolume;->slider:Landroid/widget/SeekBar;
 
-    iget v4, p0, Lcom/melodix/music/PreviewPlayerVolume;->percent:I
+    const/4 v4, 0x0
+
+    iget v5, p0, Lcom/melodix/music/PreviewPlayerVolume;->percent:I
+
+    invoke-static {v4, v5}, Ljava/lang/Math;->max(II)I
+
+    move-result v4
 
     invoke-virtual {v3, v4}, Landroid/widget/SeekBar;->setProgress(I)V
 
@@ -883,6 +885,43 @@
 
     invoke-direct {v3, v0}, Landroid/widget/Button;-><init>(Landroid/content/Context;)V
 
+    const-string v4, "Actualiser"
+
+    invoke-virtual {v3, v4}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
+
+    const/high16 v4, 0x42400000    # 48.0f
+
+    invoke-direct {p0, v4}, Lcom/melodix/music/PreviewPlayerVolume;->dp(F)I
+
+    move-result v4
+
+    invoke-virtual {v3, v4}, Landroid/widget/Button;->setMinHeight(I)V
+
+    new-instance v4, Lcom/melodix/music/PreviewPlayerVolume$9;
+
+    invoke-direct {v4, p0}, Lcom/melodix/music/PreviewPlayerVolume$9;-><init>(Lcom/melodix/music/PreviewPlayerVolume;)V
+
+    invoke-virtual {v3, v4}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
+
+    new-instance v4, Landroid/widget/LinearLayout$LayoutParams;
+
+    const/4 v5, -0x1
+
+    const/high16 v6, 0x42400000    # 48.0f
+
+    invoke-direct {p0, v6}, Lcom/melodix/music/PreviewPlayerVolume;->dp(F)I
+
+    move-result v6
+
+    invoke-direct {v4, v5, v6}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+
+    invoke-virtual {v2, v3, v4}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    .line 101
+    new-instance v3, Landroid/widget/Button;
+
+    invoke-direct {v3, v0}, Landroid/widget/Button;-><init>(Landroid/content/Context;)V
+
     const-string v0, "Fermer"
 
     invoke-virtual {v3, v0}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
@@ -895,9 +934,9 @@
 
     invoke-virtual {v3, v0}, Landroid/widget/Button;->setMinHeight(I)V
 
-    new-instance v0, Lcom/melodix/music/PreviewPlayerVolume$9;
+    new-instance v0, Lcom/melodix/music/PreviewPlayerVolume$10;
 
-    invoke-direct {v0, p0, v1}, Lcom/melodix/music/PreviewPlayerVolume$9;-><init>(Lcom/melodix/music/PreviewPlayerVolume;Landroid/app/Dialog;)V
+    invoke-direct {v0, p0, v1}, Lcom/melodix/music/PreviewPlayerVolume$10;-><init>(Lcom/melodix/music/PreviewPlayerVolume;Landroid/app/Dialog;)V
 
     invoke-virtual {v3, v0}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
 
@@ -915,20 +954,20 @@
 
     invoke-virtual {v2, v3, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 101
+    .line 102
     invoke-virtual {v1, v2}, Landroid/app/Dialog;->setContentView(Landroid/view/View;)V
 
     const/4 v0, 0x1
 
     invoke-virtual {v1, v0}, Landroid/app/Dialog;->setCanceledOnTouchOutside(Z)V
 
-    new-instance v0, Lcom/melodix/music/PreviewPlayerVolume$10;
+    new-instance v0, Lcom/melodix/music/PreviewPlayerVolume$11;
 
-    invoke-direct {v0, p0}, Lcom/melodix/music/PreviewPlayerVolume$10;-><init>(Lcom/melodix/music/PreviewPlayerVolume;)V
+    invoke-direct {v0, p0}, Lcom/melodix/music/PreviewPlayerVolume$11;-><init>(Lcom/melodix/music/PreviewPlayerVolume;)V
 
     invoke-virtual {v1, v0}, Landroid/app/Dialog;->setOnDismissListener(Landroid/content/DialogInterface$OnDismissListener;)V
 
-    .line 102
+    .line 103
     invoke-virtual {v1}, Landroid/app/Dialog;->show()V
 
     invoke-virtual {v1}, Landroid/app/Dialog;->getWindow()Landroid/view/Window;
@@ -943,7 +982,7 @@
 
     goto/16 :goto_0
 
-    .line 103
+    .line 104
     :catch_0
     move-exception v0
 
@@ -974,7 +1013,7 @@
 
     goto/16 :goto_0
 
-    .line 102
+    .line 103
     :cond_3
     :try_start_1
     new-instance v1, Landroid/graphics/drawable/ColorDrawable;
@@ -994,6 +1033,14 @@
     const/4 v2, -0x2
 
     invoke-virtual {v0, v1, v2}, Landroid/view/Window;->setLayout(II)V
+
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerVolume;->paint()V
+
+    iget v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->percent:I
+
+    if-gez v0, :cond_0
+
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerVolume;->read()V
     :try_end_1
     .catch Ljava/lang/RuntimeException; {:try_start_1 .. :try_end_1} :catch_0
 
@@ -1045,24 +1092,15 @@
     .line 56
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->running:Z
 
-    if-eqz v0, :cond_4
-
-    iget v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->percent:I
-
-    if-ltz v0, :cond_4
-
-    move v0, v1
-
-    :goto_2
     invoke-virtual {p0, v0}, Lcom/melodix/music/PreviewPlayerVolume;->setEnabled(Z)V
 
     iget v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->percent:I
 
-    if-gez v0, :cond_5
+    if-gez v0, :cond_4
 
-    const v0, 0x3ee66666    # 0.45f
+    const v0, 0x3f19999a    # 0.6f
 
-    :goto_3
+    :goto_2
     invoke-virtual {p0, v0}, Lcom/melodix/music/PreviewPlayerVolume;->setAlpha(F)V
 
     .line 57
@@ -1087,26 +1125,26 @@
 
     iget v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->percent:I
 
-    if-ltz v0, :cond_6
+    if-ltz v0, :cond_5
 
     move v0, v1
 
-    :goto_4
+    :goto_3
     invoke-virtual {v3, v0}, Landroid/widget/SeekBar;->setEnabled(Z)V
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->mute:Landroid/widget/Button;
 
     iget v3, p0, Lcom/melodix/music/PreviewPlayerVolume;->percent:I
 
-    if-ltz v3, :cond_7
+    if-ltz v3, :cond_6
 
-    :goto_5
+    :goto_4
     invoke-virtual {v0, v1}, Landroid/widget/Button;->setEnabled(Z)V
 
     .line 59
     iget v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->percent:I
 
-    if-gez v0, :cond_8
+    if-gez v0, :cond_7
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->valueLabel:Landroid/widget/TextView;
 
@@ -1130,7 +1168,7 @@
 
     .line 62
     :cond_0
-    :goto_6
+    :goto_5
     return-void
 
     .line 54
@@ -1143,7 +1181,7 @@
 
     const-string v0, "\u25d6\u00d7"
 
-    :goto_7
+    :goto_6
     invoke-static {v0}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
 
     move-result-object v0
@@ -1177,7 +1215,7 @@
     :cond_2
     const-string v0, "\u25d6))"
 
-    goto :goto_7
+    goto :goto_6
 
     .line 55
     :cond_3
@@ -1205,30 +1243,25 @@
 
     goto/16 :goto_1
 
-    :cond_4
-    move v0, v2
-
     .line 56
+    :cond_4
+    const/high16 v0, 0x3f800000    # 1.0f
+
     goto/16 :goto_2
 
     :cond_5
-    const/high16 v0, 0x3f800000    # 1.0f
-
-    goto/16 :goto_3
-
-    :cond_6
     move v0, v2
 
     .line 58
-    goto :goto_4
+    goto :goto_3
 
-    :cond_7
+    :cond_6
     move v1, v2
 
-    goto :goto_5
+    goto :goto_4
 
     .line 60
-    :cond_8
+    :cond_7
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->dragging:Z
 
     if-nez v0, :cond_0
@@ -1247,7 +1280,7 @@
 
     invoke-direct {p0, v0}, Lcom/melodix/music/PreviewPlayerVolume;->showValue(I)V
 
-    goto :goto_6
+    goto :goto_5
 .end method
 
 .method private parse(Ljava/lang/String;)Lorg/json/JSONObject;
@@ -1721,7 +1754,7 @@
 
     const/4 v2, 0x0
 
-    .line 105
+    .line 106
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerVolume;->isAttachedToWindow()Z
 
     move-result v0
@@ -1881,7 +1914,7 @@
     .locals 0
 
     .prologue
-    .line 106
+    .line 107
     invoke-super {p0}, Landroid/widget/Button;->onAttachedToWindow()V
 
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerVolume;->sync()V
@@ -1895,7 +1928,7 @@
     .prologue
     const/4 v4, 0x0
 
-    .line 107
+    .line 108
     iput-boolean v4, p0, Lcom/melodix/music/PreviewPlayerVolume;->running:Z
 
     iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->serial:J
@@ -1942,16 +1975,16 @@
     .locals 1
 
     .prologue
-    .line 108
+    .line 109
     invoke-super {p0, p1, p2}, Landroid/widget/Button;->onVisibilityChanged(Landroid/view/View;I)V
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->handler:Landroid/os/Handler;
 
     if-eqz v0, :cond_0
 
-    new-instance v0, Lcom/melodix/music/PreviewPlayerVolume$11;
+    new-instance v0, Lcom/melodix/music/PreviewPlayerVolume$12;
 
-    invoke-direct {v0, p0}, Lcom/melodix/music/PreviewPlayerVolume$11;-><init>(Lcom/melodix/music/PreviewPlayerVolume;)V
+    invoke-direct {v0, p0}, Lcom/melodix/music/PreviewPlayerVolume$12;-><init>(Lcom/melodix/music/PreviewPlayerVolume;)V
 
     invoke-virtual {p0, v0}, Lcom/melodix/music/PreviewPlayerVolume;->post(Ljava/lang/Runnable;)Z
 
@@ -1963,16 +1996,16 @@
     .locals 1
 
     .prologue
-    .line 109
+    .line 110
     invoke-super {p0, p1}, Landroid/widget/Button;->onWindowVisibilityChanged(I)V
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->handler:Landroid/os/Handler;
 
     if-eqz v0, :cond_0
 
-    new-instance v0, Lcom/melodix/music/PreviewPlayerVolume$12;
+    new-instance v0, Lcom/melodix/music/PreviewPlayerVolume$13;
 
-    invoke-direct {v0, p0}, Lcom/melodix/music/PreviewPlayerVolume$12;-><init>(Lcom/melodix/music/PreviewPlayerVolume;)V
+    invoke-direct {v0, p0}, Lcom/melodix/music/PreviewPlayerVolume$13;-><init>(Lcom/melodix/music/PreviewPlayerVolume;)V
 
     invoke-virtual {p0, v0}, Lcom/melodix/music/PreviewPlayerVolume;->post(Ljava/lang/Runnable;)Z
 

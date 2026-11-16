@@ -20,18 +20,14 @@
 # instance fields
 .field final synthetic this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
-.field private final synthetic val$d:Landroid/app/Dialog;
-
 
 # direct methods
-.method constructor <init>(Lcom/melodix/music/PreviewPlayerVolume;Landroid/app/Dialog;)V
+.method constructor <init>(Lcom/melodix/music/PreviewPlayerVolume;)V
     .locals 0
 
     .prologue
     .line 100
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerVolume$9;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
-
-    iput-object p2, p0, Lcom/melodix/music/PreviewPlayerVolume$9;->val$d:Landroid/app/Dialog;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
@@ -45,9 +41,9 @@
 
     .prologue
     .line 100
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume$9;->val$d:Landroid/app/Dialog;
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume$9;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
-    invoke-virtual {v0}, Landroid/app/Dialog;->dismiss()V
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$1(Lcom/melodix/music/PreviewPlayerVolume;)V
 
     return-void
 .end method

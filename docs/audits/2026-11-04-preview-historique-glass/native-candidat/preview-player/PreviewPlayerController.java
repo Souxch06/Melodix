@@ -402,10 +402,14 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     }
     private void renderButtons() {
         Activity a = activity.get(); if (a == null || !haveReal) return;
-        int icon = shownPlaying && realPlaying && !interrupted ? PAUSE_ICON : PLAY_ICON;
+        // Show the requested state immediately while the command is pending;
+        // this is visual feedback, not a claim that sound has started.
+        int icon = shownPlaying && (pending || realPlaying) && !interrupted ? PAUSE_ICON : PLAY_ICON;
+        String description = pending ? (pendingTarget ? "Lecture demandée, en attente" : "Pause demandée, en attente") :
+            (icon == PAUSE_ICON ? "Mettre en pause" : "Lire");
         View mini = a.findViewById(MINI_BUTTON), full = a.findViewById(FULL_BUTTON);
-        if (mini instanceof ImageView) ((ImageView) mini).setImageResource(icon);
-        if (full instanceof ImageView) ((ImageView) full).setImageResource(icon);
+        if (mini instanceof ImageView) { ((ImageView) mini).setImageResource(icon); mini.setContentDescription(description); }
+        if (full instanceof ImageView) { ((ImageView) full).setImageResource(icon); full.setContentDescription(description); }
     }
     private boolean correctionInProgress(long t) {
         double window = Math.max((double) CORRECTION_MS, correction > 0 ? correction * 4.0 : -correction * 1.25);
@@ -734,6 +738,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         out.append("\nMesures de préparation de frame, pas présentation écran. Démarrage hors lanceur ; premier son non mesuré. La réception du pont n'est pas un accusé Spotify.");
         out.append(PreviewPlayerMode.diagnosticReport());
         out.append(PreviewPlayerVolume.diagnosticReport());
+        out.append(PreviewPlayerTiles.diagnosticReport());
         return out.toString();
     }
     public void showDiagnostics() {

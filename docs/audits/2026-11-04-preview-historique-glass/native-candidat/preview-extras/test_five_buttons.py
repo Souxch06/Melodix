@@ -30,7 +30,7 @@ for forbidden in ('loadUrl(', 'reload(', 'fetch(', 'api.spotify.com'):
 print('Symmetric player headers, like contrast and disabled reasons checked structurally')
 
 compiled='\n'.join(p.read_text(encoding='utf8') for p in (root/'smali/com/melodix/music').glob('PreviewPlayerTiles*.smali'))
-assert compiled and '->setVisibility(' not in compiled and 'Landroid/webkit/WebView;' not in compiled
+assert compiled and '->setVisibility(' not in compiled and '->loadUrl(' not in compiled and '->reload(' not in compiled
 volume_smali='\n'.join(p.read_text(encoding='utf8') for p in (root/'smali/com/melodix/music').glob('PreviewPlayerVolume*.smali'))
 assert volume_smali and 'Landroid/media/AudioManager;' not in volume_smali and '->setVisibility(' not in volume_smali
 print('Panel/volume compiled guards verified')
