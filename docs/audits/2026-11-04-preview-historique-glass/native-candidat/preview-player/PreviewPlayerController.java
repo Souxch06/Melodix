@@ -162,7 +162,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     private void recordReturn(String message) {
         double shown = position(now());
         returnEvents[returnEventIndex] = "t=" + now() + " ms " + message +
-            " ; affiché=" + (Double.isNaN(shown) ? "-:--" : clock((long) shown)) + " ; état=" + playbackState;
+            " ; affiché=" + (Double.isNaN(shown) ? "-:--" : clock((long) shown)) + " ; état natif=" + playbackState;
         returnEventIndex = (returnEventIndex + 1) % returnEvents.length;
         if (returnEventCount < returnEvents.length) returnEventCount++;
     }
@@ -457,6 +457,9 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             long pos = o.optLong("previewPositionMs", -1), dur = o.optLong("previewDurationMs", -1);
             String state = o.optString("previewPlaybackState", o.optBoolean("playing", false) ? "playing" : "paused");
             if (!state.equals("playing") && !state.equals("paused")) state = "unknown";
+            // Diagnostic only: never infer the page state from a missing field.
+            String pageState = o.optString("previewPlaybackState", "unknown");
+            if (!pageState.equals("playing") && !pageState.equals("paused")) pageState = "unknown";
             boolean real = state.equals("playing");
             boolean snapshotValid = o.optBoolean("previewProgressValid", false) && dur > 0 && pos >= 0 && pos <= dur;
             boolean identified = realMetadata(title) && realMetadata(artist) && dur > 0;
@@ -475,7 +478,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             long age = observedWall < 0 ? -1 : System.currentTimeMillis() - observedWall;
             if (!foreground) {
                 recordReturn("mesure=" + pos + " ms ; âge observation=" + (age < 0 ? "inconnu" : age + " ms") +
-                    " ; source=" + progressSource + " ; rejetée : arrière-plan ; signal audio natif=non lu");
+                    " ; source=" + progressSource + " ; état page=" + pageState + " ; rejetée : arrière-plan ; signal audio natif=non lu");
                 return;
             }
             double difference = Double.isNaN(previous) ? Double.NaN : pos - previous;
@@ -509,7 +512,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             changedMeasure = snapshotValid && (changed || measurementPosition < 0 || pos != measurementPosition);
             glowSampleValid = snapshotValid;
             recordReturn("mesure=" + pos + " ms ; âge observation=" + (age < 0 ? "inconnu" : age + " ms") +
-                " ; source=" + progressSource + " ; écart=" + (Double.isNaN(difference) ? "inconnu" : ((long)difference) + " ms") +
+                " ; source=" + progressSource + " ; état page=" + pageState + " ; écart=" + (Double.isNaN(difference) ? "inconnu" : ((long)difference) + " ms") +
                 " ; " + (snapshotValid ? "acceptée" : "rejetée : " + rejection));
             if (changed) {
                 cancelSeek(); independentObservationAt = independentObservation = -1;

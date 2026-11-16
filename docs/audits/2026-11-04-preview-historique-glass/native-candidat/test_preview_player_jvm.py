@@ -148,7 +148,9 @@ public class ControllerTest {
    // An old observation cannot confirm playback even if numerically coherent.
    String old=sample("Return","Artist",100000,1000000,"playing","").replaceAll("previewObservedAtMs=[0-9]+", "previewObservedAtMs="+(System.currentTimeMillis()-4000));
    life.snapshot(old);eq(b2.image,0x7f080122);eq(mini.progress,frozen);
-   report=(String)reportMethod.invoke(life);yes(report.contains("observation ancienne"));
+   report=(String)reportMethod.invoke(life);yes(report.contains("observation ancienne"));yes(report.contains("état page=playing"));yes(report.contains("état natif=interrupted"));
+   life.snapshot(sample("Return","Artist",100000,1000000,"unknown","").replace(";previewPlaybackState=unknown", ""));
+   report=(String)reportMethod.invoke(life);yes(report.contains("état page=unknown"));
    // Fresh and coherent observation restarts from the frozen local position.
    life.snapshot(sample("Return","Artist",100000,1000000,"playing",""));eq(b2.image,0x7f080121);SystemClock.time+=1000;life.doFrame(0);yes(mini.progress>frozen);
   }
