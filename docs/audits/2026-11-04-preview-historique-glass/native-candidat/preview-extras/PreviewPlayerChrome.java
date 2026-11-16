@@ -6,7 +6,9 @@ import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
@@ -121,21 +123,27 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         if(n==0)return 0;
         return Color.rgb((int)(r/n),(int)(g/n),(int)(bl/n));
     }
+    /** Draws the drawable already shown into a tiny bitmap; null if impossible. */
+    static Bitmap shrink(Drawable d,int size){
+        if(d==null)return null;
+        try{
+            Bitmap out=Bitmap.createBitmap(size,size,Bitmap.Config.ARGB_8888);
+            Rect old=new Rect(d.getBounds());d.setBounds(0,0,size,size);d.draw(new Canvas(out));d.setBounds(old);
+            return out;
+        }catch(RuntimeException e){return null;}
+    }
     private void updateTint(Activity a){
         if(tintLayer==null)return;
         View v=a.findViewById(0x7f090245);if(!(v instanceof ImageView))return;
         Drawable d=((ImageView)v).getDrawable();if(d==tintSource)return;tintSource=d;
-        int c=d instanceof BitmapDrawable?dominant(((BitmapDrawable)d).getBitmap()):0;
+        Bitmap small=shrink(d,12);
+        int c=dominant(small);
         // Light tint: violet stays the base; the cover colour only washes the top.
         tintLayer.setColors(c==0?new int[]{0,0}:new int[]{(0x4d<<24)|(c&0xffffff),(0x14<<24)|(c&0xffffff),0});
         // Blurred backdrop: the cover reduced to a few pixels and smoothly scaled up.
         Drawable blob=new ColorDrawable(0);
-        if(d instanceof BitmapDrawable){
-            Bitmap b=((BitmapDrawable)d).getBitmap();
-            if(b!=null&&!b.isRecycled()&&b.getWidth()>0&&b.getHeight()>0){
-                try{BitmapDrawable small=new BitmapDrawable(getResources(),Bitmap.createScaledBitmap(b,5,5,true));small.setFilterBitmap(true);small.setAlpha(150);blob=small;}catch(RuntimeException ignored){}
-            }
-        }
+        Bitmap tiny=shrink(d,5);
+        if(tiny!=null){BitmapDrawable soft=new BitmapDrawable(getResources(),tiny);soft.setFilterBitmap(true);soft.setAlpha(165);blob=soft;}
         if(appliedBackground instanceof LayerDrawable&&((LayerDrawable)appliedBackground).getNumberOfLayers()==4)((LayerDrawable)appliedBackground).setDrawable(1,blob);
         View art=a.findViewById(0x7f09023a);art=art==null?null:art.findViewWithTag("previewPlayerArtCard");
         if(art!=null&&Build.VERSION.SDK_INT>=28){int glow=c==0?0xffe0489e:(0xff000000|c);art.setOutlineSpotShadowColor(glow);art.setOutlineAmbientShadowColor(glow);}
@@ -181,7 +189,10 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         if(lp instanceof LinearLayout.LayoutParams&&((LinearLayout.LayoutParams)lp).weight!=1f){
             LinearLayout.LayoutParams l=(LinearLayout.LayoutParams)lp;l.height=0;l.weight=1f;row.setLayoutParams(l);row.setGravity(android.view.Gravity.CENTER_VERTICAL);
         }
-        int h=row.getHeight()-dp(24),w=frame.getWidth();
+        if(p.getPaddingLeft()!=dp(56)){p.setPadding(dp(56),p.getPaddingTop(),dp(56),p.getPaddingBottom());}
+        ViewGroup.LayoutParams fm=frame.getLayoutParams();
+        if(fm instanceof ViewGroup.MarginLayoutParams&&((ViewGroup.MarginLayoutParams)fm).rightMargin!=dp(48)){((ViewGroup.MarginLayoutParams)fm).rightMargin=dp(48);frame.setLayoutParams(fm);}
+        int h=row.getHeight()-dp(64),w=frame.getWidth();
         if(h<=0||w<=0)return;
         int side=Math.max(dp(120),Math.min(w,Math.min(h,dp(520))));
         ViewGroup.LayoutParams c=card.getLayoutParams(),f=frame.getLayoutParams();

@@ -14,10 +14,10 @@ EXPECTED = {
 }
 
 EXTRAS = {
-    'smali/PreviewPlayerChrome$1.smali': 'a33cd9c1be2b5edcca237aaab87f02044cd0b1faceb6f2e598243bd9bf08c709',
-    'smali/PreviewPlayerChrome$2.smali': '7f60ae00b1c79c6b198c9087c36ea131a75baaaa7769b964b652ad8bf55da479',
-    'smali/PreviewPlayerChrome$PressEffect.smali': '0880b99bf4e6e43adcaa1102cd3c5f8af33f423bed81acb530e6569eb2c08b64',
-    'smali/PreviewPlayerChrome.smali': 'bfd761bfe37f661140d7cc917cbbf9cc8aa8dc470a0d433123212037e460bc44',
+    'smali/PreviewPlayerChrome$1.smali': '5bc5116956cf75bd54575d4cd0f17644c09c2dd2fd5437f0f96a1a5f33b5e4f9',
+    'smali/PreviewPlayerChrome$2.smali': 'ecade35d48690624b63b6a89f74beb83ea96db03654b0eb8895dd07d340d4be4',
+    'smali/PreviewPlayerChrome$PressEffect.smali': 'e538d2dcdffe59758c91e0ca15e2cac8406049942356d36daebcd3bfce4893f1',
+    'smali/PreviewPlayerChrome.smali': '43fd722d3de28c9767a856143df6bf5a1b86a47e18b30587f81fa5dc01d1de8e',
     'smali/PreviewPlayerMode$1.smali': '96b4ac9fbbbd8c009b978c37eaf005e8f6d16d370a07a4d12a031f990c85a079',
     'smali/PreviewPlayerMode$2.smali': '86998d3fe386ac8ef10fa5f29ad769169a308c3920f60df4ec5beda5d014adce',
     'smali/PreviewPlayerMode$3.smali': '816d3f50de1b48ee2e92967800ad86136e7eed78ca37d66587c947637713b468',
@@ -73,7 +73,7 @@ EXTRAS = {
     'smali/PreviewPlayerPlayButton.smali': '10fa7289606a9481f8f6af0cac9e36790c1bf1ba73d9218d551ad194e9287e27',
     'smali/PreviewPlayerPlayButton$1.smali': '4fd83f3fd7382c2861383c9b7197d59d28b8dc96808e0cd32f157ccddb4af3a0',
     'smali/PreviewPlayerDecoration.smali': 'd6603b418eaf73a509548f2f74b5a89489d5259dc8b52832f9c720ded5f96f41',
-    'PreviewPlayerChrome.java': '405640ccdd792f0d2ce35969f82c2a7d1686d22fc24143f30733a32252c0d9d8',
+    'PreviewPlayerChrome.java': '9674d560fde80ed1cf8db8fb366dedb6719515d1c809f87a7263dc5c366a8c86',
     'PreviewPlayerLikeArt.java': '49892fbb54b2c66dd9fe477fc851e55dedb2a4f8a31670e53530e5f03c289979',
     'smali/PreviewPlayerLikeArt.smali': '8caf0d0292ff562b70b85aef9fbe20f306e6bdf7239b337971c063f6fe9888ca',
     'PreviewPlayerMode.java': 'f1b7aab64b8ab11714fbd94e8e0c67fece1fd3239688a8a70a361a9a5aaaa492',
