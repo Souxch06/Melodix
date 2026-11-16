@@ -26,7 +26,7 @@
     .locals 0
 
     .prologue
-    .line 39
+    .line 42
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerMode$2;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -41,7 +41,7 @@
     .param p1, "v"    # Landroid/view/View;
 
     .prologue
-    .line 39
+    .line 42
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode$2;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$4(Lcom/melodix/music/PreviewPlayerMode;)V

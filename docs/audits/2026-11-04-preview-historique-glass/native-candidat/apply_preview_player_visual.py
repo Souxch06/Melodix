@@ -26,22 +26,30 @@ EXTRAS = {
     'smali/PreviewPlayerChrome$1.smali': 'acdbf8b8bdd3cb853d57fb257f50292330279e7a119e2409c927b247aa0c539b',
     'smali/PreviewPlayerChrome.smali': '6b4b8f8763859707e6d211de741b26491ec20245713238329581d263033aca5d',
     'PreviewPlayerChrome.java': 'c1741fdd8ddb22b8ed63565fc280b609fc35dba90327255cdc5d5664d2851546',
-    'smali/PreviewPlayerMode$1.smali': '7a653b3195f643419db4d6b2555cbac2243337ab045dc94da3f12d81fec917ee',
-    'smali/PreviewPlayerMode$2.smali': '7c404113e592d07ce0f90c6beed0f231ecd6a46c9ebbe324f1372dbb2ab8425d',
-    'smali/PreviewPlayerMode$3.smali': '6bd748b4e80ce682db6f756a806cda93a3e54e8cfff1283dcd917a32c8475f66',
-    'smali/PreviewPlayerMode$4.smali': 'e64268d42c15a5c6a94ce1ebedc27b725d54ebe02f2b0a7bb302602104b5af3d',
-    'smali/PreviewPlayerMode$5.smali': '000d01553a39cc0c46494deb8047007dc1d589ad9954a1a845806454a380ffc9',
-    'smali/PreviewPlayerMode$6.smali': '122aa38eef185f6a48ec8f7c1136acbb62204b8162de93645c8600e7e7608135',
-    'smali/PreviewPlayerMode.smali': '65ecd02aa16650cab19bd9264c52816e32b920bd320b38c18c3ce70a0ab32259',
-    'smali/PreviewPlayerTiles$1.smali': '89bfe6e2f67d3e1156d7b9c4166d6a97f7536f0bdd111d24d789e901e8f26b02',
-    'smali/PreviewPlayerTiles.smali': '91bca2f296a8ea86ca3eb4917afe6bfc5027554cb7cc963a63e84afb7e6ef9ac',
-    'smali/PreviewPlayerMode$7.smali': '2fe992fdb3f57d2a139cccdbaff9ca612687aca39313fc3963c6157d974fb817',
-    'smali/PreviewPlayerTiles$2.smali': '71044faa4dfb71f7d4d7a967ecf19e9e6cdeabafa9b1d2251f1874fca664205c',
-    'smali/PreviewPlayerTiles$3.smali': '716d64feebe37301e2260c2be8b34cce5da0e2936361f03ca4b8a691dfdab185',
-    'smali/PreviewPlayerTiles$4.smali': '7f5843d1531c6b724e2eff196bd512b790b8877f44ce87be77eb331eeb7894fb',
-    'control.js': '1f279be6d8996b3001d45e38b8d51ea6e5e8cb0140eebe52c1b9621bba381e1e',
-    'PreviewPlayerMode.java': '7f173f43d767168882c53927c842874739285cc140d7ec380da46f6927d0f4de',
-    'PreviewPlayerTiles.java': '04a43051b074508640206af458f4789bde6d453354e3e73ebd88412bd6bddc1f',
+    'smali/PreviewPlayerMode$1.smali': '8480c25f117225f4ad838513d4efdba2de56c7fe83e90297edfac673c3bd3a3c',
+    'smali/PreviewPlayerMode$2.smali': '0ff17512f6f8df0b8909ca66b0848530c9793ff1fea72534ddae989371d78873',
+    'smali/PreviewPlayerMode$3.smali': '8d8766484f5e6091dbfb3c0b0eacdf292c21fa6b87b117f910d842f6a4a3c58c',
+    'smali/PreviewPlayerMode$4.smali': '9cf300ba3d9b2a5937d861e1cb1120cdc86d736b1da2f6b8ac2670c3dc202a1f',
+    'smali/PreviewPlayerMode$5.smali': '814cb749d4354f1092401a0ffce6c70b52220d4ccc10b1a02963d71b0a54eb03',
+    'smali/PreviewPlayerMode$6.smali': '35aad07ca07d821872266e70b9d8dfa55fbb29d4d1e81bc3aafe9b752b019842',
+    'smali/PreviewPlayerMode.smali': 'eabbc365c5dc56687ccf11a84d87ede5007ae6198c80fc4e9dc61ca36db39f92',
+    'smali/PreviewPlayerTiles$1.smali': '818f98e66f965ee6a86f34b52edddf4c0ae22426d8386110aece927bdf1cb14b',
+    'smali/PreviewPlayerTiles.smali': 'e874ef5ecc4736f051963ab1f98cb9747e0e9e928c5406f5b5d80122004a8d63',
+    'smali/PreviewPlayerMode$7.smali': 'f4fbdfe07bba9ad57d78682c9f2b82d1492e987cac9f8975ea0e461e492f9817',
+    'smali/PreviewPlayerTiles$2.smali': '2b2b05499f03b199ed769db952a7f727099e4a3495a822b1de49b43df830608b',
+    'smali/PreviewPlayerTiles$3.smali': '89934a98fe0c37aa113d055d9fc223b22f613f89be167c20ddb418c4a11b0670',
+    'smali/PreviewPlayerTiles$4.smali': '0d16c023bdf0fcc2bcf01088cd65249541d71fada9d5c6dc8b5ebbd20b80bafc',
+    'smali/PreviewPlayerMode$8.smali': '56f8d53904374ca1988e3fca98be4c1a6e1ce49178f984e303f64c9d709fbbb9',
+    'smali/PreviewPlayerTiles$10.smali': 'e98c8c1830f1d24064b456a139b3f399e0d49e4c82a3342ff1944fbde964cab9',
+    'smali/PreviewPlayerTiles$5.smali': '365e651af25ebb5536d7ac256fb4d972e55873a8dab31b2e26b5d7aa2b3827fd',
+    'smali/PreviewPlayerTiles$6.smali': '070d703cf7e8f7cca56f458feff32a06c664c83cbfa8483b458885af73a8998a',
+    'smali/PreviewPlayerTiles$7.smali': '390839cd13aa175c3692a975544244082018cee4f7ec7b6702be91ac5ae13c03',
+    'smali/PreviewPlayerTiles$8.smali': '4df6f7c7cc96babd713800036f10a48b80b05a85e01eff0f251ba5dd5d4bd2f3',
+    'smali/PreviewPlayerTiles$9.smali': 'ae30a7fee349dae94ee1e39384a35531dc9fcbcb897648490503bcf00dbc9899',
+    'tiles-control.js': '01d5a184459378d90be7346049f99667c85309077c4aa534f23cf209e5dbf7fa',
+    'control.js': '8c9650842db260f4d072f573b838647245363dc696e03f0b0c96e0729853fc49',
+    'PreviewPlayerMode.java': 'faa89da2268b2cfbebae7beccc3cbd635abe5bd0d4748104329e85afa189df5d',
+    'PreviewPlayerTiles.java': 'ba115ee7ddbcee668ab6ebbe94dda60b6d1aac5c38741a47171ec89b5af5014a',
 }
 
 def one(s, old, new):
@@ -198,6 +206,9 @@ def apply(root):
     js=(here/'control.js').read_text(encoding='utf8')
     if json.dumps(js,ensure_ascii=True) not in (here/'PreviewPlayerMode.java').read_text(encoding='utf8'):
         raise ValueError('control script/source mismatch')
+    tiles_js=(here/'tiles-control.js').read_text(encoding='utf8')
+    if json.dumps(tiles_js,ensure_ascii=True) not in (here/'PreviewPlayerTiles.java').read_text(encoding='utf8'):
+        raise ValueError('tile script/source mismatch')
     for name,digest in EXPECTED.items():
         raw=(root/name).read_bytes()
         if hashlib.sha256(raw).hexdigest()!=digest: raise ValueError('unexpected visual input '+name)

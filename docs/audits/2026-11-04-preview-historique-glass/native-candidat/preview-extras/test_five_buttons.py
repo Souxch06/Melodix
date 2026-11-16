@@ -20,5 +20,8 @@ mode=(here/'PreviewPlayerMode.java').read_text(encoding='utf-8')
 tiles=(here/'PreviewPlayerTiles.java').read_text(encoding='utf-8')
 assert '0xd9ffffff' in art and 'kind.equals("like")?(pending?0.65f:1f)' in mode
 assert 'Chargement :' in mode and 'Indisponible :' in mode and 'reasonText()' in mode
-assert 'file Spotify non intégrée' in tiles and 'paroles non intégrées' in tiles and 'appareils Spotify non intégrés' in tiles
+assert 'reasonText(reasons[i])' in tiles and 'disponible quand le contrôle Spotify est présent' in tiles
+assert 'FLAG_NOT_TOUCH_MODAL' in tiles and 'root.setVisibility(previous)' in tiles
+for forbidden in ('loadUrl(', 'reload(', 'fetch(', 'api.spotify.com'):
+    assert forbidden not in tiles
 print('Symmetric player headers, like contrast and disabled reasons checked structurally')

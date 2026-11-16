@@ -8,8 +8,8 @@
             on: /^(remove from (your )?(library|liked songs)|retirer (de la bibliothèque|des titres likés)|supprimer de (votre |la )?bibliothèque|aus (deiner |der )?bibliothek entfernen|quitar de (tu )?biblioteca|remover (da biblioteca|dos títulos curtidos))$/i
         },
         shuffle: {
-            off: /^(enable shuffle|turn shuffle on|activate shuffle|activer (la lecture )?aléatoire|zufallswiedergabe aktivieren|activar (el modo |la reproducción )?aleatori[oa]|ativar (a reprodução )?aleatória)$/i,
-            on: /^(disable shuffle|turn shuffle off|deactivate shuffle|désactiver (la lecture )?aléatoire|zufallswiedergabe deaktivieren|desactivar (el modo |la reproducción )?aleatori[oa]|desativar (a reprodução )?aleatória)$/i
+            off: /^(enable shuffle|turn shuffle on|activate shuffle|activer (la lecture |le mode )?aléatoire|zufallswiedergabe aktivieren|activar (el modo |la reproducción )?aleatori[oa]|ativar (a reprodução )?aleatória)$/i,
+            on: /^(disable shuffle|turn shuffle off|deactivate shuffle|désactiver (la lecture |le mode )?aléatoire|zufallswiedergabe deaktivieren|desactivar (el modo |la reproducción )?aleatori[oa]|desativar (a reprodução )?aleatória)$/i
         }
     };
     if (['like','shuffle','repeat'].indexOf(kind) < 0) return JSON.stringify({state:'unknown',reason:'control'});
@@ -27,7 +27,7 @@
     });
     var result={state:'unknown',track:'',title:'',reason:'control',sent:false};
     if (!nodes.length) {
-        result.reason = document.readyState === 'loading' ? 'page' : 'control';
+        result.reason = document.readyState === 'loading' ? 'page' : (kind === 'shuffle' && !document.querySelector('[data-testid="now-playing-bar"], [data-testid="now-playing-widget"], [data-testid="player-controls"]') ? 'bar' : 'control');
         return JSON.stringify(result);
     }
     if (nodes.length !== 1) {result.reason='ambiguous';return JSON.stringify(result);}

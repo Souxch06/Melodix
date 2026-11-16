@@ -3,12 +3,12 @@
 .source "PreviewPlayerTiles.java"
 
 # interfaces
-.implements Ljava/lang/Runnable;
+.implements Landroid/view/View$OnClickListener;
 
 
 # annotations
 .annotation system Ldalvik/annotation/EnclosingMethod;
-    value = Lcom/melodix/music/PreviewPlayerTiles;->onWindowVisibilityChanged(I)V
+    value = Lcom/melodix/music/PreviewPlayerTiles;->showWebPanel()V
 .end annotation
 
 .annotation system Ldalvik/annotation/InnerClass;
@@ -20,14 +20,18 @@
 # instance fields
 .field final synthetic this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
+.field private final synthetic val$dialog:Landroid/app/Dialog;
+
 
 # direct methods
-.method constructor <init>(Lcom/melodix/music/PreviewPlayerTiles;)V
+.method constructor <init>(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Dialog;)V
     .locals 0
 
     .prologue
-    .line 52
+    .line 103
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$3;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
+
+    iput-object p2, p0, Lcom/melodix/music/PreviewPlayerTiles$3;->val$dialog:Landroid/app/Dialog;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
@@ -36,14 +40,15 @@
 
 
 # virtual methods
-.method public run()V
+.method public onClick(Landroid/view/View;)V
     .locals 1
+    .param p1, "v"    # Landroid/view/View;
 
     .prologue
-    .line 52
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$3;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
+    .line 103
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$3;->val$dialog:Landroid/app/Dialog;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$3(Lcom/melodix/music/PreviewPlayerTiles;)V
+    invoke-virtual {v0}, Landroid/app/Dialog;->dismiss()V
 
     return-void
 .end method

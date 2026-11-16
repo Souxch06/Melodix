@@ -26,7 +26,7 @@
     .locals 0
 
     .prologue
-    .line 24
+    .line 46
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$1;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -40,7 +40,7 @@
     .locals 4
 
     .prologue
-    .line 25
+    .line 47
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$1;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$0(Lcom/melodix/music/PreviewPlayerTiles;)Z
@@ -72,11 +72,11 @@
 
     invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->access$1(Lcom/melodix/music/PreviewPlayerTiles;Z)V
 
-    .line 27
+    .line 49
     :goto_0
     return-void
 
-    .line 26
+    .line 48
     :cond_1
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$1;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
@@ -84,7 +84,15 @@
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$1;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-    const-wide/16 v2, 0x3e8
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$3(Lcom/melodix/music/PreviewPlayerTiles;)V
+
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$1;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
+
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$4(Lcom/melodix/music/PreviewPlayerTiles;)V
+
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$1;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
+
+    const-wide/16 v2, 0x320
 
     invoke-virtual {v0, p0, v2, v3}, Lcom/melodix/music/PreviewPlayerTiles;->postDelayed(Ljava/lang/Runnable;J)Z
 

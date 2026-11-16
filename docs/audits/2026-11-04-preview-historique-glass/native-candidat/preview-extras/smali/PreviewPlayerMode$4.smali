@@ -8,7 +8,7 @@
 
 # annotations
 .annotation system Ldalvik/annotation/EnclosingMethod;
-    value = Lcom/melodix/music/PreviewPlayerMode;->invoke()V
+    value = Lcom/melodix/music/PreviewPlayerMode;->shake()V
 .end annotation
 
 .annotation system Ldalvik/annotation/InnerClass;
@@ -20,18 +20,14 @@
 # instance fields
 .field final synthetic this$0:Lcom/melodix/music/PreviewPlayerMode;
 
-.field private final synthetic val$g:J
-
 
 # direct methods
-.method constructor <init>(Lcom/melodix/music/PreviewPlayerMode;J)V
+.method constructor <init>(Lcom/melodix/music/PreviewPlayerMode;)V
     .locals 0
 
     .prologue
-    .line 94
+    .line 95
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerMode$4;->this$0:Lcom/melodix/music/PreviewPlayerMode;
-
-    iput-wide p2, p0, Lcom/melodix/music/PreviewPlayerMode$4;->val$g:J
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
@@ -44,32 +40,27 @@
     .locals 4
 
     .prologue
-    .line 95
-    iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerMode$4;->val$g:J
-
-    iget-object v2, p0, Lcom/melodix/music/PreviewPlayerMode$4;->this$0:Lcom/melodix/music/PreviewPlayerMode;
-
-    invoke-static {v2}, Lcom/melodix/music/PreviewPlayerMode;->access$5(Lcom/melodix/music/PreviewPlayerMode;)J
-
-    move-result-wide v2
-
-    cmp-long v0, v0, v2
-
-    if-nez v0, :cond_0
-
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode$4;->this$0:Lcom/melodix/music/PreviewPlayerMode;
-
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$11(Lcom/melodix/music/PreviewPlayerMode;)Z
-
-    move-result v0
-
-    if-eqz v0, :cond_0
-
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode$4;->this$0:Lcom/melodix/music/PreviewPlayerMode;
-
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$19(Lcom/melodix/music/PreviewPlayerMode;)V
-
     .line 96
-    :cond_0
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode$4;->this$0:Lcom/melodix/music/PreviewPlayerMode;
+
+    invoke-virtual {v0}, Lcom/melodix/music/PreviewPlayerMode;->animate()Landroid/view/ViewPropertyAnimator;
+
+    move-result-object v0
+
+    const/4 v1, 0x0
+
+    invoke-virtual {v0, v1}, Landroid/view/ViewPropertyAnimator;->translationX(F)Landroid/view/ViewPropertyAnimator;
+
+    move-result-object v0
+
+    const-wide/16 v2, 0x46
+
+    invoke-virtual {v0, v2, v3}, Landroid/view/ViewPropertyAnimator;->setDuration(J)Landroid/view/ViewPropertyAnimator;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Landroid/view/ViewPropertyAnimator;->start()V
+
+    .line 97
     return-void
 .end method
