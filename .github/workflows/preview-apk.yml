@@ -974,6 +974,8 @@ jobs:
             phase="apply playback-safe collection retry"
             python3 "$audit/native-candidat/apply_preview_library_followup.py" "$work"
             node --check "$work/assets/native_ui_shell.js"
+            phase="apply preview aurora glass restyle"
+            python3 "$audit/native-candidat/apply_preview_redesign.py" "$work"
           fi
           if [[ "$PLAYLIST_TAP_PATCH" == "true" ]]; then
             phase="apply required native playlist tap patch"

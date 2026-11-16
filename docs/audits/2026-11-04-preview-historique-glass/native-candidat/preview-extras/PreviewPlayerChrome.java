@@ -8,6 +8,7 @@ import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.LayerDrawable;
@@ -39,7 +40,7 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
     private View repeatControl, shuffleControl;
     private final Runnable visualTick = new Runnable() { public void run() {
         if (!playerVisible()) { ticking=false; return; }
-        Activity host=activity(); if (host!=null) updateTint(host);
+        Activity host=activity(); if (host!=null) { updateTint(host); breathe(host); }
         if (repeatArt!=null && repeatControl!=null) {
             repeatArt.setBounds(0,0,repeatControl.getWidth(),repeatControl.getHeight()); repeatArt.invalidateSelf();
         }
@@ -89,7 +90,9 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         appliedBackground=getResources().getDrawable(0x7f08013c,getContext().getTheme());
         int left=root.getPaddingLeft(),top=root.getPaddingTop(),right=root.getPaddingRight(),bottom=root.getPaddingBottom();
         tintLayer=new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,new int[]{0,0});
-        appliedBackground=new LayerDrawable(new Drawable[]{appliedBackground,tintLayer});
+        // Layers: violet base, blurred cover colours, dark scrim for contrast, light tint.
+        scrim=new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,new int[]{0x400a0614,0xb30a0614,0xf20a0614});
+        appliedBackground=new LayerDrawable(new Drawable[]{appliedBackground,new ColorDrawable(0),scrim,tintLayer});
         root.setBackground(appliedBackground);root.setPadding(left,top,right,bottom);panel.setBackground(null);tintSource=null;
         chromeApplied=true;
     }
@@ -100,9 +103,10 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
             root.setBackground(rootBackground);root.setPadding(left,top,right,bottom);
         }
         if(panel!=null && panel.getBackground()==null)panel.setBackground(panelBackground);
-        root=null;panel=null;rootBackground=null;panelBackground=null;appliedBackground=null;tintLayer=null;tintSource=null;chromeApplied=false;
+        root=null;panel=null;rootBackground=null;panelBackground=null;appliedBackground=null;tintLayer=null;scrim=null;tintSource=null;artPlaying=null;chromeApplied=false;
     }
-    private GradientDrawable tintLayer;
+    private GradientDrawable tintLayer, scrim;
+    private Boolean artPlaying;
     private Drawable tintSource;
     /** Average colour of the artwork bitmap already on screen; no loading, no request. */
     static int dominant(Bitmap b){
@@ -123,9 +127,39 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         Drawable d=((ImageView)v).getDrawable();if(d==tintSource)return;tintSource=d;
         int c=d instanceof BitmapDrawable?dominant(((BitmapDrawable)d).getBitmap()):0;
         // Light tint: violet stays the base; the cover colour only washes the top.
-        tintLayer.setColors(c==0?new int[]{0,0}:new int[]{(0x66<<24)|(c&0xffffff),(0x1f<<24)|(c&0xffffff),0});
+        tintLayer.setColors(c==0?new int[]{0,0}:new int[]{(0x4d<<24)|(c&0xffffff),(0x14<<24)|(c&0xffffff),0});
+        // Blurred backdrop: the cover reduced to a few pixels and smoothly scaled up.
+        Drawable blob=new ColorDrawable(0);
+        if(d instanceof BitmapDrawable){
+            Bitmap b=((BitmapDrawable)d).getBitmap();
+            if(b!=null&&!b.isRecycled()&&b.getWidth()>0&&b.getHeight()>0){
+                try{BitmapDrawable small=new BitmapDrawable(getResources(),Bitmap.createScaledBitmap(b,5,5,true));small.setFilterBitmap(true);small.setAlpha(150);blob=small;}catch(RuntimeException ignored){}
+            }
+        }
+        if(appliedBackground instanceof LayerDrawable&&((LayerDrawable)appliedBackground).getNumberOfLayers()==4)((LayerDrawable)appliedBackground).setDrawable(1,blob);
         View art=a.findViewById(0x7f09023a);art=art==null?null:art.findViewWithTag("previewPlayerArtCard");
         if(art!=null&&Build.VERSION.SDK_INT>=28){int glow=c==0?0xffe0489e:(0xff000000|c);art.setOutlineSpotShadowColor(glow);art.setOutlineAmbientShadowColor(glow);}
+    }
+    /** Cover slightly smaller while paused, full size while playing (display only). */
+    private void breathe(Activity a){
+        View play=a.findViewById(0x7f09023e),p=a.findViewById(0x7f09023a);
+        View card=p==null?null:p.findViewWithTag("previewPlayerArtCard");
+        if(play==null||card==null)return;
+        CharSequence d=play.getContentDescription();String t=d==null?"":d.toString();
+        boolean playing=t.startsWith("Mettre en pause")||t.startsWith("Lecture demandée");
+        if(artPlaying!=null&&artPlaying==playing)return;
+        boolean first=artPlaying==null;artPlaying=playing;float target=playing?1f:0.9f;
+        card.animate().cancel();
+        if(first||(Build.VERSION.SDK_INT>=26&&!ValueAnimator.areAnimatorsEnabled())){card.setScaleX(target);card.setScaleY(target);}
+        else card.animate().scaleX(target).scaleY(target).setDuration(420).setInterpolator(new android.view.animation.OvershootInterpolator(1.2f)).start();
+    }
+    /** ConstraintLayout max-size and ratio would distort an explicit square. */
+    private static void clearConstraintLimits(View card){
+        Object lp=card.getLayoutParams();
+        for(String f:new String[]{"matchConstraintMaxWidth","matchConstraintMaxHeight"}){
+            try{java.lang.reflect.Field x=lp.getClass().getField(f);if(x.getInt(lp)!=0)x.setInt(lp,0);}catch(Exception ignored){}
+        }
+        try{java.lang.reflect.Field x=lp.getClass().getField("dimensionRatio");if(x.get(lp)!=null)x.set(lp,null);}catch(Exception ignored){}
     }
     /** Keep skip icons a readable size whatever width their slot gets. */
     private void sizeSkips(Activity a){
@@ -151,7 +185,7 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         if(h<=0||w<=0)return;
         int side=Math.max(dp(120),Math.min(w,Math.min(h,dp(520))));
         ViewGroup.LayoutParams c=card.getLayoutParams(),f=frame.getLayoutParams();
-        if(c.width!=side||c.height!=side){c.width=side;c.height=side;card.setLayoutParams(c);}
+        if(c.width!=side||c.height!=side){clearConstraintLimits(card);c.width=side;c.height=side;card.setLayoutParams(c);}
         if(f.height!=side){f.height=side;frame.setLayoutParams(f);}
     }
     private static final class PressEffect implements View.OnTouchListener {
