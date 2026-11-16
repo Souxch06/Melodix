@@ -14,9 +14,16 @@ EXPECTED = {
 }
 
 EXTRAS = {
-    'smali/PreviewPlayerChrome$1.smali': '4051a2a3fa6cd2476ec6b0497d94592b3d8fa36f94ebc63063328266952f7160',
-    'smali/PreviewPlayerChrome.smali': '20c6a04c425b91a2a575ad87d7e5ab1648d492566d9133d7fbe8808dcc0448c1',
-    'PreviewPlayerChrome.java': '51345c0c2215e662abb197c804f04254ef7e40e4ae0798eaa477bbecebce757a',
+    'PreviewPlayerPlayButton.java': '37713bbc1b11ad4ec17233f5295a148caea40028c80b18b1817e59301dec146f',
+    'PreviewPlayerDecoration.java': '18a93b64db61dced10633309805f2de29765a125c4f9074ecb9805eb3a81958a',
+    'smali/PreviewPlayerPlayButton.smali': 'ddf9b1ff40a30269bf02a01ac7c4fe67e95a5758ab1c0057d7cabb09af7a269f',
+    'smali/PreviewPlayerPlayButton$1.smali': '56f8abb6c2e8167fe6fb4bc8c92788d7677b3dfd852feb0eda87c862953547f3',
+    'smali/PreviewPlayerDecoration.smali': 'a04516941d45f1a14c047f9b42a6b736a949a27763ff3586ad69ab59b3fcb4e4',
+    'smali/PreviewPlayerChrome$PressEffect.smali': 'c7e412980d10b2974b44ab671f70b46bb8ef0348a27adb37d60e2882272a3a44',
+    'smali/PreviewPlayerChrome$2.smali': '57aee5ab2ae362205770e0dc0d8d27fe27e60a43996ace31b9e67fa0590255a6',
+    'smali/PreviewPlayerChrome$1.smali': '143e8b04f10914f6fbe82ffea8bc37196f0d74d7b09349d5d6b8931dd301599c',
+    'smali/PreviewPlayerChrome.smali': '7699c2e7ddcc8d9c0fe6e6d237c1810d008b29a5c3af12fea9c1d3058947a521',
+    'PreviewPlayerChrome.java': '4f36b4728775c45624dc1391dff16d8f3e923d55228ebd42b52b527768d25f7b',
     'smali/PreviewPlayerMode$1.smali': '3832e5c012f4f520778da6b2ca21b2acf7a26b4386b5d533f76c6f2d032901eb',
     'smali/PreviewPlayerMode$2.smali': 'f507a223dfedfbbd8e029e21d0c1ccfaae0e7a58b3dc4ff595194318eaab894a',
     'smali/PreviewPlayerMode$3.smali': 'a93913b09f293fb918a7b2b68670c443e598a7b435da77e26f4937306e188267',
@@ -25,10 +32,10 @@ EXTRAS = {
     'smali/PreviewPlayerMode$6.smali': '5b09ef6e39478eba452b8f9962bb0537847314638766e5345cf8f6c3a6c40030',
     'smali/PreviewPlayerMode.smali': '0bb8c71a1a2bd35350ea70758274e18b315b7ecbb836c1ac576de1bf0204b050',
     'smali/PreviewPlayerTiles$1.smali': '9daef4b22b5b64286b0467ae9d2a7af50bef94b317cbb55f25335dc8ce09cdf7',
-    'smali/PreviewPlayerTiles.smali': '89db8367aa36d1a64c17b2216e1477f943f03071fbfbe19b60c2f3e7ae478772',
+    'smali/PreviewPlayerTiles.smali': 'b2f28a48f65ae6ee1ffc133a0a1a03f72db6f646f57c274d433addf0dea8c97b',
     'control.js': '1f8b82ccdbc72111805b635b8c43d04411357f3680290bde47407f4d5740f932',
     'PreviewPlayerMode.java': '434e949ddf79214193c884ce1ed429d24f03fe400994751f3e06b7c085bd2c11',
-    'PreviewPlayerTiles.java': 'fa2c6332410380db0fa846ed542561b9a63f88119acbd0249e14e592e7500bbb',
+    'PreviewPlayerTiles.java': 'ead83cc830addaf01aa2bb53cdaca715e6bdd2be0865570665e2c5908c8f663d',
 }
 
 def one(s, old, new):
@@ -133,6 +140,7 @@ def player_layout(source):
         i=panel.index('android:id="@id/'+ident+'"'); j=panel.index('/>',i); part=panel[i:j]
         part=part.replace('android:layout_width="54.0dip"','android:layout_width="0.0dip" android:layout_weight="1.0"').replace('android:layout_height="54.0dip"','android:layout_height="56.0dip"').replace('android:layout_marginLeft="12.0dip"','').replace('android:layout_marginRight="12.0dip"','').replace('android:background="@drawable/native_button_dark"','android:background="@null"').replace('Previous track','Titre précédent').replace('Next track','Titre suivant')
         panel=panel[:i]+part+panel[j:]
+    panel=one(panel,'<ImageView android:id="@id/nativePlayerLargePlayPauseButton"','<com.melodix.music.PreviewPlayerPlayButton android:id="@id/nativePlayerLargePlayPauseButton"')
     i=panel.index('android:id="@id/nativePlayerLargePlayPauseButton"');j=panel.index('/>',i)
     panel=panel[:i]+panel[i:j].replace('72.0dip','76.0dip').replace('android:padding="24.0dip"','android:padding="25.0dip"').replace('android:background="@drawable/native_button_white"','android:background="@drawable/native_button_white" android:elevation="12.0dip"').replace('android:layout_marginLeft="14.0dip"','').replace('android:layout_marginRight="14.0dip"','')+panel[j:]
     ending='''            </LinearLayout>
@@ -140,7 +148,7 @@ def player_layout(source):
         </ScrollView>'''
     tiles='''            </LinearLayout>
             <Space android:tag="previewPlayerSpacer" android:layout_width="1.0dip" android:layout_height="0.0dip" android:layout_weight="1.0" />
-            <com.melodix.music.PreviewPlayerTiles android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="20.0dip" />
+            <com.melodix.music.PreviewPlayerTiles android:tag="previewPlayerTiles" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="20.0dip" />
             </LinearLayout>
         </ScrollView>'''
     panel=one(panel,ending,tiles)
@@ -161,11 +169,11 @@ def landscape_layout(source):
     panel=one(panel,'            </androidx.constraintlayout.widget.ConstraintLayout>', '''            </androidx.constraintlayout.widget.ConstraintLayout>
             <LinearLayout android:orientation="vertical" android:layout_width="0.0dip" android:layout_weight="0.56" android:layout_height="wrap_content" android:layout_marginTop="12.0dip">''')
     ending='''            <Space android:tag="previewPlayerSpacer" android:layout_width="1.0dip" android:layout_height="0.0dip" android:layout_weight="1.0" />
-            <com.melodix.music.PreviewPlayerTiles android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="20.0dip" />
+            <com.melodix.music.PreviewPlayerTiles android:tag="previewPlayerTiles" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="20.0dip" />
             </LinearLayout>
         </ScrollView>'''
     panel=one(panel,ending,'''            <Space android:tag="previewPlayerSpacer" android:layout_width="1.0dip" android:layout_height="0.0dip" android:layout_weight="1.0" />
-            <com.melodix.music.PreviewPlayerTiles android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="20.0dip" />
+            <com.melodix.music.PreviewPlayerTiles android:tag="previewPlayerTiles" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="20.0dip" />
             </LinearLayout>
             </LinearLayout>
             </LinearLayout>

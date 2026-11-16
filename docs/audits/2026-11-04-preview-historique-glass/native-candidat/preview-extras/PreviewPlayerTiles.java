@@ -18,7 +18,7 @@ import android.widget.Toast;
 /** Local volume and truthful disabled placeholders; no Spotify navigation. */
 public final class PreviewPlayerTiles extends LinearLayout {
     public PreviewPlayerTiles(Context c, AttributeSet attrs) {
-        super(c,attrs);setOrientation(HORIZONTAL);
+        super(c,attrs);setOrientation(HORIZONTAL);setGravity(android.view.Gravity.CENTER);
         String[] labels={"☰\nFile","♬\nParoles","▣\nAppareils","◖))\nVolume"};
         for(int i=0;i<labels.length;i++) {
             final int n=i;Button b=new Button(c);
@@ -30,7 +30,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
             b.setBackground(new RippleDrawable(ColorStateList.valueOf(0x447b3fe4),tile,null));
             b.setContentDescription(i==3?"Volume du téléphone":labels[i].replace('\n',' ')+" indisponible");
             b.setEnabled(i==3);b.setAlpha(i==3?1f:0.65f);
-            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,getResources().getConfiguration().fontScale>1.3f?LayoutParams.WRAP_CONTENT:dp(56),1f);if(i>0)lp.leftMargin=dp(8);addView(b,lp);
+            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(dp(64),getResources().getConfiguration().fontScale>1.3f?LayoutParams.WRAP_CONTENT:dp(56));if(i>0)lp.leftMargin=dp(8);addView(b,lp);
             if(n==3)b.setOnClickListener(new View.OnClickListener(){public void onClick(View v){
                 Object svc=getContext().getSystemService(Context.AUDIO_SERVICE);
                 if(svc instanceof AudioManager){v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);((AudioManager)svc).adjustStreamVolume(AudioManager.STREAM_MUSIC,AudioManager.ADJUST_SAME,AudioManager.FLAG_SHOW_UI);}

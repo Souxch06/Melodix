@@ -23,6 +23,10 @@
 
     invoke-virtual {p0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->setOrientation(I)V
 
+    const/16 v0, 0x11
+
+    invoke-virtual {p0, v0}, Lcom/melodix/music/PreviewPlayerTiles;->setGravity(I)V
+
     .line 22
     const/4 v0, 0x4
 
@@ -209,6 +213,12 @@
     .line 33
     new-instance v6, Landroid/widget/LinearLayout$LayoutParams;
 
+    const/high16 v2, 0x42800000    # 64.0f
+
+    invoke-direct {p0, v2}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v7
+
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerTiles;->getResources()Landroid/content/res/Resources;
 
     move-result-object v2
@@ -219,16 +229,16 @@
 
     iget v2, v2, Landroid/content/res/Configuration;->fontScale:F
 
-    const v7, 0x3fa66666    # 1.3f
+    const v8, 0x3fa66666    # 1.3f
 
-    cmpl-float v2, v2, v7
+    cmpl-float v2, v2, v8
 
     if-lez v2, :cond_6
 
     const/4 v2, -0x2
 
     :goto_4
-    invoke-direct {v6, v1, v2, v3}, Landroid/widget/LinearLayout$LayoutParams;-><init>(IIF)V
+    invoke-direct {v6, v7, v2}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
 
     if-lez v0, :cond_1
 
