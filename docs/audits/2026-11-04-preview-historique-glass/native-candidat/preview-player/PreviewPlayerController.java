@@ -36,6 +36,8 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     private static final int PAUSE_ICON = 0x7f080121, PLAY_ICON = 0x7f080122;
     private static final long CORRECTION_MS = 4000;
     private static final long RECONCILE_MS = 8000;
+    // Observation time is a transport-age heuristic, not a Spotify timestamp.
+    private static final long MAX_OBSERVATION_AGE_MS = 3000, MAX_DEVIATION_MS = 5000;
     private final WeakReference<Activity> activity;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private boolean valid, moving, frameScheduled, haveReal, realPlaying, shownPlaying, pending;
@@ -144,6 +146,21 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     private final String[] trace = new String[120];
     private int traceCount, traceIndex;
     private long traceStart = -1;
+    private final String[] returnEvents = new String[20], returnSeconds = new String[10];
+    private int returnEventIndex, returnEventCount, returnSecondCount;
+    private long absenceAt = -1, absenceDuration = -1, returnAt = -1;
+    // In-process only: rotation can recreate the Activity, process death cannot.
+    private static boolean savedValid, savedMoving, savedIdentity;
+    private static double savedBase, savedCorrection;
+    private static long savedAnchor, savedDuration, savedMeasurementAt, savedMeasurementPosition, savedAbsenceAt = -1;
+    private static String savedTitle = "", savedArtist = "", savedTrack = "", savedState = "unknown";
+    private void recordReturn(String message) {
+        double shown = position(now());
+        returnEvents[returnEventIndex] = "t=" + now() + " ms " + message +
+            " ; affiché=" + (Double.isNaN(shown) ? "-:--" : clock((long) shown)) + " ; état=" + playbackState;
+        returnEventIndex = (returnEventIndex + 1) % returnEvents.length;
+        if (returnEventCount < returnEvents.length) returnEventCount++;
+    }
     // Cosmetic only: animate the clipped fill, never the position or track.
     private boolean foreground, glowSampleValid;
     private final ObjectAnimator[] glow = new ObjectAnimator[2];
@@ -223,7 +240,22 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         scheduleFrame();
     }
 
-    public PreviewPlayerController(Activity a) { activity = new WeakReference<Activity>(a); }
+    public PreviewPlayerController(Activity a) {
+        activity = new WeakReference<Activity>(a);
+        if (savedValid && savedIdentity) {
+            valid = savedValid; moving = savedMoving; tupleIdentity = savedIdentity;
+            base = savedBase; correction = savedCorrection; anchor = savedAnchor; duration = savedDuration;
+            measurementAt = savedMeasurementAt; measurementPosition = savedMeasurementPosition;
+            identityTitle = savedTitle; identityArtist = savedArtist; identityDuration = savedDuration;
+            track = savedTrack; playbackState = savedState; absenceAt = savedAbsenceAt;
+        }
+    }
+    private void saveInProcess() {
+        savedValid = valid; savedMoving = moving; savedIdentity = tupleIdentity;
+        savedBase = base; savedCorrection = correction; savedAnchor = anchor; savedDuration = duration;
+        savedMeasurementAt = measurementAt; savedMeasurementPosition = measurementPosition;
+        savedTitle = identityTitle; savedArtist = identityArtist; savedTrack = track; savedState = playbackState; savedAbsenceAt = absenceAt;
+    }
     private long now() { return SystemClock.elapsedRealtime(); }
     private double position(long t) {
         return dragging && valid ? seekTarget : positionUnderlying(t);
@@ -250,7 +282,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         Activity a = activity.get(); if (a == null) return;
         double pos = position(now());
         if (Double.isNaN(pos)) {
-            text(a, ELAPSED, "—"); text(a, DURATION, "—");
+            text(a, ELAPSED, "-:--"); text(a, DURATION, "-:--");
             setProgress(a, MINI, 0); setProgress(a, FULL, 0);
             View root = a.findViewById(0x7f09023a);
             View remaining = root == null ? null : root.findViewWithTag("nativePlayerRemaining");
@@ -278,7 +310,15 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             if (bar.getProgress() != p) bar.setProgress(p);
         }
     }
-    public void activityResumed() { foreground = true; syncGlow(); scheduleTrace(); }
+    public void activityStarted() { recordReturn("onStart"); }
+    public void activityPaused() { absenceAt = now(); recordReturn("onPause"); }
+    public void activityResumed() {
+        long t = now();
+        absenceDuration = absenceAt < 0 ? -1 : Math.max(0, t - absenceAt);
+        returnAt = t; returnSecondCount = 0;
+        foreground = true; renderProgress(); syncGlow(); scheduleFrame(); scheduleTrace();
+        recordReturn("onResume ; absence=" + (absenceDuration < 0 ? "inconnue" : absenceDuration + " ms"));
+    }
     private void scheduleTrace() {
         if (foreground && !traceScheduled) { traceScheduled = true; handler.postDelayed(this, 1000); }
     }
@@ -291,11 +331,16 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         trace[traceIndex] = "+" + ((t - traceStart) / 1000) + " s : identité=" +
             (tupleIdentity ? "oui" : "non") + ", état=" + playbackState +
             ", mesure=" + age + ", " + progressStopReason();
+        if (returnAt >= 0 && returnSecondCount < returnSeconds.length && t - returnAt >= (returnSecondCount + 1) * 1000L) {
+            double shown = position(t);
+            returnSeconds[returnSecondCount++] = "t=" + t + " ms ; retour +" + (t-returnAt) + " ms ; affiché=" +
+                (Double.isNaN(shown) ? "-:--" : clock((long)shown)) + " ; état=" + playbackState;
+        }
         traceIndex = (traceIndex + 1) % trace.length;
         if (traceCount < trace.length) traceCount++;
         scheduleTrace();
     }
-    public void activityStopped() { dragging = false; foreground = false; stopGlow(0); stopGlow(1); }
+    public void activityStopped() { recordReturn("onStop"); saveInProcess(); dragging = false; foreground = false; stopGlow(0); stopGlow(1); }
     private void stopGlow(int index) {
         if (glow[index] != null) { glow[index].cancel(); glow[index] = null; }
         if (glowFill[index] != null) { glowFill[index].setAlpha(255); glowFill[index] = null; }
@@ -373,7 +418,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 // misleading false state. They may invalidate an identity,
                 // but cannot assert pause over the explicit tri-state feed.
                 String title = o.optString("track", ""), artist = o.optString("artist", "");
-                if (tupleIdentity && (!identityTitle.equals(title) || !identityArtist.equals(artist))) {
+                if (tupleIdentity && realMetadata(title) && realMetadata(artist) && (!identityTitle.equals(title) || !identityArtist.equals(artist))) {
                     cancelSeek(); valid = false; moving = false; tupleIdentity = false; glowSampleValid = false;
                     measurementAt = measurementPosition = -1;
                 }
@@ -388,9 +433,8 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             boolean real = state.equals("playing");
             boolean snapshotValid = o.optBoolean("previewProgressValid", false) && dur > 0 && pos >= 0 && pos <= dur;
             boolean identified = realMetadata(title) && realMetadata(artist) && dur > 0;
-            boolean changed = !identified || !tupleIdentity || !identityTitle.equals(title) ||
-                !identityArtist.equals(artist) || identityDuration != dur ||
-                (!track.isEmpty() && !uri.isEmpty() && !track.equals(uri));
+            boolean changed = identified && (!tupleIdentity || !identityTitle.equals(title) ||
+                !identityArtist.equals(artist) || identityDuration != dur);
             double previous = positionUnderlying(t);
             boolean backward = !changed && snapshotValid && measurementPosition >= 0 && pos < measurementPosition - 2000;
             boolean changedMeasure = snapshotValid && (changed || backward || measurementPosition < 0 || pos != measurementPosition);
@@ -398,15 +442,27 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             boolean wasMoving = moving;
             progressSource = o.optString("previewProgressSource", "none");
             if (!progressSource.equals("range") && !progressSource.equals("media") && !progressSource.equals("clock")) progressSource = "none";
+            // A transport-age bound is a heuristic: it cannot establish when
+            // Spotify last refreshed the DOM/media value itself.
+            long observedWall = o.optLong("previewObservedAtMs", -1);
+            long age = observedWall < 0 ? -1 : System.currentTimeMillis() - observedWall;
+            String rejection = !snapshotValid ? "invalide" : age < 0 ? "âge inconnu" :
+                age >= MAX_OBSERVATION_AGE_MS ? "observation ancienne" :
+                !identified ? "identité incomplète" :
+                (!changed && valid && !seekPending && !Double.isNaN(previous) &&
+                 Math.abs(pos - previous) >= MAX_DEVIATION_MS) ? "écart >= 5 s" : "";
+            snapshotValid = rejection.isEmpty();
+            backward = false;
+            changedMeasure = snapshotValid && (changed || measurementPosition < 0 || pos != measurementPosition);
             glowSampleValid = snapshotValid;
-            tupleIdentity = identified;
+            recordReturn("mesure=" + pos + " ms ; âge observation=" + (age < 0 ? "inconnu" : age + " ms") +
+                " ; source=" + progressSource + " ; " + (snapshotValid ? "acceptée" : "rejetée : " + rejection));
             if (changed) {
                 cancelSeek(); independentObservationAt = independentObservation = -1;
                 valid = false; moving = false; previous = Double.NaN;
                 measurementAt = measurementPosition = -1;
             }
-            identityTitle = identified ? title : ""; identityArtist = identified ? artist : "";
-            identityDuration = identified ? dur : -1;
+            if (identified) { identityTitle = title; identityArtist = artist; identityDuration = dur; tupleIdentity = true; }
             if (!uri.isEmpty() || changed) track = uri;
             // Do not use previewPositionMs: actSeek itself writes its range property.
             // These are received UI samples, which may already be stale in Spotify.
@@ -435,7 +491,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 // target. Smoothly reconcile from the optimistic display.
                 if (seekDiagIndex >= 0) { seekDiagConfirm[seekDiagIndex] = t; seekDiagOutcome[seekDiagIndex] = "position UI proche de la cible"; }
                 seekPending = false; seekSerial++; seekConfirmed = true; pos = confirm;
-                snapshotValid = true; backward = false; changedMeasure = true;
+                snapshotValid = rejection.isEmpty(); backward = false; changedMeasure = snapshotValid;
                 measurementPosition = measurementAt = -1;
             }
             if (snapshotValid) {
@@ -445,7 +501,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 } else if (seekConfirmed && !real) {
                     base = Math.max(0, Math.min(dur, previous)); anchor = t; correction = pos - previous;
                 } else if (changedMeasure && !real && !freezePendingPause) {
-                    base = pos; anchor = t; correction = 0;
+                    base = Math.max(0, Math.min(dur, previous)); anchor = t; correction = 0;
                 } else if (changedMeasure && !freezePendingPause) {
                     base = Math.max(0, Math.min(dur, previous)); anchor = t; correction = pos - previous;
                 } else if ((wasMoving && (!real || freezePendingPause)) || (!wasMoving && real)) {
@@ -461,7 +517,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 }
                 valid = true;
                 moving = identified && real && !freezePendingPause;
-            } else if (valid && !changed && identified && !Double.isNaN(previous)) {
+            } else if (valid && !changed && !Double.isNaN(previous)) {
                 if (!real || freezePendingPause) { base = previous; anchor = t; correction = 0; }
                 moving = real && !freezePendingPause;
             } else { valid = false; moving = false; }
@@ -472,12 +528,17 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 if (!pending) shownPlaying = real;
             }
             renderProgress(); renderButtons(); syncGlow(); scheduleFrame();
+            recordReturn("après mesure");
             if (tapAt >= 0 && commandAt >= 0 && stateAt < 0 &&
                 ((operation == 1 && !state.equals("unknown") && real == pendingTarget) ||
                  (operation != 1 && !uri.isEmpty() && !uri.equals(trackBefore)))) {
                 stateAt = t; uiAt = now();
             }
-        } catch (Exception ignored) { valid = false; moving = false; glowSampleValid = false; renderProgress(); syncGlow(); }
+        } catch (Exception ignored) {
+            double current = positionUnderlying(now());
+            if (valid && !Double.isNaN(current)) { base = current; anchor = now(); correction = 0; moving = false; }
+            glowSampleValid = false; recordReturn("mesure rejetée : format invalide"); renderProgress(); syncGlow();
+        }
     }
     public int tapPlayPause() {
         begin(1);
@@ -585,6 +646,15 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             int index = (intervalIndex - intervalCount + i + intervals.length) % intervals.length;
             out.append(intervals[index]).append(" ms");
         }
+        out.append("\nRetour — absence : ").append(absenceDuration < 0 ? "inconnue" : absenceDuration + " ms");
+        out.append("\nÂge depuis observation JS, pas fraîcheur garantie côté Spotify.");
+        out.append("\nRetour — 20 derniers événements (horloge monotone Android) :");
+        for (int i = 0; i < returnEventCount; i++) {
+            int index = (returnEventIndex - returnEventCount + i + returnEvents.length) % returnEvents.length;
+            out.append("\n").append(returnEvents[index]);
+        }
+        out.append("\nRetour — relevés pendant 10 secondes :");
+        for (int i = 0; i < returnSecondCount; i++) out.append("\n").append(returnSeconds[i]);
         out.append("\nHistorique (120 dernières secondes au premier plan) :");
         for (int i = 0; i < traceCount; i++) {
             int index = (traceIndex - traceCount + i + trace.length) % trace.length;

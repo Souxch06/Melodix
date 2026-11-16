@@ -14,19 +14,20 @@ EXPECTED = {
     'assets/native_ui_shell.js': '7b171ed4773c34571cd5bc4974f764d303edb300f49f13bbdf5f6f3940d84004',
     'smali/com/melodix/music/MainActivity.smali': 'dd14f96c2e3143b1e015e58a4c881911147e8312df1938a59e7ba3fa1b9a6f53',
     'smali/com/melodix/music/NativeSettingsRowFactory.smali': '87af4ac75e344b84f94374db7b94018b524a9af981f2367f8a9631f8b1c8ed63',
+    'smali/e6.smali': '71fb560215540abcc1e45899946eb95211c6f6af711f32910ca9111ce6068991',
     'smali/m9.smali': '85110d08bf6c642ea6201c152a4e219721ae542927a16a701d6018bedee83b06',
     'res/layout/activity_main.xml': '245649abbe8e4c683ab5dcfe5bd3cfbe39a1942131fd636b6e3d1ab890707634',
     'res/layout-w600dp/activity_main.xml': '4d110f1df062fdf7676b9aa5e70146dd7ec148da3c0c614a553b5586ad5af8fe',
     'res/drawable/widget_progress_drawable.xml': '3a5f8f51ea984c7a8226d5acd69bf6b20383ca9622843d617b055c9fe18d772f',
 }
-SOURCE_SHA = '7a043c51e60e54f12655559a65e9a25a1cd50aa09913293546a5432041f9835b'
+SOURCE_SHA = 'e6960794050359f2ab3163bfd031410ea61b86ed7fa4e201454034e5c0bea486'
 HELPER_SHA = {
-    'PreviewPlayerController$1.smali': '2afadbaaa825e3dca8bad212594c52605b18ea1f9a241ba10f454b34002bfbd2',
-    'PreviewPlayerController$2.smali': '34ac00c0cfe9f6af6b1fbe889a3bb61ca37ccf017bf236cae3b679562f0278b3',
-    'PreviewPlayerController$3.smali': '92f358aeec285c9207b641c1b2f661fcdb27291d81d3bd2447f631b55991f39b',
-    'PreviewPlayerController$4.smali': 'c320c5e37aa1ddf449d3ad776e7b6f5b5648f94a651b9352a186cd1226ce25ac',
-    'PreviewPlayerController$5.smali': '598767707a5fdeaee5e6e8eee044073fc7b0a7d7a575a3521ad84270f8f6d7e2',
-    'PreviewPlayerController.smali': '03322c86cd1cb0945c77c2ac6e10d00830d3846a7a289e53350c6afd550c8971',
+    'PreviewPlayerController$1.smali': 'a4bd434739e15f95710716206e6f67fcf9088d90f6a5ea710667b5b99e82e0f4',
+    'PreviewPlayerController$2.smali': '47c427951af4a3c2329b97514a14e1c49090e583b929b1ebcd69dd0982aad08e',
+    'PreviewPlayerController$3.smali': '36166479e0cc06dcd2b8e119bed05fdf1f69ab5eef742b36a0202c08d8b354dd',
+    'PreviewPlayerController$4.smali': '87a386d81689eb4472f501641c8dd9012ce1f1a1ccb698a25d209cd1e140ee83',
+    'PreviewPlayerController$5.smali': 'be32ade14a1860b71c8df28404242e6a92aae7b70b6a6d5a62fa26b06b4ede78',
+    'PreviewPlayerController.smali': '4f4e8aec93e72928debb66b951f3d0f086f9642a20dcee60bc3729424636efea',
 }
 
 def replace(text, old, new):
@@ -59,7 +60,13 @@ def prepare(root):
         bar = data[start:end].replace('<ProgressBar', '<SeekBar', 1)
         bar = bar.replace('style="?android:progressBarStyleHorizontal"', 'style="?android:attr/seekBarStyle"')
         bar = bar.replace('android:layout_height="6.0dip"', 'android:layout_height="32.0dip"\n                android:maxHeight="6.0dip"\n                android:thumbTint="#ffc0a2ff"\n                android:contentDescription="Déplacer la lecture"')
-        files[layout] = data[:start] + bar + data[end:]
+        data = data[:start] + bar + data[end:]
+        for ident in ('nativePlayerPositionText', 'nativePlayerDurationText'):
+            start = data.index('android:id="@id/' + ident + '"')
+            end = data.index('/>', start)
+            section = data[start:end].replace('android:text="0:00"', 'android:text="-:--"')
+            data = data[:start] + section + data[end:]
+        files[layout] = data
     # Visual only: the existing clipped progress drawable is also used by
     # the player widget, so it receives the same restrained gradient. No new
     # resource IDs or always-running animation are introduced.
@@ -330,7 +337,36 @@ def prepare(root):
     function runUpdate()''')
     files[path] = s
 
+    # onStart is final in the framework Activity subclass, so add a guarded
+    # Preview-only notification there without changing its lifecycle logic.
+    path = 'smali/e6.smali'; s = files[path]
+    s = replace(s, ".method public final onStart()V\n    .locals 2\n", """.method public final onStart()V
+    .locals 2
+
+    instance-of v0, p0, Lcom/melodix/music/MainActivity;
+    if-eqz v0, :preview_start_observed
+    move-object v0, p0
+    check-cast v0, Lcom/melodix/music/MainActivity;
+    invoke-virtual {v0}, Lcom/melodix/music/MainActivity;->previewPlayer()Lcom/melodix/music/PreviewPlayerController;
+    move-result-object v0
+    invoke-virtual {v0}, Lcom/melodix/music/PreviewPlayerController;->activityStarted()V
+    :preview_start_observed
+""")
+    files[path] = s
+
     path = 'smali/com/melodix/music/MainActivity.smali'; s = files[path]
+    # The inherited onPause remains responsible for its original work.
+    s += """
+.method public onPause()V
+    .locals 1
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativePreviewPlayer:Lcom/melodix/music/PreviewPlayerController;
+    if-eqz v0, :preview_pause_done
+    invoke-virtual {v0}, Lcom/melodix/music/PreviewPlayerController;->activityPaused()V
+    :preview_pause_done
+    invoke-super {p0}, Le6;->onPause()V
+    return-void
+.end method
+"""
     # WebView can be created later in onResume, after the first listener hook.
     start=s.index('.method public final C()V'); end=s.index('.end method', start)
     body=s[start:end]

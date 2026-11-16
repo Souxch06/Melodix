@@ -5,8 +5,8 @@ import hashlib
 import json
 
 EXPECTED = {
-    'res/layout/activity_main.xml': 'eb85a1f5d18d97d67834a564f92b9bc815122df857591a8bca9f1f0e128831a5',
-    'res/layout-w600dp/activity_main.xml': 'd22b95d2b29a22122d91b41ba174e9d78805bccc04f1f8beafa76b769ec8d9e4',
+    'res/layout/activity_main.xml': '5de71b1a2a27cd0710ecc285d190301c05952e767d1e0e1dafe3f1b21a9ababb',
+    'res/layout-w600dp/activity_main.xml': 'ff923fa2c85610655a4139409713434a4e7d933193baa48fcd5c16771ebaeba3',
     'res/drawable/native_player_background.xml': '0dcb1e1d8d94ee6b297250e92cca2ca770ac5555b41b6986746a7ce904bebcf4',
     'res/drawable/native_button_white.xml': '11d9172eac04718f095f936dc1bb0c68cea4041e1410f77ef56eb2b8cd502099',
     'res/drawable/widget_progress_drawable.xml': '6c186a221e3661881e1bde06766f3eab3a518b68a80a75797c3c357d9a3b5e3e',

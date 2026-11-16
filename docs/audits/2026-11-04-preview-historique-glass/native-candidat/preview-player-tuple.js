@@ -40,6 +40,8 @@
             position: info.position, duration: info.duration,
             previewTrackUri: info.previewTrackUri, previewProgressSource: info.previewProgressSource,
             previewPositionMs: info.previewPositionMs, previewDurationMs: info.previewDurationMs,
+            // Wall-clock time of this existing observation, not the source update time.
+            previewObservedAtMs: Date.now(),
             // The text clock is independent of the slider property that actSeek writes.
             previewConfirmPositionMs: previewSeekObservation(),
             previewProgressValid: valid, previewAdvancing: valid && identity && state === 'playing'
