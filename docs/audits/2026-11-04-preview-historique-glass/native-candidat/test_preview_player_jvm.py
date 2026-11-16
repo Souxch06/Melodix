@@ -188,6 +188,13 @@ public class ControllerTest {
   report=(String)reportMethod.invoke(edges);String post=report.substring(report.indexOf("Retour — relevés pendant 10 secondes :"),report.indexOf("Historique (120"));
   eq(post.split("retour [+]",-1).length-1,10);yes(report.contains("pas fraîcheur garantie"));
   edges.snapshot(sample("Zero","Artist",0,229000,"paused",""));yes(elapsed.text.equals("0:00"));
+  // An observed end-to-start wrap for the SAME item immediately reanchors
+  // the display without a seek command. A mid-track jump remains rejected.
+  saved.setBoolean(null,false);SystemClock.time+=10000;PreviewPlayerController loop=new PreviewPlayerController(a);loop.activityResumed();
+  loop.snapshot(sample("Loop","Artist",98000,100000,"playing","")+";previewProgressSource=clock");SystemClock.time+=2000;loop.doFrame(0);yes(elapsed.text.equals("1:40"));
+  int webBefore=web.calls;loop.snapshot(sample("Loop","Artist",1000,100000,"playing","")+";previewProgressSource=clock");yes(elapsed.text.equals("0:01"));eq(web.calls,webBefore);SystemClock.time+=1000;loop.doFrame(0);yes(elapsed.text.equals("0:02"));
+  report=(String)reportMethod.invoke(loop);yes(report.contains("retour début observé"));
+  saved.setBoolean(null,false);PreviewPlayerController middle=new PreviewPlayerController(a);middle.activityResumed();middle.snapshot(sample("Mid","Artist",50000,100000,"playing","")+";previewProgressSource=clock");middle.snapshot(sample("Mid","Artist",1000,100000,"playing","")+";previewProgressSource=clock");yes(elapsed.text.equals("0:50"));
   // Cosmetic response is immediate and clearly pending; no audio is inferred.
   saved.setBoolean(null,false);SystemClock.time+=10000;PreviewPlayerController visual=new PreviewPlayerController(a);visual.activityResumed();
   visual.snapshot(sample("Visual","Artist",1000,229000,"paused",""));eq(b2.image,0x7f080122);eq(visual.tapPlayPause(),1);eq(b2.image,0x7f080121);yes(b2.description.contains("en attente"));

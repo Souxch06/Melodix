@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.ContextWrapper;
+import android.content.res.ColorStateList;
 import android.content.DialogInterface;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
@@ -86,19 +87,38 @@ public final class PreviewPlayerVolume extends Button {
         catch(RuntimeException ignored){percent=-1;reason=reasonText("command");lastAction="échec : "+reason;paint();}
         if(!dragging)handler.postDelayed(new Runnable(){public void run(){if(running)read();}},350);
     }
+    private GradientDrawable surface(int color,int stroke,float radius){
+        GradientDrawable d=new GradientDrawable();d.setColor(color);d.setStroke(dp(1),stroke);d.setCornerRadius(dp(radius));return d;
+    }
+    private Button action(Activity a,String text,boolean primary){
+        Button b=new Button(a);b.setText(text);b.setTextColor(Color.WHITE);b.setTextSize(14);b.setAllCaps(false);b.setMinHeight(dp(48));
+        b.setBackgroundTintList(null);b.setBackground(surface(primary?0xff6335a2:0x21ffffff,0x33ffffff,16));return b;
+    }
     private void open(){
         final Activity a=activity();if(a==null||a.isFinishing()||a.isDestroyed()||dialog!=null)return;
         try{
-            final Dialog d=new Dialog(a);dialog=d;LinearLayout content=new LinearLayout(a);content.setOrientation(LinearLayout.VERTICAL);content.setPadding(dp(20),dp(20),dp(20),dp(24));
-            GradientDrawable glass=new GradientDrawable();glass.setColor(0xeb170b33);glass.setStroke(dp(1),0x1fffffff);glass.setCornerRadius(dp(28));content.setBackground(glass);
-            TextView title=new TextView(a);title.setText("Volume du lecteur");title.setTextSize(20);title.setTextColor(Color.WHITE);content.addView(title,new LinearLayout.LayoutParams(-1,dp(48)));
-            valueLabel=new TextView(a);valueLabel.setTextColor(Color.WHITE);valueLabel.setTextSize(18);content.addView(valueLabel,new LinearLayout.LayoutParams(-1,dp(44)));
-            slider=new SeekBar(a);slider.setMax(100);slider.setProgress(Math.max(0,percent));slider.setContentDescription("Volume du lecteur, de zéro à cent pour cent");content.addView(slider,new LinearLayout.LayoutParams(-1,dp(48)));
-            mute=new Button(a);mute.setMinHeight(dp(48));content.addView(mute,new LinearLayout.LayoutParams(-1,dp(48)));showValue(percent);
+            final Dialog d=new Dialog(a);dialog=d;
+            LinearLayout content=new LinearLayout(a);content.setOrientation(LinearLayout.VERTICAL);content.setPadding(dp(20),dp(10),dp(20),dp(24));
+            content.setBackground(surface(0xeb170b33,0x1fffffff,28));
+            TextView handle=new TextView(a);handle.setText("━━━━");handle.setTextSize(14);handle.setGravity(Gravity.CENTER);handle.setTextColor(0x88ffffff);content.addView(handle,new LinearLayout.LayoutParams(-1,dp(24)));
+            TextView title=new TextView(a);title.setText("Volume du lecteur");title.setTextSize(22);title.setTextColor(Color.WHITE);content.addView(title,new LinearLayout.LayoutParams(-1,dp(40)));
+            TextView subtitle=new TextView(a);subtitle.setText("Le volume du téléphone reste inchangé");subtitle.setTextColor(0xffc7bbdc);subtitle.setTextSize(13);content.addView(subtitle,new LinearLayout.LayoutParams(-1,dp(36)));
+            LinearLayout card=new LinearLayout(a);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(dp(16),dp(12),dp(16),dp(12));card.setBackground(surface(0x1affffff,0x20ffffff,20));
+            valueLabel=new TextView(a);valueLabel.setTextColor(Color.WHITE);valueLabel.setTextSize(28);card.addView(valueLabel,new LinearLayout.LayoutParams(-1,dp(48)));
+            slider=new SeekBar(a);slider.setMax(100);slider.setProgress(Math.max(0,percent));slider.setContentDescription("Volume du lecteur, de zéro à cent pour cent");
+            slider.setProgressTintList(ColorStateList.valueOf(0xffc97af7));slider.setProgressBackgroundTintList(ColorStateList.valueOf(0x55ffffff));slider.setThumbTintList(ColorStateList.valueOf(0xffffefff));card.addView(slider,new LinearLayout.LayoutParams(-1,dp(48)));
+            LinearLayout bounds=new LinearLayout(a);bounds.setOrientation(LinearLayout.HORIZONTAL);
+            TextView low=new TextView(a);low.setText("0 %");low.setTextColor(0xffc7bbdc);low.setTextSize(12);bounds.addView(low,new LinearLayout.LayoutParams(0,dp(24),1));
+            TextView high=new TextView(a);high.setText("100 %");high.setTextColor(0xffc7bbdc);high.setTextSize(12);high.setGravity(Gravity.RIGHT);bounds.addView(high,new LinearLayout.LayoutParams(0,dp(24),1));card.addView(bounds,new LinearLayout.LayoutParams(-1,dp(24)));
+            content.addView(card,new LinearLayout.LayoutParams(-1,-2));
+            LinearLayout actions=new LinearLayout(a);actions.setOrientation(LinearLayout.HORIZONTAL);actions.setPadding(0,dp(12),0,dp(8));
+            mute=action(a,"Silence",true);actions.addView(mute,new LinearLayout.LayoutParams(0,dp(48),1));
+            Button retry=action(a,"Actualiser",false);LinearLayout.LayoutParams retryLayout=new LinearLayout.LayoutParams(0,dp(48),1);retryLayout.leftMargin=dp(8);actions.addView(retry,retryLayout);content.addView(actions,new LinearLayout.LayoutParams(-1,-2));
+            showValue(percent);
             mute.setOnClickListener(new View.OnClickListener(){public void onClick(View v){int p=slider.getProgress();if(p>0)lastNonZero=p;int target=p>0?0:lastNonZero;if(target<0){Toast.makeText(getContext(),"Utilisez le curseur pour réactiver",Toast.LENGTH_SHORT).show();return;}slider.setProgress(target);showValue(target);enqueue(target);}});
             slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onStartTrackingTouch(SeekBar b){dragging=true;}public void onProgressChanged(SeekBar b,int p,boolean user){if(user){if(p>0)lastNonZero=p;showValue(p);enqueue(p);}}public void onStopTrackingTouch(SeekBar b){dragging=false;enqueue(b.getProgress());}});
-            Button retry=new Button(a);retry.setText("Actualiser");retry.setMinHeight(dp(48));retry.setOnClickListener(new View.OnClickListener(){public void onClick(View v){read();}});content.addView(retry,new LinearLayout.LayoutParams(-1,dp(48)));
-            Button close=new Button(a);close.setText("Fermer");close.setMinHeight(dp(48));close.setOnClickListener(new View.OnClickListener(){public void onClick(View v){d.dismiss();}});content.addView(close,new LinearLayout.LayoutParams(-1,dp(48)));
+            retry.setOnClickListener(new View.OnClickListener(){public void onClick(View v){read();}});
+            Button close=action(a,"Fermer",false);close.setOnClickListener(new View.OnClickListener(){public void onClick(View v){d.dismiss();}});content.addView(close,new LinearLayout.LayoutParams(-1,dp(48)));
             d.setContentView(content);d.setCanceledOnTouchOutside(true);d.setOnDismissListener(new DialogInterface.OnDismissListener(){public void onDismiss(DialogInterface x){dialog=null;dragging=false;slider=null;valueLabel=null;mute=null;if(running)handler.postDelayed(new Runnable(){public void run(){read();}},350);}});
             d.show();Window w=d.getWindow();if(w==null){d.dismiss();return;}w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));w.setGravity(Gravity.BOTTOM);w.setLayout(-1,-2);paint();if(percent<0)read();
         }catch(RuntimeException e){if(dialog!=null){dialog.dismiss();dialog=null;}Toast.makeText(getContext(),"Volume lecteur indisponible",Toast.LENGTH_SHORT).show();}

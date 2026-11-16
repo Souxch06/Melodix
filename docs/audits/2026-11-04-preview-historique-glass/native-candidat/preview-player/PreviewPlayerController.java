@@ -488,12 +488,18 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             double difference = Double.isNaN(previous) ? Double.NaN : pos - previous;
             boolean resumeReady = interrupted && returnAt >= 0 && t - returnAt >= 1000 &&
                 snapshotValid && age >= 0 && age < MAX_OBSERVATION_AGE_MS && identified && !state.equals("unknown");
+            // Same confirmed item near its end followed by a fresh near-zero
+            // clock is an observed wrap, not a five-second divergence. This
+            // changes display reconciliation only; it never issues a seek.
+            boolean loopWrap = snapshotValid && age >= 0 && age < MAX_OBSERVATION_AGE_MS &&
+                !interrupted && !seekPending && identified && !changed && valid && real &&
+                dur >= 10000 && !Double.isNaN(previous) && previous >= dur - 3000 && pos <= 3000;
             long deviationLimit = progressSource.equals("range") ? 8000 : MAX_DEVIATION_MS;
             String rejection = !snapshotValid ? "invalide" : age < 0 ? "âge inconnu" :
                 age >= MAX_OBSERVATION_AGE_MS ? "observation ancienne" :
                 !identified ? "identité incomplète" :
                 (interrupted && !resumeReady) ? "attente retour 1 s" :
-                (!resumeReady && !changed && valid && !seekPending && !Double.isNaN(previous) &&
+                (!loopWrap && !resumeReady && !changed && valid && !seekPending && !Double.isNaN(previous) &&
                  Math.abs(pos - previous) >= deviationLimit) ? "écart >= seuil" : "";
             // Ten seconds of repeated, fresh, same-source discrepancies on
             // the same side: reconcile visually, never assume background audio.
@@ -562,8 +568,9 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             }
             if (snapshotValid) {
                 duration = dur;
-                if (!valid || changed || backward || Double.isNaN(previous)) {
+                if (!valid || changed || backward || loopWrap || Double.isNaN(previous)) {
                     base = pos; anchor = t; correction = 0;
+                    if (loopWrap) recordReturn("retour début observé ; lecture non commandée");
                 } else if (resumeReady && !seekPending) {
                     // Small discrepancies reconcile at <=1.25x; larger ones
                     // jump. Neither is evidence that background audio played.

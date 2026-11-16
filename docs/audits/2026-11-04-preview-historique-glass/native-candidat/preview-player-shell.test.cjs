@@ -164,3 +164,12 @@ test('seek confirmation ignores the range property it wrote and notices later pa
 test('displayed clock takes precedence over stale range; invalid clock falls back',()=>{
  const x=fixture('<div data-testid="now-playing-bar"><a data-testid="context-item-link" href="/track/abc">Song</a></div><span data-testid="playback-position">0:41</span><span data-testid="playback-duration">2:00</span><div data-testid="playback-progressbar"><input type="range" max="120000" value="40000"></div><button data-testid="control-button-playpause" aria-label="Pause"></button>');try{let p=x.payload();assert.equal(p.previewProgressSource,'clock');assert.equal(p.previewPositionMs,41000);x.w.document.querySelector('[data-testid=playback-position]').textContent='0:99';x.step(1000);p=x.payload();assert.equal(p.previewProgressSource,'range');assert.equal(p.previewPositionMs,40000)}finally{x.close()}
 });
+
+test('next does not leave the current item when repeat-one is unambiguously observed',()=>{
+ const x=fixture();try{let forward=0,back=0,seek=0;x.w.actSkipForward=()=>forward++;x.w.actSkipBack=()=>back++;x.w.actSeek=()=>seek++;
+ let r=x.w.document.createElement('button');r.setAttribute('data-testid','control-button-repeat');r.setAttribute('aria-checked','mixed');x.w.document.body.append(r);
+ x.w.__sfSkip('forward');assert.equal(forward,0);assert.equal(seek,0);x.w.__sfSkip('back');assert.equal(back,1);
+ r.setAttribute('aria-checked','true');x.w.__sfSkip('forward');assert.equal(forward,1);r.setAttribute('aria-checked','mixed');r.setAttribute('aria-pressed','false');x.w.__sfSkip('forward');assert.equal(forward,2);
+ r.removeAttribute('aria-pressed');let clone=r.cloneNode();x.w.document.body.append(clone);x.w.__sfSkip('forward');assert.equal(forward,3);assert.equal(seek,0);
+ }finally{x.close()}
+});

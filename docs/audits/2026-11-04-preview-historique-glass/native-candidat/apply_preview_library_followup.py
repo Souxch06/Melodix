@@ -209,6 +209,25 @@ def apply(root):
     return-object v0
     :preview_normal_row
 """)
+    # User-specific next-button policy: in positively identified repeat-one,
+    # do not move to the next item. No seek, pause, play or retry is issued.
+    s=one(s, """        var back = String(direction || '') === 'back' || String(direction || '') === 'previous';
+        previewCommandDispatched();
+        window.__sfUserRequestedPause = false;""", """        var back = String(direction || '') === 'back' || String(direction || '') === 'previous';
+        if (!back) {
+            var repeatButtons = document.querySelectorAll('button[data-testid=\"control-button-repeat\"], [role=\"button\"][data-testid=\"control-button-repeat\"]');
+            if (repeatButtons.length === 1) {
+                var checked = repeatButtons[0].getAttribute('aria-checked');
+                var pressed = repeatButtons[0].getAttribute('aria-pressed');
+                if ((checked === 'mixed' && (pressed === null || pressed === 'mixed')) ||
+                    (pressed === 'mixed' && checked === null)) {
+                    previewCommandDispatched();
+                    return false; // keep the current item; never invent a restart
+                }
+            }
+        }
+        previewCommandDispatched();
+        window.__sfUserRequestedPause = false;""")
     rows.write_text(r,encoding='utf8')
     p.write_text(s,encoding='utf8')
     # Separate player presentation, with pinned inputs and no playback changes.
