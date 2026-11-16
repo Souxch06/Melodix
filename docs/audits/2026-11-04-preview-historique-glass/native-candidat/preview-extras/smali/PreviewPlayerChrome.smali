@@ -1849,7 +1849,7 @@
 
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerChrome;->restoreBackground()V
 
-    .line 211
+    .line 209
     :cond_2
     :goto_0
     return-void
@@ -1940,21 +1940,11 @@
 
     invoke-direct {p0, v1}, Lcom/melodix/music/PreviewPlayerChrome;->stylePlay(Landroid/app/Activity;)V
 
-    .line 208
-    const v0, 0x7f09023a
-
-    invoke-virtual {v1, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-
-    move-result-object v0
-
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerResponsive;->apply(Landroid/view/View;)V
-
-    .line 209
     invoke-direct {p0, v1}, Lcom/melodix/music/PreviewPlayerChrome;->sizeArtwork(Landroid/app/Activity;)V
 
     invoke-direct {p0, v1}, Lcom/melodix/music/PreviewPlayerChrome;->setupCosmetics(Landroid/app/Activity;)V
 
-    .line 210
+    .line 208
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->setupDone:Z
 
     if-eqz v0, :cond_2
@@ -1978,7 +1968,7 @@
     .locals 1
 
     .prologue
-    .line 213
+    .line 211
     invoke-super {p0}, Landroid/view/View;->onAttachedToWindow()V
 
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerChrome;->getViewTreeObserver()Landroid/view/ViewTreeObserver;
@@ -2002,7 +1992,7 @@
     .locals 1
 
     .prologue
-    .line 214
+    .line 212
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->observer:Landroid/view/ViewTreeObserver;
 
     if-eqz v0, :cond_0
@@ -2049,7 +2039,7 @@
     .locals 0
 
     .prologue
-    .line 212
+    .line 210
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerChrome;->sync()V
 
     return-void
@@ -2059,7 +2049,7 @@
     .locals 1
 
     .prologue
-    .line 215
+    .line 213
     invoke-super {p0, p1, p2}, Landroid/view/View;->onVisibilityChanged(Landroid/view/View;I)V
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->syncTask:Ljava/lang/Runnable;
@@ -2078,7 +2068,7 @@
     .locals 1
 
     .prologue
-    .line 216
+    .line 214
     invoke-super {p0, p1}, Landroid/view/View;->onWindowVisibilityChanged(I)V
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->syncTask:Ljava/lang/Runnable;

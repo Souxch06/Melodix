@@ -14,67 +14,78 @@ EXPECTED = {
 }
 
 EXTRAS = {
+    'smali/PreviewPlayerMode$1.smali': '96b4ac9fbbbd8c009b978c37eaf005e8f6d16d370a07a4d12a031f990c85a079',
+    'smali/PreviewPlayerMode$2.smali': '86998d3fe386ac8ef10fa5f29ad769169a308c3920f60df4ec5beda5d014adce',
+    'smali/PreviewPlayerMode$3.smali': '816d3f50de1b48ee2e92967800ad86136e7eed78ca37d66587c947637713b468',
+    'smali/PreviewPlayerMode$4.smali': '7e7992895d8cae9e44446d56038ece67e22dc6c09eccdb48cfbe3cdb6dbb223a',
+    'smali/PreviewPlayerMode$5.smali': '913ed997e91e2eca30f2471852a0db791d9544123ae9d1a882f68fac4dd3131d',
+    'smali/PreviewPlayerMode$6.smali': '943da536ed864a9e8398dea9a1ae663a424695f2f899451d22add1dcf0feab4d',
+    'smali/PreviewPlayerMode$7$1.smali': 'bf1e6c2e9eb603ff31a8b1736837522b46fc95ab4973c1be3524789754804170',
+    'smali/PreviewPlayerMode$7.smali': '4d8d5bcc10f9c382eafd932feb09ae723b0a117824f774f601ec88c1a69a5784',
+    'smali/PreviewPlayerMode$8.smali': 'f41e09df451f501c9aaf41570cb0a1f0bc86944cca68fd5960d59f73727eb7e3',
+    'smali/PreviewPlayerMode$9.smali': '9a6c1d5fe854b0eb25379267f6e2a5428e8f45a0bd7d3263e48986293cc8cd23',
+    'smali/PreviewPlayerMode.smali': '621e8f2ebbd8b3f9584d2d7ad02eb20bbf7f3c14fb3f770584cec5092228de9e',
+    'smali/PreviewPlayerTiles$1.smali': '8dbfe588c1fee42e9019fd22dbdf89240c3737b89752876b1772395db010b8b7',
+    'smali/PreviewPlayerTiles$10.smali': 'b867e279695fdc072fdf0411ac9e002490ca3f40aa211a665e4389ce605d12f7',
+    'smali/PreviewPlayerTiles$11.smali': 'da747d86c4ac41d0984b1ee592c2bbf86d844ace6163f75f4035ccd0a708e650',
+    'smali/PreviewPlayerTiles$12.smali': '0eafd5910fc79801f9cc4ca3edb499ae109d88da0f32510d84cf776e232ae43d',
+    'smali/PreviewPlayerTiles$13$1.smali': '70ab5379012d41aef01490c66bad75d749dc5500e574501321158882620b7fcb',
+    'smali/PreviewPlayerTiles$13.smali': 'fec33235ba521e1b5cf40aef1099191da09ed095d05701e9781656a24eac8420',
+    'smali/PreviewPlayerTiles$14.smali': 'ff2d39a637bcb96662ee34554003ee2145911dacb00ae4804f84bcb01df2d208',
+    'smali/PreviewPlayerTiles$15.smali': '6c66e9e4213bc5acfed9b42704c7f9423d730bca414cac80e6a101780cc25502',
+    'smali/PreviewPlayerTiles$16.smali': '2bdff910991e33beb861a0e21285896672aa7fd99b543d54ac7f49b8c3eda043',
+    'smali/PreviewPlayerTiles$17.smali': 'ba067be5ef85b36bc5b35c63e6edb68c9d49be4970fa3adf24c48b1b6214202e',
+    'smali/PreviewPlayerTiles$18.smali': '1059262d62ce5c9a2e6bd186aadfe12bc51438387b08cbb40af886871fd2cb0c',
+    'smali/PreviewPlayerTiles$19.smali': '1dbd9a5ba9ba5402703e7e9f70cdc1b6c9591d83dc3c9317773dc242f2b6a55b',
+    'smali/PreviewPlayerTiles$2.smali': 'ca6e344eef04e3b78d00abd975005961b836347f3f359ba39ab9b60ae65466b2',
+    'smali/PreviewPlayerTiles$20.smali': 'e565623a31f1e1ff34da0cc7004117a0f6fe6bdd0f0eab24b6ef7cee86d267b9',
+    'smali/PreviewPlayerTiles$3.smali': '3ed05f294d96847a02377524bac036bd6ad6b6748b720c9ebf911bf633257c63',
+    'smali/PreviewPlayerTiles$4.smali': 'e454fab78ce245237d4a8ae3be1e5fe5290c94248d0b17d823baec16bc74970a',
+    'smali/PreviewPlayerTiles$5.smali': 'a33df7b515b12fc14a76bac50ee40975a13a026e8b04bf37ea9d9db525a6ac6e',
+    'smali/PreviewPlayerTiles$6.smali': '356e378f2c241fa01e88e441b73128920699784ef04fe83c811ea1a144f71910',
+    'smali/PreviewPlayerTiles$7$1.smali': '56455acea14543aa3116a6111bfdc5dbdefe767c3a4fdb07c3fcac17a70aff50',
+    'smali/PreviewPlayerTiles$7.smali': 'd5bc5d66c685b39227336cc06bbeda21442fe2d39f8b6c86f2cd6fcd57e0c617',
+    'smali/PreviewPlayerTiles$8.smali': '33e30fe68121969e7fb7a678ada7a87d9c416d00018389ef9a0cea03ea1444d3',
+    'smali/PreviewPlayerTiles$9.smali': '60a3f8b02eb57ceff2be499d19fa9eb75b8a977661ae29c8dde29a175663dd63',
+    'smali/PreviewPlayerTiles.smali': '17a8d4ea55c49bbd5eb66c1e1394df5944e2bf063e8156e8a76345186d59c112',
+    'smali/PreviewPlayerVolume$1.smali': '090c0008597792728fde6be3a6ed88a83123048a96370db875a4de71be203f12',
+    'smali/PreviewPlayerVolume$10.smali': 'd756dec427a6793af0662a7fe0ecc55414400142773821963616830df574898c',
+    'smali/PreviewPlayerVolume$11$1.smali': '00cd1a8783db52e771e438a35b9526a5af64b3812a319e6c9c8ad2d248fc2835',
+    'smali/PreviewPlayerVolume$11.smali': 'ad1e5f5adc9d090abe055688471debc816cd881ec848f5adb2a998df251bf286',
+    'smali/PreviewPlayerVolume$12.smali': 'd9223773c5214a8b886b4f97be99caa93c215e827bb5da23ea9dfa03c91fc769',
+    'smali/PreviewPlayerVolume$13.smali': '216dd50676691fe18c7a5835a5f66f602dcc25c1c48a4c7f9bf4ef1baf8e59bc',
+    'smali/PreviewPlayerVolume$2.smali': '15ab6c49a2eb0b240b1d3db2e91dfdfc35078d3d108960bd370e7230afb9cbdc',
+    'smali/PreviewPlayerVolume$3.smali': '6882597ed1c863cf522bb8241bf58fab6472f8091f28eb5916c8039bae366a35',
+    'smali/PreviewPlayerVolume$4.smali': '15cebef6cec25987eab05e9c65d2913e247b122dfe6e13904c199d6460e053a7',
+    'smali/PreviewPlayerVolume$5.smali': '4473861ee12a41276f221c9e52fcbfb5174f4f9fd2bc83bd88883013848358f0',
+    'smali/PreviewPlayerVolume$6.smali': '3020efc3e9f16c4e0cdea421c2aee6aa1afd9bf14b16847c2cd725343ac290c9',
+    'smali/PreviewPlayerVolume$7.smali': '5101d85ceb03acc2aad9597d7aa1ea15c397c2e201be3039e4e99db6ec7bcf15',
+    'smali/PreviewPlayerVolume$8.smali': '96511cdb1bbe01d775c6d61b927c4d40459949799f7994db8ea0bedb6d1f6504',
+    'smali/PreviewPlayerVolume$9.smali': '89363a7d0d425f05621fd6c663a6d7a8fa04cff6d7a993a85c764cb0ffd5e0f4',
+    'smali/PreviewPlayerVolume.smali': '93e5164e301302c09fd1de36bc9981e54b839b735be3a1da3b6696a58fa9b29c',
     'PreviewPlayerPlayButton.java': '7b080ee533f8e3c2be8d2bba9457d0bf51c32fa44606d4e7fd4604af5189e36a',
     'PreviewPlayerDecoration.java': 'a21b4dffe6c2ba7cbce2d29012e601b88c1a5ac43b56d6cf5b578f0bc104f44d',
     'smali/PreviewPlayerPlayButton.smali': '10fa7289606a9481f8f6af0cac9e36790c1bf1ba73d9218d551ad194e9287e27',
     'smali/PreviewPlayerPlayButton$1.smali': '4fd83f3fd7382c2861383c9b7197d59d28b8dc96808e0cd32f157ccddb4af3a0',
     'smali/PreviewPlayerDecoration.smali': 'd6603b418eaf73a509548f2f74b5a89489d5259dc8b52832f9c720ded5f96f41',
+    'smali/PreviewPlayerChrome$PressEffect.smali': 'a4b76803f7c59d13bd0b677df685dd65304c9a97aeabc9fd2ace1d4f0c0d3c74',
+    'smali/PreviewPlayerChrome$2.smali': 'ba62bbb10b7d3fbeaca8a2217330ede1844ba6300d9ba51afe5e752fb736b4a1',
+    'smali/PreviewPlayerChrome$1.smali': 'acdbf8b8bdd3cb853d57fb257f50292330279e7a119e2409c927b247aa0c539b',
+    'smali/PreviewPlayerChrome.smali': '6b4b8f8763859707e6d211de741b26491ec20245713238329581d263033aca5d',
+    'PreviewPlayerChrome.java': 'c1741fdd8ddb22b8ed63565fc280b609fc35dba90327255cdc5d5664d2851546',
     'PreviewPlayerLikeArt.java': '49892fbb54b2c66dd9fe477fc851e55dedb2a4f8a31670e53530e5f03c289979',
     'smali/PreviewPlayerLikeArt.smali': '8caf0d0292ff562b70b85aef9fbe20f306e6bdf7239b337971c063f6fe9888ca',
-    'PreviewPlayerMode.java': '780011d481950033df709c66dde21f7aeb25c589e794029416c934253fde0c5a',
-    'PreviewPlayerTiles.java': '34410f0c9999cd6bf830b3898ba7d1123257918b92608b662ab65dbdda88598b',
-    'control.js': '9dcf4ee33ae59ef8410ec912109c245cf6b161c053e7dbebbcf334b3f9477f0a',
+    'PreviewPlayerMode.java': 'f1b7aab64b8ab11714fbd94e8e0c67fece1fd3239688a8a70a361a9a5aaaa492',
+    'PreviewPlayerTiles.java': '5bb179e34c0b991601264cf7d791a20ee1c97c2cb7ce0d40122d063b7435e221',
+    'PreviewPlayerVolume.java': 'a995a863fed486c9e84a261c48e99f31200c22cd5e3b8eb19c82977c5c3788b0',
+    'control.js': '0a2ee44e9245e96b57bd10cab2ec83feb5f3632b74199726ac87a64696874cd5',
     'control-diagnostic.js': '84ed58050b1d0a3390b633e8a7b78ccc64dbccd82b8f25f20d214d4ba30f4ff9',
-    'volume-control.js': 'b28103ac7d44acae4cf765501cea24494bc01d345338aec5cde4a9603c1a0eaf',
+    'volume-control.js': 'ac4bda4dc78c4bf2248c9af4864fd2246d0fb8dea435a2f929baa684f83d7160',
     'panel-structure.js': 'b7e9ab3c93dd213dc20c201d01ccf4af0078313dc538bab54aa9ddc23ed4d137',
     'panel-read.js': 'e00691f3abe98da90b181e5755cb3674581b14a4f3199bbe23ba1459a2e53368',
-    'hidden-mode-attempt.js': '43e297cdf21a9255f0a954f903b6dccef3f3ce4d4ef1feac73bbd01aa29c561c',
-    'smali/PreviewPlayerMode$1.smali': '7fb718548700e5de27ee81903a6285517e83b7fcca8842bad3f3b850ff309a91',
-    'smali/PreviewPlayerMode$10.smali': 'b847257a1e7a8d9c4cc46ab0aa9301798441df0441594093e8e57646176160ee',
-    'smali/PreviewPlayerMode$11.smali': '3357f34525547db85febf139ad8a66dae61744782ad8ed91193454fe5bdffe05',
-    'smali/PreviewPlayerMode$2.smali': 'adc5ee7dded9a71e319f4228d2cbcd36a88ccd3cf3833f1f9b5bdf29aa167a91',
-    'smali/PreviewPlayerMode$3.smali': 'c969213857b4815865497122cf19f18bd7383dcb5097d56491810fb5bfbb6ca0',
-    'smali/PreviewPlayerMode$4.smali': 'b39964d398a994301cd72082bce788efb87c493f99475154a6ed0745c4892db7',
-    'smali/PreviewPlayerMode$5.smali': '1026226bc5de913210a97535baffbdab4e6897e214f0b2bfbf433e2cf00479d7',
-    'smali/PreviewPlayerMode$6$1.smali': '1d13e0882053474a5464dbf299de9a2756a9c51e4cec4684283b323a9b4f4640',
-    'smali/PreviewPlayerMode$6.smali': '6623c9c1f95d1f968a866119f51029dd1fdbf514e59a08deba1e660de8edd0d8',
-    'smali/PreviewPlayerMode$7.smali': '65d65c7cc59e29ff09407137ce9803bd4af9bc733d5174ae11bb84009c113755',
-    'smali/PreviewPlayerMode$8.smali': '7d2e96d6d1fb05c493b7f7cc756f601cbe25442cf429ef9522f4b16c779bc902',
-    'smali/PreviewPlayerMode$9.smali': 'fff76a366cbafb1c0fc54bd8fe183c9134f34a283305e90fa484162e8efceeed',
-    'smali/PreviewPlayerMode.smali': '8d576c77c1e0f8fcb5183789c7865720a16eb87f098d4ab8ee4b742a40344059',
-    'smali/PreviewPlayerTiles$1.smali': 'a2dd42b3b4c50517c3191166d6df2f9bfe0af9e809c2877a2d5780c20941f5d8',
-    'smali/PreviewPlayerTiles$2.smali': '7234032ca9ea3cfdc8ceb68ea5362942aed214da207c98f4ac4a5115b393e0f0',
-    'smali/PreviewPlayerTiles$3.smali': '763dd0788948e873d1b28436dbd55f6ee12ebb8bac792d64f3947f5548745dc6',
-    'smali/PreviewPlayerTiles$4.smali': 'a28014b9fca493857b47a20a2065874a60f5011f8d7aee9fbcdfceea7ffb0fa0',
-    'smali/PreviewPlayerTiles$5.smali': '2dcce4946a7cdff5bcb204111426be450a842c0e34d0c4801efe8e73b437ef2f',
-    'smali/PreviewPlayerTiles$6.smali': 'fed5816e2c9f2124f734cf3914ab56e75a6de78a5ce8c083a73ce2bbe5f54221',
-    'smali/PreviewPlayerTiles$7.smali': '2d0ac4515263865f7da08efdc266fc1c50da1b18ce61b19ebc899ff668d71b34',
-    'smali/PreviewPlayerTiles$8.smali': '60557d0d7f0f9a097827503e9772bf7ea1919111468d02a6ffc656973ab353ff',
-    'smali/PreviewPlayerTiles$9.smali': '38cea038278c71b697ce091a186eab39f137d19971e113d97e096ee179200bec',
-    'smali/PreviewPlayerTiles.smali': '47ac9e5f6cdd738fe66ee05efa6fd4875eda085fb006202a70f04f2238fe01fe',
-    'PreviewPlayerChrome.java': 'b34967c829b178ba0cfa9044bb37b7070b7c45b1892a43b8427d0ce114ea6fd4',
-    'PreviewPlayerResponsive.java': '2a78f2a16bd6616bdc36eab3e66a17fe948b24e44f3e6a52561ce3fcbdae72f5',
-    'PreviewPlayerVolume.java': '91a1e996a22c222668708d2f76ca3614d1c514415148b2bb8ed57db596222b70',
-    'smali/PreviewPlayerChrome$1.smali': 'acdbf8b8bdd3cb853d57fb257f50292330279e7a119e2409c927b247aa0c539b',
-    'smali/PreviewPlayerChrome$2.smali': 'ba62bbb10b7d3fbeaca8a2217330ede1844ba6300d9ba51afe5e752fb736b4a1',
-    'smali/PreviewPlayerChrome$PressEffect.smali': 'a4b76803f7c59d13bd0b677df685dd65304c9a97aeabc9fd2ace1d4f0c0d3c74',
-    'smali/PreviewPlayerChrome.smali': '5be8d06a5bd0689522a7ede30140714cbd06cd74cc9e70f68723494269394c7d',
-    'smali/PreviewPlayerResponsive.smali': 'ee4f128901f3360d882c58ed759c2f97d52d7b0a937e1cf6ea760d76b7d810fb',
-    'smali/PreviewPlayerVolume$1.smali': 'db79ed34889e2a0f95272178f1f0ad90c30b4aac50d57a6556f5f9975b30cbcb',
-    'smali/PreviewPlayerVolume$10.smali': '115e1ba24d664d852c629b18e66f3a9401eb0cd035895a782cf8a9a7f4cded24',
-    'smali/PreviewPlayerVolume$11$1.smali': 'b5dc471c986ccd7cc170d4ba0e34bf32b8255911f3cbd9ff45423952601ad218',
-    'smali/PreviewPlayerVolume$11.smali': '498304ab0b475d25d1038f9343b65cb9973a6a5d1d6f97d2d7150715b9aef9fd',
-    'smali/PreviewPlayerVolume$12.smali': '0ec2e92868007ce46997ac96c0ed93746c8b2435f15689a0156de9a32c1517e1',
-    'smali/PreviewPlayerVolume$13.smali': 'a650dada4b66936ced8064a4ac0bcc3428f0de91eaa4bb97bc9bd4ae119e62b9',
-    'smali/PreviewPlayerVolume$2.smali': '37803a2b8f4c6b7460f30b5a906fdb2ce774c363453901b5b7b1ab0d458669a4',
-    'smali/PreviewPlayerVolume$3.smali': 'deaf5d2b3464f97bf7a1ca403ccb910cd35cd2bcd5414ab1c7fe06e709d74508',
-    'smali/PreviewPlayerVolume$4.smali': 'a7dc6fd7c99d0afe6d4c02a9d5e481e4902c977a61c431fd661d785d75fbb26a',
-    'smali/PreviewPlayerVolume$5.smali': '0651b95217881cb1baef250c59809fc06ffc6a903ba1145232b76c334bb189a9',
-    'smali/PreviewPlayerVolume$6.smali': 'ba3896fb3a03d9c5c82172f2c536809897d72ad8abc84add5ccfd53403ca7ef3',
-    'smali/PreviewPlayerVolume$7.smali': '44623d85d4e056c2d20c0573490ce6661e248508c5139d7cb2ab49f4a7648003',
-    'smali/PreviewPlayerVolume$8.smali': '85b6117f2b7a62fd5085d89024b52c78d5fedc88068c454d7c14927eef926e81',
-    'smali/PreviewPlayerVolume$9.smali': '61afc8e2c6b74fb799497295b0ba889011caa6cf62b5502015f46f5e49d258a6',
-    'smali/PreviewPlayerVolume.smali': '0a2e065527cb70a8993d1c980c13dedc62cf597668b0d92f0649b9896aa45ef1',
+    'mode-job.js': '2350417e91a073f43b08cd3fec9267c76d7e45bb64e3647706a85ade3503baf3',
+    'queue-job.js': 'ec9eedc72ab8788fbc0de091d193ea231502d5162c8f8325cf252dc5aaee7908',
+    'panel-job.js': '96343b50059a07f41d29d4a0ca13c9a2a2de167574a5456834c12bcb6b446b17',
 }
 
 def one(s, old, new):
@@ -204,13 +215,13 @@ def landscape_layout(source):
     art='''            <androidx.constraintlayout.widget.ConstraintLayout
                 android:tag="previewPlayerArtFrame" android:layout_width="fill_parent" android:layout_height="wrap_content"
                 android:layout_marginTop="16.0dip" android:layout_marginBottom="20.0dip">'''
-    landscape='''            <LinearLayout android:tag="previewPlayerLandscapeRow" android:orientation="horizontal" android:gravity="top" android:layout_width="fill_parent" android:layout_height="wrap_content">
+    landscape='''            <LinearLayout android:orientation="horizontal" android:gravity="top" android:layout_width="fill_parent" android:layout_height="wrap_content">
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:tag="previewPlayerArtFrame" android:layout_width="0.0dip" android:layout_weight="0.44" android:layout_height="wrap_content"
                 android:layout_marginTop="12.0dip" android:layout_marginBottom="12.0dip" android:layout_marginRight="18.0dip">'''
     panel=one(panel,art,landscape)
     panel=one(panel,'            </androidx.constraintlayout.widget.ConstraintLayout>', '''            </androidx.constraintlayout.widget.ConstraintLayout>
-            <LinearLayout android:tag="previewPlayerLandscapeDetails" android:orientation="vertical" android:layout_width="0.0dip" android:layout_weight="0.56" android:layout_height="wrap_content" android:layout_marginTop="12.0dip">''')
+            <LinearLayout android:orientation="vertical" android:layout_width="0.0dip" android:layout_weight="0.56" android:layout_height="wrap_content" android:layout_marginTop="12.0dip">''')
     ending='''            <Space android:tag="previewPlayerSpacer" android:layout_width="1.0dip" android:layout_height="0.0dip" android:layout_weight="1.0" />
             <com.melodix.music.PreviewPlayerTiles android:tag="previewPlayerTiles" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="20.0dip" />
             </LinearLayout>
@@ -239,8 +250,12 @@ def apply(root):
         raise ValueError('panel probe/source mismatch')
     if json.dumps((here/'panel-read.js').read_text(encoding='utf8'),ensure_ascii=True) not in (here/'PreviewPlayerTiles.java').read_text(encoding='utf8'):
         raise ValueError('panel read/source mismatch')
-    if json.dumps((here/'hidden-mode-attempt.js').read_text(encoding='utf8'),ensure_ascii=True) not in (here/'PreviewPlayerMode.java').read_text(encoding='utf8'):
-        raise ValueError('hidden mode attempt/source mismatch')
+    if json.dumps((here/'mode-job.js').read_text(encoding='utf8'),ensure_ascii=True) not in (here/'PreviewPlayerMode.java').read_text(encoding='utf8'):
+        raise ValueError('mode job/source mismatch')
+    if json.dumps((here/'queue-job.js').read_text(encoding='utf8'),ensure_ascii=True) not in (here/'PreviewPlayerTiles.java').read_text(encoding='utf8'):
+        raise ValueError('queue job/source mismatch')
+    if json.dumps((here/'panel-job.js').read_text(encoding='utf8'),ensure_ascii=True) not in (here/'PreviewPlayerTiles.java').read_text(encoding='utf8'):
+        raise ValueError('panel job/source mismatch')
     for name,digest in EXPECTED.items():
         raw=(root/name).read_bytes()
         if hashlib.sha256(raw).hexdigest()!=digest: raise ValueError('unexpected visual input '+name)

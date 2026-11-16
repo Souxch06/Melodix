@@ -19,12 +19,6 @@ class ChromeTests(unittest.TestCase):
                 byid=lambda name: next(e for e in p.iter() if e.get(A+'id')=='@id/'+name)
                 tagged=lambda tag: next(e for e in p.iter() if e.get(A+'tag')==tag)
                 self.assertEqual(len([e for e in p.iter() if e.tag=='com.melodix.music.PreviewPlayerChrome']),1)
-                if 'land' in folder:
-                    row=tagged('previewPlayerLandscapeRow');frame=tagged('previewPlayerArtFrame');details=tagged('previewPlayerLandscapeDetails')
-                    self.assertEqual(row.tag,'LinearLayout');self.assertIn(frame,list(row));self.assertIn(details,list(row))
-                    self.assertEqual(row.get(A+'orientation'),'horizontal')
-                else:
-                    self.assertFalse(any(e.get(A+'tag')=='previewPlayerLandscapeRow' for e in p.iter()))
                 self.assertEqual(tagged('previewPlayerArtCard').get(APP+'layout_constraintWidth_max'),'318.0dip') if ROOT.name.endswith('decoded') else self.assertEqual(tagged('previewPlayerArtCard').get(APP+'layout_constraintWidth_max'),'318dp')
                 self.assertIn(byid('nativePlayerProgress').get(A+'maxHeight'),('5.0dip','5dp'))
                 self.assertEqual(byid('nativePlayerLargeTitle').get(A+'maxLines'),'2')
@@ -35,12 +29,6 @@ class ChromeTests(unittest.TestCase):
                 self.assertIsNotNone(next(e for e in x.iter() if e.get(A+'contentDescription')=='Paramètres' and e.get(A+'onClick')=='onNativeSettingsClick'))
     def test_presentation_source_is_scoped(self):
         s=(HERE/'PreviewPlayerChrome.java').read_text()
-        self.assertIn('PreviewPlayerResponsive.apply(',s)
-        helper=(HERE/'PreviewPlayerResponsive.java').read_text()
-        self.assertIn('boolean narrow=width<dp600',helper)
-        self.assertIn('getPaddingLeft()',helper)
-        for forbidden in ('WebView','evaluateJavascript','performClick','setOnSeekBarChangeListener','http://','https://'):
-            self.assertNotIn(forbidden,helper)
         self.assertIn('previousHeaderVisibility=candidate.getVisibility()',s)
         self.assertIn('header.setVisibility(previousHeaderVisibility)',s)
         self.assertIn('candidate.getParent()!=nativeRoot',s)

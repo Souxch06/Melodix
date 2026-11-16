@@ -8,7 +8,7 @@
 
 # annotations
 .annotation system Ldalvik/annotation/EnclosingMethod;
-    value = Lcom/melodix/music/PreviewPlayerTiles;->probe(ILandroid/app/Activity;)V
+    value = Lcom/melodix/music/PreviewPlayerTiles;->readTrace(Landroid/app/Activity;)V
 .end annotation
 
 .annotation system Ldalvik/annotation/InnerClass;
@@ -19,8 +19,7 @@
 .annotation system Ldalvik/annotation/Signature;
     value = {
         "Ljava/lang/Object;",
-        "Landroid/webkit/ValueCallback",
-        "<",
+        "Landroid/webkit/ValueCallback<",
         "Ljava/lang/String;",
         ">;"
     }
@@ -30,22 +29,21 @@
 # instance fields
 .field final synthetic this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-.field private final synthetic val$i:I
-
-.field private final synthetic val$serial:J
-
 
 # direct methods
-.method constructor <init>(Lcom/melodix/music/PreviewPlayerTiles;JI)V
+.method constructor <init>(Lcom/melodix/music/PreviewPlayerTiles;)V
     .locals 0
+    .annotation system Ldalvik/annotation/MethodParameters;
+        accessFlags = {
+            0x8010
+        }
+        names = {
+            null
+        }
+    .end annotation
 
-    .prologue
-    .line 44
+    .line 57
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$1;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
-
-    iput-wide p2, p0, Lcom/melodix/music/PreviewPlayerTiles$1;->val$serial:J
-
-    iput p4, p0, Lcom/melodix/music/PreviewPlayerTiles$1;->val$i:I
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
@@ -56,9 +54,16 @@
 # virtual methods
 .method public bridge synthetic onReceiveValue(Ljava/lang/Object;)V
     .locals 0
+    .annotation system Ldalvik/annotation/MethodParameters;
+        accessFlags = {
+            0x1000
+        }
+        names = {
+            null
+        }
+    .end annotation
 
-    .prologue
-    .line 1
+    .line 57
     check-cast p1, Ljava/lang/String;
 
     invoke-virtual {p0, p1}, Lcom/melodix/music/PreviewPlayerTiles$1;->onReceiveValue(Ljava/lang/String;)V
@@ -67,30 +72,9 @@
 .end method
 
 .method public onReceiveValue(Ljava/lang/String;)V
-    .locals 6
+    .locals 1
 
-    .prologue
-    .line 46
-    iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles$1;->val$serial:J
-
-    invoke-static {}, Lcom/melodix/music/PreviewPlayerTiles;->access$0()[J
-
-    move-result-object v2
-
-    iget v3, p0, Lcom/melodix/music/PreviewPlayerTiles$1;->val$i:I
-
-    aget-wide v2, v2, v3
-
-    cmp-long v0, v0, v2
-
-    if-eqz v0, :cond_0
-
-    .line 55
-    :goto_0
-    return-void
-
-    .line 48
-    :cond_0
+    .line 58
     :try_start_0
     new-instance v0, Lorg/json/JSONTokener;
 
@@ -98,186 +82,38 @@
 
     invoke-virtual {v0}, Lorg/json/JSONTokener;->nextValue()Ljava/lang/Object;
 
-    move-result-object v0
+    move-result-object p1
 
-    .line 49
-    instance-of v1, v0, Ljava/lang/String;
+    instance-of v0, p1, Ljava/lang/String;
 
-    if-nez v1, :cond_1
+    if-eqz v0, :cond_0
 
-    invoke-static {}, Lcom/melodix/music/PreviewPlayerTiles;->access$1()[Ljava/lang/String;
+    check-cast p1, Ljava/lang/String;
 
-    move-result-object v0
+    goto :goto_0
 
-    iget v1, p0, Lcom/melodix/music/PreviewPlayerTiles$1;->val$i:I
+    :cond_0
+    const-string p1, ""
 
-    const-string v2, "r\u00e9ponse illisible"
+    :goto_0
+    invoke-static {p1}, Lcom/melodix/music/PreviewPlayerTiles;->formatTrace(Ljava/lang/String;)Ljava/lang/String;
 
-    aput-object v2, v0, v1
+    move-result-object p1
+
+    invoke-static {p1}, Lcom/melodix/music/PreviewPlayerTiles;->access$002(Ljava/lang/String;)Ljava/lang/String;
     :try_end_0
     .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
 
-    goto :goto_0
+    goto :goto_1
 
-    .line 54
     :catch_0
-    move-exception v0
+    move-exception p1
 
-    invoke-static {}, Lcom/melodix/music/PreviewPlayerTiles;->access$1()[Ljava/lang/String;
+    const-string p1, "illisible"
 
-    move-result-object v0
+    invoke-static {p1}, Lcom/melodix/music/PreviewPlayerTiles;->access$002(Ljava/lang/String;)Ljava/lang/String;
 
-    iget v1, p0, Lcom/melodix/music/PreviewPlayerTiles$1;->val$i:I
-
-    const-string v2, "r\u00e9ponse illisible"
-
-    aput-object v2, v0, v1
-
-    goto :goto_0
-
-    .line 50
-    :cond_1
-    :try_start_1
-    new-instance v1, Lorg/json/JSONObject;
-
-    check-cast v0, Ljava/lang/String;
-
-    invoke-direct {v1, v0}, Lorg/json/JSONObject;-><init>(Ljava/lang/String;)V
-
-    const-string v0, "reason"
-
-    const-string v2, "unknown"
-
-    invoke-virtual {v1, v0, v2}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
-
-    move-result-object v0
-
-    .line 51
-    const-string v2, "observed"
-
-    invoke-virtual {v0, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-
-    move-result v2
-
-    if-nez v2, :cond_2
-
-    const-string v2, "absent"
-
-    invoke-virtual {v0, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-
-    move-result v2
-
-    if-nez v2, :cond_2
-
-    const-string v0, "unknown"
-
-    .line 52
-    :cond_2
-    invoke-static {}, Lcom/melodix/music/PreviewPlayerTiles;->access$1()[Ljava/lang/String;
-
-    move-result-object v2
-
-    iget v3, p0, Lcom/melodix/music/PreviewPlayerTiles$1;->val$i:I
-
-    new-instance v4, Ljava/lang/StringBuilder;
-
-    const-string v5, "motif="
-
-    invoke-direct {v4, v5}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
-
-    invoke-virtual {v4, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    const-string v4, ", racines="
-
-    invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    const-string v4, "roots"
-
-    invoke-static {v1, v4}, Lcom/melodix/music/PreviewPlayerTiles;->access$2(Lorg/json/JSONObject;Ljava/lang/String;)I
-
-    move-result v4
-
-    invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    const-string v4, ", lignes="
-
-    invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    const-string v4, "rows"
-
-    invoke-static {v1, v4}, Lcom/melodix/music/PreviewPlayerTiles;->access$2(Lorg/json/JSONObject;Ljava/lang/String;)I
-
-    move-result v4
-
-    invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    .line 53
-    const-string v4, ", boutons="
-
-    invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    const-string v4, "buttons"
-
-    invoke-static {v1, v4}, Lcom/melodix/music/PreviewPlayerTiles;->access$2(Lorg/json/JSONObject;Ljava/lang/String;)I
-
-    move-result v4
-
-    invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    const-string v4, ", r\u00f4les="
-
-    invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    const-string v4, "roles"
-
-    invoke-static {v1, v4}, Lcom/melodix/music/PreviewPlayerTiles;->access$2(Lorg/json/JSONObject;Ljava/lang/String;)I
-
-    move-result v4
-
-    invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    const-string v4, ", testids="
-
-    invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    const-string v4, "testids"
-
-    invoke-static {v1, v4}, Lcom/melodix/music/PreviewPlayerTiles;->access$2(Lorg/json/JSONObject;Ljava/lang/String;)I
-
-    move-result v1
-
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-
-    move-result-object v0
-
-    .line 52
-    aput-object v0, v2, v3
-    :try_end_1
-    .catch Ljava/lang/Exception; {:try_start_1 .. :try_end_1} :catch_0
-
-    goto/16 :goto_0
+    .line 59
+    :goto_1
+    return-void
 .end method

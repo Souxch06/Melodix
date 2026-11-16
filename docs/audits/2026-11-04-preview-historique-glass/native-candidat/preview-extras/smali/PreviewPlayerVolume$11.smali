@@ -24,9 +24,16 @@
 # direct methods
 .method constructor <init>(Lcom/melodix/music/PreviewPlayerVolume;)V
     .locals 0
+    .annotation system Ldalvik/annotation/MethodParameters;
+        accessFlags = {
+            0x8010
+        }
+        names = {
+            null
+        }
+    .end annotation
 
-    .prologue
-    .line 128
+    .line 127
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerVolume$11;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -34,68 +41,57 @@
     return-void
 .end method
 
-.method static synthetic access$0(Lcom/melodix/music/PreviewPlayerVolume$11;)Lcom/melodix/music/PreviewPlayerVolume;
-    .locals 1
-
-    .prologue
-    .line 128
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume$11;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
-
-    return-object v0
-.end method
-
 
 # virtual methods
 .method public onDismiss(Landroid/content/DialogInterface;)V
-    .locals 4
+    .locals 3
 
-    .prologue
-    const/4 v2, 0x0
+    .line 127
+    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerVolume$11;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
-    .line 128
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume$11;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
+    const/4 v0, 0x0
 
-    invoke-static {v0, v2}, Lcom/melodix/music/PreviewPlayerVolume;->access$23(Lcom/melodix/music/PreviewPlayerVolume;Landroid/app/Dialog;)V
+    invoke-static {p1, v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$2202(Lcom/melodix/music/PreviewPlayerVolume;Landroid/app/Dialog;)Landroid/app/Dialog;
 
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume$11;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
+    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerVolume$11;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
     const/4 v1, 0x0
 
-    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerVolume;->access$22(Lcom/melodix/music/PreviewPlayerVolume;Z)V
+    invoke-static {p1, v1}, Lcom/melodix/music/PreviewPlayerVolume;->access$2102(Lcom/melodix/music/PreviewPlayerVolume;Z)Z
 
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume$11;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
+    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerVolume$11;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
-    invoke-static {v0, v2}, Lcom/melodix/music/PreviewPlayerVolume;->access$24(Lcom/melodix/music/PreviewPlayerVolume;Landroid/widget/SeekBar;)V
+    invoke-static {p1, v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$1802(Lcom/melodix/music/PreviewPlayerVolume;Landroid/widget/SeekBar;)Landroid/widget/SeekBar;
 
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume$11;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
+    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerVolume$11;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
-    invoke-static {v0, v2}, Lcom/melodix/music/PreviewPlayerVolume;->access$25(Lcom/melodix/music/PreviewPlayerVolume;Landroid/widget/TextView;)V
+    invoke-static {p1, v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$2302(Lcom/melodix/music/PreviewPlayerVolume;Landroid/widget/TextView;)Landroid/widget/TextView;
 
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume$11;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
+    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerVolume$11;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
-    invoke-static {v0, v2}, Lcom/melodix/music/PreviewPlayerVolume;->access$26(Lcom/melodix/music/PreviewPlayerVolume;Landroid/widget/Button;)V
+    invoke-static {p1, v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$2402(Lcom/melodix/music/PreviewPlayerVolume;Landroid/widget/Button;)Landroid/widget/Button;
 
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume$11;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
+    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerVolume$11;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$0(Lcom/melodix/music/PreviewPlayerVolume;)Z
+    invoke-static {p1}, Lcom/melodix/music/PreviewPlayerVolume;->access$000(Lcom/melodix/music/PreviewPlayerVolume;)Z
 
-    move-result v0
+    move-result p1
 
-    if-eqz v0, :cond_0
+    if-eqz p1, :cond_0
 
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume$11;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
+    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerVolume$11;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$2(Lcom/melodix/music/PreviewPlayerVolume;)Landroid/os/Handler;
+    invoke-static {p1}, Lcom/melodix/music/PreviewPlayerVolume;->access$200(Lcom/melodix/music/PreviewPlayerVolume;)Landroid/os/Handler;
 
-    move-result-object v0
+    move-result-object p1
 
-    new-instance v1, Lcom/melodix/music/PreviewPlayerVolume$11$1;
+    new-instance v0, Lcom/melodix/music/PreviewPlayerVolume$11$1;
 
-    invoke-direct {v1, p0}, Lcom/melodix/music/PreviewPlayerVolume$11$1;-><init>(Lcom/melodix/music/PreviewPlayerVolume$11;)V
+    invoke-direct {v0, p0}, Lcom/melodix/music/PreviewPlayerVolume$11$1;-><init>(Lcom/melodix/music/PreviewPlayerVolume$11;)V
 
-    const-wide/16 v2, 0x15e
+    const-wide/16 v1, 0x15e
 
-    invoke-virtual {v0, v1, v2, v3}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
+    invoke-virtual {p1, v0, v1, v2}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
 
     :cond_0
     return-void

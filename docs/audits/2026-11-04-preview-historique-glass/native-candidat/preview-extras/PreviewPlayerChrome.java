@@ -204,9 +204,7 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
                 content.animate().alpha(1f).translationY(0f).setDuration(250).start();
             }
         }
-        hideHeader(a);applyBackground(a);stylePlay(a);
-        PreviewPlayerResponsive.apply(a.findViewById(0x7f09023a));
-        sizeArtwork(a);setupCosmetics(a);
+        hideHeader(a);applyBackground(a);stylePlay(a);sizeArtwork(a);setupCosmetics(a);
         if(setupDone && !ticking){ticking=true;post(visualTick);}
     }
     @Override public void onGlobalLayout(){sync();}

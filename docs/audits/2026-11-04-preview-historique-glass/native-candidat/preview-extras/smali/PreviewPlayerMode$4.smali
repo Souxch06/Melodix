@@ -24,9 +24,16 @@
 # direct methods
 .method constructor <init>(Lcom/melodix/music/PreviewPlayerMode;)V
     .locals 0
+    .annotation system Ldalvik/annotation/MethodParameters;
+        accessFlags = {
+            0x8010
+        }
+        names = {
+            null
+        }
+    .end annotation
 
-    .prologue
-    .line 124
+    .line 130
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerMode$4;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -37,10 +44,9 @@
 
 # virtual methods
 .method public run()V
-    .locals 4
+    .locals 3
 
-    .prologue
-    .line 125
+    .line 131
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode$4;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
     invoke-virtual {v0}, Lcom/melodix/music/PreviewPlayerMode;->animate()Landroid/view/ViewPropertyAnimator;
@@ -53,14 +59,14 @@
 
     move-result-object v0
 
-    const-wide/16 v2, 0x46
+    const-wide/16 v1, 0x46
 
-    invoke-virtual {v0, v2, v3}, Landroid/view/ViewPropertyAnimator;->setDuration(J)Landroid/view/ViewPropertyAnimator;
+    invoke-virtual {v0, v1, v2}, Landroid/view/ViewPropertyAnimator;->setDuration(J)Landroid/view/ViewPropertyAnimator;
 
     move-result-object v0
 
     invoke-virtual {v0}, Landroid/view/ViewPropertyAnimator;->start()V
 
-    .line 126
+    .line 132
     return-void
 .end method

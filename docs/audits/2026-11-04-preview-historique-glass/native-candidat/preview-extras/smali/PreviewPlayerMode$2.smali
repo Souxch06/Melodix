@@ -24,9 +24,16 @@
 # direct methods
 .method constructor <init>(Lcom/melodix/music/PreviewPlayerMode;)V
     .locals 0
+    .annotation system Ldalvik/annotation/MethodParameters;
+        accessFlags = {
+            0x8010
+        }
+        names = {
+            null
+        }
+    .end annotation
 
-    .prologue
-    .line 71
+    .line 74
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerMode$2;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -37,13 +44,12 @@
 
 # virtual methods
 .method public onClick(Landroid/view/View;)V
-    .locals 1
+    .locals 0
 
-    .prologue
-    .line 71
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode$2;->this$0:Lcom/melodix/music/PreviewPlayerMode;
+    .line 74
+    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerMode$2;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$4(Lcom/melodix/music/PreviewPlayerMode;)V
+    invoke-static {p1}, Lcom/melodix/music/PreviewPlayerMode;->access$400(Lcom/melodix/music/PreviewPlayerMode;)V
 
     return-void
 .end method

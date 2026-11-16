@@ -33,7 +33,10 @@
     });
     var result={state:'unknown',track:'',title:'',reason:'control',sent:false};
     if (!nodes.length) {
-        result.reason = document.readyState === 'loading' ? 'page' : (kind === 'shuffle' && !document.querySelector('[data-testid="now-playing-bar"], [data-testid="now-playing-widget"], [data-testid="player-controls"]') ? 'bar' : 'control');
+        var hasBar = !!document.querySelector('[data-testid="now-playing-bar"], [data-testid="now-playing-widget"], [data-testid="player-controls"]');
+        // With the player bar present and no such control anywhere in the page,
+        // say so ('absent'); without the bar the control may simply not be shown yet.
+        result.reason = document.readyState === 'loading' ? 'page' : (kind === 'shuffle' && !hasBar ? 'bar' : hasBar ? 'absent' : 'control');
         return JSON.stringify(result);
     }
     if (nodes.length !== 1) {result.reason='ambiguous';return JSON.stringify(result);}
