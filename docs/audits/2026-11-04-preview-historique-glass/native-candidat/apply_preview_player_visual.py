@@ -14,6 +14,9 @@ EXPECTED = {
 }
 
 EXTRAS = {
+    'smali/PreviewPlayerChrome$1.smali': '4051a2a3fa6cd2476ec6b0497d94592b3d8fa36f94ebc63063328266952f7160',
+    'smali/PreviewPlayerChrome.smali': '20c6a04c425b91a2a575ad87d7e5ab1648d492566d9133d7fbe8808dcc0448c1',
+    'PreviewPlayerChrome.java': '51345c0c2215e662abb197c804f04254ef7e40e4ae0798eaa477bbecebce757a',
     'smali/PreviewPlayerMode$1.smali': '3832e5c012f4f520778da6b2ca21b2acf7a26b4386b5d533f76c6f2d032901eb',
     'smali/PreviewPlayerMode$2.smali': 'f507a223dfedfbbd8e029e21d0c1ccfaae0e7a58b3dc4ff595194318eaab894a',
     'smali/PreviewPlayerMode$3.smali': 'a93913b09f293fb918a7b2b68670c443e598a7b435da77e26f4937306e188267',
@@ -22,10 +25,10 @@ EXTRAS = {
     'smali/PreviewPlayerMode$6.smali': '5b09ef6e39478eba452b8f9962bb0537847314638766e5345cf8f6c3a6c40030',
     'smali/PreviewPlayerMode.smali': '0bb8c71a1a2bd35350ea70758274e18b315b7ecbb836c1ac576de1bf0204b050',
     'smali/PreviewPlayerTiles$1.smali': '9daef4b22b5b64286b0467ae9d2a7af50bef94b317cbb55f25335dc8ce09cdf7',
-    'smali/PreviewPlayerTiles.smali': '181e80fee077912ea1ea1e4ee33919a560e764788a9527fc1038f6f60617d8f9',
+    'smali/PreviewPlayerTiles.smali': '89db8367aa36d1a64c17b2216e1477f943f03071fbfbe19b60c2f3e7ae478772',
     'control.js': '1f8b82ccdbc72111805b635b8c43d04411357f3680290bde47407f4d5740f932',
     'PreviewPlayerMode.java': '434e949ddf79214193c884ce1ed429d24f03fe400994751f3e06b7c085bd2c11',
-    'PreviewPlayerTiles.java': 'c68bdddb440f32f294692cbc5eaf177cf975176a3bb12b3af92ad56cf6f7f2b7',
+    'PreviewPlayerTiles.java': 'fa2c6332410380db0fa846ed542561b9a63f88119acbd0249e14e592e7500bbb',
 }
 
 def one(s, old, new):
@@ -47,7 +50,7 @@ def player_layout(source):
                 <TextView android:text="•••" android:textColor="#ffc9c0ea" android:textSize="18.0sp" android:gravity="center" android:background="@drawable/native_button_dark" android:alpha="0.38" android:enabled="false" android:contentDescription="Menu indisponible" android:layout_width="48.0dip" android:layout_height="48.0dip" />
             </LinearLayout>
 '''
-    panel=one(panel,marker,marker.replace('android:gravity="center"','android:gravity="top"')+header)
+    panel=one(panel,marker,marker.replace('android:gravity="center"','android:gravity="top"')+'            <com.melodix.music.PreviewPlayerChrome android:layout_width="0.0dip" android:layout_height="0.0dip" />\n'+header)
     old='''            <androidx.cardview.widget.CardView
                 android:layout_width="272.0dip"
                 android:layout_height="272.0dip"
@@ -57,13 +60,13 @@ def player_layout(source):
                 app:cardCornerRadius="8.0dip"
                 app:cardElevation="18.0dip">'''
     new='''            <androidx.constraintlayout.widget.ConstraintLayout
-                android:layout_width="fill_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="26.0dip" android:layout_marginBottom="26.0dip">
+                android:tag="previewPlayerArtFrame" android:layout_width="fill_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="20.0dip" android:layout_marginBottom="24.0dip">
               <androidx.cardview.widget.CardView
-                android:layout_width="0.0dip" android:layout_height="0.0dip"
+                android:tag="previewPlayerArtCard" android:layout_width="0.0dip" android:layout_height="0.0dip"
                 app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="parent" app:layout_constraintDimensionRatio="1:1"
-                app:layout_constraintWidth_max="480dp"
+                app:layout_constraintWidth_max="318dp"
                 app:contentPadding="1.0dip"
                 app:cardBackgroundColor="#ff786a95" app:cardCornerRadius="30.0dip" app:cardElevation="12.0dip">'''
     panel=one(panel,old,new)
@@ -88,7 +91,7 @@ def player_layout(source):
     title=panel[i:j].replace('android:layout_width="fill_parent"','android:layout_width="0.0dip" android:layout_weight="1.0"')
     title='''            <LinearLayout android:orientation="horizontal" android:gravity="center_vertical" android:layout_width="fill_parent" android:layout_height="wrap_content">
 '''+title+'''
-              <com.melodix.music.PreviewPlayerMode android:tag="like" android:background="@drawable/native_button_dark" android:padding="10.0dip" android:layout_width="48.0dip" android:layout_height="48.0dip" android:contentDescription="Like indisponible" />
+              <com.melodix.music.PreviewPlayerMode android:tag="like" android:layout_marginLeft="16.0dip" android:background="@drawable/native_button_dark" android:padding="10.0dip" android:layout_width="48.0dip" android:layout_height="48.0dip" android:contentDescription="Like indisponible" />
             </LinearLayout>'''
     panel=panel[:i]+title+panel[j:]
     badge='''            <TextView
@@ -103,7 +106,23 @@ def player_layout(source):
 '''
     panel=one(panel,badge,'')
     panel=one(panel,'android:thumbTint="#ffc0a2ff"','android:thumbTint="#ffffffff"')
-    panel=one(panel,'android:layout_marginTop="16.0dip"','android:layout_marginTop="22.0dip"')
+    panel=one(panel,'android:layout_marginTop="16.0dip"','android:layout_marginTop="20.0dip"')
+    panel=one(panel,'android:maxHeight="6.0dip"','android:maxHeight="5.0dip"')
+    for ident in ('nativePlayerPositionText','nativePlayerDurationText'):
+        pos=panel.index('android:id="@id/'+ident+'"');stop=panel.index('/>',pos)
+        segment=panel[pos:stop].replace('android:textSize="12.0sp"','android:textSize="12.0sp" android:fontFeatureSettings="tnum"')
+        panel=panel[:pos]+segment+panel[stop:]
+    marker_remaining='android:tag="nativePlayerRemaining"'
+    if marker_remaining in panel:
+        pos=panel.index(marker_remaining);stop=panel.index('/>',pos)
+        segment=panel[pos:stop].replace('android:textColor="#ffc9c0ea"','android:textColor="#00ffffff"')
+        segment=segment.replace('android:paddingBottom="8.0dip"','android:importantForAccessibility="yes" android:focusable="true" android:labelFor="@id/nativePlayerProgress"')
+        segment=segment.replace('android:layout_width="fill_parent"','android:layout_width="1.0dip"').replace('android:layout_height="wrap_content"','android:layout_height="1.0dip"')
+        panel=panel[:pos]+segment+panel[stop:]
+    else:
+        controls='            <LinearLayout\n                android:orientation="horizontal"\n                android:gravity="center"'
+        remaining='            <TextView android:tag="nativePlayerRemaining" android:text="Temps restant : —" android:textSize="12.0sp" android:textColor="#00ffffff" android:importantForAccessibility="yes" android:focusable="true" android:labelFor="@id/nativePlayerProgress" android:layout_width="1.0dip" android:layout_height="1.0dip" />\n'
+        panel=one(panel,controls,remaining+controls)
     for ident in ('nativePlayerShuffleButton','nativePlayerRepeatButton'):
         old='android:id="@id/'+ident+'"'; panel=one(panel,old,old+' android:visibility="gone"')
     for ident,mode,label in (('nativePlayerShuffleButton','shuffle','Aléatoire indisponible'),('nativePlayerRepeatButton','repeat','Répétition indisponible')):
@@ -115,12 +134,12 @@ def player_layout(source):
         part=part.replace('android:layout_width="54.0dip"','android:layout_width="0.0dip" android:layout_weight="1.0"').replace('android:layout_height="54.0dip"','android:layout_height="56.0dip"').replace('android:layout_marginLeft="12.0dip"','').replace('android:layout_marginRight="12.0dip"','').replace('android:background="@drawable/native_button_dark"','android:background="@null"').replace('Previous track','Titre précédent').replace('Next track','Titre suivant')
         panel=panel[:i]+part+panel[j:]
     i=panel.index('android:id="@id/nativePlayerLargePlayPauseButton"');j=panel.index('/>',i)
-    panel=panel[:i]+panel[i:j].replace('72.0dip','80.0dip').replace('android:padding="24.0dip"','android:padding="25.0dip"').replace('android:background="@drawable/native_button_white"','android:background="@drawable/native_button_white" android:elevation="12.0dip"').replace('android:layout_marginLeft="14.0dip"','').replace('android:layout_marginRight="14.0dip"','')+panel[j:]
+    panel=panel[:i]+panel[i:j].replace('72.0dip','76.0dip').replace('android:padding="24.0dip"','android:padding="25.0dip"').replace('android:background="@drawable/native_button_white"','android:background="@drawable/native_button_white" android:elevation="12.0dip"').replace('android:layout_marginLeft="14.0dip"','').replace('android:layout_marginRight="14.0dip"','')+panel[j:]
     ending='''            </LinearLayout>
             </LinearLayout>
         </ScrollView>'''
     tiles='''            </LinearLayout>
-            <Space android:layout_width="1.0dip" android:layout_height="0.0dip" android:layout_weight="1.0" />
+            <Space android:tag="previewPlayerSpacer" android:layout_width="1.0dip" android:layout_height="0.0dip" android:layout_weight="1.0" />
             <com.melodix.music.PreviewPlayerTiles android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="20.0dip" />
             </LinearLayout>
         </ScrollView>'''
@@ -132,20 +151,20 @@ def landscape_layout(source):
     end=source.index('        </ScrollView>',start)+len('        </ScrollView>')
     panel=source[start:end]
     art='''            <androidx.constraintlayout.widget.ConstraintLayout
-                android:layout_width="fill_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="26.0dip" android:layout_marginBottom="26.0dip">'''
+                android:tag="previewPlayerArtFrame" android:layout_width="fill_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="20.0dip" android:layout_marginBottom="24.0dip">'''
     landscape='''            <LinearLayout android:orientation="horizontal" android:gravity="top" android:layout_width="fill_parent" android:layout_height="wrap_content">
             <androidx.constraintlayout.widget.ConstraintLayout
-                android:layout_width="0.0dip" android:layout_weight="0.44" android:layout_height="wrap_content"
+                android:tag="previewPlayerArtFrame" android:layout_width="0.0dip" android:layout_weight="0.44" android:layout_height="wrap_content"
                 android:layout_marginTop="12.0dip" android:layout_marginBottom="12.0dip" android:layout_marginRight="18.0dip">'''
     panel=one(panel,art,landscape)
     panel=one(panel,'            </androidx.constraintlayout.widget.ConstraintLayout>', '''            </androidx.constraintlayout.widget.ConstraintLayout>
             <LinearLayout android:orientation="vertical" android:layout_width="0.0dip" android:layout_weight="0.56" android:layout_height="wrap_content" android:layout_marginTop="12.0dip">''')
-    ending='''            <Space android:layout_width="1.0dip" android:layout_height="0.0dip" android:layout_weight="1.0" />
+    ending='''            <Space android:tag="previewPlayerSpacer" android:layout_width="1.0dip" android:layout_height="0.0dip" android:layout_weight="1.0" />
             <com.melodix.music.PreviewPlayerTiles android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="20.0dip" />
             </LinearLayout>
         </ScrollView>'''
-    panel=one(panel,ending,'''            <Space android:layout_width="1.0dip" android:layout_height="0.0dip" android:layout_weight="1.0" />
+    panel=one(panel,ending,'''            <Space android:tag="previewPlayerSpacer" android:layout_width="1.0dip" android:layout_height="0.0dip" android:layout_weight="1.0" />
             <com.melodix.music.PreviewPlayerTiles android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="20.0dip" />
             </LinearLayout>
             </LinearLayout>

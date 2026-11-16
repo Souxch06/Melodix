@@ -8,7 +8,7 @@
     .locals 12
 
     .prologue
-    const/high16 v11, 0x41000000    # 8.0f
+    const/high16 v11, 0x40800000    # 4.0f
 
     const/high16 v10, 0x40000000    # 2.0f
 
@@ -75,7 +75,7 @@
     .line 26
     new-instance v6, Landroid/text/style/RelativeSizeSpan;
 
-    const v7, 0x3fd33333    # 1.65f
+    const v7, 0x400ccccd    # 2.2f
 
     invoke-direct {v6, v7}, Landroid/text/style/RelativeSizeSpan;-><init>(F)V
 
@@ -94,11 +94,11 @@
     .line 27
     invoke-virtual {v5, v2}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
 
-    const/high16 v2, 0x41400000    # 12.0f
+    const/high16 v2, 0x41200000    # 10.0f
 
     invoke-virtual {v5, v2}, Landroid/widget/Button;->setTextSize(F)V
 
-    const v2, -0x111601
+    const v2, -0x232a0b
 
     invoke-virtual {v5, v2}, Landroid/widget/Button;->setTextColor(I)V
 
@@ -133,7 +133,7 @@
 
     invoke-virtual {v5, v1}, Landroid/widget/Button;->setMinimumWidth(I)V
 
-    const/high16 v2, 0x42980000    # 76.0f
+    const/high16 v2, 0x42600000    # 56.0f
 
     invoke-direct {p0, v2}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
 
@@ -146,7 +146,7 @@
 
     invoke-direct {v2}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
 
-    const v6, 0x22ffffff
+    const v6, 0x14ffffff
 
     invoke-virtual {v2, v6}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
 
@@ -164,7 +164,7 @@
 
     move-result v6
 
-    const v7, 0x33ffffff
+    const v7, 0x1fffffff
 
     invoke-virtual {v2, v6, v7}, Landroid/graphics/drawable/GradientDrawable;->setStroke(II)V
 
@@ -207,24 +207,41 @@
     invoke-virtual {v5, v2}, Landroid/widget/Button;->setAlpha(F)V
 
     .line 33
-    new-instance v2, Landroid/widget/LinearLayout$LayoutParams;
+    new-instance v6, Landroid/widget/LinearLayout$LayoutParams;
 
-    const/4 v6, -0x2
+    invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerTiles;->getResources()Landroid/content/res/Resources;
 
-    invoke-direct {v2, v1, v6, v3}, Landroid/widget/LinearLayout$LayoutParams;-><init>(IIF)V
+    move-result-object v2
+
+    invoke-virtual {v2}, Landroid/content/res/Resources;->getConfiguration()Landroid/content/res/Configuration;
+
+    move-result-object v2
+
+    iget v2, v2, Landroid/content/res/Configuration;->fontScale:F
+
+    const v7, 0x3fa66666    # 1.3f
+
+    cmpl-float v2, v2, v7
+
+    if-lez v2, :cond_6
+
+    const/4 v2, -0x2
+
+    :goto_4
+    invoke-direct {v6, v1, v2, v3}, Landroid/widget/LinearLayout$LayoutParams;-><init>(IIF)V
 
     if-lez v0, :cond_1
 
-    const/high16 v6, 0x40c00000    # 6.0f
+    const/high16 v2, 0x41000000    # 8.0f
 
-    invoke-direct {p0, v6}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+    invoke-direct {p0, v2}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
 
-    move-result v6
+    move-result v2
 
-    iput v6, v2, Landroid/widget/LinearLayout$LayoutParams;->leftMargin:I
+    iput v2, v6, Landroid/widget/LinearLayout$LayoutParams;->leftMargin:I
 
     :cond_1
-    invoke-virtual {p0, v5, v2}, Lcom/melodix/music/PreviewPlayerTiles;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    invoke-virtual {p0, v5, v6}, Lcom/melodix/music/PreviewPlayerTiles;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
     .line 34
     if-ne v0, v9, :cond_2
@@ -283,6 +300,16 @@
     const v2, 0x3f266666    # 0.65f
 
     goto :goto_3
+
+    .line 33
+    :cond_6
+    const/high16 v2, 0x42600000    # 56.0f
+
+    invoke-direct {p0, v2}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v2
+
+    goto :goto_4
 .end method
 
 .method private dp(F)I
