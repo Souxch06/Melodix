@@ -168,7 +168,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
     private void renderPanel(final int i,final Activity a,final Dialog dialog,final LinearLayout list,final Button retry,JSONObject o,String action){
         panelJournal=clean(o.optString("journal",""));
         if(action.equals("transfer")){
-            Toast.makeText(getContext(),o.optBoolean("ok",false)?"Lecture transférée":"Transfert non confirmé, Réessayer",Toast.LENGTH_SHORT).show();
+            Toast.makeText(getContext(),o.optBoolean("ok",false)&&o.optBoolean("transferred",false)?"Lecture transférée (vérifié)":"Transfert non vérifié, Réessayer",Toast.LENGTH_SHORT).show();
             loadPanel(i,a,dialog,list,retry,"run","");return;
         }
         if(!o.optBoolean("ok",false)){panelFailed(i,a,list,retry);return;}
@@ -195,7 +195,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
         GradientDrawable g=new GradientDrawable();g.setColor(0xf2170b33);g.setCornerRadius(dp(20));box.setBackground(g);
         box.addView(line(a,"Transférer la lecture vers « "+name+" » ?",Color.WHITE,17),new LinearLayout.LayoutParams(-1,-2));
         Button no=new Button(a);no.setText("Annuler");no.setMinimumHeight(dp(48));no.setOnClickListener(new View.OnClickListener(){public void onClick(View v){ask.dismiss();}});
-        Button yes=new Button(a);yes.setText("Transférer");yes.setMinimumHeight(dp(48));yes.setOnClickListener(new View.OnClickListener(){public void onClick(View v){ask.dismiss();loadPanel(i,a,dialog,list,retry,"transfer",name);}});
+        Button yes=new Button(a);yes.setText("Confirmer");yes.setContentDescription("Confirmer le transfert vers "+name);yes.setMinimumHeight(dp(48));yes.setOnClickListener(new View.OnClickListener(){public void onClick(View v){ask.dismiss();loadPanel(i,a,dialog,list,retry,"transfer",name);}});
         box.addView(no,new LinearLayout.LayoutParams(-1,dp(48)));box.addView(yes,new LinearLayout.LayoutParams(-1,dp(48)));
         ask.setContentView(box);ask.show();Window w=ask.getWindow();if(w!=null)w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
     }

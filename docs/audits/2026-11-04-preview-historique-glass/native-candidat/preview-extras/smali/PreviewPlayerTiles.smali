@@ -1625,6 +1625,8 @@
 
     move-object/from16 v4, p2
 
+    move-object/from16 v8, p6
+
     new-instance v10, Landroid/app/Dialog;
 
     invoke-direct {v10, v4}, Landroid/app/Dialog;-><init>(Landroid/content/Context;)V
@@ -1689,8 +1691,6 @@
 
     move-result-object v0
 
-    move-object/from16 v8, p6
-
     invoke-virtual {v0, v8}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v0
@@ -1749,9 +1749,29 @@
 
     invoke-direct {v15, v4}, Landroid/widget/Button;-><init>(Landroid/content/Context;)V
 
-    const-string v0, "Transf\u00e9rer"
+    const-string v0, "Confirmer"
 
     invoke-virtual {v15, v0}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
+
+    new-instance v0, Ljava/lang/StringBuilder;
+
+    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+
+    const-string v1, "Confirmer le transfert vers "
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    invoke-virtual {v0, v8}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    invoke-virtual {v15, v0}, Landroid/widget/Button;->setContentDescription(Ljava/lang/CharSequence;)V
 
     invoke-direct {v9, v14}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
 
@@ -3089,16 +3109,24 @@
 
     invoke-virtual {v1, v3, v14}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;Z)Z
 
+    move-result v3
+
+    if-eqz v3, :cond_0
+
+    const-string v3, "transferred"
+
+    invoke-virtual {v1, v3, v14}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;Z)Z
+
     move-result v1
 
     if-eqz v1, :cond_0
 
-    const-string v1, "Lecture transf\u00e9r\u00e9e"
+    const-string v1, "Lecture transf\u00e9r\u00e9e (v\u00e9rifi\u00e9)"
 
     goto :goto_0
 
     :cond_0
-    const-string v1, "Transfert non confirm\u00e9, R\u00e9essayer"
+    const-string v1, "Transfert non v\u00e9rifi\u00e9, R\u00e9essayer"
 
     :goto_0
     invoke-static {v2, v1, v14}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;

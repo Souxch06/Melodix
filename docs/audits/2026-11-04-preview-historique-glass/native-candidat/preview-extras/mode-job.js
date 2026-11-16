@@ -130,7 +130,7 @@
             ['keydown', 'keyup'].forEach(function(type) {
                 target.dispatchEvent(new KeyboardEvent(type, {key: spec.key, code: spec.code, keyCode: spec.keyCode, which: spec.keyCode, ctrlKey: ctrl, altKey: !ctrl, bubbles: true, cancelable: true}));
             });
-            log('c:' + (ctrl ? 'ctrl-' : 'alt-') + spec.key);
+            log('c:' + (ctrl ? 'ctrl-' : 'alt-') + spec.key); log('c:single-unreadable');
             finish('unverified', 'unknown', 'keyboard');
         } catch (_) { log('c:error'); finish('failed', 'unknown', ''); }
     }

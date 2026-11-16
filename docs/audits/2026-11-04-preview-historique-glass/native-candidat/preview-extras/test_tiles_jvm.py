@@ -55,7 +55,7 @@ stubs.update({
   Button salon=(Button)dl.children.get(0),self=(Button)dl.children.get(1);ok(salon.text.equals("Salon\\nEnceinte"));ok(self.text.contains("Actif"));
   int before=c.G.calls;salon.performClick();ok(c.G.calls==before);Dialog ask=Dialog.last;ok(ask!=devicesDialog&&ask.shown);
   LinearLayout box=(LinearLayout)ask.content;((Button)box.children.get(2)).performClick();ok(c.G.calls==before+1);ok(c.G.js.contains("\\"transfer\\"")&&c.G.js.contains("\\"Salon\\""));
-  c.G.reply("status=started");Handler.advance(250);c.G.reply("status=done;ok=true;transferred=true");ok(Toast.message.contains("transférée"));
+  c.G.reply("status=started");Handler.advance(250);c.G.reply("status=done;ok=true;transferred=true");ok(Toast.message.contains("transférée (vérifié)"));
   devicesDialog.dismiss();
   // Queue: skeleton, one page job, polling, then now-playing and up-next rows.
   Handler.advance(401);int calls=c.G.calls;t.children.get(0).performClick();ok(Dialog.last.shown);ok(c.root.getVisibility()==original);ok(c.G.calls==calls+2);ok(c.G.js.contains("\\"run\\""));
