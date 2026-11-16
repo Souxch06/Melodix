@@ -4,6 +4,7 @@ import os,subprocess,tempfile
 from pathlib import Path
 here=Path(__file__).resolve().parent
 stubs={
+'android/R.java':'package android;public class R {public static class drawable {public static final int ic_popup_sync=1;}}',
 'android/util/AttributeSet.java':'package android.util; public interface AttributeSet {}',
 'android/util/DisplayMetrics.java':'package android.util; public class DisplayMetrics { public float density=1; }',
 'android/content/res/Resources.java':'package android.content.res; public class Resources { public int getIdentifier(String n,String t,String p){return 1;} public android.util.DisplayMetrics getDisplayMetrics(){return new android.util.DisplayMetrics();} }',
@@ -28,17 +29,22 @@ stubs={
  public static void main(String[] z) throws Exception {
  for(String kind:new String[]{"like","shuffle","repeat"}){
   Handler.clear();Toast.count=0;Activity a=new Activity();a.G=new WebView(a);TextView title=new TextView(a);title.text="Titre";a.title=title;
-  PreviewPlayerMode m=new PreviewPlayerMode(a,null);m.setTag(kind);m.onAttachedToWindow();ok(!m.enabled);Handler.step();ok(a.G.calls==1);a.G.reply(data("unknown"));ok(!m.enabled);
+  PreviewPlayerMode m=new PreviewPlayerMode(a,null);m.setTag(kind);m.onAttachedToWindow();ok(!m.enabled);ok(m.description.startsWith("Chargement :"));Handler.step();ok(a.G.calls==1);a.G.reply(data("unknown")+";reason=control");ok(!m.enabled);
   Handler.step();a.G.reply(data("false"));ok(m.enabled);int n=a.G.calls;m.performClick();ok(a.G.calls==n+1);m.performClick();ok(a.G.calls==n+1);a.G.reply("sent=true");
   // Confirmation may arrive instantly; second tap within 400 ms is blocked.
   java.lang.reflect.Method observe=PreviewPlayerMode.class.getDeclaredMethod("observe");observe.setAccessible(true);observe.invoke(m);a.G.reply(data("true"));ok(m.enabled);n=a.G.calls;m.performClick();ok(a.G.calls==n);
   SystemClock.t+=401;m.performClick();ok(a.G.calls==n+1);a.G.reply("sent=false");ok(!m.enabled);ok(Toast.count==1);ok(Toast.message.contains("Réessayer"));
   Handler.step();a.G.reply(data("true"));ok(m.enabled);SystemClock.t+=401;m.performClick();ok(!m.enabled);android.webkit.ValueCallback<String> late=a.G.cb;
   // Lost JS callback: independent deadline unlocks without inventing success.
-  Handler.advance(5001);ok(!m.enabled);ok(Toast.count==2);late.onReceiveValue("sent=false");ok(Toast.count==2);
+  Handler.advance(5001);ok(!m.enabled);ok(m.description.startsWith("Indisponible :"));ok(Toast.count==2);late.onReceiveValue("sent=false");ok(Toast.count==2);
   m.shown=false;m.onVisibilityChanged(m,8);ok(!m.enabled);m.performClick();
   m.shown=true;m.onVisibilityChanged(m,0);Handler.step();a.G.reply(data("false"));ok(m.enabled);m.onDetachedFromWindow();ok(!m.enabled);
  }
+ // A response slower than the 800 ms polling interval remains usable.
+ Handler.clear();Activity slow=new Activity();slow.G=new WebView(slow);TextView title=new TextView(slow);title.text="Titre";slow.title=title;
+ PreviewPlayerMode mode=new PreviewPlayerMode(slow,null);mode.setTag("shuffle");mode.onAttachedToWindow();Handler.step();android.webkit.ValueCallback<String> first=slow.G.cb;Handler.advance(1600);ok(slow.G.calls==1);first.onReceiveValue(data("false"));ok(mode.enabled);mode.onDetachedFromWindow();
+ // A missing response is bounded and an expired callback cannot re-enable it.
+ Handler.clear();mode=new PreviewPlayerMode(slow,null);mode.setTag("shuffle");mode.onAttachedToWindow();Handler.step();first=slow.G.cb;Handler.advance(2500);ok(mode.description.startsWith("Indisponible :"));first.onReceiveValue(data("true"));ok(!mode.enabled);slow.G.reply(data("false"));ok(mode.enabled);mode.onDetachedFromWindow();
  System.out.println("Player mode JVM simulation passed"); }
 }'''
 

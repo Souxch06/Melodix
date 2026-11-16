@@ -26,7 +26,7 @@
     .locals 0
 
     .prologue
-    .line 68
+    .line 69
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$4;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -45,12 +45,12 @@
 
     const/4 v8, 0x0
 
-    .line 69
+    .line 70
     invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
 
     move-result-wide v0
 
-    .line 70
+    .line 71
     .local v0, "now":J
     iget-object v3, p0, Lcom/melodix/music/PreviewPlayerTiles$4;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
@@ -82,12 +82,12 @@
 
     if-gez v3, :cond_1
 
-    .line 77
+    .line 78
     :cond_0
     :goto_0
     return-void
 
-    .line 71
+    .line 72
     :cond_1
     iget-object v3, p0, Lcom/melodix/music/PreviewPlayerTiles$4;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
@@ -95,7 +95,7 @@
 
     invoke-virtual {p1, v9}, Landroid/view/View;->performHapticFeedback(I)Z
 
-    .line 73
+    .line 74
     :try_start_0
     iget-object v3, p0, Lcom/melodix/music/PreviewPlayerTiles$4;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
@@ -109,7 +109,7 @@
 
     move-result-object v2
 
-    .line 74
+    .line 75
     .local v2, "svc":Ljava/lang/Object;
     instance-of v3, v2, Landroid/media/AudioManager;
 
@@ -123,7 +123,7 @@
     :try_end_0
     .catch Ljava/lang/RuntimeException; {:try_start_0 .. :try_end_0} :catch_0
 
-    .line 76
+    .line 77
     .end local v2    # "svc":Ljava/lang/Object;
     :catch_0
     move-exception v3
@@ -148,7 +148,7 @@
 
     goto :goto_0
 
-    .line 75
+    .line 76
     .restart local v2    # "svc":Ljava/lang/Object;
     :cond_2
     :try_start_1

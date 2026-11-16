@@ -78,7 +78,11 @@
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode$1;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$2(Lcom/melodix/music/PreviewPlayerMode;)Landroid/os/Handler;
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$2(Lcom/melodix/music/PreviewPlayerMode;)V
+
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode$1;->this$0:Lcom/melodix/music/PreviewPlayerMode;
+
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$3(Lcom/melodix/music/PreviewPlayerMode;)Landroid/os/Handler;
 
     move-result-object v0
 

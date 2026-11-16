@@ -62,7 +62,8 @@ public final class PreviewPlayerTiles extends LinearLayout {
             GradientDrawable tile=new GradientDrawable();tile.setColor(0x14ffffff);tile.setCornerRadius(dp(18));tile.setStroke(dp(1),0x1fffffff);
             b.setBackgroundTintList(null);b.setStateListAnimator(null);b.setElevation(0f);b.setTranslationZ(0f);b.setForeground(null);
             b.setBackground(new RippleDrawable(ColorStateList.valueOf(0x447b3fe4),tile,null));
-            b.setContentDescription(i==3?"Volume du téléphone":labels[i].replace('\n',' ')+" indisponible");
+            String[] unavailable={"Indisponible : file Spotify non intégrée à cet écran", "Indisponible : paroles non intégrées à cet écran", "Indisponible : appareils Spotify non intégrés à cet écran"};
+            b.setContentDescription(i==3?"Volume du téléphone":unavailable[i]);
             b.setEnabled(i==3);b.setAlpha(i==3?1f:0.45f);b.setSelected(false);b.setActivated(false);
             LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,getResources().getConfiguration().fontScale>1.3f?LayoutParams.WRAP_CONTENT:dp(56),1f);if(i>0)lp.leftMargin=dp(8);addView(b,lp);
             if(n==3){volumeButton=b;b.setOnClickListener(new View.OnClickListener(){public void onClick(View v){

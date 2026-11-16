@@ -44,7 +44,7 @@
     .line 39
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode$2;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$3(Lcom/melodix/music/PreviewPlayerMode;)V
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$4(Lcom/melodix/music/PreviewPlayerMode;)V
 
     return-void
 .end method
