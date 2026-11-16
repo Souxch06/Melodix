@@ -83,6 +83,13 @@
 
     .line 46
     :cond_1
+    invoke-static {}, Lcom/melodix/music/PreviewPlayerChrome;->report()Ljava/lang/String;
+
+    move-result-object v0
+
+    sput-object v0, Lcom/melodix/music/PreviewPlayerTiles;->displayReport:Ljava/lang/String;
+
+    .line 47
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$1;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerChrome;->access$500(Lcom/melodix/music/PreviewPlayerChrome;)Lcom/melodix/music/PreviewPlayerDecoration;
@@ -99,7 +106,7 @@
 
     if-eqz v0, :cond_2
 
-    .line 47
+    .line 48
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$1;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerChrome;->access$500(Lcom/melodix/music/PreviewPlayerChrome;)Lcom/melodix/music/PreviewPlayerDecoration;
@@ -136,7 +143,7 @@
 
     invoke-virtual {v0}, Lcom/melodix/music/PreviewPlayerDecoration;->invalidateSelf()V
 
-    .line 49
+    .line 50
     :cond_2
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$1;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
@@ -154,7 +161,7 @@
 
     if-eqz v0, :cond_3
 
-    .line 50
+    .line 51
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$1;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerChrome;->access$700(Lcom/melodix/music/PreviewPlayerChrome;)Lcom/melodix/music/PreviewPlayerLikeArt;
@@ -191,7 +198,7 @@
 
     invoke-virtual {v0}, Lcom/melodix/music/PreviewPlayerLikeArt;->invalidateSelf()V
 
-    .line 52
+    .line 53
     :cond_3
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$1;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
@@ -209,7 +216,7 @@
 
     if-eqz v0, :cond_8
 
-    .line 53
+    .line 54
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$1;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerChrome;->access$1000(Lcom/melodix/music/PreviewPlayerChrome;)Landroid/view/View;
@@ -220,7 +227,7 @@
 
     move-result-object v0
 
-    .line 54
+    .line 55
     if-eqz v0, :cond_4
 
     invoke-virtual {v0}, Ljava/lang/Object;->toString()Ljava/lang/String;
@@ -242,7 +249,7 @@
     :cond_4
     move v0, v1
 
-    .line 55
+    .line 56
     :goto_0
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerChrome$1;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
@@ -254,7 +261,7 @@
 
     if-eqz v2, :cond_7
 
-    .line 56
+    .line 57
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerChrome$1;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
     invoke-static {v2}, Lcom/melodix/music/PreviewPlayerChrome;->access$1000(Lcom/melodix/music/PreviewPlayerChrome;)Landroid/view/View;
@@ -287,7 +294,7 @@
     :goto_2
     invoke-virtual {v2, v0}, Landroid/widget/ImageView;->setImageAlpha(I)V
 
-    .line 58
+    .line 59
     :cond_7
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$1;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
@@ -325,7 +332,7 @@
 
     invoke-virtual {v0}, Lcom/melodix/music/PreviewPlayerDecoration;->invalidateSelf()V
 
-    .line 60
+    .line 61
     :cond_8
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$1;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
@@ -333,6 +340,6 @@
 
     invoke-virtual {v0, p0, v1, v2}, Lcom/melodix/music/PreviewPlayerChrome;->postDelayed(Ljava/lang/Runnable;J)Z
 
-    .line 61
+    .line 62
     return-void
 .end method

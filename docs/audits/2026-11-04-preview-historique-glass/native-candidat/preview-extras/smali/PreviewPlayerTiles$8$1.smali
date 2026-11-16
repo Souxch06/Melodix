@@ -42,7 +42,7 @@
         }
     .end annotation
 
-    .line 176
+    .line 178
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$8$1;->this$1:Lcom/melodix/music/PreviewPlayerTiles$8;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -63,7 +63,7 @@
         }
     .end annotation
 
-    .line 176
+    .line 178
     check-cast p1, Ljava/lang/String;
 
     invoke-virtual {p0, p1}, Lcom/melodix/music/PreviewPlayerTiles$8$1;->onReceiveValue(Ljava/lang/String;)V
@@ -74,7 +74,7 @@
 .method public onReceiveValue(Ljava/lang/String;)V
     .locals 8
 
-    .line 177
+    .line 179
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$8$1;->this$1:Lcom/melodix/music/PreviewPlayerTiles$8;
 
     iget-wide v0, v0, Lcom/melodix/music/PreviewPlayerTiles$8;->val$serial:J
@@ -116,7 +116,7 @@
 
     move-result-object p1
 
-    .line 178
+    .line 180
     if-eqz p1, :cond_2
 
     const-string v0, "status"
@@ -137,7 +137,7 @@
 
     goto :goto_0
 
-    .line 179
+    .line 181
     :cond_1
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$8$1;->this$1:Lcom/melodix/music/PreviewPlayerTiles$8;
 
@@ -157,10 +157,10 @@
 
     invoke-static {v0, v1, v2, v3, p1}, Lcom/melodix/music/PreviewPlayerTiles;->access$1700(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;Lorg/json/JSONObject;)V
 
-    .line 180
+    .line 182
     return-void
 
-    .line 178
+    .line 180
     :cond_2
     :goto_0
     iget-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$8$1;->this$1:Lcom/melodix/music/PreviewPlayerTiles$8;
@@ -197,7 +197,7 @@
 
     return-void
 
-    .line 177
+    .line 179
     :cond_3
     :goto_1
     return-void

@@ -43,6 +43,7 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
     private final Runnable visualTick = new Runnable() { public void run() {
         if (!playerVisible()) { ticking=false; return; }
         Activity host=activity(); if (host!=null) { updateTint(host); breathe(host); }
+        PreviewPlayerTiles.displayReport=report();
         if (repeatArt!=null && repeatControl!=null) {
             repeatArt.setBounds(0,0,repeatControl.getWidth(),repeatControl.getHeight()); repeatArt.invalidateSelf();
         }
@@ -107,6 +108,10 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         if(panel!=null && panel.getBackground()==null)panel.setBackground(panelBackground);
         root=null;panel=null;rootBackground=null;panelBackground=null;appliedBackground=null;tintLayer=null;scrim=null;tintSource=null;artPlaying=null;chromeApplied=false;
     }
+    static String state="non affiché";
+    private static String tintInfo="—", sizeInfo="—";
+    public static String report(){return "\nAffichage lecteur : "+state+" ; fond : "+tintInfo+" ; pochette : "+sizeInfo;}
+    private float artScale=1f;
     private GradientDrawable tintLayer, scrim;
     private Boolean artPlaying;
     private Drawable tintSource;
@@ -133,11 +138,12 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         }catch(RuntimeException e){return null;}
     }
     private void updateTint(Activity a){
-        if(tintLayer==null)return;
+        if(tintLayer==null){tintInfo="fond non appliqué";return;}
         View v=a.findViewById(0x7f090245);if(!(v instanceof ImageView))return;
         Drawable d=((ImageView)v).getDrawable();if(d==tintSource)return;tintSource=d;
         Bitmap small=shrink(d,12);
         int c=dominant(small);
+        tintInfo=(d==null?"aucune image":d.getClass().getSimpleName())+(small==null?", échantillon impossible":c==0?", couleur nulle":String.format(", teinte #%06x",c&0xffffff));
         // Light tint: violet stays the base; the cover colour only washes the top.
         tintLayer.setColors(c==0?new int[]{0,0}:new int[]{(0x4d<<24)|(c&0xffffff),(0x14<<24)|(c&0xffffff),0});
         // Blurred backdrop: the cover reduced to a few pixels and smoothly scaled up.
@@ -156,7 +162,7 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         CharSequence d=play.getContentDescription();String t=d==null?"":d.toString();
         boolean playing=t.startsWith("Mettre en pause")||t.startsWith("Lecture demandée");
         if(artPlaying!=null&&artPlaying==playing)return;
-        boolean first=artPlaying==null;artPlaying=playing;float target=playing?1f:0.9f;
+        boolean first=artPlaying==null;artPlaying=playing;float target=artScale*(playing?1f:0.9f);
         card.animate().cancel();
         if(first||(Build.VERSION.SDK_INT>=26&&!ValueAnimator.areAnimatorsEnabled())){card.setScaleX(target);card.setScaleY(target);}
         else card.animate().scaleX(target).scaleY(target).setDuration(420).setInterpolator(new android.view.animation.OvershootInterpolator(1.2f)).start();
@@ -196,8 +202,14 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         if(h<=0||w<=0)return;
         int side=Math.max(dp(120),Math.min(w,Math.min(h,dp(520))));
         ViewGroup.LayoutParams c=card.getLayoutParams(),f=frame.getLayoutParams();
-        if(c.width!=side||c.height!=side){clearConstraintLimits(card);c.width=side;c.height=side;card.setLayoutParams(c);}
+        // The cover card keeps its layout limit (318dp) in minified builds; enlarge
+        // it by scaling a square of that limit instead of changing its params.
+        int base=Math.min(side,dp(318));
+        if(c.width!=base||c.height!=base){c.width=base;c.height=base;card.setLayoutParams(c);}
         if(f.height!=side){f.height=side;frame.setLayoutParams(f);}
+        float scale=(float)side/base;card.setTranslationY((side-base)/2f);
+        if(Math.abs(scale-artScale)>0.01f){artScale=scale;artPlaying=null;}
+        sizeInfo="paysage, carré "+Math.round(side/getResources().getDisplayMetrics().density)+" dp, mesuré "+card.getWidth()+"×"+card.getHeight()+" px, échelle "+String.format("%.2f",artScale);
     }
     private static final class PressEffect implements View.OnTouchListener {
         private final boolean ownHaptic;
@@ -296,7 +308,7 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         if(c.width!=side || c.height!=side){c.width=side;c.height=side;card.setLayoutParams(c);}
     }
     private void sync(){
-        if(!playerVisible()){
+        if(!playerVisible()){state="non affiché";
             if(wasVisible && getParent() instanceof View){View content=(View)getParent();content.animate().cancel();content.setAlpha(1f);content.setTranslationY(0f);}
             wasVisible=false;
             if(ticking){removeCallbacks(visualTick);ticking=false;}restoreHeader();restoreBackground();return;
@@ -309,8 +321,10 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
                 content.animate().alpha(1f).translationY(0f).setDuration(250).start();
             }
         }
+        state="affiché, "+(getResources().getConfiguration().orientation==2?"paysage":"portrait");
         hideHeader(a);applyBackground(a);stylePlay(a);sizeArtwork(a);landscape(a);sizeSkips(a);setupCosmetics(a);updateTint(a);
         if(setupDone && !ticking){ticking=true;post(visualTick);}
+        PreviewPlayerTiles.displayReport=report();
     }
     @Override public void onGlobalLayout(){sync();}
     @Override protected void onAttachedToWindow(){super.onAttachedToWindow();observer=getViewTreeObserver();observer.addOnGlobalLayoutListener(this);post(syncTask);}

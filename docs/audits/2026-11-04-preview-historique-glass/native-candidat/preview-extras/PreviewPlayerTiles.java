@@ -40,12 +40,14 @@ public final class PreviewPlayerTiles extends LinearLayout {
     private static String clean(String x){StringBuilder b=new StringBuilder();for(char c:x.toCharArray()){if((c>='a'&&c<='z')||(c>='0'&&c<='9')||c==':'||c=='-'||c==','||c=='>')b.append(c);if(b.length()>120)break;}return b.length()==0?"aucune":b.toString();}
     private static final String[] observations={"non observée","non observée","non observée"};
     private static final long[] probeSerial={0,0,0};
-    public static String diagnosticReport(){return "\nStructure File : "+observations[0]+"\nStructure Paroles : "+observations[1]+"\nStructure Appareils : "+observations[2]+"\nFile (tiroir) : "+queueJournal+"\nParoles/Appareils (tiroir) : "+panelJournal+"\nOuverture collection (compteurs, sans titre ni identifiant) : "+openTrace+(traceAt<0?"":" ; relevé il y a "+((SystemClock.elapsedRealtime()-traceAt)/1000)+" s");}
+    public static String diagnosticReport(){return "\nStructure File : "+observations[0]+"\nStructure Paroles : "+observations[1]+"\nStructure Appareils : "+observations[2]+"\nFile (tiroir) : "+queueJournal+"\nParoles/Appareils (tiroir) : "+panelJournal+"\nOuverture collection (compteurs, sans titre ni identifiant) : "+openTrace+displayReport+(traceAt<0?"":" ; relevé il y a "+((SystemClock.elapsedRealtime()-traceAt)/1000)+" s");}
     private static long traceAt=-1;
     private final Runnable traceTick=new Runnable(){public void run(){if(!isAttachedToWindow())return;readTrace(activity());postDelayed(this,2000);}};
     // Counts, fixed phase codes and durations only, read from the page's own
     // trace when the player becomes visible; anything else is discarded.
     private static String openTrace="non lue";
+    // Written by PreviewPlayerChrome: display state only (types, sizes, colours).
+    static String displayReport="\nAffichage lecteur : non observé";
     private static final String TRACE_READ="(function(){var t=window.__melodixOpenTrace;if(!t||typeof t!=='object')return '';var n=function(x){return typeof x==='number'&&isFinite(x)&&x>=0?String(Math.min(Math.round(x),9999999)):'-';};var k=t.kind==='liked'||t.kind==='playlist'?t.kind:'-';var ph=/^(none|open|ready|dom|dom-empty|classified|classified-empty|rendered|unavailable)$/.test(String(t.phase))?t.phase:'-';return [k,ph,n(t.nav),n(t.ready),n(t.dom),n(t.classified),n(t.rendered),n(t.first),n(t.full),n(t.updates)].join(',');})()";
     static String formatTrace(String raw){
         if(raw==null||raw.isEmpty())return "aucune ouverture observée";

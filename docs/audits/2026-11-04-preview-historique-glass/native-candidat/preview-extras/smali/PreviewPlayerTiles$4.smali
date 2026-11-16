@@ -60,7 +60,7 @@
         }
     .end annotation
 
-    .line 93
+    .line 95
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$4;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iput-wide p2, p0, Lcom/melodix/music/PreviewPlayerTiles$4;->val$serial:J
@@ -87,7 +87,7 @@
         }
     .end annotation
 
-    .line 93
+    .line 95
     check-cast p1, Ljava/lang/String;
 
     invoke-virtual {p0, p1}, Lcom/melodix/music/PreviewPlayerTiles$4;->onReceiveValue(Ljava/lang/String;)V
@@ -98,7 +98,7 @@
 .method public onReceiveValue(Ljava/lang/String;)V
     .locals 5
 
-    .line 95
+    .line 97
     const-string v0, "Indisponible dans cette version"
 
     iget-wide v1, p0, Lcom/melodix/music/PreviewPlayerTiles$4;->val$serial:J
@@ -125,13 +125,13 @@
 
     goto :goto_2
 
-    .line 96
+    .line 98
     :cond_0
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerTiles$4;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     invoke-static {v1}, Lcom/melodix/music/PreviewPlayerTiles;->access$708(Lcom/melodix/music/PreviewPlayerTiles;)J
 
-    .line 98
+    .line 100
     :try_start_0
     new-instance v1, Lorg/json/JSONTokener;
 
@@ -141,7 +141,7 @@
 
     move-result-object p1
 
-    .line 99
+    .line 101
     instance-of v1, p1, Ljava/lang/String;
 
     if-nez v1, :cond_1
@@ -152,7 +152,7 @@
 
     return-void
 
-    .line 100
+    .line 102
     :cond_1
     new-instance v1, Lorg/json/JSONObject;
 
@@ -160,7 +160,7 @@
 
     invoke-direct {v1, p1}, Lorg/json/JSONObject;-><init>(Ljava/lang/String;)V
 
-    .line 101
+    .line 103
     const-string p1, "ok"
 
     const/4 v2, 0x0
@@ -182,7 +182,7 @@
 
     move-result-object v3
 
-    .line 102
+    .line 104
     :cond_2
     iget-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$4;->val$body:Landroid/widget/TextView;
 
@@ -216,7 +216,7 @@
     :try_end_1
     .catch Ljava/lang/Exception; {:try_start_1 .. :try_end_1} :catch_0
 
-    .line 103
+    .line 105
     goto :goto_1
 
     :catch_0
@@ -226,11 +226,11 @@
 
     invoke-virtual {p1, v0}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
 
-    .line 104
+    .line 106
     :goto_1
     return-void
 
-    .line 95
+    .line 97
     :cond_4
     :goto_2
     return-void
