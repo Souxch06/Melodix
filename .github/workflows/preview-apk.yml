@@ -95,8 +95,16 @@ jobs:
           with open(__import__('os').environ['GITHUB_STEP_SUMMARY'],'a') as out: out.write('### Previous Preview guard diagnostic\n```\n'+text+'\n```\n')
           PY
           else
-            echo '::error title=Previous Preview guard diagnostic::Unable to retrieve previous job log using the GitHub runner.'
-            echo 'Previous job log could not be retrieved.' >> "$GITHUB_STEP_SUMMARY"
+            python3 - "$RUNNER_TEMP/fetch-error" <<'PYERR'
+          import pathlib,re,sys,os
+          text=pathlib.Path(sys.argv[1]).read_text(errors='replace')
+          http=re.search(r'HTTP \d{3}[^\n]*',text)
+          msg=(http.group(0)[:240] if http else 'network/redirect error' if text else 'no detail')
+          msg=re.sub(r'https?://\S+','[URL removed]',msg)
+          msg=msg.replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+          print('::error title=Previous Preview guard diagnostic::Unable to retrieve previous job log: '+msg)
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as out: out.write('Previous job log unavailable: '+msg+'\n')
+          PYERR
             exit 1
           fi
   build-and-release-preview:
