@@ -28,7 +28,7 @@
     .locals 0
 
     .prologue
-    .line 17
+    .line 27
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerPlayButton$1;->this$0:Lcom/melodix/music/PreviewPlayerPlayButton;
 
     iput p2, p0, Lcom/melodix/music/PreviewPlayerPlayButton$1;->val$id:I
@@ -44,7 +44,7 @@
     .locals 4
 
     .prologue
-    .line 18
+    .line 28
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerPlayButton$1;->this$0:Lcom/melodix/music/PreviewPlayerPlayButton;
 
     invoke-virtual {v0}, Lcom/melodix/music/PreviewPlayerPlayButton;->isAttachedToWindow()Z
@@ -53,12 +53,12 @@
 
     if-nez v0, :cond_1
 
-    .line 28
+    .line 38
     :cond_0
     :goto_0
     return-void
 
-    .line 19
+    .line 29
     :cond_1
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerPlayButton$1;->this$0:Lcom/melodix/music/PreviewPlayerPlayButton;
 
@@ -72,10 +72,10 @@
 
     move-result-object v1
 
-    .line 20
+    .line 30
     if-eqz v1, :cond_0
 
-    .line 21
+    .line 31
     iget v0, p0, Lcom/melodix/music/PreviewPlayerPlayButton$1;->val$id:I
 
     const v2, 0x7f080122
@@ -84,7 +84,7 @@
 
     const v0, 0x3f6b851f    # 0.92f
 
-    .line 22
+    .line 32
     :goto_1
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerPlayButton$1;->this$0:Lcom/melodix/music/PreviewPlayerPlayButton;
 
@@ -96,19 +96,19 @@
 
     if-eqz v2, :cond_0
 
-    .line 23
+    .line 33
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerPlayButton$1;->this$0:Lcom/melodix/music/PreviewPlayerPlayButton;
 
     invoke-static {v2, v0}, Lcom/melodix/music/PreviewPlayerPlayButton;->access$1(Lcom/melodix/music/PreviewPlayerPlayButton;F)V
 
-    .line 24
+    .line 34
     invoke-virtual {v1}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
 
     move-result-object v2
 
     invoke-virtual {v2}, Landroid/view/ViewPropertyAnimator;->cancel()V
 
-    .line 25
+    .line 35
     sget v2, Landroid/os/Build$VERSION;->SDK_INT:I
 
     const/16 v3, 0x1a
@@ -121,20 +121,20 @@
 
     if-nez v2, :cond_3
 
-    .line 26
+    .line 36
     invoke-virtual {v1, v0}, Landroid/view/View;->setScaleX(F)V
 
     invoke-virtual {v1, v0}, Landroid/view/View;->setScaleY(F)V
 
     goto :goto_0
 
-    .line 21
+    .line 31
     :cond_2
     const/high16 v0, 0x3f800000    # 1.0f
 
     goto :goto_1
 
-    .line 27
+    .line 37
     :cond_3
     invoke-virtual {v1}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
 

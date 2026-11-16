@@ -25,7 +25,7 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
     private View header;
     private ViewTreeObserver observer;
     private int previousHeaderVisibility;
-    private boolean headerHidden, playStyled, chromeApplied, setupDone, ticking;
+    private boolean headerHidden, playStyled, chromeApplied, setupDone, ticking, wasVisible;
     private View root, panel;
     private Drawable rootBackground, panelBackground, appliedBackground;
     private PreviewPlayerDecoration repeatArt, shuffleDot;
@@ -36,6 +36,11 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
             repeatArt.setBounds(0,0,repeatControl.getWidth(),repeatControl.getHeight()); repeatArt.invalidateSelf();
         }
         if (shuffleDot!=null && shuffleControl!=null) {
+            CharSequence label=shuffleControl.getContentDescription();
+            boolean active=label!=null && label.toString().startsWith("Lecture aléatoire activée");
+            if(shuffleControl instanceof ImageView){
+                ImageView icon=(ImageView)shuffleControl;icon.setColorFilter(active?0xffe0489e:0xffc9c0ea);icon.setImageAlpha(active?255:179);
+            }
             shuffleDot.setBounds(0,0,shuffleControl.getWidth(),shuffleControl.getHeight()); shuffleDot.invalidateSelf();
         }
         postDelayed(this,250);
@@ -112,6 +117,12 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         View like=p.findViewWithTag("like"),tiles=p.findViewWithTag("previewPlayerTiles");
         View prev=a.findViewById(0x7f09023f),next=a.findViewById(0x7f090240),play=a.findViewById(0x7f09023e);
         if(collapse==null || !(repeatControl instanceof ImageView) || shuffleControl==null || like==null || tiles==null || play==null || prev==null || next==null)return;
+        ((ViewGroup)p).setClipChildren(false);((ViewGroup)p).setClipToPadding(false);
+        ViewParent contentParent=getParent();
+        if(contentParent instanceof ViewGroup){((ViewGroup)contentParent).setClipChildren(false);((ViewGroup)contentParent).setClipToPadding(false);}
+        View art=p.findViewWithTag("previewPlayerArtCard"),frame=p.findViewWithTag("previewPlayerArtFrame");
+        if(frame instanceof ViewGroup){((ViewGroup)frame).setClipChildren(false);((ViewGroup)frame).setClipToPadding(false);}
+        if(art!=null && Build.VERSION.SDK_INT>=28){art.setOutlineSpotShadowColor(0xffe0489e);art.setOutlineAmbientShadowColor(0xffe0489e);}
         ((ImageView)repeatControl).setImageAlpha(0);
         repeatArt=new PreviewPlayerDecoration(repeatControl,true);repeatControl.getOverlay().add(repeatArt);
         shuffleDot=new PreviewPlayerDecoration(shuffleControl,false);shuffleControl.getOverlay().add(shuffleDot);
@@ -125,7 +136,13 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
             GradientDrawable center=new GradientDrawable();center.setShape(GradientDrawable.OVAL);center.setColor(0xffffffff);center.setSize(dp(16),dp(16));
             LayerDrawable thumb=new LayerDrawable(new Drawable[]{halo,center});thumb.setLayerInset(1,dp(4),dp(4),dp(4),dp(4));
             bar.setThumbTintList(null);bar.setThumb(thumb);bar.setThumbOffset(dp(12));
-            bar.setPadding(0,bar.getPaddingTop(),0,bar.getPaddingBottom());
+            bar.setPadding(dp(12),bar.getPaddingTop(),dp(12),bar.getPaddingBottom());
+            Drawable progress=bar.getProgressDrawable();
+            if(progress instanceof LayerDrawable){
+                LayerDrawable layers=(LayerDrawable)progress.mutate();
+                Drawable track=layers.findDrawableByLayerId(android.R.id.background);
+                if(track instanceof GradientDrawable)((GradientDrawable)track).setColor(0x55ffffff);
+            }
         }
         setupDone=true;
     }
@@ -155,6 +172,7 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         if(f instanceof ViewGroup.MarginLayoutParams){ViewGroup.MarginLayoutParams m=(ViewGroup.MarginLayoutParams)f;used+=m.topMargin+m.bottomMargin;}
         int available=panel.getHeight()-panel.getPaddingTop()-panel.getPaddingBottom()-used;
         int limit=Math.min(dp(318),frame.getWidth());
+        if(getResources().getConfiguration().fontScale<=1.3f && frame.getWidth()<=dp(342) && available>=frame.getWidth())limit=frame.getWidth();
         int side=getResources().getConfiguration().fontScale>1.3f?limit:Math.min(limit,Math.max(dp(80),available));
         if(side<=0)return;
         ViewGroup.LayoutParams c=card.getLayoutParams();
@@ -162,8 +180,19 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         if(c.width!=side || c.height!=side){c.width=side;c.height=side;card.setLayoutParams(c);}
     }
     private void sync(){
-        if(!playerVisible()){if(ticking){removeCallbacks(visualTick);ticking=false;}restoreHeader();restoreBackground();return;}
+        if(!playerVisible()){
+            if(wasVisible && getParent() instanceof View){View content=(View)getParent();content.animate().cancel();content.setAlpha(1f);content.setTranslationY(0f);}
+            wasVisible=false;
+            if(ticking){removeCallbacks(visualTick);ticking=false;}restoreHeader();restoreBackground();return;
+        }
         Activity a=activity();if(a==null)return;
+        if(!wasVisible){
+            wasVisible=true;
+            if(getParent() instanceof View && (Build.VERSION.SDK_INT<26 || ValueAnimator.areAnimatorsEnabled())){
+                View content=(View)getParent();content.setAlpha(0f);content.setTranslationY(dp(6));
+                content.animate().alpha(1f).translationY(0f).setDuration(250).start();
+            }
+        }
         hideHeader(a);applyBackground(a);stylePlay(a);sizeArtwork(a);setupCosmetics(a);
         if(setupDone && !ticking){ticking=true;post(visualTick);}
     }

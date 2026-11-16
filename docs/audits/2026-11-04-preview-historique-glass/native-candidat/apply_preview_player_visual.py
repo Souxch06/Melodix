@@ -14,16 +14,16 @@ EXPECTED = {
 }
 
 EXTRAS = {
-    'PreviewPlayerPlayButton.java': '37713bbc1b11ad4ec17233f5295a148caea40028c80b18b1817e59301dec146f',
-    'PreviewPlayerDecoration.java': '18a93b64db61dced10633309805f2de29765a125c4f9074ecb9805eb3a81958a',
-    'smali/PreviewPlayerPlayButton.smali': 'ddf9b1ff40a30269bf02a01ac7c4fe67e95a5758ab1c0057d7cabb09af7a269f',
-    'smali/PreviewPlayerPlayButton$1.smali': '56f8abb6c2e8167fe6fb4bc8c92788d7677b3dfd852feb0eda87c862953547f3',
-    'smali/PreviewPlayerDecoration.smali': 'a04516941d45f1a14c047f9b42a6b736a949a27763ff3586ad69ab59b3fcb4e4',
-    'smali/PreviewPlayerChrome$PressEffect.smali': 'c7e412980d10b2974b44ab671f70b46bb8ef0348a27adb37d60e2882272a3a44',
-    'smali/PreviewPlayerChrome$2.smali': '57aee5ab2ae362205770e0dc0d8d27fe27e60a43996ace31b9e67fa0590255a6',
-    'smali/PreviewPlayerChrome$1.smali': '143e8b04f10914f6fbe82ffea8bc37196f0d74d7b09349d5d6b8931dd301599c',
-    'smali/PreviewPlayerChrome.smali': '7699c2e7ddcc8d9c0fe6e6d237c1810d008b29a5c3af12fea9c1d3058947a521',
-    'PreviewPlayerChrome.java': '4f36b4728775c45624dc1391dff16d8f3e923d55228ebd42b52b527768d25f7b',
+    'PreviewPlayerPlayButton.java': '371da381b5326a599850c5788330e8f27c55a0760193c3a2761ea3f1823f1af2',
+    'PreviewPlayerDecoration.java': 'a21b4dffe6c2ba7cbce2d29012e601b88c1a5ac43b56d6cf5b578f0bc104f44d',
+    'smali/PreviewPlayerPlayButton.smali': '1a5c3c6f592238f634948876cf6bd3530a6a1fc3013513492239f6f9db9fe242',
+    'smali/PreviewPlayerPlayButton$1.smali': 'd042bab303f67b9f7359c94fb99d7958d82753ae5f0bc83b08a123999ea72399',
+    'smali/PreviewPlayerDecoration.smali': 'd6603b418eaf73a509548f2f74b5a89489d5259dc8b52832f9c720ded5f96f41',
+    'smali/PreviewPlayerChrome$PressEffect.smali': '40af42b9fc75aa7bc09615aad55113006f2b7340917fef48f7ca34e9cf5d6c4a',
+    'smali/PreviewPlayerChrome$2.smali': '16450de0b018caf9e9c06dd7e1dcf782063db31cdb6470a16ac4cd1371108d86',
+    'smali/PreviewPlayerChrome$1.smali': 'e942b18ff1db4481932183f09daab9d409119ec1736c52bc4c615d34b0d2a036',
+    'smali/PreviewPlayerChrome.smali': '2856092ce68f09e825020b740a0e4b23a8e017008dcd7566520e057129ff9420',
+    'PreviewPlayerChrome.java': '60d3a1d9f694de68949490a7860d9617b25bf62cb67b188cd269c41ef9cc205c',
     'smali/PreviewPlayerMode$1.smali': '3832e5c012f4f520778da6b2ca21b2acf7a26b4386b5d533f76c6f2d032901eb',
     'smali/PreviewPlayerMode$2.smali': 'f507a223dfedfbbd8e029e21d0c1ccfaae0e7a58b3dc4ff595194318eaab894a',
     'smali/PreviewPlayerMode$3.smali': 'a93913b09f293fb918a7b2b68670c443e598a7b435da77e26f4937306e188267',
@@ -32,10 +32,10 @@ EXTRAS = {
     'smali/PreviewPlayerMode$6.smali': '5b09ef6e39478eba452b8f9962bb0537847314638766e5345cf8f6c3a6c40030',
     'smali/PreviewPlayerMode.smali': '0bb8c71a1a2bd35350ea70758274e18b315b7ecbb836c1ac576de1bf0204b050',
     'smali/PreviewPlayerTiles$1.smali': '9daef4b22b5b64286b0467ae9d2a7af50bef94b317cbb55f25335dc8ce09cdf7',
-    'smali/PreviewPlayerTiles.smali': 'b2f28a48f65ae6ee1ffc133a0a1a03f72db6f646f57c274d433addf0dea8c97b',
+    'smali/PreviewPlayerTiles.smali': 'eb26650d0b04a371a3e37bdc2b2014c77a887e27232274e6b5d3b3898249216e',
     'control.js': '1f8b82ccdbc72111805b635b8c43d04411357f3680290bde47407f4d5740f932',
     'PreviewPlayerMode.java': '434e949ddf79214193c884ce1ed429d24f03fe400994751f3e06b7c085bd2c11',
-    'PreviewPlayerTiles.java': 'ead83cc830addaf01aa2bb53cdaca715e6bdd2be0865570665e2c5908c8f663d',
+    'PreviewPlayerTiles.java': '360d7100529e2da626e30ebe5d1f758b3ca31eba73a7d1ba1e2a44fef6a185e8',
 }
 
 def one(s, old, new):
@@ -54,7 +54,7 @@ def player_layout(source):
     header='''            <LinearLayout android:orientation="horizontal" android:gravity="center_vertical" android:layout_width="fill_parent" android:layout_height="wrap_content" android:minHeight="48.0dip">
                 <ImageButton android:src="@drawable/ic_arrow_down_24dp" android:tint="#ffffffff" android:scaleType="centerInside" android:padding="10.0dip" android:background="@drawable/native_button_dark" android:layout_width="48.0dip" android:layout_height="48.0dip" android:onClick="onNativeBackClick" android:contentDescription="Réduire le lecteur" />
                 <TextView android:text="LECTURE EN COURS" android:gravity="center" android:textSize="11.0sp" android:textStyle="bold" android:letterSpacing="0.14" android:textColor="#ffcfc6f2" android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_weight="1.0" />
-                <TextView android:text="•••" android:textColor="#ffc9c0ea" android:textSize="18.0sp" android:gravity="center" android:background="@drawable/native_button_dark" android:alpha="0.38" android:enabled="false" android:contentDescription="Menu indisponible" android:layout_width="48.0dip" android:layout_height="48.0dip" />
+                <TextView android:visibility="invisible" android:text="•••" android:textColor="#ffc9c0ea" android:textSize="18.0sp" android:gravity="center" android:background="@drawable/native_button_dark" android:alpha="0.38" android:enabled="false" android:contentDescription="Menu indisponible" android:layout_width="48.0dip" android:layout_height="48.0dip" />
             </LinearLayout>
 '''
     panel=one(panel,marker,marker.replace('android:gravity="center"','android:gravity="top"')+'            <com.melodix.music.PreviewPlayerChrome android:layout_width="0.0dip" android:layout_height="0.0dip" />\n'+header)
@@ -75,12 +75,12 @@ def player_layout(source):
                 app:layout_constraintTop_toTopOf="parent" app:layout_constraintDimensionRatio="1:1"
                 app:layout_constraintWidth_max="318dp"
                 app:contentPadding="1.0dip"
-                app:cardBackgroundColor="#ff786a95" app:cardCornerRadius="30.0dip" app:cardElevation="12.0dip">'''
+                app:cardBackgroundColor="#1fffffff" app:cardCornerRadius="30.0dip" app:cardElevation="22.0dip">'''
     panel=one(panel,old,new)
     panel=one(panel,'            </androidx.cardview.widget.CardView>','              </androidx.cardview.widget.CardView>\n            </androidx.constraintlayout.widget.ConstraintLayout>')
     panel=one(panel,'android:contentDescription="Current track artwork"','android:contentDescription="Pochette du titre"')
     panel=one(panel,'android:src="@drawable/logo_melodix"','android:src="@drawable/native_cover_placeholder"')
-    panel=one(panel,'android:textSize="24.0sp"','android:textSize="26.0sp"')
+    panel=one(panel,'android:textSize="24.0sp"','android:textSize="23.0sp" android:fontFamily="sans-serif" android:textFontWeight="800"')
     panel=one(panel,'android:text="Open Spotify to start listening"','android:text="Lecture arrêtée"')
     panel=one(panel,'android:textSize="15.0sp"','android:textSize="16.0sp"')
     panel=panel.replace('android:textColor="#ffb3b3b3"','android:textColor="#ffc9c0ea"')
@@ -115,6 +115,11 @@ def player_layout(source):
     panel=one(panel,'android:thumbTint="#ffc0a2ff"','android:thumbTint="#ffffffff"')
     panel=one(panel,'android:layout_marginTop="16.0dip"','android:layout_marginTop="20.0dip"')
     panel=one(panel,'android:maxHeight="6.0dip"','android:maxHeight="5.0dip"')
+    seek_start=panel.index('android:id="@id/nativePlayerProgress"'); seek_end=panel.index('/>',seek_start)
+    seek=panel[seek_start:seek_end].replace('android:layout_width="fill_parent"','android:layout_width="fill_parent" android:layout_marginLeft="-12.0dip" android:layout_marginRight="-12.0dip"')
+    panel=panel[:seek_start]+seek+panel[seek_end:]
+    controls='            <LinearLayout\n                android:orientation="horizontal"\n                android:gravity="center"'
+    panel=one(panel,controls,controls+' android:clipChildren="false" android:clipToPadding="false" android:paddingTop="8.0dip" android:paddingBottom="8.0dip"')
     for ident in ('nativePlayerPositionText','nativePlayerDurationText'):
         pos=panel.index('android:id="@id/'+ident+'"');stop=panel.index('/>',pos)
         segment=panel[pos:stop].replace('android:textSize="12.0sp"','android:textSize="12.0sp" android:fontFeatureSettings="tnum"')

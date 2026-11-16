@@ -19,13 +19,14 @@ public final class PreviewPlayerDecoration extends Drawable {
         String label=text==null?"":text.toString();
         boolean single=label.startsWith("Répéter le titre");
         boolean active=single || label.startsWith("Répéter la liste") || label.startsWith("Lecture aléatoire activée");
-        paint.setColor(active?0xffe0489e:0xffc9c0ea);paint.setAlpha(255);
+        paint.setColor(active?0xffe0489e:0xb3c9c0ea);
         float density=control.getResources().getDisplayMetrics().density;
         float cx=getBounds().width()/2f, cy=getBounds().height()/2f;
         if (!repeat) {
             if(active){paint.setStyle(Paint.Style.FILL);canvas.drawCircle(cx,cy+15*density,2*density,paint);}
             return;
         }
+        if(active){paint.setStyle(Paint.Style.FILL);canvas.drawCircle(cx,cy+15*density,2*density,paint);}
         canvas.save();canvas.translate(cx-12*density,cy-12*density);canvas.scale(density,density);
         paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(1.8f);paint.setStrokeCap(Paint.Cap.ROUND);paint.setStrokeJoin(Paint.Join.ROUND);
         Path path=new Path();

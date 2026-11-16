@@ -53,13 +53,15 @@
 
 .field private final visualTick:Ljava/lang/Runnable;
 
+.field private wasVisible:Z
+
 
 # direct methods
 .method public constructor <init>(Landroid/content/Context;Landroid/util/AttributeSet;)V
     .locals 1
 
     .prologue
-    .line 44
+    .line 49
     invoke-direct {p0, p1, p2}, Landroid/view/View;-><init>(Landroid/content/Context;Landroid/util/AttributeSet;)V
 
     .line 33
@@ -69,14 +71,14 @@
 
     iput-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->visualTick:Ljava/lang/Runnable;
 
-    .line 43
+    .line 48
     new-instance v0, Lcom/melodix/music/PreviewPlayerChrome$2;
 
     invoke-direct {v0, p0}, Lcom/melodix/music/PreviewPlayerChrome$2;-><init>(Lcom/melodix/music/PreviewPlayerChrome;)V
 
     iput-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->syncTask:Ljava/lang/Runnable;
 
-    .line 44
+    .line 49
     return-void
 .end method
 
@@ -84,7 +86,7 @@
     .locals 1
 
     .prologue
-    .line 54
+    .line 59
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerChrome;->playerVisible()Z
 
     move-result v0
@@ -146,7 +148,7 @@
     .locals 0
 
     .prologue
-    .line 164
+    .line 182
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerChrome;->sync()V
 
     return-void
@@ -156,12 +158,12 @@
     .locals 4
 
     .prologue
-    .line 47
+    .line 52
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerChrome;->getContext()Landroid/content/Context;
 
     move-result-object v0
 
-    .line 48
+    .line 53
     const/4 v1, 0x0
 
     move v2, v1
@@ -175,7 +177,7 @@
 
     if-nez v1, :cond_1
 
-    .line 52
+    .line 57
     :cond_0
     instance-of v1, v0, Landroid/app/Activity;
 
@@ -186,7 +188,7 @@
     :goto_1
     return-object v0
 
-    .line 49
+    .line 54
     :cond_1
     instance-of v1, v0, Landroid/app/Activity;
 
@@ -199,7 +201,7 @@
     :cond_2
     move-object v1, v0
 
-    .line 50
+    .line 55
     check-cast v1, Landroid/content/ContextWrapper;
 
     invoke-virtual {v1}, Landroid/content/ContextWrapper;->getBaseContext()Landroid/content/Context;
@@ -208,7 +210,7 @@
 
     if-eq v3, v0, :cond_0
 
-    .line 48
+    .line 53
     add-int/lit8 v1, v2, 0x1
 
     move v2, v1
@@ -217,7 +219,7 @@
 
     goto :goto_0
 
-    .line 52
+    .line 57
     :cond_3
     const/4 v0, 0x0
 
@@ -228,17 +230,17 @@
     .locals 6
 
     .prologue
-    .line 69
+    .line 74
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->chromeApplied:Z
 
     if-eqz v0, :cond_1
 
-    .line 77
+    .line 82
     :cond_0
     :goto_0
     return-void
 
-    .line 70
+    .line 75
     :cond_1
     const v0, 0x7f09022f
 
@@ -256,7 +258,7 @@
 
     iput-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->panel:Landroid/view/View;
 
-    .line 71
+    .line 76
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->root:Landroid/view/View;
 
     if-eqz v0, :cond_0
@@ -273,7 +275,7 @@
 
     if-eqz v0, :cond_0
 
-    .line 72
+    .line 77
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->root:Landroid/view/View;
 
     invoke-virtual {v0}, Landroid/view/View;->getBackground()Landroid/graphics/drawable/Drawable;
@@ -290,7 +292,7 @@
 
     iput-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->panelBackground:Landroid/graphics/drawable/Drawable;
 
-    .line 73
+    .line 78
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerChrome;->getResources()Landroid/content/res/Resources;
 
     move-result-object v0
@@ -311,7 +313,7 @@
 
     iput-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->appliedBackground:Landroid/graphics/drawable/Drawable;
 
-    .line 74
+    .line 79
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->root:Landroid/view/View;
 
     invoke-virtual {v0}, Landroid/view/View;->getPaddingLeft()I
@@ -336,7 +338,7 @@
 
     move-result v3
 
-    .line 75
+    .line 80
     iget-object v4, p0, Lcom/melodix/music/PreviewPlayerChrome;->root:Landroid/view/View;
 
     iget-object v5, p0, Lcom/melodix/music/PreviewPlayerChrome;->appliedBackground:Landroid/graphics/drawable/Drawable;
@@ -353,7 +355,7 @@
 
     invoke-virtual {v0, v1}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
 
-    .line 76
+    .line 81
     const/4 v0, 0x1
 
     iput-boolean v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->chromeApplied:Z
@@ -365,7 +367,7 @@
     .locals 2
 
     .prologue
-    .line 45
+    .line 50
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerChrome;->getResources()Landroid/content/res/Resources;
 
     move-result-object v0
@@ -391,7 +393,7 @@
     .locals 2
 
     .prologue
-    .line 103
+    .line 108
     const-string v1, "R\u00e9duire le lecteur"
 
     invoke-virtual {p1}, Landroid/view/View;->getContentDescription()Ljava/lang/CharSequence;
@@ -409,11 +411,11 @@
 
     if-eqz v0, :cond_1
 
-    .line 105
+    .line 110
     :goto_1
     return-object p1
 
-    .line 103
+    .line 108
     :cond_0
     invoke-virtual {p1}, Landroid/view/View;->getContentDescription()Ljava/lang/CharSequence;
 
@@ -421,7 +423,7 @@
 
     goto :goto_0
 
-    .line 104
+    .line 109
     :cond_1
     instance-of v0, p1, Landroid/view/ViewGroup;
 
@@ -438,13 +440,13 @@
 
     if-lt v0, v1, :cond_3
 
-    .line 105
+    .line 110
     :cond_2
     const/4 p1, 0x0
 
     goto :goto_1
 
-    .line 104
+    .line 109
     :cond_3
     invoke-virtual {p1, v0}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
 
@@ -470,17 +472,17 @@
     .locals 3
 
     .prologue
-    .line 56
+    .line 61
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->headerHidden:Z
 
     if-eqz v0, :cond_1
 
-    .line 63
+    .line 68
     :cond_0
     :goto_0
     return-void
 
-    .line 57
+    .line 62
     :cond_1
     const v0, 0x7f090230
 
@@ -494,7 +496,7 @@
 
     move-result-object v1
 
-    .line 58
+    .line 63
     if-eqz v0, :cond_0
 
     invoke-virtual {v0}, Landroid/view/View;->getParent()Landroid/view/ViewParent;
@@ -505,21 +507,21 @@
 
     if-eqz v2, :cond_0
 
-    .line 59
+    .line 64
     invoke-virtual {v0}, Landroid/view/View;->getParent()Landroid/view/ViewParent;
 
     move-result-object v0
 
     check-cast v0, Landroid/view/View;
 
-    .line 60
+    .line 65
     invoke-virtual {v0}, Landroid/view/View;->getParent()Landroid/view/ViewParent;
 
     move-result-object v2
 
     if-ne v2, v1, :cond_0
 
-    .line 61
+    .line 66
     iput-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->header:Landroid/view/View;
 
     invoke-virtual {v0}, Landroid/view/View;->getVisibility()I
@@ -532,7 +534,7 @@
 
     iput-boolean v1, p0, Lcom/melodix/music/PreviewPlayerChrome;->headerHidden:Z
 
-    .line 62
+    .line 67
     const/16 v1, 0x8
 
     invoke-virtual {v0, v1}, Landroid/view/View;->setVisibility(I)V
@@ -544,7 +546,7 @@
     .locals 1
 
     .prologue
-    .line 54
+    .line 59
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerChrome;->isAttachedToWindow()Z
 
     move-result v0
@@ -580,16 +582,16 @@
     .prologue
     const/4 v6, 0x0
 
-    .line 79
+    .line 84
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->chromeApplied:Z
 
     if-nez v0, :cond_0
 
-    .line 86
+    .line 91
     :goto_0
     return-void
 
-    .line 80
+    .line 85
     :cond_0
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->root:Landroid/view/View;
 
@@ -605,7 +607,7 @@
 
     if-ne v0, v1, :cond_1
 
-    .line 81
+    .line 86
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->root:Landroid/view/View;
 
     invoke-virtual {v0}, Landroid/view/View;->getPaddingLeft()I
@@ -630,7 +632,7 @@
 
     move-result v3
 
-    .line 82
+    .line 87
     iget-object v4, p0, Lcom/melodix/music/PreviewPlayerChrome;->root:Landroid/view/View;
 
     iget-object v5, p0, Lcom/melodix/music/PreviewPlayerChrome;->rootBackground:Landroid/graphics/drawable/Drawable;
@@ -641,7 +643,7 @@
 
     invoke-virtual {v4, v0, v1, v2, v3}, Landroid/view/View;->setPadding(IIII)V
 
-    .line 84
+    .line 89
     :cond_1
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->panel:Landroid/view/View;
 
@@ -661,7 +663,7 @@
 
     invoke-virtual {v0, v1}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
 
-    .line 85
+    .line 90
     :cond_2
     iput-object v6, p0, Lcom/melodix/music/PreviewPlayerChrome;->root:Landroid/view/View;
 
@@ -684,7 +686,7 @@
     .locals 2
 
     .prologue
-    .line 65
+    .line 70
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->headerHidden:Z
 
     if-eqz v0, :cond_0
@@ -699,7 +701,7 @@
 
     invoke-virtual {v0, v1}, Landroid/view/View;->setVisibility(I)V
 
-    .line 66
+    .line 71
     :cond_0
     const/4 v0, 0x0
 
@@ -709,102 +711,102 @@
 
     iput-boolean v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->headerHidden:Z
 
-    .line 67
+    .line 72
     return-void
 .end method
 
 .method private setupCosmetics(Landroid/app/Activity;)V
-    .locals 13
+    .locals 14
 
     .prologue
-    const/high16 v12, 0x41800000    # 16.0f
+    const/4 v13, 0x2
 
-    const/4 v11, 0x2
+    const/high16 v12, 0x41400000    # 12.0f
 
-    const/high16 v10, 0x40800000    # 4.0f
+    const/high16 v11, 0x40800000    # 4.0f
 
     const/4 v1, 0x1
 
-    const/4 v7, 0x0
+    const/4 v5, 0x0
 
-    .line 108
+    .line 113
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->setupDone:Z
 
     if-eqz v0, :cond_1
 
-    .line 131
+    .line 148
     :cond_0
     :goto_0
     return-void
 
-    .line 109
+    .line 114
     :cond_1
     const v0, 0x7f09023a
 
     invoke-virtual {p1, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
 
-    move-result-object v0
-
-    instance-of v2, v0, Landroid/view/ViewGroup;
-
-    if-eqz v2, :cond_0
-
-    .line 110
-    invoke-direct {p0, v0}, Lcom/melodix/music/PreviewPlayerChrome;->findCollapse(Landroid/view/View;)Landroid/view/View;
-
-    move-result-object v3
-
-    .line 111
-    const-string v2, "repeat"
-
-    invoke-virtual {v0, v2}, Landroid/view/View;->findViewWithTag(Ljava/lang/Object;)Landroid/view/View;
-
     move-result-object v2
 
-    iput-object v2, p0, Lcom/melodix/music/PreviewPlayerChrome;->repeatControl:Landroid/view/View;
+    instance-of v0, v2, Landroid/view/ViewGroup;
 
-    const-string v2, "shuffle"
+    if-eqz v0, :cond_0
 
-    invoke-virtual {v0, v2}, Landroid/view/View;->findViewWithTag(Ljava/lang/Object;)Landroid/view/View;
-
-    move-result-object v2
-
-    iput-object v2, p0, Lcom/melodix/music/PreviewPlayerChrome;->shuffleControl:Landroid/view/View;
-
-    .line 112
-    const-string v2, "like"
-
-    invoke-virtual {v0, v2}, Landroid/view/View;->findViewWithTag(Ljava/lang/Object;)Landroid/view/View;
-
-    move-result-object v4
-
-    const-string v2, "previewPlayerTiles"
-
-    invoke-virtual {v0, v2}, Landroid/view/View;->findViewWithTag(Ljava/lang/Object;)Landroid/view/View;
-
-    move-result-object v2
-
-    .line 113
-    const v0, 0x7f09023f
-
-    invoke-virtual {p1, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-
-    move-result-object v5
-
-    const v0, 0x7f090240
-
-    invoke-virtual {p1, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    .line 115
+    invoke-direct {p0, v2}, Lcom/melodix/music/PreviewPlayerChrome;->findCollapse(Landroid/view/View;)Landroid/view/View;
 
     move-result-object v6
 
-    const v0, 0x7f09023e
+    .line 116
+    const-string v0, "repeat"
+
+    invoke-virtual {v2, v0}, Landroid/view/View;->findViewWithTag(Ljava/lang/Object;)Landroid/view/View;
+
+    move-result-object v0
+
+    iput-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->repeatControl:Landroid/view/View;
+
+    const-string v0, "shuffle"
+
+    invoke-virtual {v2, v0}, Landroid/view/View;->findViewWithTag(Ljava/lang/Object;)Landroid/view/View;
+
+    move-result-object v0
+
+    iput-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->shuffleControl:Landroid/view/View;
+
+    .line 117
+    const-string v0, "like"
+
+    invoke-virtual {v2, v0}, Landroid/view/View;->findViewWithTag(Ljava/lang/Object;)Landroid/view/View;
+
+    move-result-object v7
+
+    const-string v0, "previewPlayerTiles"
+
+    invoke-virtual {v2, v0}, Landroid/view/View;->findViewWithTag(Ljava/lang/Object;)Landroid/view/View;
+
+    move-result-object v4
+
+    .line 118
+    const v0, 0x7f09023f
 
     invoke-virtual {p1, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
 
     move-result-object v8
 
-    .line 114
-    if-eqz v3, :cond_0
+    const v0, 0x7f090240
+
+    invoke-virtual {p1, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+
+    move-result-object v9
+
+    const v0, 0x7f09023e
+
+    invoke-virtual {p1, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+
+    move-result-object v10
+
+    .line 119
+    if-eqz v6, :cond_0
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->repeatControl:Landroid/view/View;
 
@@ -816,29 +818,110 @@
 
     if-eqz v0, :cond_0
 
+    if-eqz v7, :cond_0
+
     if-eqz v4, :cond_0
 
-    if-eqz v2, :cond_0
+    if-eqz v10, :cond_0
 
     if-eqz v8, :cond_0
 
-    if-eqz v5, :cond_0
+    if-eqz v9, :cond_0
 
-    if-eqz v6, :cond_0
+    move-object v0, v2
 
-    .line 115
+    .line 120
+    check-cast v0, Landroid/view/ViewGroup;
+
+    invoke-virtual {v0, v5}, Landroid/view/ViewGroup;->setClipChildren(Z)V
+
+    move-object v0, v2
+
+    check-cast v0, Landroid/view/ViewGroup;
+
+    invoke-virtual {v0, v5}, Landroid/view/ViewGroup;->setClipToPadding(Z)V
+
+    .line 121
+    invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerChrome;->getParent()Landroid/view/ViewParent;
+
+    move-result-object v3
+
+    .line 122
+    instance-of v0, v3, Landroid/view/ViewGroup;
+
+    if-eqz v0, :cond_2
+
+    move-object v0, v3
+
+    check-cast v0, Landroid/view/ViewGroup;
+
+    invoke-virtual {v0, v5}, Landroid/view/ViewGroup;->setClipChildren(Z)V
+
+    check-cast v3, Landroid/view/ViewGroup;
+
+    invoke-virtual {v3, v5}, Landroid/view/ViewGroup;->setClipToPadding(Z)V
+
+    .line 123
+    :cond_2
+    const-string v0, "previewPlayerArtCard"
+
+    invoke-virtual {v2, v0}, Landroid/view/View;->findViewWithTag(Ljava/lang/Object;)Landroid/view/View;
+
+    move-result-object v3
+
+    const-string v0, "previewPlayerArtFrame"
+
+    invoke-virtual {v2, v0}, Landroid/view/View;->findViewWithTag(Ljava/lang/Object;)Landroid/view/View;
+
+    move-result-object v2
+
+    .line 124
+    instance-of v0, v2, Landroid/view/ViewGroup;
+
+    if-eqz v0, :cond_3
+
+    move-object v0, v2
+
+    check-cast v0, Landroid/view/ViewGroup;
+
+    invoke-virtual {v0, v5}, Landroid/view/ViewGroup;->setClipChildren(Z)V
+
+    check-cast v2, Landroid/view/ViewGroup;
+
+    invoke-virtual {v2, v5}, Landroid/view/ViewGroup;->setClipToPadding(Z)V
+
+    .line 125
+    :cond_3
+    if-eqz v3, :cond_4
+
+    sget v0, Landroid/os/Build$VERSION;->SDK_INT:I
+
+    const/16 v2, 0x1c
+
+    if-lt v0, v2, :cond_4
+
+    const v0, -0x1fb762
+
+    invoke-virtual {v3, v0}, Landroid/view/View;->setOutlineSpotShadowColor(I)V
+
+    const v0, -0x1fb762
+
+    invoke-virtual {v3, v0}, Landroid/view/View;->setOutlineAmbientShadowColor(I)V
+
+    .line 126
+    :cond_4
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->repeatControl:Landroid/view/View;
 
     check-cast v0, Landroid/widget/ImageView;
 
-    invoke-virtual {v0, v7}, Landroid/widget/ImageView;->setImageAlpha(I)V
+    invoke-virtual {v0, v5}, Landroid/widget/ImageView;->setImageAlpha(I)V
 
-    .line 116
+    .line 127
     new-instance v0, Lcom/melodix/music/PreviewPlayerDecoration;
 
-    iget-object v9, p0, Lcom/melodix/music/PreviewPlayerChrome;->repeatControl:Landroid/view/View;
+    iget-object v2, p0, Lcom/melodix/music/PreviewPlayerChrome;->repeatControl:Landroid/view/View;
 
-    invoke-direct {v0, v9, v1}, Lcom/melodix/music/PreviewPlayerDecoration;-><init>(Landroid/view/View;Z)V
+    invoke-direct {v0, v2, v1}, Lcom/melodix/music/PreviewPlayerDecoration;-><init>(Landroid/view/View;Z)V
 
     iput-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->repeatArt:Lcom/melodix/music/PreviewPlayerDecoration;
 
@@ -848,16 +931,16 @@
 
     move-result-object v0
 
-    iget-object v9, p0, Lcom/melodix/music/PreviewPlayerChrome;->repeatArt:Lcom/melodix/music/PreviewPlayerDecoration;
+    iget-object v2, p0, Lcom/melodix/music/PreviewPlayerChrome;->repeatArt:Lcom/melodix/music/PreviewPlayerDecoration;
 
-    invoke-virtual {v0, v9}, Landroid/view/ViewOverlay;->add(Landroid/graphics/drawable/Drawable;)V
+    invoke-virtual {v0, v2}, Landroid/view/ViewOverlay;->add(Landroid/graphics/drawable/Drawable;)V
 
-    .line 117
+    .line 128
     new-instance v0, Lcom/melodix/music/PreviewPlayerDecoration;
 
-    iget-object v9, p0, Lcom/melodix/music/PreviewPlayerChrome;->shuffleControl:Landroid/view/View;
+    iget-object v2, p0, Lcom/melodix/music/PreviewPlayerChrome;->shuffleControl:Landroid/view/View;
 
-    invoke-direct {v0, v9, v7}, Lcom/melodix/music/PreviewPlayerDecoration;-><init>(Landroid/view/View;Z)V
+    invoke-direct {v0, v2, v5}, Lcom/melodix/music/PreviewPlayerDecoration;-><init>(Landroid/view/View;Z)V
 
     iput-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->shuffleDot:Lcom/melodix/music/PreviewPlayerDecoration;
 
@@ -867,91 +950,91 @@
 
     move-result-object v0
 
-    iget-object v9, p0, Lcom/melodix/music/PreviewPlayerChrome;->shuffleDot:Lcom/melodix/music/PreviewPlayerDecoration;
+    iget-object v2, p0, Lcom/melodix/music/PreviewPlayerChrome;->shuffleDot:Lcom/melodix/music/PreviewPlayerDecoration;
 
-    invoke-virtual {v0, v9}, Landroid/view/ViewOverlay;->add(Landroid/graphics/drawable/Drawable;)V
+    invoke-virtual {v0, v2}, Landroid/view/ViewOverlay;->add(Landroid/graphics/drawable/Drawable;)V
 
-    .line 118
+    .line 129
     const/4 v0, 0x4
 
-    new-array v9, v0, [Landroid/view/View;
+    new-array v2, v0, [Landroid/view/View;
 
-    aput-object v3, v9, v7
+    aput-object v6, v2, v5
 
-    aput-object v5, v9, v1
+    aput-object v8, v2, v1
 
-    aput-object v6, v9, v11
+    aput-object v9, v2, v13
 
     const/4 v0, 0x3
 
-    aput-object v8, v9, v0
+    aput-object v10, v2, v0
 
-    array-length v3, v9
+    array-length v3, v2
 
-    move v0, v7
+    move v0, v5
 
     :goto_1
-    if-lt v0, v3, :cond_4
+    if-lt v0, v3, :cond_7
 
-    .line 119
+    .line 130
     const/4 v0, 0x3
 
-    new-array v3, v0, [Landroid/view/View;
+    new-array v2, v0, [Landroid/view/View;
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->repeatControl:Landroid/view/View;
 
-    aput-object v0, v3, v7
+    aput-object v0, v2, v5
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->shuffleControl:Landroid/view/View;
 
-    aput-object v0, v3, v1
+    aput-object v0, v2, v1
 
-    aput-object v4, v3, v11
+    aput-object v7, v2, v13
 
-    array-length v4, v3
+    array-length v3, v2
 
-    move v0, v7
+    move v0, v5
 
     :goto_2
-    if-lt v0, v4, :cond_5
+    if-lt v0, v3, :cond_8
 
-    .line 120
-    instance-of v0, v2, Landroid/view/ViewGroup;
+    .line 131
+    instance-of v0, v4, Landroid/view/ViewGroup;
 
-    if-eqz v0, :cond_2
+    if-eqz v0, :cond_5
 
-    move-object v0, v2
+    move-object v0, v4
 
     check-cast v0, Landroid/view/ViewGroup;
 
-    move v2, v7
+    move v2, v5
 
     :goto_3
     invoke-virtual {v0}, Landroid/view/ViewGroup;->getChildCount()I
 
     move-result v3
 
-    if-lt v2, v3, :cond_6
+    if-lt v2, v3, :cond_9
 
-    .line 121
-    :cond_2
+    .line 132
+    :cond_5
     const v0, 0x7f09023d
 
     invoke-virtual {p1, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
 
     move-result-object v0
 
-    .line 122
+    .line 133
     instance-of v2, v0, Landroid/widget/SeekBar;
 
-    if-eqz v2, :cond_3
+    if-eqz v2, :cond_6
 
     move-object v6, v0
 
-    .line 123
+    .line 134
     check-cast v6, Landroid/widget/SeekBar;
 
-    .line 124
+    .line 135
     new-instance v2, Landroid/graphics/drawable/GradientDrawable;
 
     invoke-direct {v2}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
@@ -976,7 +1059,7 @@
 
     invoke-virtual {v2, v0, v3}, Landroid/graphics/drawable/GradientDrawable;->setSize(II)V
 
-    .line 125
+    .line 136
     new-instance v3, Landroid/graphics/drawable/GradientDrawable;
 
     invoke-direct {v3}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
@@ -987,114 +1070,159 @@
 
     invoke-virtual {v3, v0}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
 
-    invoke-direct {p0, v12}, Lcom/melodix/music/PreviewPlayerChrome;->dp(F)I
+    const/high16 v0, 0x41800000    # 16.0f
+
+    invoke-direct {p0, v0}, Lcom/melodix/music/PreviewPlayerChrome;->dp(F)I
 
     move-result v0
 
-    invoke-direct {p0, v12}, Lcom/melodix/music/PreviewPlayerChrome;->dp(F)I
+    const/high16 v4, 0x41800000    # 16.0f
+
+    invoke-direct {p0, v4}, Lcom/melodix/music/PreviewPlayerChrome;->dp(F)I
 
     move-result v4
 
     invoke-virtual {v3, v0, v4}, Landroid/graphics/drawable/GradientDrawable;->setSize(II)V
 
-    .line 126
+    .line 137
     new-instance v0, Landroid/graphics/drawable/LayerDrawable;
 
-    new-array v4, v11, [Landroid/graphics/drawable/Drawable;
+    new-array v4, v13, [Landroid/graphics/drawable/Drawable;
 
-    aput-object v2, v4, v7
+    aput-object v2, v4, v5
 
     aput-object v3, v4, v1
 
     invoke-direct {v0, v4}, Landroid/graphics/drawable/LayerDrawable;-><init>([Landroid/graphics/drawable/Drawable;)V
 
-    invoke-direct {p0, v10}, Lcom/melodix/music/PreviewPlayerChrome;->dp(F)I
+    invoke-direct {p0, v11}, Lcom/melodix/music/PreviewPlayerChrome;->dp(F)I
 
     move-result v2
 
-    invoke-direct {p0, v10}, Lcom/melodix/music/PreviewPlayerChrome;->dp(F)I
+    invoke-direct {p0, v11}, Lcom/melodix/music/PreviewPlayerChrome;->dp(F)I
 
     move-result v3
 
-    invoke-direct {p0, v10}, Lcom/melodix/music/PreviewPlayerChrome;->dp(F)I
+    invoke-direct {p0, v11}, Lcom/melodix/music/PreviewPlayerChrome;->dp(F)I
 
     move-result v4
 
-    invoke-direct {p0, v10}, Lcom/melodix/music/PreviewPlayerChrome;->dp(F)I
+    invoke-direct {p0, v11}, Lcom/melodix/music/PreviewPlayerChrome;->dp(F)I
 
     move-result v5
 
     invoke-virtual/range {v0 .. v5}, Landroid/graphics/drawable/LayerDrawable;->setLayerInset(IIIII)V
 
-    .line 127
+    .line 138
     const/4 v2, 0x0
 
     invoke-virtual {v6, v2}, Landroid/widget/SeekBar;->setThumbTintList(Landroid/content/res/ColorStateList;)V
 
     invoke-virtual {v6, v0}, Landroid/widget/SeekBar;->setThumb(Landroid/graphics/drawable/Drawable;)V
 
-    const/high16 v0, 0x41400000    # 12.0f
-
-    invoke-direct {p0, v0}, Lcom/melodix/music/PreviewPlayerChrome;->dp(F)I
+    invoke-direct {p0, v12}, Lcom/melodix/music/PreviewPlayerChrome;->dp(F)I
 
     move-result v0
 
     invoke-virtual {v6, v0}, Landroid/widget/SeekBar;->setThumbOffset(I)V
 
-    .line 128
-    invoke-virtual {v6}, Landroid/widget/SeekBar;->getPaddingTop()I
+    .line 139
+    invoke-direct {p0, v12}, Lcom/melodix/music/PreviewPlayerChrome;->dp(F)I
 
     move-result v0
 
-    invoke-virtual {v6}, Landroid/widget/SeekBar;->getPaddingBottom()I
+    invoke-virtual {v6}, Landroid/widget/SeekBar;->getPaddingTop()I
 
     move-result v2
 
-    invoke-virtual {v6, v7, v0, v7, v2}, Landroid/widget/SeekBar;->setPadding(IIII)V
+    invoke-direct {p0, v12}, Lcom/melodix/music/PreviewPlayerChrome;->dp(F)I
 
-    .line 130
-    :cond_3
+    move-result v3
+
+    invoke-virtual {v6}, Landroid/widget/SeekBar;->getPaddingBottom()I
+
+    move-result v4
+
+    invoke-virtual {v6, v0, v2, v3, v4}, Landroid/widget/SeekBar;->setPadding(IIII)V
+
+    .line 140
+    invoke-virtual {v6}, Landroid/widget/SeekBar;->getProgressDrawable()Landroid/graphics/drawable/Drawable;
+
+    move-result-object v0
+
+    .line 141
+    instance-of v2, v0, Landroid/graphics/drawable/LayerDrawable;
+
+    if-eqz v2, :cond_6
+
+    .line 142
+    invoke-virtual {v0}, Landroid/graphics/drawable/Drawable;->mutate()Landroid/graphics/drawable/Drawable;
+
+    move-result-object v0
+
+    check-cast v0, Landroid/graphics/drawable/LayerDrawable;
+
+    .line 143
+    const/high16 v2, 0x1020000
+
+    invoke-virtual {v0, v2}, Landroid/graphics/drawable/LayerDrawable;->findDrawableByLayerId(I)Landroid/graphics/drawable/Drawable;
+
+    move-result-object v0
+
+    .line 144
+    instance-of v2, v0, Landroid/graphics/drawable/GradientDrawable;
+
+    if-eqz v2, :cond_6
+
+    check-cast v0, Landroid/graphics/drawable/GradientDrawable;
+
+    const v2, 0x55ffffff    # 3.518437E13f
+
+    invoke-virtual {v0, v2}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
+
+    .line 147
+    :cond_6
     iput-boolean v1, p0, Lcom/melodix/music/PreviewPlayerChrome;->setupDone:Z
 
     goto/16 :goto_0
 
-    .line 118
-    :cond_4
-    aget-object v5, v9, v0
+    .line 129
+    :cond_7
+    aget-object v6, v2, v0
 
-    new-instance v6, Lcom/melodix/music/PreviewPlayerChrome$PressEffect;
+    new-instance v8, Lcom/melodix/music/PreviewPlayerChrome$PressEffect;
 
-    invoke-direct {v6, v1}, Lcom/melodix/music/PreviewPlayerChrome$PressEffect;-><init>(Z)V
+    invoke-direct {v8, v1}, Lcom/melodix/music/PreviewPlayerChrome$PressEffect;-><init>(Z)V
 
-    invoke-virtual {v5, v6}, Landroid/view/View;->setOnTouchListener(Landroid/view/View$OnTouchListener;)V
+    invoke-virtual {v6, v8}, Landroid/view/View;->setOnTouchListener(Landroid/view/View$OnTouchListener;)V
 
     add-int/lit8 v0, v0, 0x1
 
     goto/16 :goto_1
 
-    .line 119
-    :cond_5
-    aget-object v5, v3, v0
+    .line 130
+    :cond_8
+    aget-object v6, v2, v0
 
-    new-instance v6, Lcom/melodix/music/PreviewPlayerChrome$PressEffect;
+    new-instance v7, Lcom/melodix/music/PreviewPlayerChrome$PressEffect;
 
-    invoke-direct {v6, v7}, Lcom/melodix/music/PreviewPlayerChrome$PressEffect;-><init>(Z)V
+    invoke-direct {v7, v5}, Lcom/melodix/music/PreviewPlayerChrome$PressEffect;-><init>(Z)V
 
-    invoke-virtual {v5, v6}, Landroid/view/View;->setOnTouchListener(Landroid/view/View$OnTouchListener;)V
+    invoke-virtual {v6, v7}, Landroid/view/View;->setOnTouchListener(Landroid/view/View$OnTouchListener;)V
 
     add-int/lit8 v0, v0, 0x1
 
     goto/16 :goto_2
 
-    .line 120
-    :cond_6
+    .line 131
+    :cond_9
     invoke-virtual {v0, v2}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
 
     move-result-object v3
 
     new-instance v4, Lcom/melodix/music/PreviewPlayerChrome$PressEffect;
 
-    invoke-direct {v4, v7}, Lcom/melodix/music/PreviewPlayerChrome$PressEffect;-><init>(Z)V
+    invoke-direct {v4, v5}, Lcom/melodix/music/PreviewPlayerChrome$PressEffect;-><init>(Z)V
 
     invoke-virtual {v3, v4}, Landroid/view/View;->setOnTouchListener(Landroid/view/View$OnTouchListener;)V
 
@@ -1104,12 +1232,14 @@
 .end method
 
 .method private sizeArtwork(Landroid/app/Activity;)V
-    .locals 9
+    .locals 10
 
     .prologue
     const/4 v1, 0x0
 
-    .line 142
+    const v9, 0x3fa66666    # 1.3f
+
+    .line 159
     const v0, 0x7f09023a
 
     invoke-virtual {p1, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
@@ -1120,23 +1250,23 @@
 
     move-result-object v0
 
-    .line 143
+    .line 160
     if-eqz v4, :cond_0
 
     instance-of v2, v0, Landroid/view/ViewGroup;
 
     if-nez v2, :cond_1
 
-    .line 163
+    .line 181
     :cond_0
     :goto_0
     return-void
 
-    .line 144
+    .line 161
     :cond_1
     check-cast v0, Landroid/view/ViewGroup;
 
-    .line 145
+    .line 162
     const-string v2, "previewPlayerArtFrame"
 
     invoke-virtual {v0, v2}, Landroid/view/ViewGroup;->findViewWithTag(Ljava/lang/Object;)Landroid/view/View;
@@ -1149,7 +1279,7 @@
 
     move-result-object v6
 
-    .line 146
+    .line 163
     if-eqz v5, :cond_0
 
     if-eqz v6, :cond_0
@@ -1176,20 +1306,20 @@
 
     move v3, v1
 
-    .line 148
+    .line 165
     :goto_1
     invoke-virtual {v0}, Landroid/view/ViewGroup;->getChildCount()I
 
     move-result v1
 
-    if-lt v2, v1, :cond_5
+    if-lt v2, v1, :cond_6
 
-    .line 154
+    .line 171
     invoke-virtual {v5}, Landroid/view/View;->getLayoutParams()Landroid/view/ViewGroup$LayoutParams;
 
     move-result-object v1
 
-    .line 155
+    .line 172
     instance-of v0, v1, Landroid/view/ViewGroup$MarginLayoutParams;
 
     if-eqz v0, :cond_2
@@ -1206,7 +1336,7 @@
 
     add-int/2addr v3, v0
 
-    .line 156
+    .line 173
     :cond_2
     invoke-virtual {v4}, Landroid/view/View;->getHeight()I
 
@@ -1226,7 +1356,7 @@
 
     sub-int v2, v0, v3
 
-    .line 157
+    .line 174
     const/high16 v0, 0x439f0000    # 318.0f
 
     invoke-direct {p0, v0}, Lcom/melodix/music/PreviewPlayerChrome;->dp(F)I
@@ -1241,7 +1371,7 @@
 
     move-result v0
 
-    .line 158
+    .line 175
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerChrome;->getResources()Landroid/content/res/Resources;
 
     move-result-object v3
@@ -1252,41 +1382,77 @@
 
     iget v3, v3, Landroid/content/res/Configuration;->fontScale:F
 
-    const v4, 0x3fa66666    # 1.3f
+    cmpg-float v3, v3, v9
 
-    cmpl-float v3, v3, v4
+    if-gtz v3, :cond_3
 
-    if-lez v3, :cond_8
+    invoke-virtual {v5}, Landroid/view/View;->getWidth()I
 
-    .line 159
+    move-result v3
+
+    const/high16 v4, 0x43ab0000    # 342.0f
+
+    invoke-direct {p0, v4}, Lcom/melodix/music/PreviewPlayerChrome;->dp(F)I
+
+    move-result v4
+
+    if-gt v3, v4, :cond_3
+
+    invoke-virtual {v5}, Landroid/view/View;->getWidth()I
+
+    move-result v3
+
+    if-lt v2, v3, :cond_3
+
+    invoke-virtual {v5}, Landroid/view/View;->getWidth()I
+
+    move-result v0
+
+    .line 176
+    :cond_3
+    invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerChrome;->getResources()Landroid/content/res/Resources;
+
+    move-result-object v3
+
+    invoke-virtual {v3}, Landroid/content/res/Resources;->getConfiguration()Landroid/content/res/Configuration;
+
+    move-result-object v3
+
+    iget v3, v3, Landroid/content/res/Configuration;->fontScale:F
+
+    cmpl-float v3, v3, v9
+
+    if-lez v3, :cond_9
+
+    .line 177
     :goto_2
     if-lez v0, :cond_0
 
-    .line 160
+    .line 178
     invoke-virtual {v6}, Landroid/view/View;->getLayoutParams()Landroid/view/ViewGroup$LayoutParams;
 
     move-result-object v2
 
-    .line 161
+    .line 179
     iget v3, v1, Landroid/view/ViewGroup$LayoutParams;->height:I
 
-    if-eq v3, v0, :cond_3
+    if-eq v3, v0, :cond_4
 
     iput v0, v1, Landroid/view/ViewGroup$LayoutParams;->height:I
 
     invoke-virtual {v5, v1}, Landroid/view/View;->setLayoutParams(Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 162
-    :cond_3
+    .line 180
+    :cond_4
     iget v1, v2, Landroid/view/ViewGroup$LayoutParams;->width:I
 
-    if-ne v1, v0, :cond_4
+    if-ne v1, v0, :cond_5
 
     iget v1, v2, Landroid/view/ViewGroup$LayoutParams;->height:I
 
     if-eq v1, v0, :cond_0
 
-    :cond_4
+    :cond_5
     iput v0, v2, Landroid/view/ViewGroup$LayoutParams;->width:I
 
     iput v0, v2, Landroid/view/ViewGroup$LayoutParams;->height:I
@@ -1295,16 +1461,16 @@
 
     goto/16 :goto_0
 
-    .line 149
-    :cond_5
+    .line 166
+    :cond_6
     invoke-virtual {v0, v2}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
 
     move-result-object v7
 
-    .line 150
-    if-eq v7, p0, :cond_6
+    .line 167
+    if-eq v7, p0, :cond_7
 
-    if-eq v7, v5, :cond_6
+    if-eq v7, v5, :cond_7
 
     invoke-virtual {v7}, Landroid/view/View;->getVisibility()I
 
@@ -1312,7 +1478,7 @@
 
     const/16 v8, 0x8
 
-    if-eq v1, v8, :cond_6
+    if-eq v1, v8, :cond_7
 
     const-string v1, "previewPlayerSpacer"
 
@@ -1324,10 +1490,10 @@
 
     move-result v1
 
-    if-eqz v1, :cond_7
+    if-eqz v1, :cond_8
 
-    .line 148
-    :cond_6
+    .line 165
+    :cond_7
     :goto_3
     add-int/lit8 v1, v2, 0x1
 
@@ -1335,8 +1501,8 @@
 
     goto/16 :goto_1
 
-    .line 151
-    :cond_7
+    .line 168
+    :cond_8
     invoke-virtual {v7}, Landroid/view/View;->getLayoutParams()Landroid/view/ViewGroup$LayoutParams;
 
     move-result-object v1
@@ -1347,10 +1513,10 @@
 
     add-int/2addr v3, v7
 
-    .line 152
+    .line 169
     instance-of v7, v1, Landroid/view/ViewGroup$MarginLayoutParams;
 
-    if-eqz v7, :cond_6
+    if-eqz v7, :cond_7
 
     check-cast v1, Landroid/view/ViewGroup$MarginLayoutParams;
 
@@ -1364,8 +1530,8 @@
 
     goto :goto_3
 
-    .line 158
-    :cond_8
+    .line 176
+    :cond_9
     const/high16 v3, 0x42a00000    # 80.0f
 
     invoke-direct {p0, v3}, Lcom/melodix/music/PreviewPlayerChrome;->dp(F)I
@@ -1389,17 +1555,17 @@
     .prologue
     const/4 v5, 0x1
 
-    .line 133
+    .line 150
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->playStyled:Z
 
     if-eqz v0, :cond_1
 
-    .line 140
+    .line 157
     :cond_0
     :goto_0
     return-void
 
-    .line 134
+    .line 151
     :cond_1
     const v0, 0x7f09023e
 
@@ -1409,7 +1575,7 @@
 
     if-eqz v0, :cond_0
 
-    .line 135
+    .line 152
     new-instance v1, Landroid/graphics/drawable/GradientDrawable;
 
     sget-object v2, Landroid/graphics/drawable/GradientDrawable$Orientation;->BR_TL:Landroid/graphics/drawable/GradientDrawable$Orientation;
@@ -1422,10 +1588,10 @@
 
     invoke-direct {v1, v2, v3}, Landroid/graphics/drawable/GradientDrawable;-><init>(Landroid/graphics/drawable/GradientDrawable$Orientation;[I)V
 
-    .line 136
+    .line 153
     invoke-virtual {v1, v5}, Landroid/graphics/drawable/GradientDrawable;->setShape(I)V
 
-    .line 137
+    .line 154
     new-instance v2, Landroid/graphics/drawable/RippleDrawable;
 
     const v3, 0x44ffffff    # 2047.9999f
@@ -1440,7 +1606,7 @@
 
     invoke-virtual {v0, v2}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
 
-    .line 138
+    .line 155
     sget v1, Landroid/os/Build$VERSION;->SDK_INT:I
 
     const/16 v2, 0x1c
@@ -1455,13 +1621,13 @@
 
     invoke-virtual {v0, v1}, Landroid/view/View;->setOutlineAmbientShadowColor(I)V
 
-    .line 139
+    .line 156
     :cond_2
     iput-boolean v5, p0, Lcom/melodix/music/PreviewPlayerChrome;->playStyled:Z
 
     goto :goto_0
 
-    .line 135
+    .line 152
     :array_0
     .array-data 4
         -0x84c01c
@@ -1470,69 +1636,178 @@
 .end method
 
 .method private sync()V
-    .locals 1
+    .locals 6
 
     .prologue
-    .line 165
+    const/4 v5, 0x1
+
+    const/4 v2, 0x0
+
+    const/high16 v4, 0x3f800000    # 1.0f
+
+    const/4 v3, 0x0
+
+    .line 183
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerChrome;->playerVisible()Z
 
     move-result v0
 
-    if-nez v0, :cond_2
+    if-nez v0, :cond_3
 
-    iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->ticking:Z
+    .line 184
+    iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->wasVisible:Z
 
     if-eqz v0, :cond_0
+
+    invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerChrome;->getParent()Landroid/view/ViewParent;
+
+    move-result-object v0
+
+    instance-of v0, v0, Landroid/view/View;
+
+    if-eqz v0, :cond_0
+
+    invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerChrome;->getParent()Landroid/view/ViewParent;
+
+    move-result-object v0
+
+    check-cast v0, Landroid/view/View;
+
+    invoke-virtual {v0}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
+
+    move-result-object v1
+
+    invoke-virtual {v1}, Landroid/view/ViewPropertyAnimator;->cancel()V
+
+    invoke-virtual {v0, v4}, Landroid/view/View;->setAlpha(F)V
+
+    invoke-virtual {v0, v3}, Landroid/view/View;->setTranslationY(F)V
+
+    .line 185
+    :cond_0
+    iput-boolean v2, p0, Lcom/melodix/music/PreviewPlayerChrome;->wasVisible:Z
+
+    .line 186
+    iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->ticking:Z
+
+    if-eqz v0, :cond_1
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->visualTick:Ljava/lang/Runnable;
 
     invoke-virtual {p0, v0}, Lcom/melodix/music/PreviewPlayerChrome;->removeCallbacks(Ljava/lang/Runnable;)Z
 
-    const/4 v0, 0x0
+    iput-boolean v2, p0, Lcom/melodix/music/PreviewPlayerChrome;->ticking:Z
 
-    iput-boolean v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->ticking:Z
-
-    :cond_0
+    :cond_1
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerChrome;->restoreHeader()V
 
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerChrome;->restoreBackground()V
 
-    .line 169
-    :cond_1
+    .line 198
+    :cond_2
     :goto_0
     return-void
 
-    .line 166
-    :cond_2
+    .line 188
+    :cond_3
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerChrome;->activity()Landroid/app/Activity;
+
+    move-result-object v1
+
+    if-eqz v1, :cond_2
+
+    .line 189
+    iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->wasVisible:Z
+
+    if-nez v0, :cond_5
+
+    .line 190
+    iput-boolean v5, p0, Lcom/melodix/music/PreviewPlayerChrome;->wasVisible:Z
+
+    .line 191
+    invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerChrome;->getParent()Landroid/view/ViewParent;
 
     move-result-object v0
 
-    if-eqz v0, :cond_1
+    instance-of v0, v0, Landroid/view/View;
 
-    .line 167
-    invoke-direct {p0, v0}, Lcom/melodix/music/PreviewPlayerChrome;->hideHeader(Landroid/app/Activity;)V
+    if-eqz v0, :cond_5
 
-    invoke-direct {p0, v0}, Lcom/melodix/music/PreviewPlayerChrome;->applyBackground(Landroid/app/Activity;)V
+    sget v0, Landroid/os/Build$VERSION;->SDK_INT:I
 
-    invoke-direct {p0, v0}, Lcom/melodix/music/PreviewPlayerChrome;->stylePlay(Landroid/app/Activity;)V
+    const/16 v2, 0x1a
 
-    invoke-direct {p0, v0}, Lcom/melodix/music/PreviewPlayerChrome;->sizeArtwork(Landroid/app/Activity;)V
+    if-lt v0, v2, :cond_4
 
-    invoke-direct {p0, v0}, Lcom/melodix/music/PreviewPlayerChrome;->setupCosmetics(Landroid/app/Activity;)V
+    invoke-static {}, Landroid/animation/ValueAnimator;->areAnimatorsEnabled()Z
 
-    .line 168
+    move-result v0
+
+    if-eqz v0, :cond_5
+
+    .line 192
+    :cond_4
+    invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerChrome;->getParent()Landroid/view/ViewParent;
+
+    move-result-object v0
+
+    check-cast v0, Landroid/view/View;
+
+    invoke-virtual {v0, v3}, Landroid/view/View;->setAlpha(F)V
+
+    const/high16 v2, 0x40c00000    # 6.0f
+
+    invoke-direct {p0, v2}, Lcom/melodix/music/PreviewPlayerChrome;->dp(F)I
+
+    move-result v2
+
+    int-to-float v2, v2
+
+    invoke-virtual {v0, v2}, Landroid/view/View;->setTranslationY(F)V
+
+    .line 193
+    invoke-virtual {v0}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
+
+    move-result-object v0
+
+    invoke-virtual {v0, v4}, Landroid/view/ViewPropertyAnimator;->alpha(F)Landroid/view/ViewPropertyAnimator;
+
+    move-result-object v0
+
+    invoke-virtual {v0, v3}, Landroid/view/ViewPropertyAnimator;->translationY(F)Landroid/view/ViewPropertyAnimator;
+
+    move-result-object v0
+
+    const-wide/16 v2, 0xfa
+
+    invoke-virtual {v0, v2, v3}, Landroid/view/ViewPropertyAnimator;->setDuration(J)Landroid/view/ViewPropertyAnimator;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Landroid/view/ViewPropertyAnimator;->start()V
+
+    .line 196
+    :cond_5
+    invoke-direct {p0, v1}, Lcom/melodix/music/PreviewPlayerChrome;->hideHeader(Landroid/app/Activity;)V
+
+    invoke-direct {p0, v1}, Lcom/melodix/music/PreviewPlayerChrome;->applyBackground(Landroid/app/Activity;)V
+
+    invoke-direct {p0, v1}, Lcom/melodix/music/PreviewPlayerChrome;->stylePlay(Landroid/app/Activity;)V
+
+    invoke-direct {p0, v1}, Lcom/melodix/music/PreviewPlayerChrome;->sizeArtwork(Landroid/app/Activity;)V
+
+    invoke-direct {p0, v1}, Lcom/melodix/music/PreviewPlayerChrome;->setupCosmetics(Landroid/app/Activity;)V
+
+    .line 197
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->setupDone:Z
 
-    if-eqz v0, :cond_1
+    if-eqz v0, :cond_2
 
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->ticking:Z
 
-    if-nez v0, :cond_1
+    if-nez v0, :cond_2
 
-    const/4 v0, 0x1
-
-    iput-boolean v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->ticking:Z
+    iput-boolean v5, p0, Lcom/melodix/music/PreviewPlayerChrome;->ticking:Z
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->visualTick:Ljava/lang/Runnable;
 
@@ -1547,7 +1822,7 @@
     .locals 1
 
     .prologue
-    .line 171
+    .line 200
     invoke-super {p0}, Landroid/view/View;->onAttachedToWindow()V
 
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerChrome;->getViewTreeObserver()Landroid/view/ViewTreeObserver;
@@ -1571,7 +1846,7 @@
     .locals 1
 
     .prologue
-    .line 172
+    .line 201
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->observer:Landroid/view/ViewTreeObserver;
 
     if-eqz v0, :cond_0
@@ -1618,7 +1893,7 @@
     .locals 0
 
     .prologue
-    .line 170
+    .line 199
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerChrome;->sync()V
 
     return-void
@@ -1628,7 +1903,7 @@
     .locals 1
 
     .prologue
-    .line 173
+    .line 202
     invoke-super {p0, p1, p2}, Landroid/view/View;->onVisibilityChanged(Landroid/view/View;I)V
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->syncTask:Ljava/lang/Runnable;
@@ -1647,7 +1922,7 @@
     .locals 1
 
     .prologue
-    .line 174
+    .line 203
     invoke-super {p0, p1}, Landroid/view/View;->onWindowVisibilityChanged(I)V
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->syncTask:Ljava/lang/Runnable;

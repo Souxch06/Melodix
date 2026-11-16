@@ -23,7 +23,7 @@ for folder in ('layout','layout-w600dp','layout-land','layout-w600dp-land'):
  for attr in ('id','max','progress','indeterminate','onClick','enabled'):
   assert seek.get(a+attr)==oldseek.get(a+attr),(folder,attr)
  assert seek.get(a+'thumbTint') in ('#ffffffff','#FFFFFFFF')
- title=byid(p,'nativePlayerLargeTitle');assert title.get(a+'textSize') in ('26.0sp','26sp') and title.get(a+'maxLines')=='2' and title.get(a+'ellipsize')=='end'
+ title=byid(p,'nativePlayerLargeTitle');assert title.get(a+'textSize') in ('23.0sp','23sp') and title.get(a+'maxLines')=='2' and title.get(a+'ellipsize')=='end'
  assert byid(p,'nativePlayerLargeArtist').get(a+'maxLines')=='2'
  art=byid(p,'nativePlayerLargeArtwork');assert art.get(a+'src')=='@drawable/native_cover_placeholder'
  card=next(e for e in p.iter() if e.tag.endswith('CardView'));assert card.get(app+'contentPadding') in ('1.0dip','1.0dp') and card.get(app+'cardCornerRadius') in ('30.0dip','30.0dp')

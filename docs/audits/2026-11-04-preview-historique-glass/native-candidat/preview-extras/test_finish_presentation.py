@@ -30,14 +30,14 @@ class PresentationFinish(unittest.TestCase):
         self.assertIn('GradientDrawable.Orientation.BR_TL',chrome)
         self.assertIn('0xff7b3fe4,0xffe0489e',chrome)
         self.assertIn('bar.setThumb(thumb)',chrome)
-        self.assertIn('bar.setPadding(0,bar.getPaddingTop(),0,bar.getPaddingBottom())',chrome)
+        self.assertIn('bar.setPadding(dp(12),bar.getPaddingTop(),dp(12),bar.getPaddingBottom())',chrome)
         self.assertIn('return false;',chrome)
         self.assertIn('root.setBackground(rootBackground)',chrome)
         self.assertIn('panel.setBackground(panelBackground)',chrome)
         self.assertIn('canvas.drawText("1"',art)
         self.assertIn('Lecture aléatoire activée',art)
         self.assertIn('id == 0x7f080122 ? 0.92f : 1f',play)
-        self.assertIn('new LinearLayout.LayoutParams(dp(64)',tiles)
+        self.assertIn('new LinearLayout.LayoutParams(0,getResources().getConfiguration().fontScale>1.3f?LayoutParams.WRAP_CONTENT:dp(56),1f)',tiles)
         for source in (chrome,art,play):
             for forbidden in ('evaluateJavascript','performClick','setOnSeekBarChangeListener','http://','https://'):
                 self.assertNotIn(forbidden,source)
