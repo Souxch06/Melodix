@@ -40,7 +40,9 @@ public final class PreviewPlayerTiles extends LinearLayout {
     private static String clean(String x){StringBuilder b=new StringBuilder();for(char c:x.toCharArray()){if((c>='a'&&c<='z')||(c>='0'&&c<='9')||c==':'||c=='-'||c==','||c=='>')b.append(c);if(b.length()>120)break;}return b.length()==0?"aucune":b.toString();}
     private static final String[] observations={"non observée","non observée","non observée"};
     private static final long[] probeSerial={0,0,0};
-    public static String diagnosticReport(){return "\nStructure File : "+observations[0]+"\nStructure Paroles : "+observations[1]+"\nStructure Appareils : "+observations[2]+"\nFile (tiroir) : "+queueJournal+"\nParoles/Appareils (tiroir) : "+panelJournal+"\nOuverture collection (compteurs, sans titre ni identifiant) : "+openTrace;}
+    public static String diagnosticReport(){return "\nStructure File : "+observations[0]+"\nStructure Paroles : "+observations[1]+"\nStructure Appareils : "+observations[2]+"\nFile (tiroir) : "+queueJournal+"\nParoles/Appareils (tiroir) : "+panelJournal+"\nOuverture collection (compteurs, sans titre ni identifiant) : "+openTrace+(traceAt<0?"":" ; relevé il y a "+((SystemClock.elapsedRealtime()-traceAt)/1000)+" s");}
+    private static long traceAt=-1;
+    private final Runnable traceTick=new Runnable(){public void run(){if(!isAttachedToWindow())return;readTrace(activity());postDelayed(this,2000);}};
     // Counts, fixed phase codes and durations only, read from the page's own
     // trace when the player becomes visible; anything else is discarded.
     private static String openTrace="non lue";
@@ -55,7 +57,9 @@ public final class PreviewPlayerTiles extends LinearLayout {
     private void readTrace(Activity a){
         WebView w=a==null?null:web(a);if(w==null)return;
         try{w.evaluateJavascript(TRACE_READ,new ValueCallback<String>(){public void onReceiveValue(String value){
-            try{Object d=new JSONTokener(value).nextValue();openTrace=formatTrace(d instanceof String?(String)d:"");}catch(Exception ignored){openTrace="illisible";}
+            String next;try{Object d=new JSONTokener(value).nextValue();next=formatTrace(d instanceof String?(String)d:"");}catch(Exception ignored){next="illisible";}
+            // A page reload resets the page trace: keep the last real opening.
+            if(next.startsWith("type=")&&!next.contains("phase=none")||!openTrace.startsWith("type=")){openTrace=next;traceAt=SystemClock.elapsedRealtime();}
         }});}catch(RuntimeException ignored){}
     }
     private static int count(JSONObject o,String key){return Math.max(0,Math.min(99,o.optInt(key,0)));}
@@ -130,7 +134,8 @@ public final class PreviewPlayerTiles extends LinearLayout {
         list.removeAllViews();
         for(int k=0;k<4;k++){TextView t=line(a,"▬▬▬▬▬▬▬▬▬▬▬▬\n▬▬▬▬▬▬",0x40ffffff,14);t.setContentDescription("Chargement de la file");list.addView(t,new LinearLayout.LayoutParams(-1,dp(56)));}
     }
-    private String queueReason="";
+    private String queueReason="", queueStep="envoi", panelStep="envoi";
+    private long openedAt;
     private void queueFailed(Activity a,LinearLayout list,Button retry){
         settledSerial=queueSerial;String why=queueReason;queueReason="";
         list.removeAllViews();list.addView(line(a,why.equals("absent")?"File non disponible sur cette page Spotify":why.equals("ambiguous")?"Lecture refusée":"File indisponible",Color.WHITE,18),new LinearLayout.LayoutParams(-1,dp(40)));
@@ -160,10 +165,11 @@ public final class PreviewPlayerTiles extends LinearLayout {
         WebView w=web(a);if(w==null){queueJournal="page:inaccessible";queueFailed(a,list,retry);return;}
         try{w.evaluateJavascript("("+QUEUE_JOB+")(\"run\");",new ValueCallback<String>(){public void onReceiveValue(String value){
             if(serial!=queueSerial||webDialog!=dialog)return;JSONObject o=parseObject(value);String st=o==null?"":o.optString("status","");
-            if(st.equals("started")||st.equals("busy"))pollQueue(a,dialog,list,retry,serial,0);else{queueJournal="demarrage:refuse";queueFailed(a,list,retry);}
+            if(st.equals("started")||st.equals("busy")){queueStep="demarre";pollQueue(a,dialog,list,retry,serial,0);}else{queueJournal="demarrage:refuse";queueFailed(a,list,retry);}
         }});}catch(RuntimeException e){queueJournal="demarrage:erreur";queueFailed(a,list,retry);}
     }
     private void pollQueue(final Activity a,final Dialog dialog,final LinearLayout list,final Button retry,final long serial,final int n){
+        queueStep="demarre:lectures="+n;
         if(n>20){if(serial==queueSerial&&webDialog==dialog){queueJournal="delai";queueFailed(a,list,retry);}return;}
         postDelayed(new Runnable(){public void run(){
             if(serial!=queueSerial||webDialog!=dialog)return;WebView w=web(a);if(w==null){queueFailed(a,list,retry);return;}
@@ -227,11 +233,11 @@ public final class PreviewPlayerTiles extends LinearLayout {
         WebView w=web(a);if(w==null){panelJournal="page:inaccessible";panelFailed(i,a,list,retry);return;}
         try{w.evaluateJavascript("("+PANEL_JOB+")("+JSONObject.quote(kind)+","+JSONObject.quote(action)+","+JSONObject.quote(target)+");",new ValueCallback<String>(){public void onReceiveValue(String value){
             if(serial!=panelSerial||webDialog!=dialog)return;JSONObject o=parseObject(value);String st=o==null?"":o.optString("status","");
-            if(st.equals("started")||st.equals("busy"))pollPanel(i,a,dialog,list,retry,serial,0,action,kind);else{panelJournal="demarrage:refuse";panelFailed(i,a,list,retry);}
+            if(st.equals("started")||st.equals("busy")){panelStep="demarre";pollPanel(i,a,dialog,list,retry,serial,0,action,kind);}else{panelJournal="demarrage:refuse";panelFailed(i,a,list,retry);}
         }});}catch(RuntimeException e){panelJournal="demarrage:erreur";panelFailed(i,a,list,retry);}
     }
     private void pollPanel(final int i,final Activity a,final Dialog dialog,final LinearLayout list,final Button retry,final long serial,final int n,final String action,final String kind){
-        if(n>34)return;
+        panelStep="demarre:lectures="+n;if(n>34)return;
         postDelayed(new Runnable(){public void run(){
             if(serial!=panelSerial||webDialog!=dialog)return;WebView w=web(a);if(w==null){panelFailed(i,a,list,retry);return;}
             try{w.evaluateJavascript("("+PANEL_JOB+")("+JSONObject.quote(kind)+",\"poll\",\"\");",new ValueCallback<String>(){public void onReceiveValue(String value){
@@ -262,10 +268,11 @@ public final class PreviewPlayerTiles extends LinearLayout {
             close.setOnClickListener(new View.OnClickListener(){public void onClick(View v){dialog.dismiss();}});
             dialog.setTitle(names[i]);dialog.setContentView(panel);dialog.setCanceledOnTouchOutside(true);
             dialog.setOnDismissListener(new DialogInterface.OnDismissListener(){public void onDismiss(DialogInterface ignored){
-                if(i==0&&settledSerial!=queueSerial)queueJournal="ferme:avant-resultat";
-                if(i>0&&panelSettled!=panelSerial)panelJournal="ferme:avant-resultat";
+                long open=(SystemClock.elapsedRealtime()-openedAt)/100;String after=":apres-"+(open/10)+"."+(open%10)+"s";
+                if(i==0&&settledSerial!=queueSerial)queueJournal="ferme:avant-resultat:"+queueStep+after;
+                if(i>0&&panelSettled!=panelSerial)panelJournal="ferme:avant-resultat:"+panelStep+after;
                 webDialog=null;queueSerial++;panelSerial++;}});
-            webDialog=dialog;
+            webDialog=dialog;openedAt=SystemClock.elapsedRealtime();queueStep="envoi";panelStep="envoi";
             retry.setOnClickListener(new View.OnClickListener(){public void onClick(View v){if(i==0)loadQueue(a,dialog,list,retry);else loadPanel(i,a,dialog,list,retry,"run","");}});
             panel.addView(retry,new LinearLayout.LayoutParams(-1,dp(48)));
             panel.addView(close,new LinearLayout.LayoutParams(-1,dp(48)));
@@ -279,8 +286,8 @@ public final class PreviewPlayerTiles extends LinearLayout {
         if(show&&!volumeRunning)readTrace(activity());
         volumeRunning=show;if(!show && webDialog!=null)webDialog.dismiss();paintControls();
     }
-    @Override protected void onAttachedToWindow(){super.onAttachedToWindow();syncVolume();}
-    @Override protected void onDetachedFromWindow(){volumeRunning=false;if(webDialog!=null)webDialog.dismiss();super.onDetachedFromWindow();}
+    @Override protected void onAttachedToWindow(){super.onAttachedToWindow();syncVolume();removeCallbacks(traceTick);postDelayed(traceTick,2000);}
+    @Override protected void onDetachedFromWindow(){removeCallbacks(traceTick);volumeRunning=false;if(webDialog!=null)webDialog.dismiss();super.onDetachedFromWindow();}
     @Override protected void onVisibilityChanged(View v,int visibility){super.onVisibilityChanged(v,visibility);if(controls!=null)post(new Runnable(){public void run(){syncVolume();}});}
     @Override protected void onWindowVisibilityChanged(int visibility){super.onWindowVisibilityChanged(visibility);if(controls!=null)post(new Runnable(){public void run(){syncVolume();}});}
     public PreviewPlayerTiles(Context c, AttributeSet attrs) {

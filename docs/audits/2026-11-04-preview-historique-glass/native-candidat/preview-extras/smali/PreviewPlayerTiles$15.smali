@@ -3,7 +3,7 @@
 .source "PreviewPlayerTiles.java"
 
 # interfaces
-.implements Landroid/view/View$OnClickListener;
+.implements Landroid/view/View$OnTouchListener;
 
 
 # annotations
@@ -18,6 +18,8 @@
 
 
 # instance fields
+.field startY:F
+
 .field final synthetic this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
 .field final synthetic val$dialog:Landroid/app/Dialog;
@@ -43,7 +45,7 @@
         }
     .end annotation
 
-    .line 262
+    .line 258
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$15;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerTiles$15;->val$dialog:Landroid/app/Dialog;
@@ -55,13 +57,61 @@
 
 
 # virtual methods
-.method public onClick(Landroid/view/View;)V
-    .locals 0
+.method public onTouch(Landroid/view/View;Landroid/view/MotionEvent;)Z
+    .locals 2
 
-    .line 262
+    .line 259
+    invoke-virtual {p2}, Landroid/view/MotionEvent;->getActionMasked()I
+
+    move-result p1
+
+    const/4 v0, 0x1
+
+    if-nez p1, :cond_0
+
+    invoke-virtual {p2}, Landroid/view/MotionEvent;->getRawY()F
+
+    move-result p1
+
+    iput p1, p0, Lcom/melodix/music/PreviewPlayerTiles$15;->startY:F
+
+    return v0
+
+    .line 260
+    :cond_0
+    invoke-virtual {p2}, Landroid/view/MotionEvent;->getActionMasked()I
+
+    move-result p1
+
+    if-ne p1, v0, :cond_1
+
+    invoke-virtual {p2}, Landroid/view/MotionEvent;->getRawY()F
+
+    move-result p1
+
+    iget p2, p0, Lcom/melodix/music/PreviewPlayerTiles$15;->startY:F
+
+    sub-float/2addr p1, p2
+
+    iget-object p2, p0, Lcom/melodix/music/PreviewPlayerTiles$15;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
+
+    const/high16 v1, 0x42800000    # 64.0f
+
+    invoke-static {p2, v1}, Lcom/melodix/music/PreviewPlayerTiles;->access$2700(Lcom/melodix/music/PreviewPlayerTiles;F)I
+
+    move-result p2
+
+    int-to-float p2, p2
+
+    cmpl-float p1, p1, p2
+
+    if-lez p1, :cond_1
+
     iget-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$15;->val$dialog:Landroid/app/Dialog;
 
     invoke-virtual {p1}, Landroid/app/Dialog;->dismiss()V
 
-    return-void
+    .line 261
+    :cond_1
+    return v0
 .end method

@@ -8,7 +8,7 @@
 
 # annotations
 .annotation system Ldalvik/annotation/EnclosingMethod;
-    value = Lcom/melodix/music/PreviewPlayerTiles;->onWindowVisibilityChanged(I)V
+    value = Lcom/melodix/music/PreviewPlayerTiles;->onVisibilityChanged(Landroid/view/View;I)V
 .end annotation
 
 .annotation system Ldalvik/annotation/InnerClass;
@@ -33,7 +33,7 @@
         }
     .end annotation
 
-    .line 285
+    .line 291
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$19;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -46,10 +46,10 @@
 .method public run()V
     .locals 1
 
-    .line 285
+    .line 291
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$19;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$2400(Lcom/melodix/music/PreviewPlayerTiles;)V
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$3000(Lcom/melodix/music/PreviewPlayerTiles;)V
 
     return-void
 .end method
