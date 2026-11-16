@@ -970,6 +970,7 @@ jobs:
             phase="apply playback-safe collection retry"
             python3 "$audit/native-candidat/apply_preview_library_followup.py" "$work"
             node --check "$work/assets/native_ui_shell.js"
+            MELODIX_PREVIEW_ROOT="$work" python3 "$audit/native-candidat/preview-extras/test_player_chrome.py"
           fi
           if [[ "$PLAYLIST_TAP_PATCH" == "true" ]]; then
             phase="apply required native playlist tap patch"
@@ -1052,6 +1053,7 @@ jobs:
             MELODIX_PREVIEW_ROOT="$RUNNER_TEMP/historical-decoded" python3 "$audit/native-candidat/test_preview_player_patch.py"
             MELODIX_PREVIEW_ROOT="$RUNNER_TEMP/historical-decoded" python3 "$audit/native-candidat/preview-extras/test_compiled_text.py"
             MELODIX_PREVIEW_ROOT="$RUNNER_TEMP/historical-decoded" python3 "$audit/native-candidat/preview-extras/test_five_buttons.py"
+            MELODIX_PREVIEW_ROOT="$RUNNER_TEMP/historical-decoded" python3 "$audit/native-candidat/preview-extras/test_player_chrome.py"
             MELODIX_PREVIEW_ROOT="$RUNNER_TEMP/historical-decoded" python3 "$audit/native-candidat/test_glass_screen_refresh.py"
             MELODIX_CANDIDATE_ROOT="$RUNNER_TEMP/historical-decoded" NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" \
               node --test "$audit/native-candidat/preview-player-shell.test.cjs" \
