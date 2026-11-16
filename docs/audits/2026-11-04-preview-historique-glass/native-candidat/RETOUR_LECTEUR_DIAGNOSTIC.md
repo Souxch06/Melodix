@@ -1,36 +1,52 @@
-# Retour lecteur : filtre d'observation et limites
+# Retour lecteur : interruption et diagnostic
 
-Le filtre du contrôleur n'accepte une observation de position que si son âge
-depuis la lecture JS existante est inférieur à 3 s, son identité est complète,
-et son écart à l'estimation native est inférieur à 5 s ; les changements de
-morceau et les déplacements manuels enregistrés font exception au seuil
-d'écart. La date est ajoutée au paquet déjà transmis, sans lecture de position,
-requête, accès à un jeton ou persistance supplémentaire.
+## Diagnostic avant correctif (1022154)
 
-**Limite importante :** cette date est l'instant de l'observation dans la
-WebView, pas un horodatage de mise à jour Spotify. La valeur peut déjà être
-périmée à ce moment-là. En particulier, après mort du processus ou changement
-de titre, aucune estimation antérieure n'existe pour détecter une ancienne
-valeur cohérente avec les bornes. L'utilisateur a explicitement choisi cette
-heuristique plutôt qu'une absence d'affichage permanente ou une source
-supplémentaire. L'horloge civile peut aussi changer ; un âge négatif ou
-supérieur au seuil est rejeté.
+`onPause` ne changeait ni l'ancre ni l'état de lecture. `onStop` sauvait aussi
+`moving` en mémoire. Au retour, la position native était calculée depuis la
+dernière ancre et le temps monotone écoulé, même si le son s'était arrêté.
+L'état affiché juste avant le départ et au retour sur le téléphone n'a pas été
+observé ici. L'utilisateur rapporte l'arrêt du son en quittant l'application ;
+la reprise éventuelle du son au retour reste inconnue.
 
-L'état de position vit uniquement en mémoire et est conservé entre activités
-du même processus. Après mort de processus la barre est vide et les textes
-valent `-:--` avant une première observation acceptée. L'extrapolation utilise
-l'horloge monotone Android uniquement en état lecture, bornée à la durée. En
-pause ou état inconnu elle est figée ; la correction en pause reste différée.
-Le diagnostic conserve 20 événements anonymes et jusqu'à dix relevés après
-retour ; les secondes reportées sont des dates effectives, pas la garantie
-d'une exécution de timer exactement à chaque seconde sous Android suspendu.
+Chemins de reprise préexistants, **non modifiés** : `onResume` réactive le shell
+et des temporisateurs ; `addAutoFeatures()` peut cliquer sur le contrôle Play
+si le mode autoplay `onetime` ou `permanent` est activé et que ses gardes sont
+satisfaites. `desktop_spoof.js`, sur `visibilitychange`, restaure les vidéos de
+fond qu'il avait mises en veille et appelle `play()` pour celles qui jouaient.
+Ce code cible des vidéos qualifiées de Canvas, pas nécessairement l'audio ; son
+comportement effectif sur l'appareil n'est pas établi. Des commandes de lecture
+natives existent aussi dans le service média, sans preuve qu'elles soient
+appelées par ce chemin de retour. Aucun de ces mécanismes n'a été modifié.
 
-Les simulations JVM exécutent le contrôleur avec stubs et horloge contrôlée :
-mesures récentes/périmées, écart rejeté, absence 5 s / 60 s / 10 min, pause,
-nouveau titre, zéro, fin, rotation/recréation, mort de processus simulée et
-seek juste avant sortie. Elles ne testent ni Spotify, ni son réel, ni cycle
-Android réel, ni rendu physique, ni l'âge effectif de la valeur Spotify.
-Le seek et ses écouteurs n'ont pas été modifiés ; leurs méthodes smali sont
-identiques à 1022153 hors numéros de ligne, et les quatre SeekBars identiques.
-Like, aléatoire et en-tête sont inchangés. Leur rendu et la continuité audio
-restent à vérifier sur téléphone.
+## Correctif d'habillage
+
+À la perte du premier plan, l'estimation affichée est figée, l'état devient
+`interrupted`, et aucune durée d'absence n'est ajoutée. Les callbacks en
+arrière-plan ne redémarrent pas cette horloge. Au retour, une observation
+fraîche et cohérente ainsi qu'un état `playing` sont nécessaires pour relancer
+l'horloge et afficher l'icône pause. Une incohérence persistante pendant au
+moins 10 s est rattrapée progressivement à partir de plusieurs observations
+récentes de même source et de même côté, espacées au maximum de 5 s ; il s'agit
+d'un indice, non de la preuve d'un écart constant entre observations.
+
+Aucun signal audio natif n'est utilisé : `AudioManager.isMusicActive()` est
+global et ne prouve pas que *cette application* a joué pendant toute l'absence.
+Même si de l'audio a continué écran éteint, la position reste donc figée jusqu'à
+la resynchronisation à partir des observations. Le diagnostic le mentionne.
+Aucune donnée n'est persistée sur disque ; la rotation conserve la position
+figée en mémoire et un processus neuf commence avec `-:--`.
+
+L'âge est mesuré depuis la lecture JS existante et non depuis la mise à jour
+réelle de Spotify ; une valeur déjà périmée peut donc passer ce filtre. Le
+bouton reflète l'état déduit de ces observations et non une preuve audio. Le
+rapport ne contient ni titre, artiste, URI, ni donnée de compte ; il journalise
+cycles, état, valeur affichée, âge/écart/source et décision, ainsi que jusqu'à
+dix relevés par seconde après le retour. Les timers peuvent être retardés.
+
+Les simulations JVM couvrent sorties en lecture de 10 s, 1 min et 10 min,
+pause, retour avec observation cohérente, divergence prolongée, absence de
+signal, changement de titre, rotation, processus recréé et seek confirmé avant
+sortie. Elles ne testent pas le son réel, la source de l'audio, une véritable
+mise en veille Android ou Spotify. La présence de son pendant l'absence n'est
+ni confirmée ni infirmée par ces tests ; ce scénario reste à valider téléphone.

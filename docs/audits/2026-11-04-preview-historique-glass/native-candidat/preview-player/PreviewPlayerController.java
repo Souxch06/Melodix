@@ -149,9 +149,14 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     private final String[] returnEvents = new String[20], returnSeconds = new String[10];
     private int returnEventIndex, returnEventCount, returnSecondCount;
     private long absenceAt = -1, absenceDuration = -1, returnAt = -1;
+    private boolean interrupted, resyncing;
+    private double frozenPosition;
+    private long divergentSince = -1, divergentLastAt = -1;
+    private int divergentCount, divergentSign;
+    private String divergentSource = "none";
     // In-process only: rotation can recreate the Activity, process death cannot.
-    private static boolean savedValid, savedMoving, savedIdentity;
-    private static double savedBase, savedCorrection;
+    private static boolean savedValid, savedMoving, savedIdentity, savedInterrupted;
+    private static double savedBase, savedCorrection, savedFrozenPosition;
     private static long savedAnchor, savedDuration, savedMeasurementAt, savedMeasurementPosition, savedAbsenceAt = -1;
     private static String savedTitle = "", savedArtist = "", savedTrack = "", savedState = "unknown";
     private void recordReturn(String message) {
@@ -248,10 +253,13 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             measurementAt = savedMeasurementAt; measurementPosition = savedMeasurementPosition;
             identityTitle = savedTitle; identityArtist = savedArtist; identityDuration = savedDuration;
             track = savedTrack; playbackState = savedState; absenceAt = savedAbsenceAt;
+            interrupted = savedInterrupted; frozenPosition = savedFrozenPosition;
+            if (interrupted) { haveReal = true; realPlaying = shownPlaying = false; }
         }
     }
     private void saveInProcess() {
         savedValid = valid; savedMoving = moving; savedIdentity = tupleIdentity;
+        savedInterrupted = interrupted; savedFrozenPosition = frozenPosition;
         savedBase = base; savedCorrection = correction; savedAnchor = anchor; savedDuration = duration;
         savedMeasurementAt = measurementAt; savedMeasurementPosition = measurementPosition;
         savedTitle = identityTitle; savedArtist = identityArtist; savedTrack = track; savedState = playbackState; savedAbsenceAt = absenceAt;
@@ -262,6 +270,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     }
     private double positionUnderlying(long t) {
         if (!valid) return Double.NaN;
+        if (interrupted && !resyncing) return frozenPosition;
         long elapsed = Math.max(0, t - anchor);
         long motion = moving ? elapsed : 0;
         // A large negative correction must not make the visible clock run
@@ -311,12 +320,25 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         }
     }
     public void activityStarted() { recordReturn("onStart"); }
-    public void activityPaused() { absenceAt = now(); recordReturn("onPause"); }
+    public void activityPaused() { freezeForBackground("onPause"); }
+    private void freezeForBackground(String event) {
+        long t = now();
+        String before = playbackState;
+        double current = positionUnderlying(t);
+        if (!Double.isNaN(current)) { frozenPosition = current; base = current; anchor = t; correction = 0; }
+        absenceAt = t; interrupted = true; resyncing = false; moving = false; foreground = false;
+        playbackState = "interrupted"; realPlaying = false; shownPlaying = false; pending = false; serial++;
+        resetDivergence();
+        recordReturn(event + " ; avant=" + before + " ; après=interrupted ; figée=" +
+            (Double.isNaN(current) ? "-:--" : clock((long)current)) + " ; signal audio natif=non lu (incertain)");
+        renderProgress(); renderButtons(); syncGlow();
+    }
+    private void resetDivergence() { divergentSince = divergentLastAt = -1; divergentCount = divergentSign = 0; divergentSource = "none"; }
     public void activityResumed() {
         long t = now();
         absenceDuration = absenceAt < 0 ? -1 : Math.max(0, t - absenceAt);
         returnAt = t; returnSecondCount = 0;
-        foreground = true; renderProgress(); syncGlow(); scheduleFrame(); scheduleTrace();
+        foreground = true; renderProgress(); renderButtons(); syncGlow(); scheduleFrame(); scheduleTrace();
         recordReturn("onResume ; absence=" + (absenceDuration < 0 ? "inconnue" : absenceDuration + " ms"));
     }
     private void scheduleTrace() {
@@ -340,7 +362,11 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         if (traceCount < trace.length) traceCount++;
         scheduleTrace();
     }
-    public void activityStopped() { recordReturn("onStop"); saveInProcess(); dragging = false; foreground = false; stopGlow(0); stopGlow(1); }
+    public void activityStopped() {
+        if (!interrupted) freezeForBackground("onStop (sans onPause observé)");
+        recordReturn("onStop ; position figée ; signal audio natif=non lu (incertain)");
+        saveInProcess(); dragging = false; foreground = false; stopGlow(0); stopGlow(1);
+    }
     private void stopGlow(int index) {
         if (glow[index] != null) { glow[index].cancel(); glow[index] = null; }
         if (glowFill[index] != null) { glowFill[index].setAlpha(255); glowFill[index] = null; }
@@ -376,7 +402,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     }
     private void renderButtons() {
         Activity a = activity.get(); if (a == null || !haveReal) return;
-        int icon = shownPlaying ? PAUSE_ICON : PLAY_ICON;
+        int icon = shownPlaying && realPlaying && !interrupted ? PAUSE_ICON : PLAY_ICON;
         View mini = a.findViewById(MINI_BUTTON), full = a.findViewById(FULL_BUTTON);
         if (mini instanceof ImageView) ((ImageView) mini).setImageResource(icon);
         if (full instanceof ImageView) ((ImageView) full).setImageResource(icon);
@@ -414,6 +440,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             JSONObject o = new JSONObject(json);
             long t = now();
             if (!o.has("previewProgressValid")) {
+                if (!foreground) { recordReturn("callback legacy ignoré en arrière-plan"); return; }
                 // Legacy callbacks can overwrite native views and report a
                 // misleading false state. They may invalidate an identity,
                 // but cannot assert pause over the explicit tri-state feed.
@@ -446,21 +473,44 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             // Spotify last refreshed the DOM/media value itself.
             long observedWall = o.optLong("previewObservedAtMs", -1);
             long age = observedWall < 0 ? -1 : System.currentTimeMillis() - observedWall;
+            if (!foreground) {
+                recordReturn("mesure=" + pos + " ms ; âge observation=" + (age < 0 ? "inconnu" : age + " ms") +
+                    " ; source=" + progressSource + " ; rejetée : arrière-plan ; signal audio natif=non lu");
+                return;
+            }
+            double difference = Double.isNaN(previous) ? Double.NaN : pos - previous;
             String rejection = !snapshotValid ? "invalide" : age < 0 ? "âge inconnu" :
                 age >= MAX_OBSERVATION_AGE_MS ? "observation ancienne" :
                 !identified ? "identité incomplète" :
                 (!changed && valid && !seekPending && !Double.isNaN(previous) &&
                  Math.abs(pos - previous) >= MAX_DEVIATION_MS) ? "écart >= 5 s" : "";
+            // Ten seconds of repeated, fresh, same-source discrepancies on
+            // the same side: reconcile visually, never assume background audio.
+            if (rejection.equals("écart >= 5 s")) {
+                int sign = difference > 0 ? 1 : -1;
+                if (divergentSince < 0 || t - divergentLastAt > 5000 || sign != divergentSign || !progressSource.equals(divergentSource)) {
+                    divergentSince = t; divergentCount = 0; divergentSign = sign; divergentSource = progressSource;
+                }
+                divergentLastAt = t; divergentCount++;
+                if (!resyncing && divergentCount >= 3 && t - divergentSince >= 10000) {
+                    base = previous; anchor = t; correction = pos - previous;
+                    if (interrupted) moving = false;
+                    resyncing = true;
+                    recordReturn("resynchronisation douce ; écart répété=" + (long)difference + " ms");
+                    scheduleFrame();
+                }
+            } else { resetDivergence(); }
             snapshotValid = rejection.isEmpty();
             backward = false;
             changedMeasure = snapshotValid && (changed || measurementPosition < 0 || pos != measurementPosition);
             glowSampleValid = snapshotValid;
             recordReturn("mesure=" + pos + " ms ; âge observation=" + (age < 0 ? "inconnu" : age + " ms") +
-                " ; source=" + progressSource + " ; " + (snapshotValid ? "acceptée" : "rejetée : " + rejection));
+                " ; source=" + progressSource + " ; écart=" + (Double.isNaN(difference) ? "inconnu" : ((long)difference) + " ms") +
+                " ; " + (snapshotValid ? "acceptée" : "rejetée : " + rejection));
             if (changed) {
                 cancelSeek(); independentObservationAt = independentObservation = -1;
-                valid = false; moving = false; previous = Double.NaN;
-                measurementAt = measurementPosition = -1;
+                valid = false; moving = false; previous = Double.NaN; resyncing = false;
+                resetDivergence(); measurementAt = measurementPosition = -1;
             }
             if (identified) { identityTitle = title; identityArtist = artist; identityDuration = dur; tupleIdentity = true; }
             if (!uri.isEmpty() || changed) track = uri;
@@ -473,6 +523,14 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                     seekDiagDifferent[seekDiagIndex] = t;
                 independentObservation = observed; independentObservationAt = t;
             }
+            if (snapshotValid && resyncing && !interrupted) resyncing = false;
+            if (interrupted && snapshotValid && real) {
+                // Continue from the frozen (or smoothly reconciled) display,
+                // not from the wall time spent out of the foreground.
+                if (!Double.isNaN(previous)) { base = previous; anchor = t; correction = 0; }
+                interrupted = false; resyncing = false;
+                recordReturn("lecture confirmée par observation cohérente");
+            }
             boolean seekConfirmed = false;
             if (seekPending && !changed) {
                 long confirm = observed;
@@ -483,8 +541,8 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 }
                 if (confirm < 0 || Math.abs(confirm - expected) > 2500) {
                     if (moving && !real) { base = positionUnderlying(t); anchor = t; correction = 0; }
-                    moving = real; playbackState = state; haveReal = true;
-                    if (!state.equals("unknown")) { realPlaying = real; if (!pending) shownPlaying = real; }
+                    moving = real && !interrupted; if (!interrupted) playbackState = state; haveReal = true;
+                    if (!interrupted && !state.equals("unknown")) { realPlaying = real; if (!pending) shownPlaying = real; }
                     renderProgress(); renderButtons(); syncGlow(); scheduleFrame(); return;
                 }
                 // A clock separate from the written range has reached the
@@ -516,16 +574,18 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                     measurementAt = t; measurementPosition = pos;
                 }
                 valid = true;
-                moving = identified && real && !freezePendingPause;
+                if (interrupted && !resyncing) frozenPosition = base;
+                moving = identified && real && !freezePendingPause && !interrupted;
             } else if (valid && !changed && !Double.isNaN(previous)) {
-                if (!real || freezePendingPause) { base = previous; anchor = t; correction = 0; }
-                moving = real && !freezePendingPause;
+                if ((!real || freezePendingPause) && !resyncing) { base = previous; anchor = t; correction = 0; }
+                moving = real && !freezePendingPause && !interrupted;
             } else { valid = false; moving = false; }
-            playbackState = state; haveReal = true;
-            if (!state.equals("unknown")) {
-                realPlaying = real;
+            if (!interrupted) playbackState = state;
+            haveReal = true;
+            if (!interrupted && !state.equals("unknown")) {
+                realPlaying = real && snapshotValid;
                 if (pending && real == pendingTarget) { pending = false; serial++; }
-                if (!pending) shownPlaying = real;
+                if (!pending) shownPlaying = real && snapshotValid;
             }
             renderProgress(); renderButtons(); syncGlow(); scheduleFrame();
             recordReturn("après mesure");
@@ -569,6 +629,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     }
     private String delta(long value) { return value < 0 || tapAt < 0 ? "—" : Long.toString(value - tapAt) + " ms"; }
     private String progressStopReason() {
+        if (interrupted) return "lecture interrompue au départ ; audio non vérifié";
         if (!haveReal) return "état du lecteur indisponible";
         if (pending && !pendingTarget) return "pause demandée";
         if (playbackState.equals("unknown")) return "état indéterminé, aucun signal audio fiable";
