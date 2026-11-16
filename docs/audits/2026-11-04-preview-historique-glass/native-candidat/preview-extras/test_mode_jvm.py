@@ -12,7 +12,8 @@ stubs={
 'android/app/Activity.java':'package android.app; public class Activity extends android.content.ContextWrapper { public android.webkit.WebView G; public android.view.View title; public android.view.View findViewById(int id){return title;} }',
 'android/os/Looper.java':'package android.os; public class Looper { public static Looper getMainLooper(){return new Looper();} }',
 'android/os/SystemClock.java':'package android.os; public class SystemClock { public static long t; public static long elapsedRealtime(){return t;} }',
-'android/os/Handler.java':'''package android.os;import java.util.*;public class Handler { public static List<Runnable> todo=new ArrayList<Runnable>(); public Handler(Looper l){} public boolean post(Runnable r){todo.add(r);return true;} public boolean postDelayed(Runnable r,long d){todo.add(r);return true;} public void removeCallbacks(Runnable r){todo.removeIf(x->x==r);} public static void step(){Runnable r=todo.remove(0);r.run();} }''',
+'android/os/Handler.java':'''package android.os;import java.util.*;public class Handler { static class Task { Runnable r;long at;Task(Runnable x,long t){r=x;at=t;} } public static List<Task> todo=new ArrayList<Task>(); public Handler(Looper l){} public boolean post(Runnable r){return postDelayed(r,0);} public boolean postDelayed(Runnable r,long d){todo.add(new Task(r,SystemClock.t+d));return true;} public void removeCallbacks(Runnable r){todo.removeIf(x->x.r==r);} public static void clear(){todo.clear();SystemClock.t=0;} public static void step(){int n=0;for(int i=1;i<todo.size();i++)if(todo.get(i).at<todo.get(n).at)n=i;Task t=todo.remove(n);SystemClock.t=Math.max(SystemClock.t,t.at);t.r.run();} public static void advance(long d){long end=SystemClock.t+d;int guard=100;while(!todo.isEmpty() && guard-->0){long earliest=Long.MAX_VALUE;for(Task t:todo)earliest=Math.min(earliest,t.at);if(earliest>end)break;step();}SystemClock.t=end;} }''',
+'android/widget/Toast.java':'''package android.widget;public class Toast { public static int count;public static String message;public static final int LENGTH_SHORT=0;public static Toast makeText(android.content.Context c,CharSequence s,int n){message=s.toString();return new Toast();}public void show(){count++;} }''',
 'android/view/HapticFeedbackConstants.java':'package android.view; public class HapticFeedbackConstants { public static final int KEYBOARD_TAP=3; }',
 'android/view/View.java':'''package android.view;import android.content.*;public class View { public static final int VISIBLE=0; public interface OnClickListener{void onClick(View v);} public Context c;public Object tag;public boolean enabled=true,shown=true,attached=true;public OnClickListener click;public String description=""; public View(Context c){this.c=c;} public Context getContext(){return c;} public android.content.res.Resources getResources(){return c.getResources();} public Object getTag(){return tag;} public void setTag(Object x){tag=x;} public void setEnabled(boolean b){enabled=b;} public void setAlpha(float a){} public void setContentDescription(CharSequence s){description=s.toString();} public void setOnClickListener(OnClickListener l){click=l;} public void performClick(){if(enabled)click.onClick(this);} public boolean performHapticFeedback(int n){return true;} public boolean isAttachedToWindow(){return attached;} public boolean isShown(){return shown;} public int getWindowVisibility(){return 0;} public boolean post(Runnable r){r.run();return true;} protected void onAttachedToWindow(){} protected void onDetachedFromWindow(){} protected void onVisibilityChanged(View v,int n){} protected void onWindowVisibilityChanged(int n){} }''',
 'android/widget/ImageButton.java':'package android.widget; public class ImageButton extends android.view.View { public ImageButton(android.content.Context c,android.util.AttributeSet a){super(c);} public void setImageResource(int x){} public void setColorFilter(int c){} }',
@@ -23,15 +24,24 @@ stubs={
 'org/json/JSONObject.java':'''package org.json; import java.util.*;public class JSONObject {Map<String,String> m=new HashMap<String,String>();public JSONObject(String s){for(String p:s.split(";")){int i=p.indexOf('=');if(i>0)m.put(p.substring(0,i),p.substring(i+1));}}public static String quote(String s){return (char)34+s+(char)34;}public String optString(String k,String d){return m.containsKey(k)?m.get(k):d;}public boolean optBoolean(String k,boolean d){return m.containsKey(k)?Boolean.parseBoolean(m.get(k)):d;} }''',
 'com/melodix/music/ModeTest.java':'''package com.melodix.music;import android.app.*;import android.os.*;import android.webkit.*;import android.widget.*;public class ModeTest {
  static void ok(boolean b){if(!b)throw new AssertionError();}
- public static void main(String[] z){Activity a=new Activity();a.G=new WebView(a);TextView title=new TextView(a);title.text="Titre";a.title=title;
- PreviewPlayerMode m=new PreviewPlayerMode(a,null);m.setTag("like");m.onAttachedToWindow();ok(!m.enabled);Handler.step();ok(a.G.calls==1);a.G.reply("state=false;track=track:abc;title=Titre");ok(m.enabled);ok(m.description.contains("Ajouter"));
- m.performClick();ok(a.G.calls==2);ok(!m.enabled);m.performClick();ok(a.G.calls==2);a.G.reply("sent=true");ok(!m.enabled);
- Handler.step();a.G.reply("state=false;track=track:abc;title=Titre");ok(!m.enabled);Handler.step();a.G.reply("state=true;track=track:abc;title=Titre");ok(m.enabled);ok(m.description.contains("Retirer"));
- title.text="Titre suivant";Handler.step();a.G.reply("state=true;track=track:abc;title=Titre");ok(!m.enabled);ok(m.description.contains("indisponible"));
- title.text="Titre";Handler.step();a.G.reply("state=false;track=track:abc;title=Titre");m.performClick();a.G.reply("sent=false");ok(!m.enabled);
- Handler.step();a.G.reply("state=false;track=track:abc;title=Titre");m.performClick();a.G.reply("sent=true");SystemClock.t+=5001;Handler.step();a.G.reply("state=false;track=track:abc;title=Titre");ok(m.enabled);
- m.shown=false;m.onVisibilityChanged(m,8);ok(!m.enabled);m.onDetachedFromWindow();System.out.println("Player mode JVM simulation passed"); }
+ static String data(String state){return "state="+state+";track=track:abc;title=Titre";}
+ public static void main(String[] z) throws Exception {
+ for(String kind:new String[]{"like","shuffle","repeat"}){
+  Handler.clear();Toast.count=0;Activity a=new Activity();a.G=new WebView(a);TextView title=new TextView(a);title.text="Titre";a.title=title;
+  PreviewPlayerMode m=new PreviewPlayerMode(a,null);m.setTag(kind);m.onAttachedToWindow();ok(!m.enabled);Handler.step();ok(a.G.calls==1);a.G.reply(data("unknown"));ok(!m.enabled);
+  Handler.step();a.G.reply(data("false"));ok(m.enabled);int n=a.G.calls;m.performClick();ok(a.G.calls==n+1);m.performClick();ok(a.G.calls==n+1);a.G.reply("sent=true");
+  // Confirmation may arrive instantly; second tap within 400 ms is blocked.
+  java.lang.reflect.Method observe=PreviewPlayerMode.class.getDeclaredMethod("observe");observe.setAccessible(true);observe.invoke(m);a.G.reply(data("true"));ok(m.enabled);n=a.G.calls;m.performClick();ok(a.G.calls==n);
+  SystemClock.t+=401;m.performClick();ok(a.G.calls==n+1);a.G.reply("sent=false");ok(!m.enabled);ok(Toast.count==1);ok(Toast.message.contains("Réessayer"));
+  Handler.step();a.G.reply(data("true"));ok(m.enabled);SystemClock.t+=401;m.performClick();ok(!m.enabled);android.webkit.ValueCallback<String> late=a.G.cb;
+  // Lost JS callback: independent deadline unlocks without inventing success.
+  Handler.advance(5001);ok(!m.enabled);ok(Toast.count==2);late.onReceiveValue("sent=false");ok(Toast.count==2);
+  m.shown=false;m.onVisibilityChanged(m,8);ok(!m.enabled);m.performClick();
+  m.shown=true;m.onVisibilityChanged(m,0);Handler.step();a.G.reply(data("false"));ok(m.enabled);m.onDetachedFromWindow();ok(!m.enabled);
+ }
+ System.out.println("Player mode JVM simulation passed"); }
 }'''
+
 }
 with tempfile.TemporaryDirectory(prefix='player-mode-jvm-') as tmp:
  r=Path(tmp); files=[]

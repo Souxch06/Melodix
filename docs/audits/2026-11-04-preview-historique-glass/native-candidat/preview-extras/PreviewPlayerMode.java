@@ -13,6 +13,7 @@ import android.webkit.ValueCallback;
 import android.webkit.WebView;
 import android.widget.ImageButton;
 import android.widget.TextView;
+import android.widget.Toast;
 import org.json.JSONObject;
 import org.json.JSONTokener;
 
@@ -22,7 +23,12 @@ public final class PreviewPlayerMode extends ImageButton {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private String kind="", state="unknown", track="", title="", pendingState="", pendingTrack="";
     private boolean pending, running;
-    private long pendingAt, generation, querySerial;
+    private long generation, querySerial, lastTap = -1000;
+    private static final long TAP_GUARD_MS = 400, CONFIRM_MS = 5000;
+    private void notConfirmed() {
+        pending = false; state = "unknown"; generation++; querySerial++; paint();
+        if (running && isShown()) Toast.makeText(getContext(), "Action non confirmée. Réessayer", Toast.LENGTH_SHORT).show();
+    }
     private final Runnable tick = new Runnable() { public void run() {
         if (!running || !isShown() || getWindowVisibility()!=View.VISIBLE) return;
         observe(); handler.postDelayed(this, 800);
@@ -68,23 +74,27 @@ public final class PreviewPlayerMode extends ImageButton {
                 if(!next.equals("true")&&!next.equals("false")&&!next.equals("mixed"))next="unknown";
                 if(kind.equals("like") && (!sameNativeTitle(nextTitle) || nextTrack.isEmpty() || next.equals("mixed")))next="unknown";
                 if(pending && ((!next.equals("unknown") && !next.equals(pendingState)) ||
-                   (kind.equals("like") && !nextTrack.isEmpty() && !nextTrack.equals(pendingTrack)) ||
-                   SystemClock.elapsedRealtime()-pendingAt>=5000)) pending=false;
+                   (kind.equals("like") && !nextTrack.isEmpty() && !nextTrack.equals(pendingTrack)))) pending=false;
                 state=next;track=nextTrack;title=nextTitle;paint();
             }
         }); } catch(RuntimeException e) {state="unknown";paint();}
     }
     private void invoke() {
-        if(pending || state.equals("unknown") || (kind.equals("like") && !sameNativeTitle(title)))return;
+        long t=SystemClock.elapsedRealtime();
+        if(!running || !isShown() || getWindowVisibility()!=View.VISIBLE || pending || t-lastTap<TAP_GUARD_MS ||
+           state.equals("unknown") || (kind.equals("like") && !sameNativeTitle(title)))return;
         final WebView w=web();if(w==null){state="unknown";paint();return;}
-        final String old=state,id=track,name=title; pending=true;pendingAt=SystemClock.elapsedRealtime();
+        lastTap=t; final String old=state,id=track,name=title; pending=true;
         pendingState=old;pendingTrack=id;final long g=++generation;querySerial++;paint();performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+        handler.postDelayed(new Runnable(){public void run(){
+            if(g==generation && pending) notConfirmed();
+        }},CONFIRM_MS);
         try {w.evaluateJavascript(call("invoke",old,id,name),new ValueCallback<String>() {
             public void onReceiveValue(String value){
-                if(g!=generation)return; JSONObject o=parse(value);
-                if(o==null || !o.optBoolean("sent",false)){pending=false;state="unknown";paint();}
+                if(g!=generation || !pending)return; JSONObject o=parse(value);
+                if(o==null || !o.optBoolean("sent",false)) notConfirmed();
             }
-        });} catch(RuntimeException e){pending=false;state="unknown";paint();}
+        });} catch(RuntimeException e){notConfirmed();}
     }
     private int drawable(String name){return getResources().getIdentifier(name,"drawable",getContext().getPackageName());}
     private void paint() {
@@ -95,7 +105,7 @@ public final class PreviewPlayerMode extends ImageButton {
         else {icon=state.equals("mixed")?"repone":active?"repon":"repoff";desc=!known?"Répétition indisponible":state.equals("mixed")?"Répéter le titre":active?"Répéter la liste":"Répétition désactivée";}
         int id=drawable(icon);if(id!=0)setImageResource(id);
         setColorFilter(active?0xffe0489e:0xffc9c0ea);setContentDescription(pending?desc+", en attente":desc);
-        setEnabled(known&&!pending); setAlpha(known?1.0f:0.35f);
+        setEnabled(known&&!pending); setAlpha(!known?0.35f:pending?0.65f:1.0f);
     }
     private void sync() {
         boolean visible=isAttachedToWindow() && isShown() && getWindowVisibility()==View.VISIBLE;
@@ -103,7 +113,7 @@ public final class PreviewPlayerMode extends ImageButton {
         else if(!visible && running){running=false;handler.removeCallbacks(tick);generation++;querySerial++;pending=false;state="unknown";paint();}
     }
     @Override protected void onAttachedToWindow(){super.onAttachedToWindow();Object t=getTag();kind=t==null?"":t.toString();paint();sync();}
-    @Override protected void onDetachedFromWindow(){running=false;handler.removeCallbacks(tick);generation++;querySerial++;super.onDetachedFromWindow();}
+    @Override protected void onDetachedFromWindow(){running=false;handler.removeCallbacks(tick);generation++;querySerial++;pending=false;state="unknown";paint();super.onDetachedFromWindow();}
     @Override protected void onVisibilityChanged(View changed,int visibility){super.onVisibilityChanged(changed,visibility);if(handler!=null)post(new Runnable(){public void run(){sync();}});}
     @Override protected void onWindowVisibilityChanged(int visibility){super.onWindowVisibilityChanged(visibility);if(handler!=null)post(new Runnable(){public void run(){sync();}});}
 }

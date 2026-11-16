@@ -3,12 +3,12 @@
 .source "PreviewPlayerTiles.java"
 
 # interfaces
-.implements Landroid/view/View$OnClickListener;
+.implements Ljava/lang/Runnable;
 
 
 # annotations
-.annotation system Ldalvik/annotation/EnclosingMethod;
-    value = Lcom/melodix/music/PreviewPlayerTiles;-><init>(Landroid/content/Context;Landroid/util/AttributeSet;)V
+.annotation system Ldalvik/annotation/EnclosingClass;
+    value = Lcom/melodix/music/PreviewPlayerTiles;
 .end annotation
 
 .annotation system Ldalvik/annotation/InnerClass;
@@ -36,59 +36,57 @@
 
 
 # virtual methods
-.method public onClick(Landroid/view/View;)V
+.method public run()V
     .locals 4
 
     .prologue
-    const/4 v3, 0x3
-
-    const/4 v2, 0x0
-
     .line 25
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$1;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-    invoke-virtual {v0}, Lcom/melodix/music/PreviewPlayerTiles;->getContext()Landroid/content/Context;
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$0(Lcom/melodix/music/PreviewPlayerTiles;)Z
 
-    move-result-object v0
+    move-result v0
 
-    const-string v1, "audio"
+    if-eqz v0, :cond_0
 
-    invoke-virtual {v0, v1}, Landroid/content/Context;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$1;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-    move-result-object v0
+    invoke-virtual {v0}, Lcom/melodix/music/PreviewPlayerTiles;->isShown()Z
 
-    .line 26
-    instance-of v1, v0, Landroid/media/AudioManager;
+    move-result v0
 
-    if-eqz v1, :cond_0
+    if-eqz v0, :cond_0
 
-    invoke-virtual {p1, v3}, Landroid/view/View;->performHapticFeedback(I)Z
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$1;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-    check-cast v0, Landroid/media/AudioManager;
+    invoke-virtual {v0}, Lcom/melodix/music/PreviewPlayerTiles;->getWindowVisibility()I
 
-    const/4 v1, 0x1
+    move-result v0
 
-    invoke-virtual {v0, v3, v2, v1}, Landroid/media/AudioManager;->adjustStreamVolume(III)V
+    if-eqz v0, :cond_1
 
-    .line 28
-    :goto_0
-    return-void
-
-    .line 27
     :cond_0
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$1;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-    invoke-virtual {v0}, Lcom/melodix/music/PreviewPlayerTiles;->getContext()Landroid/content/Context;
+    const/4 v1, 0x0
 
-    move-result-object v0
+    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->access$1(Lcom/melodix/music/PreviewPlayerTiles;Z)V
 
-    const-string v1, "Volume indisponible"
+    .line 27
+    :goto_0
+    return-void
 
-    invoke-static {v0, v1, v2}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
+    .line 26
+    :cond_1
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$1;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-    move-result-object v0
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$2(Lcom/melodix/music/PreviewPlayerTiles;)V
 
-    invoke-virtual {v0}, Landroid/widget/Toast;->show()V
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$1;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
+
+    const-wide/16 v2, 0x3e8
+
+    invoke-virtual {v0, p0, v2, v3}, Lcom/melodix/music/PreviewPlayerTiles;->postDelayed(Ljava/lang/Runnable;J)Z
 
     goto :goto_0
 .end method
