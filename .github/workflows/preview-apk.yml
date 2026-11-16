@@ -795,6 +795,7 @@ jobs:
           echo "Historical suite exit: $result (known legacy failures; not proof of phone behavior)." >> "$GITHUB_STEP_SUMMARY"
           exit 0
       - name: Build separate Preview and sign with pinned key
+        id: build_signed
         env:
           MELODIX_PREVIEW_KEYSTORE_B64: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_B64 }}
           MELODIX_PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
@@ -1176,7 +1177,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Compare protected bytes with original signed 9016 artifact
         id: compare_signed_9016
-        if: ${{ (inputs.release_tag == 'v1.2.2-test.9017-preview' || (inputs.release_tag == 'v1.2.2-test.9018-preview' || (inputs.release_tag == 'v1.2.2-test.9020-preview' || (inputs.release_tag == 'v1.2.2-test.9021-preview' || (inputs.release_tag == 'v1.2.2-test.9022-preview' || (inputs.release_tag == 'v1.2.2-test.9023-preview' || (inputs.release_tag == 'v1.2.2-test.9024-preview' || inputs.release_tag == 'v1.2.2-test.9026-preview')))))) || inputs.release_tag == 'v1.2.2-test.9019-preview') }}
+        if: ${{ always() && (inputs.release_tag == 'v1.2.2-test.9017-preview' || (inputs.release_tag == 'v1.2.2-test.9018-preview' || (inputs.release_tag == 'v1.2.2-test.9020-preview' || (inputs.release_tag == 'v1.2.2-test.9021-preview' || (inputs.release_tag == 'v1.2.2-test.9022-preview' || (inputs.release_tag == 'v1.2.2-test.9023-preview' || (inputs.release_tag == 'v1.2.2-test.9024-preview' || inputs.release_tag == 'v1.2.2-test.9026-preview')))))) || inputs.release_tag == 'v1.2.2-test.9019-preview') }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -1228,10 +1229,12 @@ jobs:
       - name: Require signed 9016 comparison for candidate APKs
         if: ${{ always() && (inputs.release_tag == 'v1.2.2-test.9017-preview' || (inputs.release_tag == 'v1.2.2-test.9018-preview' || (inputs.release_tag == 'v1.2.2-test.9020-preview' || (inputs.release_tag == 'v1.2.2-test.9021-preview' || (inputs.release_tag == 'v1.2.2-test.9022-preview' || (inputs.release_tag == 'v1.2.2-test.9023-preview' || (inputs.release_tag == 'v1.2.2-test.9024-preview' || inputs.release_tag == 'v1.2.2-test.9026-preview')))))) || inputs.release_tag == 'v1.2.2-test.9019-preview') }}
         env:
+          BUILD_OUTCOME: ${{ steps.build_signed.outcome }}
           COMPARISON_OUTCOME: ${{ steps.compare_signed_9016.outcome }}
           COMPARISON_VERIFIED: ${{ steps.compare_signed_9016.outputs.verified }}
         run: |
           set -euo pipefail
+          test "$BUILD_OUTCOME" = success
           test "$COMPARISON_OUTCOME" = success
           test "$COMPARISON_VERIFIED" = true
           test -s preview-output/protected-assets-vs-9016.tsv

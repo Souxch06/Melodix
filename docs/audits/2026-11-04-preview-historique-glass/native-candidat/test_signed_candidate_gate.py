@@ -33,6 +33,12 @@ class CandidateGate(unittest.TestCase):
                         'test "$COMPARISON_OUTCOME" = success', 'test "$COMPARISON_VERIFIED" = true',
                         'len(ASSET_SHA256) == 7', "r['sha256_candidate'] == r['sha256_9016']"):
             self.assertIn(snippet, gate)
+        # Run diagnostics even if signed verification failed, but never permit
+        # the unconditional final gate to accept a failed build.
+        self.assertIn('always()', comparison)
+        self.assertIn('diagnose_signed_9016.py', comparison)
+        self.assertIn('steps.build_signed.outcome', gate)
+        self.assertIn('test "$BUILD_OUTCOME" = success', gate)
         self.assertNotRegex(comparison, r'continue-on-error|\|\|\s*true')
         self.assertNotRegex(gate, r'continue-on-error|\|\|\s*true')
 
