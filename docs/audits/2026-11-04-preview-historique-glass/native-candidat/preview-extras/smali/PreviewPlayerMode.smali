@@ -8,6 +8,8 @@
 
 .field private static final DIAGNOSTIC:Ljava/lang/String; = "(function(kind) {\n    \'use strict\';\n    // Passive, bounded, allowlisted observations only. No account, track or\n    // arbitrary page text is returned. This probe does not click or send data.\n    var specs={\n        repeat:{selector:\'button[data-testid=\"control-button-repeat\"], [role=\"button\"][data-testid=\"control-button-repeat\"], button[aria-label], [role=\"button\"][aria-label]\', ids:/^control-button-repeat$/i,\n            off:/^(enable repeat|turn repeat on|activer la r\u00e9p\u00e9tition|wiederholung aktivieren|activar repetici\u00f3n|ativar repeti\u00e7\u00e3o)$/i,\n            on:/^(disable repeat|turn repeat off|d\u00e9sactiver la r\u00e9p\u00e9tition|wiederholung deaktivieren|desactivar repetici\u00f3n|desativar repeti\u00e7\u00e3o)$/i},\n        shuffle:{selector:\'button[data-testid*=\"shuffle\" i], button[aria-label], [role=\"button\"][aria-label], [role=\"switch\"][aria-label]\', ids:/shuffle/i,\n            off:/^(enable shuffle|turn shuffle on|activate shuffle|activer (la lecture |le mode |l[\'\u2019])?al\u00e9atoire|zufallswiedergabe aktivieren|activar (el modo |la reproducci\u00f3n )?aleatori[oa]|ativar (a reprodu\u00e7\u00e3o )?aleat\u00f3ria)$/i,\n            on:/^(disable shuffle|turn shuffle off|deactivate shuffle|d\u00e9sactiver (la lecture |le mode |l[\'\u2019])?al\u00e9atoire|zufallswiedergabe deaktivieren|desactivar (el modo |la reproducci\u00f3n )?aleatori[oa]|desativar (a reprodu\u00e7\u00e3o )?aleat\u00f3ria)$/i},\n        like:{selector:\'[data-testid=\"now-playing-widget\"] button, [data-testid=\"now-playing-bar\"] button, [data-testid=\"now-playing-view\"] button, [data-testid=\"now-playing-panel\"] button, [data-testid=\"now-playing-view\"] [role=\"button\"], [data-testid=\"now-playing-bar\"] [role=\"button\"]\', ids:/^(add-button|remove-button|add-to-library-button|remove-from-library-button)$/i,\n            off:/^(save to your library|add to (your )?(liked songs|library)|ajouter (\u00e0|aux) (la biblioth\u00e8que|titres lik\u00e9s)|enregistrer dans (votre |la )?biblioth\u00e8que|in (deine |der )?bibliothek (aufnehmen|hinzuf\u00fcgen)|a\u00f1adir a (tu )?biblioteca|adicionar (\u00e0 biblioteca|aos t\u00edtulos curtidos))$/i,\n            on:/^(remove from (your )?(library|liked songs)|retirer (de la biblioth\u00e8que|des titres lik\u00e9s)|supprimer de (votre |la )?biblioth\u00e8que|aus (deiner |der )?bibliothek entfernen|quitar de (tu )?biblioteca|remover (da biblioteca|dos t\u00edtulos curtidos))$/i}\n    };\n    // Aggregate structure only: fixed testid/role and label categories, never\n    // arbitrary labels or identifiers that could contain a track or account.\n    function structure() {\n        var roots=Array.from(document.querySelectorAll(\'[data-testid=\"now-playing-bar\"], [data-testid=\"now-playing-widget\"], [data-testid=\"player-controls\"], [data-testid=\"now-playing-view\"], [data-testid=\"now-playing-panel\"]\'));\n        var nodes=[];roots.forEach(function(root){Array.from(root.querySelectorAll(\'button,[role=\"button\"],[role=\"switch\"],[role=\"slider\"],input[type=\"range\"]\')).forEach(function(n){if(nodes.indexOf(n)<0)nodes.push(n);});});\n        var st={bar:0,view:0,nodes:Math.min(nodes.length,99),playpause:0,repeat:0,shuffle:0,like:0,queue:0,volume:0,lyrics:0,connect:0,other:0,button:0,switch:0,slider:0,aria_shuffle:0,aria_like:0,aria_play:0,aria_pause:0,aria_other:0};\n        roots.forEach(function(r){if(/^(now-playing-view|now-playing-panel)$/.test(r.getAttribute(\'data-testid\')))st.view++;else st.bar++;});\n        nodes.forEach(function(n){\n            var id=String(n.getAttribute(\'data-testid\')||\'\').toLowerCase(), label=String(n.getAttribute(\'aria-label\')||\'\').trim(), role=String(n.getAttribute(\'role\')||\'\').toLowerCase();\n            var k=/^control-button-playpause$/.test(id)?\'playpause\':/repeat/.test(id)?\'repeat\':/shuffle/.test(id)?\'shuffle\':/^(add-button|remove-button|add-to-library-button|remove-from-library-button)$/.test(id)?\'like\':/^(queue-button|control-button-queue)$/.test(id)?\'queue\':/^(volume-bar|volume-slider)$/.test(id)?\'volume\':/^(lyrics-button|control-button-lyrics)$/.test(id)?\'lyrics\':/^(connect-button|control-button-connect|connect-device-picker|device-picker)$/.test(id)?\'connect\':\'other\';\n            st[k]=Math.min(st[k]+1,99);if(role===\'switch\')st.switch++;else if(role===\'slider\'||n.tagName===\'INPUT\')st.slider++;else st.button++;\n            if(specs.shuffle.off.test(label)||specs.shuffle.on.test(label))st.aria_shuffle++;else if(specs.like.off.test(label)||specs.like.on.test(label))st.aria_like++;else if(/^(play|resume|lire|reprendre)$/i.test(label))st.aria_play++;else if(/^(pause|mettre en pause)$/i.test(label))st.aria_pause++;else if(label)st.aria_other++;\n        });\n        Object.keys(st).forEach(function(k){st[k]=Math.min(st[k],99);});return JSON.stringify(st);\n    }\n    var spec=specs[kind], out={kind:kind===\'shuffle\'?\'shuffle\':kind===\'like\'?\'like\':kind===\'repeat\'?\'repeat\':\'unknown\',reason:\'control\',count:0,state:\'unknown\',label:\'unknown\',command:\'unknown\',disabled:false,smart:false,structure:structure()};\n    if(!spec)return JSON.stringify(out);\n    var nodes=Array.from(document.querySelectorAll(spec.selector)).filter(function(b){\n        return b.isConnected && (spec.ids.test(String(b.getAttribute(\'data-testid\')||\'\')) || spec.off.test(String(b.getAttribute(\'aria-label\')||\'\').trim()) || spec.on.test(String(b.getAttribute(\'aria-label\')||\'\').trim()));\n    });\n    out.count=Math.min(nodes.length,2);\n    if(nodes.length!==1){out.reason=nodes.length?\'ambiguous\':document.readyState===\'loading\'?\'page\':\'absent\';return JSON.stringify(out);}\n    var b=nodes[0], label=String(b.getAttribute(\'aria-label\')||\'\').trim();\n    out.label=spec.on.test(label)?\'on-action\':spec.off.test(label)?\'off-action\':label?\'unrecognized\':\'absent\';\n    out.disabled=!!b.disabled || b.getAttribute(\'aria-disabled\')===\'true\';\n    var raw=b.getAttribute(\'aria-checked\');if(raw===null)raw=b.getAttribute(\'aria-pressed\');\n    out.state=raw===\'true\'||raw===\'false\'||(kind!==\'like\'&&raw===\'mixed\')?raw:raw===null?(out.label===\'on-action\'?\'true\':out.label===\'off-action\'?\'false\':\'unknown\'):\'unknown\';\n    out.smart=kind===\'shuffle\' && out.state===\'mixed\';\n    var id=String(b.getAttribute(\'data-testid\')||\'\').toLowerCase();\n    var conflict=kind===\'like\' && ((out.state===\'false\' && (out.label===\'on-action\'||/^(remove-button|remove-from-library-button)$/.test(id))) || (out.state===\'true\' && out.label===\'off-action\'));\n    var unverified=kind===\'like\' && out.state===\'false\' && out.label!==\'off-action\' && id!==\'add-to-library-button\';\n    var popup=String(b.getAttribute(\'aria-haspopup\')||\'\').toLowerCase();\n    if(kind===\'like\')out.command=popup===\'true\'||popup===\'menu\'||popup===\'dialog\'?\'menu\':\'unspecified\';\n    else out.command=\'toggle\';\n    var description=String(b.getAttribute(\'aria-description\')||\'\').trim();\n    var restricted=kind===\'shuffle\' && out.disabled && /^(shuffle is not available (with|for) (this account|this playback)|l[\'\u2019]al\u00e9atoire n[\'\u2019]est pas disponible avec (ce compte|cette lecture))$/i.test(description);\n    out.reason=restricted?\'restriction\':out.disabled?\'disabled\':conflict?\'conflict\':unverified?\'unverified\':out.state===\'unknown\'?\'state\':\'observed\';\n    return JSON.stringify(out);\n})\n"
 
+.field private static final HIDDEN_ATTEMPT:Ljava/lang/String; = "(function(kind, nativeTitle, control, diagnostic, request) {\n    \'use strict\';\n    // Invoked only by a user tap when the control is absent/unknown. Open only\n    // a unique, explicitly closed known view toggle; no guessing or navigation.\n    var prior=window.__sfPreviewHiddenMode;\n    if(prior && prior.status===\'working\') return JSON.stringify({started:false,reason:\'busy\'});\n    var buttons=document.querySelectorAll(\'button[data-testid=\"now-playing-view-button\"], [role=\"button\"][data-testid=\"now-playing-view-button\"]\');\n    function pressed(b) {\n        var a=b.getAttribute(\'aria-pressed\'),c=b.getAttribute(\'aria-checked\');\n        if(a!==null&&c!==null&&a!==c)return \'unknown\';\n        var v=a!==null?a:c;return v===\'true\'||v===\'false\'?v:\'unknown\';\n    }\n    if(buttons.length!==1)return JSON.stringify({started:false,reason:buttons.length?\'ambiguous\':\'absent\'});\n    var toggle=buttons[0];\n    if(!toggle.isConnected || toggle.disabled || toggle.getAttribute(\'aria-disabled\')===\'true\' || pressed(toggle)!==\'false\')return JSON.stringify({started:false,reason:\'view-state\'});\n    var attempt={id:request,status:\'working\',reason:\'opening\',sent:false,close:\'pending\',diagnostic:\'\'};\n    window.__sfPreviewHiddenMode=attempt;\n    function close() {\n        try {\n            var now=document.querySelectorAll(\'button[data-testid=\"now-playing-view-button\"], [role=\"button\"][data-testid=\"now-playing-view-button\"]\');\n            if(now.length===1 && now[0]===toggle && toggle.isConnected && pressed(toggle)===\'true\') {\n                toggle.click();attempt.close=pressed(toggle)===\'false\'?\'confirmed\':\'requested\';\n            } else attempt.close=pressed(toggle)===\'false\'?\'already-closed\':\'unconfirmed\';\n        } catch (_) {attempt.close=\'unconfirmed\';}\n        attempt.status=\'done\';\n    }\n    attempt.cleanup=close;\n    try {toggle.click();} catch (_) {attempt.reason=\'view-command\';close();return JSON.stringify({started:false,reason:\'view-command\'});}\n    setTimeout(function(){\n        if(attempt.status!==\'working\')return;\n        try {\n            if(pressed(toggle)!==\'true\'){attempt.reason=\'view-not-confirmed\';close();return;}\n            var q=JSON.parse(control(kind,\'query\',\'\',\'\',\'\'));\n            attempt.diagnostic=diagnostic(kind);\n            if(q.state!==\'true\'&&q.state!==\'false\'&&q.state!==\'mixed\'){attempt.reason=q.reason||\'absent\';close();return;}\n            if(kind===\'like\' && (q.state!==\'false\'||!q.track||!q.title||q.title!==nativeTitle)) {attempt.reason=q.state===\'true\'?\'already-liked\':\'identity\';close();return;}\n            var result=JSON.parse(control(kind,\'invoke\',q.state,q.track||\'\',q.title||\'\'));\n            attempt.sent=!!result.sent;attempt.reason=attempt.sent?\'sent\':\'not-sent\';\n            // Sample the page again after the action, before closing the view.\n            setTimeout(function(){if(attempt.status!==\'working\')return;try{attempt.diagnostic=diagnostic(kind);}catch(_){}close();},300);\n        }catch(_){attempt.reason=\'error\';close();}\n    },500);\n    return JSON.stringify({started:true});\n})\n"
+
 .field private static final SCRIPT:Ljava/lang/String; = "(function(kind, action, expectedState, expectedTrack, expectedTitle) {\n    \'use strict\';\n    // Passive inspection of controls already in the page. A tap can only click\n    // a uniquely identified real control, after state/identity revalidation.\n    var labels = {\n        like: {\n            off: /^(save to your library|add to (your )?(liked songs|library)|ajouter (\u00e0|aux) (la biblioth\u00e8que|titres lik\u00e9s)|enregistrer dans (votre |la )?biblioth\u00e8que|in (deine |der )?bibliothek (aufnehmen|hinzuf\u00fcgen)|a\u00f1adir a (tu )?biblioteca|adicionar (\u00e0 biblioteca|aos t\u00edtulos curtidos))$/i,\n            on: /^(remove from (your )?(library|liked songs)|retirer (de la biblioth\u00e8que|des titres lik\u00e9s)|supprimer de (votre |la )?biblioth\u00e8que|aus (deiner |der )?bibliothek entfernen|quitar de (tu )?biblioteca|remover (da biblioteca|dos t\u00edtulos curtidos))$/i\n        },\n        repeat: {\n            // A label can safely distinguish off from enabled, but not list\n            // from one-track unless the page supplies an explicit mixed state.\n            off: /^(enable repeat|turn repeat on|activer la r\u00e9p\u00e9tition|wiederholung aktivieren|activar repetici\u00f3n|ativar repeti\u00e7\u00e3o)$/i,\n            on: /^(disable repeat|turn repeat off|d\u00e9sactiver la r\u00e9p\u00e9tition|wiederholung deaktivieren|desactivar repetici\u00f3n|desativar repeti\u00e7\u00e3o)$/i\n        },\n        shuffle: {\n            off: /^(enable shuffle|turn shuffle on|activate shuffle|activer (la lecture |le mode |l[\'\u2019])?al\u00e9atoire|zufallswiedergabe aktivieren|activar (el modo |la reproducci\u00f3n )?aleatori[oa]|ativar (a reprodu\u00e7\u00e3o )?aleat\u00f3ria)$/i,\n            on: /^(disable shuffle|turn shuffle off|deactivate shuffle|d\u00e9sactiver (la lecture |le mode |l[\'\u2019])?al\u00e9atoire|zufallswiedergabe deaktivieren|desactivar (el modo |la reproducci\u00f3n )?aleatori[oa]|desativar (a reprodu\u00e7\u00e3o )?aleat\u00f3ria)$/i\n        }\n    };\n    if ([\'like\',\'shuffle\',\'repeat\'].indexOf(kind) < 0) return JSON.stringify({state:\'unknown\',reason:\'control\'});\n    var selector = kind === \'like\' ?\n        \'[data-testid=\"now-playing-widget\"] button, [data-testid=\"now-playing-bar\"] button, [data-testid=\"now-playing-view\"] button, [data-testid=\"now-playing-panel\"] button, [data-testid=\"now-playing-view\"] [role=\"button\"], [data-testid=\"now-playing-bar\"] [role=\"button\"]\' :\n        kind === \'shuffle\' ? \'button[data-testid*=\"shuffle\" i], button[aria-label], [role=\"button\"][aria-label], [role=\"switch\"][aria-label]\' :\n        \'button[data-testid=\"control-button-repeat\"], [role=\"button\"][data-testid=\"control-button-repeat\"], button[aria-label], [role=\"button\"][aria-label]\';\n    var nodes = Array.from(document.querySelectorAll(selector)).filter(function(b) {\n        if (!b.isConnected) return false;\n        var id=String(b.getAttribute(\'data-testid\')||\'\').toLowerCase();\n        var label=String(b.getAttribute(\'aria-label\')||\'\').trim();\n        if (kind === \'like\') return /^(add-button|remove-button|add-to-library-button|remove-from-library-button)$/.test(id) || labels.like.off.test(label) || labels.like.on.test(label);\n        if (kind === \'repeat\') return id===\'control-button-repeat\' || labels.repeat.off.test(label) || labels.repeat.on.test(label);\n        return /shuffle/.test(id) || labels.shuffle.off.test(label) || labels.shuffle.on.test(label);\n    });\n    var result={state:\'unknown\',track:\'\',title:\'\',reason:\'control\',sent:false};\n    if (!nodes.length) {\n        result.reason = document.readyState === \'loading\' ? \'page\' : (kind === \'shuffle\' && !document.querySelector(\'[data-testid=\"now-playing-bar\"], [data-testid=\"now-playing-widget\"], [data-testid=\"player-controls\"]\') ? \'bar\' : \'control\');\n        return JSON.stringify(result);\n    }\n    if (nodes.length !== 1) {result.reason=\'ambiguous\';return JSON.stringify(result);}\n    var button=nodes[0];\n    if (button.disabled || button.getAttribute(\'aria-disabled\') === \'true\') {\n        var description=String(button.getAttribute(\'aria-description\')||\'\').trim();\n        result.reason=kind===\'shuffle\' && /^(shuffle is not available (with|for) (this account|this playback)|l[\'\u2019]al\u00e9atoire n[\'\u2019]est pas disponible avec (ce compte|cette lecture))$/i.test(description)?\'restriction\':\'disabled\';\n        return JSON.stringify(result);\n    }\n    if (kind === \'like\' && /^(true|menu|dialog)$/i.test(String(button.getAttribute(\'aria-haspopup\')||\'\'))) {result.reason=\'menu\';return JSON.stringify(result);}\n    var raw=button.getAttribute(\'aria-checked\');\n    if (raw === null) raw=button.getAttribute(\'aria-pressed\');\n    var label=String(button.getAttribute(\'aria-label\')||\'\').trim();\n    if (raw === null) {\n        raw=labels[kind].on.test(label) ? \'true\' :\n            labels[kind].off.test(label) ? \'false\' : \'unknown\';\n    } else if (raw !== \'true\' && raw !== \'false\' && !(kind !== \'like\' && raw === \'mixed\')) raw=\'unknown\';\n    if (kind === \'like\') {\n        // A false ARIA value must never override a removal action. An\n        // unlabeled generic add-button can be a playlist menu, not a like.\n        var testId=String(button.getAttribute(\'data-testid\')||\'\').toLowerCase();\n        var removeId=/^(remove-button|remove-from-library-button)$/.test(testId);\n        var addId=testId===\'add-to-library-button\';\n        var offLabel=labels.like.off.test(label), onLabel=labels.like.on.test(label);\n        if ((raw===\'false\' && (onLabel||removeId)) || (raw===\'true\' && offLabel)) {\n            result.reason=\'conflict\';return JSON.stringify(result);\n        }\n        if (raw===\'false\' && !offLabel && !addId) {result.reason=\'unverified\';return JSON.stringify(result);}\n        var bar=button.closest(\'[data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-bar\"]\');\n        if (!bar) bar=document.querySelector(\'[data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-bar\"]\');\n        var link=bar && bar.querySelector(\'a[data-testid=\"context-item-link\"], a[data-testid=\"nowplaying-track-link\"]\');\n        result.title=link ? String(link.textContent||\'\').trim() : \'\';\n        var href=link ? String(link.getAttribute(\'href\')||\'\') : \'\';\n        var match=/^\\/(track|episode)\\/([a-z0-9]+)(?:[?#].*)?$/i.exec(href);\n        result.track=match ? match[1].toLowerCase()+\':\'+match[2] : \'\';\n        if (!result.track || !result.title) {result.reason=\'identity\';return JSON.stringify(result);}\n    }\n    if (raw === \'unknown\') {result.reason=\'state\';return JSON.stringify(result);}\n    if (typeof button.click !== \'function\') {result.reason=\'command\';return JSON.stringify(result);}\n    result.state=raw;result.reason=\'\';\n    if (action === \'query\') return JSON.stringify(result);\n    if (action !== \'invoke\' || raw !== expectedState ||\n        (kind === \'like\' && (raw !== \'false\' || result.track !== expectedTrack || result.title !== expectedTitle))) return JSON.stringify({sent:false});\n    try {\n        // Use the exact revalidated button; never call a legacy helper that\n        // schedules playback-related work. Never click an already-liked item.\n        button.click();\n        return JSON.stringify({sent:true});\n    } catch (_) { return JSON.stringify({sent:false}); }\n})\n"
 
 .field private static final TAP_GUARD_MS:J = 0x190L
@@ -24,6 +26,10 @@
 
 
 # instance fields
+.field private fallbackId:Ljava/lang/String;
+
+.field private fallbackPending:Z
+
 .field private generation:J
 
 .field private final handler:Landroid/os/Handler;
@@ -74,7 +80,7 @@
 
     const/4 v2, 0x0
 
-    .line 27
+    .line 28
     new-array v0, v5, [Ljava/lang/String;
 
     const-string v1, "non observ\u00e9"
@@ -139,12 +145,12 @@
 
     sput-object v0, Lcom/melodix/music/PreviewPlayerMode;->outcome:[Ljava/lang/String;
 
-    .line 28
+    .line 29
     const-string v0, "non observ\u00e9e"
 
     sput-object v0, Lcom/melodix/music/PreviewPlayerMode;->structure:Ljava/lang/String;
 
-    .line 55
+    .line 57
     return-void
 .end method
 
@@ -152,10 +158,10 @@
     .locals 2
 
     .prologue
-    .line 68
+    .line 70
     invoke-direct {p0, p1, p2}, Landroid/widget/ImageButton;-><init>(Landroid/content/Context;Landroid/util/AttributeSet;)V
 
-    .line 51
+    .line 52
     new-instance v0, Landroid/os/Handler;
 
     invoke-static {}, Landroid/os/Looper;->getMainLooper()Landroid/os/Looper;
@@ -166,7 +172,7 @@
 
     iput-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->handler:Landroid/os/Handler;
 
-    .line 52
+    .line 53
     const-string v0, ""
 
     iput-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->kind:Ljava/lang/String;
@@ -195,39 +201,107 @@
 
     iput-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->reason:Ljava/lang/String;
 
-    .line 54
+    .line 55
+    const-string v0, ""
+
+    iput-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->fallbackId:Ljava/lang/String;
+
+    .line 56
     const-wide/16 v0, -0x3e8
 
     iput-wide v0, p0, Lcom/melodix/music/PreviewPlayerMode;->lastTap:J
 
-    .line 62
+    .line 64
     new-instance v0, Lcom/melodix/music/PreviewPlayerMode$1;
 
     invoke-direct {v0, p0}, Lcom/melodix/music/PreviewPlayerMode$1;-><init>(Lcom/melodix/music/PreviewPlayerMode;)V
 
     iput-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->tick:Ljava/lang/Runnable;
 
-    .line 68
+    .line 70
     const/4 v0, 0x0
 
     invoke-virtual {p0, v0}, Lcom/melodix/music/PreviewPlayerMode;->setEnabled(Z)V
 
-    .line 69
+    .line 71
     new-instance v0, Lcom/melodix/music/PreviewPlayerMode$2;
 
     invoke-direct {v0, p0}, Lcom/melodix/music/PreviewPlayerMode$2;-><init>(Lcom/melodix/music/PreviewPlayerMode;)V
 
     invoke-virtual {p0, v0}, Lcom/melodix/music/PreviewPlayerMode;->setOnClickListener(Landroid/view/View$OnClickListener;)V
 
-    .line 70
+    .line 72
     return-void
+.end method
+
+.method private abandonHidden()V
+    .locals 3
+
+    .prologue
+    .line 135
+    iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerMode;->fallbackPending:Z
+
+    if-nez v0, :cond_1
+
+    .line 138
+    :cond_0
+    :goto_0
+    return-void
+
+    .line 135
+    :cond_1
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->web()Landroid/webkit/WebView;
+
+    move-result-object v0
+
+    .line 136
+    if-eqz v0, :cond_2
+
+    const/4 v1, 0x1
+
+    :try_start_0
+    invoke-direct {p0, v1}, Lcom/melodix/music/PreviewPlayerMode;->hiddenStatus(Z)Ljava/lang/String;
+
+    move-result-object v1
+
+    const/4 v2, 0x0
+
+    invoke-virtual {v0, v1, v2}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
+    :try_end_0
+    .catch Ljava/lang/RuntimeException; {:try_start_0 .. :try_end_0} :catch_0
+
+    .line 137
+    :cond_2
+    :goto_1
+    const/4 v0, 0x0
+
+    iput-boolean v0, p0, Lcom/melodix/music/PreviewPlayerMode;->fallbackPending:Z
+
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->diagnosticIndex()I
+
+    move-result v0
+
+    if-ltz v0, :cond_0
+
+    sget-object v1, Lcom/melodix/music/PreviewPlayerMode;->outcome:[Ljava/lang/String;
+
+    const-string v2, "vue cach\u00e9e : fermeture demand\u00e9e, non v\u00e9rifi\u00e9e"
+
+    aput-object v2, v1, v0
+
+    goto :goto_0
+
+    :catch_0
+    move-exception v0
+
+    goto :goto_1
 .end method
 
 .method static synthetic access$0(Lcom/melodix/music/PreviewPlayerMode;)Z
     .locals 1
 
     .prologue
-    .line 53
+    .line 54
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerMode;->running:Z
 
     return v0
@@ -237,7 +311,7 @@
     .locals 0
 
     .prologue
-    .line 166
+    .line 204
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->paint()V
 
     return-void
@@ -247,7 +321,7 @@
     .locals 1
 
     .prologue
-    .line 52
+    .line 53
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->kind:Ljava/lang/String;
 
     return-object v0
@@ -257,7 +331,7 @@
     .locals 1
 
     .prologue
-    .line 91
+    .line 93
     invoke-direct {p0, p1}, Lcom/melodix/music/PreviewPlayerMode;->sameNativeTitle(Ljava/lang/String;)Z
 
     move-result v0
@@ -269,7 +343,7 @@
     .locals 1
 
     .prologue
-    .line 53
+    .line 54
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerMode;->pending:Z
 
     return v0
@@ -279,7 +353,7 @@
     .locals 0
 
     .prologue
-    .line 53
+    .line 54
     iput-boolean p1, p0, Lcom/melodix/music/PreviewPlayerMode;->observedPending:Z
 
     return-void
@@ -289,7 +363,7 @@
     .locals 1
 
     .prologue
-    .line 52
+    .line 53
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->pendingState:Ljava/lang/String;
 
     return-object v0
@@ -299,7 +373,7 @@
     .locals 1
 
     .prologue
-    .line 52
+    .line 53
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->pendingTrack:Ljava/lang/String;
 
     return-object v0
@@ -309,7 +383,7 @@
     .locals 1
 
     .prologue
-    .line 30
+    .line 31
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->diagnosticIndex()I
 
     move-result v0
@@ -321,7 +395,7 @@
     .locals 1
 
     .prologue
-    .line 27
+    .line 28
     sget-object v0, Lcom/melodix/music/PreviewPlayerMode;->outcome:[Ljava/lang/String;
 
     return-object v0
@@ -331,7 +405,7 @@
     .locals 0
 
     .prologue
-    .line 53
+    .line 54
     iput-boolean p1, p0, Lcom/melodix/music/PreviewPlayerMode;->pending:Z
 
     return-void
@@ -341,7 +415,7 @@
     .locals 0
 
     .prologue
-    .line 52
+    .line 53
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerMode;->state:Ljava/lang/String;
 
     return-void
@@ -351,7 +425,7 @@
     .locals 0
 
     .prologue
-    .line 96
+    .line 98
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->observe()V
 
     return-void
@@ -361,7 +435,7 @@
     .locals 0
 
     .prologue
-    .line 52
+    .line 53
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerMode;->track:Ljava/lang/String;
 
     return-void
@@ -371,7 +445,7 @@
     .locals 0
 
     .prologue
-    .line 52
+    .line 53
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerMode;->title:Ljava/lang/String;
 
     return-void
@@ -381,47 +455,131 @@
     .locals 0
 
     .prologue
-    .line 52
+    .line 53
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerMode;->reason:Ljava/lang/String;
 
     return-void
 .end method
 
-.method static synthetic access$23(Lcom/melodix/music/PreviewPlayerMode;)V
+.method static synthetic access$23(Lcom/melodix/music/PreviewPlayerMode;)Z
+    .locals 1
+
+    .prologue
+    .line 54
+    iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerMode;->fallbackPending:Z
+
+    return v0
+.end method
+
+.method static synthetic access$24(Lcom/melodix/music/PreviewPlayerMode;)Ljava/lang/String;
+    .locals 1
+
+    .prologue
+    .line 55
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->fallbackId:Ljava/lang/String;
+
+    return-object v0
+.end method
+
+.method static synthetic access$25(Lcom/melodix/music/PreviewPlayerMode;Z)V
     .locals 0
 
     .prologue
-    .line 56
-    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->notConfirmed()V
+    .line 54
+    iput-boolean p1, p0, Lcom/melodix/music/PreviewPlayerMode;->fallbackPending:Z
 
     return-void
 .end method
 
-.method static synthetic access$24(Lcom/melodix/music/PreviewPlayerMode;)V
-    .locals 0
+.method static synthetic access$26()[Ljava/lang/String;
+    .locals 1
 
     .prologue
-    .line 181
-    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->sync()V
+    .line 28
+    sget-object v0, Lcom/melodix/music/PreviewPlayerMode;->after:[Ljava/lang/String;
 
-    return-void
+    return-object v0
+.end method
+
+.method static synthetic access$27()[Ljava/lang/String;
+    .locals 1
+
+    .prologue
+    .line 28
+    sget-object v0, Lcom/melodix/music/PreviewPlayerMode;->last:[Ljava/lang/String;
+
+    return-object v0
+.end method
+
+.method static synthetic access$28(Lcom/melodix/music/PreviewPlayerMode;Z)Ljava/lang/String;
+    .locals 1
+
+    .prologue
+    .line 129
+    invoke-direct {p0, p1}, Lcom/melodix/music/PreviewPlayerMode;->hiddenStatus(Z)Ljava/lang/String;
+
+    move-result-object v0
+
+    return-object v0
+.end method
+
+.method static synthetic access$29(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    .locals 1
+
+    .prologue
+    .line 32
+    invoke-static {p0, p1}, Lcom/melodix/music/PreviewPlayerMode;->allowed(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v0
+
+    return-object v0
 .end method
 
 .method static synthetic access$3(Lcom/melodix/music/PreviewPlayerMode;)Landroid/os/Handler;
     .locals 1
 
     .prologue
-    .line 51
+    .line 52
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->handler:Landroid/os/Handler;
 
     return-object v0
+.end method
+
+.method static synthetic access$30(Lcom/melodix/music/PreviewPlayerMode;)V
+    .locals 0
+
+    .prologue
+    .line 134
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->abandonHidden()V
+
+    return-void
+.end method
+
+.method static synthetic access$31(Lcom/melodix/music/PreviewPlayerMode;)V
+    .locals 0
+
+    .prologue
+    .line 58
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->notConfirmed()V
+
+    return-void
+.end method
+
+.method static synthetic access$32(Lcom/melodix/music/PreviewPlayerMode;)V
+    .locals 0
+
+    .prologue
+    .line 219
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->sync()V
+
+    return-void
 .end method
 
 .method static synthetic access$4(Lcom/melodix/music/PreviewPlayerMode;)V
     .locals 0
 
     .prologue
-    .line 126
+    .line 164
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->invoke()V
 
     return-void
@@ -431,7 +589,7 @@
     .locals 2
 
     .prologue
-    .line 54
+    .line 56
     iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerMode;->generation:J
 
     return-wide v0
@@ -441,7 +599,7 @@
     .locals 2
 
     .prologue
-    .line 54
+    .line 56
     iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerMode;->querySerial:J
 
     return-wide v0
@@ -451,7 +609,7 @@
     .locals 0
 
     .prologue
-    .line 53
+    .line 54
     iput-boolean p1, p0, Lcom/melodix/music/PreviewPlayerMode;->queryInFlight:Z
 
     return-void
@@ -461,7 +619,7 @@
     .locals 1
 
     .prologue
-    .line 87
+    .line 89
     invoke-direct {p0, p1}, Lcom/melodix/music/PreviewPlayerMode;->parse(Ljava/lang/String;)Lorg/json/JSONObject;
 
     move-result-object v0
@@ -473,7 +631,7 @@
     .locals 0
 
     .prologue
-    .line 32
+    .line 33
     invoke-direct {p0, p1}, Lcom/melodix/music/PreviewPlayerMode;->remember(Lorg/json/JSONObject;)V
 
     return-void
@@ -483,12 +641,12 @@
     .locals 4
 
     .prologue
-    .line 72
+    .line 74
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerMode;->getContext()Landroid/content/Context;
 
     move-result-object v0
 
-    .line 73
+    .line 75
     const/4 v1, 0x0
 
     move v2, v1
@@ -502,7 +660,7 @@
 
     if-nez v1, :cond_1
 
-    .line 77
+    .line 79
     :cond_0
     instance-of v1, v0, Landroid/app/Activity;
 
@@ -513,7 +671,7 @@
     :goto_1
     return-object v0
 
-    .line 74
+    .line 76
     :cond_1
     instance-of v1, v0, Landroid/app/Activity;
 
@@ -526,7 +684,7 @@
     :cond_2
     move-object v1, v0
 
-    .line 75
+    .line 77
     check-cast v1, Landroid/content/ContextWrapper;
 
     invoke-virtual {v1}, Landroid/content/ContextWrapper;->getBaseContext()Landroid/content/Context;
@@ -535,7 +693,7 @@
 
     if-eq v3, v0, :cond_0
 
-    .line 73
+    .line 75
     add-int/lit8 v1, v2, 0x1
 
     move v2, v1
@@ -544,7 +702,7 @@
 
     goto :goto_0
 
-    .line 77
+    .line 79
     :cond_3
     const/4 v0, 0x0
 
@@ -555,7 +713,7 @@
     .locals 3
 
     .prologue
-    .line 31
+    .line 32
     new-instance v0, Ljava/lang/StringBuilder;
 
     const-string v1, "|"
@@ -615,7 +773,7 @@
     .locals 3
 
     .prologue
-    .line 47
+    .line 48
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->diagnosticIndex()I
 
     move-result v0
@@ -650,7 +808,7 @@
     .locals 2
 
     .prologue
-    .line 85
+    .line 87
     new-instance v0, Ljava/lang/StringBuilder;
 
     const-string v1, "(function(){var r=JSON.parse(((function(kind, action, expectedState, expectedTrack, expectedTitle) {\n    \'use strict\';\n    // Passive inspection of controls already in the page. A tap can only click\n    // a uniquely identified real control, after state/identity revalidation.\n    var labels = {\n        like: {\n            off: /^(save to your library|add to (your )?(liked songs|library)|ajouter (\u00e0|aux) (la biblioth\u00e8que|titres lik\u00e9s)|enregistrer dans (votre |la )?biblioth\u00e8que|in (deine |der )?bibliothek (aufnehmen|hinzuf\u00fcgen)|a\u00f1adir a (tu )?biblioteca|adicionar (\u00e0 biblioteca|aos t\u00edtulos curtidos))$/i,\n            on: /^(remove from (your )?(library|liked songs)|retirer (de la biblioth\u00e8que|des titres lik\u00e9s)|supprimer de (votre |la )?biblioth\u00e8que|aus (deiner |der )?bibliothek entfernen|quitar de (tu )?biblioteca|remover (da biblioteca|dos t\u00edtulos curtidos))$/i\n        },\n        repeat: {\n            // A label can safely distinguish off from enabled, but not list\n            // from one-track unless the page supplies an explicit mixed state.\n            off: /^(enable repeat|turn repeat on|activer la r\u00e9p\u00e9tition|wiederholung aktivieren|activar repetici\u00f3n|ativar repeti\u00e7\u00e3o)$/i,\n            on: /^(disable repeat|turn repeat off|d\u00e9sactiver la r\u00e9p\u00e9tition|wiederholung deaktivieren|desactivar repetici\u00f3n|desativar repeti\u00e7\u00e3o)$/i\n        },\n        shuffle: {\n            off: /^(enable shuffle|turn shuffle on|activate shuffle|activer (la lecture |le mode |l[\'\u2019])?al\u00e9atoire|zufallswiedergabe aktivieren|activar (el modo |la reproducci\u00f3n )?aleatori[oa]|ativar (a reprodu\u00e7\u00e3o )?aleat\u00f3ria)$/i,\n            on: /^(disable shuffle|turn shuffle off|deactivate shuffle|d\u00e9sactiver (la lecture |le mode |l[\'\u2019])?al\u00e9atoire|zufallswiedergabe deaktivieren|desactivar (el modo |la reproducci\u00f3n )?aleatori[oa]|desativar (a reprodu\u00e7\u00e3o )?aleat\u00f3ria)$/i\n        }\n    };\n    if ([\'like\',\'shuffle\',\'repeat\'].indexOf(kind) < 0) return JSON.stringify({state:\'unknown\',reason:\'control\'});\n    var selector = kind === \'like\' ?\n        \'[data-testid=\"now-playing-widget\"] button, [data-testid=\"now-playing-bar\"] button, [data-testid=\"now-playing-view\"] button, [data-testid=\"now-playing-panel\"] button, [data-testid=\"now-playing-view\"] [role=\"button\"], [data-testid=\"now-playing-bar\"] [role=\"button\"]\' :\n        kind === \'shuffle\' ? \'button[data-testid*=\"shuffle\" i], button[aria-label], [role=\"button\"][aria-label], [role=\"switch\"][aria-label]\' :\n        \'button[data-testid=\"control-button-repeat\"], [role=\"button\"][data-testid=\"control-button-repeat\"], button[aria-label], [role=\"button\"][aria-label]\';\n    var nodes = Array.from(document.querySelectorAll(selector)).filter(function(b) {\n        if (!b.isConnected) return false;\n        var id=String(b.getAttribute(\'data-testid\')||\'\').toLowerCase();\n        var label=String(b.getAttribute(\'aria-label\')||\'\').trim();\n        if (kind === \'like\') return /^(add-button|remove-button|add-to-library-button|remove-from-library-button)$/.test(id) || labels.like.off.test(label) || labels.like.on.test(label);\n        if (kind === \'repeat\') return id===\'control-button-repeat\' || labels.repeat.off.test(label) || labels.repeat.on.test(label);\n        return /shuffle/.test(id) || labels.shuffle.off.test(label) || labels.shuffle.on.test(label);\n    });\n    var result={state:\'unknown\',track:\'\',title:\'\',reason:\'control\',sent:false};\n    if (!nodes.length) {\n        result.reason = document.readyState === \'loading\' ? \'page\' : (kind === \'shuffle\' && !document.querySelector(\'[data-testid=\"now-playing-bar\"], [data-testid=\"now-playing-widget\"], [data-testid=\"player-controls\"]\') ? \'bar\' : \'control\');\n        return JSON.stringify(result);\n    }\n    if (nodes.length !== 1) {result.reason=\'ambiguous\';return JSON.stringify(result);}\n    var button=nodes[0];\n    if (button.disabled || button.getAttribute(\'aria-disabled\') === \'true\') {\n        var description=String(button.getAttribute(\'aria-description\')||\'\').trim();\n        result.reason=kind===\'shuffle\' && /^(shuffle is not available (with|for) (this account|this playback)|l[\'\u2019]al\u00e9atoire n[\'\u2019]est pas disponible avec (ce compte|cette lecture))$/i.test(description)?\'restriction\':\'disabled\';\n        return JSON.stringify(result);\n    }\n    if (kind === \'like\' && /^(true|menu|dialog)$/i.test(String(button.getAttribute(\'aria-haspopup\')||\'\'))) {result.reason=\'menu\';return JSON.stringify(result);}\n    var raw=button.getAttribute(\'aria-checked\');\n    if (raw === null) raw=button.getAttribute(\'aria-pressed\');\n    var label=String(button.getAttribute(\'aria-label\')||\'\').trim();\n    if (raw === null) {\n        raw=labels[kind].on.test(label) ? \'true\' :\n            labels[kind].off.test(label) ? \'false\' : \'unknown\';\n    } else if (raw !== \'true\' && raw !== \'false\' && !(kind !== \'like\' && raw === \'mixed\')) raw=\'unknown\';\n    if (kind === \'like\') {\n        // A false ARIA value must never override a removal action. An\n        // unlabeled generic add-button can be a playlist menu, not a like.\n        var testId=String(button.getAttribute(\'data-testid\')||\'\').toLowerCase();\n        var removeId=/^(remove-button|remove-from-library-button)$/.test(testId);\n        var addId=testId===\'add-to-library-button\';\n        var offLabel=labels.like.off.test(label), onLabel=labels.like.on.test(label);\n        if ((raw===\'false\' && (onLabel||removeId)) || (raw===\'true\' && offLabel)) {\n            result.reason=\'conflict\';return JSON.stringify(result);\n        }\n        if (raw===\'false\' && !offLabel && !addId) {result.reason=\'unverified\';return JSON.stringify(result);}\n        var bar=button.closest(\'[data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-bar\"]\');\n        if (!bar) bar=document.querySelector(\'[data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-bar\"]\');\n        var link=bar && bar.querySelector(\'a[data-testid=\"context-item-link\"], a[data-testid=\"nowplaying-track-link\"]\');\n        result.title=link ? String(link.textContent||\'\').trim() : \'\';\n        var href=link ? String(link.getAttribute(\'href\')||\'\') : \'\';\n        var match=/^\\/(track|episode)\\/([a-z0-9]+)(?:[?#].*)?$/i.exec(href);\n        result.track=match ? match[1].toLowerCase()+\':\'+match[2] : \'\';\n        if (!result.track || !result.title) {result.reason=\'identity\';return JSON.stringify(result);}\n    }\n    if (raw === \'unknown\') {result.reason=\'state\';return JSON.stringify(result);}\n    if (typeof button.click !== \'function\') {result.reason=\'command\';return JSON.stringify(result);}\n    result.state=raw;result.reason=\'\';\n    if (action === \'query\') return JSON.stringify(result);\n    if (action !== \'invoke\' || raw !== expectedState ||\n        (kind === \'like\' && (raw !== \'false\' || result.track !== expectedTrack || result.title !== expectedTitle))) return JSON.stringify({sent:false});\n    try {\n        // Use the exact revalidated button; never call a legacy helper that\n        // schedules playback-related work. Never click an already-liked item.\n        button.click();\n        return JSON.stringify({sent:true});\n    } catch (_) { return JSON.stringify({sent:false}); }\n})\n)("
@@ -768,7 +926,7 @@
     .locals 3
 
     .prologue
-    .line 29
+    .line 30
     const/4 v0, 0x0
 
     const/16 v1, 0x63
@@ -813,7 +971,7 @@
     .locals 2
 
     .prologue
-    .line 30
+    .line 31
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->kind:Ljava/lang/String;
 
     const-string v1, "shuffle"
@@ -875,7 +1033,7 @@
 
     const/4 v2, 0x0
 
-    .line 48
+    .line 49
     new-instance v0, Ljava/lang/StringBuilder;
 
     const-string v1, "\nAl\u00e9atoire \u2014 actuel : "
@@ -932,7 +1090,7 @@
 
     move-result-object v0
 
-    .line 49
+    .line 50
     const-string v1, "\nLike \u2014 actuel : "
 
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -989,7 +1147,7 @@
 
     move-result-object v0
 
-    .line 50
+    .line 51
     const-string v1, "\nR\u00e9p\u00e9tition \u2014 actuel : "
 
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -1058,7 +1216,7 @@
 
     move-result-object v0
 
-    .line 48
+    .line 49
     invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
     move-result-object v0
@@ -1070,7 +1228,7 @@
     .locals 3
 
     .prologue
-    .line 149
+    .line 187
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerMode;->getResources()Landroid/content/res/Resources;
 
     move-result-object v0
@@ -1092,6 +1250,64 @@
     return v0
 .end method
 
+.method private hiddenStatus(Z)Ljava/lang/String;
+    .locals 2
+
+    .prologue
+    .line 130
+    new-instance v0, Ljava/lang/StringBuilder;
+
+    const-string v1, "(function(){var a=window.__sfPreviewHiddenMode;if(!a||a.id!=="
+
+    invoke-direct {v0, v1}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerMode;->fallbackId:Ljava/lang/String;
+
+    invoke-static {v1}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v1
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    const-string v1, ")return JSON.stringify({status:\'absent\'});"
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v1
+
+    .line 131
+    if-eqz p1, :cond_0
+
+    const-string v0, "if(a.status===\'working\'&&typeof a.cleanup===\'function\')a.cleanup();"
+
+    :goto_0
+    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    .line 132
+    const-string v1, "return JSON.stringify({status:a.status,reason:a.reason,sent:a.sent,close:a.close,diagnostic:a.diagnostic});})()"
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    .line 130
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    return-object v0
+
+    .line 131
+    :cond_0
+    const-string v0, ""
+
+    goto :goto_0
+.end method
+
 .method private invoke()V
     .locals 12
 
@@ -1102,12 +1318,12 @@
 
     const/4 v8, 0x0
 
-    .line 127
+    .line 165
     invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
 
     move-result-wide v0
 
-    .line 128
+    .line 166
     iget-boolean v2, p0, Lcom/melodix/music/PreviewPlayerMode;->running:Z
 
     if-eqz v2, :cond_0
@@ -1128,6 +1344,10 @@
 
     if-nez v2, :cond_0
 
+    iget-boolean v2, p0, Lcom/melodix/music/PreviewPlayerMode;->fallbackPending:Z
+
+    if-nez v2, :cond_0
+
     iget-wide v2, p0, Lcom/melodix/music/PreviewPlayerMode;->lastTap:J
 
     sub-long v2, v0, v2
@@ -1138,12 +1358,12 @@
 
     if-gez v2, :cond_1
 
-    .line 148
+    .line 186
     :cond_0
     :goto_0
     return-void
 
-    .line 129
+    .line 167
     :cond_1
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerMode;->state:Ljava/lang/String;
 
@@ -1153,60 +1373,73 @@
 
     move-result v2
 
-    if-eqz v2, :cond_4
+    if-eqz v2, :cond_5
 
-    .line 130
-    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->beginDiagnostic()V
-
-    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->diagnosticIndex()I
-
-    move-result v2
-
-    if-ltz v2, :cond_2
-
-    sget-object v3, Lcom/melodix/music/PreviewPlayerMode;->outcome:[Ljava/lang/String;
-
-    const-string v4, "non envoy\u00e9"
-
-    aput-object v4, v3, v2
-
-    .line 131
-    :cond_2
-    iget-object v2, p0, Lcom/melodix/music/PreviewPlayerMode;->kind:Ljava/lang/String;
-
-    const-string v3, "shuffle"
-
-    invoke-virtual {v2, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-
-    move-result v2
-
-    if-eqz v2, :cond_0
-
+    .line 168
     iput-wide v0, p0, Lcom/melodix/music/PreviewPlayerMode;->lastTap:J
+
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->beginDiagnostic()V
 
     invoke-virtual {p0, v9}, Lcom/melodix/music/PreviewPlayerMode;->performHapticFeedback(I)Z
 
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->shake()V
 
-    .line 132
-    invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerMode;->getContext()Landroid/content/Context;
+    .line 169
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->reason:Ljava/lang/String;
 
-    move-result-object v1
+    const-string v1, "control"
+
+    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-nez v0, :cond_2
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->reason:Ljava/lang/String;
 
-    const-string v2, "bar"
+    const-string v1, "bar"
 
-    invoke-virtual {v0, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v0
 
     if-eqz v0, :cond_3
 
-    const-string v0, "Lance un titre pour activer l\u2019al\u00e9atoire"
+    :cond_2
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->tryHiddenView()V
 
-    :goto_1
-    invoke-static {v1, v0, v8}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
+    goto :goto_0
+
+    .line 170
+    :cond_3
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->diagnosticIndex()I
+
+    move-result v0
+
+    if-ltz v0, :cond_4
+
+    sget-object v1, Lcom/melodix/music/PreviewPlayerMode;->outcome:[Ljava/lang/String;
+
+    const-string v2, "non envoy\u00e9 : contr\u00f4le non s\u00fbr"
+
+    aput-object v2, v1, v0
+
+    sget-object v1, Lcom/melodix/music/PreviewPlayerMode;->after:[Ljava/lang/String;
+
+    sget-object v2, Lcom/melodix/music/PreviewPlayerMode;->last:[Ljava/lang/String;
+
+    aget-object v2, v2, v0
+
+    aput-object v2, v1, v0
+
+    :cond_4
+    invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerMode;->getContext()Landroid/content/Context;
+
+    move-result-object v0
+
+    const-string v1, "Contr\u00f4le introuvable ou non s\u00fbr dans la page Spotify"
+
+    invoke-static {v0, v1, v8}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
 
     move-result-object v0
 
@@ -1214,13 +1447,8 @@
 
     goto :goto_0
 
-    :cond_3
-    const-string v0, "Al\u00e9atoire indisponible, R\u00e9essayer"
-
-    goto :goto_1
-
-    .line 135
-    :cond_4
+    .line 173
+    :cond_5
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerMode;->kind:Ljava/lang/String;
 
     const-string v3, "like"
@@ -1229,7 +1457,7 @@
 
     move-result v2
 
-    if-eqz v2, :cond_5
+    if-eqz v2, :cond_6
 
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerMode;->state:Ljava/lang/String;
 
@@ -1249,13 +1477,13 @@
 
     if-eqz v2, :cond_0
 
-    .line 136
-    :cond_5
+    .line 174
+    :cond_6
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->web()Landroid/webkit/WebView;
 
     move-result-object v2
 
-    if-nez v2, :cond_6
+    if-nez v2, :cond_7
 
     const-string v0, "unknown"
 
@@ -1269,8 +1497,8 @@
 
     goto :goto_0
 
-    .line 137
-    :cond_6
+    .line 175
+    :cond_7
     iput-wide v0, p0, Lcom/melodix/music/PreviewPlayerMode;->lastTap:J
 
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->beginDiagnostic()V
@@ -1287,7 +1515,7 @@
 
     iput-boolean v8, p0, Lcom/melodix/music/PreviewPlayerMode;->observedPending:Z
 
-    .line 138
+    .line 176
     iput-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->pendingState:Ljava/lang/String;
 
     iput-object v1, p0, Lcom/melodix/music/PreviewPlayerMode;->pendingTrack:Ljava/lang/String;
@@ -1310,20 +1538,20 @@
 
     invoke-virtual {p0, v9}, Lcom/melodix/music/PreviewPlayerMode;->performHapticFeedback(I)Z
 
-    .line 139
+    .line 177
     iget-object v6, p0, Lcom/melodix/music/PreviewPlayerMode;->handler:Landroid/os/Handler;
 
-    new-instance v7, Lcom/melodix/music/PreviewPlayerMode$5;
+    new-instance v7, Lcom/melodix/music/PreviewPlayerMode$8;
 
-    invoke-direct {v7, p0, v4, v5}, Lcom/melodix/music/PreviewPlayerMode$5;-><init>(Lcom/melodix/music/PreviewPlayerMode;J)V
+    invoke-direct {v7, p0, v4, v5}, Lcom/melodix/music/PreviewPlayerMode$8;-><init>(Lcom/melodix/music/PreviewPlayerMode;J)V
 
-    .line 141
+    .line 179
     const-wide/16 v8, 0x1388
 
-    .line 139
+    .line 177
     invoke-virtual {v6, v7, v8, v9}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
 
-    .line 142
+    .line 180
     :try_start_0
     const-string v6, "invoke"
 
@@ -1331,9 +1559,9 @@
 
     move-result-object v0
 
-    new-instance v1, Lcom/melodix/music/PreviewPlayerMode$6;
+    new-instance v1, Lcom/melodix/music/PreviewPlayerMode$9;
 
-    invoke-direct {v1, p0, v4, v5}, Lcom/melodix/music/PreviewPlayerMode$6;-><init>(Lcom/melodix/music/PreviewPlayerMode;J)V
+    invoke-direct {v1, p0, v4, v5}, Lcom/melodix/music/PreviewPlayerMode$9;-><init>(Lcom/melodix/music/PreviewPlayerMode;J)V
 
     invoke-virtual {v2, v0, v1}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
     :try_end_0
@@ -1341,13 +1569,62 @@
 
     goto/16 :goto_0
 
-    .line 147
+    .line 185
     :catch_0
     move-exception v0
 
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->notConfirmed()V
 
     goto/16 :goto_0
+.end method
+
+.method private nativeTitle()Ljava/lang/String;
+    .locals 2
+
+    .prologue
+    .line 128
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->activity()Landroid/app/Activity;
+
+    move-result-object v0
+
+    if-nez v0, :cond_0
+
+    const-string v0, ""
+
+    :goto_0
+    return-object v0
+
+    :cond_0
+    const v1, 0x7f09023b
+
+    invoke-virtual {v0, v1}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+
+    move-result-object v0
+
+    instance-of v1, v0, Landroid/widget/TextView;
+
+    if-eqz v1, :cond_1
+
+    check-cast v0, Landroid/widget/TextView;
+
+    invoke-virtual {v0}, Landroid/widget/TextView;->getText()Ljava/lang/CharSequence;
+
+    move-result-object v0
+
+    invoke-interface {v0}, Ljava/lang/CharSequence;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/String;->trim()Ljava/lang/String;
+
+    move-result-object v0
+
+    goto :goto_0
+
+    :cond_1
+    const-string v0, ""
+
+    goto :goto_0
 .end method
 
 .method private notConfirmed()V
@@ -1358,7 +1635,7 @@
 
     const/4 v1, 0x0
 
-    .line 57
+    .line 59
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->diagnosticIndex()I
 
     move-result v0
@@ -1371,7 +1648,7 @@
 
     aput-object v3, v2, v0
 
-    .line 58
+    .line 60
     :cond_0
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->kind:Ljava/lang/String;
 
@@ -1399,7 +1676,7 @@
 
     const/4 v0, 0x1
 
-    .line 59
+    .line 61
     :goto_0
     iput-boolean v1, p0, Lcom/melodix/music/PreviewPlayerMode;->pending:Z
 
@@ -1430,7 +1707,7 @@
 
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->paint()V
 
-    .line 60
+    .line 62
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerMode;->running:Z
 
     if-eqz v0, :cond_2
@@ -1464,17 +1741,17 @@
 
     invoke-virtual {v0}, Landroid/widget/Toast;->show()V
 
-    .line 61
+    .line 63
     :cond_2
     return-void
 
     :cond_3
     move v0, v1
 
-    .line 58
+    .line 60
     goto :goto_0
 
-    .line 60
+    .line 62
     :cond_4
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->kind:Ljava/lang/String;
 
@@ -1500,7 +1777,7 @@
     .locals 9
 
     .prologue
-    .line 97
+    .line 99
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->web()Landroid/webkit/WebView;
 
     move-result-object v6
@@ -1517,18 +1794,18 @@
 
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->paint()V
 
-    .line 117
+    .line 119
     :cond_0
     :goto_0
     return-void
 
-    .line 98
+    .line 100
     :cond_1
     invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
 
     move-result-wide v0
 
-    .line 99
+    .line 101
     iget-boolean v2, p0, Lcom/melodix/music/PreviewPlayerMode;->queryInFlight:Z
 
     if-eqz v2, :cond_2
@@ -1543,7 +1820,7 @@
 
     if-ltz v2, :cond_0
 
-    .line 100
+    .line 102
     :cond_2
     const/4 v2, 0x1
 
@@ -1551,7 +1828,7 @@
 
     iput-wide v0, p0, Lcom/melodix/music/PreviewPlayerMode;->queryStarted:J
 
-    .line 101
+    .line 103
     iget-wide v2, p0, Lcom/melodix/music/PreviewPlayerMode;->generation:J
 
     iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerMode;->querySerial:J
@@ -1562,7 +1839,7 @@
 
     iput-wide v4, p0, Lcom/melodix/music/PreviewPlayerMode;->querySerial:J
 
-    .line 102
+    .line 104
     :try_start_0
     const-string v0, "query"
 
@@ -1588,7 +1865,7 @@
 
     goto :goto_0
 
-    .line 116
+    .line 118
     :catch_0
     move-exception v0
 
@@ -1623,7 +1900,7 @@
 
     const/4 v1, 0x0
 
-    .line 167
+    .line 205
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->state:Ljava/lang/String;
 
     const-string v3, "unknown"
@@ -1636,11 +1913,11 @@
 
     move v0, v1
 
-    .line 168
+    .line 206
     :goto_0
     iget-object v3, p0, Lcom/melodix/music/PreviewPlayerMode;->state:Ljava/lang/String;
 
-    .line 169
+    .line 207
     iget-object v4, p0, Lcom/melodix/music/PreviewPlayerMode;->kind:Ljava/lang/String;
 
     const-string v5, "shuffle"
@@ -1667,7 +1944,7 @@
 
     const-string v3, "true"
 
-    .line 170
+    .line 208
     :cond_0
     :goto_1
     const-string v4, "true"
@@ -1688,7 +1965,7 @@
 
     move v4, v1
 
-    .line 172
+    .line 210
     :goto_2
     iget-object v5, p0, Lcom/melodix/music/PreviewPlayerMode;->kind:Ljava/lang/String;
 
@@ -1709,7 +1986,7 @@
 
     const-string v3, "Like indisponible"
 
-    .line 175
+    .line 213
     :goto_4
     iget-boolean v9, p0, Lcom/melodix/music/PreviewPlayerMode;->running:Z
 
@@ -1733,7 +2010,7 @@
 
     move v9, v2
 
-    .line 176
+    .line 214
     :goto_5
     if-eqz v9, :cond_14
 
@@ -1744,7 +2021,7 @@
 
     invoke-virtual {p0, v5}, Lcom/melodix/music/PreviewPlayerMode;->setImageResource(I)V
 
-    .line 177
+    .line 215
     :cond_1
     if-nez v0, :cond_22
 
@@ -1819,7 +2096,7 @@
 
     move-result-object v5
 
-    .line 178
+    .line 216
     :goto_a
     if-eqz v4, :cond_19
 
@@ -1853,10 +2130,16 @@
     :goto_c
     invoke-virtual {p0, v3}, Lcom/melodix/music/PreviewPlayerMode;->setContentDescription(Ljava/lang/CharSequence;)V
 
-    .line 179
-    if-eqz v0, :cond_1b
+    .line 217
+    iget-boolean v3, p0, Lcom/melodix/music/PreviewPlayerMode;->running:Z
+
+    if-eqz v3, :cond_1b
 
     iget-boolean v3, p0, Lcom/melodix/music/PreviewPlayerMode;->pending:Z
+
+    if-nez v3, :cond_1b
+
+    iget-boolean v3, p0, Lcom/melodix/music/PreviewPlayerMode;->fallbackPending:Z
 
     if-nez v3, :cond_1b
 
@@ -1884,16 +2167,16 @@
 
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerMode;->invalidate()V
 
-    .line 180
+    .line 218
     return-void
 
     :cond_2
     move v0, v2
 
-    .line 167
+    .line 205
     goto/16 :goto_0
 
-    .line 169
+    .line 207
     :cond_3
     iget-object v3, p0, Lcom/melodix/music/PreviewPlayerMode;->pendingState:Ljava/lang/String;
 
@@ -1917,10 +2200,10 @@
     :cond_5
     move v4, v2
 
-    .line 170
+    .line 208
     goto/16 :goto_2
 
-    .line 172
+    .line 210
     :cond_6
     const-string v5, "favoff"
 
@@ -1938,7 +2221,7 @@
 
     goto/16 :goto_4
 
-    .line 173
+    .line 211
     :cond_9
     iget-object v5, p0, Lcom/melodix/music/PreviewPlayerMode;->kind:Ljava/lang/String;
 
@@ -1990,7 +2273,7 @@
 
     goto/16 :goto_4
 
-    .line 174
+    .line 212
     :cond_d
     iget-object v3, p0, Lcom/melodix/music/PreviewPlayerMode;->state:Ljava/lang/String;
 
@@ -2053,10 +2336,10 @@
     :cond_13
     move v9, v1
 
-    .line 175
+    .line 213
     goto/16 :goto_5
 
-    .line 176
+    .line 214
     :cond_14
     invoke-direct {p0, v5}, Lcom/melodix/music/PreviewPlayerMode;->drawable(Ljava/lang/String;)I
 
@@ -2064,7 +2347,7 @@
 
     goto/16 :goto_6
 
-    .line 177
+    .line 215
     :cond_15
     const-string v3, "Indisponible : "
 
@@ -2095,7 +2378,7 @@
 
     goto/16 :goto_9
 
-    .line 178
+    .line 216
     :cond_19
     const v3, -0x363f16
 
@@ -2109,7 +2392,7 @@
     :cond_1b
     move v2, v1
 
-    .line 179
+    .line 217
     goto/16 :goto_d
 
     :cond_1c
@@ -2164,7 +2447,7 @@
     .prologue
     const/4 v2, 0x0
 
-    .line 88
+    .line 90
     :try_start_0
     new-instance v0, Lorg/json/JSONTokener;
 
@@ -2188,17 +2471,17 @@
 
     move-object v0, v1
 
-    .line 89
+    .line 91
     :goto_0
     return-object v0
 
     :cond_0
     move-object v0, v2
 
-    .line 88
+    .line 90
     goto :goto_0
 
-    .line 89
+    .line 91
     :catch_0
     move-exception v0
 
@@ -2211,7 +2494,7 @@
     .locals 2
 
     .prologue
-    .line 151
+    .line 189
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->reason:Ljava/lang/String;
 
     const-string v1, "page"
@@ -2224,11 +2507,11 @@
 
     const-string v0, "page Spotify en cours de chargement"
 
-    .line 164
+    .line 202
     :goto_0
     return-object v0
 
-    .line 152
+    .line 190
     :cond_0
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->reason:Ljava/lang/String;
 
@@ -2244,7 +2527,7 @@
 
     goto :goto_0
 
-    .line 153
+    .line 191
     :cond_1
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->reason:Ljava/lang/String;
 
@@ -2260,7 +2543,7 @@
 
     goto :goto_0
 
-    .line 154
+    .line 192
     :cond_2
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->reason:Ljava/lang/String;
 
@@ -2276,7 +2559,7 @@
 
     goto :goto_0
 
-    .line 155
+    .line 193
     :cond_3
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->reason:Ljava/lang/String;
 
@@ -2292,7 +2575,7 @@
 
     goto :goto_0
 
-    .line 156
+    .line 194
     :cond_4
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->reason:Ljava/lang/String;
 
@@ -2308,7 +2591,7 @@
 
     goto :goto_0
 
-    .line 157
+    .line 195
     :cond_5
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->reason:Ljava/lang/String;
 
@@ -2324,7 +2607,7 @@
 
     goto :goto_0
 
-    .line 158
+    .line 196
     :cond_6
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->reason:Ljava/lang/String;
 
@@ -2340,7 +2623,7 @@
 
     goto :goto_0
 
-    .line 159
+    .line 197
     :cond_7
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->reason:Ljava/lang/String;
 
@@ -2356,7 +2639,7 @@
 
     goto :goto_0
 
-    .line 160
+    .line 198
     :cond_8
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->reason:Ljava/lang/String;
 
@@ -2372,7 +2655,7 @@
 
     goto :goto_0
 
-    .line 161
+    .line 199
     :cond_9
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->reason:Ljava/lang/String;
 
@@ -2388,7 +2671,7 @@
 
     goto/16 :goto_0
 
-    .line 162
+    .line 200
     :cond_a
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->reason:Ljava/lang/String;
 
@@ -2404,7 +2687,7 @@
 
     goto/16 :goto_0
 
-    .line 163
+    .line 201
     :cond_b
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->reason:Ljava/lang/String;
 
@@ -2420,7 +2703,7 @@
 
     goto/16 :goto_0
 
-    .line 164
+    .line 202
     :cond_c
     const-string v0, "\u00e9tat ou langue non reconnu"
 
@@ -2433,19 +2716,19 @@
     .prologue
     const/4 v0, 0x0
 
-    .line 33
+    .line 34
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->diagnosticIndex()I
 
     move-result v1
 
     if-gez v1, :cond_1
 
-    .line 46
+    .line 47
     :cond_0
     :goto_0
     return-void
 
-    .line 35
+    .line 36
     :cond_1
     :try_start_0
     new-instance v2, Lorg/json/JSONObject;
@@ -2460,7 +2743,7 @@
 
     invoke-direct {v2, v3}, Lorg/json/JSONObject;-><init>(Ljava/lang/String;)V
 
-    .line 36
+    .line 37
     new-instance v3, Lorg/json/JSONObject;
 
     const-string v4, "structure"
@@ -2473,7 +2756,7 @@
 
     invoke-direct {v3, v4}, Lorg/json/JSONObject;-><init>(Ljava/lang/String;)V
 
-    .line 37
+    .line 38
     new-instance v4, Ljava/lang/StringBuilder;
 
     invoke-direct {v4}, Ljava/lang/StringBuilder;-><init>()V
@@ -2602,20 +2885,20 @@
 
     aput-object v7, v5, v6
 
-    .line 38
+    .line 39
     array-length v6, v5
 
     :goto_1
     if-lt v0, v6, :cond_2
 
-    .line 39
+    .line 40
     invoke-virtual {v4}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
     move-result-object v0
 
     sput-object v0, Lcom/melodix/music/PreviewPlayerMode;->structure:Ljava/lang/String;
 
-    .line 40
+    .line 41
     new-instance v0, Ljava/lang/StringBuilder;
 
     const-string v3, "\u00e9tat="
@@ -2640,7 +2923,7 @@
 
     move-result-object v0
 
-    .line 41
+    .line 42
     const-string v3, ", motif="
 
     invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -2665,7 +2948,7 @@
 
     move-result-object v0
 
-    .line 42
+    .line 43
     const-string v3, ", commande="
 
     invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -2690,7 +2973,7 @@
 
     move-result-object v0
 
-    .line 43
+    .line 44
     const-string v3, ", libell\u00e9="
 
     invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -2715,12 +2998,12 @@
 
     move-result-object v0
 
-    .line 40
+    .line 41
     invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
     move-result-object v0
 
-    .line 44
+    .line 45
     sget-object v2, Lcom/melodix/music/PreviewPlayerMode;->last:[Ljava/lang/String;
 
     aput-object v0, v2, v1
@@ -2737,7 +3020,7 @@
 
     goto/16 :goto_0
 
-    .line 45
+    .line 46
     :catch_0
     move-exception v0
 
@@ -2761,7 +3044,7 @@
 
     goto/16 :goto_0
 
-    .line 38
+    .line 39
     :cond_2
     :try_start_1
     aget-object v7, v5, v0
@@ -2806,7 +3089,7 @@
     .prologue
     const/4 v1, 0x0
 
-    .line 92
+    .line 94
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->activity()Landroid/app/Activity;
 
     move-result-object v0
@@ -2824,11 +3107,11 @@
     :cond_0
     move v0, v1
 
-    .line 94
+    .line 96
     :goto_0
     return v0
 
-    .line 93
+    .line 95
     :cond_1
     const v2, 0x7f09023b
 
@@ -2836,7 +3119,7 @@
 
     move-result-object v0
 
-    .line 94
+    .line 96
     instance-of v2, v0, Landroid/widget/TextView;
 
     if-eqz v2, :cond_2
@@ -2875,7 +3158,7 @@
     .locals 4
 
     .prologue
-    .line 119
+    .line 121
     sget v0, Landroid/os/Build$VERSION;->SDK_INT:I
 
     const/16 v1, 0x1a
@@ -2888,11 +3171,11 @@
 
     if-nez v0, :cond_0
 
-    .line 125
+    .line 127
     :goto_0
     return-void
 
-    .line 120
+    .line 122
     :cond_0
     const/high16 v0, 0x40800000    # 4.0f
 
@@ -2908,14 +3191,14 @@
 
     mul-float/2addr v0, v1
 
-    .line 121
+    .line 123
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerMode;->animate()Landroid/view/ViewPropertyAnimator;
 
     move-result-object v1
 
     invoke-virtual {v1}, Landroid/view/ViewPropertyAnimator;->cancel()V
 
-    .line 122
+    .line 124
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerMode;->animate()Landroid/view/ViewPropertyAnimator;
 
     move-result-object v1
@@ -2938,7 +3221,7 @@
 
     move-result-object v0
 
-    .line 124
+    .line 126
     invoke-virtual {v0}, Landroid/view/ViewPropertyAnimator;->start()V
 
     goto :goto_0
@@ -2954,7 +3237,7 @@
 
     const/4 v2, 0x0
 
-    .line 182
+    .line 220
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerMode;->isAttachedToWindow()Z
 
     move-result v0
@@ -2975,7 +3258,7 @@
 
     move v0, v1
 
-    .line 183
+    .line 221
     :goto_0
     if-eqz v0, :cond_2
 
@@ -3003,7 +3286,7 @@
 
     invoke-virtual {v0, v1}, Landroid/os/Handler;->post(Ljava/lang/Runnable;)Z
 
-    .line 185
+    .line 223
     :cond_0
     :goto_1
     return-void
@@ -3011,16 +3294,18 @@
     :cond_1
     move v0, v2
 
-    .line 182
+    .line 220
     goto :goto_0
 
-    .line 184
+    .line 222
     :cond_2
     if-nez v0, :cond_0
 
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerMode;->running:Z
 
     if-eqz v0, :cond_0
+
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->abandonHidden()V
 
     iput-boolean v2, p0, Lcom/melodix/music/PreviewPlayerMode;->running:Z
 
@@ -3055,24 +3340,241 @@
     goto :goto_1
 .end method
 
+.method private tryHiddenView()V
+    .locals 10
+
+    .prologue
+    const/4 v6, 0x0
+
+    .line 140
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->web()Landroid/webkit/WebView;
+
+    move-result-object v5
+
+    if-nez v5, :cond_1
+
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->diagnosticIndex()I
+
+    move-result v0
+
+    if-ltz v0, :cond_0
+
+    sget-object v1, Lcom/melodix/music/PreviewPlayerMode;->outcome:[Ljava/lang/String;
+
+    const-string v2, "page inaccessible"
+
+    aput-object v2, v1, v0
+
+    .line 163
+    :cond_0
+    :goto_0
+    return-void
+
+    .line 141
+    :cond_1
+    new-instance v0, Ljava/lang/StringBuilder;
+
+    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerMode;->kind:Ljava/lang/String;
+
+    invoke-static {v1}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
+
+    move-result-object v1
+
+    invoke-direct {v0, v1}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    const-string v1, "-"
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
+
+    move-result-wide v2
+
+    invoke-virtual {v0, v2, v3}, Ljava/lang/StringBuilder;->append(J)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    iput-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->fallbackId:Ljava/lang/String;
+
+    const/4 v0, 0x1
+
+    iput-boolean v0, p0, Lcom/melodix/music/PreviewPlayerMode;->fallbackPending:Z
+
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->paint()V
+
+    .line 142
+    iget-wide v2, p0, Lcom/melodix/music/PreviewPlayerMode;->generation:J
+
+    iget-object v4, p0, Lcom/melodix/music/PreviewPlayerMode;->fallbackId:Ljava/lang/String;
+
+    .line 143
+    new-instance v0, Ljava/lang/StringBuilder;
+
+    const-string v1, "((function(kind, nativeTitle, control, diagnostic, request) {\n    \'use strict\';\n    // Invoked only by a user tap when the control is absent/unknown. Open only\n    // a unique, explicitly closed known view toggle; no guessing or navigation.\n    var prior=window.__sfPreviewHiddenMode;\n    if(prior && prior.status===\'working\') return JSON.stringify({started:false,reason:\'busy\'});\n    var buttons=document.querySelectorAll(\'button[data-testid=\"now-playing-view-button\"], [role=\"button\"][data-testid=\"now-playing-view-button\"]\');\n    function pressed(b) {\n        var a=b.getAttribute(\'aria-pressed\'),c=b.getAttribute(\'aria-checked\');\n        if(a!==null&&c!==null&&a!==c)return \'unknown\';\n        var v=a!==null?a:c;return v===\'true\'||v===\'false\'?v:\'unknown\';\n    }\n    if(buttons.length!==1)return JSON.stringify({started:false,reason:buttons.length?\'ambiguous\':\'absent\'});\n    var toggle=buttons[0];\n    if(!toggle.isConnected || toggle.disabled || toggle.getAttribute(\'aria-disabled\')===\'true\' || pressed(toggle)!==\'false\')return JSON.stringify({started:false,reason:\'view-state\'});\n    var attempt={id:request,status:\'working\',reason:\'opening\',sent:false,close:\'pending\',diagnostic:\'\'};\n    window.__sfPreviewHiddenMode=attempt;\n    function close() {\n        try {\n            var now=document.querySelectorAll(\'button[data-testid=\"now-playing-view-button\"], [role=\"button\"][data-testid=\"now-playing-view-button\"]\');\n            if(now.length===1 && now[0]===toggle && toggle.isConnected && pressed(toggle)===\'true\') {\n                toggle.click();attempt.close=pressed(toggle)===\'false\'?\'confirmed\':\'requested\';\n            } else attempt.close=pressed(toggle)===\'false\'?\'already-closed\':\'unconfirmed\';\n        } catch (_) {attempt.close=\'unconfirmed\';}\n        attempt.status=\'done\';\n    }\n    attempt.cleanup=close;\n    try {toggle.click();} catch (_) {attempt.reason=\'view-command\';close();return JSON.stringify({started:false,reason:\'view-command\'});}\n    setTimeout(function(){\n        if(attempt.status!==\'working\')return;\n        try {\n            if(pressed(toggle)!==\'true\'){attempt.reason=\'view-not-confirmed\';close();return;}\n            var q=JSON.parse(control(kind,\'query\',\'\',\'\',\'\'));\n            attempt.diagnostic=diagnostic(kind);\n            if(q.state!==\'true\'&&q.state!==\'false\'&&q.state!==\'mixed\'){attempt.reason=q.reason||\'absent\';close();return;}\n            if(kind===\'like\' && (q.state!==\'false\'||!q.track||!q.title||q.title!==nativeTitle)) {attempt.reason=q.state===\'true\'?\'already-liked\':\'identity\';close();return;}\n            var result=JSON.parse(control(kind,\'invoke\',q.state,q.track||\'\',q.title||\'\'));\n            attempt.sent=!!result.sent;attempt.reason=attempt.sent?\'sent\':\'not-sent\';\n            // Sample the page again after the action, before closing the view.\n            setTimeout(function(){if(attempt.status!==\'working\')return;try{attempt.diagnostic=diagnostic(kind);}catch(_){}close();},300);\n        }catch(_){attempt.reason=\'error\';close();}\n    },500);\n    return JSON.stringify({started:true});\n})\n)("
+
+    invoke-direct {v0, v1}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerMode;->kind:Ljava/lang/String;
+
+    invoke-static {v1}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v1
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    const-string v1, ","
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->nativeTitle()Ljava/lang/String;
+
+    move-result-object v1
+
+    invoke-static {v1}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v1
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    const-string v1, ",("
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    const-string v1, "(function(kind, action, expectedState, expectedTrack, expectedTitle) {\n    \'use strict\';\n    // Passive inspection of controls already in the page. A tap can only click\n    // a uniquely identified real control, after state/identity revalidation.\n    var labels = {\n        like: {\n            off: /^(save to your library|add to (your )?(liked songs|library)|ajouter (\u00e0|aux) (la biblioth\u00e8que|titres lik\u00e9s)|enregistrer dans (votre |la )?biblioth\u00e8que|in (deine |der )?bibliothek (aufnehmen|hinzuf\u00fcgen)|a\u00f1adir a (tu )?biblioteca|adicionar (\u00e0 biblioteca|aos t\u00edtulos curtidos))$/i,\n            on: /^(remove from (your )?(library|liked songs)|retirer (de la biblioth\u00e8que|des titres lik\u00e9s)|supprimer de (votre |la )?biblioth\u00e8que|aus (deiner |der )?bibliothek entfernen|quitar de (tu )?biblioteca|remover (da biblioteca|dos t\u00edtulos curtidos))$/i\n        },\n        repeat: {\n            // A label can safely distinguish off from enabled, but not list\n            // from one-track unless the page supplies an explicit mixed state.\n            off: /^(enable repeat|turn repeat on|activer la r\u00e9p\u00e9tition|wiederholung aktivieren|activar repetici\u00f3n|ativar repeti\u00e7\u00e3o)$/i,\n            on: /^(disable repeat|turn repeat off|d\u00e9sactiver la r\u00e9p\u00e9tition|wiederholung deaktivieren|desactivar repetici\u00f3n|desativar repeti\u00e7\u00e3o)$/i\n        },\n        shuffle: {\n            off: /^(enable shuffle|turn shuffle on|activate shuffle|activer (la lecture |le mode |l[\'\u2019])?al\u00e9atoire|zufallswiedergabe aktivieren|activar (el modo |la reproducci\u00f3n )?aleatori[oa]|ativar (a reprodu\u00e7\u00e3o )?aleat\u00f3ria)$/i,\n            on: /^(disable shuffle|turn shuffle off|deactivate shuffle|d\u00e9sactiver (la lecture |le mode |l[\'\u2019])?al\u00e9atoire|zufallswiedergabe deaktivieren|desactivar (el modo |la reproducci\u00f3n )?aleatori[oa]|desativar (a reprodu\u00e7\u00e3o )?aleat\u00f3ria)$/i\n        }\n    };\n    if ([\'like\',\'shuffle\',\'repeat\'].indexOf(kind) < 0) return JSON.stringify({state:\'unknown\',reason:\'control\'});\n    var selector = kind === \'like\' ?\n        \'[data-testid=\"now-playing-widget\"] button, [data-testid=\"now-playing-bar\"] button, [data-testid=\"now-playing-view\"] button, [data-testid=\"now-playing-panel\"] button, [data-testid=\"now-playing-view\"] [role=\"button\"], [data-testid=\"now-playing-bar\"] [role=\"button\"]\' :\n        kind === \'shuffle\' ? \'button[data-testid*=\"shuffle\" i], button[aria-label], [role=\"button\"][aria-label], [role=\"switch\"][aria-label]\' :\n        \'button[data-testid=\"control-button-repeat\"], [role=\"button\"][data-testid=\"control-button-repeat\"], button[aria-label], [role=\"button\"][aria-label]\';\n    var nodes = Array.from(document.querySelectorAll(selector)).filter(function(b) {\n        if (!b.isConnected) return false;\n        var id=String(b.getAttribute(\'data-testid\')||\'\').toLowerCase();\n        var label=String(b.getAttribute(\'aria-label\')||\'\').trim();\n        if (kind === \'like\') return /^(add-button|remove-button|add-to-library-button|remove-from-library-button)$/.test(id) || labels.like.off.test(label) || labels.like.on.test(label);\n        if (kind === \'repeat\') return id===\'control-button-repeat\' || labels.repeat.off.test(label) || labels.repeat.on.test(label);\n        return /shuffle/.test(id) || labels.shuffle.off.test(label) || labels.shuffle.on.test(label);\n    });\n    var result={state:\'unknown\',track:\'\',title:\'\',reason:\'control\',sent:false};\n    if (!nodes.length) {\n        result.reason = document.readyState === \'loading\' ? \'page\' : (kind === \'shuffle\' && !document.querySelector(\'[data-testid=\"now-playing-bar\"], [data-testid=\"now-playing-widget\"], [data-testid=\"player-controls\"]\') ? \'bar\' : \'control\');\n        return JSON.stringify(result);\n    }\n    if (nodes.length !== 1) {result.reason=\'ambiguous\';return JSON.stringify(result);}\n    var button=nodes[0];\n    if (button.disabled || button.getAttribute(\'aria-disabled\') === \'true\') {\n        var description=String(button.getAttribute(\'aria-description\')||\'\').trim();\n        result.reason=kind===\'shuffle\' && /^(shuffle is not available (with|for) (this account|this playback)|l[\'\u2019]al\u00e9atoire n[\'\u2019]est pas disponible avec (ce compte|cette lecture))$/i.test(description)?\'restriction\':\'disabled\';\n        return JSON.stringify(result);\n    }\n    if (kind === \'like\' && /^(true|menu|dialog)$/i.test(String(button.getAttribute(\'aria-haspopup\')||\'\'))) {result.reason=\'menu\';return JSON.stringify(result);}\n    var raw=button.getAttribute(\'aria-checked\');\n    if (raw === null) raw=button.getAttribute(\'aria-pressed\');\n    var label=String(button.getAttribute(\'aria-label\')||\'\').trim();\n    if (raw === null) {\n        raw=labels[kind].on.test(label) ? \'true\' :\n            labels[kind].off.test(label) ? \'false\' : \'unknown\';\n    } else if (raw !== \'true\' && raw !== \'false\' && !(kind !== \'like\' && raw === \'mixed\')) raw=\'unknown\';\n    if (kind === \'like\') {\n        // A false ARIA value must never override a removal action. An\n        // unlabeled generic add-button can be a playlist menu, not a like.\n        var testId=String(button.getAttribute(\'data-testid\')||\'\').toLowerCase();\n        var removeId=/^(remove-button|remove-from-library-button)$/.test(testId);\n        var addId=testId===\'add-to-library-button\';\n        var offLabel=labels.like.off.test(label), onLabel=labels.like.on.test(label);\n        if ((raw===\'false\' && (onLabel||removeId)) || (raw===\'true\' && offLabel)) {\n            result.reason=\'conflict\';return JSON.stringify(result);\n        }\n        if (raw===\'false\' && !offLabel && !addId) {result.reason=\'unverified\';return JSON.stringify(result);}\n        var bar=button.closest(\'[data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-bar\"]\');\n        if (!bar) bar=document.querySelector(\'[data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-bar\"]\');\n        var link=bar && bar.querySelector(\'a[data-testid=\"context-item-link\"], a[data-testid=\"nowplaying-track-link\"]\');\n        result.title=link ? String(link.textContent||\'\').trim() : \'\';\n        var href=link ? String(link.getAttribute(\'href\')||\'\') : \'\';\n        var match=/^\\/(track|episode)\\/([a-z0-9]+)(?:[?#].*)?$/i.exec(href);\n        result.track=match ? match[1].toLowerCase()+\':\'+match[2] : \'\';\n        if (!result.track || !result.title) {result.reason=\'identity\';return JSON.stringify(result);}\n    }\n    if (raw === \'unknown\') {result.reason=\'state\';return JSON.stringify(result);}\n    if (typeof button.click !== \'function\') {result.reason=\'command\';return JSON.stringify(result);}\n    result.state=raw;result.reason=\'\';\n    if (action === \'query\') return JSON.stringify(result);\n    if (action !== \'invoke\' || raw !== expectedState ||\n        (kind === \'like\' && (raw !== \'false\' || result.track !== expectedTrack || result.title !== expectedTitle))) return JSON.stringify({sent:false});\n    try {\n        // Use the exact revalidated button; never call a legacy helper that\n        // schedules playback-related work. Never click an already-liked item.\n        button.click();\n        return JSON.stringify({sent:true});\n    } catch (_) { return JSON.stringify({sent:false}); }\n})\n"
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    const-string v1, "),("
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    const-string v1, "(function(kind) {\n    \'use strict\';\n    // Passive, bounded, allowlisted observations only. No account, track or\n    // arbitrary page text is returned. This probe does not click or send data.\n    var specs={\n        repeat:{selector:\'button[data-testid=\"control-button-repeat\"], [role=\"button\"][data-testid=\"control-button-repeat\"], button[aria-label], [role=\"button\"][aria-label]\', ids:/^control-button-repeat$/i,\n            off:/^(enable repeat|turn repeat on|activer la r\u00e9p\u00e9tition|wiederholung aktivieren|activar repetici\u00f3n|ativar repeti\u00e7\u00e3o)$/i,\n            on:/^(disable repeat|turn repeat off|d\u00e9sactiver la r\u00e9p\u00e9tition|wiederholung deaktivieren|desactivar repetici\u00f3n|desativar repeti\u00e7\u00e3o)$/i},\n        shuffle:{selector:\'button[data-testid*=\"shuffle\" i], button[aria-label], [role=\"button\"][aria-label], [role=\"switch\"][aria-label]\', ids:/shuffle/i,\n            off:/^(enable shuffle|turn shuffle on|activate shuffle|activer (la lecture |le mode |l[\'\u2019])?al\u00e9atoire|zufallswiedergabe aktivieren|activar (el modo |la reproducci\u00f3n )?aleatori[oa]|ativar (a reprodu\u00e7\u00e3o )?aleat\u00f3ria)$/i,\n            on:/^(disable shuffle|turn shuffle off|deactivate shuffle|d\u00e9sactiver (la lecture |le mode |l[\'\u2019])?al\u00e9atoire|zufallswiedergabe deaktivieren|desactivar (el modo |la reproducci\u00f3n )?aleatori[oa]|desativar (a reprodu\u00e7\u00e3o )?aleat\u00f3ria)$/i},\n        like:{selector:\'[data-testid=\"now-playing-widget\"] button, [data-testid=\"now-playing-bar\"] button, [data-testid=\"now-playing-view\"] button, [data-testid=\"now-playing-panel\"] button, [data-testid=\"now-playing-view\"] [role=\"button\"], [data-testid=\"now-playing-bar\"] [role=\"button\"]\', ids:/^(add-button|remove-button|add-to-library-button|remove-from-library-button)$/i,\n            off:/^(save to your library|add to (your )?(liked songs|library)|ajouter (\u00e0|aux) (la biblioth\u00e8que|titres lik\u00e9s)|enregistrer dans (votre |la )?biblioth\u00e8que|in (deine |der )?bibliothek (aufnehmen|hinzuf\u00fcgen)|a\u00f1adir a (tu )?biblioteca|adicionar (\u00e0 biblioteca|aos t\u00edtulos curtidos))$/i,\n            on:/^(remove from (your )?(library|liked songs)|retirer (de la biblioth\u00e8que|des titres lik\u00e9s)|supprimer de (votre |la )?biblioth\u00e8que|aus (deiner |der )?bibliothek entfernen|quitar de (tu )?biblioteca|remover (da biblioteca|dos t\u00edtulos curtidos))$/i}\n    };\n    // Aggregate structure only: fixed testid/role and label categories, never\n    // arbitrary labels or identifiers that could contain a track or account.\n    function structure() {\n        var roots=Array.from(document.querySelectorAll(\'[data-testid=\"now-playing-bar\"], [data-testid=\"now-playing-widget\"], [data-testid=\"player-controls\"], [data-testid=\"now-playing-view\"], [data-testid=\"now-playing-panel\"]\'));\n        var nodes=[];roots.forEach(function(root){Array.from(root.querySelectorAll(\'button,[role=\"button\"],[role=\"switch\"],[role=\"slider\"],input[type=\"range\"]\')).forEach(function(n){if(nodes.indexOf(n)<0)nodes.push(n);});});\n        var st={bar:0,view:0,nodes:Math.min(nodes.length,99),playpause:0,repeat:0,shuffle:0,like:0,queue:0,volume:0,lyrics:0,connect:0,other:0,button:0,switch:0,slider:0,aria_shuffle:0,aria_like:0,aria_play:0,aria_pause:0,aria_other:0};\n        roots.forEach(function(r){if(/^(now-playing-view|now-playing-panel)$/.test(r.getAttribute(\'data-testid\')))st.view++;else st.bar++;});\n        nodes.forEach(function(n){\n            var id=String(n.getAttribute(\'data-testid\')||\'\').toLowerCase(), label=String(n.getAttribute(\'aria-label\')||\'\').trim(), role=String(n.getAttribute(\'role\')||\'\').toLowerCase();\n            var k=/^control-button-playpause$/.test(id)?\'playpause\':/repeat/.test(id)?\'repeat\':/shuffle/.test(id)?\'shuffle\':/^(add-button|remove-button|add-to-library-button|remove-from-library-button)$/.test(id)?\'like\':/^(queue-button|control-button-queue)$/.test(id)?\'queue\':/^(volume-bar|volume-slider)$/.test(id)?\'volume\':/^(lyrics-button|control-button-lyrics)$/.test(id)?\'lyrics\':/^(connect-button|control-button-connect|connect-device-picker|device-picker)$/.test(id)?\'connect\':\'other\';\n            st[k]=Math.min(st[k]+1,99);if(role===\'switch\')st.switch++;else if(role===\'slider\'||n.tagName===\'INPUT\')st.slider++;else st.button++;\n            if(specs.shuffle.off.test(label)||specs.shuffle.on.test(label))st.aria_shuffle++;else if(specs.like.off.test(label)||specs.like.on.test(label))st.aria_like++;else if(/^(play|resume|lire|reprendre)$/i.test(label))st.aria_play++;else if(/^(pause|mettre en pause)$/i.test(label))st.aria_pause++;else if(label)st.aria_other++;\n        });\n        Object.keys(st).forEach(function(k){st[k]=Math.min(st[k],99);});return JSON.stringify(st);\n    }\n    var spec=specs[kind], out={kind:kind===\'shuffle\'?\'shuffle\':kind===\'like\'?\'like\':kind===\'repeat\'?\'repeat\':\'unknown\',reason:\'control\',count:0,state:\'unknown\',label:\'unknown\',command:\'unknown\',disabled:false,smart:false,structure:structure()};\n    if(!spec)return JSON.stringify(out);\n    var nodes=Array.from(document.querySelectorAll(spec.selector)).filter(function(b){\n        return b.isConnected && (spec.ids.test(String(b.getAttribute(\'data-testid\')||\'\')) || spec.off.test(String(b.getAttribute(\'aria-label\')||\'\').trim()) || spec.on.test(String(b.getAttribute(\'aria-label\')||\'\').trim()));\n    });\n    out.count=Math.min(nodes.length,2);\n    if(nodes.length!==1){out.reason=nodes.length?\'ambiguous\':document.readyState===\'loading\'?\'page\':\'absent\';return JSON.stringify(out);}\n    var b=nodes[0], label=String(b.getAttribute(\'aria-label\')||\'\').trim();\n    out.label=spec.on.test(label)?\'on-action\':spec.off.test(label)?\'off-action\':label?\'unrecognized\':\'absent\';\n    out.disabled=!!b.disabled || b.getAttribute(\'aria-disabled\')===\'true\';\n    var raw=b.getAttribute(\'aria-checked\');if(raw===null)raw=b.getAttribute(\'aria-pressed\');\n    out.state=raw===\'true\'||raw===\'false\'||(kind!==\'like\'&&raw===\'mixed\')?raw:raw===null?(out.label===\'on-action\'?\'true\':out.label===\'off-action\'?\'false\':\'unknown\'):\'unknown\';\n    out.smart=kind===\'shuffle\' && out.state===\'mixed\';\n    var id=String(b.getAttribute(\'data-testid\')||\'\').toLowerCase();\n    var conflict=kind===\'like\' && ((out.state===\'false\' && (out.label===\'on-action\'||/^(remove-button|remove-from-library-button)$/.test(id))) || (out.state===\'true\' && out.label===\'off-action\'));\n    var unverified=kind===\'like\' && out.state===\'false\' && out.label!==\'off-action\' && id!==\'add-to-library-button\';\n    var popup=String(b.getAttribute(\'aria-haspopup\')||\'\').toLowerCase();\n    if(kind===\'like\')out.command=popup===\'true\'||popup===\'menu\'||popup===\'dialog\'?\'menu\':\'unspecified\';\n    else out.command=\'toggle\';\n    var description=String(b.getAttribute(\'aria-description\')||\'\').trim();\n    var restricted=kind===\'shuffle\' && out.disabled && /^(shuffle is not available (with|for) (this account|this playback)|l[\'\u2019]al\u00e9atoire n[\'\u2019]est pas disponible avec (ce compte|cette lecture))$/i.test(description);\n    out.reason=restricted?\'restriction\':out.disabled?\'disabled\':conflict?\'conflict\':unverified?\'unverified\':out.state===\'unknown\'?\'state\':\'observed\';\n    return JSON.stringify(out);\n})\n"
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    const-string v1, "),"
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    invoke-static {v4}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v1
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    const-string v1, ");"
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    .line 144
+    :try_start_0
+    new-instance v1, Lcom/melodix/music/PreviewPlayerMode$5;
+
+    invoke-direct {v1, p0, v2, v3, v4}, Lcom/melodix/music/PreviewPlayerMode$5;-><init>(Lcom/melodix/music/PreviewPlayerMode;JLjava/lang/String;)V
+
+    invoke-virtual {v5, v0, v1}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
+    :try_end_0
+    .catch Ljava/lang/RuntimeException; {:try_start_0 .. :try_end_0} :catch_0
+
+    .line 152
+    iget-object v6, p0, Lcom/melodix/music/PreviewPlayerMode;->handler:Landroid/os/Handler;
+
+    new-instance v0, Lcom/melodix/music/PreviewPlayerMode$6;
+
+    move-object v1, p0
+
+    invoke-direct/range {v0 .. v5}, Lcom/melodix/music/PreviewPlayerMode$6;-><init>(Lcom/melodix/music/PreviewPlayerMode;JLjava/lang/String;Landroid/webkit/WebView;)V
+
+    .line 161
+    const-wide/16 v8, 0x708
+
+    .line 152
+    invoke-virtual {v6, v0, v8, v9}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
+
+    .line 162
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->handler:Landroid/os/Handler;
+
+    new-instance v1, Lcom/melodix/music/PreviewPlayerMode$7;
+
+    invoke-direct {v1, p0, v2, v3, v4}, Lcom/melodix/music/PreviewPlayerMode$7;-><init>(Lcom/melodix/music/PreviewPlayerMode;JLjava/lang/String;)V
+
+    const-wide/16 v2, 0x1388
+
+    invoke-virtual {v0, v1, v2, v3}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
+
+    goto/16 :goto_0
+
+    .line 151
+    :catch_0
+    move-exception v0
+
+    iput-boolean v6, p0, Lcom/melodix/music/PreviewPlayerMode;->fallbackPending:Z
+
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->paint()V
+
+    invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerMode;->getContext()Landroid/content/Context;
+
+    move-result-object v0
+
+    const-string v1, "Contr\u00f4le introuvable dans la page Spotify"
+
+    invoke-static {v0, v1, v6}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Landroid/widget/Toast;->show()V
+
+    goto/16 :goto_0
+.end method
+
 .method private web()Landroid/webkit/WebView;
     .locals 4
 
     .prologue
     const/4 v1, 0x0
 
-    .line 80
+    .line 82
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->activity()Landroid/app/Activity;
 
     move-result-object v0
 
     if-nez v0, :cond_0
 
-    .line 82
+    .line 84
     :goto_0
     return-object v1
 
-    .line 81
+    .line 83
     :cond_0
     :try_start_0
     invoke-virtual {v0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
@@ -3107,7 +3609,7 @@
 
     goto :goto_1
 
-    .line 82
+    .line 84
     :catch_0
     move-exception v0
 
@@ -3120,7 +3622,7 @@
     .locals 1
 
     .prologue
-    .line 186
+    .line 224
     invoke-super {p0}, Landroid/widget/ImageButton;->onAttachedToWindow()V
 
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerMode;->getTag()Ljava/lang/Object;
@@ -3156,7 +3658,9 @@
 
     const/4 v2, 0x0
 
-    .line 187
+    .line 225
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->abandonHidden()V
+
     iput-boolean v2, p0, Lcom/melodix/music/PreviewPlayerMode;->running:Z
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->handler:Landroid/os/Handler;
@@ -3196,16 +3700,16 @@
     .locals 1
 
     .prologue
-    .line 188
+    .line 226
     invoke-super {p0, p1, p2}, Landroid/widget/ImageButton;->onVisibilityChanged(Landroid/view/View;I)V
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->handler:Landroid/os/Handler;
 
     if-eqz v0, :cond_0
 
-    new-instance v0, Lcom/melodix/music/PreviewPlayerMode$7;
+    new-instance v0, Lcom/melodix/music/PreviewPlayerMode$10;
 
-    invoke-direct {v0, p0}, Lcom/melodix/music/PreviewPlayerMode$7;-><init>(Lcom/melodix/music/PreviewPlayerMode;)V
+    invoke-direct {v0, p0}, Lcom/melodix/music/PreviewPlayerMode$10;-><init>(Lcom/melodix/music/PreviewPlayerMode;)V
 
     invoke-virtual {p0, v0}, Lcom/melodix/music/PreviewPlayerMode;->post(Ljava/lang/Runnable;)Z
 
@@ -3217,16 +3721,16 @@
     .locals 1
 
     .prologue
-    .line 189
+    .line 227
     invoke-super {p0, p1}, Landroid/widget/ImageButton;->onWindowVisibilityChanged(I)V
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->handler:Landroid/os/Handler;
 
     if-eqz v0, :cond_0
 
-    new-instance v0, Lcom/melodix/music/PreviewPlayerMode$8;
+    new-instance v0, Lcom/melodix/music/PreviewPlayerMode$11;
 
-    invoke-direct {v0, p0}, Lcom/melodix/music/PreviewPlayerMode$8;-><init>(Lcom/melodix/music/PreviewPlayerMode;)V
+    invoke-direct {v0, p0}, Lcom/melodix/music/PreviewPlayerMode$11;-><init>(Lcom/melodix/music/PreviewPlayerMode;)V
 
     invoke-virtual {p0, v0}, Lcom/melodix/music/PreviewPlayerMode;->post(Ljava/lang/Runnable;)Z
 

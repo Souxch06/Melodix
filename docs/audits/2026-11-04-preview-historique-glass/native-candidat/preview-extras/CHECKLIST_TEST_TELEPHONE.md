@@ -20,3 +20,5 @@ Ne tester un nouvel APK qu'après publication, versionCode et garde signée 7/7 
 | Recompter la playlist et les Titres likés après les essais | Même nombre de titres qu'avant, sauf like ajouté volontairement et vérifié | Titre disparu, doublon ou changement non demandé ; ne pas poursuivre d'actions destructives |
 
 Les contrôles File/Paroles/Appareils peuvent être délibérément indisponibles dans la version en attente : ne pas considérer le message natif comme une preuve que les futurs tiroirs fonctionnent. Les tests simulés ne remplacent pas ces vérifications.
+
+Pour un contrôle absent, appuyer une fois sur le bouton natif puis copier le diagnostic : état/motif/commande/libellé avant et après, comptages de la barre et de la vue, envoi et fermeture de la vue. Ne pas partager titre, artiste, identifiant ou données de session. Vérifier séparément le résultat réellement entendu ou le Like effectivement ajouté ; « commande envoyée » n'est pas une confirmation. Si la fermeture de la vue cachée n'est pas confirmée, le noter.

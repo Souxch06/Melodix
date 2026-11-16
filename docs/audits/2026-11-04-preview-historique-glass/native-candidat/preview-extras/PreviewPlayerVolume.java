@@ -90,6 +90,10 @@ public final class PreviewPlayerVolume extends Button {
     private GradientDrawable surface(int color,int stroke,float radius){
         GradientDrawable d=new GradientDrawable();d.setColor(color);d.setStroke(dp(1),stroke);d.setCornerRadius(dp(radius));return d;
     }
+    private GradientDrawable glassGradient(){
+        GradientDrawable d=new GradientDrawable(GradientDrawable.Orientation.TL_BR,new int[]{0xf21b0d40,0xf236105a,0xf2711b68});
+        d.setStroke(dp(1),0x40f0a4ff);d.setCornerRadius(dp(28));return d;
+    }
     private Button action(Activity a,String text,boolean primary){
         Button b=new Button(a);b.setText(text);b.setTextColor(Color.WHITE);b.setTextSize(14);b.setAllCaps(false);b.setMinHeight(dp(48));
         b.setBackgroundTintList(null);b.setBackground(surface(primary?0xff6335a2:0x21ffffff,0x33ffffff,16));return b;
@@ -99,7 +103,7 @@ public final class PreviewPlayerVolume extends Button {
         try{
             final Dialog d=new Dialog(a);dialog=d;
             LinearLayout content=new LinearLayout(a);content.setOrientation(LinearLayout.VERTICAL);content.setPadding(dp(20),dp(10),dp(20),dp(24));
-            content.setBackground(surface(0xeb170b33,0x1fffffff,28));
+            content.setBackground(glassGradient());
             TextView handle=new TextView(a);handle.setText("━━━━");handle.setTextSize(14);handle.setGravity(Gravity.CENTER);handle.setTextColor(0x88ffffff);content.addView(handle,new LinearLayout.LayoutParams(-1,dp(24)));
             TextView title=new TextView(a);title.setText("Volume du lecteur");title.setTextSize(22);title.setTextColor(Color.WHITE);content.addView(title,new LinearLayout.LayoutParams(-1,dp(40)));
             TextView subtitle=new TextView(a);subtitle.setText("Le volume du téléphone reste inchangé");subtitle.setTextColor(0xffc7bbdc);subtitle.setTextSize(13);content.addView(subtitle,new LinearLayout.LayoutParams(-1,dp(36)));

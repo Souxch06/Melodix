@@ -49,15 +49,14 @@ def diagnose(ref_file, candidate_file, error_file=None, metadata_file=None):
         bundle=Path(ref_file).read_bytes()
         if sha(bundle)!=ZIP_SHA256:
             errors.append('référence: intégrité ZIP invalide: SHA-256 '+sha(bundle)+' attendu '+ZIP_SHA256)
-        else:
-            try:
-                with zipfile.ZipFile(io.BytesIO(bundle)) as outer:
-                    names=[x for x in outer.infolist() if Path(x.filename).name==APK_NAME and not x.is_dir()]
-                    if len(names)!=1: raise ValueError('expected one reference APK, found '+str(len(names)))
-                    apk=outer.read(names[0]); found=True
-                    ref=archive_hashes(apk,'APK 9016 signée',errors)
-            except (OSError, ValueError, KeyError, zipfile.BadZipFile, RuntimeError, NotImplementedError) as exc:
-                errors.append('référence: extraction impossible: '+type(exc).__name__+': '+str(exc))
+        try:
+            with zipfile.ZipFile(io.BytesIO(bundle)) as outer:
+                names=[x for x in outer.infolist() if Path(x.filename).name==APK_NAME and not x.is_dir()]
+                if len(names)!=1: raise ValueError('expected one reference APK, found '+str(len(names)))
+                apk=outer.read(names[0]); found=True
+                ref=archive_hashes(apk,'APK 9016 signée',errors)
+        except (OSError, ValueError, KeyError, zipfile.BadZipFile, RuntimeError, NotImplementedError) as exc:
+            errors.append('référence: extraction impossible: '+type(exc).__name__+': '+str(exc))
     except OSError as exc:
         detail=''
         try:

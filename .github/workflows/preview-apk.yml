@@ -953,7 +953,7 @@ jobs:
             python3 "$audit/native-candidat/preview-extras/test_mode_jvm.py"
             python3 "$audit/native-candidat/preview-extras/test_tiles_jvm.py"
             python3 "$audit/native-candidat/preview-extras/test_compiled_text.py"
-            NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" node --test "$audit/native-candidat/preview-extras/control.test.cjs" "$audit/native-candidat/preview-extras/control-diagnostic.test.cjs" "$audit/native-candidat/preview-extras/volume-control.test.cjs" "$audit/native-candidat/preview-extras/panel-structure.test.cjs" "$audit/native-candidat/preview-extras/panel-read.test.cjs"
+            NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" node --test "$audit/native-candidat/preview-extras/control.test.cjs" "$audit/native-candidat/preview-extras/control-diagnostic.test.cjs" "$audit/native-candidat/preview-extras/volume-control.test.cjs" "$audit/native-candidat/preview-extras/panel-structure.test.cjs" "$audit/native-candidat/preview-extras/panel-read.test.cjs" "$audit/native-candidat/preview-extras/hidden-mode-attempt.test.cjs"
             phase="apply required native player and diagnostic patch"
             python3 "$audit/native-candidat/apply_preview_player.py" "$work"
             node --check "$work/assets/native_ui_shell.js"
@@ -1183,6 +1183,24 @@ jobs:
           set -euo pipefail
           audit="$GITHUB_WORKSPACE/docs/audits/2026-11-04-preview-historique-glass/native-candidat"
           phase='téléchargement référence 9016'
+          run_phase() {
+            if "$@" > "$RUNNER_TEMP/guard-phase.log" 2>&1; then
+              cat "$RUNNER_TEMP/guard-phase.log"
+            else
+              rc=$?
+              cat "$RUNNER_TEMP/guard-phase.log"
+              python3 - "$RUNNER_TEMP/guard-phase.log" "$phase" <<'PYFAIL'
+          import os,pathlib,re,sys
+          detail=pathlib.Path(sys.argv[1]).read_text(errors='replace').splitlines()[-30:]
+          text='Phase: '+sys.argv[2]+'\n'+'\n'.join(detail)
+          text=re.sub(r'https?://\S+','[URL removed]',text)[-4000:]
+          safe=text.replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+          print('::error title=Cause de l’échec garde 9016::'+safe)
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write('### Cause de l’échec garde 9016\n```\n'+text+'\n```\n')
+          PYFAIL
+              return "$rc"
+            fi
+          }
           trap 'rc=$?; echo "::error title=Étape garde 9016 échouée::Phase: $phase; code: $rc"; echo "Garde 9016 échouée — phase: $phase; code: $rc" >> "$GITHUB_STEP_SUMMARY"' ERR
           if gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/14156257401/zip" > "$RUNNER_TEMP/reference-9016.zip" 2> "$RUNNER_TEMP/reference-9016-error.txt"; then
             :
@@ -1193,17 +1211,17 @@ jobs:
           phase='diagnostic signé de chaque fichier'
           python3 "$audit/diagnose_signed_9016.py" "$RUNNER_TEMP/reference-9016.zip" preview-output/Melodix-Preview-historique-glass.apk "$RUNNER_TEMP/reference-9016-error.txt" "$RUNNER_TEMP/reference-9016-meta.json"
           phase='tests de la garde et du comparateur'
-          python3 "$audit/test_diagnose_signed_9016.py"
-          python3 "$audit/test_signed_candidate_gate.py"
-          python3 "$audit/test_compare_9016_artifact.py"
+          run_phase python3 "$audit/test_diagnose_signed_9016.py"
+          run_phase python3 "$audit/test_signed_candidate_gate.py"
+          run_phase python3 "$audit/test_compare_9016_artifact.py"
           phase='comparaison directe des octets'
-          python3 "$audit/compare_9016_artifact.py" "$RUNNER_TEMP/reference-9016.zip" preview-output/Melodix-Preview-historique-glass.apk | tee "$RUNNER_TEMP/protected-comparison.log"
+          run_phase python3 "$audit/compare_9016_artifact.py" "$RUNNER_TEMP/reference-9016.zip" preview-output/Melodix-Preview-historique-glass.apk | tee "$RUNNER_TEMP/protected-comparison.log"
           phase='rapport APK signées'
-          python3 "$audit/report_lot1_delivery.py" "$RUNNER_TEMP/reference-9016.zip" preview-output/Melodix-Preview-historique-glass.apk preview-output "$RUNNER_TEMP/original-9016.apk"
+          run_phase python3 "$audit/report_lot1_delivery.py" "$RUNNER_TEMP/reference-9016.zip" preview-output/Melodix-Preview-historique-glass.apk preview-output "$RUNNER_TEMP/original-9016.apk"
           phase='décodage APK 9016'
-          java -jar "$RUNNER_TEMP/apktool.jar" d "$RUNNER_TEMP/original-9016.apk" -f -p "$RUNNER_TEMP/framework" -o "$RUNNER_TEMP/reference-9016-decoded"
+          run_phase java -jar "$RUNNER_TEMP/apktool.jar" d "$RUNNER_TEMP/original-9016.apk" -f -p "$RUNNER_TEMP/framework" -o "$RUNNER_TEMP/reference-9016-decoded"
           phase='rapport du décodage'
-          python3 "$audit/report_lot1_decoded_diff.py" "$RUNNER_TEMP/reference-9016-decoded" "$RUNNER_TEMP/historical-decoded" preview-output/decoded-files-vs-9016.txt
+          run_phase python3 "$audit/report_lot1_decoded_diff.py" "$RUNNER_TEMP/reference-9016-decoded" "$RUNNER_TEMP/historical-decoded" preview-output/decoded-files-vs-9016.txt
           echo "::notice title=Candidate APK metadata::$(head -1 "$RUNNER_TEMP/badging.txt") source=$GITHUB_SHA"
           { echo '### Fichiers protégés : comparaison octet par octet avec APK 9016 signé'; echo '```'; cat preview-output/protected-assets-vs-9016.tsv; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           echo "verified=true" >> "$GITHUB_OUTPUT"
