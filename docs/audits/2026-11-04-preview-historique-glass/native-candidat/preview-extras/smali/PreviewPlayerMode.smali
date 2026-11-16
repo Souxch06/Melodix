@@ -721,7 +721,7 @@
 
     move-result-object v0
 
-    const-string v1, "Action non confirm\ufffd\ufffde. R\ufffd\ufffdessayer"
+    const-string v1, "Action non confirm\u00e9e. R\u00e9essayer"
 
     invoke-static {v0, v1, v2}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
 
@@ -971,12 +971,12 @@
     :cond_5
     if-eqz v0, :cond_6
 
-    const-string v1, "Retirer des titres lik\ufffd\ufffds"
+    const-string v1, "Retirer des titres lik\u00e9s"
 
     goto :goto_3
 
     :cond_6
-    const-string v1, "Ajouter aux titres lik\ufffd\ufffds"
+    const-string v1, "Ajouter aux titres lik\u00e9s"
 
     goto :goto_3
 
@@ -1009,7 +1009,7 @@
     :goto_7
     if-nez v4, :cond_9
 
-    const-string v1, "Al\ufffd\ufffdatoire indisponible"
+    const-string v1, "Al\u00e9atoire indisponible"
 
     .restart local v1    # "desc":Ljava/lang/String;
     :goto_8
@@ -1026,12 +1026,12 @@
     :cond_9
     if-eqz v0, :cond_a
 
-    const-string v1, "Lecture al\ufffd\ufffdatoire activ\ufffd\ufffde"
+    const-string v1, "Lecture al\u00e9atoire activ\u00e9e"
 
     goto :goto_8
 
     :cond_a
-    const-string v1, "Lecture al\ufffd\ufffdatoire d\ufffd\ufffdsactiv\ufffd\ufffde"
+    const-string v1, "Lecture al\u00e9atoire d\u00e9sactiv\u00e9e"
 
     goto :goto_8
 
@@ -1054,7 +1054,7 @@
     :goto_9
     if-nez v4, :cond_e
 
-    const-string v1, "R\ufffd\ufffdp\ufffd\ufffdtition indisponible"
+    const-string v1, "R\u00e9p\u00e9tition indisponible"
 
     .restart local v1    # "desc":Ljava/lang/String;
     :goto_a
@@ -1086,19 +1086,19 @@
 
     if-eqz v7, :cond_f
 
-    const-string v1, "R\ufffd\ufffdp\ufffd\ufffdter le titre"
+    const-string v1, "R\u00e9p\u00e9ter le titre"
 
     goto :goto_a
 
     :cond_f
     if-eqz v0, :cond_10
 
-    const-string v1, "R\ufffd\ufffdp\ufffd\ufffdter la liste"
+    const-string v1, "R\u00e9p\u00e9ter la liste"
 
     goto :goto_a
 
     :cond_10
-    const-string v1, "R\ufffd\ufffdp\ufffd\ufffdtition d\ufffd\ufffdsactiv\ufffd\ufffde"
+    const-string v1, "R\u00e9p\u00e9tition d\u00e9sactiv\u00e9e"
 
     goto :goto_a
 

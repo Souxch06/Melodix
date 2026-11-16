@@ -138,7 +138,7 @@
 
     move-result-object v3
 
-    const-string v4, "Volume indisponible. R\ufffd\ufffdessayer"
+    const-string v4, "Volume indisponible. R\u00e9essayer"
 
     invoke-static {v3, v4, v8}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
 

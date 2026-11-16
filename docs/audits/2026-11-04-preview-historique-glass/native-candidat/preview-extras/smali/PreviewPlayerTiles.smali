@@ -51,25 +51,25 @@
 
     const/4 v7, 0x0
 
-    const-string v8, "\ufffd\ufffd\ufffd\nFile"
+    const-string v8, "\u2630\nFile"
 
     aput-object v8, v3, v7
 
     const/4 v7, 0x1
 
-    const-string v8, "\ufffd\ufffd\ufffd\nParoles"
+    const-string v8, "\u266c\nParoles"
 
     aput-object v8, v3, v7
 
     const/4 v7, 0x2
 
-    const-string v8, "\ufffd\ufffd\ufffd\nAppareils"
+    const-string v8, "\u25a3\nAppareils"
 
     aput-object v8, v3, v7
 
     const/4 v7, 0x3
 
-    const-string v8, "\ufffd\ufffd\ufffd))\nVolume"
+    const-string v8, "\u25d6))\nVolume"
 
     aput-object v8, v3, v7
 
@@ -262,7 +262,7 @@
 
     if-ne v1, v7, :cond_3
 
-    const-string v7, "Volume du t\ufffd\ufffdl\ufffd\ufffdphone"
+    const-string v7, "Volume du t\u00e9l\u00e9phone"
 
     :goto_1
     invoke-virtual {v0, v7}, Landroid/widget/Button;->setContentDescription(Ljava/lang/CharSequence;)V
@@ -625,7 +625,7 @@
 
     iget-object v8, p0, Lcom/melodix/music/PreviewPlayerTiles;->volumeButton:Landroid/widget/Button;
 
-    const-string v9, "Volume du t\ufffd\ufffdl\ufffd\ufffdphone indisponible"
+    const-string v9, "Volume du t\u00e9l\u00e9phone indisponible"
 
     invoke-virtual {v8, v9}, Landroid/widget/Button;->setContentDescription(Ljava/lang/CharSequence;)V
     :try_end_0
@@ -648,7 +648,7 @@
 
     iget-object v8, p0, Lcom/melodix/music/PreviewPlayerTiles;->volumeButton:Landroid/widget/Button;
 
-    const-string v9, "Volume du t\ufffd\ufffdl\ufffd\ufffdphone indisponible"
+    const-string v9, "Volume du t\u00e9l\u00e9phone indisponible"
 
     invoke-virtual {v8, v9}, Landroid/widget/Button;->setContentDescription(Ljava/lang/CharSequence;)V
 
@@ -697,7 +697,7 @@
 
     iget-object v8, p0, Lcom/melodix/music/PreviewPlayerTiles;->volumeButton:Landroid/widget/Button;
 
-    const-string v9, "Volume du t\ufffd\ufffdl\ufffd\ufffdphone indisponible"
+    const-string v9, "Volume du t\u00e9l\u00e9phone indisponible"
 
     invoke-virtual {v8, v9}, Landroid/widget/Button;->setContentDescription(Ljava/lang/CharSequence;)V
 
@@ -735,7 +735,7 @@
     .local v4, "percent":I
     new-instance v8, Ljava/lang/StringBuilder;
 
-    const-string v9, "\ufffd\ufffd\ufffd))\nVolume "
+    const-string v9, "\u25d6))\nVolume "
 
     invoke-direct {v8, v9}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
 
@@ -788,7 +788,7 @@
 
     new-instance v9, Ljava/lang/StringBuilder;
 
-    const-string v10, "Volume du t\ufffd\ufffdl\ufffd\ufffdphone : "
+    const-string v10, "Volume du t\u00e9l\u00e9phone : "
 
     invoke-direct {v9, v10}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
 
