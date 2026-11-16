@@ -26,6 +26,8 @@
     var popup=String(b.getAttribute('aria-haspopup')||'').toLowerCase();
     if(kind==='like')out.command=popup==='true'||popup==='menu'||popup==='dialog'?'menu':'unspecified';
     else out.command='toggle';
-    out.reason=out.disabled?'disabled':out.state==='unknown'?'state':'observed';
+    var description=String(b.getAttribute('aria-description')||'').trim();
+    var restricted=kind==='shuffle' && out.disabled && /^(shuffle is not available (with|for) (this account|this playback)|l['’]aléatoire n['’]est pas disponible avec (ce compte|cette lecture))$/i.test(description);
+    out.reason=restricted?'restriction':out.disabled?'disabled':out.state==='unknown'?'state':'observed';
     return JSON.stringify(out);
 })

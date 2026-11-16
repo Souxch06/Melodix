@@ -46,8 +46,8 @@ stubs.update({
   for(int i=1;i<3;i++){Handler.advance(401);n=c.G.calls;t.children.get(i).performClick();ok(c.G.calls==n+1);c.G.reply("sent=true");ok(c.root.getVisibility()==View.GONE);Dialog.last.dismiss();ok(c.root.getVisibility()==View.VISIBLE);}
   Handler.advance(401);t.children.get(1).performClick();c.G.reply("sent=false;reason=control");ok(Toast.message.contains("Réessayer"));
   Handler.advance(401);t.children.get(0).performClick();android.webkit.ValueCallback<String> late=c.G.cb;Handler.advance(3001);ok(Toast.message.contains("non confirmée"));ok(c.root.getVisibility()==View.VISIBLE);late.onReceiveValue("sent=true");ok(c.root.getVisibility()==View.VISIBLE);
-  Button b=(Button)t.children.get(3);ok(b.text.contains("50 %")&&b.description.contains("téléphone"));Handler.advance(401);b.performClick();b.performClick();ok(audio.calls==1);audio.value=8;Handler.advance(1000);ok(b.text.contains("80 %"));
-  audio.fail=true;b.performClick();ok(Toast.message.contains("Réessayer"));t.shown=false;t.onVisibilityChanged(t,8);n=audio.calls;b.performClick();ok(audio.calls==n);audio.fail=false;t.shown=true;t.onVisibilityChanged(t,0);Handler.advance(401);b.performClick();ok(audio.calls==n+1);c.audio=null;Handler.advance(1000);ok(!b.enabled);t.onDetachedFromWindow();System.out.println("Player tile JVM simulation passed");
+  Button b=(Button)t.children.get(3);ok(b.text.contains("Volume —") && b.description.contains("non modifié"));ok(!b.enabled);Handler.advance(401);b.performClick();ok(audio.calls==0);audio.value=8;Handler.advance(1000);ok(b.text.contains("Volume —"));
+  t.shown=false;t.onVisibilityChanged(t,8);b.performClick();ok(audio.calls==0);t.shown=true;t.onVisibilityChanged(t,0);Handler.advance(401);b.performClick();ok(audio.calls==0);t.onDetachedFromWindow();System.out.println("Player tile JVM simulation passed");
  }
 }'''
 

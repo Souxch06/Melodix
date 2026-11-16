@@ -18,7 +18,7 @@ for folder in ('layout','layout-land','layout-w600dp','layout-w600dp-land'):
 art=(here/'PreviewPlayerLikeArt.java').read_text(encoding='utf-8')
 mode=(here/'PreviewPlayerMode.java').read_text(encoding='utf-8')
 tiles=(here/'PreviewPlayerTiles.java').read_text(encoding='utf-8')
-assert '0xd9ffffff' in art and 'kind.equals("like")?(pending?0.65f:1f)' in mode
+assert '0xd9ffffff' in art and 'kind.equals("like")?(pending?0.65f:known?1f:0.35f)' in mode
 assert 'Chargement :' in mode and 'Indisponible :' in mode and 'reasonText()' in mode
 assert 'reasonText(reasons[i])' in tiles and 'disponible quand le contrôle Spotify est présent' in tiles
 assert 'FLAG_NOT_TOUCH_MODAL' in tiles and 'root.setVisibility(previous)' in tiles

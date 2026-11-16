@@ -30,7 +30,7 @@
     .locals 0
 
     .prologue
-    .line 105
+    .line 103
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$4;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerTiles$4;->val$root:Landroid/view/View;
@@ -46,10 +46,9 @@
 # virtual methods
 .method public onDismiss(Landroid/content/DialogInterface;)V
     .locals 2
-    .param p1, "ignored"    # Landroid/content/DialogInterface;
 
     .prologue
-    .line 105
+    .line 103
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$4;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     const/4 v1, 0x0

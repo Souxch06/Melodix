@@ -13,7 +13,6 @@ import android.graphics.drawable.RippleDrawable;
 import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.style.RelativeSizeSpan;
-import android.media.AudioManager;
 import android.os.SystemClock;
 import android.webkit.WebView;
 import android.webkit.ValueCallback;
@@ -42,7 +41,6 @@ public final class PreviewPlayerTiles extends LinearLayout {
     private long visibleSince, generation, serial, queryStarted, lastAction=-1000;
     private boolean opening, queryInFlight;
     private boolean volumeRunning;
-    private long lastVolumeTap = -1000;
     private final Runnable volumeTick = new Runnable() { public void run() {
         if (!volumeRunning || !isShown() || getWindowVisibility()!=View.VISIBLE) { volumeRunning=false; return; }
         updateVolume();paintControls();probe();postDelayed(this, 800);
@@ -127,19 +125,9 @@ public final class PreviewPlayerTiles extends LinearLayout {
     }
     private void updateVolume() {
         if (volumeButton==null) return;
-        try {
-            Object svc=getContext().getSystemService(Context.AUDIO_SERVICE);
-            if (!(svc instanceof AudioManager)) { volumeButton.setEnabled(false); volumeButton.setAlpha(0.45f); volumeButton.setContentDescription("Volume du téléphone indisponible"); return; }
-            AudioManager audio=(AudioManager)svc;
-            int max=audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC), value=audio.getStreamVolume(AudioManager.STREAM_MUSIC);
-            if (max<=0) { volumeButton.setEnabled(false); volumeButton.setAlpha(0.45f); volumeButton.setContentDescription("Volume du téléphone indisponible"); return; }
-            int percent=Math.max(0,Math.min(100,Math.round(value*100f/max)));
-            String text="◖))\nVolume "+percent+" %";
-            SpannableString label=new SpannableString(text);
-            label.setSpan(new RelativeSizeSpan(2.2f),0,text.indexOf('\n'),Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            volumeButton.setText(label); volumeButton.setContentDescription("Volume du téléphone : "+percent+" pour cent");
-            volumeButton.setEnabled(true);volumeButton.setAlpha(1f);
-        } catch (RuntimeException ignored) { volumeButton.setEnabled(false); volumeButton.setAlpha(0.45f); volumeButton.setContentDescription("Volume du téléphone indisponible"); }
+        volumeButton.setText("◖))\nVolume —");
+        volumeButton.setContentDescription("Volume du lecteur indisponible ; volume du téléphone non modifié");
+        volumeButton.setEnabled(false);volumeButton.setAlpha(0.45f);
     }
     private void syncVolume() {
         boolean show=isAttachedToWindow() && isShown() && getWindowVisibility()==View.VISIBLE;
@@ -166,16 +154,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
             b.setEnabled(true);b.setAlpha(i==3?1f:0.45f);b.setSelected(false);b.setActivated(false);
             LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,getResources().getConfiguration().fontScale>1.3f?LayoutParams.WRAP_CONTENT:dp(56),1f);if(i>0)lp.leftMargin=dp(8);addView(b,lp);
             if(n<3){controls[n]=b;b.setOnClickListener(new View.OnClickListener(){public void onClick(View v){activate(n);}});}
-            if(n==3){volumeButton=b;b.setOnClickListener(new View.OnClickListener(){public void onClick(View v){
-                long now=SystemClock.elapsedRealtime();
-                if(!volumeRunning || !isShown() || now-lastVolumeTap<400)return;
-                lastVolumeTap=now;v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
-                try {
-                    Object svc=getContext().getSystemService(Context.AUDIO_SERVICE);
-                    if(!(svc instanceof AudioManager)) throw new IllegalStateException();
-                    ((AudioManager)svc).adjustStreamVolume(AudioManager.STREAM_MUSIC,AudioManager.ADJUST_SAME,AudioManager.FLAG_SHOW_UI);
-                } catch(RuntimeException ignored){updateVolume();Toast.makeText(getContext(),"Volume indisponible. Réessayer",Toast.LENGTH_SHORT).show();}
-            }});}
+            if(n==3){volumeButton=b;updateVolume();}
 
         }
     }

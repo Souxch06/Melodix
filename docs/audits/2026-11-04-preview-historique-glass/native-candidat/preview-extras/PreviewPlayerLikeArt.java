@@ -16,7 +16,7 @@ public final class PreviewPlayerLikeArt extends Drawable {
     @Override public void draw(Canvas canvas){
         CharSequence value=control.getContentDescription();
         String label=value==null?"":value.toString();
-        boolean active=label.startsWith("Retirer des titres likés");
+        boolean active=label.startsWith("Titre aimé");
         float d=control.getResources().getDisplayMetrics().density;
         float cx=getBounds().width()/2f,cy=getBounds().height()/2f;
         canvas.save();canvas.translate(cx-12*d,cy-12*d);canvas.scale(d,d);

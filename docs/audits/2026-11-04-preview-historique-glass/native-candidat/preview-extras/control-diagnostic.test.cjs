@@ -18,3 +18,18 @@ test('unknown invalid mixed absent ambiguous and no sensitive page data',()=>{
  x=run('<button data-testid="shuffle-a"></button><button data-testid="shuffle-b"></button>','shuffle');assert.equal(x.reason,'ambiguous');assert.equal(x.count,2);
 });
 test('probe is passive and does not access session or network',()=>{for(const s of ['.click(', 'fetch(', 'XMLHttpRequest','localStorage','sessionStorage','cookie','Authorization','api.spotify.com','setTimeout','setInterval'])assert.ok(!code.includes(s),s)});
+
+test('restriction only when explicitly described, never from disabled alone',()=>{let x=run('<button data-testid="shuffle" disabled aria-description="Shuffle is not available for this account"></button>','shuffle');assert.equal(x.reason,'restriction');x=run('<button data-testid="shuffle" disabled></button>','shuffle');assert.equal(x.reason,'disabled')});
+
+test('embedded WebView wrapper keeps diagnostic categorical while control retains identity guard',()=>{
+ const control=fs.readFileSync(path.join(__dirname,'control.js'),'utf8');
+ const java=fs.readFileSync(path.join(__dirname,'PreviewPlayerMode.java'),'utf8');
+ const embedded=(name)=>JSON.parse(java.match(new RegExp("private static final String "+name+" = (\".*\");"))[1]);
+ assert.equal(embedded("SCRIPT"),control);assert.equal(embedded("DIAGNOSTIC"),code);
+ const d=new JSDOM(bar('<a data-testid="context-item-link" href="/track/secret">Private title</a><button data-testid="add-button" aria-checked="false"></button>'),{runScripts:'outside-only',url:'https://open.spotify.com/'});
+ try{
+  let js=`(function(){var r=JSON.parse((${control})("like","query","","",""));r.diagnostic=(${code})("like");return JSON.stringify(r);})()`;
+  let result=JSON.parse(d.window.eval(js)),diag=JSON.parse(result.diagnostic);
+  assert.equal(result.title,'Private title');assert.equal(diag.state,'false');assert.equal(diag.reason,'observed');assert.ok(!result.diagnostic.includes('Private'));assert.ok(!result.diagnostic.includes('secret'));
+ }finally{d.window.close();}
+});

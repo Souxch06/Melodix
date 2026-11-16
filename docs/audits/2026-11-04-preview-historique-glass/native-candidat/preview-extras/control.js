@@ -8,8 +8,8 @@
             on: /^(remove from (your )?(library|liked songs)|retirer (de la bibliothèque|des titres likés)|supprimer de (votre |la )?bibliothèque|aus (deiner |der )?bibliothek entfernen|quitar de (tu )?biblioteca|remover (da biblioteca|dos títulos curtidos))$/i
         },
         shuffle: {
-            off: /^(enable shuffle|turn shuffle on|activate shuffle|activer (la lecture |le mode )?aléatoire|zufallswiedergabe aktivieren|activar (el modo |la reproducción )?aleatori[oa]|ativar (a reprodução )?aleatória)$/i,
-            on: /^(disable shuffle|turn shuffle off|deactivate shuffle|désactiver (la lecture |le mode )?aléatoire|zufallswiedergabe deaktivieren|desactivar (el modo |la reproducción )?aleatori[oa]|desativar (a reprodução )?aleatória)$/i
+            off: /^(enable shuffle|turn shuffle on|activate shuffle|activer (la lecture |le mode |l['’])?aléatoire|zufallswiedergabe aktivieren|activar (el modo |la reproducción )?aleatori[oa]|ativar (a reprodução )?aleatória)$/i,
+            on: /^(disable shuffle|turn shuffle off|deactivate shuffle|désactiver (la lecture |le mode |l['’])?aléatoire|zufallswiedergabe deaktivieren|desactivar (el modo |la reproducción )?aleatori[oa]|desativar (a reprodução )?aleatória)$/i
         }
     };
     if (['like','shuffle','repeat'].indexOf(kind) < 0) return JSON.stringify({state:'unknown',reason:'control'});
@@ -32,7 +32,12 @@
     }
     if (nodes.length !== 1) {result.reason='ambiguous';return JSON.stringify(result);}
     var button=nodes[0];
-    if (button.disabled || button.getAttribute('aria-disabled') === 'true') {result.reason='disabled';return JSON.stringify(result);}
+    if (button.disabled || button.getAttribute('aria-disabled') === 'true') {
+        var description=String(button.getAttribute('aria-description')||'').trim();
+        result.reason=kind==='shuffle' && /^(shuffle is not available (with|for) (this account|this playback)|l['’]aléatoire n['’]est pas disponible avec (ce compte|cette lecture))$/i.test(description)?'restriction':'disabled';
+        return JSON.stringify(result);
+    }
+    if (kind === 'like' && /^(true|menu|dialog)$/i.test(String(button.getAttribute('aria-haspopup')||''))) {result.reason='menu';return JSON.stringify(result);}
     var raw=button.getAttribute('aria-checked');
     if (raw === null) raw=button.getAttribute('aria-pressed');
     var label=String(button.getAttribute('aria-label')||'').trim();
@@ -55,14 +60,11 @@
     result.state=raw;result.reason='';
     if (action === 'query') return JSON.stringify(result);
     if (action !== 'invoke' || raw !== expectedState ||
-        (kind === 'like' && (result.track !== expectedTrack || result.title !== expectedTitle))) return JSON.stringify({sent:false});
+        (kind === 'like' && (raw !== 'false' || result.track !== expectedTrack || result.title !== expectedTitle))) return JSON.stringify({sent:false});
     try {
-        // Keep legacy commands when their exact target is known. Other recognized
-        // controls use the same explicit button click a user could make in Spotify.
-        var legacyLike=document.querySelector('div[data-testid="now-playing-widget"]>div:last-child>button');
-        if (kind === 'like' && legacyLike === button && typeof window.actAddToFav === 'function') window.actAddToFav();
-        else if (kind === 'shuffle' && button.matches('button[data-testid="control-button-shuffle"]') && typeof window.actShuffle === 'function') window.actShuffle();
-        else if (kind === 'repeat') window.actRepeat();
+        // Use the exact revalidated button; never call a legacy helper that
+        // schedules playback-related work. Never click an already-liked item.
+        if (kind === 'repeat') window.actRepeat();
         else button.click();
         return JSON.stringify({sent:true});
     } catch (_) { return JSON.stringify({sent:false}); }

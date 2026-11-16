@@ -28,7 +28,7 @@
     .locals 0
 
     .prologue
-    .line 168
+    .line 156
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$9;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iput p2, p0, Lcom/melodix/music/PreviewPlayerTiles$9;->val$n:I
@@ -42,10 +42,9 @@
 # virtual methods
 .method public onClick(Landroid/view/View;)V
     .locals 2
-    .param p1, "v"    # Landroid/view/View;
 
     .prologue
-    .line 168
+    .line 156
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$9;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iget v1, p0, Lcom/melodix/music/PreviewPlayerTiles$9;->val$n:I

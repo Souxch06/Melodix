@@ -26,7 +26,7 @@
     .locals 0
 
     .prologue
-    .line 156
+    .line 179
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerMode$7;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -40,10 +40,10 @@
     .locals 1
 
     .prologue
-    .line 156
+    .line 179
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode$7;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$21(Lcom/melodix/music/PreviewPlayerMode;)V
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$24(Lcom/melodix/music/PreviewPlayerMode;)V
 
     return-void
 .end method

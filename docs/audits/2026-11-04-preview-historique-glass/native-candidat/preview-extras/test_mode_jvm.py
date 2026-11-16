@@ -25,7 +25,7 @@ stubs={
 'android/webkit/ValueCallback.java':'package android.webkit;public interface ValueCallback<T>{void onReceiveValue(T value);}',
 'android/webkit/WebView.java':'''package android.webkit; public class WebView extends android.view.View { public int calls; public String js; public ValueCallback<String> cb; public WebView(android.content.Context c){super(c);} public void evaluateJavascript(String s,ValueCallback<String> c){calls++;js=s;cb=c;} public void reply(String s){cb.onReceiveValue(s);} }''',
 'org/json/JSONTokener.java':'''package org.json;public class JSONTokener {String s;public JSONTokener(String s){this.s=s;}public Object nextValue(){return s;} }''',
-'org/json/JSONObject.java':'''package org.json; import java.util.*;public class JSONObject {Map<String,String> m=new HashMap<String,String>();public JSONObject(String s){for(String p:s.split(";")){int i=p.indexOf('=');if(i>0)m.put(p.substring(0,i),p.substring(i+1));}}public static String quote(String s){return (char)34+s+(char)34;}public String optString(String k,String d){return m.containsKey(k)?m.get(k):d;}public boolean optBoolean(String k,boolean d){return m.containsKey(k)?Boolean.parseBoolean(m.get(k)):d;} }''',
+'org/json/JSONObject.java':'''package org.json; import java.util.*;public class JSONObject {Map<String,String> m=new HashMap<String,String>();public JSONObject(String s){if(s.startsWith("diag:")){for(String p:s.substring(5).split(",")){int i=p.indexOf(':');if(i>0)m.put(p.substring(0,i),p.substring(i+1));}}else for(String p:s.split(";")){int i=p.indexOf('=');if(i>0)m.put(p.substring(0,i),p.substring(i+1));}}public static String quote(String s){return (char)34+s+(char)34;}public String optString(String k,String d){return m.containsKey(k)?m.get(k):d;}public boolean optBoolean(String k,boolean d){return m.containsKey(k)?Boolean.parseBoolean(m.get(k)):d;} }''',
 'com/melodix/music/ModeTest.java':'''package com.melodix.music;import android.app.*;import android.os.*;import android.webkit.*;import android.widget.*;public class ModeTest {
  static void ok(boolean b){if(!b)throw new AssertionError();}
  static String data(String state){return "state="+state+";track=track:abc;title=Titre";}
@@ -36,8 +36,8 @@ stubs={
   Handler.step();a.G.reply(data("false"));ok(m.enabled);int n=a.G.calls;m.performClick();ok(a.G.calls==n+1);if(kind.equals("shuffle"))ok(m.description.startsWith("Lecture aléatoire activée"));m.performClick();ok(a.G.calls==n+1);a.G.reply("sent=true");
   // Confirmation may arrive instantly; second tap within 400 ms is blocked.
   java.lang.reflect.Method observe=PreviewPlayerMode.class.getDeclaredMethod("observe");observe.setAccessible(true);observe.invoke(m);a.G.reply(data("true"));ok(m.enabled);n=a.G.calls;m.performClick();ok(a.G.calls==n);
-  SystemClock.t+=401;m.performClick();ok(a.G.calls==n+1);if(kind.equals("shuffle"))ok(m.description.startsWith("Lecture aléatoire désactivée"));a.G.reply("sent=false");ok(m.enabled==kind.equals("shuffle"));ok(Toast.count==1);ok(Toast.message.contains("Réessayer"));
-  Handler.step();a.G.reply(data("true"));ok(m.enabled);SystemClock.t+=401;m.performClick();ok(!m.enabled);android.webkit.ValueCallback<String> late=a.G.cb;
+  SystemClock.t+=401;if(kind.equals("like")){m.performClick();ok(a.G.calls==n);observe.invoke(m);a.G.reply(data("false"));n=a.G.calls;}m.performClick();ok(a.G.calls==n+1);if(kind.equals("shuffle"))ok(m.description.startsWith("Lecture aléatoire désactivée"));a.G.reply("sent=false");ok(m.enabled==kind.equals("shuffle"));ok(Toast.count==1);ok(Toast.message.contains("Réessayer"));
+  Handler.step();a.G.reply(data(kind.equals("like")?"false":"true"));ok(m.enabled);SystemClock.t+=401;m.performClick();ok(!m.enabled);android.webkit.ValueCallback<String> late=a.G.cb;
   // Lost JS callback: independent deadline unlocks without inventing success.
   Handler.advance(5001);ok(m.enabled==kind.equals("shuffle"));ok(m.description.startsWith("Indisponible :"));ok(Toast.count==2);late.onReceiveValue("sent=false");ok(Toast.count==2);
   m.shown=false;m.onVisibilityChanged(m,8);ok(!m.enabled);m.performClick();
@@ -54,6 +54,11 @@ stubs={
  Handler.clear();t=new Activity();t.G=new WebView(t);sh=new PreviewPlayerMode(t,null);sh.setTag("shuffle");sh.onAttachedToWindow();Handler.step();t.G.reply(data("false"));sh.performClick();ok(sh.description.startsWith("Lecture aléatoire activée"));ok(sh.description.contains("en attente"));t.G.reply("sent=true");
  java.lang.reflect.Method obs=PreviewPlayerMode.class.getDeclaredMethod("observe");obs.setAccessible(true);obs.invoke(sh);t.G.reply(data("false"));Handler.advance(5001);ok(sh.description.startsWith("Lecture aléatoire désactivée"));ok(Toast.message.contains("Aléatoire indisponible"));
  SystemClock.t+=401;obs.invoke(sh);t.G.reply(data("mixed"));sh.performClick();ok(sh.description.startsWith("Aléatoire : état inconnu"));t.G.reply("sent=true");obs.invoke(sh);t.G.reply(data("false"));ok(sh.description.startsWith("Lecture aléatoire désactivée"));sh.onDetachedFromWindow();
+ // Diagnostic snapshots retain categories only, not track or title.
+ Handler.clear();t=new Activity();t.G=new WebView(t);sh=new PreviewPlayerMode(t,null);sh.setTag("shuffle");sh.onAttachedToWindow();Handler.step();
+ t.G.reply(data("false")+";diagnostic=diag:state:false,reason:observed,command:toggle,label:off-action");sh.performClick();t.G.reply("sent=true");obs.invoke(sh);
+ t.G.reply(data("true")+";diagnostic=diag:state:true,reason:observed,command:toggle,label:on-action");
+ String report=PreviewPlayerMode.diagnosticReport();ok(report.contains("avant : état=false"));ok(report.contains("après : état=true"));ok(report.contains("changement observé"));ok(!report.contains("Titre")&&!report.contains("track:abc"));sh.onDetachedFromWindow();
  System.out.println("Player mode JVM simulation passed"); }
 }'''
 

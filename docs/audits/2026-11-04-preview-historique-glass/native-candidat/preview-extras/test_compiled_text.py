@@ -22,7 +22,7 @@ tiles = text(smali / 'PreviewPlayerTiles.smali')
 for value in ('☰\\nFile', '♬\\nParoles', '▣\\nAppareils', '◖))\\nVolume', 'téléphone'):
     assert value in tiles, f'missing compiled tile text {value!r}'
 mode = text(smali / 'PreviewPlayerMode.smali')
-for value in ('Retirer des titres likés', 'Action non confirmée. Réessayer', 'Lecture aléatoire activée'):
+for value in ('Titre aimé', 'Action non confirmée. Réessayer', 'Lecture aléatoire activée'):
     assert value in mode, f'missing compiled mode text {value!r}'
 assert 'Réessayer' in ''.join(text(p) for p in smali.glob('PreviewPlayerTiles*.smali'))
 print('Player tile glyphs and French text verified in compiled Smali')

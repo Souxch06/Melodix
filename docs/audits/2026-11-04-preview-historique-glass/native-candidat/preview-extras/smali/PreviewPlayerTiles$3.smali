@@ -28,7 +28,7 @@
     .locals 0
 
     .prologue
-    .line 103
+    .line 101
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$3;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerTiles$3;->val$dialog:Landroid/app/Dialog;
@@ -42,10 +42,9 @@
 # virtual methods
 .method public onClick(Landroid/view/View;)V
     .locals 1
-    .param p1, "v"    # Landroid/view/View;
 
     .prologue
-    .line 103
+    .line 101
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$3;->val$dialog:Landroid/app/Dialog;
 
     invoke-virtual {v0}, Landroid/app/Dialog;->dismiss()V
