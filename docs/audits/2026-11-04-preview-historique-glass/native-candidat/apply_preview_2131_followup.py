@@ -4,7 +4,7 @@ import hashlib
 import sys
 from pathlib import Path
 
-EXPECTED = '7f6d91309de2ee9f89150a4f25c1897ed9f07314db0c0a0b0a0cac06d68632e0'
+EXPECTED = '81b8052dc52c818878049a69894d8cdf005b617a6dd026937390d475b7747116'
 
 def replace(s, old, new):
     if s.count(old) != 1:

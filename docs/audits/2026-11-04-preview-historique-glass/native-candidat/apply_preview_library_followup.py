@@ -3,7 +3,7 @@
 import hashlib,sys
 from pathlib import Path
 HERE=Path(__file__).resolve().parent
-EXPECTED='7143bd2a1d8ba4719412d200d4d14a86b5a3bc855feffc6fb282c301d8555b4e'
+EXPECTED='ed18ae0b137951fc9b9f1d9fbc65a3f596fad94f38d6f31c8b22c7fa74462984'
 HELPER_SHA='a090f2dd6fa8eb642a1041d456159d9d66dd98c5c92d6f692b8784f00f4205ca'
 
 def one(text, old, new):
