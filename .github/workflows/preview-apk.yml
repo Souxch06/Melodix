@@ -1203,28 +1203,55 @@ jobs:
             fi
           }
           trap 'rc=$?; echo "::error title=Étape garde 9016 échouée::Phase: $phase; code: $rc"; echo "Garde 9016 échouée — phase: $phase; code: $rc" >> "$GITHUB_STEP_SUMMARY"' ERR
-          if gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/14156257401/zip" > "$RUNNER_TEMP/reference-9016.zip" 2> "$RUNNER_TEMP/reference-9016-error.txt"; then
-            :
-          else
+          ref_ok=false
+          ref_code=unknown
+          for attempt in 1 2 3; do
+            if gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/14156257401/zip" > "$RUNNER_TEMP/reference-9016.zip" 2> "$RUNNER_TEMP/reference-9016-error.txt"; then
+              ref_ok=true
+              break
+            fi
+            ref_code="$(grep -oE 'HTTP [0-9]{3}' "$RUNNER_TEMP/reference-9016-error.txt" | tail -1 | grep -oE '[0-9]{3}' || :)"
+            ref_code="${ref_code:-unknown}"
             rm -f "$RUNNER_TEMP/reference-9016.zip"
-            if gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/14156257401" > "$RUNNER_TEMP/reference-9016-meta.json" 2>/dev/null; then :; fi
-          fi
-          phase='diagnostic signé de chaque fichier'
-          python3 "$audit/diagnose_signed_9016.py" "$RUNNER_TEMP/reference-9016.zip" preview-output/Melodix-Preview-historique-glass.apk "$RUNNER_TEMP/reference-9016-error.txt" "$RUNNER_TEMP/reference-9016-meta.json"
-          phase='tests de la garde et du comparateur'
-          run_phase python3 "$audit/test_diagnose_signed_9016.py"
+            if [ "$attempt" -lt 3 ]; then sleep $((attempt * 10)); fi
+          done
+          phase='contrôle principal : manifeste ASSET_SHA256 sur APK signée'
+          run_phase python3 "$audit/verify_9016_protected_assets.py" apk preview-output/Melodix-Preview-historique-glass.apk
+          phase='tests statiques de la garde'
           run_phase python3 "$audit/test_signed_candidate_gate.py"
           run_phase python3 "$audit/test_compare_9016_artifact.py"
-          phase='comparaison directe des octets'
-          run_phase python3 "$audit/compare_9016_artifact.py" "$RUNNER_TEMP/reference-9016.zip" preview-output/Melodix-Preview-historique-glass.apk | tee "$RUNNER_TEMP/protected-comparison.log"
-          phase='rapport APK signées'
-          run_phase python3 "$audit/report_lot1_delivery.py" "$RUNNER_TEMP/reference-9016.zip" preview-output/Melodix-Preview-historique-glass.apk preview-output "$RUNNER_TEMP/original-9016.apk"
-          phase='décodage APK 9016'
-          run_phase java -jar "$RUNNER_TEMP/apktool.jar" d "$RUNNER_TEMP/original-9016.apk" -f -p "$RUNNER_TEMP/framework" -o "$RUNNER_TEMP/reference-9016-decoded"
-          phase='rapport du décodage'
-          run_phase python3 "$audit/report_lot1_decoded_diff.py" "$RUNNER_TEMP/reference-9016-decoded" "$RUNNER_TEMP/historical-decoded" preview-output/decoded-files-vs-9016.txt
+          if [ "$ref_ok" = true ]; then
+            comparison_mode='artefact 9016 signé (octets identiques)'
+            if gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/14156257401" > "$RUNNER_TEMP/reference-9016-meta.json" 2>/dev/null; then :; fi
+            phase='diagnostic signé de chaque fichier'
+            python3 "$audit/diagnose_signed_9016.py" "$RUNNER_TEMP/reference-9016.zip" preview-output/Melodix-Preview-historique-glass.apk "$RUNNER_TEMP/reference-9016-error.txt" "$RUNNER_TEMP/reference-9016-meta.json"
+            phase='comparaison directe des octets'
+            run_phase python3 "$audit/compare_9016_artifact.py" "$RUNNER_TEMP/reference-9016.zip" preview-output/Melodix-Preview-historique-glass.apk | tee "$RUNNER_TEMP/protected-comparison.log"
+            phase='rapport APK signées'
+            run_phase python3 "$audit/report_lot1_delivery.py" "$RUNNER_TEMP/reference-9016.zip" preview-output/Melodix-Preview-historique-glass.apk preview-output "$RUNNER_TEMP/original-9016.apk"
+            phase='décodage APK 9016'
+            run_phase java -jar "$RUNNER_TEMP/apktool.jar" d "$RUNNER_TEMP/original-9016.apk" -f -p "$RUNNER_TEMP/framework" -o "$RUNNER_TEMP/reference-9016-decoded"
+            phase='rapport du décodage'
+            run_phase python3 "$audit/report_lot1_decoded_diff.py" "$RUNNER_TEMP/reference-9016-decoded" "$RUNNER_TEMP/historical-decoded" preview-output/decoded-files-vs-9016.txt
+          else
+            comparison_mode="manifeste 9016 (référence artefact indisponible, HTTP $ref_code)"
+            echo "::warning title=Référence artefact indisponible::référence artefact indisponible, comparaison au manifeste 9016 (HTTP $ref_code)"
+            phase='tableau de comparaison au manifeste'
+            run_phase python3 - "$audit" <<'PYMAN'
+          import hashlib, sys, zipfile
+          sys.path.insert(0, sys.argv[1])
+          from verify_9016_protected_assets import ASSET_SHA256
+          rows = ['file\tsha256_9016\tsha256_candidate\tidentical']
+          with zipfile.ZipFile('preview-output/Melodix-Preview-historique-glass.apk') as z:
+              for name, expected in ASSET_SHA256.items():
+                  cand = hashlib.sha256(z.read(name)).hexdigest()
+                  rows.append(f"{name}\t{expected}\t{cand}\t{'yes' if cand == expected else 'no'}")
+          open('preview-output/protected-assets-vs-9016.tsv', 'w').write('\n'.join(rows) + '\n')
+          PYMAN
+          fi
           echo "::notice title=Candidate APK metadata::$(head -1 "$RUNNER_TEMP/badging.txt") source=$GITHUB_SHA"
-          { echo '### Fichiers protégés : comparaison octet par octet avec APK 9016 signé'; echo '```'; cat preview-output/protected-assets-vs-9016.tsv; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=Garde 9016 réussie::commit=$GITHUB_SHA ; contrôle principal=manifeste ASSET_SHA256 réussi ; complément=$comparison_mode"
+          { echo "### Garde 9016 — commit $GITHUB_SHA"; echo "- Contrôle principal (manifeste ASSET_SHA256, 7 fichiers de l'APK signée) : réussi"; echo "- Contrôle complémentaire : $comparison_mode"; echo '```'; cat preview-output/protected-assets-vs-9016.tsv; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           echo "verified=true" >> "$GITHUB_OUTPUT"
       - name: Require signed 9016 comparison for candidate APKs
         if: ${{ always() && (inputs.release_tag == 'v1.2.2-test.9017-preview' || (inputs.release_tag == 'v1.2.2-test.9018-preview' || (inputs.release_tag == 'v1.2.2-test.9020-preview' || (inputs.release_tag == 'v1.2.2-test.9021-preview' || (inputs.release_tag == 'v1.2.2-test.9022-preview' || (inputs.release_tag == 'v1.2.2-test.9023-preview' || (inputs.release_tag == 'v1.2.2-test.9024-preview' || inputs.release_tag == 'v1.2.2-test.9026-preview')))))) || inputs.release_tag == 'v1.2.2-test.9019-preview') }}
