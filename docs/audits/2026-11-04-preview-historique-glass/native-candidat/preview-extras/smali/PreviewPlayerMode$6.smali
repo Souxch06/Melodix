@@ -19,8 +19,7 @@
 .annotation system Ldalvik/annotation/Signature;
     value = {
         "Ljava/lang/Object;",
-        "Landroid/webkit/ValueCallback",
-        "<",
+        "Landroid/webkit/ValueCallback<",
         "Ljava/lang/String;",
         ">;"
     }
@@ -30,15 +29,30 @@
 # instance fields
 .field final synthetic this$0:Lcom/melodix/music/PreviewPlayerMode;
 
-.field private final synthetic val$g:J
+.field final synthetic val$g:J
 
 
 # direct methods
 .method constructor <init>(Lcom/melodix/music/PreviewPlayerMode;J)V
     .locals 0
+    .annotation system Ldalvik/annotation/MethodParameters;
+        accessFlags = {
+            0x8010,
+            0x1010
+        }
+        names = {
+            null,
+            null
+        }
+    .end annotation
 
-    .prologue
-    .line 142
+    .annotation system Ldalvik/annotation/Signature;
+        value = {
+            "()V"
+        }
+    .end annotation
+
+    .line 161
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerMode$6;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
     iput-wide p2, p0, Lcom/melodix/music/PreviewPlayerMode$6;->val$g:J
@@ -52,9 +66,16 @@
 # virtual methods
 .method public bridge synthetic onReceiveValue(Ljava/lang/Object;)V
     .locals 0
+    .annotation system Ldalvik/annotation/MethodParameters;
+        accessFlags = {
+            0x1000
+        }
+        names = {
+            null
+        }
+    .end annotation
 
-    .prologue
-    .line 1
+    .line 161
     check-cast p1, Ljava/lang/String;
 
     invoke-virtual {p0, p1}, Lcom/melodix/music/PreviewPlayerMode$6;->onReceiveValue(Ljava/lang/String;)V
@@ -65,58 +86,93 @@
 .method public onReceiveValue(Ljava/lang/String;)V
     .locals 4
 
-    .prologue
-    .line 144
+    .line 163
     iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerMode$6;->val$g:J
 
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerMode$6;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
-    invoke-static {v2}, Lcom/melodix/music/PreviewPlayerMode;->access$5(Lcom/melodix/music/PreviewPlayerMode;)J
+    invoke-static {v2}, Lcom/melodix/music/PreviewPlayerMode;->access$500(Lcom/melodix/music/PreviewPlayerMode;)J
 
     move-result-wide v2
 
     cmp-long v0, v0, v2
 
-    if-nez v0, :cond_0
+    if-nez v0, :cond_4
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode$6;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$12(Lcom/melodix/music/PreviewPlayerMode;)Z
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$1200(Lcom/melodix/music/PreviewPlayerMode;)Z
 
     move-result v0
 
-    if-nez v0, :cond_1
+    if-nez v0, :cond_0
 
-    .line 146
+    goto :goto_3
+
     :cond_0
-    :goto_0
-    return-void
-
-    .line 144
-    :cond_1
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode$6;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
-    invoke-static {v0, p1}, Lcom/melodix/music/PreviewPlayerMode;->access$8(Lcom/melodix/music/PreviewPlayerMode;Ljava/lang/String;)Lorg/json/JSONObject;
+    invoke-static {v0, p1}, Lcom/melodix/music/PreviewPlayerMode;->access$800(Lcom/melodix/music/PreviewPlayerMode;Ljava/lang/String;)Lorg/json/JSONObject;
+
+    move-result-object p1
+
+    .line 164
+    const-string v0, ""
+
+    if-nez p1, :cond_1
+
+    goto :goto_0
+
+    :cond_1
+    const-string v1, "status"
+
+    invoke-virtual {p1, v1, v0}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
 
     move-result-object v0
 
-    .line 145
-    if-eqz v0, :cond_2
+    .line 165
+    :goto_0
+    const-string p1, "started"
 
-    const-string v1, "sent"
+    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result p1
+
+    if-nez p1, :cond_3
+
+    const-string p1, "busy"
+
+    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result p1
+
+    if-eqz p1, :cond_2
+
+    goto :goto_1
+
+    :cond_2
+    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerMode$6;->this$0:Lcom/melodix/music/PreviewPlayerMode;
+
+    invoke-static {p1}, Lcom/melodix/music/PreviewPlayerMode;->access$2500(Lcom/melodix/music/PreviewPlayerMode;)V
+
+    goto :goto_2
+
+    :cond_3
+    :goto_1
+    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerMode$6;->this$0:Lcom/melodix/music/PreviewPlayerMode;
+
+    iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerMode$6;->val$g:J
 
     const/4 v2, 0x0
 
-    invoke-virtual {v0, v1, v2}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;Z)Z
+    invoke-static {p1, v0, v1, v2}, Lcom/melodix/music/PreviewPlayerMode;->access$2600(Lcom/melodix/music/PreviewPlayerMode;JI)V
 
-    move-result v0
+    .line 166
+    :goto_2
+    return-void
 
-    if-nez v0, :cond_0
-
-    :cond_2
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode$6;->this$0:Lcom/melodix/music/PreviewPlayerMode;
-
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$23(Lcom/melodix/music/PreviewPlayerMode;)V
-
-    goto :goto_0
+    .line 163
+    :cond_4
+    :goto_3
+    return-void
 .end method

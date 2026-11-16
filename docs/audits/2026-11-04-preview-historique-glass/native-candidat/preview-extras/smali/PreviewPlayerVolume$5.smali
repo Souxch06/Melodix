@@ -19,8 +19,7 @@
 .annotation system Ldalvik/annotation/Signature;
     value = {
         "Ljava/lang/Object;",
-        "Landroid/webkit/ValueCallback",
-        "<",
+        "Landroid/webkit/ValueCallback<",
         "Ljava/lang/String;",
         ">;"
     }
@@ -30,15 +29,30 @@
 # instance fields
 .field final synthetic this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
-.field private final synthetic val$sentId:J
+.field final synthetic val$sentId:J
 
 
 # direct methods
 .method constructor <init>(Lcom/melodix/music/PreviewPlayerVolume;J)V
     .locals 0
+    .annotation system Ldalvik/annotation/MethodParameters;
+        accessFlags = {
+            0x8010,
+            0x1010
+        }
+        names = {
+            null,
+            null
+        }
+    .end annotation
 
-    .prologue
-    .line 82
+    .annotation system Ldalvik/annotation/Signature;
+        value = {
+            "()V"
+        }
+    .end annotation
+
+    .line 84
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerVolume$5;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
     iput-wide p2, p0, Lcom/melodix/music/PreviewPlayerVolume$5;->val$sentId:J
@@ -52,9 +66,16 @@
 # virtual methods
 .method public bridge synthetic onReceiveValue(Ljava/lang/Object;)V
     .locals 0
+    .annotation system Ldalvik/annotation/MethodParameters;
+        accessFlags = {
+            0x1000
+        }
+        names = {
+            null
+        }
+    .end annotation
 
-    .prologue
-    .line 1
+    .line 84
     check-cast p1, Ljava/lang/String;
 
     invoke-virtual {p0, p1}, Lcom/melodix/music/PreviewPlayerVolume$5;->onReceiveValue(Ljava/lang/String;)V
@@ -63,134 +84,226 @@
 .end method
 
 .method public onReceiveValue(Ljava/lang/String;)V
-    .locals 5
+    .locals 7
 
-    .prologue
-    const/4 v4, 0x0
-
-    .line 83
+    .line 85
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume$5;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$0(Lcom/melodix/music/PreviewPlayerVolume;)Z
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$000(Lcom/melodix/music/PreviewPlayerVolume;)Z
 
     move-result v0
 
-    if-eqz v0, :cond_0
+    if-eqz v0, :cond_5
 
     iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerVolume$5;->val$sentId:J
 
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerVolume$5;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
-    invoke-static {v2}, Lcom/melodix/music/PreviewPlayerVolume;->access$6(Lcom/melodix/music/PreviewPlayerVolume;)J
+    invoke-static {v2}, Lcom/melodix/music/PreviewPlayerVolume;->access$600(Lcom/melodix/music/PreviewPlayerVolume;)J
 
     move-result-wide v2
 
     cmp-long v0, v0, v2
 
-    if-eqz v0, :cond_1
+    if-eqz v0, :cond_0
 
-    .line 86
+    goto/16 :goto_4
+
     :cond_0
-    :goto_0
-    return-void
-
-    .line 83
-    :cond_1
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume$5;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
-    invoke-static {v0, p1}, Lcom/melodix/music/PreviewPlayerVolume;->access$8(Lcom/melodix/music/PreviewPlayerVolume;Ljava/lang/String;)Lorg/json/JSONObject;
+    invoke-static {v0, p1}, Lcom/melodix/music/PreviewPlayerVolume;->access$800(Lcom/melodix/music/PreviewPlayerVolume;Ljava/lang/String;)Lorg/json/JSONObject;
 
-    move-result-object v0
+    move-result-object p1
 
-    .line 84
-    if-eqz v0, :cond_2
+    .line 86
+    const-string v0, "journal"
 
-    const-string v1, "sent"
+    const-string v1, " ; \u00e9tapes "
 
-    invoke-virtual {v0, v1, v4}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;Z)Z
+    const/4 v2, 0x0
 
-    move-result v1
+    const-string v3, ""
 
-    if-nez v1, :cond_4
+    if-eqz p1, :cond_2
 
-    :cond_2
-    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerVolume$5;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
+    const-string v4, "sent"
 
-    const/4 v2, -0x1
+    invoke-virtual {p1, v4, v2}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;Z)Z
 
-    invoke-static {v1, v2}, Lcom/melodix/music/PreviewPlayerVolume;->access$9(Lcom/melodix/music/PreviewPlayerVolume;I)V
+    move-result v4
 
-    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerVolume$5;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
+    if-nez v4, :cond_1
 
-    if-nez v0, :cond_3
+    goto :goto_0
 
-    const-string v0, "web"
+    .line 87
+    :cond_1
+    new-instance v2, Ljava/lang/StringBuilder;
 
-    :goto_1
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$11(Ljava/lang/String;)Ljava/lang/String;
+    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
 
-    move-result-object v0
+    const-string v4, "r\u00e9gl\u00e9 par la m\u00e9thode "
 
-    invoke-static {v1, v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$12(Lcom/melodix/music/PreviewPlayerVolume;Ljava/lang/String;)V
+    invoke-virtual {v2, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    new-instance v0, Ljava/lang/StringBuilder;
+    move-result-object v2
 
-    const-string v1, "\u00e9chec : "
+    const-string v4, "method"
 
-    invoke-direct {v0, v1}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+    invoke-virtual {p1, v4, v3}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
 
-    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerVolume$5;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
+    move-result-object v4
 
-    invoke-static {v1}, Lcom/melodix/music/PreviewPlayerVolume;->access$13(Lcom/melodix/music/PreviewPlayerVolume;)Ljava/lang/String;
+    invoke-static {v4}, Lcom/melodix/music/PreviewPlayerVolume;->access$1300(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v4
+
+    invoke-virtual {v2, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v2
+
+    invoke-virtual {v2, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v1
 
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {p1, v0, v3}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
 
-    move-result-object v0
+    move-result-object p1
 
-    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    invoke-static {p1}, Lcom/melodix/music/PreviewPlayerVolume;->access$1700(Ljava/lang/String;)Ljava/lang/String;
 
-    move-result-object v0
+    move-result-object p1
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$17(Ljava/lang/String;)V
+    invoke-virtual {v1, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume$5;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
+    move-result-object p1
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$16(Lcom/melodix/music/PreviewPlayerVolume;)V
+    invoke-virtual {p1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume$5;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
+    move-result-object p1
 
-    invoke-virtual {v0}, Lcom/melodix/music/PreviewPlayerVolume;->getContext()Landroid/content/Context;
+    invoke-static {p1}, Lcom/melodix/music/PreviewPlayerVolume;->access$1602(Ljava/lang/String;)Ljava/lang/String;
 
-    move-result-object v0
+    goto :goto_3
 
-    const-string v1, "Volume lecteur indisponible"
+    .line 86
+    :cond_2
+    :goto_0
+    iget-object v4, p0, Lcom/melodix/music/PreviewPlayerVolume$5;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
-    invoke-static {v0, v1, v4}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
+    const/4 v5, -0x1
 
-    move-result-object v0
+    invoke-static {v4, v5}, Lcom/melodix/music/PreviewPlayerVolume;->access$902(Lcom/melodix/music/PreviewPlayerVolume;I)I
 
-    invoke-virtual {v0}, Landroid/widget/Toast;->show()V
+    iget-object v4, p0, Lcom/melodix/music/PreviewPlayerVolume$5;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
-    goto :goto_0
+    if-nez p1, :cond_3
 
-    :cond_3
-    const-string v2, "reason"
-
-    const-string v3, "command"
-
-    invoke-virtual {v0, v2, v3}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
-
-    move-result-object v0
+    const-string v5, "web"
 
     goto :goto_1
 
-    .line 85
+    :cond_3
+    const-string v5, "reason"
+
+    const-string v6, "command"
+
+    invoke-virtual {p1, v5, v6}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v5
+
+    :goto_1
+    invoke-static {v5}, Lcom/melodix/music/PreviewPlayerVolume;->access$1100(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v5
+
+    invoke-static {v4, v5}, Lcom/melodix/music/PreviewPlayerVolume;->access$1002(Lcom/melodix/music/PreviewPlayerVolume;Ljava/lang/String;)Ljava/lang/String;
+
+    new-instance v4, Ljava/lang/StringBuilder;
+
+    invoke-direct {v4}, Ljava/lang/StringBuilder;-><init>()V
+
+    const-string v5, "\u00e9chec : "
+
+    invoke-virtual {v4, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v4
+
+    iget-object v5, p0, Lcom/melodix/music/PreviewPlayerVolume$5;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
+
+    invoke-static {v5}, Lcom/melodix/music/PreviewPlayerVolume;->access$1000(Lcom/melodix/music/PreviewPlayerVolume;)Ljava/lang/String;
+
+    move-result-object v5
+
+    invoke-virtual {v4, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v4
+
+    if-nez p1, :cond_4
+
+    goto :goto_2
+
     :cond_4
-    const-string v0, "\u00e9v\u00e9nements envoy\u00e9s (effet sonore inconnu)"
+    new-instance v5, Ljava/lang/StringBuilder;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$17(Ljava/lang/String;)V
+    invoke-direct {v5}, Ljava/lang/StringBuilder;-><init>()V
 
-    goto :goto_0
+    invoke-virtual {v5, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v1
+
+    invoke-virtual {p1, v0, v3}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object p1
+
+    invoke-static {p1}, Lcom/melodix/music/PreviewPlayerVolume;->access$1700(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object p1
+
+    invoke-virtual {v1, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object p1
+
+    invoke-virtual {p1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v3
+
+    :goto_2
+    invoke-virtual {v4, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object p1
+
+    invoke-virtual {p1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object p1
+
+    invoke-static {p1}, Lcom/melodix/music/PreviewPlayerVolume;->access$1602(Ljava/lang/String;)Ljava/lang/String;
+
+    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerVolume$5;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
+
+    invoke-static {p1}, Lcom/melodix/music/PreviewPlayerVolume;->access$1500(Lcom/melodix/music/PreviewPlayerVolume;)V
+
+    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerVolume$5;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
+
+    invoke-virtual {p1}, Lcom/melodix/music/PreviewPlayerVolume;->getContext()Landroid/content/Context;
+
+    move-result-object p1
+
+    const-string v0, "Volume lecteur indisponible"
+
+    invoke-static {p1, v0, v2}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
+
+    move-result-object p1
+
+    invoke-virtual {p1}, Landroid/widget/Toast;->show()V
+
+    .line 88
+    :goto_3
+    return-void
+
+    .line 85
+    :cond_5
+    :goto_4
+    return-void
 .end method

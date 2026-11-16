@@ -8,7 +8,7 @@
 
 # annotations
 .annotation system Ldalvik/annotation/EnclosingMethod;
-    value = Lcom/melodix/music/PreviewPlayerMode;->onWindowVisibilityChanged(I)V
+    value = Lcom/melodix/music/PreviewPlayerMode;->onVisibilityChanged(Landroid/view/View;I)V
 .end annotation
 
 .annotation system Ldalvik/annotation/InnerClass;
@@ -24,9 +24,16 @@
 # direct methods
 .method constructor <init>(Lcom/melodix/music/PreviewPlayerMode;)V
     .locals 0
+    .annotation system Ldalvik/annotation/MethodParameters;
+        accessFlags = {
+            0x8010
+        }
+        names = {
+            null
+        }
+    .end annotation
 
-    .prologue
-    .line 189
+    .line 246
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerMode$8;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -39,11 +46,10 @@
 .method public run()V
     .locals 1
 
-    .prologue
-    .line 189
+    .line 246
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode$8;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$24(Lcom/melodix/music/PreviewPlayerMode;)V
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$3000(Lcom/melodix/music/PreviewPlayerMode;)V
 
     return-void
 .end method

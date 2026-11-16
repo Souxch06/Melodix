@@ -20,19 +20,38 @@
 # instance fields
 .field final synthetic this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-.field private final synthetic val$body:Landroid/widget/TextView;
+.field final synthetic val$body:Landroid/widget/TextView;
 
-.field private final synthetic val$dialog:Landroid/app/Dialog;
+.field final synthetic val$dialog:Landroid/app/Dialog;
 
-.field private final synthetic val$serial:J
+.field final synthetic val$serial:J
 
 
 # direct methods
 .method constructor <init>(Lcom/melodix/music/PreviewPlayerTiles;JLandroid/app/Dialog;Landroid/widget/TextView;)V
     .locals 0
+    .annotation system Ldalvik/annotation/MethodParameters;
+        accessFlags = {
+            0x8010,
+            0x1010,
+            0x1010,
+            0x1010
+        }
+        names = {
+            null,
+            null,
+            null,
+            null
+        }
+    .end annotation
 
-    .prologue
-    .line 79
+    .annotation system Ldalvik/annotation/Signature;
+        value = {
+            "()V"
+        }
+    .end annotation
+
+    .line 84
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$3;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iput-wide p2, p0, Lcom/melodix/music/PreviewPlayerTiles$3;->val$serial:J
@@ -49,15 +68,14 @@
 
 # virtual methods
 .method public run()V
-    .locals 6
+    .locals 4
 
-    .prologue
-    .line 79
+    .line 84
     iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles$3;->val$serial:J
 
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerTiles$3;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-    invoke-static {v2}, Lcom/melodix/music/PreviewPlayerTiles;->access$3(Lcom/melodix/music/PreviewPlayerTiles;)J
+    invoke-static {v2}, Lcom/melodix/music/PreviewPlayerTiles;->access$300(Lcom/melodix/music/PreviewPlayerTiles;)J
 
     move-result-wide v2
 
@@ -67,7 +85,7 @@
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$3;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$4(Lcom/melodix/music/PreviewPlayerTiles;)Landroid/app/Dialog;
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$400(Lcom/melodix/music/PreviewPlayerTiles;)Landroid/app/Dialog;
 
     move-result-object v0
 
@@ -77,15 +95,7 @@
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$3;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$3(Lcom/melodix/music/PreviewPlayerTiles;)J
-
-    move-result-wide v2
-
-    const-wide/16 v4, 0x1
-
-    add-long/2addr v2, v4
-
-    invoke-static {v0, v2, v3}, Lcom/melodix/music/PreviewPlayerTiles;->access$5(Lcom/melodix/music/PreviewPlayerTiles;J)V
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$308(Lcom/melodix/music/PreviewPlayerTiles;)J
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$3;->val$body:Landroid/widget/TextView;
 
