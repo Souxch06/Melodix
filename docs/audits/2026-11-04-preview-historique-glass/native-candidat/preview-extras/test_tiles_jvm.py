@@ -40,14 +40,23 @@ stubs.update({
  public static void main(String[] a) throws Exception {
   Handler.clear();Activity c=new Activity();AudioManager audio=new AudioManager();c.audio=audio;c.root=new View(c);c.G=new android.webkit.WebView(c);
   PreviewPlayerTiles t=new PreviewPlayerTiles(c,null);t.onAttachedToWindow();int original=c.root.getVisibility();
-  // Lyrics and devices: native drawer with an explicit message, never the WebView.
-  for(int i=1;i<3;i++){
-   Handler.advance(401);int calls=c.G.calls;t.children.get(i).performClick();ok(Dialog.last.shown);ok(c.root.getVisibility()==original);ok(c.G.calls==calls+1);
-   LinearLayout sheet=(LinearLayout)Dialog.last.content;LinearLayout list=(LinearLayout)((ScrollView)sheet.children.get(2)).child;ok(((TextView)list.children.get(0)).text.contains("Bientôt disponible"));
-   c.G.replyCall(calls,"reason=observed;roots=1;rows=2;buttons=1;roles=2;testids=3");ok(PreviewPlayerTiles.diagnosticReport().contains("lignes=2"));
-   // Swipe down on the handle closes the drawer.
-   View handle=sheet.children.get(0);handle.touch.onTouch(handle,new MotionEvent(0,100));handle.touch.onTouch(handle,new MotionEvent(1,400));ok(!Dialog.last.shown);
-  }
+  // Lyrics: page job, lines, active line only when synchronised; never the WebView.
+  Handler.advance(401);int lc=c.G.calls;t.children.get(1).performClick();Dialog lyricsDialog=Dialog.last;ok(lyricsDialog.shown);ok(c.root.getVisibility()==original);ok(c.G.calls==lc+2);ok(c.G.js.contains("\\"lyrics\\""));
+  LinearLayout ls=(LinearLayout)lyricsDialog.content;LinearLayout ll=(LinearLayout)((ScrollView)ls.children.get(2)).child;
+  c.G.replyCall(lc,"reason=observed;roots=1;rows=2;buttons=1;roles=2;testids=3");ok(PreviewPlayerTiles.diagnosticReport().contains("lignes=2"));
+  c.G.replyCall(lc+1,"status=started");Handler.advance(250);c.G.reply("status=done;ok=true;body=Ligne un\\nLigne deux;active=1;journal=opened>lines:2:sync>closed");
+  ok(((TextView)ll.children.get(0)).text.equals("Ligne un")&&((TextView)ll.children.get(1)).text.equals("Ligne deux"));ok(PreviewPlayerTiles.diagnosticReport().contains("lines:2:sync"));
+  ((Button)ls.children.get(3)).performClick();c.G.reply("status=started");Handler.advance(250);c.G.reply("status=done;ok=false;reason=panel");ok(((TextView)ll.children.get(0)).text.contains("Paroles indisponibles"));
+  View handle=ls.children.get(0);handle.touch.onTouch(handle,new MotionEvent(0,100));handle.touch.onTouch(handle,new MotionEvent(1,400));ok(!lyricsDialog.shown);
+  // Devices: list with active device; a transfer needs an explicit confirmation.
+  Handler.advance(401);int dc=c.G.calls;t.children.get(2).performClick();Dialog devicesDialog=Dialog.last;ok(c.G.calls==dc+2);ok(c.root.getVisibility()==original);
+  LinearLayout ds=(LinearLayout)devicesDialog.content;LinearLayout dl=(LinearLayout)((ScrollView)ds.children.get(2)).child;
+  c.G.replyCall(dc+1,"status=started");Handler.advance(250);c.G.reply("status=done;ok=true;body=Salon\\tEnceinte\\t\\nCe navigateur\\t\\t1;journal=opened>devices:2>closed");
+  Button salon=(Button)dl.children.get(0),self=(Button)dl.children.get(1);ok(salon.text.equals("Salon\\nEnceinte"));ok(self.text.contains("Actif"));
+  int before=c.G.calls;salon.performClick();ok(c.G.calls==before);Dialog ask=Dialog.last;ok(ask!=devicesDialog&&ask.shown);
+  LinearLayout box=(LinearLayout)ask.content;((Button)box.children.get(2)).performClick();ok(c.G.calls==before+1);ok(c.G.js.contains("\\"transfer\\"")&&c.G.js.contains("\\"Salon\\""));
+  c.G.reply("status=started");Handler.advance(250);c.G.reply("status=done;ok=true;transferred=true");ok(Toast.message.contains("transférée"));
+  devicesDialog.dismiss();
   // Queue: skeleton, one page job, polling, then now-playing and up-next rows.
   Handler.advance(401);int calls=c.G.calls;t.children.get(0).performClick();ok(Dialog.last.shown);ok(c.root.getVisibility()==original);ok(c.G.calls==calls+2);ok(c.G.js.contains("\\"run\\""));
   LinearLayout sheet=(LinearLayout)Dialog.last.content;LinearLayout list=(LinearLayout)((ScrollView)sheet.children.get(2)).child;Button retry=(Button)sheet.children.get(3);

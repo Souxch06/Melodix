@@ -102,9 +102,10 @@
         if (kind === 'like') {
             var title = nowTitle();
             if (expectedTitle && title && title !== expectedTitle) { log(method + ':identity'); after('identity', before); return; }
-            // An unknown displayed state on the native side never removes a like.
-            if (shownState !== 'true' && shownState !== 'false' && before === 'true') { log(method + ':read-only'); after('read', before); return; }
-            if ((shownState === 'true' || shownState === 'false') && shownState !== before) { log(method + ':mismatch'); after('read', before); return; }
+            // A tap can only ADD a like: an existing like is never clicked,
+            // whatever the native button shows. Only a verified 'false' is clicked.
+            if (before !== 'false') { log(method + ':liked-read-only'); after('read', before); return; }
+            if (shownState === 'true') { log(method + ':mismatch'); after('read', before); return; }
         }
         try { b.click(); log(method + ':click'); } catch (_) { log(method + ':click-error'); after('command', before); return; }
         wait(function() {
@@ -120,12 +121,16 @@
     function viaKeyboard() {
         if (kind === 'like') { log('c:like-skipped'); finish('failed', 'unknown', ''); return; }
         var spec = kind === 'shuffle' ? {key: 's', code: 'KeyS', keyCode: 83} : {key: 'r', code: 'KeyR', keyCode: 82};
+        // Unverifiable when no control is readable, so only ONE combination per
+        // tap (two could cancel each other). Families alternate across taps.
+        var turns = W.__melodixKeyTurns = W.__melodixKeyTurns || {};
+        var ctrl = !(turns[kind] % 2); turns[kind] = (turns[kind] || 0) + 1;
         try {
             var target = document.activeElement && document.activeElement !== document.body ? document.activeElement : document.body;
             ['keydown', 'keyup'].forEach(function(type) {
-                target.dispatchEvent(new KeyboardEvent(type, {key: spec.key, code: spec.code, keyCode: spec.keyCode, which: spec.keyCode, altKey: true, bubbles: true, cancelable: true}));
+                target.dispatchEvent(new KeyboardEvent(type, {key: spec.key, code: spec.code, keyCode: spec.keyCode, which: spec.keyCode, ctrlKey: ctrl, altKey: !ctrl, bubbles: true, cancelable: true}));
             });
-            log('c:alt-' + spec.key);
+            log('c:' + (ctrl ? 'ctrl-' : 'alt-') + spec.key);
             finish('unverified', 'unknown', 'keyboard');
         } catch (_) { log('c:error'); finish('failed', 'unknown', ''); }
     }

@@ -18,6 +18,7 @@ EMBEDS = [
     ('PreviewPlayerTiles.java', 'PANEL_PROBE', 'panel-structure.js'),
     ('PreviewPlayerTiles.java', 'PANEL_READ', 'panel-read.js'),
     ('PreviewPlayerTiles.java', 'QUEUE_JOB', 'queue-job.js'),
+    ('PreviewPlayerTiles.java', 'PANEL_JOB', 'panel-job.js'),
 ]
 
 

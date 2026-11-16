@@ -71,7 +71,7 @@ test('shuffle absent from the narrow bar: now-playing view opened, used, then cl
 
 test('no control and no view: keyboard for shuffle is unverified; like is never sent blind', async () => {
   const dom = page('<div></div>'); let keys = 0;
-  dom.window.document.addEventListener('keydown', (e) => { if (e.altKey) keys++; });
+  dom.window.document.addEventListener('keydown', (e) => { if (e.altKey || e.ctrlKey) keys++; });
   run(dom, mode, 'shuffle', 'run', 'unknown', ''); await settle(50);
   assert.equal(run(dom, mode, 'shuffle', 'poll').outcome, 'unverified'); assert.equal(keys, 1);
   run(dom, mode, 'like', 'run', 'unknown', ''); await settle(50);
@@ -99,4 +99,83 @@ test('queue: missing control reports a short reason without opening anything', a
   run(dom, queue, 'run'); await settle(50);
   const out = run(dom, queue, 'poll');
   assert.equal(out.ok, false); assert.equal(out.reason, 'absent');
+});
+
+function likePage(title, checked, label) {
+  const dom = page(`<aside data-testid="now-playing-bar"><a data-testid="context-item-link" href="/track/x">${title}</a>
+    <button data-testid="add-button" aria-label="${label}" aria-checked="${checked}">l</button></aside>`);
+  const b = dom.window.document.querySelector('button'); const counter = { clicks: 0 };
+  b.addEventListener('click', () => { counter.clicks++; const now = b.getAttribute('aria-checked') === 'true'; b.setAttribute('aria-checked', String(!now)); b.setAttribute('aria-label', now ? 'Ajouter aux titres likés' : 'Retirer des titres likés'); });
+  return { dom, counter };
+}
+
+test('like guarantee: an existing like is never clicked, whatever the native state shows', async () => {
+  for (const shown of ['unknown', 'true', 'false']) {
+    const { dom, counter } = likePage('Titre', 'true', 'Retirer des titres likés');
+    run(dom, mode, 'like', 'run', shown, 'Titre'); await settle(60);
+    const out = run(dom, mode, 'like', 'poll');
+    assert.equal(counter.clicks, 0, 'shown=' + shown); assert.equal(out.outcome, 'read'); assert.equal(out.state, 'true');
+  }
+});
+
+test('like: a click that would invert the native view (shown not liked, page liked) is refused', async () => {
+  const { dom, counter } = likePage('Titre', 'true', 'Retirer des titres likés');
+  run(dom, mode, 'like', 'run', 'false', 'Titre'); await settle(60);
+  assert.equal(counter.clicks, 0); assert.equal(run(dom, mode, 'like', 'poll').state, 'true');
+});
+
+test('like: a verified not-liked title is added once and the new state is verified', async () => {
+  const { dom, counter } = likePage('Titre', 'false', 'Ajouter aux titres likés');
+  run(dom, mode, 'like', 'run', 'false', 'Titre'); await settle(300);
+  const out = run(dom, mode, 'like', 'poll');
+  assert.equal(counter.clicks, 1); assert.equal(out.outcome, 'confirmed'); assert.equal(out.state, 'true');
+});
+
+test('like: an unconfirmed add is never retried (no second click)', async () => {
+  const dom = page(`<aside data-testid="now-playing-bar"><a data-testid="context-item-link" href="/track/x">Titre</a>
+    <button data-testid="add-button" aria-label="Ajouter aux titres likés" aria-checked="false">l</button></aside>`);
+  let clicks = 0; dom.window.document.querySelector('button').addEventListener('click', () => clicks++);
+  run(dom, mode, 'like', 'run', 'unknown', 'Titre'); await settle(2600);
+  assert.equal(run(dom, mode, 'like', 'poll').outcome, 'unconfirmed'); assert.equal(clicks, 1);
+});
+
+test('keyboard: one combination per tap, Ctrl family then Alt on the next tap', async () => {
+  const dom = page('<div></div>'); const seen = [];
+  dom.window.document.addEventListener('keydown', (e) => seen.push((e.ctrlKey ? 'ctrl-' : '') + (e.altKey ? 'alt-' : '') + e.key));
+  run(dom, mode, 'repeat', 'run', 'unknown', ''); await settle(40);
+  run(dom, mode, 'repeat', 'run', 'unknown', ''); await settle(40);
+  assert.deepEqual(seen, ['ctrl-r', 'alt-r']);
+});
+
+const panel = fs.readFileSync(path.join(__dirname, 'panel-job.js'), 'utf8');
+test('lyrics: panel opened, lines read, active line only when synchronised, panel closed', async () => {
+  const dom = page(`<button data-testid="lyrics-button" aria-label="Paroles" aria-pressed="false">p</button><main id="m"></main>`);
+  const doc = dom.window.document, b = doc.querySelector('button'); let closes = 0;
+  b.addEventListener('click', () => {
+    if (b.getAttribute('aria-pressed') === 'false') { b.setAttribute('aria-pressed', 'true');
+      doc.getElementById('m').innerHTML = '<div data-testid="lyrics-container"><div data-testid="fullscreen-lyric">Un</div><div data-testid="fullscreen-lyric" aria-current="true">Deux</div></div>'; }
+    else { closes++; b.setAttribute('aria-pressed', 'false'); doc.getElementById('m').innerHTML = ''; }
+  });
+  run(dom, panel, 'lyrics', 'run', ''); await settle(500);
+  const out = run(dom, panel, 'lyrics', 'poll');
+  assert.equal(out.ok, true); assert.equal(out.body, 'Un\nDeux'); assert.equal(out.active, 1); assert.equal(closes, 1);
+  for (const raw of [panel]) { const src = raw.split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+    for (const bad of ['localStorage', 'cookie', 'fetch(', 'XMLHttpRequest', 'token', 'location.href']) assert.equal(src.includes(bad), false, bad); }
+});
+
+test('devices: transfer clicks only the named device, verifies it, never clicks the active one', async () => {
+  const html = `<button data-testid="control-button-connect" aria-label="Se connecter à un appareil" aria-expanded="false">c</button><div id="slot"></div>`;
+  const dom = page(html), doc = dom.window.document, b = doc.querySelector('button'); let picks = 0;
+  const render = (active) => `<div data-testid="device-picker"><div data-testid="device-list-item" aria-selected="${active === 'Salon'}"><span data-testid="device-name">Salon</span></div><div data-testid="device-list-item" aria-selected="${active === 'Web'}"><span data-testid="device-name">Web</span></div></div>`;
+  let active = 'Web';
+  b.addEventListener('click', () => {
+    if (b.getAttribute('aria-expanded') === 'false') { b.setAttribute('aria-expanded', 'true'); doc.getElementById('slot').innerHTML = render(active);
+      doc.querySelectorAll('[data-testid="device-list-item"]').forEach((row) => row.addEventListener('click', () => { picks++; active = row.textContent; doc.getElementById('slot').innerHTML = render(active); })); }
+    else { b.setAttribute('aria-expanded', 'false'); doc.getElementById('slot').innerHTML = ''; }
+  });
+  run(dom, panel, 'devices', 'transfer', 'Web'); await settle(500);
+  assert.equal(run(dom, panel, 'devices', 'poll').ok, true); assert.equal(picks, 0);
+  run(dom, panel, 'devices', 'transfer', 'Salon'); await settle(900);
+  const out = run(dom, panel, 'devices', 'poll');
+  assert.equal(out.transferred, true); assert.equal(picks, 1);
 });

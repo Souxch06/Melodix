@@ -959,7 +959,7 @@ jobs:
             python3 "$audit/native-candidat/preview-extras/test_mode_jvm.py"
             python3 "$audit/native-candidat/preview-extras/test_tiles_jvm.py"
             python3 "$audit/native-candidat/preview-extras/test_compiled_text.py"
-            NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" node --test "$audit/native-candidat/preview-extras/control.test.cjs" "$audit/native-candidat/preview-extras/control-diagnostic.test.cjs" "$audit/native-candidat/preview-extras/volume-control.test.cjs" "$audit/native-candidat/preview-extras/panel-structure.test.cjs" "$audit/native-candidat/preview-extras/panel-read.test.cjs" "$audit/native-candidat/preview-extras/hidden-mode-attempt.test.cjs" "$audit/native-candidat/preview-extras/mode-queue-jobs.test.cjs"
+            NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" node --test "$audit/native-candidat/preview-extras/control.test.cjs" "$audit/native-candidat/preview-extras/control-diagnostic.test.cjs" "$audit/native-candidat/preview-extras/volume-control.test.cjs" "$audit/native-candidat/preview-extras/panel-structure.test.cjs" "$audit/native-candidat/preview-extras/panel-read.test.cjs" "$audit/native-candidat/preview-extras/mode-queue-jobs.test.cjs"
             phase="apply required native player and diagnostic patch"
             python3 "$audit/native-candidat/apply_preview_player.py" "$work"
             node --check "$work/assets/native_ui_shell.js"

@@ -8,7 +8,7 @@
 
 # annotations
 .annotation system Ldalvik/annotation/EnclosingMethod;
-    value = Lcom/melodix/music/PreviewPlayerTiles;->activate(I)V
+    value = Lcom/melodix/music/PreviewPlayerTiles;->confirmTransfer(ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;)V
 .end annotation
 
 .annotation system Ldalvik/annotation/InnerClass;
@@ -20,7 +20,7 @@
 # instance fields
 .field final synthetic this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-.field final synthetic val$dialog:Landroid/app/Dialog;
+.field final synthetic val$ask:Landroid/app/Dialog;
 
 
 # direct methods
@@ -43,10 +43,10 @@
         }
     .end annotation
 
-    .line 176
+    .line 197
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$8;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-    iput-object p2, p0, Lcom/melodix/music/PreviewPlayerTiles$8;->val$dialog:Landroid/app/Dialog;
+    iput-object p2, p0, Lcom/melodix/music/PreviewPlayerTiles$8;->val$ask:Landroid/app/Dialog;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
@@ -58,8 +58,8 @@
 .method public onClick(Landroid/view/View;)V
     .locals 0
 
-    .line 176
-    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$8;->val$dialog:Landroid/app/Dialog;
+    .line 197
+    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$8;->val$ask:Landroid/app/Dialog;
 
     invoke-virtual {p1}, Landroid/app/Dialog;->dismiss()V
 

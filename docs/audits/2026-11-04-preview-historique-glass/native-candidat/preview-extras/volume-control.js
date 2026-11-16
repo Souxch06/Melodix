@@ -76,5 +76,23 @@
             journal.push('c:unchanged');
         } else journal.push('c:absent');
     } catch (_) { journal.push('c:error'); }
+    // (d) web-player keyboard volume (Ctrl+Up/Down, mute Ctrl+Shift+Down):
+    // unverifiable, so reported as sent only, never as a confirmed value.
+    try {
+        var from = Number(arguments[2]);
+        var target2 = document.body;
+        var send = function(code, shift) {
+            ['keydown', 'keyup'].forEach(function(type) {
+                target2.dispatchEvent(new KeyboardEvent(type, {key: code, code: code, ctrlKey: true, shiftKey: !!shift, bubbles: true, cancelable: true}));
+            });
+        };
+        if (target === 0) { send('ArrowDown', true); journal.push('d:ctrl-shift-down'); return JSON.stringify({ok: true, sent: true, unverified: true, method: 'keyboard', journal: journal.join('>')}); }
+        if (isFinite(from) && from >= 0) {
+            var steps = Math.min(10, Math.round(Math.abs(target - from) / 10));
+            for (var k = 0; k < steps; k++) send(target > from ? 'ArrowUp' : 'ArrowDown', false);
+            journal.push('d:ctrl-' + (target > from ? 'up' : 'down') + 'x' + steps);
+            if (steps) return JSON.stringify({ok: true, sent: true, unverified: true, method: 'keyboard', journal: journal.join('>')});
+        } else journal.push('d:no-start');
+    } catch (_) { journal.push('d:error'); }
     return JSON.stringify({ok: false, reason: 'command', journal: journal.join('>')});
 })
