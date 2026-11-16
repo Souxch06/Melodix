@@ -16,6 +16,10 @@ permissions:
   contents: write
   actions: read
 
+concurrency:
+  group: preview-draft-publication
+  cancel-in-progress: false
+
 jobs:
   publish:
     name: Verify and attach the existing signed APK
@@ -102,12 +106,12 @@ jobs:
         run: |
           set -euo pipefail
           tag="preview-$VERSION_CODE"
-          # Creating the ref is atomic: a tag created in the meantime causes failure.
-          gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
-            -f "ref=refs/tags/$tag" -f 'sha=4ba72d21bfb04ce8eaf8264f5ed3fab9703705cf' >/dev/null 2>&1 || {
-              echo 'Could not create the new tag; no existing tag was overwritten.'; exit 1;
-            }
-          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --verify-tag --draft --prerelease \
+          # Recheck immediately before creating a draft; never create a public tag.
+          gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/$tag" --jq '.[].ref' > "$RUNNER_TEMP/tags-final.txt" 2>/dev/null
+          if grep -Fxq "refs/tags/$tag" "$RUNNER_TEMP/tags-final.txt"; then echo 'Tag already exists; refusing publication.'; exit 1; fi
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --paginate --jq '.[].tag_name' > "$RUNNER_TEMP/releases-final.txt" 2>/dev/null
+          if grep -Fxq "$tag" "$RUNNER_TEMP/releases-final.txt"; then echo 'Release already exists; refusing publication.'; exit 1; fi
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target 4ba72d21bfb04ce8eaf8264f5ed3fab9703705cf --draft --prerelease \
             --title "Melodix Preview $VERSION_CODE" --notes 'APK Preview signée existante, non validée sur téléphone.' \
             "$RUNNER_TEMP/delivery/Melodix-Preview-1022143.apk" \
             "$RUNNER_TEMP/delivery/Melodix-Preview-1022143.apk.sha256" >/dev/null
