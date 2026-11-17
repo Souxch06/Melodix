@@ -46,7 +46,7 @@
     .locals 0
 
     .prologue
-    .line 301
+    .line 300
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$15$1;->this$1:Lcom/melodix/music/PreviewPlayerTiles$15;
 
     iput-wide p2, p0, Lcom/melodix/music/PreviewPlayerTiles$15$1;->val$serial:J
@@ -84,14 +84,14 @@
     .prologue
     const/4 v4, 0x0
 
-    .line 302
+    .line 301
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$15$1;->this$1:Lcom/melodix/music/PreviewPlayerTiles$15;
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles$15;->access$0(Lcom/melodix/music/PreviewPlayerTiles$15;)Lcom/melodix/music/PreviewPlayerTiles;
 
     move-result-object v0
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$9(Lcom/melodix/music/PreviewPlayerTiles;)Landroid/app/Dialog;
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$9(Lcom/melodix/music/PreviewPlayerTiles;)Lcom/melodix/music/PreviewPlayerSheet;
 
     move-result-object v0
 
@@ -118,12 +118,12 @@
 
     if-eqz v0, :cond_2
 
-    .line 308
+    .line 307
     :cond_0
     :goto_1
     return-void
 
-    .line 302
+    .line 301
     :cond_1
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$15$1;->this$1:Lcom/melodix/music/PreviewPlayerTiles$15;
 
@@ -137,7 +137,7 @@
 
     goto :goto_0
 
-    .line 303
+    .line 302
     :cond_2
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$15$1;->this$1:Lcom/melodix/music/PreviewPlayerTiles$15;
 
@@ -149,7 +149,7 @@
 
     move-result-object v0
 
-    .line 304
+    .line 303
     if-eqz v0, :cond_0
 
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerTiles$15$1;->val$id:Ljava/lang/String;
@@ -168,7 +168,7 @@
 
     if-eqz v1, :cond_0
 
-    .line 305
+    .line 304
     const-string v1, "status"
 
     const-string v2, ""
@@ -207,7 +207,7 @@
 
     goto :goto_1
 
-    .line 306
+    .line 305
     :cond_3
     new-instance v1, Ljava/lang/StringBuilder;
 
@@ -255,7 +255,7 @@
 
     move-result-object v0
 
-    .line 307
+    .line 306
     iget v1, p0, Lcom/melodix/music/PreviewPlayerTiles$15$1;->val$i:I
 
     if-nez v1, :cond_4

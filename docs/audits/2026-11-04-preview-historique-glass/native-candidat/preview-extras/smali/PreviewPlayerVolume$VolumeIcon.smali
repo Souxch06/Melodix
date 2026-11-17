@@ -29,10 +29,10 @@
     .locals 2
 
     .prologue
-    .line 95
+    .line 93
     invoke-direct {p0}, Landroid/graphics/drawable/Drawable;-><init>()V
 
-    .line 94
+    .line 92
     new-instance v0, Landroid/graphics/Paint;
 
     const/4 v1, 0x1
@@ -41,7 +41,7 @@
 
     iput-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume$VolumeIcon;->paint:Landroid/graphics/Paint;
 
-    .line 95
+    .line 93
     iput p1, p0, Lcom/melodix/music/PreviewPlayerVolume$VolumeIcon;->size:I
 
     iput p2, p0, Lcom/melodix/music/PreviewPlayerVolume$VolumeIcon;->kind:I
@@ -67,7 +67,7 @@
 
     const/high16 v3, 0x41a00000    # 20.0f
 
-    .line 99
+    .line 97
     invoke-virtual {p1}, Landroid/graphics/Canvas;->save()I
 
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerVolume$VolumeIcon;->getBounds()Landroid/graphics/Rect;
@@ -118,7 +118,7 @@
 
     invoke-virtual {p1, v0, v5}, Landroid/graphics/Canvas;->scale(FF)V
 
-    .line 100
+    .line 98
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume$VolumeIcon;->paint:Landroid/graphics/Paint;
 
     iget v5, p0, Lcom/melodix/music/PreviewPlayerVolume$VolumeIcon;->color:I
@@ -149,14 +149,14 @@
 
     invoke-virtual {v0, v5}, Landroid/graphics/Paint;->setStrokeJoin(Landroid/graphics/Paint$Join;)V
 
-    .line 101
+    .line 99
     iget v0, p0, Lcom/melodix/music/PreviewPlayerVolume$VolumeIcon;->kind:I
 
     const/4 v5, 0x2
 
     if-ne v0, v5, :cond_0
 
-    .line 102
+    .line 100
     const/high16 v5, -0x3d7e0000    # -65.0f
 
     const/high16 v6, 0x43870000    # 270.0f
@@ -197,14 +197,14 @@
 
     invoke-virtual/range {v2 .. v7}, Landroid/graphics/Canvas;->drawLine(FFFFLandroid/graphics/Paint;)V
 
-    .line 108
+    .line 106
     :goto_0
     invoke-virtual {p1}, Landroid/graphics/Canvas;->restore()V
 
-    .line 109
+    .line 107
     return-void
 
-    .line 104
+    .line 102
     :cond_0
     new-instance v0, Landroid/graphics/Path;
 
@@ -240,7 +240,7 @@
 
     invoke-virtual {p1, v0, v5}, Landroid/graphics/Canvas;->drawPath(Landroid/graphics/Path;Landroid/graphics/Paint;)V
 
-    .line 105
+    .line 103
     iget v0, p0, Lcom/melodix/music/PreviewPlayerVolume$VolumeIcon;->kind:I
 
     if-nez v0, :cond_1
@@ -267,7 +267,7 @@
 
     goto :goto_0
 
-    .line 106
+    .line 104
     :cond_1
     const/high16 v5, 0x41300000    # 11.0f
 
@@ -314,7 +314,7 @@
     .locals 1
 
     .prologue
-    .line 97
+    .line 95
     iget v0, p0, Lcom/melodix/music/PreviewPlayerVolume$VolumeIcon;->size:I
 
     return v0
@@ -324,7 +324,7 @@
     .locals 1
 
     .prologue
-    .line 96
+    .line 94
     iget v0, p0, Lcom/melodix/music/PreviewPlayerVolume$VolumeIcon;->size:I
 
     return v0
@@ -334,7 +334,7 @@
     .locals 1
 
     .prologue
-    .line 112
+    .line 110
     const/4 v0, -0x3
 
     return v0
@@ -344,7 +344,7 @@
     .locals 1
 
     .prologue
-    .line 110
+    .line 108
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume$VolumeIcon;->paint:Landroid/graphics/Paint;
 
     invoke-virtual {v0, p1}, Landroid/graphics/Paint;->setAlpha(I)V
@@ -358,7 +358,7 @@
     .locals 1
 
     .prologue
-    .line 111
+    .line 109
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume$VolumeIcon;->paint:Landroid/graphics/Paint;
 
     invoke-virtual {v0, p1}, Landroid/graphics/Paint;->setColorFilter(Landroid/graphics/ColorFilter;)Landroid/graphics/ColorFilter;

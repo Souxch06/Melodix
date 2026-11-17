@@ -18,7 +18,6 @@ import android.view.Window;
 import android.util.AttributeSet;
 import android.view.HapticFeedbackConstants;
 import android.view.Gravity;
-import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -125,7 +124,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
     private final String[] names={"File","Paroles","Appareils"};
     private final String[] icons={"☰","♬","▣"};
     private final Button[] controls=new Button[3];
-    private Dialog webDialog;
+    private PreviewPlayerSheet webDialog;
     private long lastAction=-1000;
     private boolean volumeRunning;
     private Activity activity(){
@@ -313,13 +312,10 @@ public final class PreviewPlayerTiles extends LinearLayout {
         if(!volumeRunning || !isShown() || getWindowVisibility()!=View.VISIBLE || a==null || a.isFinishing() || a.isDestroyed() || webDialog!=null || now-lastAction<400)return;
         lastAction=now;controls[i].performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);probe(i,a);
         try {
-            final Dialog dialog=new Dialog(a);
+            final PreviewPlayerSheet dialog=new PreviewPlayerSheet(a);
             LinearLayout panel=new LinearLayout(a);panel.setOrientation(VERTICAL);panel.setPadding(dp(20),dp(8),dp(20),dp(24));
             GradientDrawable glass=new GradientDrawable();glass.setColor(0xeb170b33);glass.setStroke(dp(1),0x1fffffff);float r=dp(28);glass.setCornerRadii(new float[]{r,r,r,r,0,0,0,0});panel.setBackground(glass);
-            View.OnTouchListener swipe=new View.OnTouchListener(){float startY;public boolean onTouch(View v,MotionEvent e){
-                if(e.getActionMasked()==MotionEvent.ACTION_DOWN){startY=e.getRawY();return true;}
-                if(e.getActionMasked()==MotionEvent.ACTION_UP&&e.getRawY()-startY>dp(64))dialog.dismiss();
-                return true;}};
+            View.OnTouchListener swipe=dialog.dragListener();
             TextView handle=new TextView(a);handle.setText("━━━━");handle.setGravity(Gravity.CENTER);handle.setTextColor(0x99ffffff);handle.setContentDescription("Glisser vers le bas pour fermer");handle.setOnTouchListener(swipe);panel.addView(handle,new LinearLayout.LayoutParams(-1,dp(32)));
             TextView title=line(a,i==0?"File d’attente":names[i],Color.WHITE,20);title.setOnTouchListener(swipe);panel.addView(title,new LinearLayout.LayoutParams(-1,dp(48)));
             final LinearLayout list=new LinearLayout(a);list.setOrientation(VERTICAL);
@@ -327,7 +323,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
             final Button retry=new Button(a);retry.setText("Réessayer");retry.setMinimumHeight(dp(48));
             Button close=new Button(a);close.setText("Fermer");close.setContentDescription("Fermer "+names[i]);close.setMinimumHeight(dp(48));
             close.setOnClickListener(new View.OnClickListener(){public void onClick(View v){dialog.dismiss();}});
-            dialog.setTitle(names[i]);dialog.setContentView(panel);dialog.setCanceledOnTouchOutside(true);
+            dialog.setTitle(names[i]);dialog.setCanceledOnTouchOutside(true);
             dialog.setOnDismissListener(new DialogInterface.OnDismissListener(){public void onDismiss(DialogInterface ignored){
                 long open=(SystemClock.elapsedRealtime()-openedAt)/100;String after=":apres-"+(open/10)+"."+(open%10)+"s";
                 if(i==0&&settledSerial!=queueSerial)queueJournal="ferme:avant-resultat:"+queueStep+after;
@@ -339,18 +335,18 @@ public final class PreviewPlayerTiles extends LinearLayout {
             retry.setOnClickListener(new View.OnClickListener(){public void onClick(View v){if(i==0)loadQueue(a,dialog,list,retry);else loadPanel(i,a,dialog,list,retry,"run","");}});
             panel.addView(retry,new LinearLayout.LayoutParams(-1,dp(48)));
             panel.addView(close,new LinearLayout.LayoutParams(-1,dp(48)));
-            dialog.show();PreviewUiRestyle.sheet(panel);Window w=dialog.getWindow();if(w==null){dialog.dismiss();return;}
+            dialog.showSheet(panel);Window w=dialog.getWindow();if(w==null){dialog.dismissImmediately();return;}
             w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));w.setGravity(Gravity.BOTTOM);w.setLayout(-1,-2);
             if(i==0)loadQueue(a,dialog,list,retry);else loadPanel(i,a,dialog,list,retry,"run","");
-        }catch(RuntimeException ignored){if(webDialog!=null){webDialog.dismiss();webDialog=null;}message("Indisponible dans cette version");}
+        }catch(RuntimeException ignored){if(webDialog!=null){webDialog.dismissImmediately();webDialog=null;}message("Indisponible dans cette version");}
     }
     private void syncVolume() {
         boolean show=isAttachedToWindow() && isShown() && getWindowVisibility()==View.VISIBLE;
         if(show&&!volumeRunning)readTrace(activity());
-        volumeRunning=show;if(!show && webDialog!=null)webDialog.dismiss();paintControls();
+        volumeRunning=show;if(!show && webDialog!=null)webDialog.dismissImmediately();paintControls();
     }
     @Override protected void onAttachedToWindow(){super.onAttachedToWindow();syncVolume();removeCallbacks(traceTick);postDelayed(traceTick,2000);}
-    @Override protected void onDetachedFromWindow(){removeCallbacks(traceTick);volumeRunning=false;if(webDialog!=null)webDialog.dismiss();super.onDetachedFromWindow();}
+    @Override protected void onDetachedFromWindow(){removeCallbacks(traceTick);volumeRunning=false;if(webDialog!=null)webDialog.dismissImmediately();super.onDetachedFromWindow();}
     @Override protected void onVisibilityChanged(View v,int visibility){super.onVisibilityChanged(v,visibility);if(controls!=null)post(new Runnable(){public void run(){syncVolume();}});}
     @Override protected void onWindowVisibilityChanged(int visibility){super.onWindowVisibilityChanged(visibility);if(controls!=null)post(new Runnable(){public void run(){syncVolume();}});}
     public PreviewPlayerTiles(Context c, AttributeSet attrs) {

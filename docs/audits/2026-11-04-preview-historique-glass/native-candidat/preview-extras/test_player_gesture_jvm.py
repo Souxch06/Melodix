@@ -47,7 +47,7 @@ public class GestureHarness {
 
     def test_native_backdrop_capture_and_bounds(self):
         source=(HERE/'PreviewPlayerChrome.java').read_text(encoding='utf8')
-        start=source.index('    public static void captureBeforeExpand')
+        start=source.index('    private static void drawNativeSnapshot')
         end=source.index("    /** Match the reader's dark top",start)
         capture=source[start:end]
         harness="""
@@ -56,17 +56,22 @@ public class PreviewPlayerChrome extends PreviewPlayerChromeView {
  static class Build {static class VERSION {static int SDK_INT=30;}}
  static class ValueAnimator {static boolean enabled=true;static boolean areAnimatorsEnabled(){return enabled;}}
  static class Bitmap {static class Config {static int ARGB_8888;} int w,h;static Bitmap createBitmap(int w,int h,int c){Bitmap b=new Bitmap();b.w=w;b.h=h;return b;}}
- static class Canvas {Canvas(Bitmap b){}void scale(float x,float y){}}
- static class View extends PreviewPlayerChromeView { int width=2000,height=4000,draws; View tagged;boolean fails;int getWidth(){return width;}int getHeight(){return height;}View findViewWithTag(String s){return tagged;}void draw(Canvas c){draws++;if(fails)throw new RuntimeException();}}
- static class Activity {View root=new View(),panel=new View();View findViewById(int id){return id==0x7f09023a?panel:root;}}
+ static class Path {enum Direction {CW} static float radius,firstRadius;static int n;void addRoundRect(float a,float b,float w,float h,float rx,float ry,Direction dir){radius=rx;if(n++==0)firstRadius=rx;}}
+ static class Canvas {static int clipped;static float tx,ty;Canvas(Bitmap b){}void scale(float x,float y){}int save(){return 1;}void translate(float x,float y){tx=x;ty=y;}void clipPath(Path p){clipped++;}void restoreToCount(int n){}}
+ static class View extends PreviewPlayerChromeView { int width=2000,height=4000,draws,x,y; View tagged;ImageView child,child2;boolean fails,shown=true;float alpha=1;int getWidth(){return width;}int getHeight(){return height;}boolean isShown(){return shown;}float getAlpha(){return alpha;}void setAlpha(float f){alpha=f;}void getLocationOnScreen(int[] p){p[0]=x;p[1]=y;}View findViewWithTag(String s){return tagged;}void draw(Canvas c){draws++;if((child!=null&&child.alpha!=0)||(child2!=null&&child2.alpha!=0))throw new AssertionError("image not hidden from software root draw");if(fails)throw new RuntimeException();}}
+ static class ImageView extends View {ImageView(){width=40;height=40;}}
+ static class Activity {View root=new View(),panel=new View();ImageView avatar,mini;Resources getResources(){return new Resources();}View findViewById(int id){return id==0x7f09023a?panel:id==0x7f090249?avatar:id==0x7f090244?mini:root;}}
+ static class Resources {Display getDisplayMetrics(){return new Display();}} static class Display {float density=1;}
  """+capture+"""
  static void ok(boolean b){if(!b)throw new AssertionError();}
  public static void main(String[] args){
   Activity a=new Activity();PreviewPlayerChrome chrome=new PreviewPlayerChrome();a.panel.tagged=chrome;
+  a.root.x=50;a.root.y=80;a.avatar=new ImageView();a.avatar.x=65;a.avatar.y=110;a.root.child=a.avatar;a.mini=new ImageView();a.mini.width=52;a.mini.height=52;a.mini.x=70;a.mini.y=200;a.root.child2=a.mini;
   captureBeforeExpand(a);ok(chrome.previousScreen!=null&&a.root.draws==1);ok((long)chrome.previousScreen.w*chrome.previousScreen.h<=1200000);
+  ok(a.avatar.alpha==1f&&a.avatar.draws==1&&a.mini.alpha==1f&&a.mini.draws==1&&Path.firstRadius==20&&Path.radius==10&&Canvas.clipped==2&&Canvas.tx==20&&Canvas.ty==120);
   ValueAnimator.enabled=false;captureBeforeExpand(a);ok(chrome.previousScreen==null&&a.root.draws==1);
   ValueAnimator.enabled=true;a.root.width=0;captureBeforeExpand(a);ok(chrome.previousScreen==null&&a.root.draws==1);
-  a.root.width=100;a.root.fails=true;captureBeforeExpand(a);ok(chrome.previousScreen==null&&a.root.draws==2);
+  a.root.width=100;a.root.fails=true;captureBeforeExpand(a);ok(chrome.previousScreen==null&&a.root.draws==2&&a.avatar.alpha==1f&&a.mini.alpha==1f);
  }
 }
 class PreviewPlayerChromeView {}
@@ -76,11 +81,11 @@ class PreviewPlayerChromeView {}
         # Avoid cyclic Java nesting: use independent top-level fake View instead.
         harness=harness.replace('extends PreviewPlayerChrome.View {\n Bitmap','extends FakeView {\n Bitmap').replace('static class View extends PreviewPlayerChromeView {','static class View extends FakeView {').replace('class PreviewPlayerChromeView {}','class FakeView {}')
         # findViewWithTag needs to return the same common View type as Chrome.
-        harness=harness.replace('View tagged;boolean fails;', 'FakeView tagged;boolean fails;').replace('View findViewWithTag(String s){return tagged;}', 'FakeView findViewWithTag(String s){return tagged;}').replace('View v=p==null?null:p.findViewWithTag("previewPlayerChrome");','FakeView v=p==null?null:p.findViewWithTag("previewPlayerChrome");')
+        harness=harness.replace('View tagged;ImageView child,child2;', 'FakeView tagged;ImageView child,child2;').replace('View findViewWithTag(String s){return tagged;}', 'FakeView findViewWithTag(String s){return tagged;}').replace('View v=p==null?null:p.findViewWithTag("previewPlayerChrome");','FakeView v=p==null?null:p.findViewWithTag("previewPlayerChrome");')
         with tempfile.TemporaryDirectory(dir=os.environ.get('RUNNER_TEMP')) as d:
             src=Path(d)/'PreviewPlayerChrome.java';src.write_text(harness,encoding='utf8')
             cmd=['java','-cp',os.environ['ECJ_JAR'],'org.eclipse.jdt.internal.compiler.batch.Main','-encoding','UTF-8','-source','1.8','-target','1.8','-d',d,str(src)] if os.environ.get('ECJ_JAR') else ['javac','-encoding','UTF-8','-d',d,str(src)]
-            subprocess.run(cmd,check=True,capture_output=True,text=True)
+            subprocess.run(cmd,check=True,text=True)
             subprocess.run(['java','-cp',d,'PreviewPlayerChrome'],check=True,capture_output=True,text=True)
         self.assertIn('root.setBackground(backdrop)',source)
         self.assertIn('panel.setBackground(appliedBackground)',source)

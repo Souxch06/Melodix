@@ -12,7 +12,7 @@ def text(path):
     raw = path.read_text(encoding='utf-8')
     return re.sub(r'\\u([0-9a-fA-F]{4})', lambda m: chr(int(m.group(1), 16)), raw)
 
-for prefix in ('PreviewPlayerMode', 'PreviewPlayerTiles', 'PreviewPlayerVolume'):
+for prefix in ('PreviewPlayerMode', 'PreviewPlayerTiles', 'PreviewPlayerVolume', 'PreviewPlayerSheet'):
     files = sorted(smali.glob(prefix + '*.smali'))
     assert files, f'missing {prefix} Smali in {smali}'
     for path in files:
@@ -31,8 +31,11 @@ assert 'Réactiver' in volume and 'Actualiser' in volume
 assert 'Landroid/text/style/ImageSpan;' in volume
 assert (smali / 'PreviewPlayerVolume$VolumeIcon.smali').is_file()
 assert 'setCompoundDrawablesWithIntrinsicBounds' not in volume
+sheet = text(smali / 'PreviewPlayerSheet.smali')
+assert 'showSheet' in sheet and 'dismissImmediately' in sheet and 'dragListener' in sheet
+assert 'Lcom/melodix/music/PreviewPlayerSheet;' in volume and 'Lcom/melodix/music/PreviewPlayerSheet;' in tiles
 chrome = text(smali / 'PreviewPlayerChrome.smali')
-assert 'captureBeforeExpand' in chrome and 'previousScreen' in chrome
+assert 'captureBeforeExpand' in chrome and 'previousScreen' in chrome and 'drawNativeSnapshot' in chrome
 if root:
     activity = text(smali / 'MainActivity.smali')
     expand = activity.split('.method public final onNativePlayerExpandClick',1)[1].split('.end method',1)[0]

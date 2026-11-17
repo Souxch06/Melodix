@@ -54,7 +54,7 @@
     .locals 0
 
     .prologue
-    .line 283
+    .line 282
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$14$1;->this$1:Lcom/melodix/music/PreviewPlayerTiles$14;
 
     iput-wide p2, p0, Lcom/melodix/music/PreviewPlayerTiles$14$1;->val$serial:J
@@ -100,7 +100,7 @@
     .prologue
     const/4 v4, 0x0
 
-    .line 284
+    .line 283
     iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles$14$1;->val$serial:J
 
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerTiles$14$1;->this$1:Lcom/melodix/music/PreviewPlayerTiles$14;
@@ -123,7 +123,7 @@
 
     move-result-object v0
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$9(Lcom/melodix/music/PreviewPlayerTiles;)Landroid/app/Dialog;
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$9(Lcom/melodix/music/PreviewPlayerTiles;)Lcom/melodix/music/PreviewPlayerSheet;
 
     move-result-object v0
 
@@ -131,12 +131,12 @@
 
     if-eq v0, v1, :cond_1
 
-    .line 289
+    .line 288
     :cond_0
     :goto_0
     return-void
 
-    .line 284
+    .line 283
     :cond_1
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$14$1;->this$1:Lcom/melodix/music/PreviewPlayerTiles$14;
 
@@ -148,7 +148,7 @@
 
     move-result-object v6
 
-    .line 285
+    .line 284
     if-nez v6, :cond_2
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$14$1;->this$1:Lcom/melodix/music/PreviewPlayerTiles$14;
@@ -181,7 +181,7 @@
 
     goto :goto_0
 
-    .line 286
+    .line 285
     :cond_2
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$14$1;->this$1:Lcom/melodix/music/PreviewPlayerTiles$14;
 
@@ -245,7 +245,7 @@
 
     goto :goto_0
 
-    .line 287
+    .line 286
     :cond_3
     const-string v0, "status"
 
@@ -293,7 +293,7 @@
 
     goto/16 :goto_0
 
-    .line 288
+    .line 287
     :cond_4
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$14$1;->this$1:Lcom/melodix/music/PreviewPlayerTiles$14;
 

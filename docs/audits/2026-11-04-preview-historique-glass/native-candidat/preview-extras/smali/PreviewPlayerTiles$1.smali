@@ -26,7 +26,7 @@
     .locals 0
 
     .prologue
-    .line 59
+    .line 58
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$1;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -40,7 +40,7 @@
     .locals 4
 
     .prologue
-    .line 59
+    .line 58
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$1;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     invoke-virtual {v0}, Lcom/melodix/music/PreviewPlayerTiles;->isAttachedToWindow()Z
