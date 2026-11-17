@@ -76,7 +76,29 @@
             return {title: text(t), artist: artists.join(', ').slice(0, 200), duration: duration};
         }).filter(function(x) { return x.title; });
     }
-    function finish(ok, reason) { job.status = 'done'; job.ok = ok; job.reason = reason || ''; }
+    // The page is hidden: a panel (or one of its parents) can measure 0 px, and
+    // Spotify then draws no rows in it. Give it a size while it is read, then
+    // restore the original inline style exactly. No other change to the page.
+    var sized = [];
+    function giveSize(r) {
+        var h = 0;
+        try { h = Math.round(r.getBoundingClientRect().height); } catch (_) {}
+        for (var n = r; n && n !== document.body && sized.length < 12; n = n.parentElement) {
+            var cs = window.getComputedStyle(n), small = false;
+            try { small = n.getBoundingClientRect().height < 2; } catch (_) {}
+            if (cs.display !== 'none' && cs.visibility !== 'hidden' && !small) continue;
+            sized.push([n, n.getAttribute('style')]);
+            if (cs.display === 'none') n.style.setProperty('display', 'block', 'important');
+            if (cs.visibility === 'hidden') n.style.setProperty('visibility', 'visible', 'important');
+            if (small) n.style.setProperty('min-height', '640px', 'important');
+        }
+        log('sized:' + sized.length + ',h:' + Math.min(h, 9999));
+    }
+    function restoreSize() {
+        sized.forEach(function(e) { try { if (e[1] === null) e[0].removeAttribute('style'); else e[0].setAttribute('style', e[1]); } catch (_) {} });
+        sized = [];
+    }
+    function finish(ok, reason) { restoreSize(); job.status = 'done'; job.ok = ok; job.reason = reason || ''; }
     try {
         var b = button();
         var already = root(b);
@@ -84,10 +106,11 @@
         var wasOpen = !!already || (b && isOpen(b));
         if (!wasOpen) { try { b.click(); log('opened'); } catch (_) { log('open-error'); finish(false, 'command'); return JSON.stringify({status: 'started'}); } }
         else log('already-open');
-        var end = Date.now() + 4500;
+        var end = Date.now() + 4500, forced = false;
         (function step() {
             var r = null, list = [];
             try { r = root(button() || b); list = r ? rows(r) : []; } catch (_) { list = []; }
+            if (!list.length && r && !forced && Date.now() > end - 3500) { forced = true; giveSize(r); }
             if (!list.length && Date.now() < end) { setTimeout(step, 150); return; }
             if (list.length) {
                 var line = function(x) { return [x.title, x.artist, x.duration].join('\t').replace(/\n/g, ' '); };

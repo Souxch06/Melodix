@@ -247,3 +247,18 @@ test('narrow page: the queue opened as its own /queue page is read from the main
   const out = run(dom, queue, 'poll');
   assert.equal(out.ok, true); assert.ok(out.now.startsWith('Un\tA')); assert.ok(out.next.startsWith('Deux\tB'));
 });
+
+test('hidden page: a 0-px queue panel is given a size while read, then restored exactly', async () => {
+  const dom = page(`<button data-testid="control-button-queue" aria-label="File d'attente" aria-pressed="false">q</button><aside aria-label="File d'attente" style="color: red;"></aside>`);
+  const doc = dom.window.document, b = doc.querySelector('button'), panel = doc.querySelector('aside');
+  b.addEventListener('click', () => b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') === 'false' ? 'true' : 'false'));
+  // Like a virtualised list: rows exist only once the panel has a height.
+  const timer = dom.window.setInterval(() => {
+    if (panel.style.getPropertyValue('min-height') && !panel.querySelector('li')) panel.innerHTML = '<ul><li><a href="/track/1">Un</a><a href="/artist/a">A</a></li></ul>';
+  }, 50);
+  run(dom, queue, 'run'); await settle(1800); dom.window.clearInterval(timer);
+  const out = run(dom, queue, 'poll');
+  assert.equal(out.ok, true); assert.ok(out.now.startsWith('Un\tA'));
+  assert.equal(panel.getAttribute('style'), 'color: red;');
+  assert.ok(out.journal.some((c) => /^sized:1,h:0$/.test(c)));
+});

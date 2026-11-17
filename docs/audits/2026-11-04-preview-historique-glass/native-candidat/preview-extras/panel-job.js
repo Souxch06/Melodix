@@ -83,7 +83,29 @@
             return {node: n, name: name, type: typeNode ? text(typeNode).slice(0, 40) : '', current: current};
         }).filter(function(d) { return d.name; });
     }
-    function finish(ok, reason) { job.status = 'done'; job.ok = ok; job.reason = reason || ''; }
+    // The page is hidden: a panel (or one of its parents) can measure 0 px, and
+    // Spotify then draws no rows in it. Give it a size while it is read, then
+    // restore the original inline style exactly. No other change to the page.
+    var sized = [];
+    function giveSize(r) {
+        var h = 0;
+        try { h = Math.round(r.getBoundingClientRect().height); } catch (_) {}
+        for (var n = r; n && n !== document.body && sized.length < 12; n = n.parentElement) {
+            var cs = window.getComputedStyle(n), small = false;
+            try { small = n.getBoundingClientRect().height < 2; } catch (_) {}
+            if (cs.display !== 'none' && cs.visibility !== 'hidden' && !small) continue;
+            sized.push([n, n.getAttribute('style')]);
+            if (cs.display === 'none') n.style.setProperty('display', 'block', 'important');
+            if (cs.visibility === 'hidden') n.style.setProperty('visibility', 'visible', 'important');
+            if (small) n.style.setProperty('min-height', '640px', 'important');
+        }
+        log('sized:' + sized.length + ',h:' + Math.min(h, 9999));
+    }
+    function restoreSize() {
+        sized.forEach(function(e) { try { if (e[1] === null) e[0].removeAttribute('style'); else e[0].setAttribute('style', e[1]); } catch (_) {} });
+        sized = [];
+    }
+    function finish(ok, reason) { restoreSize(); job.status = 'done'; job.ok = ok; job.reason = reason || ''; }
     try {
         var b = button(), already = root(b);
         if (b && (b.disabled || b.getAttribute('aria-disabled') === 'true') && !already) { log('button:disabled'); finish(false, 'disabled'); return JSON.stringify({status: 'started'}); }
@@ -97,11 +119,12 @@
                 try { var again = button() || b; if (again && (isOpen(again) || root(again))) { again.click(); log('closed'); } } catch (_) { log('close-error'); }
             }, 120);
         };
-        var end = Date.now() + 2500;
+        var end = Date.now() + 4000, forced = false;
         (function step() {
             var r = null;
             try { r = root(button() || b); } catch (_) { r = null; }
             var ready = r && (kind === 'lyrics' ? lyricLines(r).lines.length : deviceRows(r).length);
+            if (!ready && r && !forced && Date.now() > end - 2000) { forced = true; giveSize(r); }
             if (!ready && Date.now() < end) { setTimeout(step, 150); return; }
             if (!ready) { log(r ? 'rows:0' : 'panel:absent'); finish(false, r ? 'empty' : 'panel'); close(); return; }
             if (kind === 'lyrics') {
