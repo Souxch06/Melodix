@@ -79,3 +79,20 @@ test('hidden like exposes only a unique bar identity, never an inferred state',(
 test('menu like exposes current-track identity but never claims a liked state',()=>{const x=boot();try{
  let b=x.w.document.querySelector('div>div>button');b.setAttribute('aria-haspopup','menu');let p=q(x,'like');assert.equal(p.reason,'menu');assert.equal(p.state,'unknown');assert.equal(p.track,'track:abc');assert.equal(p.title,'Titre');
 }finally{x.close()}});
+
+
+test('generic player links can supply identity without claiming like state',()=>{const x=boot();try{
+ let bar=x.w.document.querySelector('[data-testid=now-playing-widget]');bar.querySelector('button').remove();bar.querySelector('a').removeAttribute('data-testid');
+ let image=x.w.document.createElement('a');image.href='/track/abc';bar.append(image);
+ let r=q(x,'like');assert.equal(r.state,'unknown');assert.equal(r.track,'track:abc');assert.equal(r.title,'Titre');
+ bar.querySelector('a').setAttribute('href','https://open.spotify.com/intl-fr/track/abc?si=ignored');r=q(x,'like');assert.equal(r.track,'track:abc');
+ let unrelated=x.w.document.createElement('a');unrelated.href='/track/other';unrelated.textContent='Same or another';x.w.document.body.append(unrelated);assert.equal(q(x,'like').track,'track:abc');
+ bar.append(unrelated);assert.equal(q(x,'like').track,'');
+ bar.innerHTML='<a href="https://evil.example/track/abc">Titre</a>';assert.equal(q(x,'like').track,'');
+ bar.innerHTML='<a data-testid="context-item-link" href="/album/z">Titre</a><a href="/track/abc">Titre</a>';assert.equal(q(x,'like').track,'');
+}finally{x.close()}});
+
+test('a recognized role button in the player widget is observed',()=>{const x=boot();try{
+ let b=x.w.document.querySelector('div>div>button');let r=x.w.document.createElement('div');r.setAttribute('role','button');r.setAttribute('data-testid','add-to-library-button');r.setAttribute('aria-checked','false');b.replaceWith(r);
+ assert.equal(q(x,'like').state,'false');assert.equal(q(x,'like').track,'track:abc');
+}finally{x.close()}});

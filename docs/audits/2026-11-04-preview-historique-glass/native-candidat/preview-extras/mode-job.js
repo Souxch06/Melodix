@@ -93,12 +93,15 @@
     }
     function identityMatches() {
         if (!expectedTitle || !expectedTrack) return false;
-        var links = Array.from(document.querySelectorAll('[data-testid="now-playing-widget"] a[data-testid="context-item-link"], [data-testid="now-playing-bar"] a[data-testid="context-item-link"], a[data-testid="nowplaying-track-link"], [data-testid="now-playing-view"] a[href*="/track/"]'));
-        if (!links.length) return false;
-        return links.every(function(link) {
-            var m = /^\/(track|episode)\/([a-z0-9]+)(?:[?#].*)?$/i.exec(String(link.getAttribute('href') || ''));
-            var title = String(link.textContent || '').replace(/\s+/g, ' ').trim();
-            return m && m[1].toLowerCase() + ':' + m[2] === expectedTrack && title === expectedTitle;
+        var links = Array.from(document.querySelectorAll('[data-testid="now-playing-widget"] a[href], [data-testid="now-playing-bar"] a[href], a[data-testid="nowplaying-track-link"][href], [data-testid="now-playing-view"] a[href]'));
+        var malformedIdentity = false;
+        var identities = links.map(function(link) {
+            var m = /^(?:https:\/\/open\.spotify\.com)?\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\/)?(track|episode)\/([a-z0-9]+)\/?(?:[?#].*)?$/i.exec(String(link.getAttribute('href') || ''));
+            if (!m && /^(context-item-link|nowplaying-track-link)$/i.test(String(link.getAttribute('data-testid') || ''))) malformedIdentity = true;
+            return m ? {track:m[1].toLowerCase()+':'+m[2],title:String(link.textContent || '').replace(/\s+/g, ' ').trim()} : null;
+        }).filter(Boolean);
+        return !malformedIdentity && identities.some(function(x) { return x.title === expectedTitle; }) && identities.every(function(x) {
+            return x.track === expectedTrack && (!x.title || x.title === expectedTitle);
         });
     }
     function opener() {

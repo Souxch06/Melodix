@@ -26,7 +26,7 @@
     .locals 0
 
     .prologue
-    .line 131
+    .line 136
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerMode$4;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -40,7 +40,7 @@
     .locals 4
 
     .prologue
-    .line 132
+    .line 137
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode$4;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
     invoke-virtual {v0}, Lcom/melodix/music/PreviewPlayerMode;->animate()Landroid/view/ViewPropertyAnimator;
@@ -61,6 +61,6 @@
 
     invoke-virtual {v0}, Landroid/view/ViewPropertyAnimator;->start()V
 
-    .line 133
+    .line 138
     return-void
 .end method

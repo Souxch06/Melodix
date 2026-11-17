@@ -45,3 +45,10 @@ test('contradictory and unspecified like actions are categorized without raw lab
 });
 
 test('repeat probe is categorical and preserves explicit mixed state',()=>{let x=run('<button data-testid="control-button-repeat" aria-checked="mixed" aria-label="Private title"></button>','repeat');assert.equal(x.state,'mixed');assert.equal(x.reason,'observed');assert.ok(!JSON.stringify(x).includes('Private'));x=run('<button aria-label="Activer la répétition"></button>','repeat');assert.equal(x.state,'false')});
+
+
+test('identity and view-opener probe returns counts only, never track or title',()=>{
+ const x=run(bar('<a href="/track/secret">PRIVATE TITLE</a><a href="/artist/ArtistSecret">Artist</a><button data-testid="control-button-npv" aria-label="Now playing view"></button>'),'like');
+ const st=JSON.parse(x.structure);assert.equal(st.track_links,1);assert.equal(st.track_named,1);assert.equal(st.track_generic,1);assert.equal(st.npv_opener,1);
+ assert.ok(!JSON.stringify(x).includes('PRIVATE'));assert.ok(!JSON.stringify(x).includes('secret'));assert.ok(!JSON.stringify(x).includes('ArtistSecret'));
+});

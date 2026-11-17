@@ -20,7 +20,7 @@
     };
     if (['like','shuffle','repeat'].indexOf(kind) < 0) return JSON.stringify({state:'unknown',reason:'control'});
     var selector = kind === 'like' ?
-        '[data-testid="now-playing-widget"] button, [data-testid="now-playing-bar"] button, [data-testid="now-playing-view"] button, [data-testid="now-playing-panel"] button, [data-testid="now-playing-view"] [role="button"], [data-testid="now-playing-bar"] [role="button"]' :
+        '[data-testid="now-playing-widget"] button, [data-testid="now-playing-bar"] button, [data-testid="now-playing-view"] button, [data-testid="now-playing-panel"] button, [data-testid="now-playing-widget"] [role="button"], [data-testid="now-playing-bar"] [role="button"], [data-testid="now-playing-view"] [role="button"], [data-testid="now-playing-panel"] [role="button"], [data-testid="now-playing-widget"] [role="switch"], [data-testid="now-playing-bar"] [role="switch"], [data-testid="now-playing-view"] [role="switch"], [data-testid="now-playing-panel"] [role="switch"]' :
         kind === 'shuffle' ? 'button[data-testid*="shuffle" i], button[aria-label], [role="button"][aria-label], [role="switch"][aria-label]' :
         'button[data-testid="control-button-repeat"], [role="button"][data-testid="control-button-repeat"], button[aria-label], [role="button"][aria-label]';
     var nodes = Array.from(document.querySelectorAll(selector)).filter(function(b) {
@@ -32,17 +32,20 @@
         return /shuffle/.test(id) || labels.shuffle.off.test(label) || labels.shuffle.on.test(label);
     });
     var result={state:'unknown',track:'',title:'',reason:'control',sent:false};
-    // Capture the unique current-bar identity even when the Like control is
-    // hidden, ambiguous or opens a menu. No Like state is inferred.
+    // Current player links only, including Spotify's unmarked track links.
+    // Every track href must agree; a non-empty title must also agree. Never
+    // take an identity from a playlist, search result or unrelated page node.
     if (kind === 'like') {
-        var links = Array.from(document.querySelectorAll('[data-testid="now-playing-widget"] a[data-testid="context-item-link"], [data-testid="now-playing-bar"] a[data-testid="context-item-link"], [data-testid="now-playing-bar"] a[data-testid="nowplaying-track-link"]'));
-        var identities = links.map(function(link) {
-            var match = /^\/(track|episode)\/([a-z0-9]+)(?:[?#].*)?$/i.exec(String(link.getAttribute('href') || ''));
-            var name = String(link.textContent || '').replace(/\s+/g, ' ').trim();
-            return match && name ? {track:match[1].toLowerCase()+':'+match[2],title:name} : null;
-        });
-        if (identities.length && identities.every(function(x) { return x && x.track === identities[0].track && x.title === identities[0].title; })) {
-            result.track=identities[0].track; result.title=identities[0].title;
+        var anchors = Array.from(document.querySelectorAll('[data-testid="now-playing-widget"] a[href], [data-testid="now-playing-bar"] a[href]'));
+        var malformedIdentity = false;
+        var identities = anchors.map(function(link) {
+            var match = /^(?:https:\/\/open\.spotify\.com)?\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\/)?(track|episode)\/([a-z0-9]+)\/?(?:[?#].*)?$/i.exec(String(link.getAttribute('href') || ''));
+            if (!match && /^(context-item-link|nowplaying-track-link)$/i.test(String(link.getAttribute('data-testid') || ''))) malformedIdentity = true;
+            return match ? {track:match[1].toLowerCase()+':'+match[2],title:String(link.textContent || '').replace(/\s+/g, ' ').trim()} : null;
+        }).filter(Boolean);
+        var named = identities.filter(function(x) { return !!x.title; });
+        if (!malformedIdentity && named.length && identities.every(function(x) { return x.track === named[0].track && (!x.title || x.title === named[0].title); })) {
+            result.track=named[0].track; result.title=named[0].title;
         }
     }
 
@@ -79,13 +82,6 @@
             result.reason='conflict';return JSON.stringify(result);
         }
         if (raw==='false' && !offLabel && !addId) {result.reason='unverified';return JSON.stringify(result);}
-        var bar=button.closest('[data-testid="now-playing-widget"], [data-testid="now-playing-bar"]');
-        if (!bar) bar=document.querySelector('[data-testid="now-playing-widget"], [data-testid="now-playing-bar"]');
-        var link=bar && bar.querySelector('a[data-testid="context-item-link"], a[data-testid="nowplaying-track-link"]');
-        result.title=link ? String(link.textContent||'').trim() : '';
-        var href=link ? String(link.getAttribute('href')||'') : '';
-        var match=/^\/(track|episode)\/([a-z0-9]+)(?:[?#].*)?$/i.exec(href);
-        result.track=match ? match[1].toLowerCase()+':'+match[2] : '';
         if (!result.track || !result.title) {result.reason='identity';return JSON.stringify(result);}
     }
     if (raw === 'unknown') {result.reason='state';return JSON.stringify(result);}

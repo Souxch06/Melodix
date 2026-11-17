@@ -371,3 +371,11 @@ test('picker: an exception during the add is unconfirmed, not claimed unsent',as
   run(x.dom,mode,'like','run','unknown','Titre','track:x');await settle(30);
   assert.equal(run(x.dom,mode,'like','poll','unknown','Titre','track:x').outcome,'unconfirmed');x.dom.window.close();
 });
+
+
+test('generic bar track link allows only the known now-playing view and matching add',async()=>{
+ const dom=page(`<aside data-testid="now-playing-bar"><a href="/track/x">Titre</a></aside><button data-testid="control-button-npv" aria-pressed="false">v</button><div id="npv"></div>`);
+ const d=dom.window.document,b=d.querySelector('button');let added=0,opened=0,closed=0;
+ b.onclick=()=>{if(b.getAttribute('aria-pressed')==='false'){opened++;b.setAttribute('aria-pressed','true');d.querySelector('#npv').innerHTML='<aside data-testid="now-playing-view"><button data-testid="add-button" aria-label="Ajouter aux titres likés" aria-checked="false"></button></aside>';const like=d.querySelector('#npv button');like.onclick=()=>{added++;like.setAttribute('aria-checked','true');like.setAttribute('aria-label','Retirer des titres likés')}}else{closed++;b.setAttribute('aria-pressed','false');d.querySelector('#npv').innerHTML=''}};
+ run(dom,mode,'like','run','unknown','Titre','track:x');await settle(400);assert.equal(added,1);assert.equal(opened,1);assert.equal(closed,1);assert.equal(run(dom,mode,'like','poll','unknown','Titre','track:x').outcome,'confirmed');dom.window.close();
+});
