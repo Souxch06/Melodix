@@ -36,7 +36,8 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
     private boolean headerHidden, playStyled, chromeApplied, setupDone, ticking, wasVisible;
     private View root, panel;
     private boolean closing, bypassClose;
-    private Drawable rootBackground, panelBackground, appliedBackground;
+    private Drawable rootBackground, panelBackground, appliedBackground, backdrop;
+    private Bitmap previousScreen;
     private PreviewPlayerDecoration repeatArt, shuffleDot;
     private PreviewPlayerLikeArt likeArt;
     private View likeControl;
@@ -86,6 +87,23 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         if(headerHidden && header!=null)header.setVisibility(previousHeaderVisibility);
         header=null;headerHidden=false;
     }
+    /** Capture only the native shell before opening; never the hidden WebView. */
+    public static void captureBeforeExpand(Activity a){
+        View p=a.findViewById(0x7f09023a), r=a.findViewById(0x7f09022f);
+        View v=p==null?null:p.findViewWithTag("previewPlayerChrome");
+        if(!(v instanceof PreviewPlayerChrome)||r==null)return;
+        PreviewPlayerChrome chrome=(PreviewPlayerChrome)v;
+        chrome.previousScreen=null;
+        if(Build.VERSION.SDK_INT>=26 && !ValueAnimator.areAnimatorsEnabled())return;
+        int width=r.getWidth(),height=r.getHeight();
+        if(width<=0||height<=0)return;
+        try{
+            // Limit memory; this is a temporary visual only and never persisted.
+            float scale=Math.min(1f,(float)Math.sqrt(1200000.0/((double)width*height)));
+            Bitmap bmp=Bitmap.createBitmap(Math.max(1,(int)(width*scale)),Math.max(1,(int)(height*scale)),Bitmap.Config.ARGB_8888);
+            Canvas c=new Canvas(bmp);c.scale(scale,scale);r.draw(c);chrome.previousScreen=bmp;
+        }catch(RuntimeException ignored){chrome.previousScreen=null;}catch(OutOfMemoryError ignored){chrome.previousScreen=null;}
+    }
     private void applyBackground(Activity a) {
         if(chromeApplied)return;
         root=a.findViewById(0x7f09022f); panel=a.findViewById(0x7f09023a);
@@ -97,17 +115,21 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         // Layers: violet base, blurred cover colours, dark scrim for contrast, light tint.
         scrim=new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,new int[]{0x400a0614,0xb30a0614,0xf20a0614});
         appliedBackground=new LayerDrawable(new Drawable[]{appliedBackground,new ColorDrawable(0),scrim,tintLayer});
-        root.setBackground(appliedBackground);root.setPadding(left,top,right,bottom);panel.setBackground(null);tintSource=null;
+        // Keep a still of the preceding native screen behind the moving player.
+        // The player background must move with the panel, not stay on the root.
+        backdrop=rootBackground;
+        if(previousScreen!=null){BitmapDrawable image=new BitmapDrawable(getResources(),previousScreen);image.setGravity(android.view.Gravity.FILL);image.setFilterBitmap(true);backdrop=image;}
+        root.setBackground(backdrop);root.setPadding(left,top,right,bottom);panel.setBackground(appliedBackground);tintSource=null;
         chromeApplied=true;
     }
     private void restoreBackground() {
-        if(!chromeApplied)return;
-        if(root!=null && root.getBackground()==appliedBackground){
+        if(!chromeApplied){previousScreen=null;return;}
+        if(root!=null && root.getBackground()==backdrop){
             int left=root.getPaddingLeft(),top=root.getPaddingTop(),right=root.getPaddingRight(),bottom=root.getPaddingBottom();
             root.setBackground(rootBackground);root.setPadding(left,top,right,bottom);
         }
-        if(panel!=null && panel.getBackground()==null)panel.setBackground(panelBackground);
-        root=null;panel=null;rootBackground=null;panelBackground=null;appliedBackground=null;tintLayer=null;scrim=null;tintSource=null;artPlaying=null;chromeApplied=false;
+        if(panel!=null && panel.getBackground()==appliedBackground)panel.setBackground(panelBackground);
+        root=null;panel=null;rootBackground=null;panelBackground=null;appliedBackground=null;backdrop=null;previousScreen=null;tintLayer=null;scrim=null;tintSource=null;artPlaying=null;chromeApplied=false;
     }
     static String state="non affiché";
     private static String tintInfo="—", sizeInfo="—";
@@ -284,7 +306,7 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
     private void closeAnimated(final Activity a,final View p){
         closing=true;
         p.animate().cancel();
-        p.animate().translationY(Math.max(p.getHeight(),dp(300))).alpha(0f).setDuration(280)
+        p.animate().translationY(Math.max(p.getHeight(),dp(300))).alpha(1f).setDuration(280)
             .setInterpolator(new android.view.animation.DecelerateInterpolator(1.3f)).withEndAction(new Runnable(){public void run(){
                 if(!closing)return;
                 closing=false; bypassClose=true;
@@ -316,7 +338,7 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
                 if(!vertical && !rejected && (Math.abs(dx)>dp(12)||Math.abs(dy)>dp(12))){
                     if(dy>0 && dy>Math.abs(dx)*1.3f)vertical=true;else rejected=true;
                 }
-                if(vertical){float distance=Math.max(0f,dy);p.setTranslationY(distance);p.setAlpha(1f-Math.min(.22f,distance/Math.max(p.getHeight(),1)*.22f));}
+                if(vertical){float distance=Math.max(0f,dy);p.setTranslationY(distance);p.setAlpha(1f);}
                 return true;
             }
             if(action==MotionEvent.ACTION_UP || action==MotionEvent.ACTION_CANCEL){
@@ -416,16 +438,16 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
             if(ticking){removeCallbacks(visualTick);ticking=false;}restoreHeader();restoreBackground();return;
         }
         Activity a=activity();if(a==null)return;
-        if(!wasVisible){
-            wasVisible=true;
-            View p=a.findViewById(0x7f09023a);
-            if(p!=null && (Build.VERSION.SDK_INT<26 || ValueAnimator.areAnimatorsEnabled())){
-                p.animate().cancel();p.setAlpha(0f);p.setTranslationY(dp(100));
-                p.animate().alpha(1f).translationY(0f).setDuration(320).setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
-            }
-        }
+        boolean opening=!wasVisible;wasVisible=true;
         state="affiché, "+(getResources().getConfiguration().orientation==2?"paysage":"portrait");
         hideHeader(a);applyBackground(a);stylePlay(a);sizeArtwork(a);landscape(a);sizeSkips(a);setupCosmetics(a);updateTint(a);
+        if(opening){
+            View p=a.findViewById(0x7f09023a);
+            if(p!=null && (Build.VERSION.SDK_INT<26 || ValueAnimator.areAnimatorsEnabled())){
+                p.animate().cancel();p.setAlpha(1f);p.setTranslationY(Math.max(p.getHeight(),dp(300)));
+                p.animate().translationY(0f).setDuration(340).setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
+            }
+        }
         if(setupDone && !ticking){ticking=true;post(visualTick);}
         PreviewPlayerTiles.displayReport=report();
     }

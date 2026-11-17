@@ -14,12 +14,12 @@ EXPECTED = {
 }
 
 EXTRAS = {
-    'smali/PreviewPlayerChrome$1.smali': '5936ba1d396b2769ffbd9718972c047a44ea92f32385a00a864cc466ba8b290c',
-    'smali/PreviewPlayerChrome$2.smali': '43e6b20f94881187008083f703c8f5a471eb33ebae467059df676cf06caa5d6e',
-    'smali/PreviewPlayerChrome$PressEffect.smali': '77e16d2d100e83297a9fd80c99f5354f1a0d8301b5444e0ec0c57cab1c8c86dc',
-    'smali/PreviewPlayerChrome$3.smali': '26c39f92746dcbb337796e7bfbf5b6b29e16cd464f889839f87d95ab5b4b527f',
-    'smali/PreviewPlayerChrome$DismissGesture.smali': 'd51f8b57c50f38d9f7da5825ff311ef33dcf5691db83ef9d3a63bdf1d7e1ff0c',
-    'smali/PreviewPlayerChrome.smali': '1fa4098bfd98cc15323021c592321b32229223f5378a6a4a35de111029e6ea95',
+    'smali/PreviewPlayerChrome$1.smali': '17320a8b75b01974f08be1ebe8d3497e2db915cc3a9be1fb31ef23816f7f6a6f',
+    'smali/PreviewPlayerChrome$2.smali': '94ef490433fbbef1509ad00b8ddebc79b192f2d728c620b9bb4a573c0612cf7b',
+    'smali/PreviewPlayerChrome$PressEffect.smali': 'c890608e3fb32761efb14dd4415b0bcbc127a4db6f78727496f4ae3f210c83bb',
+    'smali/PreviewPlayerChrome$3.smali': '24096aaaf26d159aee7282b37417298f0ba49f6611558d090896e2ba7422855c',
+    'smali/PreviewPlayerChrome$DismissGesture.smali': 'd630509144290d9c5abc40e054985755d3cf0ecc32053b023bc20ae6ae0b934c',
+    'smali/PreviewPlayerChrome.smali': 'c6aae5d83e23580d36e844b723098a3da958ac5ae8983f01ed0635dfb06591fa',
     'smali/PreviewPlayerMode$1.smali': '9c00f7f4d1844157468c919ff2578c7620dc68e4a5fc827dbb541b65042deb9e',
     'smali/PreviewPlayerMode$2.smali': '3f28c76e2ebf1fa72d2015c73f97e01daea87faab8c1a2ce79bdc5ac5b5605ab',
     'smali/PreviewPlayerMode$3.smali': 'f7c931fe6e85d265bcad7da92d1b9d36180e834e19db9b036a5e7cdb09093da4',
@@ -57,21 +57,21 @@ EXTRAS = {
     'smali/PreviewPlayerTiles$15$1.smali': '90328a34f02394813ab75b4edf65ec38b9e97451cd609ed58649ec7ac50711fa',
     'smali/PreviewPlayerTiles$22.smali': '0e6108ca6c35021b29e27f49a127de5d82b431746b557d3139b4d8af949d6a4d',
     'smali/PreviewPlayerTiles.smali': '98deda6706d836b5c82b05b919ef09ff0d0a59574e5bf11247369470ca2fb45e',
-    'smali/PreviewPlayerVolume$1.smali': '3f8a7c270712e0db8c6d84d966c129217b7cefe30e2474a4e73da89820bf5f7b',
-    'smali/PreviewPlayerVolume$10.smali': 'c6524bd26d6f78d0650228dc4db3adf6ef45b70ba30abade2e7c0b291a578f33',
-    'smali/PreviewPlayerVolume$11$1.smali': '1df7f553e042706dc534ad1f38f0bd5bfb1caeade18f789e791c2eb673ed61b5',
-    'smali/PreviewPlayerVolume$11.smali': 'c3556733f6da858e7af518bb1225656288770935865b9a3b6d0210a8e7ae1b6d',
-    'smali/PreviewPlayerVolume$12.smali': '5e8716ea98a1ec44e7d3a70bf05024a308da90e6b0dded2c1b4d69c0d745bbb3',
-    'smali/PreviewPlayerVolume$13.smali': 'ec70b9f82df8a50d25abfa10dec7bfe41f00d390b13877bc15bec40a44f05f37',
-    'smali/PreviewPlayerVolume$2.smali': '39d81c2534f7e66c9def0824968ab4d28badef148765996417915fa6277b1481',
-    'smali/PreviewPlayerVolume$3.smali': '85581c0c9c576048c4352d886edc81daafcc0a0d438353f894ac81875009de0c',
-    'smali/PreviewPlayerVolume$4.smali': '5e96b6bbff741e5bfdc41b065a1d3be614fcd1131dcda2c9b59486a79994b116',
-    'smali/PreviewPlayerVolume$5.smali': '2a0e1df1aefc2d86cbe2f2be5969f1ec437926063cb70416f12eb1c2e846bd4c',
-    'smali/PreviewPlayerVolume$6.smali': '18649605cbc96159b5356da9e1f85b6f97948f1dd1f72a3796bf178ec875399d',
-    'smali/PreviewPlayerVolume$7.smali': '0c9f5b33b6f9d634dfc4d335b0f0de2603bdea680862a2c9d4ecdba9247c0954',
-    'smali/PreviewPlayerVolume$8.smali': '9703ed69139f2aea18f23b2c96fc6eef8acff9b2e385995c9dcf91af51feedeb',
-    'smali/PreviewPlayerVolume$9.smali': 'a73120ce4a575c31640e39af636c7373f42906e45d77619dca5503824511a138',
-    'smali/PreviewPlayerVolume.smali': '9222b301bf16dca78902571bf0ba535d704a8ae055fedea60f7095da3d0a23ae',
+    'smali/PreviewPlayerVolume$1.smali': 'c7e81421f5171a2ff6d8cbcc49adf7a3fd7a22e0d653b462b1b485464cf26425',
+    'smali/PreviewPlayerVolume$10.smali': 'fb8874a60cbbcc36d762bec77651b863f8d4e082a7409869e8fdc9856d06c82b',
+    'smali/PreviewPlayerVolume$11$1.smali': '5622ccbee91b551dbba3c89d18ea9177458fe3ca9e06961e11013ffcaa26c610',
+    'smali/PreviewPlayerVolume$11.smali': 'e68cae2b49f18224ac9057ecca5557cfdbd448930dce602025e49900e65a2091',
+    'smali/PreviewPlayerVolume$12.smali': 'e11be3a92a1e0b6b5016590b5144b2d06db080f574b8b1fc4268b86f8ecd4bc1',
+    'smali/PreviewPlayerVolume$13.smali': '146ef3f7217b25e70052573fe93cc31084f2c51538063b6d157e7d38782abb3b',
+    'smali/PreviewPlayerVolume$2.smali': '75dba4a69d8748fb6a6eed66b0c3427a7c4395dc10c29b009f170e5587c9e2d7',
+    'smali/PreviewPlayerVolume$3.smali': 'e47748a1d4fd3ec9255b06392348e44eeeb5b134b357aa5cde2bd0de8f0af31a',
+    'smali/PreviewPlayerVolume$4.smali': '47dcb4e6b34b241bac5c7266e4d897410fac2c8ac226fac7439090e97b1dc86d',
+    'smali/PreviewPlayerVolume$5.smali': '2fe4850a64726e970fc19a5a1802b6a042e72ffbc689cc4489f9e6053d5bcc03',
+    'smali/PreviewPlayerVolume$6.smali': '4e2baaa3149b31683baa8fae098672186a7e5a84903cfd7b99c9956636d695ec',
+    'smali/PreviewPlayerVolume$7.smali': '2fdeede795eaef6ed2a25260541db607f0f9b0b64dab3db9ad167e1154255364',
+    'smali/PreviewPlayerVolume$8.smali': 'de982551f989ba1ad263025a8c511992b76af79955bf30839798a37dd5140ab4',
+    'smali/PreviewPlayerVolume$9.smali': '461fa835ea658a0b1607e37816984cab4f624bc8eac6bf6dfa0cf1e9bff7dfeb',
+    'smali/PreviewPlayerVolume.smali': '6c6a8a130aa42ca5d8988f6cc0d583f78c75edbe1061f481f2e63a8f26add829',
     'smali/PreviewUiRestyle$1.smali': 'd1713c69f55f62572d7d237af7abfed3aa3ebc08c67a16c5e1899d6741cd883d',
     'smali/PreviewUiRestyle$2.smali': '9bb4b7d718cc66ef94aa23f171790789c78dda5db3d798a406b93612a84725e8',
     'smali/PreviewUiRestyle$3.smali': 'c125de3b79ab91b139d1818174ec08353b6782483b54e4b521bc6906656b2a63',
@@ -81,12 +81,12 @@ EXTRAS = {
     'smali/PreviewPlayerPlayButton.smali': '10fa7289606a9481f8f6af0cac9e36790c1bf1ba73d9218d551ad194e9287e27',
     'smali/PreviewPlayerPlayButton$1.smali': '4fd83f3fd7382c2861383c9b7197d59d28b8dc96808e0cd32f157ccddb4af3a0',
     'smali/PreviewPlayerDecoration.smali': 'd6603b418eaf73a509548f2f74b5a89489d5259dc8b52832f9c720ded5f96f41',
-    'PreviewPlayerChrome.java': '9b785f1077930e2f927afa52922d8b529d01befbc9865756dfd6e527e72a9dc3',
+    'PreviewPlayerChrome.java': 'aa34ab91e557195caffbded7373ad8ec848c6c1c14741c93a31e0c062de1f101',
     'PreviewPlayerLikeArt.java': '49892fbb54b2c66dd9fe477fc851e55dedb2a4f8a31670e53530e5f03c289979',
     'smali/PreviewPlayerLikeArt.smali': '8caf0d0292ff562b70b85aef9fbe20f306e6bdf7239b337971c063f6fe9888ca',
     'PreviewPlayerMode.java': '5317f548254a9af818f058545d8113104a603258b9feb2234491e40c8b4cadd6',
     'PreviewPlayerTiles.java': '3981f73c5f30ea90b5e6fc85916bdc2c1236b9fbedc367c92d68a5dbef5cd17e',
-    'PreviewPlayerVolume.java': 'af149a21df527d2b36d6c844a193de344eb4d9f9d02a273036adc16d174e2e52',
+    'PreviewPlayerVolume.java': '360b8862d541733282505a5d7edb78159eeef0469920e6e9a78da71da441df0b',
     'control.js': '1793f0cdb804658ff412633d850e6f0385ad07cc37690c3c0352c4789934a9f2',
     'control-diagnostic.js': '1399e373819ed9015a9f3ba9c5996d0c9cec862a709d4b72e4fdc39bb5439946',
     'volume-control.js': 'ac4bda4dc78c4bf2248c9af4864fd2246d0fb8dea435a2f929baa684f83d7160',
@@ -279,7 +279,14 @@ def apply(root):
     return-void
     :preview_close_continue
 '''
-    data[activity]=one(original,entry,hook)
+    original=one(original,entry,hook)
+    capture='''    :save_player_return_state
+    invoke-direct {p0}, Lcom/melodix/music/MainActivity;->lot1PushBack()V'''
+    capture_hook='''    :save_player_return_state
+    # Capture only the native shell before it is replaced by the player.
+    invoke-static {p0}, Lcom/melodix/music/PreviewPlayerChrome;->captureBeforeExpand(Landroid/app/Activity;)V
+    invoke-direct {p0}, Lcom/melodix/music/MainActivity;->lot1PushBack()V'''
+    data[activity]=one(original,capture,capture_hook)
     for name in list(EXPECTED)[:2]: data[name]=player_layout(data[name])
     for target,base in (('res/layout-land/activity_main.xml','res/layout/activity_main.xml'),
                         ('res/layout-w600dp-land/activity_main.xml','res/layout-w600dp/activity_main.xml')):

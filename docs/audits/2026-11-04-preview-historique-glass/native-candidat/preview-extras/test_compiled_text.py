@@ -25,5 +25,14 @@ mode = text(smali / 'PreviewPlayerMode.smali')
 for value in ('Titre aimé', 'Action non confirmée. Réessayer', 'Lecture aléatoire activée'):
     assert value in mode, f'missing compiled mode text {value!r}'
 assert 'Indisponible dans cette version' in ''.join(text(p) for p in smali.glob('PreviewPlayerTiles*.smali'))
-assert 'Volume du lecteur' in text(smali / 'PreviewPlayerVolume.smali')
+volume = text(smali / 'PreviewPlayerVolume.smali')
+assert 'Volume du lecteur' in volume
+assert 'setCompoundDrawablesWithIntrinsicBounds' in volume
+chrome = text(smali / 'PreviewPlayerChrome.smali')
+assert 'captureBeforeExpand' in chrome and 'previousScreen' in chrome
+if root:
+    activity = text(smali / 'MainActivity.smali')
+    expand = activity.split('.method public final onNativePlayerExpandClick',1)[1].split('.end method',1)[0]
+    assert expand.index('captureBeforeExpand') < expand.index('setNativeScreen')
+
 print('Player tile glyphs and French text verified in compiled Smali')
