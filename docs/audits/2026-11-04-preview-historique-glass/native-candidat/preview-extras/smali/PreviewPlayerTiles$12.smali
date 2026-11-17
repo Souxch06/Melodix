@@ -38,7 +38,7 @@
     .locals 0
 
     .prologue
-    .line 257
+    .line 270
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iput-wide p2, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$serial:J
@@ -64,12 +64,12 @@
     .locals 5
 
     .prologue
-    .line 257
+    .line 270
     iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$serial:J
 
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-    invoke-static {v2}, Lcom/melodix/music/PreviewPlayerTiles;->access$22(Lcom/melodix/music/PreviewPlayerTiles;)J
+    invoke-static {v2}, Lcom/melodix/music/PreviewPlayerTiles;->access$27(Lcom/melodix/music/PreviewPlayerTiles;)J
 
     move-result-wide v2
 
@@ -89,7 +89,7 @@
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$23(Lcom/melodix/music/PreviewPlayerTiles;)J
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$28(Lcom/melodix/music/PreviewPlayerTiles;)J
 
     move-result-wide v0
 
@@ -99,7 +99,7 @@
 
     if-eqz v0, :cond_0
 
-    invoke-static {}, Lcom/melodix/music/PreviewPlayerTiles;->access$24()[Ljava/lang/String;
+    invoke-static {}, Lcom/melodix/music/PreviewPlayerTiles;->access$29()[Ljava/lang/String;
 
     move-result-object v0
 
@@ -121,7 +121,7 @@
 
     iget-object v4, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$retry:Landroid/widget/Button;
 
-    invoke-static {v0, v1, v2, v3, v4}, Lcom/melodix/music/PreviewPlayerTiles;->access$25(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
+    invoke-static {v0, v1, v2, v3, v4}, Lcom/melodix/music/PreviewPlayerTiles;->access$30(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
 
     :cond_0
     return-void

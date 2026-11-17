@@ -6,8 +6,12 @@
     var W = window;
     if (action === 'poll') return JSON.stringify(W.__melodixQueueJob || {status: 'none'});
     if (action !== 'run') return JSON.stringify({status: 'none'});
-    if (W.__melodixQueueJob && W.__melodixQueueJob.status === 'running' && Date.now() - W.__melodixQueueJob.started < 8000) return JSON.stringify({status: 'busy'});
-    var job = W.__melodixQueueJob = {status: 'running', started: Date.now(), ok: false, reason: '', now: '', next: '', journal: []};
+    if (W.__melodixDrawerUnsafe) return JSON.stringify({status: 'blocked'});
+    if (W.__melodixDrawerLease && W.__melodixDrawerLease.status === 'running') return JSON.stringify({status: 'busy'});
+    var counter = Number(W.__melodixDrawerCounter);
+    W.__melodixDrawerCounter = isFinite(counter) && counter >= 0 && counter < 999999999 ? Math.floor(counter) + 1 : 1;
+    var job = W.__melodixQueueJob = {status: 'running', started: Date.now(), id: String(Date.now()) + ':' + W.__melodixDrawerCounter, ok: false, reason: '', now: '', next: '', journal: []};
+    W.__melodixDrawerLease = job;
     function log(code) { if (job.journal.length < 12) job.journal.push(code); }
     function text(n) { return String(n && n.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 200); }
     // Several copies of a control can exist (player bar and full view). Prefer
@@ -98,13 +102,17 @@
         sized.forEach(function(e) { try { if (e[1] === null) e[0].removeAttribute('style'); else e[0].setAttribute('style', e[1]); } catch (_) {} });
         sized = [];
     }
-    var b = null, wasOpen = true, openedHere = false;
+    var b = null, wasOpen = true, openedHere = false, finishing = false;
     function finish(ok, reason) {
+        if (finishing) return;
+        finishing = true;
         restoreSize();
         function done(closeOk) {
             if (openedHere) log(closeOk ? 'close:verified' : 'close:unverified');
             job.status = 'done'; job.ok = ok && closeOk;
             job.reason = closeOk ? (reason || '') : 'close-unverified';
+            if (!closeOk) W.__melodixDrawerUnsafe = true;
+            if (W.__melodixDrawerLease === job) W.__melodixDrawerLease = null;
         }
         if (!openedHere) { done(true); return; }
         // Only the same explicitly open trigger may be toggled back. Do not
@@ -115,27 +123,29 @@
             }
         } catch (_) { log('close-error'); }
         setTimeout(function() {
-            var remains = null;
-            try { remains = root(b); } catch (_) { }
-            var hidden = remains && (remains.closest('[hidden], [aria-hidden="true"]') ||
-                window.getComputedStyle(remains).display === 'none' || window.getComputedStyle(remains).visibility === 'hidden');
-            var after = button();
-            var explicitlyClosed = after && (after.getAttribute('aria-pressed') === 'false' || after.getAttribute('aria-expanded') === 'false' || after.getAttribute('data-active') === 'false') && !isOpen(after);
-            var clearlyClosed = explicitlyClosed && (!remains || !!hidden);
-            done(!!clearlyClosed);
+            try {
+                var remains = root(b);
+                var hidden = remains && (remains.closest('[hidden], [aria-hidden="true"]') ||
+                    window.getComputedStyle(remains).display === 'none' || window.getComputedStyle(remains).visibility === 'hidden');
+                var after = button();
+                var explicitlyClosed = after && (after.getAttribute('aria-pressed') === 'false' || after.getAttribute('aria-expanded') === 'false' || after.getAttribute('data-active') === 'false') && !isOpen(after);
+                var clearlyClosed = !rootAmbiguous && explicitlyClosed && (!remains || !!hidden);
+                done(!!clearlyClosed);
+            } catch (_) { done(false); }
         }, 150);
     }
     try {
         b = button();
         var already = root(b);
-        if (rootAmbiguous) { log('root:ambiguous'); finish(false, 'ambiguous'); return JSON.stringify({status: 'started'}); }
-        if (b && (b.disabled || b.getAttribute('aria-disabled') === 'true') && !already) { log('button:disabled'); finish(false, 'disabled'); return JSON.stringify({status: 'started'}); }
-        if (!b && !already) { log(found > 1 ? 'button:ambiguous:' + Math.min(found, 9) : 'button:absent'); finish(false, found > 1 ? 'ambiguous' : 'absent'); return JSON.stringify({status: 'started'}); }
+        if (rootAmbiguous) { log('root:ambiguous'); finish(false, 'ambiguous'); return JSON.stringify({status: 'started', id: job.id}); }
+        if (b && (b.disabled || b.getAttribute('aria-disabled') === 'true') && !already) { log('button:disabled'); finish(false, 'disabled'); return JSON.stringify({status: 'started', id: job.id}); }
+        if (!b && !already) { log(found > 1 ? 'button:ambiguous:' + Math.min(found, 9) : 'button:absent'); finish(false, found > 1 ? 'ambiguous' : 'absent'); return JSON.stringify({status: 'started', id: job.id}); }
         wasOpen = !!already || (b && isOpen(b));
-        if (!wasOpen) { try { openedHere = true; b.click(); log('opened'); } catch (_) { log('open-error'); finish(false, 'command'); return JSON.stringify({status: 'started'}); } }
+        if (!wasOpen) { try { openedHere = true; b.click(); log('opened'); } catch (_) { log('open-error'); finish(false, 'command'); return JSON.stringify({status: 'started', id: job.id}); } }
         else log('already-open');
         var end = Date.now() + 4500, forced = false;
         (function step() {
+          try {
             var r = null, list = [];
             try { r = root(button() || b); list = r ? rows(r) : []; } catch (_) { list = []; }
             if (!list.length && r && !forced && Date.now() > end - 3500) { forced = true; giveSize(r); }
@@ -155,10 +165,11 @@
                 log('rowsdoc:' + Math.min(document.querySelectorAll('[data-testid="tracklist-row"], [role="row"]').length, 99));
                 finish(false, rootAmbiguous ? 'ambiguous' : r ? 'empty' : 'panel');
             }
+          } catch (_) { finish(false, 'error'); }
         })();
-        return JSON.stringify({status: 'started'});
+        return JSON.stringify({status: 'started', id: job.id});
     } catch (_) {
         finish(false, 'error');
-        return JSON.stringify({status: 'started'});
+        return JSON.stringify({status: 'started', id: job.id});
     }
 })

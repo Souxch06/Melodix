@@ -26,3 +26,5 @@ Les contrôles File/Paroles/Appareils peuvent être délibérément indisponible
 2. Depuis À propos, copier le diagnostic : relever les lignes Structure et tiroir de chaque panneau. Elles contiennent uniquement des catégories et des compteurs, pas de titres, paroles, noms d’appareils ou données de session.
 3. `lecture=ok` et `rendu=natif` indiquent une lecture et construction des vues dans le code, pas une validation visuelle sur le téléphone. `close:verified` indique une fermeture observée ; `close:unverified` ne la garantit pas. Un délai ou une fermeture anticipée n'est pas une preuve de panneau vide.
 4. Pour la file, vérifier que les titres sont ceux de la file ; « En cours de lecture » n’est affiché que si la page marque explicitement le titre courant.
+
+Si le diagnostic indique « travail remplacé », « panneau déjà en cours » ou « fermeture non confirmée », ne pas supposer que le contenu est vide : ce sont des états de sécurité. Après une fermeture non confirmée, les nouveaux essais de panneaux restent bloqués dans la page courante ; ne pas forcer un transfert.

@@ -48,7 +48,7 @@
     .locals 0
 
     .prologue
-    .line 197
+    .line 201
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$8$1;->this$1:Lcom/melodix/music/PreviewPlayerTiles$8;
 
     iput-wide p2, p0, Lcom/melodix/music/PreviewPlayerTiles$8$1;->val$serial:J
@@ -86,7 +86,9 @@
     .locals 9
 
     .prologue
-    .line 198
+    const/4 v4, 0x0
+
+    .line 202
     iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles$8$1;->val$serial:J
 
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerTiles$8$1;->this$1:Lcom/melodix/music/PreviewPlayerTiles$8;
@@ -117,12 +119,12 @@
 
     if-eq v0, v1, :cond_1
 
-    .line 201
+    .line 207
     :cond_0
     :goto_0
     return-void
 
-    .line 198
+    .line 202
     :cond_1
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$8$1;->this$1:Lcom/melodix/music/PreviewPlayerTiles$8;
 
@@ -134,26 +136,9 @@
 
     move-result-object v0
 
-    .line 199
-    if-eqz v0, :cond_2
+    .line 203
+    if-nez v0, :cond_2
 
-    const-string v1, "status"
-
-    const-string v2, ""
-
-    invoke-virtual {v0, v1, v2}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
-
-    move-result-object v1
-
-    const-string v2, "done"
-
-    invoke-virtual {v1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-
-    move-result v1
-
-    if-nez v1, :cond_3
-
-    :cond_2
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$8$1;->this$1:Lcom/melodix/music/PreviewPlayerTiles$8;
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles$8;->access$0(Lcom/melodix/music/PreviewPlayerTiles$8;)Lcom/melodix/music/PreviewPlayerTiles;
@@ -174,12 +159,116 @@
 
     add-int/lit8 v8, v0, 0x1
 
-    invoke-static/range {v1 .. v8}, Lcom/melodix/music/PreviewPlayerTiles;->access$17(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;JI)V
+    invoke-static/range {v1 .. v8}, Lcom/melodix/music/PreviewPlayerTiles;->access$20(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;JI)V
 
     goto :goto_0
 
-    .line 200
+    .line 204
+    :cond_2
+    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerTiles$8$1;->this$1:Lcom/melodix/music/PreviewPlayerTiles$8;
+
+    invoke-static {v1}, Lcom/melodix/music/PreviewPlayerTiles$8;->access$0(Lcom/melodix/music/PreviewPlayerTiles$8;)Lcom/melodix/music/PreviewPlayerTiles;
+
+    move-result-object v1
+
+    invoke-static {v1}, Lcom/melodix/music/PreviewPlayerTiles;->access$23(Lcom/melodix/music/PreviewPlayerTiles;)Ljava/lang/String;
+
+    move-result-object v1
+
+    const-string v2, "id"
+
+    const-string v3, ""
+
+    invoke-virtual {v0, v2, v3}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v2
+
+    invoke-virtual {v1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v1
+
+    if-nez v1, :cond_3
+
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$8$1;->this$1:Lcom/melodix/music/PreviewPlayerTiles$8;
+
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles$8;->access$0(Lcom/melodix/music/PreviewPlayerTiles$8;)Lcom/melodix/music/PreviewPlayerTiles;
+
+    move-result-object v0
+
+    invoke-static {v0, v4}, Lcom/melodix/music/PreviewPlayerTiles;->access$18(Lcom/melodix/music/PreviewPlayerTiles;Z)V
+
+    const-string v0, "lecture=non-confirmee:travail-remplace"
+
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$13(Ljava/lang/String;)V
+
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$8$1;->this$1:Lcom/melodix/music/PreviewPlayerTiles$8;
+
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles$8;->access$0(Lcom/melodix/music/PreviewPlayerTiles$8;)Lcom/melodix/music/PreviewPlayerTiles;
+
+    move-result-object v0
+
+    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerTiles$8$1;->val$a:Landroid/app/Activity;
+
+    iget-object v2, p0, Lcom/melodix/music/PreviewPlayerTiles$8$1;->val$list:Landroid/widget/LinearLayout;
+
+    iget-object v3, p0, Lcom/melodix/music/PreviewPlayerTiles$8$1;->val$retry:Landroid/widget/Button;
+
+    invoke-static {v0, v1, v2, v3}, Lcom/melodix/music/PreviewPlayerTiles;->access$14(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
+
+    goto :goto_0
+
+    .line 205
     :cond_3
+    const-string v1, "status"
+
+    const-string v2, ""
+
+    invoke-virtual {v0, v1, v2}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v1
+
+    const-string v2, "done"
+
+    invoke-virtual {v1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v1
+
+    if-nez v1, :cond_4
+
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$8$1;->this$1:Lcom/melodix/music/PreviewPlayerTiles$8;
+
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles$8;->access$0(Lcom/melodix/music/PreviewPlayerTiles$8;)Lcom/melodix/music/PreviewPlayerTiles;
+
+    move-result-object v1
+
+    iget-object v2, p0, Lcom/melodix/music/PreviewPlayerTiles$8$1;->val$a:Landroid/app/Activity;
+
+    iget-object v3, p0, Lcom/melodix/music/PreviewPlayerTiles$8$1;->val$dialog:Landroid/app/Dialog;
+
+    iget-object v4, p0, Lcom/melodix/music/PreviewPlayerTiles$8$1;->val$list:Landroid/widget/LinearLayout;
+
+    iget-object v5, p0, Lcom/melodix/music/PreviewPlayerTiles$8$1;->val$retry:Landroid/widget/Button;
+
+    iget-wide v6, p0, Lcom/melodix/music/PreviewPlayerTiles$8$1;->val$serial:J
+
+    iget v0, p0, Lcom/melodix/music/PreviewPlayerTiles$8$1;->val$n:I
+
+    add-int/lit8 v8, v0, 0x1
+
+    invoke-static/range {v1 .. v8}, Lcom/melodix/music/PreviewPlayerTiles;->access$20(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;JI)V
+
+    goto/16 :goto_0
+
+    .line 206
+    :cond_4
+    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerTiles$8$1;->this$1:Lcom/melodix/music/PreviewPlayerTiles$8;
+
+    invoke-static {v1}, Lcom/melodix/music/PreviewPlayerTiles$8;->access$0(Lcom/melodix/music/PreviewPlayerTiles$8;)Lcom/melodix/music/PreviewPlayerTiles;
+
+    move-result-object v1
+
+    invoke-static {v1, v4}, Lcom/melodix/music/PreviewPlayerTiles;->access$18(Lcom/melodix/music/PreviewPlayerTiles;Z)V
+
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerTiles$8$1;->this$1:Lcom/melodix/music/PreviewPlayerTiles$8;
 
     invoke-static {v1}, Lcom/melodix/music/PreviewPlayerTiles$8;->access$0(Lcom/melodix/music/PreviewPlayerTiles$8;)Lcom/melodix/music/PreviewPlayerTiles;
@@ -192,7 +281,7 @@
 
     iget-object v4, p0, Lcom/melodix/music/PreviewPlayerTiles$8$1;->val$retry:Landroid/widget/Button;
 
-    invoke-static {v1, v2, v3, v4, v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$19(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;Lorg/json/JSONObject;)V
+    invoke-static {v1, v2, v3, v4, v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$24(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;Lorg/json/JSONObject;)V
 
-    goto :goto_0
+    goto/16 :goto_0
 .end method

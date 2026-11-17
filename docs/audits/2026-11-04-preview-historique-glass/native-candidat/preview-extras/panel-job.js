@@ -8,8 +8,12 @@
     if (kind !== 'lyrics' && kind !== 'devices') return JSON.stringify({status: 'done', ok: false, reason: 'kind'});
     if (action === 'poll') return JSON.stringify(jobs[kind] || {status: 'none'});
     if (action !== 'run' && action !== 'transfer') return JSON.stringify({status: 'none'});
-    if (jobs[kind] && jobs[kind].status === 'running' && Date.now() - jobs[kind].started < 8000) return JSON.stringify({status: 'busy'});
-    var job = jobs[kind] = {status: 'running', started: Date.now(), ok: false, reason: '', body: '', active: -1, synced: false, transferred: false, journal: []};
+    if (W.__melodixDrawerUnsafe) return JSON.stringify({status: 'blocked'});
+    if (W.__melodixDrawerLease && W.__melodixDrawerLease.status === 'running') return JSON.stringify({status: 'busy'});
+    var counter = Number(W.__melodixDrawerCounter);
+    W.__melodixDrawerCounter = isFinite(counter) && counter >= 0 && counter < 999999999 ? Math.floor(counter) + 1 : 1;
+    var job = jobs[kind] = {status: 'running', started: Date.now(), id: String(Date.now()) + ':' + W.__melodixDrawerCounter, ok: false, reason: '', body: '', active: -1, synced: false, transferred: false, journal: []};
+    W.__melodixDrawerLease = job;
     function log(c) { if (job.journal.length < 12) job.journal.push(c); }
     function text(n) { return String(n && n.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 300); }
     var specs = {
@@ -114,13 +118,17 @@
         sized.forEach(function(e) { try { if (e[1] === null) e[0].removeAttribute('style'); else e[0].setAttribute('style', e[1]); } catch (_) {} });
         sized = [];
     }
-    var b = null, wasOpen = true, openedHere = false;
+    var b = null, wasOpen = true, openedHere = false, finishing = false;
     function finish(ok, reason) {
+        if (finishing) return;
+        finishing = true;
         restoreSize();
         function done(closeOk) {
             if (openedHere) log(closeOk ? 'close:verified' : 'close:unverified');
             job.status = 'done'; job.ok = ok && closeOk;
             job.reason = closeOk ? (reason || '') : 'close-unverified';
+            if (!closeOk) W.__melodixDrawerUnsafe = true;
+            if (W.__melodixDrawerLease === job) W.__melodixDrawerLease = null;
         }
         if (!openedHere) { done(true); return; }
         // Only the same explicitly open trigger may be toggled back. Do not
@@ -131,26 +139,28 @@
             }
         } catch (_) { log('close-error'); }
         setTimeout(function() {
-            var remains = null;
-            try { remains = root(b); } catch (_) { }
-            var hidden = remains && (remains.closest('[hidden], [aria-hidden="true"]') ||
-                window.getComputedStyle(remains).display === 'none' || window.getComputedStyle(remains).visibility === 'hidden');
-            var after = button();
-            var explicitlyClosed = after && (after.getAttribute('aria-pressed') === 'false' || after.getAttribute('aria-expanded') === 'false' || after.getAttribute('data-active') === 'false') && !isOpen(after);
-            var clearlyClosed = explicitlyClosed && (!remains || !!hidden);
-            done(!!clearlyClosed);
+            try {
+                var remains = root(b);
+                var hidden = remains && (remains.closest('[hidden], [aria-hidden="true"]') ||
+                    window.getComputedStyle(remains).display === 'none' || window.getComputedStyle(remains).visibility === 'hidden');
+                var after = button();
+                var explicitlyClosed = after && (after.getAttribute('aria-pressed') === 'false' || after.getAttribute('aria-expanded') === 'false' || after.getAttribute('data-active') === 'false') && !isOpen(after);
+                var clearlyClosed = !rootAmbiguous && explicitlyClosed && (!remains || !!hidden);
+                done(!!clearlyClosed);
+            } catch (_) { done(false); }
         }, 150);
     }
     try {
         b = button(); var already = root(b);
-        if (rootAmbiguous) { log('root:ambiguous'); finish(false, 'ambiguous'); return JSON.stringify({status: 'started'}); }
-        if (b && (b.disabled || b.getAttribute('aria-disabled') === 'true') && !already) { log('button:disabled'); finish(false, 'disabled'); return JSON.stringify({status: 'started'}); }
-        if (!b && !already) { log(found > 1 ? 'button:ambiguous:' + Math.min(found, 9) : 'button:absent'); finish(false, found > 1 ? 'ambiguous' : 'absent'); return JSON.stringify({status: 'started'}); }
+        if (rootAmbiguous) { log('root:ambiguous'); finish(false, 'ambiguous'); return JSON.stringify({status: 'started', id: job.id}); }
+        if (b && (b.disabled || b.getAttribute('aria-disabled') === 'true') && !already) { log('button:disabled'); finish(false, 'disabled'); return JSON.stringify({status: 'started', id: job.id}); }
+        if (!b && !already) { log(found > 1 ? 'button:ambiguous:' + Math.min(found, 9) : 'button:absent'); finish(false, found > 1 ? 'ambiguous' : 'absent'); return JSON.stringify({status: 'started', id: job.id}); }
         wasOpen = !!already || (b && isOpen(b));
-        if (!wasOpen) { try { openedHere = true; b.click(); log('opened'); } catch (_) { log('open-error'); finish(false, 'command'); return JSON.stringify({status: 'started'}); } }
+        if (!wasOpen) { try { openedHere = true; b.click(); log('opened'); } catch (_) { log('open-error'); finish(false, 'command'); return JSON.stringify({status: 'started', id: job.id}); } }
         else log('already-open');
         var end = Date.now() + 4000, forced = false;
         (function step() {
+          try {
             var r = null;
             try { r = root(button() || b); } catch (_) { r = null; }
             var ready = r && (kind === 'lyrics' ? lyricLines(r).lines.length : deviceRows(r).length);
@@ -171,21 +181,24 @@
                 try { target[0].node.click(); log('transfer:click'); } catch (_) { log('transfer:error'); finish(false, 'command'); return; }
                 var until = Date.now() + 3000;
                 (function verify() {
+                  try {
                     var again = null;
                     try { var r2 = root(button() || b); again = r2 ? deviceRows(r2).filter(function(d) { return d.name === wanted; })[0] : null; } catch (_) { again = null; }
                     if (again && again.current) { log('transfer:verified'); job.transferred = true; finish(true, ''); return; }
                     if (Date.now() < until) { setTimeout(verify, 200); return; }
                     log('transfer:unverified'); finish(false, 'unverified');
+                  } catch (_) { finish(false, 'error'); }
                 })();
                 return;
             }
             job.body = rows.map(function(d) { return [d.name, d.type, d.current ? '1' : ''].join('\t'); }).join('\n');
             log('devices:' + rows.length);
             finish(true, '');
+          } catch (_) { finish(false, 'error'); }
         })();
-        return JSON.stringify({status: 'started'});
+        return JSON.stringify({status: 'started', id: job.id});
     } catch (_) {
         finish(false, 'error');
-        return JSON.stringify({status: 'started'});
+        return JSON.stringify({status: 'started', id: job.id});
     }
 })

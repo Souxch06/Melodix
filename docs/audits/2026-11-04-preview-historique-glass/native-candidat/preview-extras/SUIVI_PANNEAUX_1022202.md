@@ -20,3 +20,15 @@ Les tests et la garde des sept fichiers protégés ne remplacent pas le contrôl
 - Simulation JVM des tiroirs, scénarios de confidentialité, compilation UTF-8 et Smali recompilés : réussis.
 - Chaîne locale complète jusqu'à l'APK non signée : réussie ; contrôle des sept ressources protégées 9016 : 7/7.
 - Aucun résultat de téléphone, aucune validation du rendu réel ou de la fermeture d'une page `/queue`. **PARTIEL / BLOQUÉ** pour la garantie de fermeture et la disponibilité réelle ; aucune APK signée présentée comme corrigée sur cette seule base.
+
+## Poursuite autonome — travaux concurrents et fermeture anticipée
+
+- Reproduction : un deuxième appui pouvait recevoir `busy`, puis lire le résultat du premier travail comme s'il correspondait au second, y compris lors d'un transfert. Les travaux File/Paroles/Appareils partagent désormais un verrou en mémoire ; `busy` est affiché comme tel, sans interroger ni réutiliser l'ancien résultat.
+- Chaque travail reçoit un identifiant technique éphémère, sans donnée de piste ou de compte, absent du diagnostic copiable. Le natif refuse tout résultat dont l'identifiant diffère de celui du travail demandé.
+- Si le tiroir natif est fermé avant le résultat d'un travail identifié, une lecture passive et bornée de son état peut compléter le diagnostic, sans afficher son contenu, sans nouvelle action et sans écraser une demande plus récente. Si la page ou l'activité disparaît, le résultat reste inconnu.
+- Une fermeture non confirmée met les nouvelles opérations des trois tiroirs en sécurité jusqu'au rechargement de la page : pas de deuxième clic aveugle ni de transfert déclenché après ce constat. Les erreurs asynchrones sont également soldées comme non confirmées.
+- Le transfert et la fermeture sont rapportés séparément : un transfert vérifié avec fermeture incertaine ne devient pas un faux « transfert non vérifié » ; un appareil déjà actif n'est pas présenté comme nouvellement transféré.
+
+Ces protections ne constituent **pas** une garantie que la page Spotify se ferme dans tous les cas. En particulier, une navigation `/queue` sans contrôle de retour vérifiable demeure bloquante ; aucune navigation d'historique n'est inventée. Tests de simulation uniquement, aucun téléphone disponible.
+- Après un essai de fermeture, des racines multiples restent un état ambigu : même si le bouton paraît désactivé, la fermeture ne peut pas être déclarée vérifiée. Une fixture reproduit ce cas et vérifie le blocage des commandes suivantes.
+- Vérification locale finale : chaîne complète jusqu'à l'APK non signée réussie, 77 scénarios JS du lot lecteur/panneaux et simulation JVM, Smali décodé vérifié, sept ressources protégées 9016 identiques. Ceci ne valide ni le service Spotify réel ni la fermeture sur appareil.

@@ -451,3 +451,34 @@ test('devices: a panel originally open is read without clicking or closing it',a
  const dom=page('<button data-testid="control-button-connect" aria-expanded="true"></button><div data-testid="device-picker"><div data-testid="device-list-item" aria-selected="true"><span data-testid="device-name">Secret</span></div></div>');let clicks=0;dom.window.document.querySelector('button').onclick=()=>clicks++;
  run(dom,panel,'devices','run','');await settle(50);let out=run(dom,panel,'devices','poll');assert.equal(out.ok,true);assert.equal(clicks,0);assert.ok(out.journal.includes('already-open'));assert.ok(!JSON.stringify(out.journal).includes('Secret'));dom.window.close();
 });
+
+test('drawer jobs share a lease; a busy transfer must never run or reuse another result',async()=>{
+ const dom=page('<button data-testid="queue-button" aria-pressed="false"></button><button data-testid="control-button-connect" aria-expanded="false"></button><div id="slot"></div>');
+ const d=dom.window.document,q=d.querySelector('[data-testid=queue-button]'),c=d.querySelector('[data-testid=control-button-connect]');let connects=0;
+ q.onclick=()=>{q.setAttribute('aria-pressed','true');d.querySelector('#slot').innerHTML='<div data-testid="queue-page"><div data-testid="tracklist-row"><a href="/track/a">A</a></div></div>';};c.onclick=()=>connects++;
+ let first=run(dom,queue,'run');assert.match(first.id,/^\d+:\d+$/);let second=run(dom,panel,'devices','transfer','Private');assert.equal(second.status,'busy');assert.equal(connects,0);
+ await settle(500);let result=run(dom,queue,'poll');assert.equal(result.id,first.id);assert.equal(result.reason,'close-unverified');
+ assert.equal(run(dom,panel,'devices','transfer','Private').status,'blocked');assert.equal(connects,0);dom.window.close();
+});
+
+test('a completed safe drawer releases the shared lease for another drawer',async()=>{
+ const dom=page('<div data-testid="queue-page"><div data-testid="tracklist-row"><a href="/track/a">A</a></div></div><div data-testid="lyrics-container"><p>lyric</p></div>');
+ const q=run(dom,queue,'run');await settle(30);assert.equal(run(dom,queue,'poll').id,q.id);
+ const l=run(dom,panel,'lyrics','run','');assert.equal(l.status,'started');assert.notEqual(l.id,q.id);await settle(30);assert.equal(run(dom,panel,'lyrics','poll').id,l.id);dom.window.close();
+});
+
+test('queue: cleanup inspection errors settle and quarantine instead of leaving a job running',async()=>{
+ const dom=page('<button data-testid="queue-button" aria-pressed="false"></button><div id="slot"></div>');const d=dom.window.document,b=d.querySelector('button');let clicks=0;
+ b.onclick=()=>{clicks++;b.setAttribute('aria-pressed', clicks===1?'true':'false');d.querySelector('#slot').innerHTML='<div data-testid="queue-page"><div data-testid="tracklist-row"><a href="/track/x">A</a></div></div>';};
+ dom.window.getComputedStyle=()=>{throw new Error('synthetic style error')};const start=run(dom,queue,'run');await settle(500);const r=run(dom,queue,'poll');
+ assert.equal(r.id,start.id);assert.equal(r.status,'done');assert.equal(r.reason,'close-unverified');assert.equal(run(dom,panel,'devices','run','').status,'blocked');dom.window.close();
+});
+
+
+test('queue: ambiguous roots after a close attempt are never reported closed',async()=>{
+ const dom=page('<button data-testid="queue-button" aria-pressed="false"></button><div id="slot"></div>');
+ const d=dom.window.document,b=d.querySelector('button');let clicks=0;
+ b.onclick=()=>{clicks++;if(clicks===1){b.setAttribute('aria-pressed','true');d.querySelector('#slot').innerHTML='<div data-testid="queue-page"><div data-testid="tracklist-row"><a href="/track/x">A</a></div></div>';}
+ else{b.setAttribute('aria-pressed','false');d.querySelector('#slot').innerHTML='<div data-testid="queue-page"></div><div data-testid="queue-view"></div>';}};
+ run(dom,queue,'run');await settle(500);const r=run(dom,queue,'poll');assert.equal(r.ok,false);assert.equal(r.reason,'close-unverified');assert.equal(clicks,2);assert.equal(run(dom,panel,'lyrics','run','').status,'blocked');dom.window.close();
+});

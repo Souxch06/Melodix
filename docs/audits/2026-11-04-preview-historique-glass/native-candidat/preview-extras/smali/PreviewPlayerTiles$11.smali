@@ -40,7 +40,7 @@
     .locals 0
 
     .prologue
-    .line 251
+    .line 264
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$11;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerTiles$11;->val$ask:Landroid/app/Dialog;
@@ -68,7 +68,7 @@
     .locals 8
 
     .prologue
-    .line 251
+    .line 264
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$11;->val$ask:Landroid/app/Dialog;
 
     invoke-virtual {v0}, Landroid/app/Dialog;->dismiss()V
@@ -89,7 +89,7 @@
 
     iget-object v7, p0, Lcom/melodix/music/PreviewPlayerTiles$11;->val$name:Ljava/lang/String;
 
-    invoke-static/range {v0 .. v7}, Lcom/melodix/music/PreviewPlayerTiles;->access$21(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
+    invoke-static/range {v0 .. v7}, Lcom/melodix/music/PreviewPlayerTiles;->access$26(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
 
     return-void
 .end method

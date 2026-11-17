@@ -46,33 +46,53 @@ stubs.update({
   Handler.advance(401);int lc=c.G.calls;t.children.get(1).performClick();Dialog lyricsDialog=Dialog.last;ok(lyricsDialog.shown);ok(c.root.getVisibility()==original);ok(c.G.calls==lc+2);ok(c.G.js.contains("\\"lyrics\\""));
   LinearLayout ls=(LinearLayout)lyricsDialog.content;LinearLayout ll=(LinearLayout)((ScrollView)ls.children.get(2)).child;
   c.G.replyCall(lc,"reason=observed;roots=1;rows=2;buttons=1;roles=2;testids=3");ok(PreviewPlayerTiles.diagnosticReport().contains("lignes=2"));
-  c.G.replyCall(lc+1,"status=started");Handler.advance(250);c.G.reply("status=done;ok=true;body=Ligne un\\nLigne deux;active=1;journal=opened>lines:2:sync>closed");
+  c.G.replyCall(lc+1,"status=started;id=100:1");Handler.advance(250);c.G.reply("status=done;id=100:1;ok=true;body=Ligne un\\nLigne deux;active=1;journal=opened>lines:2:sync>closed");
   ok(((TextView)ll.children.get(0)).text.equals("Ligne un")&&((TextView)ll.children.get(1)).text.equals("Ligne deux"));ok(PreviewPlayerTiles.diagnosticReport().contains("lines:2:sync"));
-  ((Button)ls.children.get(3)).performClick();c.G.reply("status=started");Handler.advance(250);c.G.reply("status=done;ok=false;reason=panel");ok(((TextView)ll.children.get(0)).text.contains("Paroles indisponibles"));
+  ((Button)ls.children.get(3)).performClick();c.G.reply("status=started;id=100:1");Handler.advance(250);c.G.reply("status=done;id=100:1;ok=false;reason=panel");ok(((TextView)ll.children.get(0)).text.contains("Paroles indisponibles"));
   View handle=ls.children.get(0);handle.touch.onTouch(handle,new MotionEvent(0,100));handle.touch.onTouch(handle,new MotionEvent(1,400));ok(!lyricsDialog.shown);
   // Devices: list with active device; a transfer needs an explicit confirmation.
   Handler.advance(401);int dc=c.G.calls;t.children.get(2).performClick();Dialog devicesDialog=Dialog.last;ok(c.G.calls==dc+2);ok(c.root.getVisibility()==original);
   LinearLayout ds=(LinearLayout)devicesDialog.content;LinearLayout dl=(LinearLayout)((ScrollView)ds.children.get(2)).child;
-  c.G.replyCall(dc+1,"status=started");Handler.advance(250);c.G.reply("status=done;ok=true;body=Salon\\tEnceinte\\t\\nCe navigateur\\t\\t1;journal=opened>devices:2>closed");
+  c.G.replyCall(dc+1,"status=started;id=100:1");Handler.advance(250);c.G.reply("status=done;id=100:1;ok=true;body=Salon\\tEnceinte\\t\\nCe navigateur\\t\\t1;journal=opened>devices:2>closed");
   Button salon=(Button)dl.children.get(0),self=(Button)dl.children.get(1);ok(salon.text.equals("Salon\\nEnceinte"));ok(self.text.contains("Actif"));
   int before=c.G.calls;salon.performClick();ok(c.G.calls==before);Dialog ask=Dialog.last;ok(ask!=devicesDialog&&ask.shown);
   LinearLayout box=(LinearLayout)ask.content;((Button)box.children.get(2)).performClick();ok(c.G.calls==before+1);ok(c.G.js.contains("\\"transfer\\"")&&c.G.js.contains("\\"Salon\\""));
-  c.G.reply("status=started");Handler.advance(250);c.G.reply("status=done;ok=true;transferred=true");ok(Toast.message.contains("transférée (vérifié)"));
+  c.G.reply("status=started;id=100:1");Handler.advance(250);c.G.reply("status=done;id=100:1;ok=true;transferred=true");ok(Toast.message.contains("transférée (vérifié)"));
+  // Re-read devices, then separate transfer confirmation from uncertain cleanup.
+  c.G.reply("status=started;id=100:2");Handler.advance(250);c.G.reply("status=done;id=100:2;ok=true;body=Salon\\tEnceinte\\t\\nCe navigateur\\t\\t1;journal=opened>devices:2>closed");
+  ((Button)dl.children.get(0)).performClick();ask=Dialog.last;box=(LinearLayout)ask.content;((Button)box.children.get(2)).performClick();
+  c.G.reply("status=started;id=100:3");Handler.advance(250);int beforeCloseWarning=c.G.calls;
+  c.G.reply("status=done;id=100:3;ok=false;transferred=true;reason=close-unverified;journal=transfer:verified>close:unverified");
+  ok(Toast.message.contains("Transfert confirmé")&&Toast.message.contains("fermeture non confirmée"));ok(c.G.calls==beforeCloseWarning);ok(((TextView)dl.children.get(0)).text.contains("Fermeture"));
   devicesDialog.dismiss();
   // Queue: skeleton, one page job, polling, then now-playing and up-next rows.
   Handler.advance(401);int calls=c.G.calls;t.children.get(0).performClick();ok(Dialog.last.shown);ok(c.root.getVisibility()==original);ok(c.G.calls==calls+2);ok(c.G.js.contains("\\"run\\""));
   LinearLayout sheet=(LinearLayout)Dialog.last.content;LinearLayout list=(LinearLayout)((ScrollView)sheet.children.get(2)).child;Button retry=(Button)sheet.children.get(3);
-  ok(list.children.size()==4&&!retry.enabled);c.G.replyCall(calls+1,"status=started");Handler.advance(250);ok(c.G.js.contains("\\"poll\\""));c.G.reply("status=running");Handler.advance(250);
-  c.G.reply("status=done;ok=true;now=Titre A\\tArtiste A\\t3:21;next=Titre B\\tArtiste B\\t\\nTitre C\\t\\t1:00:00;journal=opened>rows:3>closed");
+  ok(list.children.size()==4&&!retry.enabled);c.G.replyCall(calls+1,"status=started;id=100:1");Handler.advance(250);ok(c.G.js.contains("\\"poll\\""));c.G.reply("status=running;id=100:1");Handler.advance(250);
+  c.G.reply("status=done;id=100:1;ok=true;now=Titre A\\tArtiste A\\t3:21;next=Titre B\\tArtiste B\\t\\nTitre C\\t\\t1:00:00;journal=opened>rows:3>closed");
   ok(((TextView)list.children.get(0)).text.equals("En cours de lecture"));ok(((TextView)list.children.get(1)).text.equals("Titre A\\nArtiste A · 3:21"));ok(((TextView)list.children.get(2)).text.equals("À suivre"));
   ok(((TextView)list.children.get(3)).text.equals("Titre B\\nArtiste B"));ok(((TextView)list.children.get(4)).text.equals("Titre C\\n1:00:00"));ok(retry.enabled);
   ok(PreviewPlayerTiles.diagnosticReport().contains("opened>rows:3>closed"));ok(!PreviewPlayerTiles.diagnosticReport().contains("Titre"));
+  // A busy old job is not polled or mistaken for the new request.
+  retry.performClick();int busyCalls=c.G.calls;c.G.reply("status=busy");Handler.advance(250);
+  ok(((TextView)list.children.get(0)).text.contains("déjà en cours"));ok(c.G.calls==busyCalls);
   // Failure: short French message and Réessayer, never the WebView.
-  retry.performClick();c.G.reply("status=started");Handler.advance(250);c.G.reply("status=done;ok=false;reason=panel;journal=button:absent");ok(((TextView)list.children.get(0)).text.equals("File indisponible"));ok(retry.enabled);ok(c.root.getVisibility()==original);Dialog.last.dismiss();
+  retry.performClick();c.G.reply("status=started;id=100:1");Handler.advance(250);c.G.reply("status=done;id=100:1;ok=false;reason=panel;journal=button:absent");ok(((TextView)list.children.get(0)).text.equals("File indisponible"));ok(retry.enabled);ok(c.root.getVisibility()==original);Dialog.last.dismiss();
   // An unresponsive page is bounded; a late reply after closing is ignored.
   Handler.advance(401);t.children.get(0).performClick();sheet=(LinearLayout)Dialog.last.content;list=(LinearLayout)((ScrollView)sheet.children.get(2)).child;android.webkit.ValueCallback<String> late=c.G.cb;
-  c.G.reply("status=started");Handler.advance(250);late=c.G.cb;Handler.advance(8001); // queue deadline is 8 s (the page job waits up to 4.5 s)
-  ok(((TextView)list.children.get(0)).text.equals("File indisponible"));Dialog.last.dismiss();late.onReceiveValue("status=done;ok=true;now=Late");ok(((TextView)list.children.get(0)).text.equals("File indisponible"));
+  c.G.reply("status=started;id=100:1");Handler.advance(250);late=c.G.cb;Handler.advance(8001); // queue deadline is 8 s (the page job waits up to 4.5 s)
+  ok(((TextView)list.children.get(0)).text.equals("File indisponible"));Dialog.last.dismiss();late.onReceiveValue("status=done;id=100:1;ok=true;now=Late");ok(((TextView)list.children.get(0)).text.equals("File indisponible"));
+  // Dismiss while a known job is running: only its later status is retained,
+  // with no body or device/track data and no change to the dismissed view.
+  long savedClock=SystemClock.t;Handler.clear();SystemClock.t=savedClock;Handler.advance(401);t.children.get(1).performClick();Dialog early=Dialog.last;int beforeEarly=c.G.calls;
+  c.G.reply("status=started;id=100:1");early.dismiss();Handler.advance(250);
+  ok(c.G.calls==beforeEarly+1&&c.G.js.contains("\\"poll\\""));
+  c.G.reply("status=done;id=100:1;ok=false;reason=close-unverified;body=privatewords;journal=opened>privatewords>close:unverified");
+  ok(PreviewPlayerTiles.diagnosticReport().contains("close:unverified"));ok(!PreviewPlayerTiles.diagnosticReport().contains("privatewords"));
+  // A new screen must never render a replaced job's result.
+  savedClock=SystemClock.t;Handler.clear();SystemClock.t=savedClock;Handler.advance(401);t.children.get(0).performClick();sheet=(LinearLayout)Dialog.last.content;list=(LinearLayout)((ScrollView)sheet.children.get(2)).child;
+  c.G.reply("status=started;id=100:1");Handler.advance(250);c.G.reply("status=done;id=100:2;ok=true;now=privateothertrack");
+  ok(!((TextView)list.children.get(0)).text.contains("privateothertrack"));ok(PreviewPlayerTiles.diagnosticReport().contains("travail-remplace"));Dialog.last.dismiss();
   c.G.setCalls=0;Handler.clear();
   PreviewPlayerVolume volume=(PreviewPlayerVolume)t.children.get(3);volume.onAttachedToWindow();Handler.step();ok(c.G.js.contains("query"));c.G.reply("ok=true;percent=45");ok(volume.enabled&&volume.text.contains("45 %"));
   volume.performClick();Dialog d=Dialog.last;ok(d.shown);LinearLayout l=(LinearLayout)d.content;LinearLayout card=(LinearLayout)l.children.get(3), actions=(LinearLayout)l.children.get(4);SeekBar bar=(SeekBar)card.children.get(1);bar.listener.onStartTrackingTouch(bar);
