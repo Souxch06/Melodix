@@ -519,7 +519,7 @@
 .end method
 
 .method private breathe(Landroid/app/Activity;)V
-    .locals 4
+    .locals 2
 
     .line 159
     const v0, 0x7f09023e
@@ -550,11 +550,11 @@
 
     .line 161
     :goto_0
-    if-eqz v0, :cond_a
+    if-eqz v0, :cond_6
 
     if-nez p1, :cond_1
 
-    goto/16 :goto_7
+    goto :goto_4
 
     .line 162
     :cond_1
@@ -581,10 +581,6 @@
 
     move-result v1
 
-    const/4 v2, 0x0
-
-    const/4 v3, 0x1
-
     if-nez v1, :cond_4
 
     const-string v1, "Lecture demand\u00e9e"
@@ -598,13 +594,13 @@
     goto :goto_2
 
     :cond_3
-    move v0, v2
+    const/4 v0, 0x0
 
     goto :goto_3
 
     :cond_4
     :goto_2
-    move v0, v3
+    const/4 v0, 0x1
 
     .line 164
     :goto_3
@@ -624,105 +620,32 @@
 
     .line 165
     :cond_5
-    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerChrome;->artPlaying:Ljava/lang/Boolean;
-
-    if-nez v1, :cond_6
-
-    move v2, v3
-
-    :cond_6
     invoke-static {v0}, Ljava/lang/Boolean;->valueOf(Z)Ljava/lang/Boolean;
 
-    move-result-object v1
+    move-result-object v0
 
-    iput-object v1, p0, Lcom/melodix/music/PreviewPlayerChrome;->artPlaying:Ljava/lang/Boolean;
+    iput-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->artPlaying:Ljava/lang/Boolean;
 
-    iget v1, p0, Lcom/melodix/music/PreviewPlayerChrome;->artScale:F
-
-    if-eqz v0, :cond_7
-
-    const/high16 v0, 0x3f800000    # 1.0f
-
-    goto :goto_4
-
-    :cond_7
-    const v0, 0x3f666666    # 0.9f
-
-    :goto_4
-    mul-float/2addr v1, v0
+    iget v0, p0, Lcom/melodix/music/PreviewPlayerChrome;->artScale:F
 
     .line 166
     invoke-virtual {p1}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
 
-    move-result-object v0
+    move-result-object v1
 
-    invoke-virtual {v0}, Landroid/view/ViewPropertyAnimator;->cancel()V
-
-    .line 167
-    if-nez v2, :cond_9
-
-    sget v0, Landroid/os/Build$VERSION;->SDK_INT:I
-
-    const/16 v2, 0x1a
-
-    if-lt v0, v2, :cond_8
-
-    invoke-static {}, Landroid/animation/ValueAnimator;->areAnimatorsEnabled()Z
-
-    move-result v0
-
-    if-nez v0, :cond_8
-
-    goto :goto_5
-
-    .line 168
-    :cond_8
-    invoke-virtual {p1}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
-
-    move-result-object p1
-
-    invoke-virtual {p1, v1}, Landroid/view/ViewPropertyAnimator;->scaleX(F)Landroid/view/ViewPropertyAnimator;
-
-    move-result-object p1
-
-    invoke-virtual {p1, v1}, Landroid/view/ViewPropertyAnimator;->scaleY(F)Landroid/view/ViewPropertyAnimator;
-
-    move-result-object p1
-
-    const-wide/16 v0, 0x1a4
-
-    invoke-virtual {p1, v0, v1}, Landroid/view/ViewPropertyAnimator;->setDuration(J)Landroid/view/ViewPropertyAnimator;
-
-    move-result-object p1
-
-    new-instance v0, Landroid/view/animation/OvershootInterpolator;
-
-    const v1, 0x3f99999a    # 1.2f
-
-    invoke-direct {v0, v1}, Landroid/view/animation/OvershootInterpolator;-><init>(F)V
-
-    invoke-virtual {p1, v0}, Landroid/view/ViewPropertyAnimator;->setInterpolator(Landroid/animation/TimeInterpolator;)Landroid/view/ViewPropertyAnimator;
-
-    move-result-object p1
-
-    invoke-virtual {p1}, Landroid/view/ViewPropertyAnimator;->start()V
-
-    goto :goto_6
+    invoke-virtual {v1}, Landroid/view/ViewPropertyAnimator;->cancel()V
 
     .line 167
-    :cond_9
-    :goto_5
-    invoke-virtual {p1, v1}, Landroid/view/View;->setScaleX(F)V
+    invoke-virtual {p1, v0}, Landroid/view/View;->setScaleX(F)V
 
-    invoke-virtual {p1, v1}, Landroid/view/View;->setScaleY(F)V
+    invoke-virtual {p1, v0}, Landroid/view/View;->setScaleY(F)V
 
     .line 169
-    :goto_6
     return-void
 
     .line 161
-    :cond_a
-    :goto_7
+    :cond_6
+    :goto_4
     return-void
 .end method
 

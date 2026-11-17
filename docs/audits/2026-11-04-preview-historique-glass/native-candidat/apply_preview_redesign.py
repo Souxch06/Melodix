@@ -62,14 +62,40 @@ DRAWABLES = {
 }
 
 
+LAYOUTS = ('res/layout/activity_main.xml', 'res/layout-w600dp/activity_main.xml',
+           'res/layout-land/activity_main.xml', 'res/layout-w600dp-land/activity_main.xml')
+RESTYLE = '<com.melodix.music.PreviewUiRestyle android:layout_width="0.0dip" android:layout_height="0.0dip" />'
+
+
+def add_restyler(xml):
+    """Insert the zero-size restyler as the first child of nativeRoot."""
+    if 'PreviewUiRestyle' in xml:
+        raise ValueError('restyler already present')
+    at = xml.find('android:id="@id/nativeRoot"')
+    if at < 0 or xml.count('android:id="@id/nativeRoot"') != 1:
+        raise ValueError('nativeRoot not found once')
+    end = xml.find('>', at)
+    if end < 0 or xml[end - 1] == '/':
+        raise ValueError('nativeRoot is not a container')
+    return xml[:end + 1] + '\n' + RESTYLE + xml[end + 1:]
+
+
 def apply(root):
+    texts = {}
+    for name in LAYOUTS:
+        path = Path(root) / name
+        if not path.is_file():
+            raise ValueError('missing layout, no changes made: ' + name)
+        texts[name] = add_restyler(path.read_text(encoding='utf-8'))
     base = Path(root) / 'res' / 'drawable'
     missing = [n for n in DRAWABLES if not (base / f'{n}.xml').is_file()]
     if missing:
         raise ValueError('missing drawables, no changes made: ' + ', '.join(missing))
     for name, xml in DRAWABLES.items():
         (base / f'{name}.xml').write_text('<?xml version="1.0" encoding="utf-8"?>\n' + xml + '\n', encoding='utf-8')
-    print('preview redesign applied to %d drawables' % len(DRAWABLES))
+    for name, text in texts.items():
+        (Path(root) / name).write_text(text, encoding='utf-8')
+    print('preview redesign applied to %d drawables and %d layouts' % (len(DRAWABLES), len(texts)))
 
 
 if __name__ == '__main__':

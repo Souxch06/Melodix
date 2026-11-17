@@ -162,7 +162,7 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         CharSequence d=play.getContentDescription();String t=d==null?"":d.toString();
         boolean playing=t.startsWith("Mettre en pause")||t.startsWith("Lecture demandée");
         if(artPlaying!=null&&artPlaying==playing)return;
-        boolean first=artPlaying==null;artPlaying=playing;float target=artScale*(playing?1f:0.9f);
+        boolean first=true;artPlaying=playing;float target=artScale; // no zoom on play/pause
         card.animate().cancel();
         if(first||(Build.VERSION.SDK_INT>=26&&!ValueAnimator.areAnimatorsEnabled())){card.setScaleX(target);card.setScaleY(target);}
         else card.animate().scaleX(target).scaleY(target).setDuration(420).setInterpolator(new android.view.animation.OvershootInterpolator(1.2f)).start();
