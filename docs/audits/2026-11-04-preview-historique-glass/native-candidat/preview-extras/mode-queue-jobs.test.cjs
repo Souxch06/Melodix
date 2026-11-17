@@ -395,3 +395,16 @@ test('like: bar title linking to the album with ?highlight=spotify:track:ID give
   run(dom, mode, 'like', 'run', 'false', 'Titre', 'track:abc'); await settle(1500);
   assert.equal(clicks, 1);
 });
+
+test('like: Spotify "+" button (generic "Ajouter…" label, aria-checked) with album-only bar link adds once; title mismatch never clicks', async () => {
+  const dom = page(`<aside data-testid="now-playing-bar"><a data-testid="context-item-link" href="/album/al9">Titre</a><a href="/artist/z">Artiste</a><button aria-label="Ajouter à la playlist" aria-checked="false">+</button><button aria-label="Ajouter à la file d'attente">q</button></aside>`);
+  const b = dom.window.document.querySelectorAll('button')[0]; let clicks = 0;
+  b.addEventListener('click', () => { clicks++; b.setAttribute('aria-checked', 'true'); });
+  run(dom, mode, 'like', 'run', 'false', 'Autre titre', 'album:al9'); await settle(1500);
+  assert.equal(clicks, 0);
+  run(dom, mode, 'like', 'run', 'false', 'Titre', 'album:al9'); await settle(1500);
+  const out = run(dom, mode, 'like', 'poll', 'unknown', 'Titre', 'album:al9');
+  assert.equal(clicks, 1); assert.equal(out.state, 'true');
+  run(dom, mode, 'like', 'run', 'true', 'Titre', 'album:al9'); await settle(1500);
+  assert.equal(clicks, 1);
+});

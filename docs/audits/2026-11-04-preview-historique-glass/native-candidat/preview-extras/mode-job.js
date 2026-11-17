@@ -53,11 +53,14 @@
         labels.like.off = {test: function(l) { return off.test(l) || (word.test(l) && /^(ajouter|add|enregistrer|save|añadir|adicionar|hinzufügen|zu)\b/i.test(l)); }};
         labels.like.on = {test: function(l) { return on.test(l) || (word.test(l) && /^(ajouté|retirer|supprimer|remove|enregistré|saved|added|quitar|remover|entfernen)/i.test(l)); }};
     })();
+    // Spotify's "+" save button: generic "Ajouter..." label, state in aria-checked.
+    function genericAdd(l) { return /^(ajouter|add|enregistrer|save)\b/i.test(l) && !/(titres likés|liked songs|bibliothèque|library|file d['’]attente|queue)/i.test(l); }
     function find() {
         var list = Array.from(document.querySelectorAll('button, [role="button"], [role="switch"]')).filter(function(b) {
             if (!b.isConnected) return false;
             var l = label(b);
             return ids[kind].test(testid(b)) || labels[kind].off.test(l) || labels[kind].on.test(l) ||
+                (kind === 'like' && b.hasAttribute('aria-checked') && genericAdd(l)) ||
                 (kind !== 'like' && neutral.test(l) && (kind === 'shuffle' ? /al[ée]atoire|shuffle/i : /r[ée]p[ée]t|repeat/i).test(l));
         });
         if (kind === 'like') {
@@ -88,6 +91,7 @@
                 b.matches(':disabled') || b.closest('[aria-disabled="true"], fieldset:disabled') ||
                 (checked !== null && pressed !== null && checked !== pressed)) return 'unknown';
             if (raw !== null && raw !== 'true' && raw !== 'false') return 'unknown';
+            if (checked !== null && genericAdd(l)) return raw;
             if (raw === null) raw = on ? 'true' : off ? 'false' : 'unknown';
             if ((raw === 'false' && (on || remove)) || (raw === 'true' && off)) return 'unknown';
             // An unlabelled generic add-button may open a playlist picker.
@@ -103,7 +107,9 @@
         var m = /^(?:https:\/\/open\.spotify\.com)?\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\/)?(track|episode)\/([a-z0-9]+)\/?(?:[?#].*)?$/i.exec(h);
         if (m) return m;
         var a = /^(?:https:\/\/open\.spotify\.com)?\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\/)?album\/[a-z0-9]+\/?\?(?:[^#]*&)?highlight=spotify(?::|%3a)(track)(?::|%3a)([a-z0-9]+)(?:[&#].*)?$/i.exec(h);
-        return a ? [a[0], a[1], a[2]] : null;
+        if (a) return [a[0], a[1], a[2]];
+        var al = /^(?:https:\/\/open\.spotify\.com)?\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\/)?(album)\/([a-z0-9]+)\/?(?:[?#].*)?$/i.exec(h);
+        return al ? [al[0], al[1], al[2]] : null;
     }
     function identityMatches() {
         if (!expectedTitle || !expectedTrack) return false;

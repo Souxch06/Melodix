@@ -24,6 +24,8 @@
         labels.like.off = {test: function(l) { return off.test(l) || (word.test(l) && /^(ajouter|add|enregistrer|save|añadir|adicionar|hinzufügen|zu)\b/i.test(l)); }};
         labels.like.on = {test: function(l) { return on.test(l) || (word.test(l) && /^(ajouté|retirer|supprimer|remove|enregistré|saved|added|quitar|remover|entfernen)/i.test(l)); }};
     })();
+    // Spotify's "+" save button: generic "Ajouter..." label, state in aria-checked.
+    function genericAdd(l) { return /^(ajouter|add|enregistrer|save)\b/i.test(l) && !/(titres likés|liked songs|bibliothèque|library|file d['’]attente|queue)/i.test(l); }
     var selector = kind === 'like' ?
         '[data-testid="now-playing-widget"] button, [data-testid="now-playing-bar"] button, [data-testid="now-playing-view"] button, [data-testid="now-playing-panel"] button, [data-testid="now-playing-widget"] [role="button"], [data-testid="now-playing-bar"] [role="button"], [data-testid="now-playing-view"] [role="button"], [data-testid="now-playing-panel"] [role="button"], [data-testid="now-playing-widget"] [role="switch"], [data-testid="now-playing-bar"] [role="switch"], [data-testid="now-playing-view"] [role="switch"], [data-testid="now-playing-panel"] [role="switch"]' :
         kind === 'shuffle' ? 'button[data-testid*="shuffle" i], button[aria-label], [role="button"][aria-label], [role="switch"][aria-label]' :
@@ -32,7 +34,7 @@
         if (!b.isConnected) return false;
         var id=String(b.getAttribute('data-testid')||'').toLowerCase();
         var label=String(b.getAttribute('aria-label')||'').trim();
-        if (kind === 'like') return /^(add-button|remove-button|add-to-library-button|remove-from-library-button)$/.test(id) || labels.like.off.test(label) || labels.like.on.test(label);
+        if (kind === 'like') return /^(add-button|remove-button|add-to-library-button|remove-from-library-button)$/.test(id) || labels.like.off.test(label) || labels.like.on.test(label) || (b.hasAttribute('aria-checked') && genericAdd(label));
         if (kind === 'repeat') return id==='control-button-repeat' || labels.repeat.off.test(label) || labels.repeat.on.test(label);
         return /shuffle/.test(id) || labels.shuffle.off.test(label) || labels.shuffle.on.test(label);
     });
@@ -46,7 +48,10 @@
         var m = /^(?:https:\/\/open\.spotify\.com)?\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\/)?(track|episode)\/([a-z0-9]+)\/?(?:[?#].*)?$/i.exec(h);
         if (m) return m;
         var a = /^(?:https:\/\/open\.spotify\.com)?\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\/)?album\/[a-z0-9]+\/?\?(?:[^#]*&)?highlight=spotify(?::|%3a)(track)(?::|%3a)([a-z0-9]+)(?:[&#].*)?$/i.exec(h);
-        return a ? [a[0], a[1], a[2]] : null;
+        if (a) return [a[0], a[1], a[2]];
+        // No track link at all: the album link plus the exact title is the identity.
+        var al = /^(?:https:\/\/open\.spotify\.com)?\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\/)?(album)\/([a-z0-9]+)\/?(?:[?#].*)?$/i.exec(h);
+        return al ? [al[0], al[1], al[2]] : null;
     }
     if (kind === 'like') {
         var anchors = Array.from(document.querySelectorAll('[data-testid="now-playing-widget"] a[href], [data-testid="now-playing-bar"] a[href]'));
@@ -91,6 +96,8 @@
         var removeId=/^(remove-button|remove-from-library-button)$/.test(testId);
         var addId=testId==='add-to-library-button';
         var offLabel=labels.like.off.test(label), onLabel=labels.like.on.test(label);
+        var generic=genericAdd(label) && (raw==='true'||raw==='false');
+        if (generic) offLabel=raw==='false', onLabel=raw==='true';
         if ((raw==='false' && (onLabel||removeId)) || (raw==='true' && offLabel)) {
             result.reason='conflict';return JSON.stringify(result);
         }
