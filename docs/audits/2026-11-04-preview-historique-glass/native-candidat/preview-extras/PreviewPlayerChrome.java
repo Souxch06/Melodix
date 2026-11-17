@@ -189,18 +189,42 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         View frame=p.findViewWithTag("previewPlayerArtFrame"),card=p.findViewWithTag("previewPlayerArtCard");
         if(frame==null||card==null||!(frame.getParent() instanceof LinearLayout))return;
         LinearLayout row=(LinearLayout)frame.getParent();
-        if(row.getOrientation()!=LinearLayout.HORIZONTAL||!(row.getParent() instanceof LinearLayout))return;
+        // Phone portrait layout (cover directly in the content column) is sized by sizeArtwork.
+        if(row==getParent()||!(row.getParent() instanceof LinearLayout))return;
+        boolean portrait=getResources().getConfiguration().orientation==1;
         ScrollView scroll=(ScrollView)p;if(!scroll.isFillViewport())scroll.setFillViewport(true);
         ViewGroup.LayoutParams lp=row.getLayoutParams();
         if(lp instanceof LinearLayout.LayoutParams&&((LinearLayout.LayoutParams)lp).weight!=1f){
-            LinearLayout.LayoutParams l=(LinearLayout.LayoutParams)lp;l.height=0;l.weight=1f;row.setLayoutParams(l);row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            LinearLayout.LayoutParams l=(LinearLayout.LayoutParams)lp;l.height=0;l.weight=1f;row.setLayoutParams(l);
         }
-        if(p.getPaddingLeft()!=dp(56)){p.setPadding(dp(56),p.getPaddingTop(),dp(56),p.getPaddingBottom());}
+        // Portrait: cover above the title, seek bar and buttons (one column).
+        int wantOrientation=portrait?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL;
+        if(row.getOrientation()!=wantOrientation){
+            row.setOrientation(wantOrientation);
+            row.setGravity(portrait?android.view.Gravity.CENTER:android.view.Gravity.CENTER_VERTICAL);
+            for(int i=0;i<row.getChildCount();i++){
+                View child=row.getChildAt(i);ViewGroup.LayoutParams cl=child.getLayoutParams();
+                if(!(cl instanceof LinearLayout.LayoutParams))continue;
+                LinearLayout.LayoutParams l=(LinearLayout.LayoutParams)cl;
+                if(portrait){l.width=ViewGroup.LayoutParams.MATCH_PARENT;l.weight=0;}
+                child.setLayoutParams(l);
+            }
+        }else if(!portrait)row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        int side_pad=portrait?dp(32):dp(56);
+        if(p.getPaddingLeft()!=side_pad){p.setPadding(side_pad,p.getPaddingTop(),side_pad,p.getPaddingBottom());}
         ViewGroup.LayoutParams fm=frame.getLayoutParams();
-        if(fm instanceof ViewGroup.MarginLayoutParams&&((ViewGroup.MarginLayoutParams)fm).rightMargin!=dp(48)){((ViewGroup.MarginLayoutParams)fm).rightMargin=dp(48);frame.setLayoutParams(fm);}
-        int h=row.getHeight()-dp(64),w=frame.getWidth();
+        if(fm instanceof ViewGroup.MarginLayoutParams){
+            ViewGroup.MarginLayoutParams m=(ViewGroup.MarginLayoutParams)fm;
+            int right=portrait?0:dp(48),bottom=portrait?dp(32):dp(12);
+            if(m.rightMargin!=right||m.bottomMargin!=bottom){m.rightMargin=right;m.bottomMargin=bottom;frame.setLayoutParams(m);}
+        }
+        // The seek bar uses negative side margins for its thumb: never clip it.
+        for(ViewParent v=a.findViewById(0x7f09023d)==null?null:a.findViewById(0x7f09023d).getParent();v instanceof ViewGroup&&v!=p.getParent();v=v.getParent()){
+            ((ViewGroup)v).setClipChildren(false);((ViewGroup)v).setClipToPadding(false);
+        }
+        int w=frame.getWidth(),h=portrait?(int)(row.getHeight()*0.5f):row.getHeight()-dp(64);
         if(h<=0||w<=0)return;
-        int side=Math.max(dp(120),Math.min(w,Math.min(h,dp(520))));
+        int side=Math.max(dp(120),Math.min(w,Math.min(h,dp(portrait?560:520))));
         ViewGroup.LayoutParams c=card.getLayoutParams(),f=frame.getLayoutParams();
         // The cover card keeps its layout limit (318dp) in minified builds; enlarge
         // it by scaling a square of that limit instead of changing its params.
@@ -209,7 +233,7 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         if(f.height!=side){f.height=side;frame.setLayoutParams(f);}
         float scale=(float)side/base;card.setTranslationY((side-base)/2f);
         if(Math.abs(scale-artScale)>0.01f){artScale=scale;artPlaying=null;}
-        sizeInfo="paysage, carré "+Math.round(side/getResources().getDisplayMetrics().density)+" dp, mesuré "+card.getWidth()+"×"+card.getHeight()+" px, échelle "+String.format("%.2f",artScale);
+        sizeInfo=(portrait?"portrait":"paysage")+", carré "+Math.round(side/getResources().getDisplayMetrics().density)+" dp, mesuré "+card.getWidth()+"×"+card.getHeight()+" px, échelle "+String.format("%.2f",artScale);
     }
     private static final class PressEffect implements View.OnTouchListener {
         private final boolean ownHaptic;

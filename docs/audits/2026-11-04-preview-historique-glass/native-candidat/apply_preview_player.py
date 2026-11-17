@@ -20,14 +20,14 @@ EXPECTED = {
     'res/layout-w600dp/activity_main.xml': '4d110f1df062fdf7676b9aa5e70146dd7ec148da3c0c614a553b5586ad5af8fe',
     'res/drawable/widget_progress_drawable.xml': '3a5f8f51ea984c7a8226d5acd69bf6b20383ca9622843d617b055c9fe18d772f',
 }
-SOURCE_SHA = '87ff8efbb2f268ab09e2141766c769f60a32548495e8b6ccf5ec917df9cde61b'
+SOURCE_SHA = 'c1d79d0b7b916fa71fa16e3029806f9493173c962b7f07eef6774b8ac5e53728'
 HELPER_SHA = {
-    'PreviewPlayerController$1.smali': 'a4bd434739e15f95710716206e6f67fcf9088d90f6a5ea710667b5b99e82e0f4',
-    'PreviewPlayerController$2.smali': '47c427951af4a3c2329b97514a14e1c49090e583b929b1ebcd69dd0982aad08e',
-    'PreviewPlayerController$3.smali': 'aa2a031ed731c8b0e4ac4b7084a7b44533969db661563a3d5b8e09b743e6cdbc',
-    'PreviewPlayerController$4.smali': '66541747c2dba174018907e2c6923ebfc1bc74215502f92fc20e9347aaa013e6',
-    'PreviewPlayerController$5.smali': 'f886b0e0ff1e9c469430a4d22b9853127c8118e76301c3e8ba1408cec44db4e7',
-    'PreviewPlayerController.smali': '4b319c1471e4ec0d2278e9accf411e15061543cf75f3c3979abaaa133ece1635',
+    'PreviewPlayerController$1.smali': '0edb195175e2f4bbb2f2662fcefc359330bc25ac8b93391acaa31c51cbf9176d',
+    'PreviewPlayerController$2.smali': '7f68d123ccc5d740e6536a0595ab7c9cea6328e033f6c4a1a249cdf372c64a41',
+    'PreviewPlayerController$3.smali': 'd818419550b987dde29e90010cae2a16d8242402f7b5d8f5bb5543100aec5af9',
+    'PreviewPlayerController$4.smali': '95b8eba7c2e3cfb1a7d0d388617504d20d0be8bf6a499aab854fe211334bd5e3',
+    'PreviewPlayerController$5.smali': '85e1b8a91c28bd551809455e82d8529f8fd29ad142ddfb07b0a4009f01390975',
+    'PreviewPlayerController.smali': 'b72ee71dc500bdeb714a3b123d8b0da7e945b9a5cc43434c114a824aad7aa05e',
 }
 
 def replace(text, old, new):

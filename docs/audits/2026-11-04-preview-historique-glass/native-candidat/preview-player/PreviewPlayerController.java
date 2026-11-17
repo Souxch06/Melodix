@@ -287,9 +287,14 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         View v = a.findViewById(id);
         if (v instanceof TextView && !value.contentEquals(((TextView) v).getText())) ((TextView) v).setText(value);
     }
+    // Display only: a short gap in observations (e.g. right after a pause) keeps
+    // the last shown time and bar for the same track instead of blanking them.
+    static final long HOLD_DISPLAY_MS = 6000;
+    private long lastShownAt = -1; // reset whenever the track identity changes
     private void renderProgress() {
         Activity a = activity.get(); if (a == null) return;
         double pos = position(now());
+        if (Double.isNaN(pos) && lastShownAt >= 0 && now() - lastShownAt < HOLD_DISPLAY_MS) return;
         if (Double.isNaN(pos)) {
             text(a, ELAPSED, "-:--"); text(a, DURATION, "-:--");
             setProgress(a, MINI, 0); setProgress(a, FULL, 0);
@@ -299,6 +304,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 ((TextView) remaining).setText("Temps restant : —");
             return;
         }
+        lastShownAt = now();
         long value = (long) Math.floor(pos), left = Math.max(0, duration - value);
         if (cachedElapsed != value / 1000) { cachedElapsed = value / 1000; elapsedText = clock(value); }
         if (cachedDuration != duration / 1000) { cachedDuration = duration / 1000; durationText = clock(duration); }
@@ -451,7 +457,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 String title = o.optString("track", ""), artist = o.optString("artist", "");
                 if (tupleIdentity && realMetadata(title) && realMetadata(artist) && (!identityTitle.equals(title) || !identityArtist.equals(artist))) {
                     cancelSeek(); valid = false; moving = false; tupleIdentity = false; glowSampleValid = false;
-                    measurementAt = measurementPosition = -1;
+                    measurementAt = measurementPosition = -1; lastShownAt = -1;
                 }
                 renderProgress(); renderButtons(); syncGlow();
                 return;
@@ -528,6 +534,8 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 cancelSeek(); independentObservationAt = independentObservation = -1;
                 valid = false; moving = false; previous = Double.NaN; resyncing = false;
                 resetDivergence(); measurementAt = measurementPosition = -1;
+                // Same title and artist (only the reported duration moved): keep the display hold.
+                if (!identityTitle.equals(title) || !identityArtist.equals(artist)) lastShownAt = -1;
             }
             if (identified) { identityTitle = title; identityArtist = artist; identityDuration = dur; tupleIdentity = true; }
             if (!uri.isEmpty() || changed) track = uri;

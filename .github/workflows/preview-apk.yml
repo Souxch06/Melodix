@@ -976,6 +976,9 @@ jobs:
             node --check "$work/assets/native_ui_shell.js"
             phase="apply preview aurora glass restyle"
             python3 "$audit/native-candidat/apply_preview_redesign.py" "$work"
+            phase="apply preview sharp player cover"
+            python3 "$audit/native-candidat/apply_preview_sharp_cover.py" "$work"
+            node --check "$work/assets/native_ui_shell.js"
           fi
           if [[ "$PLAYLIST_TAP_PATCH" == "true" ]]; then
             phase="apply required native playlist tap patch"

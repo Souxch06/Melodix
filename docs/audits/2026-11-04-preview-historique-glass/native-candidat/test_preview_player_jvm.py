@@ -199,6 +199,16 @@ public class ControllerTest {
   saved.setBoolean(null,false);SystemClock.time+=10000;PreviewPlayerController visual=new PreviewPlayerController(a);visual.activityResumed();
   visual.snapshot(sample("Visual","Artist",1000,229000,"paused",""));eq(b2.image,0x7f080122);eq(visual.tapPlayPause(),1);eq(b2.image,0x7f080121);yes(b2.description.contains("en attente"));
   visual.snapshot(sample("Visual","Artist",1000,229000,"playing",""));eq(b2.image,0x7f080121);eq(visual.tapPlayPause(),0);eq(b2.image,0x7f080122);yes(b2.description.contains("en attente"));
+  { // Display only: a brief gap after a pause keeps the last time and bar; a long gap or a new track blanks them.
+   Activity h=new Activity(); ProgressBar hm=new ProgressBar(); SeekBar hf=new SeekBar(); TextView he=new TextView(),hd=new TextView(); View hr=new View();
+   h.views.put(0x7f09024d,hm);h.views.put(0x7f09023d,hf);h.views.put(0x7f09024a,he);h.views.put(0x7f09024b,hd);h.views.put(0x7f090238,new ImageView());h.views.put(0x7f09023e,new ImageView());h.views.put(0x7f09023a,hr);
+   PreviewPlayerController g=new PreviewPlayerController(h);g.activityResumed();
+   g.snapshot(sample("Hold","Artist",60000,180000,"paused",""));Choreographer.frame();String shown=he.text;int bar=hm.progress;yes(!shown.equals("-:--")&&bar>0);
+   g.snapshot(sample("Hold","Artist",-1,181000,"paused",""));SystemClock.time+=2000;Handler.flush();Choreographer.frame();yes(he.text.equals(shown));eq(hm.progress,bar);
+   SystemClock.time+=PreviewPlayerController.HOLD_DISPLAY_MS;g.snapshot(sample("Hold","Artist",-1,181000,"paused",""));Choreographer.frame();yes(he.text.equals("-:--"));
+   g.snapshot(sample("Hold","Artist",61000,181000,"paused",""));Choreographer.frame();yes(!he.text.equals("-:--"));
+   g.snapshot(sample("Autre","Artist",-1,90000,"paused",""));Choreographer.frame();yes(he.text.equals("-:--"));
+  }
   System.out.println("Preview controller JVM simulation passed");
  }
 }''',
