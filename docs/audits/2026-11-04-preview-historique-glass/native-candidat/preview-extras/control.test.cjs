@@ -28,7 +28,7 @@ test('localized save control outside legacy position is clicked once only after 
 
 test('explicit diagnostics distinguish absent, disabled, unreadable and identity mismatch',()=>{const x=boot();try{
  let b=x.w.document.querySelector('[data-testid=control-button-shuffle]');b.disabled=true;assert.equal(q(x,'shuffle').reason,'disabled');b.disabled=false;b.removeAttribute('aria-checked');assert.equal(q(x,'shuffle').reason,'state');
- x.w.document.querySelector('a').remove();assert.equal(q(x,'like').reason,'identity');b.remove();assert.ok(['page','control'].includes(q(x,'shuffle').reason));
+ x.w.document.querySelector('a').remove();let np=q(x,'like');assert.equal(np.track,'');assert.equal(invoke(x,'like',np.state,np.track,np.title),false);b.remove();assert.ok(['page','control'].includes(q(x,'shuffle').reason));
  }finally{x.close()}});
 
 test('supported localized action labels do not invent state for unknown phrases',()=>{const x=boot();try{

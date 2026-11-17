@@ -102,7 +102,8 @@
             result.reason='conflict';return JSON.stringify(result);
         }
         if (raw==='false' && !offLabel && !addId) {result.reason='unverified';return JSON.stringify(result);}
-        if (!result.track || !result.title) {result.reason='identity';return JSON.stringify(result);}
+        // Display-only reads need no identity; a click (invoke) still does.
+        if ((!result.track || !result.title) && action !== 'query') {result.reason='identity';return JSON.stringify(result);}
     }
     if (raw === 'unknown') {result.reason='state';return JSON.stringify(result);}
     if (typeof button.click !== 'function') {result.reason='command';return JSON.stringify(result);}
