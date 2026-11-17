@@ -52,3 +52,14 @@ test('identity and view-opener probe returns counts only, never track or title',
  const st=JSON.parse(x.structure);assert.equal(st.track_links,1);assert.equal(st.track_named,1);assert.equal(st.track_generic,1);assert.equal(st.npv_opener,1);
  assert.ok(!JSON.stringify(x).includes('PRIVATE'));assert.ok(!JSON.stringify(x).includes('secret'));assert.ok(!JSON.stringify(x).includes('ArtistSecret'));
 });
+
+
+test('outside-player candidates are counted but never identified or acted upon',()=>{
+ const html=bar('<a href="/track/bar-private">Bar</a><button data-testid="add-button" aria-label="Add to your library"></button>')+'<div><button data-testid="remove-button" aria-label="Remove from your library">Private</button><a href="/track/secret123">Private track</a><button aria-label="PRIVATE USER">X</button></div>';
+ const x=run(html,'like'),st=JSON.parse(x.structure);assert.equal(st.outside_like_id,1);assert.equal(st.outside_like_label,1);assert.equal(st.outside_track_links,1);assert.equal(st.like,1);assert.ok(!JSON.stringify(x).includes('secret123'));assert.ok(!JSON.stringify(x).includes('PRIVATE'));assert.ok(!JSON.stringify(x).includes('Remove from'));
+});
+
+test('outside counts are bounded and do not promote unrelated candidates to a like',()=>{
+ const html=Array(120).fill('<button data-testid="add-button" aria-label="Add to your library"></button><a href="/track/a">x</a>').join('');const x=run(html,'like'),st=JSON.parse(x.structure);
+ assert.equal(st.outside_like_id,99);assert.equal(st.outside_like_label,99);assert.equal(st.outside_track_links,99);assert.equal(x.count,0);
+});

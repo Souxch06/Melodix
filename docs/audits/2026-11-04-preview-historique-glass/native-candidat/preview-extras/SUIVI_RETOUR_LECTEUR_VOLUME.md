@@ -17,3 +17,9 @@ Le nouveau retour indique que Like ne fonctionne toujours pas avec l'APK fournie
 - Tests JVM simulant le geste, la capture bornée, l'échec de capture, les icônes et le volume : réussis.
 - Chaîne locale jusqu'à l'APK non signée : réussie, 97 scénarios JS du lot lecteur/panneaux, contrôle Smali compilé et garde des sept fichiers 9016 : 7/7.
 - Aucune validation Android réelle de l'animation, du rendu des icônes ou d'un Like réussi. Aucune APK signée publiée sur cette base. L'état est **partiel**, et non une correction confirmée sur téléphone.
+
+## Poursuite du diagnostic Like
+
+La sonde passive compte désormais les boutons Like reconnus par identifiant ou libellé et les liens de piste **en dehors** des zones lecteur reconnues. Ces nombres sont plafonnés à 99, ne contiennent ni titre, ni lien, ni identifiant ni données de session, et peuvent correspondre à une playlist ou à une autre piste : ils ne déclenchent aucun clic et ne prouvent pas une identité. Ils permettent uniquement de distinguer un contrôle éventuellement présent ailleurs d'un contrôle non reconnu dans tout le document. La sécurité Like et la conclusion bloquée ci-dessus ne changent pas.
+
+Vérification locale de ce diagnostic : 99 scénarios JS du lot lecteur/panneaux, tests JVM et geste, décodage de l'APK non signée et garde 9016 7/7 réussis. Aucun résultat Like réel n'est établi par ces simulations.

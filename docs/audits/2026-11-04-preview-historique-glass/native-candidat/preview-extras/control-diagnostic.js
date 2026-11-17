@@ -49,6 +49,20 @@
             var id=String(b.getAttribute('data-testid')||''), l=String(b.getAttribute('aria-label')||'').trim();
             if(/^(control-button-npv|now-playing-view-button)$/i.test(id)||/^(now playing view|show now playing view|hide now playing view|vue « ?en cours de lecture ?»|afficher la vue en cours de lecture|masquer la vue en cours de lecture|en cours de lecture|ansicht „läuft gerade“|vista de reproducción|tela tocando agora)$/i.test(l))st.npv_opener++;
         });
+        // Counts outside player scopes help locate candidates only. They may
+        // belong to a playlist or another track and are NEVER actionable.
+        st.outside_like_id=0;st.outside_like_label=0;st.outside_track_links=0;
+        function inPlayer(n){return !!n.closest('[data-testid="now-playing-widget"], [data-testid="now-playing-bar"], [data-testid="now-playing-view"], [data-testid="now-playing-panel"], [data-testid="NPV"]');}
+        Array.from(document.querySelectorAll('button, [role="button"], [role="switch"]')).forEach(function(n){
+            if(!n.isConnected||inPlayer(n))return;
+            var id=String(n.getAttribute('data-testid')||''),label=String(n.getAttribute('aria-label')||'').trim();
+            if(specs.like.ids.test(id))st.outside_like_id++;
+            if(specs.like.off.test(label)||specs.like.on.test(label))st.outside_like_label++;
+        });
+        Array.from(document.querySelectorAll('a[href]')).forEach(function(a){
+            if(!a.isConnected||inPlayer(a))return;
+            if(/^(?:https:\/\/open\.spotify\.com)?\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\/)?(?:track|episode)\/[a-z0-9]+\/?(?:[?#].*)?$/i.test(String(a.getAttribute('href')||'')))st.outside_track_links++;
+        });
         Object.keys(st).forEach(function(k){st[k]=Math.min(st[k],99);});return JSON.stringify(st);
     }
     var spec=specs[kind], out={kind:kind==='shuffle'?'shuffle':kind==='like'?'like':kind==='repeat'?'repeat':'unknown',reason:'control',count:0,state:'unknown',label:'unknown',command:'unknown',disabled:false,smart:false,structure:structure()};
