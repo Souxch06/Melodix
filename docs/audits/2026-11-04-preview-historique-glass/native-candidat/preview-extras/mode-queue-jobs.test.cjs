@@ -379,3 +379,19 @@ test('generic bar track link allows only the known now-playing view and matching
  b.onclick=()=>{if(b.getAttribute('aria-pressed')==='false'){opened++;b.setAttribute('aria-pressed','true');d.querySelector('#npv').innerHTML='<aside data-testid="now-playing-view"><button data-testid="add-button" aria-label="Ajouter aux titres likés" aria-checked="false"></button></aside>';const like=d.querySelector('#npv button');like.onclick=()=>{added++;like.setAttribute('aria-checked','true');like.setAttribute('aria-label','Retirer des titres likés')}}else{closed++;b.setAttribute('aria-pressed','false');d.querySelector('#npv').innerHTML=''}};
  run(dom,mode,'like','run','unknown','Titre','track:x');await settle(400);assert.equal(added,1);assert.equal(opened,1);assert.equal(closed,1);assert.equal(run(dom,mode,'like','poll','unknown','Titre','track:x').outcome,'confirmed');dom.window.close();
 });
+
+test('like: bar title linking to the album with ?highlight=spotify:track:ID gives the identity; current wording works; a liked track is never clicked', async () => {
+  const dom = page(`<aside data-testid="now-playing-bar"><a data-testid="context-item-link" href="/album/x1?highlight=spotify:track:abc">Titre</a><a href="/artist/z">Artiste</a><button aria-label="Ajouter à Titres likés" aria-checked="false">+</button></aside>`);
+  const b = dom.window.document.querySelector('button'); let clicks = 0;
+  b.addEventListener('click', () => { clicks++; b.setAttribute('aria-checked', 'true'); b.setAttribute('aria-label', 'Ajouté à Titres likés'); });
+  run(dom, mode, 'like', 'run', 'false', 'Titre', 'track:abc'); await settle(1500);
+  const out = run(dom, mode, 'like', 'poll', 'unknown', 'Titre', 'track:abc');
+  assert.equal(clicks, 1); assert.equal(out.state, 'true');
+  run(dom, mode, 'like', 'run', 'true', 'Titre', 'track:abc'); await settle(1500);
+  assert.equal(clicks, 1);
+  // Another track highlighted: no click.
+  dom.window.document.querySelector('a').setAttribute('href', '/album/x1?highlight=spotify:track:zzz');
+  b.setAttribute('aria-checked', 'false'); b.setAttribute('aria-label', 'Ajouter à Titres likés');
+  run(dom, mode, 'like', 'run', 'false', 'Titre', 'track:abc'); await settle(1500);
+  assert.equal(clicks, 1);
+});

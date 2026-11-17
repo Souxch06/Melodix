@@ -29,7 +29,7 @@
         var links=Array.from(document.querySelectorAll('[data-testid="now-playing-widget"] a[href], [data-testid="now-playing-bar"] a[href]'));
         links.forEach(function(a){
             var h=String(a.getAttribute('href')||'');
-            if (!/^(?:https:\/\/open\.spotify\.com)?\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\/)?(?:track|episode)\/[a-z0-9]+\/?(?:[?#].*)?$/i.test(h)) return;
+            if (!/^(?:https:\/\/open\.spotify\.com)?\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\/)?(?:track|episode)\/[a-z0-9]+\/?(?:[?#].*)?$/i.test(h) && !/^(?:https:\/\/open\.spotify\.com)?\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\/)?album\/[a-z0-9]+\/?\?(?:[^#]*&)?highlight=spotify(?::|%3a)track(?::|%3a)[a-z0-9]+/i.test(h)) return;
             st.track_links++;if(String(a.textContent||'').trim())st.track_named++;
             if(!/^(context-item-link|nowplaying-track-link)$/i.test(String(a.getAttribute('data-testid')||'')))st.track_generic++;
         });

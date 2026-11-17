@@ -24,8 +24,15 @@
 # direct methods
 .method constructor <init>(Lcom/melodix/music/PreviewPlayerMode;)V
     .locals 0
+    .annotation system Ldalvik/annotation/MethodParameters;
+        accessFlags = {
+            0x8010
+        }
+        names = {
+            null
+        }
+    .end annotation
 
-    .prologue
     .line 272
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerMode$9;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
@@ -39,11 +46,10 @@
 .method public run()V
     .locals 1
 
-    .prologue
     .line 272
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode$9;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$32(Lcom/melodix/music/PreviewPlayerMode;)V
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$2900(Lcom/melodix/music/PreviewPlayerMode;)V
 
     return-void
 .end method
