@@ -1230,6 +1230,7 @@ jobs:
           phase='tests statiques de la garde'
           run_phase python3 "$audit/test_signed_candidate_gate.py"
           run_phase python3 "$audit/test_compare_9016_artifact.py"
+          run_phase python3 "$audit/test_fallback_reference_9016.py"
           if [ "$ref_ok" = true ]; then
             comparison_mode='artefact 9016 signé (octets identiques)'
             if gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/14156257401" > "$RUNNER_TEMP/reference-9016-meta.json" 2>/dev/null; then :; fi
@@ -1244,8 +1245,21 @@ jobs:
             phase='rapport du décodage'
             run_phase python3 "$audit/report_lot1_decoded_diff.py" "$RUNNER_TEMP/reference-9016-decoded" "$RUNNER_TEMP/historical-decoded" preview-output/decoded-files-vs-9016.txt
           else
-            comparison_mode="manifeste 9016 (référence artefact indisponible, HTTP $ref_code)"
-            echo "::warning title=Référence artefact indisponible::référence artefact indisponible, comparaison au manifeste 9016 (HTTP $ref_code)"
+            phase='prouver expiration ou absence de la référence 9016'
+            meta="$RUNNER_TEMP/reference-9016-meta.json"
+            listing="$RUNNER_TEMP/reference-9016-artifacts.json"
+            rm -f "$meta" "$listing"
+            if gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/14156257401" > "$meta" 2> "$RUNNER_TEMP/reference-9016-meta-error.txt"; then :; else rm -f "$meta"; fi
+            if [ "$ref_code" = 404 ] && [ ! -s "$meta" ]; then
+              if gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/runs/43701210947/artifacts?per_page=100" > "$listing" 2> "$RUNNER_TEMP/reference-9016-list-error.txt"; then :; else rm -f "$listing"; fi
+            fi
+            if fallback_reason="$(python3 "$audit/fallback_reference_9016.py" "$meta" "$listing" "$ref_code" 2> "$RUNNER_TEMP/fallback-9016-error.txt")"; then :; else
+              echo "::error title=Repli 9016 refusé::Échec téléchargement HTTP $ref_code ; $(cat "$RUNNER_TEMP/fallback-9016-error.txt")"
+              echo "Repli 9016 refusé : échec téléchargement HTTP $ref_code ; absence ou expiration non prouvée." >> "$GITHUB_STEP_SUMMARY"
+              exit 1
+            fi
+            comparison_mode="manifeste 9016 (référence $fallback_reason ; téléchargement HTTP $ref_code)"
+            echo "::warning title=Référence 9016 indisponible::Référence $fallback_reason ; comparaison au manifeste (HTTP $ref_code)"
             phase='tableau de comparaison au manifeste'
             run_phase python3 - "$audit" <<'PYMAN'
           import hashlib, sys, zipfile

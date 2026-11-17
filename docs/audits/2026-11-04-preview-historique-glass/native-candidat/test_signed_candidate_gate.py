@@ -39,6 +39,11 @@ class CandidateGate(unittest.TestCase):
         self.assertIn('diagnose_signed_9016.py', comparison)
         self.assertIn('steps.build_signed.outcome', gate)
         self.assertIn('test "$BUILD_OUTCOME" = success', gate)
+        self.assertIn('test_fallback_reference_9016.py', comparison)
+        self.assertIn('fallback_reference_9016.py', comparison)
+        self.assertIn('43701210947/artifacts?per_page=100', comparison)
+        self.assertIn('Repli 9016 refusé', comparison)
+        self.assertLess(comparison.index('fallback_reference_9016.py'), comparison.index('echo "verified=true"'))
         self.assertNotRegex(comparison, r'continue-on-error|\|\|\s*true')
         self.assertNotRegex(gate, r'continue-on-error|\|\|\s*true')
 
