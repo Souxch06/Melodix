@@ -30,3 +30,26 @@ pas le son et ne permet pas d'expliquer l'échec Like.
 - Les tests DOM/JVM sont des simulations. Le diagnostic fourni ne dit pas si
   le téléphone possède un lien générique ni un ouvreur de vue ; le correctif
   n'est donc pas présenté comme une réparation réelle confirmée.
+
+## Nouveau retour téléphone — Preview 1022194
+
+Le second diagnostic indique à nouveau `non envoyé : absent`, avec cette fois
+`piste_page=absente`, `titre_page=absent`, `track_links=0`, `track_named=0`,
+`track_generic=0`, `npv_opener=0`, `like=0`, `view=0`. Ces valeurs concernent
+les éléments et formats reconnus par la sonde dans les zones inspectées ; elles
+ne prouvent pas qu'aucun contrôle n'existe ailleurs dans la page Spotify.
+
+**BLOQUÉ :** deux essais successifs sur téléphone ne fournissent ni identité
+exploitable ni contrôle Like/ouvreur de vue reconnu. Dans ces conditions,
+il n'existe pas de clic dont l'effet d'ajout et la piste peuvent être établis
+sans risque ; aucune troisième tentative à l'aveugle, aucune playlist choisie,
+et aucune confirmation d'ajout ne sont justifiées. La cause plus profonde
+(absence réelle, emplacement ou structure non reconnus, ou données obsolètes)
+reste inconnue.
+
+Le pont 9016 protégé contient un ancien `actAddToFav` fondé sur une position
+DOM et qui programme `addAndAuto` : sa cible et ses effets sur la lecture ne
+sont pas vérifiés, donc il ne constitue pas un repli sûr sous les contraintes.
+Aucun fichier protégé n'a été modifié et aucun nouveau build n'a été déclenché
+pour ce constat. La copie de diagnostic ne contient ni titre, ni artiste, ni
+identifiant de piste, ni données de session.
