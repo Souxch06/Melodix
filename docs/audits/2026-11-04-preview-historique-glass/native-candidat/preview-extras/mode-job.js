@@ -1,4 +1,4 @@
-(function(kind, action, shownState, expectedTitle) {
+(function(kind, action, shownState, expectedTitle, expectedTrack) {
     'use strict';
     // One explicit tap = one job. Methods in order, state re-read after each:
     // (a) control already in the page, (b) briefly open the now-playing view in
@@ -8,7 +8,16 @@
     var W = window;
     var jobs = W.__melodixModeJobs = W.__melodixModeJobs || {};
     if (['like', 'shuffle', 'repeat'].indexOf(kind) < 0) return JSON.stringify({status: 'done', outcome: 'failed', reason: 'kind'});
-    if (action === 'poll') return JSON.stringify(jobs[kind] || {status: 'none'});
+    if (action === 'poll') {
+        var previous = jobs[kind] || {status: 'none'};
+        // A result can become stale after it was recorded but before native polling.
+        if (kind === 'like' && previous.status === 'done' &&
+            (previous.outcome === 'confirmed' || previous.outcome === 'read') && !identityMatches()) {
+            previous.outcome = 'identity'; previous.state = 'unknown';
+            if (previous.journal && previous.journal.length < 16) previous.journal.push('poll:identity');
+        }
+        return JSON.stringify(previous);
+    }
     if (action !== 'run') return JSON.stringify({status: 'none'});
     if (jobs[kind] && jobs[kind].status === 'running' && Date.now() - jobs[kind].started < 8000) return JSON.stringify({status: 'busy'});
     var labels = {
@@ -47,7 +56,7 @@
         });
         if (kind === 'like') {
             var scoped = list.filter(function(b) {
-                return b.closest('[data-testid="now-playing-widget"], [data-testid="now-playing-bar"], [data-testid="now-playing-view"], [data-testid="now-playing-panel"], [data-testid="NPV"], aside');
+                return b.closest('[data-testid="now-playing-widget"], [data-testid="now-playing-bar"], [data-testid="now-playing-view"], [data-testid="now-playing-panel"], [data-testid="NPV"]');
             });
             list = scoped;
         }
@@ -62,18 +71,35 @@
         return {node: b, reason: ''};
     }
     function read(b) {
-        var raw = b.getAttribute('aria-checked');
-        if (raw === null) raw = b.getAttribute('aria-pressed');
+        var checked = b.getAttribute('aria-checked'), pressed = b.getAttribute('aria-pressed');
+        var raw = checked === null ? pressed : checked;
         var l = label(b), on = labels[kind].on.test(l), off = labels[kind].off.test(l);
-        if (raw === 'true' || raw === 'false' || (raw === 'mixed' && kind !== 'like')) {
-            if (kind === 'like' && ((raw === 'false' && on) || (raw === 'true' && off))) return 'unknown';
+        if (kind === 'like') {
+            var id = testid(b).toLowerCase();
+            var remove = /^(remove-button|remove-from-library-button)$/.test(id);
+            var add = id === 'add-to-library-button';
+            if (/^(true|menu|dialog|listbox|tree|grid)$/i.test(String(b.getAttribute('aria-haspopup') || '')) ||
+                b.matches(':disabled') || b.closest('[aria-disabled="true"], fieldset:disabled') ||
+                (checked !== null && pressed !== null && checked !== pressed)) return 'unknown';
+            if (raw !== null && raw !== 'true' && raw !== 'false') return 'unknown';
+            if (raw === null) raw = on ? 'true' : off ? 'false' : 'unknown';
+            if ((raw === 'false' && (on || remove)) || (raw === 'true' && off)) return 'unknown';
+            // An unlabelled generic add-button may open a playlist picker.
+            if (raw === 'false' && !off && !add) return 'unknown';
             return raw;
         }
+        if (raw === 'true' || raw === 'false' || raw === 'mixed') return raw;
         return on ? 'true' : off ? 'false' : 'unknown';
     }
-    function nowTitle() {
-        var link = document.querySelector('[data-testid="now-playing-widget"] a[data-testid="context-item-link"], [data-testid="now-playing-bar"] a[data-testid="context-item-link"], a[data-testid="nowplaying-track-link"], [data-testid="now-playing-view"] a[href*="/track/"]');
-        return link ? String(link.textContent || '').replace(/\s+/g, ' ').trim() : '';
+    function identityMatches() {
+        if (!expectedTitle || !expectedTrack) return false;
+        var links = Array.from(document.querySelectorAll('[data-testid="now-playing-widget"] a[data-testid="context-item-link"], [data-testid="now-playing-bar"] a[data-testid="context-item-link"], a[data-testid="nowplaying-track-link"], [data-testid="now-playing-view"] a[href*="/track/"]'));
+        if (!links.length) return false;
+        return links.every(function(link) {
+            var m = /^\/(track|episode)\/([a-z0-9]+)(?:[?#].*)?$/i.exec(String(link.getAttribute('href') || ''));
+            var title = String(link.textContent || '').replace(/\s+/g, ' ').trim();
+            return m && m[1].toLowerCase() + ':' + m[2] === expectedTrack && title === expectedTitle;
+        });
     }
     function opener() {
         var list = Array.from(document.querySelectorAll('button, [role="button"]')).filter(function(b) {
@@ -100,8 +126,7 @@
         log(method + ':state-' + before);
         if (before === 'unknown') { after('state', before); return; }
         if (kind === 'like') {
-            var title = nowTitle();
-            if (expectedTitle && title && title !== expectedTitle) { log(method + ':identity'); after('identity', before); return; }
+            if (!identityMatches()) { log(method + ':identity'); after('identity', before); return; }
             // A tap can only ADD a like: an existing like is never clicked,
             // whatever the native button shows. Only a verified 'false' is clicked.
             if (before !== 'false') { log(method + ':liked-read-only'); after('read', before); return; }
@@ -109,12 +134,14 @@
         }
         try { b.click(); log(method + ':click'); } catch (_) { log(method + ':click-error'); after('command', before); return; }
         wait(function() {
+            if (kind === 'like' && !identityMatches()) return 'identity-changed';
             var again = find();
             if (!again.node) return null;
             var s = read(again.node);
             return s !== before && s !== 'unknown' ? s : null;
         }, 2200, function(s) {
-            if (s) { log(method + ':verified'); after('confirmed', s); }
+            if (s === 'identity-changed') { log(method + ':identity'); after('identity', 'unknown'); }
+            else if (s) { log(method + ':verified'); after('confirmed', s); }
             else { log(method + ':unverified'); after('unconfirmed', before); }
         });
     }

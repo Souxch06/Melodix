@@ -20,30 +20,15 @@
 # instance fields
 .field final synthetic this$0:Lcom/melodix/music/PreviewPlayerMode;
 
-.field final synthetic val$g:J
+.field private final synthetic val$g:J
 
 
 # direct methods
 .method constructor <init>(Lcom/melodix/music/PreviewPlayerMode;J)V
     .locals 0
-    .annotation system Ldalvik/annotation/MethodParameters;
-        accessFlags = {
-            0x8010,
-            0x1010
-        }
-        names = {
-            null,
-            null
-        }
-    .end annotation
 
-    .annotation system Ldalvik/annotation/Signature;
-        value = {
-            "()V"
-        }
-    .end annotation
-
-    .line 167
+    .prologue
+    .line 168
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerMode$5;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
     iput-wide p2, p0, Lcom/melodix/music/PreviewPlayerMode$5;->val$g:J
@@ -58,12 +43,13 @@
 .method public run()V
     .locals 4
 
-    .line 168
+    .prologue
+    .line 169
     iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerMode$5;->val$g:J
 
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerMode$5;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
-    invoke-static {v2}, Lcom/melodix/music/PreviewPlayerMode;->access$500(Lcom/melodix/music/PreviewPlayerMode;)J
+    invoke-static {v2}, Lcom/melodix/music/PreviewPlayerMode;->access$5(Lcom/melodix/music/PreviewPlayerMode;)J
 
     move-result-wide v2
 
@@ -73,7 +59,7 @@
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode$5;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$1200(Lcom/melodix/music/PreviewPlayerMode;)Z
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$12(Lcom/melodix/music/PreviewPlayerMode;)Z
 
     move-result v0
 
@@ -81,9 +67,9 @@
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode$5;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$2500(Lcom/melodix/music/PreviewPlayerMode;)V
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$27(Lcom/melodix/music/PreviewPlayerMode;)V
 
-    .line 169
+    .line 170
     :cond_0
     return-void
 .end method

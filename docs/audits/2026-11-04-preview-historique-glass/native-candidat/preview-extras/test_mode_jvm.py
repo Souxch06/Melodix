@@ -60,8 +60,16 @@ stubs={
  // No such control anywhere in the page (reason=absent): never a fake state.
  // Like (add-only, needs a read state) is greyed with its reason and sends
  // nothing; shuffle keeps its keyboard attempt, said to be unverifiable.
- t=page();like=boot(t,"like");Handler.step();t.G.reply(data("unknown")+";reason=absent");Handler.advance(2500);before=t.G.calls;ok(!like.enabled);ok(like.description.startsWith("Like indisponible : bouton absent"));like.performClick();ok(t.G.calls==before);like.onDetachedFromWindow();
+ t=page();like=boot(t,"like");Handler.step();t.G.reply("state=unknown;reason=absent");Handler.advance(2500);before=t.G.calls;ok(!like.enabled);ok(like.description.startsWith("Like indisponible : bouton absent"));like.performClick();ok(t.G.calls==before);like.onDetachedFromWindow();
  t=page();sh=boot(t,"shuffle");Handler.step();t.G.reply(data("unknown")+";reason=absent");Handler.advance(2500);ok(sh.enabled);ok(sh.description.startsWith("Aléatoire : bouton absent")&&sh.description.contains("non vérifiable"));sh.onDetachedFromWindow();
+ // A hidden Like with a uniquely observed current track may try the known now-playing view.
+ t=page();like=boot(t,"like");Handler.step();t.G.reply(data("unknown")+";reason=absent");Handler.advance(2500);ok(like.enabled);like.performClick();ok(t.G.js.contains("\\"track:abc\\""));like.onDetachedFromWindow();
+ // Like identity is captured at tap, survives observation, and must still match the native title at completion.
+ t=page();like=boot(t,"like");Handler.step();t.G.reply(data("false"));like.performClick();ok(t.G.js.contains("\\"track:abc\\""));t.G.reply("status=started");
+ java.lang.reflect.Method observeLike=PreviewPlayerMode.class.getDeclaredMethod("observe");observeLike.setAccessible(true);observeLike.invoke(like);t.G.reply("state=true;track=track:other;title=Titre");
+ java.lang.reflect.Field pending=PreviewPlayerMode.class.getDeclaredField("pending");pending.setAccessible(true);ok(pending.getBoolean(like));
+ ((TextView)t.title).text="Autre";Handler.advance(250);t.G.reply("status=done;outcome=confirmed;state=true;method=direct");
+ java.lang.reflect.Field modeState=PreviewPlayerMode.class.getDeclaredField("state");modeState.setAccessible(true);ok(modeState.get(like).equals("unknown"));ok(Toast.message.contains("Réessayer"));ok(!PreviewPlayerMode.diagnosticReport().contains("track:abc"));like.onDetachedFromWindow();
  System.out.println("Player mode JVM simulation passed"); }
 }'''
 }

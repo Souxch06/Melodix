@@ -37,6 +37,19 @@
         // With the player bar present and no such control anywhere in the page,
         // say so ('absent'); without the bar the control may simply not be shown yet.
         result.reason = document.readyState === 'loading' ? 'page' : (kind === 'shuffle' && !hasBar ? 'bar' : hasBar ? 'absent' : 'control');
+        // Even if the Like button is hidden, capture a unique bar identity so
+        // an explicit tap can safely inspect the now-playing view. No state is inferred.
+        if (kind === 'like') {
+            var links = Array.from(document.querySelectorAll('[data-testid="now-playing-widget"] a[data-testid="context-item-link"], [data-testid="now-playing-bar"] a[data-testid="context-item-link"], [data-testid="now-playing-bar"] a[data-testid="nowplaying-track-link"]'));
+            var identities = links.map(function(link) {
+                var match = /^\/(track|episode)\/([a-z0-9]+)(?:[?#].*)?$/i.exec(String(link.getAttribute('href') || ''));
+                var name = String(link.textContent || '').replace(/\s+/g, ' ').trim();
+                return match && name ? {track:match[1].toLowerCase()+':'+match[2],title:name} : null;
+            });
+            if (identities.length && identities.every(function(x) { return x && x.track === identities[0].track && x.title === identities[0].title; })) {
+                result.track=identities[0].track; result.title=identities[0].title;
+            }
+        }
         return JSON.stringify(result);
     }
     if (nodes.length !== 1) {result.reason='ambiguous';return JSON.stringify(result);}

@@ -28,9 +28,9 @@ test('like with an unknown displayed state is read, never removed', async () => 
   const dom = page(`<aside data-testid="now-playing-bar"><a data-testid="context-item-link" href="/track/x">Titre</a>
     <button data-testid="add-button" aria-label="Retirer des titres likés" aria-checked="true">l</button></aside>`);
   let clicks = 0; dom.window.document.querySelector('button').addEventListener('click', () => clicks++);
-  assert.equal(run(dom, mode, 'like', 'run', 'unknown', 'Titre').status, 'started');
+  assert.equal(run(dom, mode, 'like', 'run', 'unknown', 'Titre', 'track:x').status, 'started');
   await settle(50);
-  const out = run(dom, mode, 'like', 'poll');
+  const out = run(dom, mode, 'like', 'poll', 'unknown', 'Titre', 'track:x');
   assert.equal(out.outcome, 'read'); assert.equal(out.state, 'true'); assert.equal(clicks, 0);
 });
 
@@ -38,11 +38,11 @@ test('like is not clicked for another track or a contradictory state', async () 
   const dom = page(`<aside data-testid="now-playing-bar"><a data-testid="context-item-link" href="/track/x">Autre</a>
     <button data-testid="add-button" aria-label="Ajouter aux titres likés" aria-checked="false">l</button></aside>`);
   let clicks = 0; dom.window.document.querySelector('button').addEventListener('click', () => clicks++);
-  run(dom, mode, 'like', 'run', 'false', 'Titre'); await settle(50);
-  assert.equal(run(dom, mode, 'like', 'poll').outcome, 'identity'); assert.equal(clicks, 0);
+  run(dom, mode, 'like', 'run', 'false', 'Titre', 'track:x'); await settle(50);
+  assert.equal(run(dom, mode, 'like', 'poll', 'unknown', 'Titre', 'track:x').outcome, 'identity'); assert.equal(clicks, 0);
   const conflict = page(`<aside data-testid="now-playing-bar"><button data-testid="add-button" aria-label="Retirer des titres likés" aria-checked="false">l</button></aside>`);
   run(conflict, mode, 'like', 'run', 'false', ''); await settle(50);
-  assert.notEqual(run(conflict, mode, 'like', 'poll').outcome, 'confirmed');
+  assert.notEqual(run(conflict, mode, 'like', 'poll', 'unknown', 'Titre', 'track:x').outcome, 'confirmed');
 });
 
 test('shuffle: direct control is clicked once and the new state is verified', async () => {
@@ -75,7 +75,7 @@ test('no control and no view: keyboard for shuffle is unverified; like is never 
   run(dom, mode, 'shuffle', 'run', 'unknown', ''); await settle(50);
   assert.equal(run(dom, mode, 'shuffle', 'poll').outcome, 'unverified'); assert.equal(keys, 1);
   run(dom, mode, 'like', 'run', 'unknown', ''); await settle(50);
-  assert.equal(run(dom, mode, 'like', 'poll').outcome, 'failed'); assert.equal(keys, 1);
+  assert.equal(run(dom, mode, 'like', 'poll', 'unknown', 'Titre', 'track:x').outcome, 'failed'); assert.equal(keys, 1);
 });
 
 test('queue: opens the panel, reads rows with duration, closes it again', async () => {
@@ -112,22 +112,22 @@ function likePage(title, checked, label) {
 test('like guarantee: an existing like is never clicked, whatever the native state shows', async () => {
   for (const shown of ['unknown', 'true', 'false']) {
     const { dom, counter } = likePage('Titre', 'true', 'Retirer des titres likés');
-    run(dom, mode, 'like', 'run', shown, 'Titre'); await settle(60);
-    const out = run(dom, mode, 'like', 'poll');
+    run(dom, mode, 'like', 'run', shown, 'Titre', 'track:x'); await settle(60);
+    const out = run(dom, mode, 'like', 'poll', 'unknown', 'Titre', 'track:x');
     assert.equal(counter.clicks, 0, 'shown=' + shown); assert.equal(out.outcome, 'read'); assert.equal(out.state, 'true');
   }
 });
 
 test('like: a click that would invert the native view (shown not liked, page liked) is refused', async () => {
   const { dom, counter } = likePage('Titre', 'true', 'Retirer des titres likés');
-  run(dom, mode, 'like', 'run', 'false', 'Titre'); await settle(60);
-  assert.equal(counter.clicks, 0); assert.equal(run(dom, mode, 'like', 'poll').state, 'true');
+  run(dom, mode, 'like', 'run', 'false', 'Titre', 'track:x'); await settle(60);
+  assert.equal(counter.clicks, 0); assert.equal(run(dom, mode, 'like', 'poll', 'unknown', 'Titre', 'track:x').state, 'true');
 });
 
 test('like: a verified not-liked title is added once and the new state is verified', async () => {
   const { dom, counter } = likePage('Titre', 'false', 'Ajouter aux titres likés');
-  run(dom, mode, 'like', 'run', 'false', 'Titre'); await settle(300);
-  const out = run(dom, mode, 'like', 'poll');
+  run(dom, mode, 'like', 'run', 'false', 'Titre', 'track:x'); await settle(300);
+  const out = run(dom, mode, 'like', 'poll', 'unknown', 'Titre', 'track:x');
   assert.equal(counter.clicks, 1); assert.equal(out.outcome, 'confirmed'); assert.equal(out.state, 'true');
 });
 
@@ -135,8 +135,8 @@ test('like: an unconfirmed add is never retried (no second click)', async () => 
   const dom = page(`<aside data-testid="now-playing-bar"><a data-testid="context-item-link" href="/track/x">Titre</a>
     <button data-testid="add-button" aria-label="Ajouter aux titres likés" aria-checked="false">l</button></aside>`);
   let clicks = 0; dom.window.document.querySelector('button').addEventListener('click', () => clicks++);
-  run(dom, mode, 'like', 'run', 'unknown', 'Titre'); await settle(2600);
-  assert.equal(run(dom, mode, 'like', 'poll').outcome, 'unconfirmed'); assert.equal(clicks, 1);
+  run(dom, mode, 'like', 'run', 'unknown', 'Titre', 'track:x'); await settle(2600);
+  assert.equal(run(dom, mode, 'like', 'poll', 'unknown', 'Titre', 'track:x').outcome, 'unconfirmed'); assert.equal(clicks, 1);
 });
 
 test('keyboard: one combination per tap, Ctrl family then Alt on the next tap', async () => {
@@ -261,4 +261,61 @@ test('hidden page: a 0-px queue panel is given a size while read, then restored 
   assert.equal(out.ok, true); assert.ok(out.now.startsWith('Un\tA'));
   assert.equal(panel.getAttribute('style'), 'color: red;');
   assert.ok(out.journal.some((c) => /^sized:1,h:0$/.test(c)));
+});
+
+
+test('like: refuse removal IDs, picker menus, generic or conflicting states', async () => {
+  for (const attrs of [
+    'data-testid="remove-button" aria-checked="false"',
+    'data-testid="remove-from-library-button" aria-label="Ajouter aux titres likés" aria-checked="false"',
+    'data-testid="add-button" aria-haspopup="menu" aria-label="Ajouter aux titres likés" aria-checked="false"',
+    'data-testid="add-button" aria-checked="false"',
+    'data-testid="add-to-library-button" aria-checked="false" aria-pressed="true"',
+    'data-testid="add-to-library-button" aria-checked="mixed" aria-label="Ajouter aux titres likés"',
+  ]) {
+    const dom = page(`<aside data-testid="now-playing-bar"><a data-testid="context-item-link" href="/track/x">Titre</a><button ${attrs}>l</button></aside>`);
+    let clicks = 0; dom.window.document.querySelector('button').onclick = () => clicks++;
+    run(dom, mode, 'like', 'run', 'false', 'Titre', 'track:x');
+    assert.equal(clicks, 0, attrs); assert.notEqual(run(dom, mode, 'like', 'poll', 'unknown', 'Titre', 'track:x').outcome, 'confirmed'); dom.window.close();
+  }
+});
+
+test('like: identity is required and must match both title and unique track', () => {
+  for (const [expectedTitle, expectedTrack, href, title] of [
+    ['', 'track:x', '/track/x', 'Titre'], ['Titre', '', '/track/x', 'Titre'],
+    ['Titre', 'track:x', '/track/y', 'Titre'], ['Titre', 'track:x', '', 'Titre'],
+    ['Titre', 'track:x', '/track/x', 'Autre'],
+  ]) {
+    const dom = page(`<aside data-testid="now-playing-bar"><a data-testid="context-item-link" href="${href}">${title}</a><button data-testid="add-button" aria-label="Ajouter aux titres likés" aria-checked="false">l</button></aside>`);
+    let clicks = 0; dom.window.document.querySelector('button').onclick = () => clicks++;
+    run(dom, mode, 'like', 'run', 'false', expectedTitle, expectedTrack);
+    assert.equal(clicks, 0); assert.equal(run(dom, mode, 'like', 'poll', 'unknown', 'Titre', 'track:x').outcome, 'identity'); dom.window.close();
+  }
+});
+
+test('like: a track switch during confirmation cannot confirm the wrong item', async () => {
+  const { dom, counter } = likePage('Titre', 'false', 'Ajouter aux titres likés');
+  const button = dom.window.document.querySelector('button');
+  // Defer the state change while Spotify changes to a same-name track.
+  button.replaceWith(button.cloneNode(true));
+  let clicks = 0; dom.window.document.querySelector('button').onclick = () => { clicks++; dom.window.document.querySelector('a').setAttribute('href', '/track/y'); dom.window.document.querySelector('button').setAttribute('aria-checked', 'true'); };
+  run(dom, mode, 'like', 'run', 'false', 'Titre', 'track:x'); await settle(60);
+  assert.equal(clicks, 1); assert.equal(run(dom, mode, 'like', 'poll', 'unknown', 'Titre', 'track:x').outcome, 'identity'); dom.window.close();
+});
+
+
+test('hidden like: opens the explicit now-playing view and adds only a verified matching track', async () => {
+  const dom = page(`<aside data-testid="now-playing-bar"><a data-testid="context-item-link" href="/track/x">Titre</a></aside><button data-testid="control-button-npv" aria-pressed="false">v</button><div id="npv"></div>`);
+  const d=dom.window.document, opener=d.querySelector('button'); let added=0, opened=0, closed=0;
+  opener.onclick=()=>{if(opener.getAttribute('aria-pressed')==='false') {opened++;opener.setAttribute('aria-pressed','true');d.querySelector('#npv').innerHTML='<aside data-testid="now-playing-view"><button data-testid="add-button" aria-label="Ajouter aux titres likés" aria-checked="false">l</button></aside>';let b=d.querySelector('#npv button');b.onclick=()=>{added++;b.setAttribute('aria-checked','true');b.setAttribute('aria-label','Retirer des titres likés')};}else{closed++;opener.setAttribute('aria-pressed','false');d.querySelector('#npv').innerHTML=''}};
+  run(dom,mode,'like','run','unknown','Titre','track:x');await settle(400);
+  assert.equal(added,1);assert.equal(opened,1);assert.equal(closed,1);assert.equal(run(dom,mode,'like','poll','unknown','Titre','track:x').outcome,'confirmed');dom.window.close();
+});
+
+
+test('like: a track switch after completion but before native polling invalidates success', () => {
+  const {dom, counter}=likePage('Titre','false','Ajouter aux titres likés');
+  run(dom,mode,'like','run','false','Titre','track:x');assert.equal(counter.clicks,1);
+  dom.window.document.querySelector('a').setAttribute('href','/track/y');
+  assert.equal(run(dom,mode,'like','poll','unknown','Titre','track:x').outcome,'identity');dom.window.close();
 });

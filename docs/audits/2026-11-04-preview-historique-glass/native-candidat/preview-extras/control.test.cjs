@@ -67,3 +67,10 @@ test('no such control with the player bar present is reported as absent, never a
  const p=q(x,'shuffle');assert.equal(p.state,'unknown');assert.equal(p.reason,'absent');
  x.w.document.querySelector('[data-testid=now-playing-widget]').removeAttribute('data-testid');assert.equal(q(x,'shuffle').reason,'bar');
  }finally{x.close()}});
+
+
+test('hidden like exposes only a unique bar identity, never an inferred state',()=>{const x=boot();try{
+ x.w.document.querySelector('div>div>button').remove();let p=q(x,'like');assert.equal(p.state,'unknown');assert.equal(p.track,'track:abc');assert.equal(p.title,'Titre');
+ let other=x.w.document.createElement('a');other.setAttribute('data-testid','context-item-link');other.href='/track/other';other.textContent='Titre';x.w.document.querySelector('[data-testid=now-playing-widget]').append(other);
+ p=q(x,'like');assert.equal(p.track,'');assert.equal(p.title,'');assert.equal(p.state,'unknown');
+}finally{x.close()}});
