@@ -9,6 +9,8 @@ import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.Bitmap;
 import android.graphics.drawable.LayerDrawable;
 import android.os.Handler;
 import android.os.Looper;
@@ -75,7 +77,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         dragging = false; seekPending = false; seekSerial++;
     }
     @Override public void onStartTrackingTouch(SeekBar bar) {
-        if (valid && tupleIdentity && duration > 0) {
+        if (!restored && valid && tupleIdentity && duration > 0) {
             long t = now(); long shown = (long) positionUnderlying(t);
             if (seekPending) {
                 seekDiagFinish("remplacé par un nouveau geste");
@@ -218,6 +220,86 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 if (start >= 0 && start <= firstCreateAt) processStartAt = start;
             } catch (LinkageError ignored) { } catch (RuntimeException ignored) { }
         }
+    }
+    private boolean cacheLoading, restored, liveObserved, lastCachedHadArtwork;
+    private long cacheStart = -1, cacheReadMs = -1, lastCacheWrite = -1;
+    private String lastCachedIdentity = "", lastCachedState = "";
+    // Invoked once, immediately after the real native layout has been inflated.
+    public void layoutReady() {
+        final Activity a = activity.get(); if (a == null) return;
+        cacheLoading = true; cacheStart = now();
+        PreviewLastTrackStore.load(a, new PreviewLastTrackStore.Callback() {
+            public void loaded(PreviewLastTrackStore.Record r, Bitmap image) {
+                cacheLoading = false;
+                Activity current = activity.get();
+                if (current == null || current.isFinishing() || liveObserved || r == null) { cacheReadMs = Math.max(0, now() - cacheStart); return; }
+                restored = true; valid = tupleIdentity = true; moving = interrupted = false;
+                haveReal = realPlaying = shownPlaying = false; playbackState = "unknown";
+                identityTitle = r.title; identityArtist = r.artist; identityDuration = duration = r.duration;
+                base = r.position; anchor = now(); correction = 0; track = "";
+                measurementAt = measurementPosition = -1; lastConfirmedStateAt = -1;
+                text(current, 0x7f090236, r.title); text(current, 0x7f09023b, r.title);
+                View panel = current.findViewById(0x7f09023a);
+                View header = panel == null ? null : panel.findViewWithTag("previewPlayerDragHandle");
+                if (header instanceof TextView) ((TextView) header).setText("DERNIÈRE LECTURE CONNUE");
+                String label = r.artist + " · Dernière position connue";
+                text(current, 0x7f090237, label); text(current, 0x7f09023c, label);
+                if (image != null) {
+                    View mini = current.findViewById(0x7f090244), full = current.findViewById(0x7f090245);
+                    if (mini instanceof ImageView) ((ImageView) mini).setImageBitmap(image);
+                    if (full instanceof ImageView) ((ImageView) full).setImageBitmap(image);
+                }
+                haveReal = true; renderProgress(); renderButtons(); syncGlow();
+                cacheReadMs = Math.max(0, now() - cacheStart);
+            }
+        });
+    }
+    // Incomplete, legacy and unknown snapshots must not erase a restored record.
+    public boolean acceptPlayerPayload(String json) {
+        if (!cacheLoading && !restored) return true;
+        if (!foreground) return false;
+        try {
+            JSONObject o = new JSONObject(json);
+            String title = o.optString("track", ""), artist = o.optString("artist", ""), state = o.optString("previewPlaybackState", "unknown");
+            long pos = o.optLong("previewPositionMs", -1), dur = o.optLong("previewDurationMs", -1);
+            long age = System.currentTimeMillis() - o.optLong("previewObservedAtMs", -1);
+            if (!o.optBoolean("previewProgressValid", false) || !realMetadata(title) || !realMetadata(artist) ||
+                dur <= 0 || pos < 0 || pos > dur || age < 0 || age >= MAX_OBSERVATION_AGE_MS ||
+                (!state.equals("playing") && !state.equals("paused"))) return false;
+            liveObserved = true;
+            if (restored) {
+                restored = false; valid = tupleIdentity = false; lastShownAt = -1;
+                Activity a = activity.get(); View panel = a == null ? null : a.findViewById(0x7f09023a);
+                View header = panel == null ? null : panel.findViewWithTag("previewPlayerDragHandle");
+                if (header instanceof TextView) ((TextView) header).setText("LECTURE EN COURS");
+            }
+            return true;
+        } catch (Exception ignored) { return false; }
+    }
+    private void saveLastTrack(JSONObject o, String title, String artist, String state, long pos, long dur) {
+        Activity a = activity.get(); if (a == null || !foreground || pending || seekPending || restored) return;
+        long wall = o.optLong("previewObservedAtMs", -1), t = now();
+        String identity = title + "\n" + artist + "\n" + dur;
+        PreviewLastTrackStore.Record r = new PreviewLastTrackStore.Record();
+        r.title = title; r.artist = artist; r.state = state; r.position = pos; r.duration = dur; r.observed = wall;
+        if (!PreviewLastTrackStore.valid(r, System.currentTimeMillis())) return;
+        Bitmap bitmap = null; View view = a.findViewById(0x7f090244);
+        if (!o.optString("cover", "").isEmpty() && view instanceof ImageView) {
+            Drawable d = ((ImageView) view).getDrawable();
+            if (d instanceof BitmapDrawable) bitmap = ((BitmapDrawable) d).getBitmap();
+        }
+        boolean sameIdentity = identity.equals(lastCachedIdentity);
+        if (sameIdentity && state.equals(lastCachedState) && lastCacheWrite >= 0 && t - lastCacheWrite < 5000 &&
+            (bitmap == null || lastCachedHadArtwork)) return;
+        lastCachedHadArtwork = bitmap != null || (sameIdentity && lastCachedHadArtwork);
+        lastCachedIdentity = identity; lastCachedState = state; lastCacheWrite = t;
+        PreviewLastTrackStore.save(a, r, bitmap);
+    }
+    public void clearLastTrack() {
+        Activity a = activity.get(); if (a != null) PreviewLastTrackStore.clear(a);
+        restored = cacheLoading = false; liveObserved = true;
+        savedValid = savedIdentity = false; valid = tupleIdentity = false; moving = false;
+        haveReal = false; playbackState = "unknown";
     }
     public void playlistOpened(String uri) {
         if (playlistFrameMs >= 0) previousPlaylistFrameMs = playlistFrameMs;
@@ -629,6 +711,8 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 if (pending && real == pendingTarget) { pending = false; serial++; }
                 if (!pending) shownPlaying = real;
             }
+            if (snapshotValid && identified && !interrupted && !state.equals("unknown"))
+                saveLastTrack(o, title, artist, state, pos, dur);
             renderProgress(); renderButtons(); syncGlow(); scheduleFrame();
             recordReturn("après mesure");
             if (tapAt >= 0 && commandAt >= 0 && stateAt < 0 &&
@@ -705,6 +789,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         out.append("\nInterface optimiste : ").append(delta(optimisticAt));
         out.append("\nÉtat du lecteur observé : ").append(delta(stateAt));
         out.append("\nInterface confirmée : ").append(delta(uiAt));
+        out.append("\nCache local : lecture et application des vues, sans mesure de frame : ").append(cacheReadMs < 0 ? "—" : cacheReadMs + " ms");
         out.append("\nDémarrage : processus → prochaine frame accueil avec données (Android 12+) : ")
             .append(processHomeFrameMs < 0 ? "—" : Long.toString(processHomeFrameMs) + " ms");
         out.append("\nDémarrage : activité → prochaine frame accueil avec données : ")

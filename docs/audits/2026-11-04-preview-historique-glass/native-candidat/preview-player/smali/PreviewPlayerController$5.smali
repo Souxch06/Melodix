@@ -3,12 +3,12 @@
 .source "PreviewPlayerController.java"
 
 # interfaces
-.implements Landroid/content/DialogInterface$OnClickListener;
+.implements Landroid/view/View$OnLongClickListener;
 
 
 # annotations
 .annotation system Ldalvik/annotation/EnclosingMethod;
-    value = Lcom/melodix/music/PreviewPlayerController;->showDiagnostics()V
+    value = Lcom/melodix/music/PreviewPlayerController;->attachAbout(Landroid/view/View;)V
 .end annotation
 
 .annotation system Ldalvik/annotation/InnerClass;
@@ -20,22 +20,14 @@
 # instance fields
 .field final synthetic this$0:Lcom/melodix/music/PreviewPlayerController;
 
-.field private final synthetic val$a:Landroid/app/Activity;
-
-.field private final synthetic val$report:Ljava/lang/String;
-
 
 # direct methods
-.method constructor <init>(Lcom/melodix/music/PreviewPlayerController;Landroid/app/Activity;Ljava/lang/String;)V
+.method constructor <init>(Lcom/melodix/music/PreviewPlayerController;)V
     .locals 0
 
     .prologue
-    .line 779
+    .line 755
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerController$5;->this$0:Lcom/melodix/music/PreviewPlayerController;
-
-    iput-object p2, p0, Lcom/melodix/music/PreviewPlayerController$5;->val$a:Landroid/app/Activity;
-
-    iput-object p3, p0, Lcom/melodix/music/PreviewPlayerController$5;->val$report:Ljava/lang/String;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
@@ -44,37 +36,16 @@
 
 
 # virtual methods
-.method public onClick(Landroid/content/DialogInterface;I)V
-    .locals 3
+.method public onLongClick(Landroid/view/View;)Z
+    .locals 1
 
     .prologue
-    .line 781
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$5;->val$a:Landroid/app/Activity;
+    .line 756
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$5;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
-    const-string v1, "clipboard"
+    invoke-virtual {v0}, Lcom/melodix/music/PreviewPlayerController;->showDiagnostics()V
 
-    invoke-virtual {v0, v1}, Landroid/app/Activity;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+    const/4 v0, 0x1
 
-    move-result-object v0
-
-    .line 782
-    instance-of v1, v0, Landroid/content/ClipboardManager;
-
-    if-eqz v1, :cond_0
-
-    check-cast v0, Landroid/content/ClipboardManager;
-
-    const-string v1, "Diagnostic Preview"
-
-    iget-object v2, p0, Lcom/melodix/music/PreviewPlayerController$5;->val$report:Ljava/lang/String;
-
-    invoke-static {v1, v2}, Landroid/content/ClipData;->newPlainText(Ljava/lang/CharSequence;Ljava/lang/CharSequence;)Landroid/content/ClipData;
-
-    move-result-object v1
-
-    invoke-virtual {v0, v1}, Landroid/content/ClipboardManager;->setPrimaryClip(Landroid/content/ClipData;)V
-
-    .line 783
-    :cond_0
-    return-void
+    return v0
 .end method

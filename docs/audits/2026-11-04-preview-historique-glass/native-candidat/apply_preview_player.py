@@ -10,6 +10,8 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 SOURCE = HERE / 'preview-player' / 'PreviewPlayerController.java'
+STORE_SOURCE = HERE / 'preview-player' / 'PreviewLastTrackStore.java'
+STORE_SOURCE_SHA = 'e46050ae70d14c0e03720fe9a7d4f58130c93053b9fd022c5e837ddee371c02d'
 EXPECTED = {
     'assets/native_ui_shell.js': '7b171ed4773c34571cd5bc4974f764d303edb300f49f13bbdf5f6f3940d84004',
     'smali/com/melodix/music/MainActivity.smali': 'dd14f96c2e3143b1e015e58a4c881911147e8312df1938a59e7ba3fa1b9a6f53',
@@ -20,14 +22,22 @@ EXPECTED = {
     'res/layout-w600dp/activity_main.xml': '4d110f1df062fdf7676b9aa5e70146dd7ec148da3c0c614a553b5586ad5af8fe',
     'res/drawable/widget_progress_drawable.xml': '3a5f8f51ea984c7a8226d5acd69bf6b20383ca9622843d617b055c9fe18d772f',
 }
-SOURCE_SHA = '3cbb7d5444a105c3735909c993c816fd9ae4b04724b7d869e5f68d5cc0117fc4'
+SOURCE_SHA = 'efcf91ce31afdc84fc15f9bd12a54829395d653365d0628987e97c7e2e4ce2cc'
 HELPER_SHA = {
-    'PreviewPlayerController$1.smali': '4619bfb3bc65f50edbe05308e33b5d121dc331f2e09cee24289ce0ff14b6001e',
-    'PreviewPlayerController$2.smali': '3b0d539956f1d5dc6a8690fa66c9288bc601c7e5516d71fbce1fa33ec9611299',
-    'PreviewPlayerController$3.smali': '01eff8326365bec02d18e2aae7c729b0bf2431496ec284834a407fd8a142d5cc',
-    'PreviewPlayerController$4.smali': 'c2caecde4530d5ae894b07c5d9c89dc5d5b77d11b72f1fa2d6656f772cecf942',
-    'PreviewPlayerController$5.smali': 'bdfed2095470b9d87490f45aed26da57e56fc90230aae9a69ebdc357f47efdfe',
-    'PreviewPlayerController.smali': '4b95773bf0630482e281ca9f90d2a04ee7f1948d5f6ebc900ae28bc368a75f4c',
+    'PreviewPlayerController$1.smali': '1620cd018bca3e4eea99222d89ef6d52691f5800bca92db3fd90f63cf86600bc',
+    'PreviewPlayerController$2.smali': 'f96b04e7b97eb5cdb5c89b7835aed087c60cd553b6054acf3408eef5388fd509',
+    'PreviewPlayerController$3.smali': 'ce5646f631247e16cddf7d42e2f676b742269219fa7d507a70520b97efa9648d',
+    'PreviewPlayerController$4.smali': '4e969881dc3b99f1fe43d36f578f976bdc15fc7008516a1fd047e543d8133041',
+    'PreviewPlayerController$5.smali': '31a9638bc7ee621f32422f8b9f1a6fa80746081807c4288add97c5c8cc216b03',
+    'PreviewPlayerController$6.smali': '56f6c23d0acd84aa39cd900a23780fd6fa657ba057523f7fced78d863473473b',
+    'PreviewPlayerController.smali': '053ff8880a10a0a77b62e5934cc4d863ce738f7aa788c97b232a20f0f664f349',
+    'PreviewLastTrackStore$1$1.smali': '0f08af75a9df2f09d8b8fe674544c0997f260e28d7fa3147022a29808026c810',
+    'PreviewLastTrackStore$1.smali': '4ab56f343d94bad9224cd73cc1076ebe8ced0de9ca3acd89c5fb596264160963',
+    'PreviewLastTrackStore$2.smali': '013add8fc490eba34135b5e3edf4c584fddc1cf6bc84c8574ccf1786b5bac8f2',
+    'PreviewLastTrackStore$3.smali': '37b0b5950c2cc9f0f4270f1d0752866d57882e33a63706bf1fff092c2270501f',
+    'PreviewLastTrackStore$Callback.smali': 'c40eda7194ee9effb8c49d786a8193846862f842ebaf48ad0652bfec92c6091e',
+    'PreviewLastTrackStore$Record.smali': '669b11f513d658fbf363eda91cc03f7a5e80f3ab1bffb6b28feaa3047fb58607',
+    'PreviewLastTrackStore.smali': '6e061549e11f3b9178e25edc9dfc587f6cde97504c926f7fb6dedc3a278ec8b9',
 }
 
 def replace(text, old, new):
@@ -42,7 +52,9 @@ def prepare(root):
         files[path] = data.decode('utf8')
     if hashlib.sha256(SOURCE.read_bytes()).hexdigest() != SOURCE_SHA:
         raise ValueError('Java helper changed without regenerating smali')
-    helpers = sorted((HERE / 'preview-player' / 'smali').glob('PreviewPlayerController*.smali'))
+    if hashlib.sha256(STORE_SOURCE.read_bytes()).hexdigest() != STORE_SOURCE_SHA:
+        raise ValueError('store changed without regenerating smali')
+    helpers = sorted((HERE / 'preview-player' / 'smali').glob('PreviewPlayerController*.smali')) + sorted((HERE / 'preview-player' / 'smali').glob('PreviewLastTrackStore*.smali'))
     if {p.name for p in helpers} != set(HELPER_SHA): raise ValueError('missing generated native controller')
     for p in helpers:
         if hashlib.sha256(p.read_bytes()).hexdigest() != HELPER_SHA[p.name]:
@@ -395,6 +407,18 @@ def prepare(root):
     invoke-virtual {v0}, Lcom/melodix/music/MainActivity;->previewPlayer()Lcom/melodix/music/PreviewPlayerController;
     move-result-object v1
     invoke-virtual {v1}, Lcom/melodix/music/PreviewPlayerController;->activityCreated()V''')
+    # Restore only after successful layout inflation; no Spotify bridge required.
+    s = replace(s, "    :native_content_ok\n", """    :native_content_ok
+    invoke-virtual {v0}, Lcom/melodix/music/MainActivity;->previewPlayer()Lcom/melodix/music/PreviewPlayerController;
+    move-result-object v1
+    invoke-virtual {v1}, Lcom/melodix/music/PreviewPlayerController;->layoutReady()V
+""")
+    s = replace(s, ".method public final A()V\n    .locals 4\n", """.method public final A()V
+    .locals 4
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->previewPlayer()Lcom/melodix/music/PreviewPlayerController;
+    move-result-object v0
+    invoke-virtual {v0}, Lcom/melodix/music/PreviewPlayerController;->clearLastTrack()V
+""")
     s = replace(s, '''.method public final onResume()V
     .locals 6
 
@@ -479,6 +503,13 @@ def prepare(root):
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
     if-eqz v1, :check_home
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->previewPlayer()Lcom/melodix/music/PreviewPlayerController;
+    move-result-object v0
+    invoke-virtual {v0, p2}, Lcom/melodix/music/PreviewPlayerController;->acceptPlayerPayload(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :preview_player_payload_accepted
+    return-void
+    :preview_player_payload_accepted
     invoke-virtual {p0, p2}, Lcom/melodix/music/MainActivity;->updateNativePlayer(Ljava/lang/String;)V
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->previewPlayer()Lcom/melodix/music/PreviewPlayerController;
     move-result-object v0

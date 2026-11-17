@@ -13,6 +13,10 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 SOURCE = HERE / 'preview-player/PreviewPlayerController.java'
 STUBS = {
+'android/graphics/Bitmap.java': 'package android.graphics; public class Bitmap {}',
+'android/graphics/drawable/BitmapDrawable.java': 'package android.graphics.drawable; public class BitmapDrawable extends Drawable { public android.graphics.Bitmap getBitmap(){return new android.graphics.Bitmap();} }',
+'com/melodix/music/PreviewLastTrackStore.java': """package com.melodix.music; import android.app.Activity; import android.graphics.Bitmap; public class PreviewLastTrackStore { static class Record {String title,artist,state; long duration,position,observed; byte[] image;} interface Callback {void loaded(Record r,Bitmap b);} static Record stored; static Callback callback; static int saves; static boolean valid(Record r,long now){return true;} static void load(Activity a,Callback c){callback=c;} static void deliver(){callback.loaded(stored,null);} static void save(Activity a,Record r,Bitmap b){stored=r;saves++;} static void clear(Activity a){stored=null;} }""",
+
 'com/melodix/music/PreviewPlayerMode.java': 'package com.melodix.music; public class PreviewPlayerMode { public static String diagnosticReport(){return "\\nControl diagnostic";} }',
 'com/melodix/music/PreviewPlayerVolume.java': 'package com.melodix.music; public class PreviewPlayerVolume { public static String diagnosticReport(){return "\\nVolume diagnostic";} }',
 'com/melodix/music/PreviewPlayerTiles.java': 'package com.melodix.music; public class PreviewPlayerTiles { public static String diagnosticReport(){return "\\nPanels diagnostic";} }',
@@ -36,12 +40,12 @@ STUBS = {
 'android/widget/Toast.java': """package android.widget; import android.content.Context; public class Toast { public static int count; public static final int LENGTH_SHORT=0; public static Toast makeText(Context c,CharSequence s,int n){return new Toast();} public void show(){count++;} }""",
 'org/json/JSONArray.java': """package org.json; public class JSONArray { private String[] rows; public JSONArray(String s){rows=s.isEmpty()?new String[0]:s.split(\"\\\\|\");} public int length(){return rows.length;} public JSONObject optJSONObject(int i){return new JSONObject(rows[i]);} }""",
 'android/widget/TextView.java': '''package android.widget; public class TextView extends android.view.View { public String text=""; public CharSequence getText(){return text;} public void setText(CharSequence s){text=s.toString();} }''',
-'android/widget/ImageView.java': '''package android.widget; public class ImageView extends android.view.View { public int image; public void setImageResource(int x){image=x;} }''',
+'android/widget/ImageView.java': '''package android.widget; public class ImageView extends android.view.View { public int image; public void setImageResource(int x){image=x;} public void setImageBitmap(android.graphics.Bitmap b){} public android.graphics.drawable.Drawable getDrawable(){return null;} }''',
 'android/widget/ProgressBar.java': '''package android.widget; public class ProgressBar extends android.view.View { public int max,progress; public android.graphics.drawable.Drawable drawable=new android.graphics.drawable.LayerDrawable(); public android.graphics.drawable.Drawable getProgressDrawable(){return drawable;} public int getMax(){return max;} public int getProgress(){return progress;} public void setMax(int x){max=x;} public void setProgress(int x){progress=x;} }''',
 'android/widget/SeekBar.java': """package android.widget; public class SeekBar extends ProgressBar { public interface OnSeekBarChangeListener { void onStartTrackingTouch(SeekBar b); void onProgressChanged(SeekBar b,int p,boolean u); void onStopTrackingTouch(SeekBar b); } public OnSeekBarChangeListener listener; public void setOnSeekBarChangeListener(OnSeekBarChangeListener x){listener=x;} }""",
 'android/webkit/ValueCallback.java': """package android.webkit; public interface ValueCallback<T> { void onReceiveValue(T value); }""",
 'android/webkit/WebView.java': """package android.webkit; public class WebView extends android.view.View { public int calls; public String js; public ValueCallback<String> callback; public void evaluateJavascript(String s,ValueCallback<String> c){calls++;js=s;callback=c;} public void reply(String s){if(callback!=null)callback.onReceiveValue(s);} }""",
-'android/app/Activity.java': '''package android.app; import java.util.*;import android.view.View; public class Activity extends android.content.Context { public Map<Integer,View> views=new HashMap<Integer,View>(); public View findViewById(int i){return views.get(i);} }''',
+'android/app/Activity.java': '''package android.app; import java.util.*;import android.view.View; public class Activity extends android.content.Context { public Map<Integer,View> views=new HashMap<Integer,View>(); public View findViewById(int i){return views.get(i);} public boolean isFinishing(){return false;} }''',
 'android/app/AlertDialog.java': '''package android.app;import android.content.DialogInterface; public class AlertDialog { public static DialogInterface.OnClickListener copy; public static String body; public static class Builder { public Builder(Activity a){} public Builder setTitle(CharSequence s){return this;} public Builder setMessage(CharSequence s){body=s.toString();return this;} public Builder setPositiveButton(CharSequence s,DialogInterface.OnClickListener l){copy=l;return this;} public Builder setNegativeButton(CharSequence s,DialogInterface.OnClickListener l){return this;} public AlertDialog show(){return new AlertDialog();} } }''',
 # Flat fake data format is sufficient to exercise the controller, not JSON parsing.
 'org/json/JSONObject.java': '''package org.json; import java.util.*;public class JSONObject { private Map<String,String> m=new HashMap<String,String>();public JSONObject(String s){for(String p:s.split(";")){int i=p.indexOf('=');if(i>0)m.put(p.substring(0,i),p.substring(i+1));}}public static String quote(String s){return (char)34+s+(char)34;}public boolean has(String k){return m.containsKey(k);}public boolean optBoolean(String k,boolean d){String s=m.get(k);return s==null?d:Boolean.parseBoolean(s);}public String optString(String k,String d){String s=m.get(k);return s==null?d:s;}public long optLong(String k,long d){try{return Long.parseLong(m.get(k));}catch(Exception e){return d;}}}''',
@@ -225,6 +229,21 @@ public class ControllerTest {
    SystemClock.time+=7000;g.snapshot("track=Song;artist=Main, Guest;playing=false");Choreographer.frame();yes(he.text.equals(shown));yes(hm.progress>0);
    g.snapshot("track=Other;artist=Main, Guest;playing=false");Choreographer.frame();yes(he.text.equals("-:--"));
    yes(PreviewPlayerController.sameArtists("A","A, B"));yes(!PreviewPlayerController.sameArtists("A","AB"));yes(!PreviewPlayerController.sameArtists("A","C, A"));
+  }
+  { // A cached observation renders without a bridge and never invokes the WebView.
+   saved.setBoolean(null,false);Activity h=new Activity();TextView title=new TextView(),artist=new TextView();
+   h.views.put(0x7f090236,title);h.views.put(0x7f090237,artist);h.views.put(0x7f09024d,new ProgressBar());h.views.put(0x7f09023d,new SeekBar());h.views.put(0x7f09024a,new TextView());h.views.put(0x7f09024b,new TextView());h.views.put(0x7f090238,new ImageView());h.views.put(0x7f09023e,new ImageView());
+   PreviewLastTrackStore.Record r=new PreviewLastTrackStore.Record();r.title="Local";r.artist="Artist";r.position=30000;r.duration=120000;r.state="playing";r.observed=System.currentTimeMillis();PreviewLastTrackStore.stored=r;
+   PreviewPlayerController local=new PreviewPlayerController(h);local.layoutReady();local.activityResumed();PreviewLastTrackStore.deliver();
+   yes(title.text.equals("Local"));yes(artist.text.contains("Dernière position connue"));eq(local.tapPlayPause(),-1);
+   yes(!local.acceptPlayerPayload("track=No Track;artist=No Artist"));yes(title.text.equals("Local"));
+   yes(local.acceptPlayerPayload(sample("Different","Artist",5000,120000,"paused","")));local.snapshot(sample("Different","Artist",5000,120000,"paused",""));yes(PreviewLastTrackStore.stored.title.equals("Different"));
+   local.clearLastTrack();yes(PreviewLastTrackStore.stored==null);
+   saved.setBoolean(null,false);PreviewPlayerController empty=new PreviewPlayerController(h);empty.layoutReady();empty.activityResumed();PreviewLastTrackStore.deliver();
+   yes(empty.acceptPlayerPayload(sample("First","Artist",0,120000,"paused","")));empty.snapshot(sample("First","Artist",0,120000,"paused",""));yes(PreviewLastTrackStore.stored.title.equals("First"));
+   saved.setBoolean(null,false);PreviewPlayerController racing=new PreviewPlayerController(h);racing.layoutReady();racing.activityResumed();
+   yes(racing.acceptPlayerPayload(sample("Newer","Artist",5000,120000,"playing","")));racing.snapshot(sample("Newer","Artist",5000,120000,"playing",""));
+   title.setText("live");PreviewLastTrackStore.deliver();yes(title.text.equals("live"));
   }
   System.out.println("Preview controller JVM simulation passed");
  }

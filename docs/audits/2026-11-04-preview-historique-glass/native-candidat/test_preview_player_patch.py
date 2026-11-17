@@ -100,6 +100,19 @@ class PreviewPlayer(unittest.TestCase):
                      'glow[index].cancel()', 'glowFill[index].setAlpha(255)'):
             self.assertIn(part, source)
 
+    def test_persistence_is_wired_before_player_render_and_logout(self):
+        activity=self.get('smali/com/melodix/music/MainActivity.smali')
+        create=method(activity,'.method public final onCreate(')
+        self.assertIn('PreviewPlayerController;->layoutReady()V',create)
+        self.assertGreater(create.index('->layoutReady()V'),create.index('->setContentView(I)V'))
+        self.assertIn('PreviewPlayerController;->clearLastTrack()V',method(activity,'.method public final A()'))
+        apply=method(activity,'.method public final applyNativeUiData(')
+        self.assertLess(apply.index('->acceptPlayerPayload('),apply.index('->updateNativePlayer('))
+        store=self.get('smali/com/melodix/music/PreviewLastTrackStore.smali')
+        self.assertIn('getNoBackupFilesDir',store)
+        self.assertNotIn('evaluateJavascript',store)
+        self.assertNotIn('playFromUri',store)
+
     def test_route_and_about_row_are_native_and_discreet(self):
         a=self.get('smali/com/melodix/music/MainActivity.smali')
         apply=method(a,'.method public final applyNativeUiData(')

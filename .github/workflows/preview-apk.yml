@@ -956,6 +956,7 @@ jobs:
             test -f "$audit/native-candidat/apply_preview_player.py"
             MELODIX_PREVIEW_ROOT="$work" MELODIX_PATCH_INPUT=1 python3 "$audit/native-candidat/test_preview_player_patch.py"
             python3 "$audit/native-candidat/test_preview_player_jvm.py"
+            python3 "$audit/native-candidat/test_preview_last_track_jvm.py"
             python3 "$audit/native-candidat/preview-extras/test_mode_jvm.py"
             python3 "$audit/native-candidat/preview-extras/test_tiles_jvm.py"
             python3 "$audit/native-candidat/preview-extras/test_player_gesture_jvm.py"
