@@ -123,9 +123,17 @@
 
     if-eqz v0, :cond_0
 
-    const-string v0, "delai"
+    invoke-static {}, Lcom/melodix/music/PreviewPlayerTiles;->access$2200()[Ljava/lang/String;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$2202(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v0
+
+    iget v1, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$i:I
+
+    add-int/lit8 v1, v1, -0x1
+
+    const-string v2, "delai"
+
+    aput-object v2, v0, v1
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 

@@ -30,6 +30,11 @@
     }
     function isOpen(b) { return b.getAttribute('aria-pressed') === 'true' || b.getAttribute('aria-expanded') === 'true' || b.getAttribute('data-active') === 'true'; }
     function root(b) {
+        // Narrow page: Spotify opens the queue as its own page (/queue) in the main view.
+        if (/^\/queue/.test(String(location.pathname || ''))) {
+            var mainView = document.querySelector('#main-view, main');
+            if (mainView && mainView.isConnected) return mainView;
+        }
         var selectors = '[data-testid="queue-page"], [data-testid="queue-view"], [data-testid="queue-panel"], [data-testid="NPV-queue"], aside[aria-label="Queue"], aside[aria-label="File d’attente"], aside[aria-label="File d\'attente"], section[aria-label="Queue"], section[aria-label="File d’attente"], [role="region"][aria-label="Queue"], [role="region"][aria-label="File d’attente"]';
         var found = Array.from(document.querySelectorAll(selectors)).filter(function(n) { return n.isConnected; });
         if (found.length === 1) return found[0];
@@ -79,7 +84,7 @@
         var wasOpen = !!already || (b && isOpen(b));
         if (!wasOpen) { try { b.click(); log('opened'); } catch (_) { log('open-error'); finish(false, 'command'); return JSON.stringify({status: 'started'}); } }
         else log('already-open');
-        var end = Date.now() + 2500;
+        var end = Date.now() + 4500;
         (function step() {
             var r = null, list = [];
             try { r = root(button() || b); list = r ? rows(r) : []; } catch (_) { list = []; }
@@ -89,7 +94,14 @@
                 job.now = line(list[0]); job.next = list.slice(1).map(line).join('\n');
                 log('rows:' + Math.min(list.length, 40));
                 finish(true, '');
-            } else { log(r ? 'rows:0' : 'panel:absent'); finish(false, r ? 'empty' : 'panel'); }
+            } else {
+                log(r ? 'rows:0' : 'panel:absent');
+                // Counts only, to locate the queue next time: route, links in the panel, rows in the page.
+                log('path:' + (/^\/queue/.test(String(location.pathname || '')) ? 'queue' : 'other'));
+                log('links:' + Math.min(r ? r.querySelectorAll('a[href*="/track/"], a[href*="/episode/"]').length : 0, 99));
+                log('rowsdoc:' + Math.min(document.querySelectorAll('[data-testid="tracklist-row"], [role="row"]').length, 99));
+                finish(false, r ? 'empty' : 'panel');
+            }
             if (!wasOpen) {
                 setTimeout(function() {
                     try { var again = button() || b; if (again && isOpen(again)) { again.click(); log('closed'); } } catch (_) { log('close-error'); }

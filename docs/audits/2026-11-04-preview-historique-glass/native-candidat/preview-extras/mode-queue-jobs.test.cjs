@@ -235,3 +235,15 @@ test('desktop layout: lyrics shown in the main view are read', async () => {
   const out = run(dom, panelSrc, 'lyrics', 'poll');
   assert.equal(out.ok, true); assert.equal(out.body, 'Ligne un\nLigne deux');
 });
+
+test('narrow page: the queue opened as its own /queue page is read from the main view', async () => {
+  const dom = new JSDOM(`<!doctype html><body><button data-testid="control-button-queue" aria-label="File d'attente" aria-pressed="false">q</button><main id="main-view"></main></body>`, { url: 'https://open.spotify.com/', runScripts: 'outside-only', pretendToBeVisual: true });
+  const doc = dom.window.document, b = doc.querySelector('button');
+  b.addEventListener('click', () => {
+    dom.reconfigure({ url: 'https://open.spotify.com/queue' });
+    doc.getElementById('main-view').innerHTML = '<div data-testid="tracklist-row"><a href="/track/1">Un</a><a href="/artist/a">A</a></div><div data-testid="tracklist-row"><a href="/track/2">Deux</a><a href="/artist/b">B</a></div>';
+  });
+  run(dom, queue, 'run'); await settle(500);
+  const out = run(dom, queue, 'poll');
+  assert.equal(out.ok, true); assert.ok(out.now.startsWith('Un\tA')); assert.ok(out.next.startsWith('Deux\tB'));
+});

@@ -188,25 +188,33 @@
 
     if-eqz v0, :cond_1
 
-    new-instance v0, Ljava/lang/StringBuilder;
-
-    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
-
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-static {}, Lcom/melodix/music/PreviewPlayerTiles;->access$2200()[Ljava/lang/String;
 
     move-result-object v0
 
-    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerTiles$17;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
+    iget v2, p0, Lcom/melodix/music/PreviewPlayerTiles$17;->val$i:I
 
-    invoke-static {v1}, Lcom/melodix/music/PreviewPlayerTiles;->access$2400(Lcom/melodix/music/PreviewPlayerTiles;)Ljava/lang/String;
+    add-int/lit8 v2, v2, -0x1
+
+    new-instance v3, Ljava/lang/StringBuilder;
+
+    invoke-direct {v3}, Ljava/lang/StringBuilder;-><init>()V
+
+    invoke-virtual {v3, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v1
 
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    iget-object v3, p0, Lcom/melodix/music/PreviewPlayerTiles$17;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-    move-result-object v0
+    invoke-static {v3}, Lcom/melodix/music/PreviewPlayerTiles;->access$2400(Lcom/melodix/music/PreviewPlayerTiles;)Ljava/lang/String;
 
-    invoke-virtual {v0, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    move-result-object v3
+
+    invoke-virtual {v1, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v1
+
+    invoke-virtual {v1, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object p1
 
@@ -214,7 +222,7 @@
 
     move-result-object p1
 
-    invoke-static {p1}, Lcom/melodix/music/PreviewPlayerTiles;->access$2202(Ljava/lang/String;)Ljava/lang/String;
+    aput-object p1, v0, v2
 
     .line 277
     :cond_1

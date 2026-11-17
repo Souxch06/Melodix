@@ -194,9 +194,17 @@
     goto :goto_1
 
     :cond_2
-    const-string p1, "demarrage:refuse"
+    invoke-static {}, Lcom/melodix/music/PreviewPlayerTiles;->access$2200()[Ljava/lang/String;
 
-    invoke-static {p1}, Lcom/melodix/music/PreviewPlayerTiles;->access$2202(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object p1
+
+    iget v0, p0, Lcom/melodix/music/PreviewPlayerTiles$13;->val$i:I
+
+    add-int/lit8 v0, v0, -0x1
+
+    const-string v1, "demarrage:refuse"
+
+    aput-object v1, p1, v0
 
     iget-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$13;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 

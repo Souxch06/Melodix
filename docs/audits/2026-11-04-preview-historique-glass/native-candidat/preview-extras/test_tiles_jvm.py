@@ -70,7 +70,7 @@ stubs.update({
   retry.performClick();c.G.reply("status=started");Handler.advance(250);c.G.reply("status=done;ok=false;reason=panel;journal=button:absent");ok(((TextView)list.children.get(0)).text.equals("File indisponible"));ok(retry.enabled);ok(c.root.getVisibility()==original);Dialog.last.dismiss();
   // An unresponsive page is bounded; a late reply after closing is ignored.
   Handler.advance(401);t.children.get(0).performClick();sheet=(LinearLayout)Dialog.last.content;list=(LinearLayout)((ScrollView)sheet.children.get(2)).child;android.webkit.ValueCallback<String> late=c.G.cb;
-  c.G.reply("status=started");Handler.advance(250);late=c.G.cb;Handler.advance(6001);
+  c.G.reply("status=started");Handler.advance(250);late=c.G.cb;Handler.advance(8001); // queue deadline is 8 s (the page job waits up to 4.5 s)
   ok(((TextView)list.children.get(0)).text.equals("File indisponible"));Dialog.last.dismiss();late.onReceiveValue("status=done;ok=true;now=Late");ok(((TextView)list.children.get(0)).text.equals("File indisponible"));
   c.G.setCalls=0;Handler.clear();
   PreviewPlayerVolume volume=(PreviewPlayerVolume)t.children.get(3);volume.onAttachedToWindow();Handler.step();ok(c.G.js.contains("query"));c.G.reply("ok=true;percent=45");ok(volume.enabled&&volume.text.contains("45 %"));
