@@ -611,3 +611,14 @@ test('reported phone structure: album-only bar and six unrelated tracks cannot i
   const result=run(dom,mode,'like','poll','unknown','Titre','');assert.notEqual(result.outcome,'confirmed');assert.equal(clicks,0);
  }finally{dom.window.close()}
 });
+
+test('v2 standalone widget: job adds only when explicit identity and state agree',async()=>{
+ const dom=page('<div data-testid="now-playing-widget-v2"><a data-testid="context-item-link" href="/track/x">Titre</a><button aria-label="Ajouter aux titres likés" aria-checked="false"></button></div>');
+ try {const b=dom.window.document.querySelector('button');let clicks=0;b.onclick=()=>{clicks++;b.setAttribute('aria-label','Retirer des titres likés');b.setAttribute('aria-checked','true')};
+ run(dom,mode,'like','run','false','Titre','track:x');await settle(50);
+ assert.equal(run(dom,mode,'like','poll','unknown','Titre','track:x').outcome,'confirmed');assert.equal(clicks,1);
+ dom.window.document.querySelector('a').href='/album/album';b.setAttribute('aria-label','Ajouter aux titres likés');b.setAttribute('aria-checked','false');
+ run(dom,mode,'like','run','false','Titre','track:x');await settle(50);
+ assert.equal(run(dom,mode,'like','poll','unknown','Titre','track:x').outcome,'identity');assert.equal(clicks,1);
+ }finally{dom.window.close()}
+});

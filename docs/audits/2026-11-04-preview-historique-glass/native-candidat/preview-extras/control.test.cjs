@@ -142,3 +142,26 @@ test('an explicit attribute cannot hide a malformed or contradictory track-beari
  for(const href of ['spotify:track:other?broken=1','/track/other:broken','/album/a?highlight=spotify:track:other&highlight=spotify:track:abc']){a.setAttribute('href',href);assert.equal(q(x,'like').track,'',href);}
  a.setAttribute('href','/album/a');assert.equal(q(x,'like').track,'track:abc');
  }finally{x.close()}});
+
+test('v2 player widget is scoped like the old widget, but album alone is not a track',()=>{const x=boot();try{
+ const bar=x.w.document.querySelector('[data-testid=now-playing-widget]');bar.setAttribute('data-testid','now-playing-widget-v2');
+ const b=bar.querySelector('button'),link=bar.querySelector('a');let clicks=0;b.onclick=()=>clicks++;
+ let p=q(x,'like');assert.deepEqual([p.track,p.title,p.state],['track:abc','Titre','false']);assert.equal(invoke(x,'like',p.state,p.track,p.title),true);assert.equal(clicks,1);
+ link.href='/album/album1';p=q(x,'like');assert.equal(p.track,'');assert.equal(invoke(x,'like','false','track:abc','Titre'),false);assert.equal(clicks,1);
+ }finally{x.close()}});
+
+// Independent DOM fixtures stress the identity guard; these are simulations,
+// not measurements or evidence of Spotify's live markup.
+for(let i=0;i<240;i++) test(`v2 scoped identity guard case ${i+1}`,()=>{const x=boot();try{
+ const d=x.w.document,bar=d.querySelector('[data-testid=now-playing-widget]');bar.setAttribute('data-testid','now-playing-widget-v2');
+ const link=bar.querySelector('a'),b=bar.querySelector('button');const id='Case'+i;link.href='/track/'+id;let clicks=0;b.onclick=()=>clicks++;
+ const scenario=i%6;
+ if(scenario===1) link.href='/album/'+id;
+ if(scenario===2) {const a=d.createElement('a');a.href='/track/other'+i;a.textContent='Other';bar.append(a)}
+ if(scenario===3) b.setAttribute('aria-checked','true');
+ if(scenario===4) b.setAttribute('aria-label','Remove from your library');
+ if(scenario===5) {const a=d.createElement('a');a.href='/track/other'+i;a.textContent='Other';d.body.append(a)}
+ const p=q(x,'like');const sent=invoke(x,'like','false','track:'+id,'Titre');
+ assert.equal(sent,scenario===0||scenario===5);assert.equal(clicks,sent?1:0);
+ if(scenario===1||scenario===2)assert.equal(p.track,'');
+ }finally{x.close()}});

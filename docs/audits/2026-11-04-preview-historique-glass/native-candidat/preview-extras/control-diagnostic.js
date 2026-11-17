@@ -9,14 +9,14 @@
         shuffle:{selector:'button[data-testid*="shuffle" i], button[aria-label], [role="button"][aria-label], [role="switch"][aria-label]', ids:/shuffle/i,
             off:/^(enable shuffle|turn shuffle on|activate shuffle|activer (la lecture |le mode |l['’])?aléatoire|zufallswiedergabe aktivieren|activar (el modo |la reproducción )?aleatori[oa]|ativar (a reprodução )?aleatória)$/i,
             on:/^(disable shuffle|turn shuffle off|deactivate shuffle|désactiver (la lecture |le mode |l['’])?aléatoire|zufallswiedergabe deaktivieren|desactivar (el modo |la reproducción )?aleatori[oa]|desativar (a reprodução )?aleatória)$/i},
-        like:{selector:'[data-testid="now-playing-widget"] button, [data-testid="now-playing-bar"] button, [data-testid="now-playing-view"] button, [data-testid="now-playing-panel"] button, [data-testid="now-playing-widget"] [role="button"], [data-testid="now-playing-bar"] [role="button"], [data-testid="now-playing-view"] [role="button"], [data-testid="now-playing-panel"] [role="button"], [data-testid="now-playing-widget"] [role="switch"], [data-testid="now-playing-bar"] [role="switch"], [data-testid="now-playing-view"] [role="switch"], [data-testid="now-playing-panel"] [role="switch"]', ids:/^(add-button|remove-button|add-to-library-button|remove-from-library-button)$/i,
+        like:{selector:':is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]) button, [data-testid="now-playing-bar"] button, [data-testid="now-playing-view"] button, [data-testid="now-playing-panel"] button, :is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]) [role="button"], [data-testid="now-playing-bar"] [role="button"], [data-testid="now-playing-view"] [role="button"], [data-testid="now-playing-panel"] [role="button"], :is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]) [role="switch"], [data-testid="now-playing-bar"] [role="switch"], [data-testid="now-playing-view"] [role="switch"], [data-testid="now-playing-panel"] [role="switch"]', ids:/^(add-button|remove-button|add-to-library-button|remove-from-library-button)$/i,
             off:/^(save to your library|add to (your )?(liked songs|library)|ajouter (à|aux) (la bibliothèque|titres likés)|enregistrer dans (votre |la )?bibliothèque|in (deine |der )?bibliothek (aufnehmen|hinzufügen)|añadir a (tu )?biblioteca|adicionar (à biblioteca|aos títulos curtidos))$/i,
             on:/^(remove from (your )?(library|liked songs)|retirer (de la bibliothèque|des titres likés)|supprimer de (votre |la )?bibliothèque|aus (deiner |der )?bibliothek entfernen|quitar de (tu )?biblioteca|remover (da biblioteca|dos títulos curtidos))$/i}
     };
     // Aggregate structure only: fixed testid/role and label categories, never
     // arbitrary labels or identifiers that could contain a track or account.
     function structure() {
-        var roots=Array.from(document.querySelectorAll('[data-testid="now-playing-bar"], [data-testid="now-playing-widget"], [data-testid="player-controls"], [data-testid="now-playing-view"], [data-testid="now-playing-panel"]'));
+        var roots=Array.from(document.querySelectorAll('[data-testid="now-playing-bar"], :is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]), [data-testid="player-controls"], [data-testid="now-playing-view"], [data-testid="now-playing-panel"]'));
         var nodes=[];roots.forEach(function(root){Array.from(root.querySelectorAll('button,[role="button"],[role="switch"],[role="slider"],input[type="range"]')).forEach(function(n){if(nodes.indexOf(n)<0)nodes.push(n);});});
         var st={bar:0,view:0,nodes:Math.min(nodes.length,99),playpause:0,repeat:0,shuffle:0,like:0,queue:0,volume:0,lyrics:0,connect:0,other:0,button:0,switch:0,slider:0,aria_shuffle:0,aria_like:0,aria_play:0,aria_pause:0,aria_other:0,track_links:0,track_named:0,track_generic:0,npv_opener:0};
         roots.forEach(function(r){if(/^(now-playing-view|now-playing-panel)$/.test(r.getAttribute('data-testid')))st.view++;else st.bar++;});
@@ -26,7 +26,7 @@
             st[k]=Math.min(st[k]+1,99);if(role==='switch')st.switch++;else if(role==='slider'||n.tagName==='INPUT')st.slider++;else st.button++;
             if(specs.shuffle.off.test(label)||specs.shuffle.on.test(label))st.aria_shuffle++;else if(specs.like.off.test(label)||specs.like.on.test(label))st.aria_like++;else if(/^(play|resume|lire|reprendre)$/i.test(label))st.aria_play++;else if(/^(pause|mettre en pause)$/i.test(label))st.aria_pause++;else if(label)st.aria_other++;
         });
-        var links=Array.from(document.querySelectorAll('[data-testid="now-playing-widget"] a[href], [data-testid="now-playing-bar"] a[href]'));
+        var links=Array.from(document.querySelectorAll(':is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]) a[href], [data-testid="now-playing-bar"] a[href]'));
         // Shapes only (no href, title or label text): where the bar points, and
         // what the checked (like-like) buttons' labels contain.
         ['href_album','href_album_hl','href_hl_ambiguous','href_artist','href_uri','href_other','chk_buttons','chk_likeword','chk_verb_add','chk_verb_on','chk_long','chk_favori','chk_library','chk_liked','chk_add_false','chk_add_true','chk_popup'].forEach(function(k){st[k]=0;});
@@ -34,7 +34,7 @@
             var hh=String(a.getAttribute('href')||'');
             if(/^spotify:(track|episode):[a-z0-9]+$/i.test(hh))st.href_uri++;else if(/\/album\//i.test(hh))st[/highlight=/i.test(hh)?'href_album_hl':'href_album']++;else if(/\/artist\//i.test(hh))st.href_artist++;else if(!/\/(track|episode)\//i.test(hh))st.href_other++;
         });
-        Array.from(document.querySelectorAll('[data-testid="now-playing-widget"] button[aria-checked], [data-testid="now-playing-bar"] button[aria-checked]')).forEach(function(b){
+        Array.from(document.querySelectorAll(':is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]) button[aria-checked], [data-testid="now-playing-bar"] button[aria-checked]')).forEach(function(b){
             var l=String(b.getAttribute('aria-label')||'').trim();if(/repeat|r[ée]p[ée]t|shuffle|al[ée]atoire/i.test(l)||/repeat|shuffle/i.test(String(b.getAttribute('data-testid')||'')))return;
             st.chk_buttons++;if(/(liké|liked|bibliothèque|library|favori)/i.test(l))st.chk_likeword++;
             if(/^(ajouter|add|enregistrer|save)/i.test(l))st.chk_verb_add++;if(/^(ajouté|retirer|supprimer|remove|enregistré|saved|added)/i.test(l))st.chk_verb_on++;if(l.length>30)st.chk_long++;
@@ -57,7 +57,7 @@
             if(!/^(context-item-link|nowplaying-track-link)$/i.test(String(a.getAttribute('data-testid')||'')))st.track_generic++;
         });
         st.track_attr=0;
-        Array.from(document.querySelectorAll('[data-testid="now-playing-widget"] [data-testid="context-item-link"], [data-testid="now-playing-widget"] [data-testid="nowplaying-track-link"], [data-testid="now-playing-widget"] [data-testid="context-item-info-title"], [data-testid="now-playing-bar"] [data-testid="context-item-link"], [data-testid="now-playing-bar"] [data-testid="nowplaying-track-link"], [data-testid="now-playing-bar"] [data-testid="context-item-info-title"]')).forEach(function(n){
+        Array.from(document.querySelectorAll(':is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]) [data-testid="context-item-link"], :is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]) [data-testid="nowplaying-track-link"], :is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]) [data-testid="context-item-info-title"], [data-testid="now-playing-bar"] [data-testid="context-item-link"], [data-testid="now-playing-bar"] [data-testid="nowplaying-track-link"], [data-testid="now-playing-bar"] [data-testid="context-item-info-title"]')).forEach(function(n){
             if(['data-uri','data-track-uri','data-spotify-uri'].some(function(k){return /^spotify:(track|episode):[a-z0-9]+$/i.test(String(n.getAttribute(k)||''));}))st.track_attr++;
         });
         Array.from(document.querySelectorAll('button, [role="button"]')).forEach(function(b){
@@ -67,7 +67,7 @@
         // Counts outside player scopes help locate candidates only. They may
         // belong to a playlist or another track and are NEVER actionable.
         st.outside_like_id=0;st.outside_like_label=0;st.outside_track_links=0;
-        function inPlayer(n){return !!n.closest('[data-testid="now-playing-widget"], [data-testid="now-playing-bar"], [data-testid="now-playing-view"], [data-testid="now-playing-panel"], [data-testid="NPV"]');}
+        function inPlayer(n){return !!n.closest(':is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]), [data-testid="now-playing-bar"], [data-testid="now-playing-view"], [data-testid="now-playing-panel"], [data-testid="NPV"]');}
         Array.from(document.querySelectorAll('button, [role="button"], [role="switch"]')).forEach(function(n){
             if(!n.isConnected||inPlayer(n))return;
             var id=String(n.getAttribute('data-testid')||''),label=String(n.getAttribute('aria-label')||'').trim();

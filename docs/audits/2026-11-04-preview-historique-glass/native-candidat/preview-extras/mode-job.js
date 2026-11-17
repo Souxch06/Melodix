@@ -65,7 +65,7 @@
         });
         if (kind === 'like') {
             var scoped = list.filter(function(b) {
-                return b.closest('[data-testid="now-playing-widget"], [data-testid="now-playing-bar"], [data-testid="now-playing-view"], [data-testid="now-playing-panel"], [data-testid="NPV"]');
+                return b.closest(':is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]), [data-testid="now-playing-bar"], [data-testid="now-playing-view"], [data-testid="now-playing-panel"], [data-testid="NPV"]');
             });
             list = scoped;
         }
@@ -151,15 +151,15 @@
     }
     function parentTrack(link) {
         var n=link.closest('[data-testid="context-item-info-title"]');
-        if(!n || !n.closest('[data-testid="now-playing-widget"], [data-testid="now-playing-bar"]')) return '';
+        if(!n || !n.closest(':is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]), [data-testid="now-playing-bar"]')) return '';
         return markedTrack(n);
     }
     function markedTitleNodes() {
-        return Array.from(document.querySelectorAll('[data-testid="now-playing-widget"] [data-testid="context-item-link"], [data-testid="now-playing-widget"] [data-testid="nowplaying-track-link"], [data-testid="now-playing-widget"] [data-testid="context-item-info-title"], [data-testid="now-playing-bar"] [data-testid="context-item-link"], [data-testid="now-playing-bar"] [data-testid="nowplaying-track-link"], [data-testid="now-playing-bar"] [data-testid="context-item-info-title"]')).filter(function(n) { return n.isConnected; });
+        return Array.from(document.querySelectorAll(':is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]) [data-testid="context-item-link"], :is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]) [data-testid="nowplaying-track-link"], :is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]) [data-testid="context-item-info-title"], [data-testid="now-playing-bar"] [data-testid="context-item-link"], [data-testid="now-playing-bar"] [data-testid="nowplaying-track-link"], [data-testid="now-playing-bar"] [data-testid="context-item-info-title"]')).filter(function(n) { return n.isConnected; });
     }
     function identityMatches() {
         if (!expectedTitle || !expectedTrack) return false;
-        var links = Array.from(document.querySelectorAll('[data-testid="now-playing-widget"] a[href], [data-testid="now-playing-bar"] a[href], a[data-testid="nowplaying-track-link"][href], [data-testid="now-playing-view"] a[href]'));
+        var links = Array.from(document.querySelectorAll(':is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]) a[href], [data-testid="now-playing-bar"] a[href], a[data-testid="nowplaying-track-link"][href], [data-testid="now-playing-view"] a[href]'));
         var malformedIdentity = false;
         var identities = links.map(function(link) {
             var m = trackHref(String(link.getAttribute('href') || ''));

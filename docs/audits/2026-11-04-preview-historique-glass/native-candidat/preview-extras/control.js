@@ -27,7 +27,7 @@
     // Spotify's "+" save button: generic "Ajouter..." label, state in aria-checked.
     function genericAdd(l) { return /^(ajouter|add|enregistrer|save)\b/i.test(l) && !/(titres likés|liked songs|bibliothèque|library|file d['’]attente|queue)/i.test(l); }
     var selector = kind === 'like' ?
-        '[data-testid="now-playing-widget"] button, [data-testid="now-playing-bar"] button, [data-testid="now-playing-view"] button, [data-testid="now-playing-panel"] button, [data-testid="now-playing-widget"] [role="button"], [data-testid="now-playing-bar"] [role="button"], [data-testid="now-playing-view"] [role="button"], [data-testid="now-playing-panel"] [role="button"], [data-testid="now-playing-widget"] [role="switch"], [data-testid="now-playing-bar"] [role="switch"], [data-testid="now-playing-view"] [role="switch"], [data-testid="now-playing-panel"] [role="switch"]' :
+        ':is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]) button, [data-testid="now-playing-bar"] button, [data-testid="now-playing-view"] button, [data-testid="now-playing-panel"] button, :is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]) [role="button"], [data-testid="now-playing-bar"] [role="button"], [data-testid="now-playing-view"] [role="button"], [data-testid="now-playing-panel"] [role="button"], :is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]) [role="switch"], [data-testid="now-playing-bar"] [role="switch"], [data-testid="now-playing-view"] [role="switch"], [data-testid="now-playing-panel"] [role="switch"]' :
         kind === 'shuffle' ? 'button[data-testid*="shuffle" i], button[aria-label], [role="button"][aria-label], [role="switch"][aria-label]' :
         'button[data-testid="control-button-repeat"], [role="button"][data-testid="control-button-repeat"], button[aria-label], [role="button"][aria-label]';
     var nodes = Array.from(document.querySelectorAll(selector)).filter(function(b) {
@@ -94,14 +94,14 @@
     }
     function parentTrack(link) {
         var n=link.closest('[data-testid="context-item-info-title"]');
-        if(!n || !n.closest('[data-testid="now-playing-widget"], [data-testid="now-playing-bar"]')) return '';
+        if(!n || !n.closest(':is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]), [data-testid="now-playing-bar"]')) return '';
         return markedTrack(n);
     }
     function markedTitleNodes() {
-        return Array.from(document.querySelectorAll('[data-testid="now-playing-widget"] [data-testid="context-item-link"], [data-testid="now-playing-widget"] [data-testid="nowplaying-track-link"], [data-testid="now-playing-widget"] [data-testid="context-item-info-title"], [data-testid="now-playing-bar"] [data-testid="context-item-link"], [data-testid="now-playing-bar"] [data-testid="nowplaying-track-link"], [data-testid="now-playing-bar"] [data-testid="context-item-info-title"]')).filter(function(n) { return n.isConnected; });
+        return Array.from(document.querySelectorAll(':is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]) [data-testid="context-item-link"], :is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]) [data-testid="nowplaying-track-link"], :is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]) [data-testid="context-item-info-title"], [data-testid="now-playing-bar"] [data-testid="context-item-link"], [data-testid="now-playing-bar"] [data-testid="nowplaying-track-link"], [data-testid="now-playing-bar"] [data-testid="context-item-info-title"]')).filter(function(n) { return n.isConnected; });
     }
     if (kind === 'like') {
-        var anchors = Array.from(document.querySelectorAll('[data-testid="now-playing-widget"] a[href], [data-testid="now-playing-bar"] a[href]'));
+        var anchors = Array.from(document.querySelectorAll(':is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]) a[href], [data-testid="now-playing-bar"] a[href]'));
         var malformedIdentity = false;
         var identities = anchors.map(function(link) {
             var match = trackHref(String(link.getAttribute('href') || ''));
@@ -120,7 +120,7 @@
     }
 
     if (!nodes.length) {
-        var hasBar = !!document.querySelector('[data-testid="now-playing-bar"], [data-testid="now-playing-widget"], [data-testid="player-controls"]');
+        var hasBar = !!document.querySelector('[data-testid="now-playing-bar"], :is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]), [data-testid="player-controls"]');
         // With the player bar present and no such control anywhere in the page,
         // say so ('absent'); without the bar the control may simply not be shown yet.
         result.reason = document.readyState === 'loading' ? 'page' : (kind === 'shuffle' && !hasBar ? 'bar' : hasBar ? 'absent' : 'control');

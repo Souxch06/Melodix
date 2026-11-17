@@ -94,3 +94,8 @@ test('missing and throwing platform capabilities do not break the passive probe'
  const d=new JSDOM(bar('<button aria-checked="false" aria-label="Ajouter aux titres likés"></button>'),{url:'https://open.spotify.com/',runScripts:'outside-only'});
  try{Object.defineProperty(d.window,'Melodix',{get(){throw Error('private secret')}});const out=JSON.parse(d.window.eval(code)('like'));assert.equal(JSON.parse(out.structure).api_player,0);assert.ok(!JSON.stringify(out).includes('secret'));}finally{d.window.close()}
 });
+
+test('v2 widget counts are scoped and remain categorical',()=>{
+ const x=run('<div data-testid="now-playing-widget-v2"><a href="/track/private">PRIVATE</a><button aria-label="Save to your library" aria-checked="false"></button></div>','like');
+ const s=JSON.parse(x.structure);assert.equal(s.bar,1);assert.equal(s.track_links,1);assert.ok(!JSON.stringify(x).includes('private'));assert.ok(!JSON.stringify(x).includes('PRIVATE'));
+});
