@@ -86,7 +86,10 @@ public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnG
         if (depth > 40 || v.getVisibility() != VISIBLE) return;
         if (!done.containsKey(v) && v.getWidth() > 0 && v.getHeight() > 0) {
             done.put(v, Boolean.TRUE);
-            if (v instanceof TextView && !(v instanceof android.widget.Button)) styleText((TextView) v);
+            if (v instanceof android.widget.EditText) field((android.widget.EditText) v);
+            else if (v instanceof TextView && !(v instanceof android.widget.Button)) styleText((TextView) v);
+            else if (!(v instanceof ViewGroup) && !(v instanceof ImageView) && v.getHeight() <= dp(2) && v.getWidth() >= dp(48) &&
+                     v.getBackground() instanceof android.graphics.drawable.ColorDrawable) v.setBackgroundColor(0x2a8b5cf6);
             else if (v instanceof ImageView && v.getWidth() >= dp(40) && v.getHeight() >= dp(40)) {
                 float r = Math.min(dp(18), Math.min(v.getWidth(), v.getHeight()) * 0.14f); round(v, r);
                 if (v.getWidth() >= dp(96) && Build.VERSION.SDK_INT >= 28) { v.setElevation(dp(8)); v.setOutlineSpotShadowColor(VIOLET); v.setOutlineAmbientShadowColor(VIOLET); }
@@ -98,6 +101,12 @@ public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnG
             }
         }
         if (v instanceof ViewGroup) { ViewGroup g = (ViewGroup) v; for (int i = 0; i < g.getChildCount(); i++) visit(g.getChildAt(i), depth + 1); }
+    }
+    /** Text fields: glass pill, lilac hint, white text. Keeps input type, text and listeners. */
+    private void field(android.widget.EditText e) {
+        e.setBackground(glass(dp(24), dp(1)));
+        e.setPadding(Math.max(e.getPaddingLeft(), dp(16)), e.getPaddingTop(), Math.max(e.getPaddingRight(), dp(16)), e.getPaddingBottom());
+        e.setTextColor(WHITE); e.setHintTextColor(0x99c4b5fd);
     }
     private int entered;
     /** Soft fade/slide-in the first time a row is styled; the detach listener always restores a recycled view. */

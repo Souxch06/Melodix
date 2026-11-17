@@ -33,7 +33,7 @@
         }
     .end annotation
 
-    .line 108
+    .line 117
     iput-object p1, p0, Lcom/melodix/music/PreviewUiRestyle$3;->this$0:Lcom/melodix/music/PreviewUiRestyle;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -46,14 +46,14 @@
 .method public onViewAttachedToWindow(Landroid/view/View;)V
     .locals 0
 
-    .line 109
+    .line 118
     return-void
 .end method
 
 .method public onViewDetachedFromWindow(Landroid/view/View;)V
     .locals 1
 
-    .line 110
+    .line 119
     invoke-virtual {p1}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
 
     move-result-object v0
