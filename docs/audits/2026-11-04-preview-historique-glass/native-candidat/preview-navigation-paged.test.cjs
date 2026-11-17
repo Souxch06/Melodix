@@ -158,6 +158,10 @@ for(const uri of ['spotify:playlist:abc123','spotify:collection:tracks']) {
    x.w.document.body.insertAdjacentHTML('beforeend','<button data-testid="control-button-playpause" aria-label="Play"></button>');
    x.w.__sfMelodixBridgeCompleted=true;let count=0;x.nav=[];
    x.w.fetchMediaItems=()=>{count++;return Promise.resolve()};
+   if(uri==='spotify:collection:tracks') {
+    x.w.spotAuthToken='Bearer fixture';
+    x.w.fetch=()=>{count++;return Promise.resolve({ok:false,status:403})};
+   }
    x.w.__sfNativeOpenUri=u=>{x.nav.push(u);x.w.__sfCancelPendingCollection();return true};
    x.w.__sfOpenCollection(uri);await wait();fire(x);
    assert.equal(count,1);assert.deepEqual(x.nav,[uri]);assert.equal(x.requests.length,0);
@@ -169,13 +173,16 @@ for(const uri of ['spotify:playlist:abc123','spotify:collection:tracks']) {
    x.w.__sfMelodixBridgeCompleted=true;let count=0;const first=deferred();x.nav=[];
    x.w.fetchMediaItems=()=>{count++;return count===1?first.promise:Promise.resolve()};
    x.w.__sfNativeOpenUri=u=>{x.nav.push(u);return true};
-   Object.defineProperty(x.w,'spotAuthToken',{configurable:true,get(){throw Error('new code read credential')}});
+   if(uri==='spotify:collection:tracks') {
+    x.w.spotAuthToken='Bearer fixture';
+    x.w.fetch=()=>{count++;return count===1?first.promise:Promise.resolve({ok:false,status:403})};
+   } else Object.defineProperty(x.w,'spotAuthToken',{configurable:true,get(){throw Error('playlist flow read credential')}});
    x.w.__sfOpenCollection(uri);fire(x);assert.equal(count,1);assert.deepEqual(x.nav,[]);
    let rows=x.calls.filter(c=>c.event==='native'&&c.id==='detail').at(-1).rows;
    assert.equal(rows[0].title,'Titres indisponibles');assert.equal(rows[1].title,'Réessayer');
    // A late empty resolution must not navigate even after pausing; it belongs
    // to the already failed attempt, not a fresh user request.
-   x.w.document.querySelector('button').setAttribute('aria-label','Play');first.resolve();await wait();
+   x.w.document.querySelector('button').setAttribute('aria-label','Play');first.resolve({ok:false,status:403});await wait();
    assert.deepEqual(x.nav,[]);assert.equal(count,1);
    x.w.document.querySelector('button').setAttribute('aria-label','Pause');
    x.w.__sfRetryCollection();await wait();assert.equal(count,2);assert.deepEqual(x.nav,[]);
