@@ -10,13 +10,13 @@ const shell=fs.readFileSync(path.join(root,'assets/native_ui_shell.js'),'utf8');
 const bridge=fs.readFileSync(path.join(root,'assets/spotify_bridge.js'),'utf8');
 function setup(){
  const dom=new JSDOM('<!doctype html><main id="main-view"></main>',{url:'https://open.spotify.com/',runScripts:'outside-only',virtualConsole:new VirtualConsole()});
- const w=dom.window,timers=[];
+ const w=dom.window,timers=[];let readCount=0;
  w.setTimeout=(fn,ms)=>{timers.push({fn,ms});return timers.length};w.clearTimeout=()=>{};w.setInterval=()=>1;w.clearInterval=()=>{};
  w.MutationObserver=class{observe(){}disconnect(){}};w.SF_CONFIG={guiMode:'csshack'};
  w.fetch=async()=>{throw Error('synthetic network blocked')};
- w.AndBridge=new Proxy({readBundledAsset:()=>bridge},{get:(t,k)=>k in t?t[k]:()=>{}});
+ w.AndBridge=new Proxy({readBundledAsset:()=>{readCount++;return bridge}},{get:(t,k)=>k in t?t[k]:()=>{}});
  w.eval(shell);w.__sfLoadBundledBridge('spotify_bridge.js');
- return {w,timers,close:()=>dom.window.close()};
+ return {w,timers,reads:()=>readCount,close:()=>dom.window.close()};
 }
 function fire(x,ms,index=0){const t=x.timers.filter(t=>t.ms===ms)[index];assert.ok(t,'missing timer '+ms);t.fn()}
 function tag(x){return x.w.document.querySelector('script[data-sf-melodix-bridge="1"]')}
@@ -44,4 +44,8 @@ test('a waiting playlist receives real bridge callbacks after simulated recovery
   for(let i=0;i<50;i++)await Promise.resolve();
   assert.deepEqual(req,['fetchPlaylist']);assert.ok(calls.some(c=>c.id===id&&c.rows[0]?.id==='spotify:track:fixture'));
  }finally{x.close()}
+});
+
+test('same-origin bridge loading does not copy the full bridge through the native interface',()=>{
+ const x=setup();try{assert.equal(x.reads(),0);let reads=0;x.w.AndBridge.readBundledAsset=()=>{reads++;throw Error('copy must not be requested')};x.w.__sfLoadBundledBridge('spotify_bridge.js');tag(x).onerror();fire(x,1200);assert.equal(reads,0);assert.equal(x.w.__sfPreviewBridgeCopyAvoided,true);assert.ok(tag(x));x.w.eval(bridge);assert.equal(x.w.__sfMelodixBridgeCompleted,true)}finally{x.close()}
 });

@@ -198,7 +198,7 @@ test('native retry row is intercepted before Spotify URI handling',()=>{
  const rows=fs.readFileSync(path.join(root,'smali/com/melodix/music/NativeUiRowFactory.smali'),'utf8');
  assert.ok(rows.includes('new-instance v1, Landroid/widget/Button;'));
  assert.ok(rows.includes('melodix:retry-collection'));
- const flow=shell.slice(shell.indexOf('    var openCollectionTimer = null;'),shell.indexOf('    // Search normally goes through the bridge.'));
+ const start=shell.search(/var\s+openCollectionTimer\s*=\s*null/), end=shell.search(/function\s+installSearchFallback\s*\(/);assert.ok(start>=0&&end>start);const flow=shell.slice(start,end);
  for(const forbidden of ['spotAuthToken','spotCliToken','localStorage','api.spotify.com','window.fetch(']) assert.ok(!flow.includes(forbidden));
 });
 

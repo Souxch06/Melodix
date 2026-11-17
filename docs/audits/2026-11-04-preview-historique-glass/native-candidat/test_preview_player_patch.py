@@ -6,6 +6,7 @@ This is not Android ART or a real Spotify session.
 import hashlib
 import importlib.util
 import os
+import re
 import unittest
 from pathlib import Path
 
@@ -172,11 +173,14 @@ class PreviewPlayer(unittest.TestCase):
     def test_previous_collection_readiness_guard_is_retained(self):
         if INPUT: return
         shell=self.get('assets/native_ui_shell.js')
-        flow=shell[shell.index('    var openCollectionTimer = null;'):shell.index('    // Search normally goes through the bridge.')]
-        self.assertIn("window.__sfMelodixBridgeCompleted === true && typeof window.fetchMediaItems === 'function'",flow)
+        start=re.search(r'var\s+openCollectionTimer\s*=\s*null',shell)
+        end=re.search(r'function\s+installSearchFallback\s*\(',shell)
+        self.assertIsNotNone(start); self.assertIsNotNone(end); self.assertLess(start.start(),end.start())
+        flow=shell[start.start():end.start()]
+        self.assertRegex(flow, r"window\.__sfMelodixBridgeCompleted\s*===\s*true\s*&&\s*typeof\s+window\.fetchMediaItems\s*===\s*['\"]function['\"]")
         self.assertNotIn('spotAuthToken',flow)
         self.assertNotIn('api.spotify.com',flow)
-        self.assertIn("previewPhase('rows-received')",flow)
+        self.assertRegex(flow,r"previewPhase\(['\"]rows-received['\"]\)")
 
     def test_controls_have_no_playlist_rate_limit(self):
         a=self.get('smali/com/melodix/music/MainActivity.smali')
@@ -193,8 +197,10 @@ class PreviewPlayer(unittest.TestCase):
         s=self.get('assets/native_ui_shell.js')
         for name in ('previewTrackUri', 'previewPositionMs', 'previewDurationMs', 'previewProgressValid', 'previewAdvancing'):
             self.assertIn(name,s)
-        self.assertIn("window.AndBridge.onNativeUiData('preview-command', '')",s)
-        toggle=s[s.index('    window.__sfTogglePlayback ='):s.index('    // Single entry point for the native previous/next')]
+        self.assertRegex(s,r"window\.AndBridge\.onNativeUiData\(['\"]preview-command['\"],\s*['\"]['\"]\)")
+        start=re.search(r'window\.__sfTogglePlayback\s*=',s); end=re.search(r'window\.__sfSkip\s*=',s)
+        self.assertIsNotNone(start);self.assertIsNotNone(end);self.assertLess(start.start(),end.start())
+        toggle=s[start.start():end.start()]
         self.assertNotIn('refreshPlayerSoon(350)',toggle)
         self.assertNotIn('refreshPlayerSoon(1400)',toggle)
         self.assertIn('window.actPlayPause(target)',toggle)

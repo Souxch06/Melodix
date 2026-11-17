@@ -53,7 +53,8 @@ test('full shell creates one same-origin loader tag; full bridge completes when 
         const tags=w.document.querySelectorAll('script[data-sf-melodix-bridge="1"]');
         assert.equal(tags.length,1);
         assert.equal(tags[0].src,'https://open.spotify.com/__melodix__/spotify_bridge.js');
-        assert.equal(w.__sfBridgeSourceChars,bridge.length);
+        if (w.__sfPreviewBridgeCopyAvoided) assert.equal(w.__sfBridgeSourceChars,undefined);
+        else assert.equal(w.__sfBridgeSourceChars,bridge.length);
         assert.notEqual(w.__sfMelodixBridgeCompleted,true);
         // JSDOM is not an Android WebResourceResponse; simulate delivery manually.
         w.eval(bridge);

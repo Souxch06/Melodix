@@ -61,6 +61,22 @@ def apply(root):
             }
             if (!tag) loadBundledBridge('spotify_bridge.js');
             snapshotWatchdog();""")
+    # Loading is done by the same-origin script response below, not by this
+    # diagnostic getter. Avoid synchronously marshalling the entire 200+ KB
+    # protected bridge through the JavaScript interface just to count chars.
+    # The existing served-byte diagnostic is populated by NativeBridgeAsset;
+    # unknown source-character counts remain unknown rather than fabricated.
+    s=one(s, """        try {
+            if (window.AndBridge && typeof window.AndBridge.readBundledAsset === 'function' &&
+                !Number.isInteger(window.__sfBridgeSourceChars)) {
+                window.__sfBridgeSourceChars = String(window.AndBridge.readBundledAsset(name) || '').length;
+                window.__sfBridgeBytes = window.__sfBridgeSourceChars;
+            }
+        } catch (error) {
+            recordBridgeFailure('read-asset', error);
+        }
+""", """        window.__sfPreviewBridgeCopyAvoided = true;
+""")
     # The liked tracks page is a detail view, not the library's category
     # index. The 9016 page fallback otherwise cannot publish its track rows.
     s=one(s, "        if (path === '/collection' || path.indexOf('/collection/') === 0 || path.indexOf('/your-library') === 0) return 'library';",
