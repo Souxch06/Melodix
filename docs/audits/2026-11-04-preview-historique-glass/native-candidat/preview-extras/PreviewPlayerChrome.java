@@ -35,6 +35,7 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
     private int previousHeaderVisibility;
     private boolean headerHidden, playStyled, chromeApplied, setupDone, ticking, wasVisible;
     private View root, panel;
+    private boolean closing, bypassClose;
     private Drawable rootBackground, panelBackground, appliedBackground;
     private PreviewPlayerDecoration repeatArt, shuffleDot;
     private PreviewPlayerLikeArt likeArt;
@@ -267,6 +268,67 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         if(v instanceof ViewGroup){ViewGroup g=(ViewGroup)v;for(int i=0;i<g.getChildCount();i++){View found=findCollapse(g.getChildAt(i));if(found!=null)return found;}}
         return null;
     }
+    /** Hooked into the existing native Back handler; no playback command is sent. */
+    public static boolean interceptBack(Activity a) {
+        View p=a.findViewById(0x7f09023a);
+        if(p==null || !p.isShown())return false;
+        View found=p.findViewWithTag("previewPlayerChrome");
+        if(!(found instanceof PreviewPlayerChrome))return false;
+        PreviewPlayerChrome chrome=(PreviewPlayerChrome)found;
+        if(chrome.bypassClose)return false;
+        if(chrome.closing)return true;
+        if(Build.VERSION.SDK_INT>=26 && !ValueAnimator.areAnimatorsEnabled())return false;
+        chrome.closeAnimated(a,p);
+        return true;
+    }
+    private void closeAnimated(final Activity a,final View p){
+        closing=true;
+        p.animate().cancel();
+        p.animate().translationY(Math.max(p.getHeight(),dp(300))).alpha(0f).setDuration(280)
+            .setInterpolator(new android.view.animation.DecelerateInterpolator(1.3f)).withEndAction(new Runnable(){public void run(){
+                if(!closing)return;
+                closing=false; bypassClose=true;
+                try { a.getClass().getMethod("onNativeBackClick",View.class).invoke(a,new Object[]{null}); }
+                catch(Exception ignored) { p.setTranslationY(0f);p.setAlpha(1f); }
+                finally {bypassClose=false;p.setTranslationY(0f);p.setAlpha(1f);}
+            }}).start();
+    }
+    private void navigateBack(){
+        Activity a=activity();if(a==null || closing)return;
+        try { a.getClass().getMethod("onNativeBackClick",View.class).invoke(a,new Object[]{null}); }
+        catch(Exception ignored) { }
+        if(!closing){View p=a.findViewById(0x7f09023a);if(p!=null){p.setTranslationY(0f);p.setAlpha(1f);}}
+    }
+    /** Gesture is restricted to the header and artwork, never the seek bar or buttons. */
+    private final class DismissGesture implements View.OnTouchListener {
+        private float x,y; private boolean vertical, rejected;
+        public boolean onTouch(View v,MotionEvent e){
+            View p=activity()==null?null:activity().findViewById(0x7f09023a);
+            if(p==null || closing)return false;
+            int action=e.getActionMasked();
+            if(action==MotionEvent.ACTION_DOWN){
+                x=e.getRawX();y=e.getRawY();vertical=false;rejected=false;
+                if(v.getParent()!=null)v.getParent().requestDisallowInterceptTouchEvent(true);p.animate().cancel();return true;
+            }
+            if(action==MotionEvent.ACTION_POINTER_DOWN){rejected=true;vertical=false;p.setTranslationY(0f);p.setAlpha(1f);return true;}
+            float dx=e.getRawX()-x,dy=e.getRawY()-y;
+            if(action==MotionEvent.ACTION_MOVE){
+                if(!vertical && !rejected && (Math.abs(dx)>dp(12)||Math.abs(dy)>dp(12))){
+                    if(dy>0 && dy>Math.abs(dx)*1.3f)vertical=true;else rejected=true;
+                }
+                if(vertical){float distance=Math.max(0f,dy);p.setTranslationY(distance);p.setAlpha(1f-Math.min(.22f,distance/Math.max(p.getHeight(),1)*.22f));}
+                return true;
+            }
+            if(action==MotionEvent.ACTION_UP || action==MotionEvent.ACTION_CANCEL){
+                if(v.getParent()!=null)v.getParent().requestDisallowInterceptTouchEvent(false);
+                if(action==MotionEvent.ACTION_UP && vertical && dy>Math.max(dp(90),p.getHeight()*.16f))navigateBack();
+                else if(Build.VERSION.SDK_INT>=26 && !ValueAnimator.areAnimatorsEnabled()){p.setTranslationY(0f);p.setAlpha(1f);}
+                else p.animate().translationY(0f).alpha(1f).setDuration(200).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+                vertical=false;return true;
+            }
+            return true;
+        }
+    }
     private void setupCosmetics(Activity a){
         if(setupDone)return;
         View p=a.findViewById(0x7f09023a);if(!(p instanceof ViewGroup))return;
@@ -279,6 +341,9 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         ViewParent contentParent=getParent();
         if(contentParent instanceof ViewGroup){((ViewGroup)contentParent).setClipChildren(false);((ViewGroup)contentParent).setClipToPadding(false);}
         View art=p.findViewWithTag("previewPlayerArtCard"),frame=p.findViewWithTag("previewPlayerArtFrame");
+        View handle=p.findViewWithTag("previewPlayerDragHandle");
+        if(handle!=null)handle.setOnTouchListener(new DismissGesture());
+        if(art!=null)art.setOnTouchListener(new DismissGesture());
         if(frame instanceof ViewGroup){((ViewGroup)frame).setClipChildren(false);((ViewGroup)frame).setClipToPadding(false);}
         if(art!=null && Build.VERSION.SDK_INT>=28){art.setOutlineSpotShadowColor(0xffe0489e);art.setOutlineAmbientShadowColor(0xffe0489e);}
         if(like instanceof ImageView){
@@ -345,6 +410,7 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
     }
     private void sync(){
         if(!playerVisible()){state="non affiché";
+            if(closing){closing=false;View p=activity()==null?null:activity().findViewById(0x7f09023a);if(p!=null){p.animate().cancel();p.setTranslationY(0f);p.setAlpha(1f);}}
             if(wasVisible && getParent() instanceof View){View content=(View)getParent();content.animate().cancel();content.setAlpha(1f);content.setTranslationY(0f);}
             wasVisible=false;
             if(ticking){removeCallbacks(visualTick);ticking=false;}restoreHeader();restoreBackground();return;
@@ -352,9 +418,10 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         Activity a=activity();if(a==null)return;
         if(!wasVisible){
             wasVisible=true;
-            if(getParent() instanceof View && (Build.VERSION.SDK_INT<26 || ValueAnimator.areAnimatorsEnabled())){
-                View content=(View)getParent();content.setAlpha(0f);content.setTranslationY(dp(6));
-                content.animate().alpha(1f).translationY(0f).setDuration(250).start();
+            View p=a.findViewById(0x7f09023a);
+            if(p!=null && (Build.VERSION.SDK_INT<26 || ValueAnimator.areAnimatorsEnabled())){
+                p.animate().cancel();p.setAlpha(0f);p.setTranslationY(dp(100));
+                p.animate().alpha(1f).translationY(0f).setDuration(320).setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
             }
         }
         state="affiché, "+(getResources().getConfiguration().orientation==2?"paysage":"portrait");
@@ -364,7 +431,7 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
     }
     @Override public void onGlobalLayout(){sync();}
     @Override protected void onAttachedToWindow(){super.onAttachedToWindow();observer=getViewTreeObserver();observer.addOnGlobalLayoutListener(this);post(syncTask);}
-    @Override protected void onDetachedFromWindow(){if(observer!=null && observer.isAlive())observer.removeOnGlobalLayoutListener(this);observer=null;removeCallbacks(syncTask);removeCallbacks(visualTick);ticking=false;restoreHeader();restoreBackground();super.onDetachedFromWindow();}
+    @Override protected void onDetachedFromWindow(){closing=false;Activity a=activity();View p=a==null?null:a.findViewById(0x7f09023a);if(p!=null){p.animate().cancel();p.setAlpha(1f);p.setTranslationY(0f);}if(observer!=null && observer.isAlive())observer.removeOnGlobalLayoutListener(this);observer=null;removeCallbacks(syncTask);removeCallbacks(visualTick);ticking=false;restoreHeader();restoreBackground();super.onDetachedFromWindow();}
     @Override protected void onVisibilityChanged(View changed,int visibility){super.onVisibilityChanged(changed,visibility);if(syncTask!=null)post(syncTask);}
     @Override protected void onWindowVisibilityChanged(int visibility){super.onWindowVisibilityChanged(visibility);if(syncTask!=null)post(syncTask);}
 }

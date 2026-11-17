@@ -25,7 +25,8 @@
 .method constructor <init>(Z)V
     .locals 0
 
-    .line 252
+    .prologue
+    .line 253
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
     iput-boolean p1, p0, Lcom/melodix/music/PreviewPlayerChrome$PressEffect;->ownHaptic:Z
@@ -36,126 +37,130 @@
 
 # virtual methods
 .method public onTouch(Landroid/view/View;Landroid/view/MotionEvent;)Z
-    .locals 4
+    .locals 7
 
-    .line 254
-    invoke-virtual {p1}, Landroid/view/View;->isEnabled()Z
+    .prologue
+    const/4 v6, 0x3
 
-    move-result v0
+    const/4 v0, 0x1
+
+    const v3, 0x3f733333    # 0.95f
 
     const/4 v1, 0x0
 
-    if-nez v0, :cond_0
-
-    return v1
+    const/high16 v4, 0x3f800000    # 1.0f
 
     .line 255
+    invoke-virtual {p1}, Landroid/view/View;->isEnabled()Z
+
+    move-result v2
+
+    if-nez v2, :cond_1
+
+    .line 263
     :cond_0
-    invoke-virtual {p2}, Landroid/view/MotionEvent;->getActionMasked()I
-
-    move-result p2
-
-    .line 256
-    const/4 v0, 0x3
-
-    const/4 v2, 0x1
-
-    if-eqz p2, :cond_1
-
-    if-eq p2, v2, :cond_1
-
-    if-eq p2, v0, :cond_1
-
+    :goto_0
     return v1
 
-    .line 257
+    .line 256
     :cond_1
-    if-nez p2, :cond_2
+    invoke-virtual {p2}, Landroid/view/MotionEvent;->getActionMasked()I
 
-    iget-boolean v3, p0, Lcom/melodix/music/PreviewPlayerChrome$PressEffect;->ownHaptic:Z
+    move-result v2
 
-    if-eqz v3, :cond_2
+    .line 257
+    if-eqz v2, :cond_2
 
-    invoke-virtual {p1, v0}, Landroid/view/View;->performHapticFeedback(I)Z
+    if-eq v2, v0, :cond_2
+
+    if-ne v2, v6, :cond_0
 
     .line 258
     :cond_2
-    if-nez p2, :cond_3
+    if-nez v2, :cond_3
 
-    goto :goto_0
+    iget-boolean v5, p0, Lcom/melodix/music/PreviewPlayerChrome$PressEffect;->ownHaptic:Z
 
-    :cond_3
-    move v2, v1
+    if-eqz v5, :cond_3
+
+    invoke-virtual {p1, v6}, Landroid/view/View;->performHapticFeedback(I)Z
 
     .line 259
-    :goto_0
-    invoke-virtual {p1}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
-
-    move-result-object p2
-
-    invoke-virtual {p2}, Landroid/view/ViewPropertyAnimator;->cancel()V
+    :cond_3
+    if-nez v2, :cond_4
 
     .line 260
-    sget p2, Landroid/os/Build$VERSION;->SDK_INT:I
+    :goto_1
+    invoke-virtual {p1}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
 
-    const/16 v0, 0x1a
+    move-result-object v2
 
-    const/high16 v3, 0x3f800000    # 1.0f
+    invoke-virtual {v2}, Landroid/view/ViewPropertyAnimator;->cancel()V
 
-    if-lt p2, v0, :cond_4
+    .line 261
+    sget v2, Landroid/os/Build$VERSION;->SDK_INT:I
+
+    const/16 v5, 0x1a
+
+    if-lt v2, v5, :cond_5
 
     invoke-static {}, Landroid/animation/ValueAnimator;->areAnimatorsEnabled()Z
 
-    move-result p2
+    move-result v2
 
-    if-nez p2, :cond_4
+    if-nez v2, :cond_5
 
-    invoke-virtual {p1, v3}, Landroid/view/View;->setScaleX(F)V
+    invoke-virtual {p1, v4}, Landroid/view/View;->setScaleX(F)V
 
-    invoke-virtual {p1, v3}, Landroid/view/View;->setScaleY(F)V
+    invoke-virtual {p1, v4}, Landroid/view/View;->setScaleY(F)V
 
-    goto :goto_2
+    goto :goto_0
 
-    .line 261
     :cond_4
-    invoke-virtual {p1}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
+    move v0, v1
 
-    move-result-object p1
-
-    const p2, 0x3f733333    # 0.95f
-
-    if-eqz v2, :cond_5
-
-    move v0, p2
-
+    .line 259
     goto :goto_1
 
+    .line 262
     :cond_5
-    move v0, v3
+    invoke-virtual {p1}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
 
-    :goto_1
-    invoke-virtual {p1, v0}, Landroid/view/ViewPropertyAnimator;->scaleX(F)Landroid/view/ViewPropertyAnimator;
+    move-result-object v5
 
-    move-result-object p1
+    if-eqz v0, :cond_6
 
-    if-eqz v2, :cond_6
+    move v2, v3
 
-    move v3, p2
+    :goto_2
+    invoke-virtual {v5, v2}, Landroid/view/ViewPropertyAnimator;->scaleX(F)Landroid/view/ViewPropertyAnimator;
 
-    :cond_6
-    invoke-virtual {p1, v3}, Landroid/view/ViewPropertyAnimator;->scaleY(F)Landroid/view/ViewPropertyAnimator;
+    move-result-object v2
 
-    move-result-object p1
+    if-eqz v0, :cond_7
+
+    :goto_3
+    invoke-virtual {v2, v3}, Landroid/view/ViewPropertyAnimator;->scaleY(F)Landroid/view/ViewPropertyAnimator;
+
+    move-result-object v0
 
     const-wide/16 v2, 0x96
 
-    invoke-virtual {p1, v2, v3}, Landroid/view/ViewPropertyAnimator;->setDuration(J)Landroid/view/ViewPropertyAnimator;
+    invoke-virtual {v0, v2, v3}, Landroid/view/ViewPropertyAnimator;->setDuration(J)Landroid/view/ViewPropertyAnimator;
 
-    move-result-object p1
+    move-result-object v0
 
-    invoke-virtual {p1}, Landroid/view/ViewPropertyAnimator;->start()V
+    invoke-virtual {v0}, Landroid/view/ViewPropertyAnimator;->start()V
 
-    .line 262
-    :goto_2
-    return v1
+    goto :goto_0
+
+    :cond_6
+    move v2, v4
+
+    goto :goto_2
+
+    :cond_7
+    move v3, v4
+
+    goto :goto_3
 .end method

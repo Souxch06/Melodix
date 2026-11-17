@@ -24,16 +24,9 @@
 # direct methods
 .method constructor <init>(Lcom/melodix/music/PreviewPlayerChrome;)V
     .locals 0
-    .annotation system Ldalvik/annotation/MethodParameters;
-        accessFlags = {
-            0x8010
-        }
-        names = {
-            null
-        }
-    .end annotation
 
-    .line 63
+    .prologue
+    .line 64
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerChrome$2;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -46,10 +39,11 @@
 .method public run()V
     .locals 1
 
-    .line 63
+    .prologue
+    .line 64
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$2;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerChrome;->access$1100(Lcom/melodix/music/PreviewPlayerChrome;)V
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerChrome;->access$11(Lcom/melodix/music/PreviewPlayerChrome;)V
 
     return-void
 .end method

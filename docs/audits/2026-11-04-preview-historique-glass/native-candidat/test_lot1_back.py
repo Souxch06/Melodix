@@ -63,6 +63,7 @@ def execute(src,name,state,args=None):
             elif 'Activity;->moveTaskToBack' in target:state['backgrounded']=True;result=True
             elif 'View;->isShown' in target:result=values[0]['shown']
             elif 'String;->equals' in target:result=values[0]==values[1]
+            elif 'PreviewPlayerChrome;->interceptBack' in target:result=bool(state.get('animationIntercept',False))
             elif '->lot1PushBack' in target:execute(src,'lot1PushBack',state)
             elif '->lot1PopBack' in target:execute(src,'lot1PopBack',state)
             elif '->lot1ClearBack' in target:execute(src,'lot1ClearBack',state)
@@ -97,6 +98,19 @@ class Tests(unittest.TestCase):
             self.assertIn('lot1ClearBack',method(self.activity,name),name)
         self.assertIn('lot1PopBack',method(self.activity,'onNativeBackClick'))
         self.assertIn('tryLot1NativeBack',method(self.dispatcher,'b'))
+
+    def test_player_animation_defers_back_stack_pop(self):
+        if 'PreviewPlayerChrome;->interceptBack' not in method(self.activity,'onNativeBackClick'):
+            self.skipTest('player motion not applied')
+        s={'shown':True,'renders':[],'nativeCurrentScreen':'player','nativeCurrentTitle':'Player',
+           'nativeBackStack':[['detail','Mix','tracks','spotify:playlist:one',None]],'animationIntercept':True}
+        execute(self.activity,'onNativeBackClick',s)
+        self.assertEqual(s['nativeCurrentScreen'],'player')
+        self.assertEqual(len(s['nativeBackStack']),1)
+        s['animationIntercept']=False
+        execute(self.activity,'onNativeBackClick',s)
+        self.assertEqual(s['nativeCurrentScreen'],'detail')
+        self.assertEqual(s['nativeBackStack'],[])
 
     def test_synthetic_nested_screen_return_and_player_visibility(self):
         s={'shown':True,'renders':[],'nativeCurrentScreen':'library','nativeCurrentTitle':'Library',

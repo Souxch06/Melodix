@@ -14,10 +14,12 @@ EXPECTED = {
 }
 
 EXTRAS = {
-    'smali/PreviewPlayerChrome$1.smali': 'a8f3a961e16e5fd1db54a574d2451f21ed7adebdab8e2e425c4958ca1353d374',
-    'smali/PreviewPlayerChrome$2.smali': '32be64866bd0acd8d3370dd7bbf872524b46c45273067f8f00d6bfa8cd8f93a3',
-    'smali/PreviewPlayerChrome$PressEffect.smali': '286693fc3043456144e6fe58e25d53661564dd0b2d5229e5ca9e1489318cb750',
-    'smali/PreviewPlayerChrome.smali': 'c7222e2969f882e6dffdcdc2b9cc77c2f9b7067b1d0c0e2bc700fcddf09bbd76',
+    'smali/PreviewPlayerChrome$1.smali': '5936ba1d396b2769ffbd9718972c047a44ea92f32385a00a864cc466ba8b290c',
+    'smali/PreviewPlayerChrome$2.smali': '43e6b20f94881187008083f703c8f5a471eb33ebae467059df676cf06caa5d6e',
+    'smali/PreviewPlayerChrome$PressEffect.smali': '77e16d2d100e83297a9fd80c99f5354f1a0d8301b5444e0ec0c57cab1c8c86dc',
+    'smali/PreviewPlayerChrome$3.smali': '26c39f92746dcbb337796e7bfbf5b6b29e16cd464f889839f87d95ab5b4b527f',
+    'smali/PreviewPlayerChrome$DismissGesture.smali': 'd51f8b57c50f38d9f7da5825ff311ef33dcf5691db83ef9d3a63bdf1d7e1ff0c',
+    'smali/PreviewPlayerChrome.smali': '1fa4098bfd98cc15323021c592321b32229223f5378a6a4a35de111029e6ea95',
     'smali/PreviewPlayerMode$1.smali': '9c00f7f4d1844157468c919ff2578c7620dc68e4a5fc827dbb541b65042deb9e',
     'smali/PreviewPlayerMode$2.smali': '3f28c76e2ebf1fa72d2015c73f97e01daea87faab8c1a2ce79bdc5ac5b5605ab',
     'smali/PreviewPlayerMode$3.smali': 'f7c931fe6e85d265bcad7da92d1b9d36180e834e19db9b036a5e7cdb09093da4',
@@ -77,7 +79,7 @@ EXTRAS = {
     'smali/PreviewPlayerPlayButton.smali': '10fa7289606a9481f8f6af0cac9e36790c1bf1ba73d9218d551ad194e9287e27',
     'smali/PreviewPlayerPlayButton$1.smali': '4fd83f3fd7382c2861383c9b7197d59d28b8dc96808e0cd32f157ccddb4af3a0',
     'smali/PreviewPlayerDecoration.smali': 'd6603b418eaf73a509548f2f74b5a89489d5259dc8b52832f9c720ded5f96f41',
-    'PreviewPlayerChrome.java': '9fc5bcda137e049bd68bf6fa7ac4dfce03c7c25ef4da823ef005dc1516f3baab',
+    'PreviewPlayerChrome.java': '9b785f1077930e2f927afa52922d8b529d01befbc9865756dfd6e527e72a9dc3',
     'PreviewPlayerLikeArt.java': '49892fbb54b2c66dd9fe477fc851e55dedb2a4f8a31670e53530e5f03c289979',
     'smali/PreviewPlayerLikeArt.smali': '8caf0d0292ff562b70b85aef9fbe20f306e6bdf7239b337971c063f6fe9888ca',
     'PreviewPlayerMode.java': '5317f548254a9af818f058545d8113104a603258b9feb2234491e40c8b4cadd6',
@@ -108,11 +110,11 @@ def player_layout(source):
     marker='            <LinearLayout android:orientation="vertical" android:gravity="center" android:layout_width="fill_parent" android:layout_height="wrap_content">\n'
     header='''            <LinearLayout android:orientation="horizontal" android:gravity="center_vertical" android:layout_width="fill_parent" android:layout_height="wrap_content" android:minHeight="48.0dip">
                 <ImageButton android:src="@drawable/ic_arrow_down_24dp" android:tint="#ffffffff" android:scaleType="centerInside" android:padding="10.0dip" android:background="@drawable/native_button_dark" android:layout_width="48.0dip" android:layout_height="48.0dip" android:onClick="onNativeBackClick" android:contentDescription="Réduire le lecteur" />
-                <TextView android:text="LECTURE EN COURS" android:gravity="center" android:textSize="11.0sp" android:textStyle="bold" android:letterSpacing="0.14" android:textColor="#ffcfc6f2" android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_weight="1.0" />
+                <TextView android:tag="previewPlayerDragHandle" android:contentDescription="Glisser vers le bas pour réduire le lecteur" android:text="LECTURE EN COURS" android:gravity="center" android:textSize="11.0sp" android:textStyle="bold" android:letterSpacing="0.14" android:textColor="#ffcfc6f2" android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_weight="1.0" />
                 <Space android:tag="previewPlayerHeaderSpacer" android:layout_width="48.0dip" android:layout_height="48.0dip" />
             </LinearLayout>
 '''
-    panel=one(panel,marker,marker.replace('android:gravity="center"','android:gravity="top"')+'            <com.melodix.music.PreviewPlayerChrome android:layout_width="0.0dip" android:layout_height="0.0dip" />\n'+header)
+    panel=one(panel,marker,marker.replace('android:gravity="center"','android:gravity="top"')+'            <com.melodix.music.PreviewPlayerChrome android:tag="previewPlayerChrome" android:layout_width="0.0dip" android:layout_height="0.0dip" />\n'+header)
     old='''            <androidx.cardview.widget.CardView
                 android:layout_width="272.0dip"
                 android:layout_height="272.0dip"
@@ -265,6 +267,17 @@ def apply(root):
         raw=(root/name).read_bytes()
         if hashlib.sha256(raw).hexdigest()!=digest: raise ValueError('unexpected visual input '+name)
         data[name]=raw.decode('utf8')
+    activity='smali/com/melodix/music/MainActivity.smali'
+    original=(root/activity).read_text(encoding='utf8')
+    entry='.method public final onNativeBackClick(Landroid/view/View;)V\n    .locals 6\n'
+    hook=entry+'''    # Only the full-player view may defer Back for its close animation.
+    invoke-static {p0}, Lcom/melodix/music/PreviewPlayerChrome;->interceptBack(Landroid/app/Activity;)Z
+    move-result v0
+    if-eqz v0, :preview_close_continue
+    return-void
+    :preview_close_continue
+'''
+    data[activity]=one(original,entry,hook)
     for name in list(EXPECTED)[:2]: data[name]=player_layout(data[name])
     for target,base in (('res/layout-land/activity_main.xml','res/layout/activity_main.xml'),
                         ('res/layout-w600dp-land/activity_main.xml','res/layout-w600dp/activity_main.xml')):
