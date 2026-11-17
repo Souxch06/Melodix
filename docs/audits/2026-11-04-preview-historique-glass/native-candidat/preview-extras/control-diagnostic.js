@@ -27,6 +27,18 @@
             if(specs.shuffle.off.test(label)||specs.shuffle.on.test(label))st.aria_shuffle++;else if(specs.like.off.test(label)||specs.like.on.test(label))st.aria_like++;else if(/^(play|resume|lire|reprendre)$/i.test(label))st.aria_play++;else if(/^(pause|mettre en pause)$/i.test(label))st.aria_pause++;else if(label)st.aria_other++;
         });
         var links=Array.from(document.querySelectorAll('[data-testid="now-playing-widget"] a[href], [data-testid="now-playing-bar"] a[href]'));
+        // Shapes only (no href, title or label text): where the bar points, and
+        // what the checked (like-like) buttons' labels contain.
+        ['href_album','href_album_hl','href_artist','href_other','chk_buttons','chk_likeword','chk_verb_add','chk_verb_on','chk_long'].forEach(function(k){st[k]=0;});
+        links.forEach(function(a){
+            var hh=String(a.getAttribute('href')||'');
+            if(/\/album\//i.test(hh))st[/highlight=/i.test(hh)?'href_album_hl':'href_album']++;else if(/\/artist\//i.test(hh))st.href_artist++;else if(!/\/(track|episode)\//i.test(hh))st.href_other++;
+        });
+        Array.from(document.querySelectorAll('[data-testid="now-playing-widget"] button[aria-checked], [data-testid="now-playing-bar"] button[aria-checked]')).forEach(function(b){
+            var l=String(b.getAttribute('aria-label')||'').trim();if(/repeat|r[ée]p[ée]t|shuffle|al[ée]atoire/i.test(l)||/repeat|shuffle/i.test(String(b.getAttribute('data-testid')||'')))return;
+            st.chk_buttons++;if(/(liké|liked|bibliothèque|library|favori)/i.test(l))st.chk_likeword++;
+            if(/^(ajouter|add|enregistrer|save)/i.test(l))st.chk_verb_add++;if(/^(ajouté|retirer|supprimer|remove|enregistré|saved|added)/i.test(l))st.chk_verb_on++;if(l.length>30)st.chk_long++;
+        });
         links.forEach(function(a){
             var h=String(a.getAttribute('href')||'');
             if (!/^(?:https:\/\/open\.spotify\.com)?\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\/)?(?:track|episode)\/[a-z0-9]+\/?(?:[?#].*)?$/i.test(h) && !/^(?:https:\/\/open\.spotify\.com)?\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\/)?album\/[a-z0-9]+\/?\?(?:[^#]*&)?highlight=spotify(?::|%3a)track(?::|%3a)[a-z0-9]+/i.test(h)) return;
