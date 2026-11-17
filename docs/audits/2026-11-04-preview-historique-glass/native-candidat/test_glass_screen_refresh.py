@@ -13,11 +13,13 @@ class TestRefresh(unittest.TestCase):
  def get(self,name):return self.data[name] if INPUT else (ROOT/name).read_text(encoding='utf8')
  def test_pinned_and_protected(self):
   if INPUT:
-   self.assertEqual(set(self.data),{refresh.ACTIVITY,refresh.RETRY,refresh.HELPER})
+   self.assertEqual(set(self.data),{refresh.ACTIVITY,refresh.RETRY,refresh.HELPER,refresh.MOTION})
    from verify_9016_protected_assets import ASSET_SHA256
    self.assertFalse(set(self.data)&set(ASSET_SHA256))
   self.assertEqual(hashlib.sha256((HERE/'glass-refresh/GlassScreenStyler.java').read_bytes()).hexdigest(),refresh.SOURCE_SHA)
   self.assertEqual(hashlib.sha256((HERE/'glass-refresh/smali/GlassScreenStyler.smali').read_bytes()).hexdigest(),refresh.HELPER_SHA)
+  self.assertEqual(hashlib.sha256((HERE/'glass-refresh/GlassLikedMotion.java').read_bytes()).hexdigest(),refresh.MOTION_SOURCE_SHA)
+  self.assertEqual(hashlib.sha256((HERE/'glass-refresh/smali/GlassLikedMotion.smali').read_bytes()).hexdigest(),refresh.MOTION_HELPER_SHA)
  def test_visual_hook_and_original_click_routes(self):
   activity=self.get(refresh.ACTIVITY);render=body(activity,'renderNativeRows');openrow=body(activity,'openNativeRow')
   self.assertEqual(render.count('GlassScreenStyler;->style('),2)
@@ -33,9 +35,19 @@ class TestRefresh(unittest.TestCase):
    self.assertIn(value.lower(),src.lower())
   self.assertIn('if("detail".equals(screen)&&playlist(uri))',src)
   self.assertIn('if("settings".equals(screen))',src)
+  self.assertIn('GlassLikedMotion.bind(a,content,screen,uri)',src)
   helper=self.get(refresh.HELPER)
   self.assertNotIn('setOnClickListener',helper);self.assertNotIn('playFromUri',helper)
   self.assertNotIn('\ufffd',helper)
+ def test_liked_motion_is_scoped_and_does_not_handle_input_or_playback(self):
+  src=(HERE/'glass-refresh/GlassLikedMotion.java').read_text()
+  helper=self.get(refresh.MOTION)
+  for unsafe in ('setOnClickListener','setOnTouchListener','playFromUri','fetch(', 'java.net.', 'Runtime.getRuntime'):
+   self.assertNotIn(unsafe,src);self.assertNotIn(unsafe,helper)
+  for required in ('GlassScreenStyler.liked(uri)','ValueAnimator.areAnimatorsEnabled()',
+                   'removeOnScrollChangedListener','removeOnGlobalLayoutListener','onViewDetachedFromWindow',
+                   'getLocalVisibleRect','while(lo<hi)','getScrollY()'):
+   self.assertIn(required,src)
  def test_home_retry_register_does_not_alias_receiver(self):
   text=self.get(refresh.RETRY);start=text.index('.method public final run()V');run=text[start:text.index('.end method',start)]
   self.assertIn('.locals 5',run)

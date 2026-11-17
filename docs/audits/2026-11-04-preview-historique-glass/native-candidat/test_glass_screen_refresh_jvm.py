@@ -22,6 +22,7 @@ STUBS={
 'android/widget/ImageView.java':'''package android.widget;import android.content.Context;import android.view.View;public class ImageView extends View{public enum ScaleType{CENTER_CROP}public ImageView(Context c){super(c);}public void setScaleType(ScaleType t){}}''',
 'org/json/JSONArray.java':'''package org.json;public class JSONArray{String[] a;public JSONArray(String s){a=s.equals("[]")?new String[0]:s.split("\\\\|");}public int length(){return a.length;}public JSONObject optJSONObject(int i){return new JSONObject(a[i]);}}''',
 'org/json/JSONObject.java':'''package org.json;import java.util.*;public class JSONObject{Map<String,String> m=new HashMap<String,String>();public JSONObject(String s){for(String x:s.split(";")){int i=x.indexOf('=');if(i>0)m.put(x.substring(0,i),x.substring(i+1));}}public String optString(String k,String d){return m.containsKey(k)?m.get(k):d;}}''',
+'com/melodix/music/GlassLikedMotion.java':'''package com.melodix.music;public class GlassLikedMotion{public static void bind(android.app.Activity a,android.widget.LinearLayout v,String s,String u){}}''',
 'com/melodix/music/NativeImageLoader.java':'''package com.melodix.music;public class NativeImageLoader{public static String url="";public static int calls=0;public static void load(android.widget.ImageView v,String u,int size){url=u;calls++;}}''',
 'com/melodix/music/RefreshTest.java':r'''package com.melodix.music;
 import android.app.Activity;import android.view.*;import android.widget.*;
@@ -42,6 +43,11 @@ public class RefreshTest{
   GlassScreenStyler.style(a,missing,"detail","spotify:playlist:B","Autre");yes(NativeImageLoader.calls==1);yes(hasText(missing,"PLAYLIST"));yes(hasText(missing,"Autre"));
   LinearLayout restored=group(a),content=group(a);restored.addView(content);TextView old=new TextView(a);old.setTag("glass-old-playlist-heading");content.addView(old);TextView existing=new TextView(a);existing.setText("Titre réel");content.addView(existing);
   GlassScreenStyler.style(a,restored,"detail","spotify:playlist:A","Ma playlist");yes(old.getParent()==null);yes(hasText(restored,"Titre réel"));yes(NativeImageLoader.calls==2);
+  LinearLayout liked=group(a);TextView loading=new TextView(a);loading.setText("Chargement en attente");liked.addView(loading);
+  GlassScreenStyler.style(a,liked,"detail","spotify:collection:tracks","Titres likés");
+  yes(hasText(liked,"Titres likés"));yes(hasText(liked,"♥"));yes(hasText(liked,"Chargement en attente"));yes(NativeImageLoader.calls==2);
+  yes(GlassScreenStyler.liked("spotify:collection:tracks"));yes(GlassScreenStyler.liked("https://open.spotify.com/collection/tracks?x=1"));
+  yes(!GlassScreenStyler.liked("spotify:collection:tracks:other"));yes(!GlassScreenStyler.liked("https://evil.com/collection/tracks"));
   LinearLayout artist=group(a);GlassScreenStyler.style(a,artist,"detail","spotify:artist:A","Artiste");yes(artist.getChildCount()==0);
   System.out.println("Glass screen JVM simulation passed");
  }

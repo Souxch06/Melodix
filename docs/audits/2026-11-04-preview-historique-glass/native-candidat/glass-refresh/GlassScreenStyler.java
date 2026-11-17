@@ -37,6 +37,10 @@ public final class GlassScreenStyler {
     private static boolean playlist(String uri) {
         return uri!=null && (uri.contains(":playlist:") || uri.contains("/playlist/"));
     }
+    static boolean liked(String uri) {
+        return uri != null && (uri.equalsIgnoreCase("spotify:collection:tracks") ||
+            uri.matches("(?i)^https://open\\.spotify\\.com/(?:intl-[a-z]{2}(?:-[a-z]{2})?/)?collection/tracks/?(?:\\?[^#]*)?(?:#.*)?$"));
+    }
     // Exact identity match only; never substitute artwork from a track or a
     // different playlist. A missing cover is a clearly decorative placeholder.
     public static void rememberSelection(Activity a,String uri,String rows) {
@@ -58,8 +62,10 @@ public final class GlassScreenStyler {
     private static String selectedArtwork(Activity a,String uri){Map<String,String> m=artwork.get(a);return m==null?"":m.containsKey(uri)?m.get(uri):"";}
     public static void style(Activity a,LinearLayout content,String screen,String uri,String title) {
         if(a==null||content==null)return;
-        if("settings".equals(screen)){settings(a,content);return;}
-        if("detail".equals(screen)&&playlist(uri))playlist(a,content,uri,title);
+        if("settings".equals(screen))settings(a,content);
+        else if("detail".equals(screen)&&playlist(uri))playlist(a,content,uri,title);
+        else if("detail".equals(screen)&&liked(uri))playlist(a,content,uri,title);
+        GlassLikedMotion.bind(a,content,screen,uri);
     }
     private static LinearLayout rowContainer(LinearLayout content) {
         if(content.getChildCount()==1 && content.getChildAt(0) instanceof LinearLayout)
@@ -73,27 +79,28 @@ public final class GlassScreenStyler {
         LinearLayout rows=rowContainer(content);
         View old=rows.findViewWithTag("glass-old-playlist-heading");
         if(old!=null && old.getParent()==rows)rows.removeView(old);
-        LinearLayout hero=vertical(a); hero.setPadding(dp(a,12),dp(a,12),dp(a,12),dp(a,14));
+        boolean isLiked=liked(uri);
+        LinearLayout hero=vertical(a); if(isLiked)hero.setTag("liked-hero"); hero.setPadding(dp(a,12),dp(a,12),dp(a,12),dp(a,14));
         LinearLayout artLine=new LinearLayout(a);artLine.setGravity(Gravity.CENTER);
         ImageView image=new ImageView(a);image.setScaleType(ImageView.ScaleType.CENTER_CROP);
         image.setBackground(glass(a,0xff6e3c9d,0xff24193d,14,0x45ffffff));
         image.setClipToOutline(true); image.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         String imageUrl=selectedArtwork(a,uri);
         LinearLayout artBox=vertical(a);artBox.setGravity(Gravity.CENTER);
-        artBox.setBackground(glass(a,0xff764fa7,0xff272038,14,0x4affffff));
+        artBox.setBackground(isLiked ? glass(a,0xff7655e8,0xff3630a3,14,0x4affffff) : glass(a,0xff764fa7,0xff272038,14,0x4affffff));
         if(imageUrl!=null && !imageUrl.isEmpty()) {
             artBox.addView(image,new LinearLayout.LayoutParams(-1,-1));
             NativeImageLoader.load(image,imageUrl,dp(a,200));
         } else {
-            TextView glyph=text(a,"♫",58,0xffe6d6ff,true);glyph.setGravity(Gravity.CENTER);
+            TextView glyph=text(a,isLiked?"♥":"♫",58,0xffe6d6ff,true);glyph.setGravity(Gravity.CENTER);
             glyph.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);artBox.addView(glyph);
-            TextView hint=text(a,"PLAYLIST",10,0xffe6dcf1,true);hint.setLetterSpacing(.16f);hint.setGravity(Gravity.CENTER);
+            TextView hint=text(a,isLiked?"TITRES LIKÉS":"PLAYLIST",10,0xffe6dcf1,true);hint.setLetterSpacing(.16f);hint.setGravity(Gravity.CENTER);
             hint.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);artBox.addView(hint);
         }
         artLine.addView(artBox,new LinearLayout.LayoutParams(dp(a,164),dp(a,164)));hero.addView(artLine);
-        TextView eyebrow=text(a,"PLAYLIST",10,LILAC,true);eyebrow.setLetterSpacing(.16f);
+        TextView eyebrow=text(a,isLiked?"VOTRE BIBLIOTHÈQUE":"PLAYLIST",10,LILAC,true);eyebrow.setLetterSpacing(.16f);
         LinearLayout.LayoutParams ep=new LinearLayout.LayoutParams(-1,-2);ep.topMargin=dp(a,18);hero.addView(eyebrow,ep);
-        TextView name=text(a,title==null||title.trim().isEmpty()?"Playlist":title,26,WHITE,true);
+        TextView name=text(a,title==null||title.trim().isEmpty()?(isLiked?"Titres likés":"Playlist"):title,26,WHITE,true);
         name.setMaxLines(3);name.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-1,-2);np.topMargin=dp(a,4);hero.addView(name,np);
         TextView heading=text(a,"Titres",14,WHITE,true);heading.setLetterSpacing(.02f);

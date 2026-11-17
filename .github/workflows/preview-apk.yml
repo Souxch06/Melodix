@@ -969,6 +969,7 @@ jobs:
             phase="test and apply Glass settings and playlist presentation"
             MELODIX_PREVIEW_ROOT="$work" MELODIX_PATCH_INPUT=1 python3 "$audit/native-candidat/test_glass_screen_refresh.py"
             python3 "$audit/native-candidat/test_glass_screen_refresh_jvm.py"
+            python3 "$audit/native-candidat/test_glass_liked_motion_jvm.py"
             python3 "$audit/native-candidat/apply_glass_screen_refresh.py" "$work"
             phase="apply 1022131 feedback: progress and search"
             python3 "$audit/native-candidat/apply_preview_2131_followup.py" "$work"
