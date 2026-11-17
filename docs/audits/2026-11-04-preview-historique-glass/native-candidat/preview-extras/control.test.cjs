@@ -121,3 +121,24 @@ test('explicit current-title track URI supplies identity; unrelated or conflicti
  title.removeAttribute('data-uri');title.setAttribute('data-track-uri','spotify:album:abc');assert.equal(q(x,'like').track,'');
  title.remove();x.w.document.body.append(title);title.setAttribute('data-track-uri','spotify:track:abc');assert.equal(q(x,'like').track,'');
  }finally{x.close()}});
+
+test('current-title Spotify URIs and an explicitly marked title parent identify only their own track',()=>{const x=boot();try{
+ const bar=x.w.document.querySelector('[data-testid=now-playing-widget]'), a=bar.querySelector('a');
+ a.setAttribute('href','spotify:track:ABC123'); assert.equal(q(x,'like').track,'track:ABC123');
+ a.setAttribute('href','spotify:episode:ep123'); assert.equal(q(x,'like').track,'episode:ep123');
+ for(const bad of ['spotify:album:abc','spotify:track:abc:extra','spotify:track:abc?x=1','https://evil.example/track/abc']){a.setAttribute('href',bad);assert.equal(q(x,'like').track,'',bad);}
+ a.setAttribute('href','/album/albumx');const parent=x.w.document.createElement('div');parent.setAttribute('data-testid','context-item-info-title');parent.setAttribute('data-uri','spotify:track:ABC123');a.replaceWith(parent);parent.appendChild(a);assert.equal(q(x,'like').track,'track:ABC123');
+ a.setAttribute('data-uri','spotify:track:other');assert.equal(q(x,'like').track,'');
+ }finally{x.close()}});
+
+test('duplicate or conflicting album highlights are never a track identity',()=>{const x=boot();try{
+ const a=x.w.document.querySelector('[data-testid=now-playing-widget] a');
+ for(const href of ['/album/abc?highlight=spotify:track:a&highlight=spotify:track:b','/album/abc?highlight=spotify:track:a&%68ighlight=spotify:track:a','/album/abc?highlight=spotify:track:a&HIGHLIGHT=spotify:track:a']){a.setAttribute('href',href);assert.equal(q(x,'like').track,'',href);}
+ a.setAttribute('href','/album/abc?other=1&highlight=spotify%3Atrack%3Aabc');assert.equal(q(x,'like').track,'track:abc');
+ }finally{x.close()}});
+
+test('an explicit attribute cannot hide a malformed or contradictory track-bearing href',()=>{const x=boot();try{
+ const a=x.w.document.querySelector('[data-testid=now-playing-widget] a');a.setAttribute('data-uri','spotify:track:abc');
+ for(const href of ['spotify:track:other?broken=1','/track/other:broken','/album/a?highlight=spotify:track:other&highlight=spotify:track:abc']){a.setAttribute('href',href);assert.equal(q(x,'like').track,'',href);}
+ a.setAttribute('href','/album/a');assert.equal(q(x,'like').track,'track:abc');
+ }finally{x.close()}});

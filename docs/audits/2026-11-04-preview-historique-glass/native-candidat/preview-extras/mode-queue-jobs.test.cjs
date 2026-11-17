@@ -561,3 +561,26 @@ test('like: conflicting, invalid, changed or outside URI markers never trigger a
   run(dom,mode,'like','run','false','Titre','track:x');await settle(50);assert.equal(clicks,0,variant);dom.window.close();
  }
 });
+
+test('like: Spotify URI href is revalidated before action and on polling',async()=>{
+ const dom=page('<aside data-testid="now-playing-bar"><a data-testid="context-item-link" href="spotify:track:x">Titre</a><button data-testid="add-button" aria-label="Ajouter aux titres likés" aria-checked="false"></button></aside>');const d=dom.window.document,b=d.querySelector('button'),a=d.querySelector('a');let clicks=0;b.onclick=()=>{clicks++;b.setAttribute('aria-label','Retirer des titres likés');b.setAttribute('aria-checked','true');};
+ run(dom,mode,'like','run','false','Titre','track:x');assert.equal(clicks,1);assert.equal(run(dom,mode,'like','poll','unknown','Titre','track:x').outcome,'confirmed');a.setAttribute('href','spotify:track:y');assert.equal(run(dom,mode,'like','poll','unknown','Titre','track:x').outcome,'identity');dom.window.close();
+});
+
+test('like: ambiguous album highlights and conflicting title parent prevent all clicks',async()=>{
+ for(const html of [
+  '<a data-testid="context-item-link" href="/album/x?highlight=spotify:track:x&highlight=spotify:track:y">Titre</a>',
+  '<a data-testid="context-item-link" href="/album/x?highlight=spotify:track:x&%68ighlight=spotify:track:x">Titre</a>',
+  '<div data-testid="context-item-info-title" data-uri="spotify:track:y"><a data-testid="context-item-link" href="/album/x">Titre</a></div>'
+ ]){const dom=page('<aside data-testid="now-playing-bar">'+html+'<button data-testid="add-button" aria-label="Ajouter aux titres likés" aria-checked="false"></button></aside>');let clicks=0;dom.window.document.querySelector('button').onclick=()=>clicks++;run(dom,mode,'like','run','false','Titre','track:x');await settle(50);assert.equal(clicks,0,html);assert.equal(run(dom,mode,'like','poll','unknown','Titre','track:x').outcome,'identity');dom.window.close();}
+});
+
+test('like: an explicit parent marker can identify the album-linked title',()=>{
+ const dom=page('<aside data-testid="now-playing-bar"><div data-testid="context-item-info-title" data-uri="spotify:track:x"><a data-testid="context-item-link" href="/album/z">Titre</a></div><button data-testid="add-button" aria-label="Ajouter aux titres likés" aria-checked="false"></button></aside>');const b=dom.window.document.querySelector('button');let clicks=0;b.onclick=()=>{clicks++;b.setAttribute('aria-label','Retirer des titres likés');b.setAttribute('aria-checked','true')};run(dom,mode,'like','run','false','Titre','track:x');assert.equal(clicks,1);assert.equal(run(dom,mode,'like','poll','unknown','Titre','track:x').outcome,'confirmed');dom.window.close();
+});
+
+test('like: URI attributes cannot mask ambiguous track-bearing links',()=>{
+ for(const href of ['spotify:track:other?broken=1','/track/other:broken','/album/x?highlight=spotify:track:y&highlight=spotify:track:x']){
+  const dom=page('<aside data-testid="now-playing-bar"><a data-testid="context-item-link" data-uri="spotify:track:x" href="'+href+'">Titre</a><button data-testid="add-button" aria-label="Ajouter aux titres likés" aria-checked="false"></button></aside>');let clicks=0;dom.window.document.querySelector('button').onclick=()=>clicks++;run(dom,mode,'like','run','false','Titre','track:x');assert.equal(clicks,0,href);assert.equal(run(dom,mode,'like','poll','unknown','Titre','track:x').outcome,'identity');dom.window.close();
+ }
+});

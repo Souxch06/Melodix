@@ -102,10 +102,24 @@
     // Spotify's bar title links to the album with the track in ?highlight=spotify:track:ID.
     function trackHref(h) {
         h = String(h || '');
+        // A Spotify URI is a complete identity, unlike an album or title.
+        var uri = /^spotify:(track|episode):([a-z0-9]+)$/i.exec(h);
+        if (uri) return uri;
         var m = /^(?:https:\/\/open\.spotify\.com)?\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\/)?(track|episode)\/([a-z0-9]+)\/?(?:[?#].*)?$/i.exec(h);
         if (m) return m;
         var a = /^(?:https:\/\/open\.spotify\.com)?\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\/)?album\/[a-z0-9]+\/?\?(?:[^#]*&)?highlight=spotify(?::|%3a)(track)(?::|%3a)([a-z0-9]+)(?:[&#].*)?$/i.exec(h);
-        if (a) return [a[0], a[1], a[2]];
+        if (a) {
+            // Duplicate highlight keys, including encoded/case variants,
+            // have ambiguous semantics. Never choose one arbitrarily.
+            try {
+                var query = new URL(h, 'https://open.spotify.com').searchParams;
+                var values = [];
+                query.forEach(function(value, key) { if (key.toLowerCase() === 'highlight') values.push(value); });
+                if (values.length !== 1 || !/^spotify:track:[a-z0-9]+$/i.test(values[0])) return null;
+                var parts = /^spotify:(track):([a-z0-9]+)$/i.exec(values[0]);
+                return [a[0], parts[1], parts[2]];
+            } catch (_) { return null; }
+        }
         return null; // an album and title cannot uniquely identify a track
     }
     // Explicit track URIs on the current-player title only; never infer a
@@ -123,6 +137,23 @@
         }
         return result;
     }
+    // If a title link itself carries a malformed track hint, an attribute
+    // must not mask that ambiguity. Album-only links may use their explicit
+    // current-title parent marker, but never one outside the player bar.
+    function hasTrackHint(h) {
+        h=String(h||'');
+        if (/^spotify:(track|episode):/i.test(h) || /\/(track|episode)\//i.test(h)) return true;
+        try {
+            var found=false;
+            new URL(h, 'https://open.spotify.com').searchParams.forEach(function(v,k){if(k.toLowerCase()==='highlight')found=true;});
+            return found;
+        } catch (_) { return true; }
+    }
+    function parentTrack(link) {
+        var n=link.closest('[data-testid="context-item-info-title"]');
+        if(!n || !n.closest('[data-testid="now-playing-widget"], [data-testid="now-playing-bar"]')) return '';
+        return markedTrack(n);
+    }
     function markedTitleNodes() {
         return Array.from(document.querySelectorAll('[data-testid="now-playing-widget"] [data-testid="context-item-link"], [data-testid="now-playing-widget"] [data-testid="nowplaying-track-link"], [data-testid="now-playing-widget"] [data-testid="context-item-info-title"], [data-testid="now-playing-bar"] [data-testid="context-item-link"], [data-testid="now-playing-bar"] [data-testid="nowplaying-track-link"], [data-testid="now-playing-bar"] [data-testid="context-item-info-title"]')).filter(function(n) { return n.isConnected; });
     }
@@ -132,7 +163,7 @@
         var malformedIdentity = false;
         var identities = links.map(function(link) {
             var m = trackHref(String(link.getAttribute('href') || ''));
-            if (!m && /^(context-item-link|nowplaying-track-link)$/i.test(String(link.getAttribute('data-testid') || '')) && !markedTrack(link)) malformedIdentity = true;
+            if (!m && /^(context-item-link|nowplaying-track-link)$/i.test(String(link.getAttribute('data-testid') || '')) && (hasTrackHint(link.getAttribute('href')) || (!markedTrack(link) && !parentTrack(link)))) malformedIdentity = true;
             return m ? {track:m[1].toLowerCase()+':'+m[2],title:String(link.textContent || '').replace(/\s+/g, ' ').trim()} : null;
         }).filter(Boolean);
         markedTitleNodes().forEach(function(n) {

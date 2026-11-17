@@ -72,3 +72,11 @@ test('generic checked playlist controls never claim a liked state in diagnostics
 test('explicit track URI markers produce bounded counts without exposing values',()=>{
  const x=run(bar('<div data-testid="context-item-info-title" data-uri="spotify:track:secret123">Private title</div>'),'like');assert.equal(JSON.parse(x.structure).track_attr,1);assert.ok(!JSON.stringify(x).includes('secret123'));assert.ok(!JSON.stringify(x).includes('Private title'));
 });
+
+test('Spotify URI links are counted but their contents remain private',()=>{
+ const x=run(bar('<a data-testid="context-item-link" href="spotify:track:secret123">Private title</a>'),'like'),st=JSON.parse(x.structure);assert.equal(st.href_uri,1);assert.equal(st.track_links,1);assert.equal(st.track_named,1);assert.ok(!JSON.stringify(x).includes('secret123'));assert.ok(!JSON.stringify(x).includes('Private title'));
+});
+
+test('ambiguous album highlights are counted separately and never claim a usable track link',()=>{
+ const x=run(bar('<a data-testid="context-item-link" href="/album/private?highlight=spotify:track:secret&amp;%68ighlight=spotify:track:other">Private title</a>'),'like'),st=JSON.parse(x.structure);assert.equal(st.href_hl_ambiguous,1);assert.equal(st.track_links,0);assert.ok(!JSON.stringify(x).includes('secret'));assert.ok(!JSON.stringify(x).includes('Private'));
+});
