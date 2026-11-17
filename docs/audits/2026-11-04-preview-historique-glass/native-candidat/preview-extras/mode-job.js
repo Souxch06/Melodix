@@ -194,6 +194,9 @@
             setTimeout(step, 120);
         })();
     }
+    function invalidateLikedRead() {
+        try { if (typeof W.__sfLikedMutationAttempted === 'function') W.__sfLikedMutationAttempted(); } catch (_) {}
+    }
     // Open only an explicitly announced add menu, then act only on a unique,
     // explicitly unchecked Liked Songs item. Never select another playlist.
     function viaLikeMenu(b, method, after) {
@@ -254,14 +257,18 @@
             }
             if (raw === 'true') { log(method + ':menu-liked'); closeMenu(r); after('read', 'true'); return; }
             if (!identityMatches()) { closeMenu(r); after('identity', 'unknown'); return; }
+            invalidateLikedRead();
             try { target.click(); log(method + ':menu-add'); }
             catch (_) { log(method + ':menu-add-error'); closeMenu(r); after('unconfirmed', 'unknown'); return; }
             wait(function() {
                 if (!identityMatches()) return 'identity-changed';
                 var current = targets();
-                if (current.length !== 1 || current[0] !== target || target.matches(':disabled') || target.closest('[aria-disabled="true"], fieldset:disabled')) return null;
-                var a = target.getAttribute('aria-checked');
-                var c = target.tagName === 'INPUT' && target.type === 'checkbox' ? target.checked : null;
+                if (current.length !== 1 || current[0].matches(':disabled') || current[0].closest('[aria-disabled="true"], fieldset:disabled')) return null;
+                // React may replace the checkbox after the click; only the
+                // unique explicit Liked Songs item in the same menu is read.
+                var observed = current[0];
+                var a = observed.getAttribute('aria-checked');
+                var c = observed.tagName === 'INPUT' && observed.type === 'checkbox' ? observed.checked : null;
                 return (a === 'true' && c !== false) || (a === null && c === true) ? 'true' : null;
             }, 2200, function(state) {
                 closeMenu(r);
@@ -286,6 +293,7 @@
             if (before !== 'false') { log(method + ':liked-read-only'); after('read', before); return; }
             if (shownState === 'true') { log(method + ':mismatch'); after('read', before); return; }
         }
+        if (kind === 'like') invalidateLikedRead();
         try { b.click(); log(method + ':click'); } catch (_) { log(method + ':click-error'); after('command', before); return; }
         wait(function() {
             if (kind === 'like' && !identityMatches()) return 'identity-changed';

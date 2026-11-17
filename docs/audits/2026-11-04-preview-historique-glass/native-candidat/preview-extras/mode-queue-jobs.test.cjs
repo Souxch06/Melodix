@@ -584,3 +584,18 @@ test('like: URI attributes cannot mask ambiguous track-bearing links',()=>{
   const dom=page('<aside data-testid="now-playing-bar"><a data-testid="context-item-link" data-uri="spotify:track:x" href="'+href+'">Titre</a><button data-testid="add-button" aria-label="Ajouter aux titres likés" aria-checked="false"></button></aside>');let clicks=0;dom.window.document.querySelector('button').onclick=()=>clicks++;run(dom,mode,'like','run','false','Titre','track:x');assert.equal(clicks,0,href);assert.equal(run(dom,mode,'like','poll','unknown','Titre','track:x').outcome,'identity');dom.window.close();
  }
 });
+
+test('picker confirms an explicitly named checked item replaced after the click',async()=>{
+ const x=pickerPage('<div role="menuitemcheckbox" aria-checked="false">Titres likés</div>');
+ const old=x.b.onclick;
+ x.b.onclick=()=>{old();const target=x.d.querySelector('[role=menuitemcheckbox]');target.addEventListener('click',()=>{const replacement=target.cloneNode(true);replacement.setAttribute('aria-checked','true');target.replaceWith(replacement)})};
+ let invalidations=0;x.dom.window.__sfLikedMutationAttempted=()=>invalidations++;
+ run(x.dom,mode,'like','run','unknown','Titre','track:x');await settle(40);
+ const out=run(x.dom,mode,'like','poll','unknown','Titre','track:x');assert.equal(out.outcome,'confirmed');assert.equal(x.counts.selected,1);assert.equal(invalidations,1);x.dom.window.close();
+});
+test('an already-liked item and ambiguous picker never invalidate or send a mutation',async()=>{
+ for(const html of ['<div role="menuitemcheckbox" aria-checked="true">Titres likés</div>','<div role="menuitemcheckbox" aria-checked="false">Titres likés</div><div role="menuitemcheckbox" aria-checked="false">Titres likés</div>']){
+  const x=pickerPage(html);let invalidations=0;x.dom.window.__sfLikedMutationAttempted=()=>invalidations++;
+  run(x.dom,mode,'like','run','unknown','Titre','track:x');await settle(40);assert.equal(invalidations,0);assert.equal(x.counts.selected,0);x.dom.window.close();
+ }
+});

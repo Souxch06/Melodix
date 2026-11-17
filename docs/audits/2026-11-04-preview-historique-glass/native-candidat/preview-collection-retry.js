@@ -28,6 +28,7 @@
     function cancelPendingCollectionNavigation() {
         stopCollectionFallback();
         stopPreviewCollectionRetry();
+        cancelPreviewLikedRequest();
         previewCollectionValue = null;
         window.__sfNativeCollectionRequest = null;
         window.__sfNativeCollectionUri = null;
@@ -35,6 +36,11 @@
         window.__sfNativeCollectionDomReady = false;
     }
     window.__sfCancelPendingCollection = cancelPendingCollectionNavigation;
+    // Even an unconfirmed add can have reached Spotify. Prevent an older
+    // in-flight collection response from being shown or cached afterward.
+    window.__sfLikedMutationAttempted = function() {
+        if (window.__sfNativeCollectionUri === 'spotify:collection:tracks') cancelPendingCollectionNavigation();
+    };
     window.__sfNativeCollectionLoaded = function(uri, requestId) {
         if (requestId && requestId === window.__sfNativeCollectionRequest && uri === window.__sfNativeCollectionUri) {
             previewPhase('rows-received');
@@ -89,6 +95,12 @@
             started = true;
             previewPhase('bridge-ready');
             previewLoadState('pending');
+            if (uri === 'spotify:collection:tracks') {
+                previewLoadLiked(String(value), requestId, function() {
+                    return !failedOnce && window.__sfNativeCollectionRequest === requestId && window.__sfNativeCollectionUri === uri;
+                }, failed).then(function() { done = true; }, function() { done = true; failed('failed'); });
+                return;
+            }
             try {
                 Promise.resolve(window.fetchMediaItems(uri, requestId, String(value))).then(function() {
                     done = true;

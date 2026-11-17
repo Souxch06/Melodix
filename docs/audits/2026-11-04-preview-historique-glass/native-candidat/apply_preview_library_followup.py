@@ -4,7 +4,8 @@ import hashlib,sys
 from pathlib import Path
 HERE=Path(__file__).resolve().parent
 EXPECTED='ed18ae0b137951fc9b9f1d9fbc65a3f596fad94f38d6f31c8b22c7fa74462984'
-HELPER_SHA='a090f2dd6fa8eb642a1041d456159d9d66dd98c5c92d6f692b8784f00f4205ca'
+HELPER_SHA='138f0b393821c35f84376c149d7234d93b93a849d47883fc018a819645c6c296'
+LIKED_SHA='35ca6d6e62fe1e8732466644f91834868ba5754f74dff993b53339cfe0676b48'
 
 def one(text, old, new):
     if text.count(old)!=1: raise ValueError('unexpected anchor: '+old[:90])
@@ -30,7 +31,9 @@ def apply(root):
     if hashlib.sha256(raw).hexdigest()!=EXPECTED: raise ValueError('unexpected shell input; no changes made')
     helper_bytes=(HERE/'preview-collection-retry.js').read_bytes()
     if hashlib.sha256(helper_bytes).hexdigest()!=HELPER_SHA: raise ValueError('unexpected helper; no changes made')
-    s=raw.decode('utf8'); helper=helper_bytes.decode('utf8')
+    liked_bytes=(HERE/'preview-liked-paging.js').read_bytes()
+    if hashlib.sha256(liked_bytes).hexdigest()!=LIKED_SHA: raise ValueError('unexpected liked helper; no changes made')
+    s=raw.decode('utf8'); helper=liked_bytes.decode('utf8')+'\n'+helper_bytes.decode('utf8')
     # The liked tracks page is a detail view, not the library's category
     # index. The 9016 page fallback otherwise cannot publish its track rows.
     s=one(s, "        if (path === '/collection' || path.indexOf('/collection/') === 0 || path.indexOf('/your-library') === 0) return 'library';",

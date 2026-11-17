@@ -27,3 +27,11 @@ Pour le Like, les contrôles actuels refusent un clic lorsque l'identité ou l'�
 ## Suites nécessaires
 
 Concevoir une récupération de collection bornée et paginée qui traite explicitement erreurs et autorisations, protège les changements de compte et les réponses concurrentes, et ne dégrade pas le contexte de lecture. Tester l'invalidation après ajout confirmé, les ajouts non confirmés, l'annulation/navigation et les collections de plus de 50 titres. Recueillir le diagnostic anonymisé du Like sur la version réellement installée pour savoir quel état/DOM le bloque, puis valider toute correction sur un téléphone et un compte Spotify réels, sans partager de jetons.
+
+## Candidat ultérieur : pagination et invalidation
+
+Le shell Preview charge désormais les titres likés page par page avec la même opération Spotify `fetchLibraryTracks` que le bridge protégé. Chaque ouverture demande des données fraîches ; les pages sont bornées, les doublons de page, réponses incohérentes, refus et expirations ne sont pas présentés comme une liste complète. La liste vide n'est annoncée qu'avec un total explicitement nul. Si le total n'est pas fourni, la liste est signalée comme possiblement incomplète. Le cache de contexte de lecture ne contient que les titres effectivement observés pour la requête courante, y compris si le chargement est partiel ; il n'est pas vidé au début d'une requête infructueuse.
+
+Une tentative d'ajout depuis le lecteur invalide la lecture de collection en cours, même si la confirmation de l'ajout échoue. Le Like peut aussi confirmer l'état d'une case « Titres likés » rendue de nouveau après le clic, si elle est unique dans le même menu et que l'identité reste identique. La commande reste un ajout seulement : aucune piste déjà likée n'est retirée et un état ou une identité ambiguë reste bloqué.
+
+Les nouvelles simulations utilisent le shell Preview et le bridge protégé réels avec réponses factices. Elles ne montrent pas que Spotify accepte la requête, que son format réel comporte tous les champs attendus, ni que le contrôle Like existe sur le téléphone : ces points demandent une validation sur appareil avec une session réelle. Les limites de 125 pages et les refus sont signalés ; aucune limite Spotify n'est contournée.
