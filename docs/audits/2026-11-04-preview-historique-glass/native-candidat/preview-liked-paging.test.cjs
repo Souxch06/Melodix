@@ -67,3 +67,39 @@ test('patched shell uses the protected bridge fetch interceptor without consumin
   assert.equal(f.rows().at(-1)[0].uri,'spotify:track:T3');assert.equal(f.w.likedSongsCache[0].id,'spotify:track:T3');assert.equal(f.calls.length,1);
  }finally{f.close()}
 });
+test('a valid live session allows liked pagination when bridge bootstrap has not completed',async()=>{
+ const f=setup(()=>Promise.resolve(resp([item(7)],1)));try{
+  f.w.__sfMelodixBridgeStarted=true;f.w.__sfMelodixBridgeCompleted=false;delete f.w.fetchMediaItems;
+  f.open();for(let i=0;i<5;i++)await tick();assert.equal(f.calls.length,1);assert.equal(f.rows().at(-1)[0].uri,'spotify:track:T7');assert.equal(f.commands(),0);
+ }finally{f.close()}
+});
+test('no ready bridge and no live session remains waiting and sends no network request',async()=>{
+ const f=setup(()=>{throw Error('must not request')});try{
+  f.w.__sfMelodixBridgeStarted=true;f.w.__sfMelodixBridgeCompleted=false;f.w.spotAuthToken=null;delete f.w.fetchMediaItems;
+  f.open();await tick();assert.equal(f.calls.length,0);assert.equal(f.rows().length,0);assert.equal(f.commands(),0);
+  assert.equal(f.events.filter(e=>e.id==='preview-load').at(-1).data,'waiting-bridge:no-token');
+ }finally{f.close()}
+});
+test('a partial bridge does not change ordinary playlist routing',async()=>{
+ const f=setup(()=>{throw Error('must not request')});try{
+  f.w.__sfMelodixBridgeCompleted=false;f.w.spotAuthToken='Bearer synthetic';
+  f.w.__sfOpenCollection('spotify:playlist:abc');await tick();assert.equal(f.calls.length,0);assert.equal(f.commands(),0);
+ }finally{f.close()}
+});
+test('delayed token unblocks exactly one liked query without completing the bridge',async()=>{
+ const f=setup(()=>Promise.resolve(resp([item(12)],1)));try{
+  f.w.__sfMelodixBridgeCompleted=false;f.w.spotAuthToken=null;let pending=[];let serial=0;
+  f.w.setTimeout=(fn,ms)=>{pending.push({fn,ms,id:++serial});return serial};f.w.clearTimeout=id=>{pending=pending.filter(t=>t.id!==id)};
+  f.open();assert.equal(f.calls.length,0);f.w.spotAuthToken='Bearer synthetic';let wait=pending.find(t=>t.ms===250);assert.ok(wait);wait.fn();for(let i=0;i<5;i++)await tick();
+  assert.equal(f.calls.length,1);assert.equal(f.rows().at(-1)[0].uri,'spotify:track:T12');assert.equal(f.commands(),0);
+ }finally{f.close()}
+});
+test('session absent at deadline reports unavailable without navigation while playing',async()=>{
+ const f=setup(()=>{throw Error('must not fetch')});try{
+  f.w.__sfMelodixBridgeCompleted=false;f.w.spotAuthToken=null;let pending=[];let serial=0;
+  f.w.setTimeout=(fn,ms)=>{pending.push({fn,ms,id:++serial});return serial};f.w.clearTimeout=id=>{pending=pending.filter(t=>t.id!==id)};
+  f.open();for(let i=0;i<20;i++){let t=pending.find(t=>t.ms===250);assert.ok(t);pending=pending.filter(x=>x!==t);t.fn()}
+  assert.equal(f.calls.length,0);assert.equal(f.commands(),0);assert.match(f.detail().at(-1)[0].title,/indisponibles/);
+  assert.equal(f.events.filter(e=>e.id==='preview-load').at(-1).data,'waiting-bridge:no-token');
+ }finally{f.close()}
+});

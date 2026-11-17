@@ -1,6 +1,6 @@
-    // Browsing does not issue any request of its own: exactly one call to the
-    // existing bridge per open or explicit retry. Wait for bridge bootstrap
-    // before that call; never inspect a credential or repeat it automatically.
+    // Ordinary collections keep their existing bridge route. Liked tracks use
+    // their paginated reader when the session is already available, even if the
+    // bridge has not completed bootstrap. Only explicit opens/retries start it.
     var openCollectionTimer = null;
     var previewCollectionRetry = null;
     var pendingCollectionUri = null;
@@ -10,10 +10,10 @@
         try { if (window.AndBridge && typeof window.AndBridge.onNativeUiData === 'function')
             window.AndBridge.onNativeUiData('preview-phase', stage); } catch (_) {}
     }
-    function previewLoadState(stage) {
+    function previewLoadState(stage, sessionStatus) {
         try {
             if (window.AndBridge && typeof window.AndBridge.onNativeUiData === 'function')
-                window.AndBridge.onNativeUiData('preview-load', stage + ':unknown');
+                window.AndBridge.onNativeUiData('preview-load', stage + ':' + (sessionStatus || 'unknown'));
         } catch (_) {}
     }
     function stopPreviewCollectionRetry() {
@@ -77,7 +77,7 @@
             }
             stopPreviewCollectionRetry();
             stopCollectionFallback();
-            previewLoadState(stage);
+            previewLoadState(stage, uri === 'spotify:collection:tracks' && !previewLikedSessionReady() ? 'no-token' : 'unknown');
             if (previewDefinitelyStopped()) {
                 // Historical 9016 fallback; the current playback page is only
                 // replaced when paused/stopped is positively observed.
@@ -93,8 +93,8 @@
         function request() {
             if (!current() || started) return;
             started = true;
-            previewPhase('bridge-ready');
-            previewLoadState('pending');
+            if (window.__sfMelodixBridgeCompleted === true) previewPhase('bridge-ready');
+            previewLoadState('pending', uri === 'spotify:collection:tracks' ? (previewLikedSessionReady() ? 'token' : 'no-token') : 'unknown');
             if (uri === 'spotify:collection:tracks') {
                 previewLoadLiked(String(value), requestId, function() {
                     return !failedOnce && window.__sfNativeCollectionRequest === requestId && window.__sfNativeCollectionUri === uri;
@@ -110,11 +110,14 @@
         }
         function waitForBridge(remaining) {
             if (!current()) return;
+            if (uri === 'spotify:collection:tracks' && previewLikedSessionReady()) {
+                request(); return;
+            }
             if (window.__sfMelodixBridgeCompleted === true && typeof window.fetchMediaItems === 'function') {
                 request(); return;
             }
             if (remaining <= 0) { failed('waiting-bridge'); return; }
-            previewLoadState('waiting-bridge');
+            previewLoadState('waiting-bridge', uri === 'spotify:collection:tracks' ? 'no-token' : 'unknown');
             previewCollectionRetry = window.setTimeout(function() { waitForBridge(remaining - 1); }, 250);
         }
         // Re-publish only the already visible liked DOM for this explicit tap;

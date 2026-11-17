@@ -80,3 +80,17 @@ test('Spotify URI links are counted but their contents remain private',()=>{
 test('ambiguous album highlights are counted separately and never claim a usable track link',()=>{
  const x=run(bar('<a data-testid="context-item-link" href="/album/private?highlight=spotify:track:secret&amp;%68ighlight=spotify:track:other">Private title</a>'),'like'),st=JSON.parse(x.structure);assert.equal(st.href_hl_ambiguous,1);assert.equal(st.track_links,0);assert.ok(!JSON.stringify(x).includes('secret'));assert.ok(!JSON.stringify(x).includes('Private'));
 });
+
+test('like label and platform capability categories contain counts only and invoke no API',()=>{
+ const d=new JSDOM(bar('<button aria-label="Ajouter PRIVATE aux favoris" aria-checked="false" aria-haspopup="menu"></button>'),{url:'https://open.spotify.com/',runScripts:'outside-only'});
+ try{
+  let calls=0;d.window.Melodix={Platform:{PlayerAPI:{getState(){calls++}},LibraryAPI:{contains(){calls++},add(){calls++}}}};
+  const out=JSON.parse(d.window.eval(code)('like')),st=JSON.parse(out.structure);
+  assert.equal(st.chk_favori,1);assert.equal(st.chk_library,0);assert.equal(st.chk_liked,0);assert.equal(st.chk_add_false,1);assert.equal(st.chk_popup,1);
+  assert.equal(st.api_player,1);assert.equal(st.api_state,1);assert.equal(st.api_library,1);assert.equal(st.api_contains,1);assert.equal(st.api_add,1);assert.equal(calls,0);assert.ok(!JSON.stringify(out).includes('PRIVATE'));
+ }finally{d.window.close()}
+});
+test('missing and throwing platform capabilities do not break the passive probe',()=>{
+ const d=new JSDOM(bar('<button aria-checked="false" aria-label="Ajouter aux titres likés"></button>'),{url:'https://open.spotify.com/',runScripts:'outside-only'});
+ try{Object.defineProperty(d.window,'Melodix',{get(){throw Error('private secret')}});const out=JSON.parse(d.window.eval(code)('like'));assert.equal(JSON.parse(out.structure).api_player,0);assert.ok(!JSON.stringify(out).includes('secret'));}finally{d.window.close()}
+});

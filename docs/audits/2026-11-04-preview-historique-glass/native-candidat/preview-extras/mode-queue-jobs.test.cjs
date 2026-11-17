@@ -599,3 +599,15 @@ test('an already-liked item and ambiguous picker never invalidate or send a muta
   run(x.dom,mode,'like','run','unknown','Titre','track:x');await settle(40);assert.equal(invalidations,0);assert.equal(x.counts.selected,0);x.dom.window.close();
  }
 });
+
+test('reported phone structure: album-only bar and six unrelated tracks cannot identify a like target',async()=>{
+ const unrelated=Array.from({length:6},(_,i)=>`<a href="/track/outside${i}">Titre</a>`).join('');
+ const dom=page(`<aside data-testid="now-playing-bar"><a data-testid="context-item-link" href="/album/album1">Titre</a><a href="/artist/a">Artiste</a><button aria-label="Ajouter aux favoris une piste" aria-checked="false"></button></aside><main>${unrelated}</main>`);
+ let clicks=0;dom.window.document.querySelector('button').onclick=()=>clicks++;
+ try{
+  const control=fs.readFileSync(path.join(__dirname,'control.js'),'utf8');
+  const observed=run(dom,control,'like','query','','','');assert.equal(observed.track,'');
+  run(dom,mode,'like','run','unknown','Titre','');await settle(40);
+  const result=run(dom,mode,'like','poll','unknown','Titre','');assert.notEqual(result.outcome,'confirmed');assert.equal(clicks,0);
+ }finally{dom.window.close()}
+});

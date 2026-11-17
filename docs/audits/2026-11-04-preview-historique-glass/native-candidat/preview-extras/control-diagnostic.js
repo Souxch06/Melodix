@@ -29,7 +29,7 @@
         var links=Array.from(document.querySelectorAll('[data-testid="now-playing-widget"] a[href], [data-testid="now-playing-bar"] a[href]'));
         // Shapes only (no href, title or label text): where the bar points, and
         // what the checked (like-like) buttons' labels contain.
-        ['href_album','href_album_hl','href_hl_ambiguous','href_artist','href_uri','href_other','chk_buttons','chk_likeword','chk_verb_add','chk_verb_on','chk_long'].forEach(function(k){st[k]=0;});
+        ['href_album','href_album_hl','href_hl_ambiguous','href_artist','href_uri','href_other','chk_buttons','chk_likeword','chk_verb_add','chk_verb_on','chk_long','chk_favori','chk_library','chk_liked','chk_add_false','chk_add_true','chk_popup'].forEach(function(k){st[k]=0;});
         links.forEach(function(a){
             var hh=String(a.getAttribute('href')||'');
             if(/^spotify:(track|episode):[a-z0-9]+$/i.test(hh))st.href_uri++;else if(/\/album\//i.test(hh))st[/highlight=/i.test(hh)?'href_album_hl':'href_album']++;else if(/\/artist\//i.test(hh))st.href_artist++;else if(!/\/(track|episode)\//i.test(hh))st.href_other++;
@@ -38,6 +38,10 @@
             var l=String(b.getAttribute('aria-label')||'').trim();if(/repeat|r[ée]p[ée]t|shuffle|al[ée]atoire/i.test(l)||/repeat|shuffle/i.test(String(b.getAttribute('data-testid')||'')))return;
             st.chk_buttons++;if(/(liké|liked|bibliothèque|library|favori)/i.test(l))st.chk_likeword++;
             if(/^(ajouter|add|enregistrer|save)/i.test(l))st.chk_verb_add++;if(/^(ajouté|retirer|supprimer|remove|enregistré|saved|added)/i.test(l))st.chk_verb_on++;if(l.length>30)st.chk_long++;
+            if(/favori/i.test(l))st.chk_favori++;if(/bibliothèque|library/i.test(l))st.chk_library++;if(/liké|liked/i.test(l))st.chk_liked++;
+            if(/^(ajouter|add|enregistrer|save)/i.test(l)) {if(b.getAttribute('aria-checked')==='false')st.chk_add_false++;if(b.getAttribute('aria-checked')==='true')st.chk_add_true++;}
+            if(/^(true|menu|dialog|listbox)$/i.test(String(b.getAttribute('aria-haspopup')||'')))st.chk_popup++;
+
         });
         links.forEach(function(a){
             var h=String(a.getAttribute('href')||'');
@@ -74,6 +78,16 @@
             if(!a.isConnected||inPlayer(a))return;
             if(/^(?:https:\/\/open\.spotify\.com)?\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\/)?(?:track|episode)\/[a-z0-9]+\/?(?:[?#].*)?$/i.test(String(a.getAttribute('href')||'')))st.outside_track_links++;
         });
+        // Capability counts only. Never invoke platform APIs or include their
+        // state, user, title, identifiers, labels, or session information.
+        st.api_player=st.api_state=st.api_library=st.api_contains=st.api_add=0;
+        try {
+            var platform=window.Melodix && window.Melodix.Platform;
+            var player=platform && platform.PlayerAPI, library=platform && platform.LibraryAPI;
+            if(player)st.api_player=1;if(player && typeof player.getState==='function')st.api_state=1;
+            if(library)st.api_library=1;if(library && typeof library.contains==='function')st.api_contains=1;
+            if(library && typeof library.add==='function')st.api_add=1;
+        } catch (_) {}
         Object.keys(st).forEach(function(k){st[k]=Math.min(st[k],99);});return JSON.stringify(st);
     }
     var spec=specs[kind], out={kind:kind==='shuffle'?'shuffle':kind==='like'?'like':kind==='repeat'?'repeat':'unknown',reason:'control',count:0,state:'unknown',label:'unknown',command:'unknown',disabled:false,smart:false,structure:structure()};

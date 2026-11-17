@@ -1,6 +1,13 @@
     // Native liked collection: use the same Spotify operation as the protected
     // bridge, but paginate on each explicit open instead of using its shared,
     // account-unscoped first-page cache. Never controls playback.
+    // A partially initialised bridge may have already exposed a valid session
+    // in memory. The liked reader does not need the bridge's fetchMediaItems.
+    // Never read a token from storage or expose it to diagnostics here.
+    function previewLikedSessionReady() {
+        try { return typeof window.spotAuthToken === 'string' && /^Bearer \S+$/.test(window.spotAuthToken); }
+        catch (_) { return false; }
+    }
     var previewLikedController = null;
     function cancelPreviewLikedRequest() {
         if (previewLikedController) { try { previewLikedController.abort(); } catch (_) {} }
