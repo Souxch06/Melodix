@@ -1,7 +1,6 @@
     // Read only the already displayed player and bridge metadata. The state is
     // tri-state: an unrecognised label or absent media is not a proven pause.
     function previewPlaybackState() {
-        if (window.__sfUserRequestedPause === true) return 'paused';
         var button = playPauseButton();
         var label = button && typeof button.getAttribute === 'function' ? String(button.getAttribute('aria-label') || '').trim() : '';
         if (/paus/i.test(label)) return 'playing';

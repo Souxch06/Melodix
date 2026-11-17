@@ -107,7 +107,7 @@ def apply(root):
             previewLastMovementAt >= 0 && at >= previewLastMovementAt && at - previewLastMovementAt <= 2000)));
         previewLastTrack = valid ? info.previewTrackUri : '';""")
     tuple_bytes=(HERE/'preview-player-tuple.js').read_bytes()
-    if hashlib.sha256(tuple_bytes).hexdigest() != '8e92cbbee432ee2ea2aa14e94e4d3260e7a36855f9ac3b4e920da83b61eb06eb': raise ValueError('unexpected tuple helper')
+    if hashlib.sha256(tuple_bytes).hexdigest() != '41a1e6a11a3cb732d61acd0250f386d9873d74b9233749e6f5188532e7904bd0': raise ValueError('unexpected tuple helper')
     start=s.index('    // Preview-only progress samples.')
     end=s.index('    function publishPlayerState(force)', start)
     s=s[:start]+tuple_bytes.decode('utf8')+'\n'+s[end:]

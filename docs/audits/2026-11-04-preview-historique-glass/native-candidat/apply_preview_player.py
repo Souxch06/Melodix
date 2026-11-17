@@ -20,14 +20,14 @@ EXPECTED = {
     'res/layout-w600dp/activity_main.xml': '4d110f1df062fdf7676b9aa5e70146dd7ec148da3c0c614a553b5586ad5af8fe',
     'res/drawable/widget_progress_drawable.xml': '3a5f8f51ea984c7a8226d5acd69bf6b20383ca9622843d617b055c9fe18d772f',
 }
-SOURCE_SHA = '36521aac2eec6cd386f4db2fa003f46e633072f77f011b9533508e9b2ba9cdde'
+SOURCE_SHA = '3cbb7d5444a105c3735909c993c816fd9ae4b04724b7d869e5f68d5cc0117fc4'
 HELPER_SHA = {
-    'PreviewPlayerController$1.smali': '0edb195175e2f4bbb2f2662fcefc359330bc25ac8b93391acaa31c51cbf9176d',
-    'PreviewPlayerController$2.smali': '7f68d123ccc5d740e6536a0595ab7c9cea6328e033f6c4a1a249cdf372c64a41',
-    'PreviewPlayerController$3.smali': '7db1e9e2e8f16cd867cc5624fbfdd73ad612c0e5c4670b66cb6d28c21d3743a1',
-    'PreviewPlayerController$4.smali': '1d5c4acbb790ee20e7b1a4fdf8e9ecbf4d7d84db8a138581843071e1376e7bb9',
-    'PreviewPlayerController$5.smali': 'a7a006b66616508ffb616eb07398b2bbdb0e2b1ea42bd751ada1269fe15d63aa',
-    'PreviewPlayerController.smali': '13a81189007e1018fa5fae5d9cf0418d9f7cf0c72cc715601361356554ba06ea',
+    'PreviewPlayerController$1.smali': '4619bfb3bc65f50edbe05308e33b5d121dc331f2e09cee24289ce0ff14b6001e',
+    'PreviewPlayerController$2.smali': '3b0d539956f1d5dc6a8690fa66c9288bc601c7e5516d71fbce1fa33ec9611299',
+    'PreviewPlayerController$3.smali': '01eff8326365bec02d18e2aae7c729b0bf2431496ec284834a407fd8a142d5cc',
+    'PreviewPlayerController$4.smali': 'c2caecde4530d5ae894b07c5d9c89dc5d5b77d11b72f1fa2d6656f772cecf942',
+    'PreviewPlayerController$5.smali': 'bdfed2095470b9d87490f45aed26da57e56fc90230aae9a69ebdc357f47efdfe',
+    'PreviewPlayerController.smali': '4b95773bf0630482e281ca9f90d2a04ee7f1948d5f6ebc900ae28bc368a75f4c',
 }
 
 def replace(text, old, new):
@@ -494,7 +494,9 @@ def prepare(root):
     move-result-object v0
     invoke-virtual {v0}, Lcom/melodix/music/PreviewPlayerController;->tapPlayPause()I
     move-result v1
-    if-ltz v1, :preview_legacy_toggle
+    if-gez v1, :preview_known_toggle
+    return-void
+    :preview_known_toggle
     if-eqz v1, :preview_pause_command
     const-string v0, "(function(){var t=true;if(typeof window.__sfTogglePlayback=='function'){window.__sfTogglePlayback(t);return;}try{if(window.AndBridge)window.AndBridge.onNativeUiData('preview-command','');if(typeof window.__sfMarkUserPlaybackIntent=='function')window.__sfMarkUserPlaybackIntent(t);if(typeof window.actPlayPause=='function'){window.actPlayPause(t);return;}var b=document.querySelector('button[data-testid=control-button-playpause]')||window.pBtn;if(b)b.click();}catch(e){}})();"
     goto :preview_send_toggle
@@ -503,7 +505,6 @@ def prepare(root):
     :preview_send_toggle
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     return-void
-    :preview_legacy_toggle
     # __sfTogglePlayback''')
     for method, kind in [('onNativePlayerPreviousClick', '0x2'), ('onNativePlayerNextClick', '0x3')]:
         old = '.method public final ' + method + '(Landroid/view/View;)V\n    .locals 1\n'

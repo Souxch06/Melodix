@@ -20,34 +20,17 @@
 # instance fields
 .field final synthetic this$0:Lcom/melodix/music/PreviewPlayerController;
 
-.field final synthetic val$a:Landroid/app/Activity;
+.field private final synthetic val$a:Landroid/app/Activity;
 
-.field final synthetic val$report:Ljava/lang/String;
+.field private final synthetic val$report:Ljava/lang/String;
 
 
 # direct methods
 .method constructor <init>(Lcom/melodix/music/PreviewPlayerController;Landroid/app/Activity;Ljava/lang/String;)V
     .locals 0
-    .annotation system Ldalvik/annotation/MethodParameters;
-        accessFlags = {
-            0x8010,
-            0x1010,
-            0x1010
-        }
-        names = {
-            null,
-            null,
-            null
-        }
-    .end annotation
 
-    .annotation system Ldalvik/annotation/Signature;
-        value = {
-            "()V"
-        }
-    .end annotation
-
-    .line 771
+    .prologue
+    .line 779
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerController$5;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerController$5;->val$a:Landroid/app/Activity;
@@ -62,35 +45,36 @@
 
 # virtual methods
 .method public onClick(Landroid/content/DialogInterface;I)V
-    .locals 1
+    .locals 3
 
-    .line 773
-    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerController$5;->val$a:Landroid/app/Activity;
+    .prologue
+    .line 781
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$5;->val$a:Landroid/app/Activity;
 
-    const-string p2, "clipboard"
+    const-string v1, "clipboard"
 
-    invoke-virtual {p1, p2}, Landroid/app/Activity;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+    invoke-virtual {v0, v1}, Landroid/app/Activity;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
 
-    move-result-object p1
+    move-result-object v0
 
-    .line 774
-    instance-of p2, p1, Landroid/content/ClipboardManager;
+    .line 782
+    instance-of v1, v0, Landroid/content/ClipboardManager;
 
-    if-eqz p2, :cond_0
+    if-eqz v1, :cond_0
 
-    check-cast p1, Landroid/content/ClipboardManager;
+    check-cast v0, Landroid/content/ClipboardManager;
 
-    const-string p2, "Diagnostic Preview"
+    const-string v1, "Diagnostic Preview"
 
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$5;->val$report:Ljava/lang/String;
+    iget-object v2, p0, Lcom/melodix/music/PreviewPlayerController$5;->val$report:Ljava/lang/String;
 
-    invoke-static {p2, v0}, Landroid/content/ClipData;->newPlainText(Ljava/lang/CharSequence;Ljava/lang/CharSequence;)Landroid/content/ClipData;
+    invoke-static {v1, v2}, Landroid/content/ClipData;->newPlainText(Ljava/lang/CharSequence;Ljava/lang/CharSequence;)Landroid/content/ClipData;
 
-    move-result-object p2
+    move-result-object v1
 
-    invoke-virtual {p1, p2}, Landroid/content/ClipboardManager;->setPrimaryClip(Landroid/content/ClipData;)V
+    invoke-virtual {v0, v1}, Landroid/content/ClipboardManager;->setPrimaryClip(Landroid/content/ClipData;)V
 
-    .line 775
+    .line 783
     :cond_0
     return-void
 .end method

@@ -30,6 +30,16 @@ test('tuple identity does not need a URI and missing artist never animates',()=>
   x.w.document.querySelector('button').setAttribute('aria-label','Play');x.step(1000);assert.equal(x.payload().previewPlaybackState,'paused');
  }finally{x.close()}
 });
+test('pause intent cannot impersonate a Spotify playback observation',()=>{
+ const x=fixture();try{
+  x.w.__sfTogglePlayback(false);x.step(1000);
+  assert.equal(x.payload().previewPlaybackState,'playing');
+  x.w.document.querySelector('button').setAttribute('aria-label','');x.step(1000);
+  assert.equal(x.payload().previewPlaybackState,'unknown');
+  x.w.document.querySelector('button').setAttribute('aria-label','Play');x.step(1000);
+  assert.equal(x.payload().previewPlaybackState,'paused');
+ }finally{x.close()}
+});
 test('explicit playback target invokes the simulated existing command once without a scheduled retry',()=>{
  const x=fixture();try{
   x.events.length=0;x.w.__sfTogglePlayback(false);

@@ -42,6 +42,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     private final Handler handler = new Handler(Looper.getMainLooper());
     private boolean valid, moving, frameScheduled, haveReal, realPlaying, shownPlaying, pending;
     private boolean pendingTarget;
+    private long lastConfirmedStateAt = -1;
     private WeakReference<WebView> seekWeb = new WeakReference<WebView>(null);
     private boolean dragging, seekPending;
     private long seekTarget, seekAt, seekSerial, seekFallbackAt, seekFallbackPosition;
@@ -414,11 +415,11 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     }
     private void renderButtons() {
         Activity a = activity.get(); if (a == null || !haveReal) return;
-        // Show the requested state immediately while the command is pending;
-        // this is visual feedback, not a claim that sound has started.
-        int icon = shownPlaying && (pending || realPlaying) && !interrupted ? PAUSE_ICON : PLAY_ICON;
+        // Pending is an intent, not evidence that Spotify changed state.
+        int icon = shownPlaying && realPlaying && !interrupted && !playbackState.equals("unknown") ? PAUSE_ICON : PLAY_ICON;
         String description = pending ? (pendingTarget ? "Lecture demandée, en attente" : "Pause demandée, en attente") :
-            (icon == PAUSE_ICON ? "Mettre en pause" : "Lire");
+            (interrupted || playbackState.equals("unknown") ? "État de lecture inconnu" :
+             (icon == PAUSE_ICON ? "Mettre en pause" : "Lire"));
         View mini = a.findViewById(MINI_BUTTON), full = a.findViewById(FULL_BUTTON);
         if (mini instanceof ImageView) { ((ImageView) mini).setImageResource(icon); mini.setContentDescription(description); }
         if (full instanceof ImageView) { ((ImageView) full).setImageResource(icon); full.setContentDescription(description); }
@@ -571,8 +572,11 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 }
                 if (confirm < 0 || Math.abs(confirm - expected) > 2500) {
                     if (moving && !real) { base = positionUnderlying(t); anchor = t; correction = 0; }
-                    moving = real && !interrupted; if (!interrupted) playbackState = state; haveReal = true;
-                    if (!interrupted && !state.equals("unknown")) { realPlaying = real; if (!pending) shownPlaying = real; }
+                    moving = real && !interrupted; haveReal = true;
+                    if (!interrupted && (snapshotValid || state.equals("unknown"))) playbackState = state;
+                    if (!interrupted && snapshotValid && !state.equals("unknown")) {
+                        lastConfirmedStateAt = t; realPlaying = real; if (!pending) shownPlaying = real;
+                    }
                     renderProgress(); renderButtons(); syncGlow(); scheduleFrame(); return;
                 }
                 // A clock separate from the written range has reached the
@@ -617,12 +621,13 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 if ((!real || freezePendingPause) && !resyncing) { base = previous; anchor = t; correction = 0; }
                 moving = real && !freezePendingPause && !interrupted;
             } else { valid = false; moving = false; }
-            if (!interrupted) playbackState = state;
+            if (!interrupted && (snapshotValid || state.equals("unknown"))) playbackState = state;
             haveReal = true;
-            if (!interrupted && !state.equals("unknown")) {
-                realPlaying = real && snapshotValid;
+            if (!interrupted && snapshotValid && !state.equals("unknown")) {
+                lastConfirmedStateAt = t;
+                realPlaying = real;
                 if (pending && real == pendingTarget) { pending = false; serial++; }
-                if (!pending) shownPlaying = real && snapshotValid;
+                if (!pending) shownPlaying = real;
             }
             renderProgress(); renderButtons(); syncGlow(); scheduleFrame();
             recordReturn("après mesure");
@@ -638,11 +643,14 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         }
     }
     public int tapPlayPause() {
+        // Never fall through to a blind toggle when the state is unknown,
+        // interrupted, or another command is awaiting an observation.
+        if (!haveReal || interrupted || pending || playbackState.equals("unknown") ||
+            lastConfirmedStateAt < 0 || now() - lastConfirmedStateAt > MAX_OBSERVATION_AGE_MS) return -1;
         begin(1);
-        if (!haveReal) return -1;
         long t = now();
         if (valid && shownPlaying) { base = position(t); anchor = t; moving = false; correction = 0; renderProgress(); }
-        pendingTarget = !shownPlaying; pending = true; shownPlaying = pendingTarget;
+        pendingTarget = !shownPlaying; pending = true;
         final long id = ++serial;
         renderButtons(); syncGlow(); optimisticAt = now();
         handler.postDelayed(new Runnable() { public void run() {
