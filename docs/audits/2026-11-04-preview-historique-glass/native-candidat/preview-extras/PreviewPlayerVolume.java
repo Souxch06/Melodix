@@ -136,7 +136,7 @@ public final class PreviewPlayerVolume extends Button {
             retry.setOnClickListener(new View.OnClickListener(){public void onClick(View v){read();}});
             Button close=action(a,"Fermer",false);close.setBackground(null);close.setTextColor(0xffc4b5fd);close.setOnClickListener(new View.OnClickListener(){public void onClick(View v){d.dismiss();}});content.addView(close,new LinearLayout.LayoutParams(-1,dp(48)));
             d.setContentView(content);d.setCanceledOnTouchOutside(true);d.setOnDismissListener(new DialogInterface.OnDismissListener(){public void onDismiss(DialogInterface x){dialog=null;dragging=false;slider=null;valueLabel=null;mute=null;if(running)handler.postDelayed(new Runnable(){public void run(){read();}},350);}});
-            d.show();Window w=d.getWindow();if(w==null){d.dismiss();return;}w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));w.setGravity(Gravity.BOTTOM);w.setLayout(-1,-2);paint();if(percent<0)read();
+            d.show();PreviewUiRestyle.sheet(content);Window w=d.getWindow();if(w==null){d.dismiss();return;}w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));w.setGravity(Gravity.BOTTOM);w.setLayout(-1,-2);paint();if(percent<0)read();
         }catch(RuntimeException e){if(dialog!=null){dialog.dismiss();dialog=null;}Toast.makeText(getContext(),"Volume lecteur indisponible",Toast.LENGTH_SHORT).show();}
     }
     private void sync(){boolean show=isAttachedToWindow()&&isShown()&&getWindowVisibility()==View.VISIBLE;if(show&&!running){running=true;paint();handler.post(tick);}else if(!show&&running){running=false;serial++;readBusy=false;queued=-1;handler.removeCallbacks(tick);handler.removeCallbacks(sendTask);sendScheduled=false;percent=-1;if(dialog!=null)dialog.dismiss();paint();}}

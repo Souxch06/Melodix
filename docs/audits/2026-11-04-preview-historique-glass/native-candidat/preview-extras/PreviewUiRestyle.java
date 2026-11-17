@@ -109,17 +109,28 @@ public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnG
         e.setTextColor(WHITE); e.setHintTextColor(0x99c4b5fd);
     }
     private int entered;
-    /** Soft fade/slide-in the first time a row is styled; the detach listener always restores a recycled view. */
-    private void enter(final View v) {
-        if (entered >= 14 || Build.VERSION.SDK_INT < 21) return;
-        if (Build.VERSION.SDK_INT >= 26 && !android.animation.ValueAnimator.areAnimatorsEnabled()) return;
-        final int i = entered++;
+    private void enter(View v) { if (entered < 14) rise(v, entered++); }
+    private static boolean motionOff() {
+        return Build.VERSION.SDK_INT < 21 || (Build.VERSION.SDK_INT >= 26 && !android.animation.ValueAnimator.areAnimatorsEnabled());
+    }
+    /** Fade/slide-in of one view, staggered by index; a detach restores it so recycled views never stay hidden. */
+    static void rise(final View v, int index) {
+        if (motionOff()) return;
+        float d = v.getResources().getDisplayMetrics().density;
         v.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
             @Override public void onViewAttachedToWindow(View x) { }
             @Override public void onViewDetachedFromWindow(View x) { x.animate().cancel(); x.setAlpha(1f); x.setTranslationY(0f); }
         });
-        v.setAlpha(0f); v.setTranslationY(dp(14));
-        v.animate().alpha(1f).translationY(0f).setStartDelay(i * 35L).setDuration(260).start();
+        v.setAlpha(0f); v.setTranslationY(14 * d);
+        v.animate().alpha(1f).translationY(0f).setStartDelay(Math.min(index, 14) * 40L).setDuration(280)
+            .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
+    }
+    /** Bottom sheet entrance: slides up from below with a fade. */
+    static void sheet(final View v) {
+        if (motionOff()) return;
+        float d = v.getResources().getDisplayMetrics().density;
+        v.setAlpha(0f); v.setTranslationY(320 * d);
+        v.animate().alpha(1f).translationY(0f).setDuration(340).setInterpolator(new android.view.animation.DecelerateInterpolator(2f)).start();
     }
     private final WeakHashMap<View, Boolean> glassRows = new WeakHashMap<View, Boolean>();
     private boolean insideGlass(View v) {

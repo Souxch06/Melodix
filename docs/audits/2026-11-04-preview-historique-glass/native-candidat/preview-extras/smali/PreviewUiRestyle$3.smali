@@ -8,7 +8,7 @@
 
 # annotations
 .annotation system Ldalvik/annotation/EnclosingMethod;
-    value = Lcom/melodix/music/PreviewUiRestyle;->enter(Landroid/view/View;)V
+    value = Lcom/melodix/music/PreviewUiRestyle;->rise(Landroid/view/View;I)V
 .end annotation
 
 .annotation system Ldalvik/annotation/InnerClass;
@@ -17,25 +17,11 @@
 .end annotation
 
 
-# instance fields
-.field final synthetic this$0:Lcom/melodix/music/PreviewUiRestyle;
-
-
 # direct methods
-.method constructor <init>(Lcom/melodix/music/PreviewUiRestyle;)V
+.method constructor <init>()V
     .locals 0
-    .annotation system Ldalvik/annotation/MethodParameters;
-        accessFlags = {
-            0x8010
-        }
-        names = {
-            null
-        }
-    .end annotation
 
-    .line 117
-    iput-object p1, p0, Lcom/melodix/music/PreviewUiRestyle$3;->this$0:Lcom/melodix/music/PreviewUiRestyle;
-
+    .line 120
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
     return-void
@@ -46,14 +32,14 @@
 .method public onViewAttachedToWindow(Landroid/view/View;)V
     .locals 0
 
-    .line 118
+    .line 121
     return-void
 .end method
 
 .method public onViewDetachedFromWindow(Landroid/view/View;)V
     .locals 1
 
-    .line 119
+    .line 122
     invoke-virtual {p1}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
 
     move-result-object v0

@@ -1446,6 +1446,8 @@
     .line 139
     invoke-virtual {v4}, Landroid/app/Dialog;->show()V
 
+    invoke-static {v5}, Lcom/melodix/music/PreviewUiRestyle;->sheet(Landroid/view/View;)V
+
     invoke-virtual {v4}, Landroid/app/Dialog;->getWindow()Landroid/view/Window;
 
     move-result-object v0

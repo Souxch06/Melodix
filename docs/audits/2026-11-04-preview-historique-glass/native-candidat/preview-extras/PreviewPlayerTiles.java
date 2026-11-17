@@ -157,8 +157,9 @@ public final class PreviewPlayerTiles extends LinearLayout {
         String next=o.optString("next","");
         if(next.isEmpty())list.addView(line(a,"Aucun titre à suivre",0xffc7bbdc,14),new LinearLayout.LayoutParams(-1,-2));
         else for(String r:next.split("\n"))addRow(a,list,r);
-        retry.setEnabled(true);
+        retry.setEnabled(true);riseAll(list);
     }
+    private void riseAll(LinearLayout list){for(int k=0;k<list.getChildCount()&&k<14;k++)PreviewUiRestyle.rise(list.getChildAt(k),k);}
     private long queueSerial, settledSerial=-1;
     private JSONObject parseObject(String value){try{Object d=new JSONTokener(value).nextValue();return d instanceof String?new JSONObject((String)d):null;}catch(Exception ignored){return null;}}
     private void loadQueue(final Activity a,final Dialog dialog,final LinearLayout list,final Button retry){
@@ -209,7 +210,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
             int active=-1;try{active=Integer.parseInt(o.optString("active","-1"));}catch(NumberFormatException ignored){}
             String[] lines=body.split("\n");
             for(int k=0;k<lines.length&&k<200;k++){TextView t=line(a,lines[k],k==active?0xffe0489e:Color.WHITE,k==active?19:17);t.setPadding(0,dp(4),0,dp(4));list.addView(t,new LinearLayout.LayoutParams(-1,-2));}
-            return;
+            riseAll(list);return;
         }
         String[] rows=body.split("\n");
         for(String row:rows){
@@ -220,6 +221,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
             if(!current)b.setOnClickListener(new View.OnClickListener(){public void onClick(View v){confirmTransfer(i,a,dialog,list,retry,name);}});
             list.addView(b,new LinearLayout.LayoutParams(-1,-2));
         }
+        riseAll(list);
     }
     private void confirmTransfer(final int i,final Activity a,final Dialog dialog,final LinearLayout list,final Button retry,final String name){
         final Dialog ask=new Dialog(a);LinearLayout box=new LinearLayout(a);box.setOrientation(VERTICAL);box.setPadding(dp(20),dp(16),dp(20),dp(16));
@@ -279,7 +281,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
             retry.setOnClickListener(new View.OnClickListener(){public void onClick(View v){if(i==0)loadQueue(a,dialog,list,retry);else loadPanel(i,a,dialog,list,retry,"run","");}});
             panel.addView(retry,new LinearLayout.LayoutParams(-1,dp(48)));
             panel.addView(close,new LinearLayout.LayoutParams(-1,dp(48)));
-            dialog.show();Window w=dialog.getWindow();if(w==null){dialog.dismiss();return;}
+            dialog.show();PreviewUiRestyle.sheet(panel);Window w=dialog.getWindow();if(w==null){dialog.dismiss();return;}
             w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));w.setGravity(Gravity.BOTTOM);w.setLayout(-1,-2);
             if(i==0)loadQueue(a,dialog,list,retry);else loadPanel(i,a,dialog,list,retry,"run","");
         }catch(RuntimeException ignored){if(webDialog!=null){webDialog.dismiss();webDialog=null;}message("Indisponible dans cette version");}
