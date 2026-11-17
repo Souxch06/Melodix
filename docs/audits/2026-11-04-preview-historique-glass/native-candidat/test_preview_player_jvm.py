@@ -209,6 +209,15 @@ public class ControllerTest {
    g.snapshot(sample("Hold","Artist",61000,181000,"paused",""));Choreographer.frame();yes(!he.text.equals("-:--"));
    g.snapshot(sample("Autre","Artist",-1,90000,"paused",""));Choreographer.frame();yes(he.text.equals("-:--"));
   }
+  { // Pause bug: the legacy callback lists all artists; same track, the time must stay.
+   Activity h=new Activity(); ProgressBar hm=new ProgressBar(); SeekBar hf=new SeekBar(); TextView he=new TextView(),hd=new TextView();
+   h.views.put(0x7f09024d,hm);h.views.put(0x7f09023d,hf);h.views.put(0x7f09024a,he);h.views.put(0x7f09024b,hd);h.views.put(0x7f090238,new ImageView());h.views.put(0x7f09023e,new ImageView());h.views.put(0x7f09023a,new View());
+   PreviewPlayerController g=new PreviewPlayerController(h);g.activityResumed();
+   g.snapshot(sample("Song","Main",60000,180000,"paused",""));Choreographer.frame();String shown=he.text;yes(!shown.equals("-:--"));
+   SystemClock.time+=7000;g.snapshot("track=Song;artist=Main, Guest;playing=false");Choreographer.frame();yes(he.text.equals(shown));yes(hm.progress>0);
+   g.snapshot("track=Other;artist=Main, Guest;playing=false");Choreographer.frame();yes(he.text.equals("-:--"));
+   yes(PreviewPlayerController.sameArtists("A","A, B"));yes(!PreviewPlayerController.sameArtists("A","AB"));yes(!PreviewPlayerController.sameArtists("A","C, A"));
+  }
   System.out.println("Preview controller JVM simulation passed");
  }
 }''',

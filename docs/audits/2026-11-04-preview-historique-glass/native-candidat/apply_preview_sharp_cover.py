@@ -3,7 +3,8 @@
 
 The now-playing cover used the bar thumbnail (about 64 px). The page's own
 <img srcset> lists larger versions of the same picture; take the largest
-(up to 640 w). Same host allowlist (safeSpotifyImage); one image per cover,
+(up to 640 w), and for album covers the 640 px size code of the same
+picture. Same host allowlist (safeSpotifyImage); one image per cover,
 replacing the thumbnail. Fails closed unless each anchor is found once.
 """
 import sys
@@ -18,7 +19,9 @@ HELPER = '''    // Largest picture listed by the page itself for this <img> (<= 
                 if (bits[0] && w > bestW && w <= 640) { best = bits[0]; bestW = w; }
             });
         } catch (_) { best = ''; }
-        return safeSpotifyImage(best) || safeSpotifyImage(img.currentSrc || img.src || '');
+        var url = safeSpotifyImage(best) || safeSpotifyImage(img.currentSrc || img.src || '');
+        // Album covers: same picture, 640 px size code instead of 64/300 px.
+        return url.replace(/\\/image\\/ab67616d0000(4851|1e02)/, '/image/ab67616d0000b273');
     }
     function imageOf(selectors) {'''
 ANCHORS = [

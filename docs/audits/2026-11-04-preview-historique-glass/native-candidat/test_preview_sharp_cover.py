@@ -23,10 +23,11 @@ console.log(JSON.stringify([
   previewLargestImage(img('https://i.scdn.co/a64', 'https://i.scdn.co/a64 64w, https://i.scdn.co/a640 640w, https://i.scdn.co/a300 300w')),
   previewLargestImage(img('https://i.scdn.co/a64', '')),
   previewLargestImage(img('https://i.scdn.co/a64', 'https://evil.example/x 640w')),
-  previewLargestImage(img('https://i.scdn.co/a64', 'https://i.scdn.co/huge 2000w, https://i.scdn.co/a300 300w'))
+  previewLargestImage(img('https://i.scdn.co/a64', 'https://i.scdn.co/huge 2000w, https://i.scdn.co/a300 300w')),
+  previewLargestImage(img('https://i.scdn.co/image/ab67616d00004851abc', ''))
 ]));'''
         res = json.loads(subprocess.run(['node', '-e', js], capture_output=True, text=True, check=True).stdout)
-        self.assertEqual(res, ['https://i.scdn.co/a640', 'https://i.scdn.co/a64', 'https://i.scdn.co/a64', 'https://i.scdn.co/a300'])
+        self.assertEqual(res, ['https://i.scdn.co/a640', 'https://i.scdn.co/a64', 'https://i.scdn.co/a64', 'https://i.scdn.co/a300', 'https://i.scdn.co/image/ab67616d0000b273abc'])
 
 
 if __name__ == '__main__':

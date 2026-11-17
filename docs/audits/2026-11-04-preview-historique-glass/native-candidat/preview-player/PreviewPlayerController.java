@@ -291,6 +291,12 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     // the last shown time and bar for the same track instead of blanking them.
     static final long HOLD_DISPLAY_MS = 6000;
     private long lastShownAt = -1; // reset whenever the track identity changes
+    static boolean sameArtists(String a, String b) {
+        if (a.equals(b)) return true;
+        String x = a.trim(), y = b.trim();
+        return (y.startsWith(x) && y.substring(x.length()).trim().startsWith(",")) ||
+               (x.startsWith(y) && x.substring(y.length()).trim().startsWith(","));
+    }
     private void renderProgress() {
         Activity a = activity.get(); if (a == null) return;
         double pos = position(now());
@@ -455,7 +461,9 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 // misleading false state. They may invalidate an identity,
                 // but cannot assert pause over the explicit tri-state feed.
                 String title = o.optString("track", ""), artist = o.optString("artist", "");
-                if (tupleIdentity && realMetadata(title) && realMetadata(artist) && (!identityTitle.equals(title) || !identityArtist.equals(artist))) {
+                // The legacy callback lists every artist ("A, B") where the tuple keeps
+                // the first one ("A"): that is the same track, not a change.
+                if (tupleIdentity && realMetadata(title) && realMetadata(artist) && (!identityTitle.equals(title) || !sameArtists(identityArtist, artist))) {
                     cancelSeek(); valid = false; moving = false; tupleIdentity = false; glowSampleValid = false;
                     measurementAt = measurementPosition = -1; lastShownAt = -1;
                 }

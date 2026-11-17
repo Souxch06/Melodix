@@ -184,6 +184,15 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         }
     }
     /** Landscape: centre the two columns vertically and let the cover use the height. */
+    /** Height of a view's own content: weighted spacers (which stretch) are not counted. */
+    private static int contentHeight(View v){
+        if("previewPlayerSpacer".equals(v.getTag()))return 0;
+        if(!(v instanceof LinearLayout)||((LinearLayout)v).getOrientation()!=LinearLayout.VERTICAL)return v.getMeasuredHeight();
+        LinearLayout g=(LinearLayout)v;int sum=g.getPaddingTop()+g.getPaddingBottom();
+        for(int i=0;i<g.getChildCount();i++){View c=g.getChildAt(i);if(c.getVisibility()==GONE)continue;sum+=contentHeight(c);
+            ViewGroup.LayoutParams lp=c.getLayoutParams();if(lp instanceof ViewGroup.MarginLayoutParams)sum+=((ViewGroup.MarginLayoutParams)lp).topMargin+((ViewGroup.MarginLayoutParams)lp).bottomMargin;}
+        return sum;
+    }
     private void landscape(Activity a){
         View p=a.findViewById(0x7f09023a);if(!(p instanceof ScrollView))return;
         View frame=p.findViewWithTag("previewPlayerArtFrame"),card=p.findViewWithTag("previewPlayerArtCard");
@@ -222,9 +231,12 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         for(ViewParent v=a.findViewById(0x7f09023d)==null?null:a.findViewById(0x7f09023d).getParent();v instanceof ViewGroup&&v!=p.getParent();v=v.getParent()){
             ((ViewGroup)v).setClipChildren(false);((ViewGroup)v).setClipToPadding(false);
         }
-        int w=frame.getWidth(),h=portrait?(int)(row.getHeight()*0.5f):row.getHeight()-dp(64);
+        // Portrait: the cover takes all the height the controls leave free.
+        int controls=0;
+        if(portrait)for(int i=0;i<row.getChildCount();i++){View child=row.getChildAt(i);if(child!=frame&&child.getVisibility()!=GONE)controls+=contentHeight(child);}
+        int w=frame.getWidth(),h=portrait?row.getHeight()-controls-dp(56):row.getHeight()-dp(64);
         if(h<=0||w<=0)return;
-        int side=Math.max(dp(120),Math.min(w,Math.min(h,dp(portrait?560:520))));
+        int side=Math.max(dp(120),Math.min(w,Math.min(h,dp(portrait?640:560))));
         ViewGroup.LayoutParams c=card.getLayoutParams(),f=frame.getLayoutParams();
         // The cover card keeps its layout limit (318dp) in minified builds; enlarge
         // it by scaling a square of that limit instead of changing its params.
