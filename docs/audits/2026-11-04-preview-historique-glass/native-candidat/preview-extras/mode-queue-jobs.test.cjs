@@ -482,3 +482,66 @@ test('queue: ambiguous roots after a close attempt are never reported closed',as
  else{b.setAttribute('aria-pressed','false');d.querySelector('#slot').innerHTML='<div data-testid="queue-page"></div><div data-testid="queue-view"></div>';}};
  run(dom,queue,'run');await settle(500);const r=run(dom,queue,'poll');assert.equal(r.ok,false);assert.equal(r.reason,'close-unverified');assert.equal(clicks,2);assert.equal(run(dom,panel,'lyrics','run','').status,'blocked');dom.window.close();
 });
+
+test('queue: unique explicit close control closes a recognised panel when trigger has no open state',async()=>{
+ const dom=page('<button data-testid="queue-button" aria-pressed="false"></button><div id="slot"></div>');const d=dom.window.document,b=d.querySelector('button');let opens=0,closes=0;
+ b.onclick=()=>{opens++;d.querySelector('#slot').innerHTML='<section data-testid="queue-page"><div data-testid="tracklist-row"><a href="/track/x">A</a></div><button aria-label="Fermer la file d’attente"></button></section>';d.querySelector('[aria-label]').onclick=()=>{closes++;d.querySelector('#slot').innerHTML='';};};
+ const started=run(dom,queue,'run');await settle(500);const result=run(dom,queue,'poll');assert.equal(result.id,started.id);assert.equal(result.ok,true);assert.equal(opens,1);assert.equal(closes,1);assert.ok(result.journal.includes('close:button'));assert.ok(result.journal.includes('close:verified'));dom.window.close();
+});
+
+test('lyrics: one panel-specific closer can close after read without navigating',async()=>{
+ const dom=page('<button data-testid="lyrics-button" aria-pressed="false"></button><div id="slot"></div>');const d=dom.window.document,b=d.querySelector('button');let closes=0;
+ b.onclick=()=>{d.querySelector('#slot').innerHTML='<div data-testid="lyrics-container"><p>Line</p><button aria-label="Fermer les paroles"></button></div>';d.querySelector('[aria-label]').onclick=()=>{closes++;d.querySelector('#slot').innerHTML='';};};
+ run(dom,panel,'lyrics','run','');await settle(500);let r=run(dom,panel,'lyrics','poll');assert.equal(r.ok,true);assert.equal(r.body,'Line');assert.equal(closes,1);assert.ok(r.journal.includes('close:verified'));dom.window.close();
+});
+
+test('queue: ambiguous, disabled, generic or outside close buttons are not clicked',async()=>{
+ for(const contents of [
+  '<button aria-label="Close queue"></button><button aria-label="Close queue"></button>',
+  '<button aria-label="Close queue" disabled></button>',
+  '<button aria-label="Close"></button>',
+  '<fieldset disabled><button aria-label="Close queue"></button></fieldset>'
+ ]){
+  const dom=page('<button data-testid="queue-button" aria-pressed="false"></button><div id="slot"></div><button aria-label="Close queue" id="outside"></button>');const d=dom.window.document,b=d.querySelector('[data-testid=queue-button]');let clicks=0;
+  d.querySelector('#outside').onclick=()=>clicks++;b.onclick=()=>{d.querySelector('#slot').innerHTML='<div data-testid="queue-page"><div data-testid="tracklist-row"><a href="/track/a">A</a></div>'+contents+'</div>';d.querySelectorAll('#slot button').forEach(x=>x.onclick=()=>clicks++);};
+  run(dom,queue,'run');await settle(400);const r=run(dom,queue,'poll');assert.equal(r.reason,'close-unverified',contents);assert.equal(clicks,0,contents);dom.window.close();
+ }
+});
+
+test('an opener that reveals no known root is not claimed closed without a close action',async()=>{
+ const dom=page('<button data-testid="queue-button" aria-pressed="false"></button>');const d=dom.window.document,b=d.querySelector('button');let calls=0;b.onclick=()=>calls++;
+ const now=dom.window.Date.now;let clock=now();dom.window.Date.now=()=>clock;dom.window.setTimeout=(fn)=>{clock+=150;fn();return 1;};
+ run(dom,queue,'run');const r=run(dom,queue,'poll');assert.equal(r.reason,'close-unverified');assert.equal(r.ok,false);assert.equal(calls,1);dom.window.close();
+});
+
+test('queue: a connected hidden aria-controls panel is opened before reading and restored afterward',async()=>{
+ const dom=page('<button data-testid="queue-button" aria-expanded="false" aria-controls="q"></button><section data-testid="queue-page" id="q" hidden><div data-testid="tracklist-row"><a href="/track/old">Old</a></div></section>');
+ const d=dom.window.document,b=d.querySelector('button'),root=d.querySelector('#q');let clicks=0;
+ b.onclick=()=>{clicks++;const open=b.getAttribute('aria-expanded')==='false';b.setAttribute('aria-expanded',String(open));root.hidden=!open;if(open)root.innerHTML='<div data-testid="tracklist-row"><a href="/track/new">New</a></div>';};
+ run(dom,queue,'run');await settle(500);const r=run(dom,queue,'poll');assert.equal(r.ok,true);assert.equal(clicks,2);assert.ok(r.next.startsWith('New\t'));assert.ok(!r.next.includes('Old'));assert.equal(root.hidden,true);dom.window.close();
+});
+
+test('devices: hidden connected picker is opened instead of reading stale device data',async()=>{
+ const dom=page('<button data-testid="control-button-connect" aria-expanded="false" aria-controls="d"></button><section data-testid="device-picker" id="d" hidden><div data-testid="device-list-item"><span data-testid="device-name">Old</span></div></section>');
+ const d=dom.window.document,b=d.querySelector('button'),root=d.querySelector('#d');let clicks=0;
+ b.onclick=()=>{clicks++;const open=b.getAttribute('aria-expanded')==='false';b.setAttribute('aria-expanded',String(open));root.hidden=!open;if(open)root.innerHTML='<div data-testid="device-list-item" aria-selected="true"><span data-testid="device-name">New</span></div>';};
+ run(dom,panel,'devices','run','');await settle(500);const r=run(dom,panel,'devices','poll');assert.equal(r.ok,true);assert.equal(clicks,2);assert.ok(r.body.startsWith('New\t'));assert.ok(!r.body.includes('Old'));assert.equal(root.hidden,true);dom.window.close();
+});
+
+test('queue: waits for delayed opening rather than reading a CSS-hidden stale panel',async()=>{
+ const dom=page('<button data-testid="queue-button" aria-expanded="false" aria-controls="q"></button><div id="wrap" style="display:none"><section data-testid="queue-page" id="q"><div data-testid="tracklist-row"><a href="/track/old">Old</a></div></section></div>');
+ const d=dom.window.document,b=d.querySelector('button'),root=d.querySelector('#q'),wrap=d.querySelector('#wrap');let clicks=0;
+ b.onclick=()=>{clicks++;if(clicks===1)setTimeout(()=>{root.innerHTML='<div data-testid="tracklist-row"><a href="/track/new">New</a></div>';wrap.style.display='block';b.setAttribute('aria-expanded','true');},200);else {wrap.style.display='none';b.setAttribute('aria-expanded','false');root.hidden=true;}};
+ run(dom,queue,'run');await settle(800);const r=run(dom,queue,'poll');assert.equal(r.ok,true);assert.ok(r.next.startsWith('New\t'));assert.equal(clicks,2);dom.window.close();
+});
+
+test('panel-specific closer hidden with CSS is not clicked',async()=>{
+ const dom=page('<button data-testid="lyrics-button" aria-pressed="false"></button><div id="slot"></div>');const d=dom.window.document,b=d.querySelector('button');let clicks=0;
+ b.onclick=()=>{d.querySelector('#slot').innerHTML='<div data-testid="lyrics-container"><p>Line</p><span style="display:none"><button aria-label="Close lyrics"></button></span></div>';d.querySelector('[aria-label]').onclick=()=>clicks++;};
+ run(dom,panel,'lyrics','run','');await settle(400);const r=run(dom,panel,'lyrics','poll');assert.equal(r.reason,'close-unverified');assert.equal(clicks,0);dom.window.close();
+});
+
+test('a trigger disabled by its fieldset does not open the queue',async()=>{
+ const dom=page('<fieldset disabled><button data-testid="queue-button" aria-pressed="false"></button></fieldset>');let clicks=0;dom.window.document.querySelector('button').onclick=()=>clicks++;
+ run(dom,queue,'run');const r=run(dom,queue,'poll');assert.equal(r.reason,'disabled');assert.equal(clicks,0);dom.window.close();
+});

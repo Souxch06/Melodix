@@ -118,6 +118,31 @@
         sized.forEach(function(e) { try { if (e[1] === null) e[0].removeAttribute('style'); else e[0].setAttribute('style', e[1]); } catch (_) {} });
         sized = [];
     }
+    // Close only a unique, panel-specific control inside the recognised
+    // panel. An ambiguous or generic close button is never used.
+    function explicitCloser(r, trigger) {
+        if (!r || rootAmbiguous) return null;
+        var candidates = Array.from(r.querySelectorAll('button, [role="button"]')).filter(function(n) {
+            var id=String(n.getAttribute('data-testid')||'').toLowerCase(), label=String(n.getAttribute('aria-label')||'').trim();
+            var known = kind==='lyrics' ? /^(lyrics-close-button|close-lyrics-button)$/.test(id) || /^(close lyrics|hide lyrics|fermer les paroles|masquer les paroles)$/i.test(label) :
+                /^(devices-close-button|close-devices-button)$/.test(id) || /^(close devices|close device picker|fermer les appareils|fermer la liste des appareils)$/i.test(label);
+            return known && n.isConnected && n!==trigger && !n.disabled && !n.matches(':disabled') && n.getAttribute('aria-disabled')!=='true' &&
+                !n.closest('[aria-disabled="true"]') && !hiddenBeforeTap(n);
+        });
+        return candidates.length===1 ? candidates[0] : null;
+    }
+    // A connected but hidden panel is not evidence that it was open before
+    // this tap; it can be a stale, pre-rendered, collapsed Spotify container.
+    function hiddenBeforeTap(n) {
+        if (!n) return false;
+        try {
+            for (var el=n; el && el !== document.body; el=el.parentElement) {
+                var cs=window.getComputedStyle(el);
+                if (el.hasAttribute('hidden') || el.getAttribute('aria-hidden')==='true' || cs.display==='none' || cs.visibility==='hidden') return true;
+            }
+            return false;
+        } catch (e) { throw e; }
+    }
     var b = null, wasOpen = true, openedHere = false, finishing = false;
     function finish(ok, reason) {
         if (finishing) return;
@@ -131,11 +156,15 @@
             if (W.__melodixDrawerLease === job) W.__melodixDrawerLease = null;
         }
         if (!openedHere) { done(true); return; }
-        // Only the same explicitly open trigger may be toggled back. Do not
-        // click a replacement, a disabled control, or guess at browser history.
+        // Prefer the exact open trigger; otherwise use only a unique explicit
+        // close control scoped to this recognised panel. Never guess history.
+        var closeAttempted = false;
         try {
-            if (b && b.isConnected && button() === b && isOpen(b) && !b.disabled && b.getAttribute('aria-disabled') !== 'true') {
-                b.click(); log('closed');
+            if (b && b.isConnected && button() === b && isOpen(b) && !b.disabled && !b.matches(':disabled') && !b.closest('[aria-disabled="true"]')) {
+                b.click(); closeAttempted = true; log('closed');
+            } else {
+                var currentRoot = root(b), closer = explicitCloser(currentRoot, b);
+                if (closer) { closer.click(); closeAttempted = true; log('close:button'); }
             }
         } catch (_) { log('close-error'); }
         setTimeout(function() {
@@ -145,15 +174,16 @@
                     window.getComputedStyle(remains).display === 'none' || window.getComputedStyle(remains).visibility === 'hidden');
                 var after = button();
                 var explicitlyClosed = after && (after.getAttribute('aria-pressed') === 'false' || after.getAttribute('aria-expanded') === 'false' || after.getAttribute('data-active') === 'false') && !isOpen(after);
-                var clearlyClosed = !rootAmbiguous && explicitlyClosed && (!remains || !!hidden);
+                var clearlyClosed = closeAttempted && !rootAmbiguous && explicitlyClosed && (!remains || !!hidden);
                 done(!!clearlyClosed);
             } catch (_) { done(false); }
         }, 150);
     }
     try {
         b = button(); var already = root(b);
+        if (already && hiddenBeforeTap(already)) already = null;
         if (rootAmbiguous) { log('root:ambiguous'); finish(false, 'ambiguous'); return JSON.stringify({status: 'started', id: job.id}); }
-        if (b && (b.disabled || b.getAttribute('aria-disabled') === 'true') && !already) { log('button:disabled'); finish(false, 'disabled'); return JSON.stringify({status: 'started', id: job.id}); }
+        if (b && (b.disabled || b.matches(':disabled') || b.closest('[aria-disabled="true"]')) && !already) { log('button:disabled'); finish(false, 'disabled'); return JSON.stringify({status: 'started', id: job.id}); }
         if (!b && !already) { log(found > 1 ? 'button:ambiguous:' + Math.min(found, 9) : 'button:absent'); finish(false, found > 1 ? 'ambiguous' : 'absent'); return JSON.stringify({status: 'started', id: job.id}); }
         wasOpen = !!already || (b && isOpen(b));
         if (!wasOpen) { try { openedHere = true; b.click(); log('opened'); } catch (_) { log('open-error'); finish(false, 'command'); return JSON.stringify({status: 'started', id: job.id}); } }
@@ -162,7 +192,7 @@
         (function step() {
           try {
             var r = null;
-            try { r = root(button() || b); } catch (_) { r = null; }
+            r = root(button() || b); if (r && hiddenBeforeTap(r)) r = null;
             var ready = r && (kind === 'lyrics' ? lyricLines(r).lines.length : deviceRows(r).length);
             if (!ready && r && !forced && Date.now() > end - 2000) { forced = true; giveSize(r); }
             if (!ready && Date.now() < end) { setTimeout(step, 150); return; }

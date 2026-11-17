@@ -87,8 +87,8 @@ stubs.update({
   long savedClock=SystemClock.t;Handler.clear();SystemClock.t=savedClock;Handler.advance(401);t.children.get(1).performClick();Dialog early=Dialog.last;int beforeEarly=c.G.calls;
   c.G.reply("status=started;id=100:1");early.dismiss();Handler.advance(250);
   ok(c.G.calls==beforeEarly+1&&c.G.js.contains("\\"poll\\""));
-  c.G.reply("status=done;id=100:1;ok=false;reason=close-unverified;body=privatewords;journal=opened>privatewords>close:unverified");
-  ok(PreviewPlayerTiles.diagnosticReport().contains("close:unverified"));ok(!PreviewPlayerTiles.diagnosticReport().contains("privatewords"));
+  c.G.reply("status=done;id=100:1;ok=false;reason=close-unverified;body=privatewords;journal=opened>privatewords>close:button>close:unverified");
+  ok(PreviewPlayerTiles.diagnosticReport().contains("close:unverified"));ok(PreviewPlayerTiles.diagnosticReport().contains("close:button"));ok(!PreviewPlayerTiles.diagnosticReport().contains("privatewords"));
   // A new screen must never render a replaced job's result.
   savedClock=SystemClock.t;Handler.clear();SystemClock.t=savedClock;Handler.advance(401);t.children.get(0).performClick();sheet=(LinearLayout)Dialog.last.content;list=(LinearLayout)((ScrollView)sheet.children.get(2)).child;
   c.G.reply("status=started;id=100:1");Handler.advance(250);c.G.reply("status=done;id=100:2;ok=true;now=privateothertrack");

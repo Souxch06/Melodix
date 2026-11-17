@@ -35,17 +35,17 @@
     function isOpen(b) { return b.getAttribute('aria-pressed') === 'true' || b.getAttribute('aria-expanded') === 'true' || b.getAttribute('data-active') === 'true'; }
     function root(b) {
         // Narrow page: Spotify opens the queue as its own page (/queue) in the main view.
-        if (/^\/queue/.test(String(location.pathname || ''))) {
+        if (/^\/queue(?:\/|$)/.test(String(location.pathname || ''))) {
             var mainView = document.querySelector('#main-view, main');
             if (mainView && mainView.isConnected) return mainView;
         }
         var selectors = '[data-testid="queue-page"], [data-testid="queue-view"], [data-testid="queue-panel"], [data-testid="NPV-queue"], aside[aria-label="Queue"], aside[aria-label="File d’attente"], aside[aria-label="File d\'attente"], section[aria-label="Queue"], section[aria-label="File d’attente"], [role="region"][aria-label="Queue"], [role="region"][aria-label="File d’attente"]';
-        var found = Array.from(document.querySelectorAll(selectors)).filter(function(n) { return n.isConnected; });
+        var found = Array.from(document.querySelectorAll(selectors)).filter(function(n) { return n.isConnected && n !== b && !n.matches('button, [role="button"], [role="switch"]'); });
         if (found.length === 1) return found[0];
         if (found.length > 1) { rootAmbiguous = true; return null; }
         var id = b && b.getAttribute('aria-controls');
         var controlled = id ? document.getElementById(id) : null;
-        if (controlled && controlled.isConnected) return controlled;
+        if (controlled && controlled !== b && controlled.isConnected && !controlled.matches('button, [role="button"], [role="switch"]')) return controlled;
         // Desktop layout: the queue opens in the right-hand panel, labelled in any language.
         var labelled = Array.from(document.querySelectorAll('aside, section, [role="region"], [role="complementary"], [role="dialog"], div[aria-label]')).filter(function(n) {
             return n.isConnected && /^(queue|play queue|file d['’]attente|file de lecture|warteschlange|cola( de reproducción)?|fila( de reprodução)?)$/i.test(String(n.getAttribute('aria-label') || '').trim());
@@ -102,6 +102,30 @@
         sized.forEach(function(e) { try { if (e[1] === null) e[0].removeAttribute('style'); else e[0].setAttribute('style', e[1]); } catch (_) {} });
         sized = [];
     }
+    // Only an explicitly named queue close control inside the recognised
+    // panel is eligible; generic close buttons elsewhere are never clicked.
+    function explicitCloser(r, trigger) {
+        if (!r || rootAmbiguous) return null;
+        var candidates = Array.from(r.querySelectorAll('button, [role="button"]')).filter(function(n) {
+            var id=String(n.getAttribute('data-testid')||'').toLowerCase(), label=String(n.getAttribute('aria-label')||'').trim();
+            return n.isConnected && n!==trigger && !n.disabled && !n.matches(':disabled') && n.getAttribute('aria-disabled')!=='true' &&
+                !n.closest('[aria-disabled="true"]') && !hiddenBeforeTap(n) &&
+                (/^(queue-close-button|close-queue-button)$/.test(id) || /^(close (the )?(play )?queue|fermer la file d['’]attente|masquer la file d['’]attente)$/i.test(label));
+        });
+        return candidates.length===1 ? candidates[0] : null;
+    }
+    // A connected but hidden panel is not evidence that it was open before
+    // this tap; it can be a stale, pre-rendered, collapsed Spotify container.
+    function hiddenBeforeTap(n) {
+        if (!n) return false;
+        try {
+            for (var el=n; el && el !== document.body; el=el.parentElement) {
+                var cs=window.getComputedStyle(el);
+                if (el.hasAttribute('hidden') || el.getAttribute('aria-hidden')==='true' || cs.display==='none' || cs.visibility==='hidden') return true;
+            }
+            return false;
+        } catch (e) { throw e; }
+    }
     var b = null, wasOpen = true, openedHere = false, finishing = false;
     function finish(ok, reason) {
         if (finishing) return;
@@ -115,11 +139,15 @@
             if (W.__melodixDrawerLease === job) W.__melodixDrawerLease = null;
         }
         if (!openedHere) { done(true); return; }
-        // Only the same explicitly open trigger may be toggled back. Do not
-        // click a replacement, a disabled control, or guess at browser history.
+        // Prefer the exact open trigger; otherwise use only a unique explicit
+        // close control scoped to this recognised panel. Never guess history.
+        var closeAttempted = false;
         try {
-            if (b && b.isConnected && button() === b && isOpen(b) && !b.disabled && b.getAttribute('aria-disabled') !== 'true') {
-                b.click(); log('closed');
+            if (b && b.isConnected && button() === b && isOpen(b) && !b.disabled && !b.matches(':disabled') && !b.closest('[aria-disabled="true"]')) {
+                b.click(); closeAttempted = true; log('closed');
+            } else {
+                var currentRoot = root(b), closer = explicitCloser(currentRoot, b);
+                if (closer) { closer.click(); closeAttempted = true; log('close:button'); }
             }
         } catch (_) { log('close-error'); }
         setTimeout(function() {
@@ -129,7 +157,7 @@
                     window.getComputedStyle(remains).display === 'none' || window.getComputedStyle(remains).visibility === 'hidden');
                 var after = button();
                 var explicitlyClosed = after && (after.getAttribute('aria-pressed') === 'false' || after.getAttribute('aria-expanded') === 'false' || after.getAttribute('data-active') === 'false') && !isOpen(after);
-                var clearlyClosed = !rootAmbiguous && explicitlyClosed && (!remains || !!hidden);
+                var clearlyClosed = closeAttempted && !rootAmbiguous && explicitlyClosed && (!remains || !!hidden);
                 done(!!clearlyClosed);
             } catch (_) { done(false); }
         }, 150);
@@ -137,8 +165,9 @@
     try {
         b = button();
         var already = root(b);
+        if (already && hiddenBeforeTap(already)) already = null;
         if (rootAmbiguous) { log('root:ambiguous'); finish(false, 'ambiguous'); return JSON.stringify({status: 'started', id: job.id}); }
-        if (b && (b.disabled || b.getAttribute('aria-disabled') === 'true') && !already) { log('button:disabled'); finish(false, 'disabled'); return JSON.stringify({status: 'started', id: job.id}); }
+        if (b && (b.disabled || b.matches(':disabled') || b.closest('[aria-disabled="true"]')) && !already) { log('button:disabled'); finish(false, 'disabled'); return JSON.stringify({status: 'started', id: job.id}); }
         if (!b && !already) { log(found > 1 ? 'button:ambiguous:' + Math.min(found, 9) : 'button:absent'); finish(false, found > 1 ? 'ambiguous' : 'absent'); return JSON.stringify({status: 'started', id: job.id}); }
         wasOpen = !!already || (b && isOpen(b));
         if (!wasOpen) { try { openedHere = true; b.click(); log('opened'); } catch (_) { log('open-error'); finish(false, 'command'); return JSON.stringify({status: 'started', id: job.id}); } }
@@ -147,7 +176,7 @@
         (function step() {
           try {
             var r = null, list = [];
-            try { r = root(button() || b); list = r ? rows(r) : []; } catch (_) { list = []; }
+            r = root(button() || b); if (r && hiddenBeforeTap(r)) r = null; list = r ? rows(r) : [];
             if (!list.length && r && !forced && Date.now() > end - 3500) { forced = true; giveSize(r); }
             if (!list.length && Date.now() < end) { setTimeout(step, 150); return; }
             if (list.length) {
@@ -160,7 +189,7 @@
             } else {
                 log(r ? 'rows:0' : 'panel:absent');
                 // Counts only, to locate the queue next time: route, links in the panel, rows in the page.
-                log('path:' + (/^\/queue/.test(String(location.pathname || '')) ? 'queue' : 'other'));
+                log('path:' + (/^\/queue(?:\/|$)/.test(String(location.pathname || '')) ? 'queue' : 'other'));
                 log('links:' + Math.min(r ? r.querySelectorAll('a[href*="/track/"], a[href*="/episode/"]').length : 0, 99));
                 log('rowsdoc:' + Math.min(document.querySelectorAll('[data-testid="tracklist-row"], [role="row"]').length, 99));
                 finish(false, rootAmbiguous ? 'ambiguous' : r ? 'empty' : 'panel');
