@@ -30,7 +30,7 @@
     .locals 0
 
     .prologue
-    .line 394
+    .line 431
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerChrome$4;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerChrome$4;->val$p:Landroid/view/View;
@@ -58,21 +58,22 @@
 
     const/4 v5, 0x0
 
-    .line 395
+    .line 432
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$4;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerChrome;->access$12(Lcom/melodix/music/PreviewPlayerChrome;)Z
 
     move-result v0
 
-    if-nez v0, :cond_0
+    if-nez v0, :cond_1
 
-    .line 400
+    .line 444
+    :cond_0
     :goto_0
     return-void
 
-    .line 396
-    :cond_0
+    .line 433
+    :cond_1
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$4;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
     invoke-static {v0, v6}, Lcom/melodix/music/PreviewPlayerChrome;->access$17(Lcom/melodix/music/PreviewPlayerChrome;Z)V
@@ -81,7 +82,7 @@
 
     invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerChrome;->access$18(Lcom/melodix/music/PreviewPlayerChrome;Z)V
 
-    .line 397
+    .line 434
     :try_start_0
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$4;->val$a:Landroid/app/Activity;
 
@@ -116,7 +117,7 @@
     .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
     .catchall {:try_start_0 .. :try_end_0} :catchall_0
 
-    .line 399
+    .line 437
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$4;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
     invoke-static {v0, v6}, Lcom/melodix/music/PreviewPlayerChrome;->access$18(Lcom/melodix/music/PreviewPlayerChrome;Z)V
@@ -129,6 +130,21 @@
 
     invoke-virtual {v0, v8}, Landroid/view/ViewPropertyAnimator;->setUpdateListener(Landroid/animation/ValueAnimator$AnimatorUpdateListener;)Landroid/view/ViewPropertyAnimator;
 
+    .line 440
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$4;->val$p:Landroid/view/View;
+
+    invoke-virtual {v0}, Landroid/view/View;->isShown()Z
+
+    move-result v0
+
+    if-nez v0, :cond_2
+
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$4;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
+
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerChrome;->access$11(Lcom/melodix/music/PreviewPlayerChrome;)V
+
+    .line 441
+    :cond_2
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$4;->val$p:Landroid/view/View;
 
     invoke-virtual {v0, v5}, Landroid/view/View;->setTranslationY(F)V
@@ -137,34 +153,25 @@
 
     invoke-virtual {v0, v7}, Landroid/view/View;->setAlpha(F)V
 
+    .line 442
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$4;->val$p:Landroid/view/View;
+
+    invoke-virtual {v0}, Landroid/view/View;->isShown()Z
+
+    move-result v0
+
+    if-eqz v0, :cond_0
+
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$4;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
+
+    invoke-static {v0, v5}, Lcom/melodix/music/PreviewPlayerChrome;->access$13(Lcom/melodix/music/PreviewPlayerChrome;F)V
+
     goto :goto_0
 
-    .line 398
     :catch_0
     move-exception v0
 
-    :try_start_1
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$4;->val$p:Landroid/view/View;
-
-    const/4 v1, 0x0
-
-    invoke-virtual {v0, v1}, Landroid/view/View;->setTranslationY(F)V
-
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$4;->val$p:Landroid/view/View;
-
-    const/high16 v1, 0x3f800000    # 1.0f
-
-    invoke-virtual {v0, v1}, Landroid/view/View;->setAlpha(F)V
-
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$4;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
-
-    const/4 v1, 0x0
-
-    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerChrome;->access$13(Lcom/melodix/music/PreviewPlayerChrome;F)V
-    :try_end_1
-    .catchall {:try_start_1 .. :try_end_1} :catchall_0
-
-    .line 399
+    .line 437
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$4;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
     invoke-static {v0, v6}, Lcom/melodix/music/PreviewPlayerChrome;->access$18(Lcom/melodix/music/PreviewPlayerChrome;Z)V
@@ -177,6 +184,21 @@
 
     invoke-virtual {v0, v8}, Landroid/view/ViewPropertyAnimator;->setUpdateListener(Landroid/animation/ValueAnimator$AnimatorUpdateListener;)Landroid/view/ViewPropertyAnimator;
 
+    .line 440
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$4;->val$p:Landroid/view/View;
+
+    invoke-virtual {v0}, Landroid/view/View;->isShown()Z
+
+    move-result v0
+
+    if-nez v0, :cond_3
+
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$4;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
+
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerChrome;->access$11(Lcom/melodix/music/PreviewPlayerChrome;)V
+
+    .line 441
+    :cond_3
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$4;->val$p:Landroid/view/View;
 
     invoke-virtual {v0, v5}, Landroid/view/View;->setTranslationY(F)V
@@ -185,11 +207,26 @@
 
     invoke-virtual {v0, v7}, Landroid/view/View;->setAlpha(F)V
 
-    goto :goto_0
+    .line 442
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$4;->val$p:Landroid/view/View;
 
+    invoke-virtual {v0}, Landroid/view/View;->isShown()Z
+
+    move-result v0
+
+    if-eqz v0, :cond_0
+
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$4;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
+
+    invoke-static {v0, v5}, Lcom/melodix/music/PreviewPlayerChrome;->access$13(Lcom/melodix/music/PreviewPlayerChrome;F)V
+
+    goto/16 :goto_0
+
+    .line 436
     :catchall_0
     move-exception v0
 
+    .line 437
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerChrome$4;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
     invoke-static {v1, v6}, Lcom/melodix/music/PreviewPlayerChrome;->access$18(Lcom/melodix/music/PreviewPlayerChrome;Z)V
@@ -202,6 +239,21 @@
 
     invoke-virtual {v1, v8}, Landroid/view/ViewPropertyAnimator;->setUpdateListener(Landroid/animation/ValueAnimator$AnimatorUpdateListener;)Landroid/view/ViewPropertyAnimator;
 
+    .line 440
+    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerChrome$4;->val$p:Landroid/view/View;
+
+    invoke-virtual {v1}, Landroid/view/View;->isShown()Z
+
+    move-result v1
+
+    if-nez v1, :cond_4
+
+    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerChrome$4;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
+
+    invoke-static {v1}, Lcom/melodix/music/PreviewPlayerChrome;->access$11(Lcom/melodix/music/PreviewPlayerChrome;)V
+
+    .line 441
+    :cond_4
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerChrome$4;->val$p:Landroid/view/View;
 
     invoke-virtual {v1, v5}, Landroid/view/View;->setTranslationY(F)V
@@ -210,5 +262,20 @@
 
     invoke-virtual {v1, v7}, Landroid/view/View;->setAlpha(F)V
 
+    .line 442
+    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerChrome$4;->val$p:Landroid/view/View;
+
+    invoke-virtual {v1}, Landroid/view/View;->isShown()Z
+
+    move-result v1
+
+    if-eqz v1, :cond_5
+
+    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerChrome$4;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
+
+    invoke-static {v1, v5}, Lcom/melodix/music/PreviewPlayerChrome;->access$13(Lcom/melodix/music/PreviewPlayerChrome;F)V
+
+    .line 443
+    :cond_5
     throw v0
 .end method

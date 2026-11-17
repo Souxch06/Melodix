@@ -38,7 +38,7 @@
     .locals 0
 
     .prologue
-    .line 81
+    .line 67
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerVolume$4;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
     iput-wide p2, p0, Lcom/melodix/music/PreviewPlayerVolume$4;->val$id:J
@@ -70,7 +70,7 @@
 
     const/4 v1, -0x1
 
-    .line 82
+    .line 68
     iget-wide v2, p0, Lcom/melodix/music/PreviewPlayerVolume$4;->val$id:J
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume$4;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
@@ -99,12 +99,12 @@
 
     if-nez v0, :cond_1
 
-    .line 87
+    .line 73
     :cond_0
     :goto_0
     return-void
 
-    .line 82
+    .line 68
     :cond_1
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume$4;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
@@ -116,7 +116,7 @@
 
     move-result-object v2
 
-    .line 83
+    .line 69
     if-nez v2, :cond_3
 
     move v0, v1
@@ -143,7 +143,7 @@
     :goto_2
     invoke-static {v3, v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$9(Lcom/melodix/music/PreviewPlayerVolume;I)V
 
-    .line 84
+    .line 70
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume$4;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$10(Lcom/melodix/music/PreviewPlayerVolume;)I
@@ -173,7 +173,7 @@
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$14(Ljava/lang/String;)V
 
-    .line 86
+    .line 72
     :cond_2
     :goto_4
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume$4;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
@@ -182,7 +182,7 @@
 
     goto :goto_0
 
-    .line 83
+    .line 69
     :cond_3
     const-string v0, "percent"
 
@@ -197,7 +197,7 @@
 
     goto :goto_2
 
-    .line 84
+    .line 70
     :cond_5
     const-string v0, "reason"
 
@@ -209,7 +209,7 @@
 
     goto :goto_3
 
-    .line 85
+    .line 71
     :cond_6
     new-instance v0, Ljava/lang/StringBuilder;
 

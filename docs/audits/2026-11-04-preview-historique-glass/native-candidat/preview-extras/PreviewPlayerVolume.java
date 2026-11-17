@@ -6,18 +6,7 @@ import android.content.ContextWrapper;
 import android.content.res.ColorStateList;
 import android.content.DialogInterface;
 import android.graphics.Color;
-import android.graphics.Canvas;
-import android.graphics.ColorFilter;
-import android.graphics.Paint;
-import android.graphics.Path;
-import android.graphics.PixelFormat;
-import android.graphics.drawable.Drawable;
-import android.text.SpannableString;
-import android.text.Spanned;
-import android.text.style.ImageSpan;
 import android.graphics.Typeface;
-import android.graphics.drawable.GradientDrawable;
-import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
@@ -63,10 +52,7 @@ public final class PreviewPlayerVolume extends Button {
     private JSONObject parse(String s){try{Object v=new JSONTokener(s).nextValue();return v instanceof String?new JSONObject((String)v):null;}catch(Exception ignored){return null;}}
     private void paint(){
         // Same layout as the other tiles: enlarged icon line, then one short line.
-        String label=(percent==0?"◖×":"◖))")+"\n"+(percent<0?"Volume":percent+" %");
-        android.text.SpannableString styled=new android.text.SpannableString(label);
-        styled.setSpan(new android.text.style.RelativeSizeSpan(2.2f),0,label.indexOf('\n'),android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        setText(styled);setContentDescription(percent<0?"Volume du lecteur indisponible : "+reason:"Volume du lecteur : "+percent+" pour cent");
+        setText(PreviewPanelIcon.tile(getContext(),percent<0?"Volume":percent+" %",percent==0?PreviewPanelIcon.MUTED:PreviewPanelIcon.SPEAKER,0xffb4aec5));setContentDescription(percent<0?"Volume du lecteur indisponible : "+reason:"Volume du lecteur : "+percent+" pour cent");
         setEnabled(running);setAlpha(percent<0?0.60f:1f);
         if(dialog!=null&&slider!=null&&mute!=null&&valueLabel!=null){
             slider.setEnabled(percent>=0);mute.setEnabled(percent>=0);
@@ -86,39 +72,10 @@ public final class PreviewPlayerVolume extends Button {
             paint();
         }});}catch(RuntimeException ignored){readBusy=false;percent=-1;reason=reasonText("web");lastPage=reason;paint();}
     }
-    /** Small vector icons with fixed bounds, aligned inline with button labels. */
-    private static final class VolumeIcon extends Drawable {
-        private final int size, kind, color;
-        private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
-        VolumeIcon(int size,int kind,int color){this.size=size;this.kind=kind;this.color=color;}
-        @Override public int getIntrinsicWidth(){return size;}
-        @Override public int getIntrinsicHeight(){return size;}
-        @Override public void draw(Canvas c){
-            c.save();c.translate(getBounds().left,getBounds().top);c.scale(getBounds().width()/24f,getBounds().height()/24f);
-            paint.setColor(color);paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(1.8f);paint.setStrokeCap(Paint.Cap.ROUND);paint.setStrokeJoin(Paint.Join.ROUND);
-            if(kind==2){
-                c.drawArc(4,4,20,20,-65,270,false,paint);c.drawLine(17.5f,3.8f,20,4.2f,paint);c.drawLine(20,4.2f,19.6f,6.8f,paint);
-            } else {
-                Path speaker=new Path();speaker.moveTo(3,9);speaker.lineTo(7,9);speaker.lineTo(12,5);speaker.lineTo(12,19);speaker.lineTo(7,15);speaker.lineTo(3,15);speaker.close();c.drawPath(speaker,paint);
-                if(kind==0){c.drawLine(16,9,21,15,paint);c.drawLine(21,9,16,15,paint);}
-                else{c.drawArc(11,7,20,17,-55,110,false,paint);c.drawArc(11,4,24,20,-50,100,false,paint);}
-            }
-            c.restore();
-        }
-        @Override public void setAlpha(int alpha){paint.setAlpha(alpha);invalidateSelf();}
-        @Override public void setColorFilter(ColorFilter f){paint.setColorFilter(f);}
-        @Override public int getOpacity(){return PixelFormat.TRANSLUCENT;}
-    }
-    private CharSequence iconLabel(String text,int kind,int color){
-        VolumeIcon icon=new VolumeIcon(dp(18),kind,color);icon.setBounds(0,0,dp(18),dp(18));
-        SpannableString label=new SpannableString("\ufffc  "+text);
-        // ALIGN_CENTER is available from API 29; older versions retain baseline alignment.
-        label.setSpan(new ImageSpan(icon,Build.VERSION.SDK_INT>=29?2:ImageSpan.ALIGN_BASELINE),0,1,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);return label;
-    }
     private void showValue(int n){
         if(valueLabel!=null)valueLabel.setText(n+" %");
         if(mute!=null){
-            mute.setText(iconLabel(n==0?"Réactiver":"Silence",n==0?1:0,Color.WHITE));
+            mute.setText(PreviewPanelIcon.label(getContext(),n==0?"Réactiver":"Silence",n==0?PreviewPanelIcon.SPEAKER:PreviewPanelIcon.MUTED,Color.WHITE));
             mute.setContentDescription(n==0?"Réactiver le volume du lecteur":"Mettre le lecteur en silence");
         }
     }
@@ -135,30 +92,20 @@ public final class PreviewPlayerVolume extends Button {
         catch(RuntimeException ignored){percent=-1;reason=reasonText("command");lastAction="échec : "+reason;paint();}
         if(!dragging)handler.postDelayed(new Runnable(){public void run(){if(running)read();}},350);
     }
-    private GradientDrawable surface(int color,int stroke,float radius){
-        GradientDrawable d=new GradientDrawable();d.setColor(color);d.setStroke(dp(1),stroke);d.setCornerRadius(dp(radius));return d;
-    }
-    // Same look as the rest of the app: violet-to-magenta pill or glass pill.
-    private GradientDrawable pill(boolean primary){
-        GradientDrawable d=new GradientDrawable();d.setCornerRadius(dp(999));
-        if(primary){d.setColor(0xff57417c);d.setStroke(dp(1),0x45bca2ed);}else{d.setColor(0x0cffffff);d.setStroke(dp(1),0x20ffffff);}
-        return d;
-    }
     private Button action(Activity a,String text,boolean primary){
         Button b=new Button(a);b.setText(text);b.setTextColor(Color.WHITE);b.setTextSize(14);b.setGravity(Gravity.CENTER);b.setAllCaps(false);b.setMinHeight(dp(48));
-        b.setBackgroundTintList(null);b.setBackground(pill(primary));return b;
+        b.setBackgroundTintList(null);b.setBackground(PreviewPlayerSheet.actionBackground(getContext(),primary));return b;
     }
     private void open(){
         final Activity a=activity();if(a==null||a.isFinishing()||a.isDestroyed()||dialog!=null)return;
         try{
             final PreviewPlayerSheet d=new PreviewPlayerSheet(a);dialog=d;
             LinearLayout content=new LinearLayout(a);content.setOrientation(LinearLayout.VERTICAL);
-            GradientDrawable sheet=new GradientDrawable();float r=dp(28);sheet.setCornerRadii(new float[]{r,r,r,r,0,0,0,0});
-            sheet.setColors(new int[]{0xff20172f,0xff110e19});sheet.setStroke(dp(1),0x24ffffff);content.setBackground(sheet);
+            content.setBackground(PreviewPlayerSheet.background(a));
             content.setPadding(dp(22),0,dp(22),dp(24));
             // A generous touch target, separate from the slider and actions.
             LinearLayout handle=new LinearLayout(a);handle.setGravity(Gravity.CENTER);handle.setContentDescription("Glisser vers le bas pour fermer");
-            View grip=new View(a);grip.setBackground(surface(0x66ffffff,0x00ffffff,999));handle.addView(grip,new LinearLayout.LayoutParams(dp(36),dp(4)));
+            View grip=new View(a);grip.setBackground(PreviewPlayerSheet.surface(a,0x66ffffff,0x00ffffff,999));handle.addView(grip,new LinearLayout.LayoutParams(dp(36),dp(4)));
             handle.setOnTouchListener(d.dragListener());content.addView(handle,new LinearLayout.LayoutParams(-1,dp(32)));
             LinearLayout heading=new LinearLayout(a);heading.setGravity(Gravity.CENTER_VERTICAL);heading.setOrientation(LinearLayout.HORIZONTAL);
             LinearLayout headingText=new LinearLayout(a);headingText.setOrientation(LinearLayout.VERTICAL);
@@ -167,19 +114,19 @@ public final class PreviewPlayerVolume extends Button {
             heading.addView(headingText,new LinearLayout.LayoutParams(0,-2,1));
             valueLabel=new TextView(a);valueLabel.setTextColor(Color.WHITE);valueLabel.setTextSize(22);valueLabel.setTypeface(Typeface.DEFAULT_BOLD);valueLabel.setGravity(Gravity.CENTER);
             heading.addView(valueLabel,new LinearLayout.LayoutParams(dp(78),dp(48)));
-            Button close=action(a,"×",false);close.setTextSize(24);close.setBackground(null);close.setMinWidth(0);close.setMinimumWidth(0);close.setContentDescription("Fermer le panneau de volume");close.setOnClickListener(new View.OnClickListener(){public void onClick(View v){d.dismiss();}});
+            Button close=action(a,"",false);close.setText(PreviewPanelIcon.label(a,"",PreviewPanelIcon.CLOSE,0xffded4ed));close.setBackground(null);close.setMinWidth(0);close.setMinimumWidth(0);close.setContentDescription("Fermer le panneau de volume");close.setOnClickListener(new View.OnClickListener(){public void onClick(View v){d.dismiss();}});
             heading.addView(close,new LinearLayout.LayoutParams(dp(40),dp(48)));content.addView(heading,new LinearLayout.LayoutParams(-1,-2));
             statusLabel=new TextView(a);statusLabel.setText("Le volume du téléphone reste inchangé");statusLabel.setTextColor(0xffb7aacd);statusLabel.setTextSize(13);content.addView(statusLabel,new LinearLayout.LayoutParams(-1,dp(34)));
-            LinearLayout controls=new LinearLayout(a);controls.setOrientation(LinearLayout.VERTICAL);controls.setPadding(dp(12),dp(4),dp(12),dp(8));controls.setBackground(surface(0x0cffffff,0x16ffffff,18));
+            LinearLayout controls=new LinearLayout(a);controls.setOrientation(LinearLayout.VERTICAL);controls.setPadding(dp(12),dp(4),dp(12),dp(8));controls.setBackground(PreviewPlayerSheet.surface(a,0x0cffffff,0x16ffffff,18));
             slider=new SeekBar(a);slider.setMax(100);slider.setProgress(Math.max(0,percent));slider.setContentDescription("Volume du lecteur, de zéro à cent pour cent");
             slider.setProgressTintList(ColorStateList.valueOf(0xffb995ed));slider.setProgressBackgroundTintList(ColorStateList.valueOf(0x33ffffff));slider.setThumbTintList(ColorStateList.valueOf(0xffffffff));controls.addView(slider,new LinearLayout.LayoutParams(-1,dp(48)));
             LinearLayout bounds=new LinearLayout(a);bounds.setOrientation(LinearLayout.HORIZONTAL);
-            TextView low=new TextView(a);low.setText(iconLabel("0 %",0,0xffbcaed5));low.setTextColor(0xffb7aacd);low.setTextSize(11);bounds.addView(low,new LinearLayout.LayoutParams(0,dp(24),1));
-            TextView high=new TextView(a);high.setText(iconLabel("100 %",1,0xffbcaed5));high.setTextColor(0xffb7aacd);high.setTextSize(11);high.setGravity(Gravity.RIGHT);bounds.addView(high,new LinearLayout.LayoutParams(0,dp(24),1));controls.addView(bounds,new LinearLayout.LayoutParams(-1,dp(24)));
+            TextView low=new TextView(a);low.setText(PreviewPanelIcon.label(a,"0 %",PreviewPanelIcon.MUTED,0xffbcaed5));low.setTextColor(0xffb7aacd);low.setTextSize(11);bounds.addView(low,new LinearLayout.LayoutParams(0,dp(24),1));
+            TextView high=new TextView(a);high.setText(PreviewPanelIcon.label(a,"100 %",PreviewPanelIcon.SPEAKER,0xffbcaed5));high.setTextColor(0xffb7aacd);high.setTextSize(11);high.setGravity(Gravity.RIGHT);bounds.addView(high,new LinearLayout.LayoutParams(0,dp(24),1));controls.addView(bounds,new LinearLayout.LayoutParams(-1,dp(24)));
             content.addView(controls,new LinearLayout.LayoutParams(-1,-2));
             LinearLayout actions=new LinearLayout(a);actions.setOrientation(LinearLayout.HORIZONTAL);actions.setPadding(0,dp(14),0,0);
             mute=action(a,"Silence",true);actions.addView(mute,new LinearLayout.LayoutParams(0,dp(48),1));
-            Button retry=action(a,"Actualiser",false);retry.setText(iconLabel("Actualiser",2,Color.WHITE));retry.setContentDescription("Actualiser le volume du lecteur");LinearLayout.LayoutParams retryLayout=new LinearLayout.LayoutParams(0,dp(48),1);retryLayout.leftMargin=dp(8);actions.addView(retry,retryLayout);content.addView(actions,new LinearLayout.LayoutParams(-1,-2));
+            Button retry=action(a,"Actualiser",false);retry.setText(PreviewPanelIcon.label(a,"Actualiser",PreviewPanelIcon.REFRESH,Color.WHITE));retry.setContentDescription("Actualiser le volume du lecteur");LinearLayout.LayoutParams retryLayout=new LinearLayout.LayoutParams(0,dp(48),1);retryLayout.leftMargin=dp(8);actions.addView(retry,retryLayout);content.addView(actions,new LinearLayout.LayoutParams(-1,-2));
             showValue(Math.max(0,percent));
             mute.setOnClickListener(new View.OnClickListener(){public void onClick(View v){int p=slider.getProgress();if(p>0)lastNonZero=p;int target=p>0?0:lastNonZero;if(target<0){Toast.makeText(getContext(),"Utilisez le curseur pour réactiver",Toast.LENGTH_SHORT).show();return;}slider.setProgress(target);showValue(target);enqueue(target);}});
             slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onStartTrackingTouch(SeekBar b){dragging=true;}public void onProgressChanged(SeekBar b,int p,boolean user){if(user){if(p>0)lastNonZero=p;showValue(p);enqueue(p);}}public void onStopTrackingTouch(SeekBar b){dragging=false;enqueue(b.getProgress());}});

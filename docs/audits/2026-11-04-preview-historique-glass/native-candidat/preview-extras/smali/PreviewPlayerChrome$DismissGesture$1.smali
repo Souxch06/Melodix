@@ -28,7 +28,7 @@
     .locals 0
 
     .prologue
-    .line 432
+    .line 476
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerChrome$DismissGesture$1;->this$1:Lcom/melodix/music/PreviewPlayerChrome$DismissGesture;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerChrome$DismissGesture$1;->val$p:Landroid/view/View;
@@ -44,7 +44,7 @@
     .locals 2
 
     .prologue
-    .line 432
+    .line 476
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$DismissGesture$1;->val$p:Landroid/view/View;
 
     invoke-virtual {v0}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;

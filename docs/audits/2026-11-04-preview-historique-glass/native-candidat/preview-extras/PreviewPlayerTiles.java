@@ -10,9 +10,6 @@ import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
-import android.text.SpannableString;
-import android.text.Spanned;
-import android.text.style.RelativeSizeSpan;
 import android.os.SystemClock;
 import android.view.Window;
 import android.util.AttributeSet;
@@ -122,7 +119,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
         }catch(Exception ignored){body.setText("Indisponible dans cette version");}
     }
     private final String[] names={"File","Paroles","Appareils"};
-    private final String[] icons={"☰","♬","▣"};
+    private final int[] icons={PreviewPanelIcon.QUEUE,PreviewPanelIcon.LYRICS,PreviewPanelIcon.DEVICES};
     private final Button[] controls=new Button[3];
     private PreviewPlayerSheet webDialog;
     private long lastAction=-1000;
@@ -137,8 +134,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
         for(int i=0;i<3;i++){
             Button b=controls[i];if(b==null)continue;
             b.setEnabled(true);b.setAlpha(0.8f);
-            String labelText=icons[i]+"\n"+names[i];
-            SpannableString label=new SpannableString(labelText);label.setSpan(new RelativeSizeSpan(2.2f),0,labelText.indexOf('\n'),Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);b.setText(label);
+            b.setText(PreviewPanelIcon.tile(getContext(),names[i],icons[i],0xffb4aec5));
             b.setContentDescription(names[i]+" : consulter si disponible");
         }
     }
@@ -249,6 +245,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
             String[] f=row.split("\t",-1);if(f.length==0||f[0].trim().isEmpty())continue;
             final String name=f[0];final boolean current=f.length>2&&f[2].equals("1");String type=f.length>1?f[1]:"";
             Button b=new Button(a);b.setText(name+(type.isEmpty()?"":"\n"+type)+(current?"\nActif":""));b.setTextColor(current?0xffe0489e:Color.WHITE);b.setAllCaps(false);b.setMinimumHeight(dp(56));
+            b.setGravity(Gravity.CENTER);b.setBackgroundTintList(null);b.setBackground(PreviewPlayerSheet.actionBackground(a,current));
             b.setContentDescription(name+(current?", appareil actif":", transférer la lecture vers cet appareil"));
             if(!current)b.setOnClickListener(new View.OnClickListener(){public void onClick(View v){confirmTransfer(i,a,dialog,list,retry,name);}});
             list.addView(b,new LinearLayout.LayoutParams(-1,-2));
@@ -313,16 +310,21 @@ public final class PreviewPlayerTiles extends LinearLayout {
         lastAction=now;controls[i].performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);probe(i,a);
         try {
             final PreviewPlayerSheet dialog=new PreviewPlayerSheet(a);
-            LinearLayout panel=new LinearLayout(a);panel.setOrientation(VERTICAL);panel.setPadding(dp(20),dp(8),dp(20),dp(24));
-            GradientDrawable glass=new GradientDrawable();glass.setColor(0xeb170b33);glass.setStroke(dp(1),0x1fffffff);float r=dp(28);glass.setCornerRadii(new float[]{r,r,r,r,0,0,0,0});panel.setBackground(glass);
+            LinearLayout panel=new LinearLayout(a);panel.setOrientation(VERTICAL);panel.setPadding(dp(22),0,dp(22),dp(24));panel.setBackground(PreviewPlayerSheet.background(a));
             View.OnTouchListener swipe=dialog.dragListener();
-            TextView handle=new TextView(a);handle.setText("━━━━");handle.setGravity(Gravity.CENTER);handle.setTextColor(0x99ffffff);handle.setContentDescription("Glisser vers le bas pour fermer");handle.setOnTouchListener(swipe);panel.addView(handle,new LinearLayout.LayoutParams(-1,dp(32)));
-            TextView title=line(a,i==0?"File d’attente":names[i],Color.WHITE,20);title.setOnTouchListener(swipe);panel.addView(title,new LinearLayout.LayoutParams(-1,dp(48)));
-            final LinearLayout list=new LinearLayout(a);list.setOrientation(VERTICAL);
-            ScrollView scroll=new ScrollView(a);scroll.addView(list);panel.addView(scroll,new LinearLayout.LayoutParams(-1,dp(i==1?460:340)));
-            final Button retry=new Button(a);retry.setText("Réessayer");retry.setMinimumHeight(dp(48));
-            Button close=new Button(a);close.setText("Fermer");close.setContentDescription("Fermer "+names[i]);close.setMinimumHeight(dp(48));
-            close.setOnClickListener(new View.OnClickListener(){public void onClick(View v){dialog.dismiss();}});
+            LinearLayout handle=new LinearLayout(a);handle.setGravity(Gravity.CENTER);handle.setContentDescription("Glisser vers le bas pour fermer");
+            View grip=new View(a);grip.setBackground(PreviewPlayerSheet.surface(a,0x66ffffff,0x00ffffff,999));handle.addView(grip,new LinearLayout.LayoutParams(dp(36),dp(4)));handle.setOnTouchListener(swipe);panel.addView(handle,new LinearLayout.LayoutParams(-1,dp(32)));
+            LinearLayout heading=new LinearLayout(a);heading.setOrientation(HORIZONTAL);heading.setGravity(Gravity.CENTER_VERTICAL);
+            LinearLayout headingText=new LinearLayout(a);headingText.setOrientation(VERTICAL);headingText.setOnTouchListener(swipe);
+            TextView eyebrow=line(a,"LECTEUR",0xffb5a3d2,10);headingText.addView(eyebrow,new LinearLayout.LayoutParams(-1,dp(18)));
+            TextView title=line(a,i==0?"File d’attente":names[i],Color.WHITE,20);title.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);headingText.addView(title,new LinearLayout.LayoutParams(-1,-2));
+            TextView subtitle=line(a,i==2?"Appareils disponibles":"Contenu du lecteur",0xffb7aacd,13);headingText.addView(subtitle,new LinearLayout.LayoutParams(-1,dp(32)));heading.addView(headingText,new LinearLayout.LayoutParams(0,-2,1));
+            Button close=new Button(a);close.setText(PreviewPanelIcon.label(a,"",PreviewPanelIcon.CLOSE,0xffded4ed));close.setContentDescription("Fermer "+names[i]);close.setGravity(Gravity.CENTER);close.setAllCaps(false);close.setMinWidth(0);close.setMinimumWidth(0);close.setMinHeight(dp(48));close.setBackgroundTintList(null);close.setBackground(null);
+            close.setOnClickListener(new View.OnClickListener(){public void onClick(View v){dialog.dismiss();}});heading.addView(close,new LinearLayout.LayoutParams(dp(40),dp(48)));panel.addView(heading,new LinearLayout.LayoutParams(-1,-2));
+            final LinearLayout list=new LinearLayout(a);list.setOrientation(VERTICAL);list.setPadding(dp(16),dp(8),dp(16),dp(8));
+            ScrollView scroll=new ScrollView(a);scroll.setBackground(PreviewPlayerSheet.surface(a,0x0cffffff,0x16ffffff,18));scroll.addView(list);
+            int maxHeight=Math.max(dp(120),getResources().getDisplayMetrics().heightPixels-dp(220));panel.addView(scroll,new LinearLayout.LayoutParams(-1,Math.min(dp(i==1?460:340),maxHeight)));
+            final Button retry=new Button(a);retry.setText(PreviewPanelIcon.label(a,"Actualiser",PreviewPanelIcon.REFRESH,Color.WHITE));retry.setContentDescription("Actualiser "+names[i]);retry.setTextColor(Color.WHITE);retry.setAllCaps(false);retry.setGravity(Gravity.CENTER);retry.setMinimumHeight(dp(48));retry.setBackgroundTintList(null);retry.setBackground(PreviewPlayerSheet.actionBackground(a,false));
             dialog.setTitle(names[i]);dialog.setCanceledOnTouchOutside(true);
             dialog.setOnDismissListener(new DialogInterface.OnDismissListener(){public void onDismiss(DialogInterface ignored){
                 long open=(SystemClock.elapsedRealtime()-openedAt)/100;String after=":apres-"+(open/10)+"."+(open%10)+"s";
@@ -333,8 +335,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
                 if(pending && validJobId(id))pollClosed(i,a,i==0?queueSerial:panelSerial,id,0);}});
             webDialog=dialog;openedAt=SystemClock.elapsedRealtime();queueStep="envoi";panelStep="envoi";
             retry.setOnClickListener(new View.OnClickListener(){public void onClick(View v){if(i==0)loadQueue(a,dialog,list,retry);else loadPanel(i,a,dialog,list,retry,"run","");}});
-            panel.addView(retry,new LinearLayout.LayoutParams(-1,dp(48)));
-            panel.addView(close,new LinearLayout.LayoutParams(-1,dp(48)));
+            LinearLayout.LayoutParams retryParams=new LinearLayout.LayoutParams(-1,dp(48));retryParams.topMargin=dp(14);panel.addView(retry,retryParams);
             dialog.showSheet(panel);Window w=dialog.getWindow();if(w==null){dialog.dismissImmediately();return;}
             w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));w.setGravity(Gravity.BOTTOM);w.setLayout(-1,-2);
             if(i==0)loadQueue(a,dialog,list,retry);else loadPanel(i,a,dialog,list,retry,"run","");
@@ -351,12 +352,11 @@ public final class PreviewPlayerTiles extends LinearLayout {
     @Override protected void onWindowVisibilityChanged(int visibility){super.onWindowVisibilityChanged(visibility);if(controls!=null)post(new Runnable(){public void run(){syncVolume();}});}
     public PreviewPlayerTiles(Context c, AttributeSet attrs) {
         super(c,attrs);setOrientation(HORIZONTAL);setGravity(android.view.Gravity.CENTER);
-        String[] labels={"☰\nFile","♬\nParoles","▣\nAppareils","◖))\nVolume"};
+        String[] labels={"File","Paroles","Appareils","Volume"};
+        int[] kinds={PreviewPanelIcon.QUEUE,PreviewPanelIcon.LYRICS,PreviewPanelIcon.DEVICES,PreviewPanelIcon.SPEAKER};
         for(int i=0;i<labels.length;i++) {
             final int n=i;Button b=i==3?new PreviewPlayerVolume(c):new Button(c);
-            SpannableString label=new SpannableString(labels[i]);
-            label.setSpan(new RelativeSizeSpan(2.2f),0,labels[i].indexOf('\n'),Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            b.setText(label);b.setTextSize(10);b.setTextColor(0xffb4aec5);
+            b.setText(PreviewPanelIcon.tile(c,labels[i],kinds[i],0xffb4aec5));b.setTextSize(10);b.setTextColor(0xffb4aec5);
             b.setAllCaps(false);b.setSingleLine(false);b.setMaxLines(4);b.setPadding(dp(2),dp(4),dp(2),dp(4));b.setMinWidth(0);b.setMinimumWidth(0);b.setMinimumHeight(dp(56));
             GradientDrawable tile=new GradientDrawable();tile.setColor(0x14ffffff);tile.setCornerRadius(dp(18));tile.setStroke(dp(1),0x1fffffff);
             b.setBackgroundTintList(null);b.setStateListAnimator(null);b.setElevation(0f);b.setTranslationZ(0f);b.setForeground(null);

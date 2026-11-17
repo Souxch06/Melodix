@@ -28,7 +28,7 @@
     .locals 0
 
     .prologue
-    .line 34
+    .line 46
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerSheet$1;->this$0:Lcom/melodix/music/PreviewPlayerSheet;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerSheet$1;->val$content:Landroid/view/View;
@@ -44,7 +44,7 @@
     .locals 4
 
     .prologue
-    .line 35
+    .line 47
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerSheet$1;->this$0:Lcom/melodix/music/PreviewPlayerSheet;
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerSheet;->access$0(Lcom/melodix/music/PreviewPlayerSheet;)Z
@@ -71,12 +71,12 @@
 
     if-eq v0, v1, :cond_1
 
-    .line 38
+    .line 50
     :cond_0
     :goto_0
     return-void
 
-    .line 36
+    .line 48
     :cond_1
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerSheet$1;->val$content:Landroid/view/View;
 
@@ -97,7 +97,7 @@
     :goto_1
     invoke-virtual {v1, v0}, Landroid/view/View;->setTranslationY(F)V
 
-    .line 37
+    .line 49
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerSheet$1;->val$content:Landroid/view/View;
 
     invoke-virtual {v0}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
@@ -130,7 +130,7 @@
 
     goto :goto_0
 
-    .line 36
+    .line 48
     :cond_2
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerSheet$1;->this$0:Lcom/melodix/music/PreviewPlayerSheet;
 

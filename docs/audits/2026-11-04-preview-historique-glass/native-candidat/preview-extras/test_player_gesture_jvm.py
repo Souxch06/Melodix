@@ -48,7 +48,7 @@ public class GestureHarness {
     def test_native_backdrop_capture_and_bounds(self):
         source=(HERE/'PreviewPlayerChrome.java').read_text(encoding='utf8')
         start=source.index('    private static void drawNativeSnapshot')
-        end=source.index("    /** Match the reader's dark top",start)
+        end=source.index("    /** Sample only the native drawable",start)
         capture=source[start:end]
         harness="""
 public class PreviewPlayerChrome extends PreviewPlayerChromeView {
@@ -94,6 +94,29 @@ class PreviewPlayerChromeView {}
         patch=(HERE.parent/'apply_preview_player_visual.py').read_text(encoding='utf8')
         self.assertIn('captureBeforeExpand(Landroid/app/Activity;)V',patch)
 
+    def test_close_restores_backdrop_before_resetting_hidden_panel(self):
+        source=(HERE/'PreviewPlayerChrome.java').read_text(encoding='utf8')
+        part=source[source.index('    private void closeAnimated'):source.index('    private void navigateBack')].replace('new android.view.animation.DecelerateInterpolator(1.3f)','new Object()')
+        harness="""
+public class PreviewPlayerChrome {
+ boolean closing,bypassClose,restored; int updates;View target;
+ int dp(int x){return x;} Object followStatus(View p){return new Object();}
+ void updateStatusForTranslation(float y){updates++;}
+ void sync(){if(target.shown)throw new AssertionError("sync before back");restored=true;}
+ static class Animator {View v;Runnable end;Animator(View v){this.v=v;}void cancel(){}Animator translationY(float y){v.y=y;return this;}Animator alpha(float x){return this;}Animator setDuration(long n){return this;}Animator setUpdateListener(Object l){return this;}Animator setInterpolator(Object l){return this;}Animator withEndAction(Runnable r){end=r;return this;}void start(){end.run();}}
+ static class View {float y;boolean shown=true;PreviewPlayerChrome owner;Animator animation=new Animator(this);int getHeight(){return 600;}boolean isShown(){return shown;}Animator animate(){return animation;}void setTranslationY(float y){if(!shown&&!owner.restored)throw new AssertionError("reset before restoring live backdrop");this.y=y;}void setAlpha(float x){}}
+ public static class Activity {View panel;boolean leave=true;public void onNativeBackClick(View v){if(leave)panel.shown=false;}}
+ """+part+"""
+ public static void main(String[] args){PreviewPlayerChrome c=new PreviewPlayerChrome();View p=new View();p.owner=c;c.target=p;Activity a=new Activity();a.panel=p;c.closeAnimated(a,p);if(!c.restored||p.y!=0||c.bypassClose)throw new AssertionError();
+ PreviewPlayerChrome x=new PreviewPlayerChrome();View q=new View();q.owner=x;x.target=q;Activity b=new Activity();b.panel=q;b.leave=false;x.closeAnimated(b,q);if(x.restored||q.y!=0||x.updates!=1)throw new AssertionError();}
+}
+""".replace('new android.view.animation.DecelerateInterpolator(1.3f)','new Object()')
+        with tempfile.TemporaryDirectory(dir=os.environ.get('RUNNER_TEMP')) as d:
+            src=Path(d)/'PreviewPlayerChrome.java';src.write_text(harness,encoding='utf8')
+            cmd=['java','-cp',os.environ['ECJ_JAR'],'org.eclipse.jdt.internal.compiler.batch.Main','-encoding','UTF-8','-source','1.8','-target','1.8','-d',d,str(src)] if os.environ.get('ECJ_JAR') else ['javac','-encoding','UTF-8','-d',d,str(src)]
+            subprocess.run(cmd,check=True,text=True)
+            subprocess.run(['java','-cp',d,'PreviewPlayerChrome'],check=True,text=True)
+
     def test_statusbar_restore_and_edge_inset(self):
         source=(HERE/'PreviewPlayerChrome.java').read_text(encoding='utf8')
         start=source.index('    private void applyStatusBar')
@@ -104,23 +127,23 @@ public class PreviewPlayerChrome {
  static class Build {static class VERSION {static int SDK_INT=35;}}
  static class ValueAnimator {interface AnimatorUpdateListener {void onAnimationUpdate(ValueAnimator v);}}
  static class Color {static int alpha(int c){return (c>>>24)&255;}static int red(int c){return (c>>>16)&255;}static int green(int c){return (c>>>8)&255;}static int blue(int c){return c&255;}static int argb(int a,int r,int g,int b){return (a<<24)|(r<<16)|(g<<8)|b;}}
- static class WindowManager {static class LayoutParams {static final int FLAG_TRANSLUCENT_STATUS=4,FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS=8;int flags;}}
- static class WindowInsets {int top;int getSystemWindowInsetTop(){return top;}}
- static class Drawable {int bottom,alpha=255;void setBounds(int a,int b,int c,int d){bottom=d;}void setAlpha(int a){alpha=a;}}
- static class ColorDrawable extends Drawable {ColorDrawable(int color){}}
- static class Overlay {int count;void add(Drawable x){count++;}void remove(Drawable x){count--;}}
- static class View {static final int SYSTEM_UI_FLAG_LIGHT_STATUS_BAR=16;int ui,width=500,top,bottom,color;WindowInsets insets=new WindowInsets();Overlay overlay=new Overlay();View(){} View(Activity a){} int getSystemUiVisibility(){return ui;}void setSystemUiVisibility(int x){ui=x;}void setBackgroundColor(int x){color=x;}int getWidth(){return width;}float getTranslationY(){return 0;}WindowInsets getRootWindowInsets(){return insets;}Overlay getOverlay(){return overlay;}void layout(int a,int b,int c,int d){top=b;bottom=d;}}
- static class Window {int color=123;View decor=new View();WindowManager.LayoutParams attr=new WindowManager.LayoutParams();View getDecorView(){return decor;}int getStatusBarColor(){return color;}void setStatusBarColor(int x){color=x;}WindowManager.LayoutParams getAttributes(){return attr;}void clearFlags(int f){attr.flags &= ~f;}void addFlags(int f){attr.flags |= f;}}
+ static class WindowManager {static class LayoutParams {static final int FLAG_TRANSLUCENT_STATUS=4,FLAG_TRANSLUCENT_NAVIGATION=2,FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS=8;int flags;}}
+ static class WindowInsets {int top,bottom;int getSystemWindowInsetTop(){return top;}int getSystemWindowInsetBottom(){return bottom;}}
+ static class GradientDrawable {enum Orientation {LEFT_RIGHT} int bottom,top,alpha=255;int[] colors;GradientDrawable(Orientation o,int[] c){colors=c;}void setColors(int[] c){colors=c;}void setBounds(int a,int b,int c,int d){top=b;bottom=d;}void setAlpha(int a){alpha=a;}}
+ static class Overlay {int count;void add(GradientDrawable x){count++;}void remove(GradientDrawable x){count--;}}
+ static class View {static final int SYSTEM_UI_FLAG_LIGHT_STATUS_BAR=16,SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR=128;int ui,width=500,height=600;float y;WindowInsets insets=new WindowInsets();Overlay overlay=new Overlay();int getSystemUiVisibility(){return ui;}void setSystemUiVisibility(int x){ui=x;}int getWidth(){return width;}int getHeight(){return height;}float getTranslationY(){return y;}WindowInsets getRootWindowInsets(){return insets;}Overlay getOverlay(){return overlay;}}
+ static class Window {int color=0xff202030,nav=0xff404050;boolean contrast=true;View decor=new View();WindowManager.LayoutParams attr=new WindowManager.LayoutParams();View getDecorView(){return decor;}int getStatusBarColor(){return color;}void setStatusBarColor(int x){color=x;}int getNavigationBarColor(){return nav;}void setNavigationBarColor(int x){nav=x;}boolean isNavigationBarContrastEnforced(){return contrast;}void setNavigationBarContrastEnforced(boolean b){contrast=b;}WindowManager.LayoutParams getAttributes(){return attr;}void clearFlags(int f){attr.flags &= ~f;}void addFlags(int f){attr.flags |= f;}}
  static class Activity {Window w=new Window();Window getWindow(){return w;}}
- Window statusWindow;Drawable statusOverlay;View statusDecor,panel;int originalStatusColor,originalStatusFlags,originalStatusUi,lastStatusColor;static final int PLAYER_STATUS_COLOR=0xff0a0614;int dp(float x){return (int)x;}
+ Window statusWindow;GradientDrawable statusOverlay,navOverlay;View statusDecor,panel;int originalStatusColor,originalNavColor,originalStatusFlags,originalStatusUi,lastStatusColor,lastNavColor;boolean originalNavContrast;int[] topColors={0xff110011,0xff220022,0xff330033},bottomColors={0xff050505,0xff090909,0xff0c0c0c};int dp(float x){return (int)x;}
+ void refreshSystemBarColors(){updateStatusForTranslation(panel==null?0:panel.getTranslationY());}
  """+methods+"""
  static void ok(boolean b){if(!b)throw new AssertionError();}
  public static void main(String[] args){
-  PreviewPlayerChrome p=new PreviewPlayerChrome();Activity a=new Activity();a.w.attr.flags=4;a.w.decor.ui=16|32;a.w.decor.insets.top=28;
-  p.applyStatusBar(a);ok(a.w.color==PLAYER_STATUS_COLOR && a.w.attr.flags==8 && a.w.decor.ui==32);ok(a.w.decor.overlay.count==1 && p.statusOverlay.bottom==28);
-  p.applyStatusBar(a);ok(a.w.decor.overlay.count==1);p.updateStatusForTranslation(36);ok(p.statusOverlay.alpha>=127&&p.statusOverlay.alpha<=128);p.updateStatusForTranslation(72);ok(p.statusOverlay.alpha==0&&a.w.color==123);p.updateStatusForTranslation(0);ok(p.statusOverlay.alpha==255&&a.w.color==PLAYER_STATUS_COLOR);a.w.decor.ui|=64;p.restoreStatusBar();ok(a.w.color==123 && a.w.attr.flags==4 && a.w.decor.ui==(16|32|64));ok(a.w.decor.overlay.count==0);
-  Build.VERSION.SDK_INT=34;p.applyStatusBar(a);ok(a.w.decor.overlay.count==0);p.restoreStatusBar();ok(a.w.color==123);
-  Build.VERSION.SDK_INT=35;a.w.decor.insets.top=0;p.applyStatusBar(a);ok(a.w.decor.overlay.count==0);p.restoreStatusBar();
+  PreviewPlayerChrome p=new PreviewPlayerChrome();p.panel=new View();Activity a=new Activity();a.w.attr.flags=4|2;a.w.decor.ui=16|128|32;a.w.decor.insets.top=28;a.w.decor.insets.bottom=24;
+  p.applyStatusBar(a);ok(a.w.color==0xff220022 && a.w.nav==0xff090909 && a.w.attr.flags==8 && a.w.decor.ui==32&&!a.w.contrast);ok(a.w.decor.overlay.count==2 && p.statusOverlay.bottom==28 && p.navOverlay.top==576 && p.navOverlay.bottom==600);
+  p.applyStatusBar(a);ok(a.w.decor.overlay.count==2);p.updateStatusForTranslation(36);ok(p.statusOverlay.alpha>=127&&p.statusOverlay.alpha<=128&&p.navOverlay.alpha==255);p.updateStatusForTranslation(72);ok(p.statusOverlay.alpha==0&&a.w.color==0xff202030&&p.navOverlay.alpha==255);p.updateStatusForTranslation(600);ok(p.navOverlay.alpha==0&&a.w.nav==0xff404050);p.updateStatusForTranslation(0);ok(p.statusOverlay.alpha==255&&p.navOverlay.alpha==255);a.w.decor.ui|=64;p.restoreStatusBar();ok(a.w.color==0xff202030 && a.w.nav==0xff404050 && a.w.attr.flags==(4|2) && a.w.decor.ui==(16|128|32|64)&&a.w.contrast);ok(a.w.decor.overlay.count==0);
+  Build.VERSION.SDK_INT=34;p.applyStatusBar(a);ok(a.w.decor.overlay.count==0);p.restoreStatusBar();ok(a.w.color==0xff202030&&a.w.nav==0xff404050);
+  Build.VERSION.SDK_INT=35;a.w.decor.insets.top=0;a.w.decor.insets.bottom=0;p.applyStatusBar(a);ok(a.w.decor.overlay.count==0);p.restoreStatusBar();
  }
 }
 """

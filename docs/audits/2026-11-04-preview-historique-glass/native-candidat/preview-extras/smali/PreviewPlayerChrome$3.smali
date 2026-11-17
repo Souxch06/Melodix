@@ -28,7 +28,7 @@
     .locals 0
 
     .prologue
-    .line 177
+    .line 211
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerChrome$3;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerChrome$3;->val$p:Landroid/view/View;
@@ -44,7 +44,7 @@
     .locals 2
 
     .prologue
-    .line 177
+    .line 211
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$3;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerChrome$3;->val$p:Landroid/view/View;

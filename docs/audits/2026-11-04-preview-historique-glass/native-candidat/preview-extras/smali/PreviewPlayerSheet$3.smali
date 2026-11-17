@@ -34,7 +34,7 @@
     .locals 0
 
     .prologue
-    .line 59
+    .line 71
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerSheet$3;->this$0:Lcom/melodix/music/PreviewPlayerSheet;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -56,7 +56,7 @@
 
     const/4 v4, 0x1
 
-    .line 61
+    .line 73
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerSheet$3;->this$0:Lcom/melodix/music/PreviewPlayerSheet;
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerSheet;->access$0(Lcom/melodix/music/PreviewPlayerSheet;)Z
@@ -73,18 +73,18 @@
 
     if-nez v0, :cond_1
 
-    .line 78
+    .line 90
     :cond_0
     :goto_0
     return v4
 
-    .line 62
+    .line 74
     :cond_1
     invoke-virtual {p2}, Landroid/view/MotionEvent;->getActionMasked()I
 
     move-result v0
 
-    .line 63
+    .line 75
     if-nez v0, :cond_2
 
     invoke-virtual {p2}, Landroid/view/MotionEvent;->getRawX()F
@@ -117,7 +117,7 @@
 
     goto :goto_0
 
-    .line 64
+    .line 76
     :cond_2
     const/4 v1, 0x5
 
@@ -137,7 +137,7 @@
 
     goto :goto_0
 
-    .line 65
+    .line 77
     :cond_3
     invoke-virtual {p2}, Landroid/view/MotionEvent;->getRawX()F
 
@@ -155,12 +155,12 @@
 
     sub-float/2addr v2, v3
 
-    .line 66
+    .line 78
     const/4 v3, 0x2
 
     if-ne v0, v3, :cond_7
 
-    .line 67
+    .line 79
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerSheet$3;->vertical:Z
 
     if-nez v0, :cond_5
@@ -201,7 +201,7 @@
 
     if-lez v0, :cond_5
 
-    .line 68
+    .line 80
     :cond_4
     cmpl-float v0, v2, v5
 
@@ -221,7 +221,7 @@
 
     iput-boolean v4, p0, Lcom/melodix/music/PreviewPlayerSheet$3;->vertical:Z
 
-    .line 70
+    .line 82
     :cond_5
     :goto_1
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerSheet$3;->vertical:Z
@@ -242,13 +242,13 @@
 
     goto/16 :goto_0
 
-    .line 68
+    .line 80
     :cond_6
     iput-boolean v4, p0, Lcom/melodix/music/PreviewPlayerSheet$3;->rejected:Z
 
     goto :goto_1
 
-    .line 72
+    .line 84
     :cond_7
     if-eq v0, v4, :cond_8
 
@@ -256,7 +256,7 @@
 
     if-ne v0, v1, :cond_0
 
-    .line 73
+    .line 85
     :cond_8
     if-ne v0, v4, :cond_9
 
@@ -302,13 +302,13 @@
 
     invoke-virtual {v0}, Lcom/melodix/music/PreviewPlayerSheet;->dismiss()V
 
-    .line 76
+    .line 88
     :goto_2
     iput-boolean v6, p0, Lcom/melodix/music/PreviewPlayerSheet$3;->vertical:Z
 
     goto/16 :goto_0
 
-    .line 74
+    .line 86
     :cond_9
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerSheet$3;->this$0:Lcom/melodix/music/PreviewPlayerSheet;
 
@@ -328,7 +328,7 @@
 
     goto :goto_2
 
-    .line 75
+    .line 87
     :cond_a
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerSheet$3;->this$0:Lcom/melodix/music/PreviewPlayerSheet;
 

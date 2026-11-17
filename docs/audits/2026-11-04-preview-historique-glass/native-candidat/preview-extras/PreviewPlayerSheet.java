@@ -3,8 +3,10 @@ package com.melodix.music;
 import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.app.Dialog;
+import android.content.Context;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -18,6 +20,16 @@ public final class PreviewPlayerSheet extends Dialog {
     private View panel;
     private boolean closing;
 
+    private static int pixels(Context c,float n){return (int)(n*c.getResources().getDisplayMetrics().density+0.5f);}
+    public static GradientDrawable surface(Context c,int color,int border,float radius){
+        GradientDrawable d=new GradientDrawable();d.setColor(color);d.setStroke(pixels(c,1),border);d.setCornerRadius(pixels(c,radius));return d;
+    }
+    public static GradientDrawable background(Context c){
+        GradientDrawable d=new GradientDrawable();float r=pixels(c,28);d.setCornerRadii(new float[]{r,r,r,r,0,0,0,0});d.setColors(new int[]{0xff20172f,0xff110e19});d.setStroke(pixels(c,1),0x24ffffff);return d;
+    }
+    public static GradientDrawable actionBackground(Context c,boolean primary){
+        GradientDrawable d=surface(c,primary?0xff57417c:0x0cffffff,primary?0x45bca2ed:0x20ffffff,999);return d;
+    }
     public PreviewPlayerSheet(Activity activity){super(activity);this.activity=activity;}
     private int dp(float x){return (int)(x*activity.getResources().getDisplayMetrics().density+0.5f);}
     private boolean motionOff(){return Build.VERSION.SDK_INT>=26 && !ValueAnimator.areAnimatorsEnabled();}

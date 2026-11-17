@@ -43,9 +43,11 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
     private Drawable rootBackground, panelBackground, appliedBackground, backdrop;
     private Bitmap previousScreen;
     private Window statusWindow;
-    private Drawable statusOverlay;
+    private GradientDrawable statusOverlay,navOverlay;
     private View statusDecor;
-    private int originalStatusColor, originalStatusFlags, originalStatusUi, lastStatusColor;
+    private int originalStatusColor, originalNavColor, originalStatusFlags, originalStatusUi, lastStatusColor,lastNavColor;
+    private boolean originalNavContrast;
+    private int[] topColors={0xff120d1e,0xff120d1e,0xff120d1e},bottomColors={0xff090613,0xff090613,0xff090613};
     private static final int PLAYER_STATUS_COLOR=0xff0a0614;
     private PreviewPlayerDecoration repeatArt, shuffleDot;
     private PreviewPlayerLikeArt likeArt;
@@ -138,55 +140,89 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
             Canvas c=new Canvas(bmp);c.scale(scale,scale);drawNativeSnapshot(a,r,c);chrome.previousScreen=bmp;
         }catch(RuntimeException ignored){chrome.previousScreen=null;}catch(OutOfMemoryError ignored){chrome.previousScreen=null;}
     }
-    /** Match the reader's dark top; restore only the window bits we touched. */
+    /** Sample only the native drawable already shown, never the WebView. */
+    private int[] sampleEdge(boolean bottom){
+        if(appliedBackground==null || panel==null || panel.getWidth()<=0 || panel.getHeight()<=0)return null;
+        int w=panel.getWidth(),h=panel.getHeight();Rect saved=new Rect(appliedBackground.getBounds());
+        try{
+            Bitmap image=Bitmap.createBitmap(25,1,Bitmap.Config.ARGB_8888);
+            Canvas canvas=new Canvas(image);canvas.scale(25f/w,1f);if(bottom)canvas.translate(0,1-h);
+            appliedBackground.setBounds(0,0,w,h);appliedBackground.draw(canvas);
+            int[] colors={image.getPixel(0,0),image.getPixel(6,0),image.getPixel(12,0),image.getPixel(18,0),image.getPixel(24,0)};
+            image.recycle();return colors;
+        }catch(RuntimeException ignored){return null;}catch(OutOfMemoryError ignored){return null;}
+        finally{appliedBackground.setBounds(saved);}
+    }
+    private void refreshSystemBarColors(){
+        int[] top=sampleEdge(false),bottom=sampleEdge(true);
+        if(top!=null)topColors=top;if(bottom!=null)bottomColors=bottom;
+        if(statusOverlay!=null)statusOverlay.setColors(topColors);
+        if(navOverlay!=null)navOverlay.setColors(bottomColors);
+        updateStatusForTranslation(panel==null?0f:panel.getTranslationY());
+    }
+    /** Extend the player background into both system insets, restoring originals. */
     private void applyStatusBar(Activity a){
         Window w=a.getWindow();if(w==null)return;
         View decor=w.getDecorView();if(decor==null)return;
         if(statusWindow==null){
-            statusWindow=w;statusDecor=decor;originalStatusColor=w.getStatusBarColor();
+            statusWindow=w;statusDecor=decor;originalStatusColor=w.getStatusBarColor();originalNavColor=w.getNavigationBarColor();
             originalStatusFlags=w.getAttributes().flags;originalStatusUi=decor.getSystemUiVisibility();
-            w.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
+            if(Build.VERSION.SDK_INT>=29){originalNavContrast=w.isNavigationBarContrastEnforced();w.setNavigationBarContrastEnforced(false);}
+            w.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS|WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
             w.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-            decor.setSystemUiVisibility(decor.getSystemUiVisibility() & ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
-            lastStatusColor=PLAYER_STATUS_COLOR;w.setStatusBarColor(lastStatusColor);
+            decor.setSystemUiVisibility(decor.getSystemUiVisibility() & ~(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR|View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR));
+            refreshSystemBarColors();
         }
-        // Android 15+ enforces a transparent status bar for target 35. Paint
-        // only its inset in the decor overlay; system icons remain above it.
+        // Android 15+ may enforce transparent system bars. Extend the native
+        // background under the icons with small gradient overlays in the decor.
         if(Build.VERSION.SDK_INT>=35 && statusDecor==decor){
-            WindowInsets insets=decor.getRootWindowInsets();int top=insets==null?0:insets.getSystemWindowInsetTop();
+            WindowInsets insets=decor.getRootWindowInsets();int top=insets==null?0:insets.getSystemWindowInsetTop(),bottom=insets==null?0:insets.getSystemWindowInsetBottom();
             if(top>0 && decor.getWidth()>0){
-                if(statusOverlay==null){statusOverlay=new ColorDrawable(PLAYER_STATUS_COLOR);decor.getOverlay().add(statusOverlay);statusOverlay.setBounds(0,0,decor.getWidth(),top);updateStatusForTranslation(panel==null?0f:panel.getTranslationY());}
-                else statusOverlay.setBounds(0,0,decor.getWidth(),top);
+                if(statusOverlay==null){statusOverlay=new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,topColors);decor.getOverlay().add(statusOverlay);}
+                statusOverlay.setBounds(0,0,decor.getWidth(),top);
             }
+            if(bottom>0 && decor.getWidth()>0 && decor.getHeight()>0){
+                if(navOverlay==null){navOverlay=new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,bottomColors);decor.getOverlay().add(navOverlay);}
+                navOverlay.setBounds(0,Math.max(0,decor.getHeight()-bottom),decor.getWidth(),decor.getHeight());
+            }
+            updateStatusForTranslation(panel==null?0f:panel.getTranslationY());
         }
     }
-    // The top inset should reveal the previous screen as soon as the player
-    // moves down, not wait until the navigation finishes.
-    private void updateStatusForTranslation(float y){
-        if(statusWindow==null)return;
-        float opacity=1f-Math.min(1f,Math.max(0f,y)/Math.max(1,dp(72)));
-        if(statusOverlay!=null)statusOverlay.setAlpha(Math.round(opacity*255f));
-        int from=originalStatusColor,to=PLAYER_STATUS_COLOR;
+    private static int blend(int from,int to,float opacity){
         int a=Math.round(Color.alpha(from)+(Color.alpha(to)-Color.alpha(from))*opacity);
         int r=Math.round(Color.red(from)+(Color.red(to)-Color.red(from))*opacity);
         int g=Math.round(Color.green(from)+(Color.green(to)-Color.green(from))*opacity);
         int b=Math.round(Color.blue(from)+(Color.blue(to)-Color.blue(from))*opacity);
-        lastStatusColor=Color.argb(a,r,g,b);statusWindow.setStatusBarColor(lastStatusColor);
+        return Color.argb(a,r,g,b);
+    }
+    // Top is revealed early; bottom stays with the panel until its final travel.
+    private void updateStatusForTranslation(float y){
+        if(statusWindow==null)return;
+        float top=1f-Math.min(1f,Math.max(0f,y)/Math.max(1,dp(72)));
+        float height=panel==null?dp(300):Math.max(panel.getHeight(),dp(300));
+        float bottom=Math.min(1f,Math.max(0f,(height-Math.max(0f,y))/Math.max(1,dp(72))));
+        if(statusOverlay!=null)statusOverlay.setAlpha(Math.round(top*255f));
+        if(navOverlay!=null)navOverlay.setAlpha(Math.round(bottom*255f));
+        lastStatusColor=blend(originalStatusColor,topColors[topColors.length/2],top);
+        lastNavColor=blend(originalNavColor,bottomColors[bottomColors.length/2],bottom);
+        statusWindow.setStatusBarColor(lastStatusColor);statusWindow.setNavigationBarColor(lastNavColor);
     }
     private ValueAnimator.AnimatorUpdateListener followStatus(final View p){
         return new ValueAnimator.AnimatorUpdateListener(){public void onAnimationUpdate(ValueAnimator animation){updateStatusForTranslation(p.getTranslationY());}};
     }
     private void restoreStatusBar(){
         if(statusDecor!=null && statusOverlay!=null)statusDecor.getOverlay().remove(statusOverlay);
+        if(statusDecor!=null && navOverlay!=null)statusDecor.getOverlay().remove(navOverlay);
         if(statusWindow!=null){
             if(statusWindow.getStatusBarColor()==lastStatusColor)statusWindow.setStatusBarColor(originalStatusColor);
-            if((originalStatusFlags & WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS)!=0)statusWindow.addFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
-            else statusWindow.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
-            if((originalStatusFlags & WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)!=0)statusWindow.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-            else statusWindow.clearFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-            if(statusDecor!=null){int ui=statusDecor.getSystemUiVisibility();statusDecor.setSystemUiVisibility((ui & ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR) | (originalStatusUi & View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR));}
+            if(statusWindow.getNavigationBarColor()==lastNavColor)statusWindow.setNavigationBarColor(originalNavColor);
+            if((originalStatusFlags & WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS)!=0)statusWindow.addFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);else statusWindow.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
+            if((originalStatusFlags & WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION)!=0)statusWindow.addFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);else statusWindow.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
+            if((originalStatusFlags & WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)!=0)statusWindow.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);else statusWindow.clearFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+            if(Build.VERSION.SDK_INT>=29 && !statusWindow.isNavigationBarContrastEnforced())statusWindow.setNavigationBarContrastEnforced(originalNavContrast);
+            if(statusDecor!=null){int mask=View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR|View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;int ui=statusDecor.getSystemUiVisibility();statusDecor.setSystemUiVisibility((ui & ~mask) | (originalStatusUi & mask));}
         }
-        statusWindow=null;statusDecor=null;statusOverlay=null;
+        statusWindow=null;statusDecor=null;statusOverlay=null;navOverlay=null;
     }
     private void applyBackground(Activity a) {
         if(chromeApplied)return;
@@ -258,6 +294,7 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         Bitmap tiny=shrink(d,5);
         if(tiny!=null){BitmapDrawable soft=new BitmapDrawable(getResources(),tiny);soft.setFilterBitmap(true);soft.setAlpha(165);blob=soft;}
         if(appliedBackground instanceof LayerDrawable&&((LayerDrawable)appliedBackground).getNumberOfLayers()==4)((LayerDrawable)appliedBackground).setDrawable(1,blob);
+        refreshSystemBarColors();
         View art=a.findViewById(0x7f09023a);art=art==null?null:art.findViewWithTag("previewPlayerArtCard");
         if(art!=null&&Build.VERSION.SDK_INT>=28){int glow=c==0?0xffe0489e:(0xff000000|c);art.setOutlineSpotShadowColor(glow);art.setOutlineAmbientShadowColor(glow);}
     }
@@ -395,8 +432,15 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
                 if(!closing)return;
                 closing=false; bypassClose=true;
                 try { a.getClass().getMethod("onNativeBackClick",View.class).invoke(a,new Object[]{null}); }
-                catch(Exception ignored) { p.setTranslationY(0f);p.setAlpha(1f);updateStatusForTranslation(0f); }
-                finally {bypassClose=false;p.animate().setUpdateListener(null);p.setTranslationY(0f);p.setAlpha(1f);}
+                catch(Exception ignored) { }
+                finally {
+                    bypassClose=false;p.animate().setUpdateListener(null);
+                    // Restore the live destination in the same frame as Back,
+                    // before its children can be drawn over the frozen snapshot.
+                    if(!p.isShown())sync();
+                    p.setTranslationY(0f);p.setAlpha(1f);
+                    if(p.isShown())updateStatusForTranslation(0f);
+                }
             }}).start();
     }
     private void navigateBack(){
