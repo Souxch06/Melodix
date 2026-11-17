@@ -68,3 +68,7 @@ test('outside counts are bounded and do not promote unrelated candidates to a li
 test('generic checked playlist controls never claim a liked state in diagnostics',()=>{
  for(const checked of ['true','false']){const x=run(bar('<button data-testid="add-button" aria-label="Ajouter à la playlist" aria-checked="'+checked+'"></button>'),'like');assert.equal(x.state,'unknown');assert.equal(x.reason,'unverified');}
 });
+
+test('explicit track URI markers produce bounded counts without exposing values',()=>{
+ const x=run(bar('<div data-testid="context-item-info-title" data-uri="spotify:track:secret123">Private title</div>'),'like');assert.equal(JSON.parse(x.structure).track_attr,1);assert.ok(!JSON.stringify(x).includes('secret123'));assert.ok(!JSON.stringify(x).includes('Private title'));
+});

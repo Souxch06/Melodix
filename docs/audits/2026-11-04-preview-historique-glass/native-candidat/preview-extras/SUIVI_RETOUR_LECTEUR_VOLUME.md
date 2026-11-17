@@ -30,3 +30,9 @@ Vérification locale de ce diagnostic : 99 scénarios JS du lot lecteur/panneaux
 - Les icônes système de taille intrinsèque séparaient les icônes des libellés dans les boutons. Les commandes sont maintenant centrées avec de petits symboles et un texte accessible ; le curseur Spotify et la logique audio restent inchangés.
 - Le toast « Déjà dans vos titres likés » est bien visible dans la capture mais ne prouve pas le contenu de la bibliothèque. Les faux états/clics génériques reproductibles sont corrigés ; voir `LIKE_SECURITE.md`. L'ajout n'est pas présenté comme validé sur Spotify réel.
 - Vérification finale : 103 scénarios JS du lot lecteur/panneaux, simulation JVM (dont restauration de la barre d'état et gestes), compilation UTF-8 et décodage Smali, chaîne jusqu'à l'APK non signée et garde 9016 : 7/7. Aucun des sept fichiers protégés modifié.
+
+## Retour après c41ee42b — transitions et volume
+
+- La couleur système suit maintenant la translation du lecteur : interpolation pendant ouverture, fermeture et glissement, remise en place après retour annulé, et nettoyage du listener. Sur Android 15+, l'opacité de l'overlay d'inset suit aussi le geste. Les paramètres d'origine sont restaurés après fermeture.
+- Panneau volume épuré, contrôles centrés et pictogrammes vectoriels dessinés localement ; les commandes existantes ne changent pas.
+- Simulations JVM geste, statut et volume, vérification Smali, suite locale APK non signée et contrôle des sept ressources protégées réussis. Cela ne remplace pas un essai visuel sur téléphone réel.

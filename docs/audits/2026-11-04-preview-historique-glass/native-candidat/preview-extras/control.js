@@ -51,14 +51,37 @@
         if (a) return [a[0], a[1], a[2]];
         return null; // album + title does not uniquely identify a track
     }
+    // Explicit track URIs on the current-player title only; never infer a
+    // track from an album, playlist, title alone, or an unrelated page row.
+    function markedTrack(n) {
+        if (!/^(context-item-link|nowplaying-track-link|context-item-info-title)$/i.test(String(n.getAttribute('data-testid') || ''))) return '';
+        var result = '';
+        for (var name of ['data-uri', 'data-track-uri', 'data-spotify-uri']) {
+            if (!n.hasAttribute(name)) continue;
+            var m = /^spotify:(track|episode):([a-z0-9]+)$/i.exec(String(n.getAttribute(name) || ''));
+            if (!m) return '!';
+            var value = m[1].toLowerCase()+':'+m[2];
+            if (result && result !== value) return '!';
+            result = value;
+        }
+        return result;
+    }
+    function markedTitleNodes() {
+        return Array.from(document.querySelectorAll('[data-testid="now-playing-widget"] [data-testid="context-item-link"], [data-testid="now-playing-widget"] [data-testid="nowplaying-track-link"], [data-testid="now-playing-widget"] [data-testid="context-item-info-title"], [data-testid="now-playing-bar"] [data-testid="context-item-link"], [data-testid="now-playing-bar"] [data-testid="nowplaying-track-link"], [data-testid="now-playing-bar"] [data-testid="context-item-info-title"]')).filter(function(n) { return n.isConnected; });
+    }
     if (kind === 'like') {
         var anchors = Array.from(document.querySelectorAll('[data-testid="now-playing-widget"] a[href], [data-testid="now-playing-bar"] a[href]'));
         var malformedIdentity = false;
         var identities = anchors.map(function(link) {
             var match = trackHref(String(link.getAttribute('href') || ''));
-            if (!match && /^(context-item-link|nowplaying-track-link)$/i.test(String(link.getAttribute('data-testid') || ''))) malformedIdentity = true;
+            if (!match && /^(context-item-link|nowplaying-track-link)$/i.test(String(link.getAttribute('data-testid') || '')) && !markedTrack(link)) malformedIdentity = true;
             return match ? {track:match[1].toLowerCase()+':'+match[2],title:String(link.textContent || '').replace(/\s+/g, ' ').trim()} : null;
         }).filter(Boolean);
+        markedTitleNodes().forEach(function(n) {
+            var value=markedTrack(n);
+            if (value === '!') { malformedIdentity = true; return; }
+            if (value) identities.push({track:value, title:String(n.textContent || '').replace(/\s+/g, ' ').trim()});
+        });
         var named = identities.filter(function(x) { return !!x.title; });
         if (!malformedIdentity && named.length && identities.every(function(x) { return x.track === named[0].track && (!x.title || x.title === named[0].title); })) {
             result.track=named[0].track; result.title=named[0].title;

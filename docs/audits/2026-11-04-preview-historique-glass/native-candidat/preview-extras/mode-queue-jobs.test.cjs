@@ -547,3 +547,17 @@ test('a trigger disabled by its fieldset does not open the queue',async()=>{
  const dom=page('<fieldset disabled><button data-testid="queue-button" aria-pressed="false"></button></fieldset>');let clicks=0;dom.window.document.querySelector('button').onclick=()=>clicks++;
  run(dom,queue,'run');const r=run(dom,queue,'poll');assert.equal(r.reason,'disabled');assert.equal(clicks,0);dom.window.close();
 });
+
+test('like: explicit current-title URI can identify and verify one safe add',async()=>{
+ const dom=page('<aside data-testid="now-playing-bar"><div data-testid="context-item-info-title" data-uri="spotify:track:x">Titre</div><button data-testid="add-button" aria-label="Ajouter aux titres likés" aria-checked="false"></button></aside>');
+ const b=dom.window.document.querySelector('button');let clicks=0;b.onclick=()=>{clicks++;b.setAttribute('aria-label','Retirer des titres likés');b.setAttribute('aria-checked','true');};
+ run(dom,mode,'like','run','false','Titre','track:x');await settle(100);const out=run(dom,mode,'like','poll','unknown','Titre','track:x');assert.equal(clicks,1);assert.equal(out.outcome,'confirmed');dom.window.close();
+});
+
+test('like: conflicting, invalid, changed or outside URI markers never trigger an add',async()=>{
+ for(const variant of ['conflict','invalid','changed','outside']){
+  const dom=page('<aside data-testid="now-playing-bar"><div data-testid="context-item-info-title" data-uri="spotify:track:x">Titre</div><button data-testid="add-button" aria-label="Ajouter aux titres likés" aria-checked="false"></button></aside>');const d=dom.window.document,n=d.querySelector('[data-uri]'),b=d.querySelector('button');let clicks=0;b.onclick=()=>clicks++;
+  if(variant==='conflict')n.setAttribute('data-track-uri','spotify:track:other');if(variant==='invalid')n.setAttribute('data-uri','spotify:album:x');if(variant==='changed')n.setAttribute('data-uri','spotify:track:other');if(variant==='outside')d.body.appendChild(n);
+  run(dom,mode,'like','run','false','Titre','track:x');await settle(50);assert.equal(clicks,0,variant);dom.window.close();
+ }
+});

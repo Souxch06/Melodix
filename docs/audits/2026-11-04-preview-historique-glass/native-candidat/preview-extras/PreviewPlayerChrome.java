@@ -44,7 +44,7 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
     private Window statusWindow;
     private Drawable statusOverlay;
     private View statusDecor;
-    private int originalStatusColor, originalStatusFlags, originalStatusUi;
+    private int originalStatusColor, originalStatusFlags, originalStatusUi, lastStatusColor;
     private static final int PLAYER_STATUS_COLOR=0xff0a0614;
     private PreviewPlayerDecoration repeatArt, shuffleDot;
     private PreviewPlayerLikeArt likeArt;
@@ -122,22 +122,38 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
             w.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
             w.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
             decor.setSystemUiVisibility(decor.getSystemUiVisibility() & ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
-            w.setStatusBarColor(PLAYER_STATUS_COLOR);
+            lastStatusColor=PLAYER_STATUS_COLOR;w.setStatusBarColor(lastStatusColor);
         }
         // Android 15+ enforces a transparent status bar for target 35. Paint
         // only its inset in the decor overlay; system icons remain above it.
         if(Build.VERSION.SDK_INT>=35 && statusDecor==decor){
             WindowInsets insets=decor.getRootWindowInsets();int top=insets==null?0:insets.getSystemWindowInsetTop();
             if(top>0 && decor.getWidth()>0){
-                if(statusOverlay==null){statusOverlay=new ColorDrawable(PLAYER_STATUS_COLOR);decor.getOverlay().add(statusOverlay);}
-                statusOverlay.setBounds(0,0,decor.getWidth(),top);
+                if(statusOverlay==null){statusOverlay=new ColorDrawable(PLAYER_STATUS_COLOR);decor.getOverlay().add(statusOverlay);statusOverlay.setBounds(0,0,decor.getWidth(),top);updateStatusForTranslation(panel==null?0f:panel.getTranslationY());}
+                else statusOverlay.setBounds(0,0,decor.getWidth(),top);
             }
         }
+    }
+    // The top inset should reveal the previous screen as soon as the player
+    // moves down, not wait until the navigation finishes.
+    private void updateStatusForTranslation(float y){
+        if(statusWindow==null)return;
+        float opacity=1f-Math.min(1f,Math.max(0f,y)/Math.max(1,dp(72)));
+        if(statusOverlay!=null)statusOverlay.setAlpha(Math.round(opacity*255f));
+        int from=originalStatusColor,to=PLAYER_STATUS_COLOR;
+        int a=Math.round(Color.alpha(from)+(Color.alpha(to)-Color.alpha(from))*opacity);
+        int r=Math.round(Color.red(from)+(Color.red(to)-Color.red(from))*opacity);
+        int g=Math.round(Color.green(from)+(Color.green(to)-Color.green(from))*opacity);
+        int b=Math.round(Color.blue(from)+(Color.blue(to)-Color.blue(from))*opacity);
+        lastStatusColor=Color.argb(a,r,g,b);statusWindow.setStatusBarColor(lastStatusColor);
+    }
+    private ValueAnimator.AnimatorUpdateListener followStatus(final View p){
+        return new ValueAnimator.AnimatorUpdateListener(){public void onAnimationUpdate(ValueAnimator animation){updateStatusForTranslation(p.getTranslationY());}};
     }
     private void restoreStatusBar(){
         if(statusDecor!=null && statusOverlay!=null)statusDecor.getOverlay().remove(statusOverlay);
         if(statusWindow!=null){
-            if(statusWindow.getStatusBarColor()==PLAYER_STATUS_COLOR)statusWindow.setStatusBarColor(originalStatusColor);
+            if(statusWindow.getStatusBarColor()==lastStatusColor)statusWindow.setStatusBarColor(originalStatusColor);
             if((originalStatusFlags & WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS)!=0)statusWindow.addFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
             else statusWindow.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
             if((originalStatusFlags & WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)!=0)statusWindow.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
@@ -349,19 +365,19 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         closing=true;
         p.animate().cancel();
         p.animate().translationY(Math.max(p.getHeight(),dp(300))).alpha(1f).setDuration(280)
-            .setInterpolator(new android.view.animation.DecelerateInterpolator(1.3f)).withEndAction(new Runnable(){public void run(){
+            .setUpdateListener(followStatus(p)).setInterpolator(new android.view.animation.DecelerateInterpolator(1.3f)).withEndAction(new Runnable(){public void run(){
                 if(!closing)return;
                 closing=false; bypassClose=true;
                 try { a.getClass().getMethod("onNativeBackClick",View.class).invoke(a,new Object[]{null}); }
-                catch(Exception ignored) { p.setTranslationY(0f);p.setAlpha(1f); }
-                finally {bypassClose=false;p.setTranslationY(0f);p.setAlpha(1f);}
+                catch(Exception ignored) { p.setTranslationY(0f);p.setAlpha(1f);updateStatusForTranslation(0f); }
+                finally {bypassClose=false;p.animate().setUpdateListener(null);p.setTranslationY(0f);p.setAlpha(1f);}
             }}).start();
     }
     private void navigateBack(){
         Activity a=activity();if(a==null || closing)return;
         try { a.getClass().getMethod("onNativeBackClick",View.class).invoke(a,new Object[]{null}); }
         catch(Exception ignored) { }
-        if(!closing){View p=a.findViewById(0x7f09023a);if(p!=null){p.setTranslationY(0f);p.setAlpha(1f);}}
+        if(!closing){View p=a.findViewById(0x7f09023a);if(p!=null){p.setTranslationY(0f);p.setAlpha(1f);updateStatusForTranslation(0f);}}
     }
     /** Gesture is restricted to the header and artwork, never the seek bar or buttons. */
     private final class DismissGesture implements View.OnTouchListener {
@@ -374,20 +390,20 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
                 x=e.getRawX();y=e.getRawY();vertical=false;rejected=false;
                 if(v.getParent()!=null)v.getParent().requestDisallowInterceptTouchEvent(true);p.animate().cancel();return true;
             }
-            if(action==MotionEvent.ACTION_POINTER_DOWN){rejected=true;vertical=false;p.setTranslationY(0f);p.setAlpha(1f);return true;}
+            if(action==MotionEvent.ACTION_POINTER_DOWN){rejected=true;vertical=false;p.setTranslationY(0f);p.setAlpha(1f);updateStatusForTranslation(0f);return true;}
             float dx=e.getRawX()-x,dy=e.getRawY()-y;
             if(action==MotionEvent.ACTION_MOVE){
                 if(!vertical && !rejected && (Math.abs(dx)>dp(12)||Math.abs(dy)>dp(12))){
                     if(dy>0 && dy>Math.abs(dx)*1.3f)vertical=true;else rejected=true;
                 }
-                if(vertical){float distance=Math.max(0f,dy);p.setTranslationY(distance);p.setAlpha(1f);}
+                if(vertical){float distance=Math.max(0f,dy);p.setTranslationY(distance);p.setAlpha(1f);updateStatusForTranslation(distance);}
                 return true;
             }
             if(action==MotionEvent.ACTION_UP || action==MotionEvent.ACTION_CANCEL){
                 if(v.getParent()!=null)v.getParent().requestDisallowInterceptTouchEvent(false);
                 if(action==MotionEvent.ACTION_UP && vertical && dy>Math.max(dp(90),p.getHeight()*.16f))navigateBack();
-                else if(Build.VERSION.SDK_INT>=26 && !ValueAnimator.areAnimatorsEnabled()){p.setTranslationY(0f);p.setAlpha(1f);}
-                else p.animate().translationY(0f).alpha(1f).setDuration(200).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+                else if(Build.VERSION.SDK_INT>=26 && !ValueAnimator.areAnimatorsEnabled()){p.setTranslationY(0f);p.setAlpha(1f);updateStatusForTranslation(0f);}
+                else p.animate().translationY(0f).alpha(1f).setDuration(200).setUpdateListener(followStatus(p)).setInterpolator(new android.view.animation.DecelerateInterpolator()).withEndAction(new Runnable(){public void run(){p.animate().setUpdateListener(null);}}).start();
                 vertical=false;return true;
             }
             return true;
@@ -486,8 +502,8 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         if(opening){
             View p=a.findViewById(0x7f09023a);
             if(p!=null && (Build.VERSION.SDK_INT<26 || ValueAnimator.areAnimatorsEnabled())){
-                p.animate().cancel();p.setAlpha(1f);p.setTranslationY(Math.max(p.getHeight(),dp(300)));
-                p.animate().translationY(0f).setDuration(340).setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
+                p.animate().cancel();p.setAlpha(1f);p.setTranslationY(Math.max(p.getHeight(),dp(300)));updateStatusForTranslation(p.getTranslationY());
+                p.animate().translationY(0f).setDuration(340).setUpdateListener(followStatus(p)).setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).withEndAction(new Runnable(){public void run(){p.animate().setUpdateListener(null);}}).start();
             }
         }
         if(setupDone && !ticking){ticking=true;post(visualTick);}
@@ -495,7 +511,7 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
     }
     @Override public void onGlobalLayout(){sync();}
     @Override protected void onAttachedToWindow(){super.onAttachedToWindow();observer=getViewTreeObserver();observer.addOnGlobalLayoutListener(this);post(syncTask);}
-    @Override protected void onDetachedFromWindow(){closing=false;Activity a=activity();View p=a==null?null:a.findViewById(0x7f09023a);if(p!=null){p.animate().cancel();p.setAlpha(1f);p.setTranslationY(0f);}if(observer!=null && observer.isAlive())observer.removeOnGlobalLayoutListener(this);observer=null;removeCallbacks(syncTask);removeCallbacks(visualTick);ticking=false;restoreHeader();restoreBackground();restoreStatusBar();super.onDetachedFromWindow();}
+    @Override protected void onDetachedFromWindow(){closing=false;Activity a=activity();View p=a==null?null:a.findViewById(0x7f09023a);if(p!=null){p.animate().cancel();p.animate().setUpdateListener(null);p.setAlpha(1f);p.setTranslationY(0f);}if(observer!=null && observer.isAlive())observer.removeOnGlobalLayoutListener(this);observer=null;removeCallbacks(syncTask);removeCallbacks(visualTick);ticking=false;restoreHeader();restoreBackground();restoreStatusBar();super.onDetachedFromWindow();}
     @Override protected void onVisibilityChanged(View changed,int visibility){super.onVisibilityChanged(changed,visibility);if(syncTask!=null)post(syncTask);}
     @Override protected void onWindowVisibilityChanged(int visibility){super.onWindowVisibilityChanged(visibility);if(syncTask!=null)post(syncTask);}
 }

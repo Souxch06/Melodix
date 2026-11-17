@@ -111,3 +111,13 @@ test('like state is unknown for inherited disabled, contradictory ARIA or announ
  for(const popup of ['listbox','tree','grid']){b.setAttribute('aria-haspopup',popup);assert.equal(q(x,'like').reason,'menu');assert.equal(invoke(x,'like','false','track:abc','Titre'),false);}b.removeAttribute('aria-haspopup');
  b.parentElement.setAttribute('aria-disabled','true');assert.equal(q(x,'like').reason,'disabled');assert.equal(invoke(x,'like','false','track:abc','Titre'),false);assert.equal(clicks,0);
  }finally{x.close()}});
+
+test('explicit current-title track URI supplies identity; unrelated or conflicting markers do not',()=>{const x=boot();try{
+ const bar=x.w.document.querySelector('[data-testid=now-playing-widget]');let anchor=bar.querySelector('a');anchor.remove();
+ const title=x.w.document.createElement('div');title.setAttribute('data-testid','context-item-info-title');title.setAttribute('data-uri','spotify:track:abc');title.textContent='Titre';bar.append(title);
+ let p=q(x,'like');assert.equal(p.track,'track:abc');assert.equal(p.title,'Titre');assert.equal(p.state,'false');
+ title.setAttribute('data-track-uri','spotify:track:other');p=q(x,'like');assert.equal(p.track,'');assert.equal(p.title,'');title.removeAttribute('data-track-uri');
+ const other=x.w.document.createElement('a');other.href='/track/other';other.textContent='Titre';bar.append(other);assert.equal(q(x,'like').track,'');other.remove();
+ title.removeAttribute('data-uri');title.setAttribute('data-track-uri','spotify:album:abc');assert.equal(q(x,'like').track,'');
+ title.remove();x.w.document.body.append(title);title.setAttribute('data-track-uri','spotify:track:abc');assert.equal(q(x,'like').track,'');
+ }finally{x.close()}});

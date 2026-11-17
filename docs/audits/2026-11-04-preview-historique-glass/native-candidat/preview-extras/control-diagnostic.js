@@ -45,6 +45,10 @@
             st.track_links++;if(String(a.textContent||'').trim())st.track_named++;
             if(!/^(context-item-link|nowplaying-track-link)$/i.test(String(a.getAttribute('data-testid')||'')))st.track_generic++;
         });
+        st.track_attr=0;
+        Array.from(document.querySelectorAll('[data-testid="now-playing-widget"] [data-testid="context-item-link"], [data-testid="now-playing-widget"] [data-testid="nowplaying-track-link"], [data-testid="now-playing-widget"] [data-testid="context-item-info-title"], [data-testid="now-playing-bar"] [data-testid="context-item-link"], [data-testid="now-playing-bar"] [data-testid="nowplaying-track-link"], [data-testid="now-playing-bar"] [data-testid="context-item-info-title"]')).forEach(function(n){
+            if(['data-uri','data-track-uri','data-spotify-uri'].some(function(k){return /^spotify:(track|episode):[a-z0-9]+$/i.test(String(n.getAttribute(k)||''));}))st.track_attr++;
+        });
         Array.from(document.querySelectorAll('button, [role="button"]')).forEach(function(b){
             var id=String(b.getAttribute('data-testid')||''), l=String(b.getAttribute('aria-label')||'').trim();
             if(/^(control-button-npv|now-playing-view-button)$/i.test(id)||/^(now playing view|show now playing view|hide now playing view|vue « ?en cours de lecture ?»|afficher la vue en cours de lecture|masquer la vue en cours de lecture|en cours de lecture|ansicht „läuft gerade“|vista de reproducción|tela tocando agora)$/i.test(l))st.npv_opener++;
