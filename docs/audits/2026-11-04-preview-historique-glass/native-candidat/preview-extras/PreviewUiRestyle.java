@@ -94,10 +94,23 @@ public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnG
                        v.getWidth() >= dp(120) && v.getHeight() >= dp(48) && v.getHeight() <= dp(140) && !insideGlass(v)) {
                 int l = v.getPaddingLeft(), t = v.getPaddingTop(), r = v.getPaddingRight(), b = v.getPaddingBottom();
                 v.setBackground(glass(dp(18), dp(1))); v.setPadding(Math.max(l, dp(12)), t, Math.max(r, dp(12)), b);
-                glassRows.put(v, Boolean.TRUE);
+                glassRows.put(v, Boolean.TRUE); enter(v);
             }
         }
         if (v instanceof ViewGroup) { ViewGroup g = (ViewGroup) v; for (int i = 0; i < g.getChildCount(); i++) visit(g.getChildAt(i), depth + 1); }
+    }
+    private int entered;
+    /** Soft fade/slide-in the first time a row is styled; the detach listener always restores a recycled view. */
+    private void enter(final View v) {
+        if (entered >= 14 || Build.VERSION.SDK_INT < 21) return;
+        if (Build.VERSION.SDK_INT >= 26 && !android.animation.ValueAnimator.areAnimatorsEnabled()) return;
+        final int i = entered++;
+        v.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
+            @Override public void onViewAttachedToWindow(View x) { }
+            @Override public void onViewDetachedFromWindow(View x) { x.animate().cancel(); x.setAlpha(1f); x.setTranslationY(0f); }
+        });
+        v.setAlpha(0f); v.setTranslationY(dp(14));
+        v.animate().alpha(1f).translationY(0f).setStartDelay(i * 35L).setDuration(260).start();
     }
     private final WeakHashMap<View, Boolean> glassRows = new WeakHashMap<View, Boolean>();
     private boolean insideGlass(View v) {
