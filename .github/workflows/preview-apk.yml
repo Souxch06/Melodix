@@ -1073,7 +1073,8 @@ jobs:
               node --test "$audit/native-candidat/preview-player-shell.test.cjs" \
                 "$audit/native-candidat/preview-player-clock-model.test.cjs" \
                 "$audit/native-candidat/preview-optimistic-play-model.test.cjs" \
-                "$audit/native-candidat/preview-liked-paging.test.cjs"
+                "$audit/native-candidat/preview-liked-paging.test.cjs" \
+                "$audit/native-candidat/preview-bridge-recovery.test.cjs"
           fi
           phase="check decoded candidate artwork and native resources"
           smali_test="$audit/native-smali-characterization.test.cjs"

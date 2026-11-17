@@ -68,7 +68,7 @@ test('full shell creates one same-origin loader tag; full bridge completes when 
     } finally{x.close();}
 });
 
-test('loader recovery fixture leaves the failed script tag in place through four retry callbacks',()=>{
+test('loader recovery fixture stays bounded and does not replace a pending tag',()=>{
     const x=bootstrap();
     try {
         assert.equal(x.w.__sfLoadBundledBridge('spotify_bridge.js'),true);
@@ -79,12 +79,17 @@ test('loader recovery fixture leaves the failed script tag in place through four
         const first=x.timers.find(t=>t.kind==='timeout'&&t.ms===1200);
         assert.ok(first);
         first.fn();
+        // The Preview-specific fix replaces only the failed resource node.
+        // A pending replacement must not be repeatedly discarded.
+        const current=x.w.document.querySelector('script[data-sf-melodix-bridge="1"]');
+        if (shell.includes('__sfBridgeResourceFailed')) assert.notEqual(current,tag);
+        else assert.equal(current,tag);
         for(let n=2;n<=4;n++) {
             const next=x.timers.filter(t=>t.kind==='timeout'&&t.ms===2500)[n-2];
             assert.ok(next);
             next.fn();
             assert.equal(x.w.__sfNativeUiBridgeRecoveryAttempts,n);
-            assert.equal(x.w.document.querySelector('script[data-sf-melodix-bridge="1"]'),tag);
+            assert.equal(x.w.document.querySelector('script[data-sf-melodix-bridge="1"]'),current);
         }
         assert.equal(x.timers.filter(t=>t.kind==='timeout'&&t.ms===2500).length,3);
         assert.equal(x.w.__sfMelodixBridgeStarted,undefined);

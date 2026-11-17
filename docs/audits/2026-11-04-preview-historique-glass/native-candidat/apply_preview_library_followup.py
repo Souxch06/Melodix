@@ -34,6 +34,33 @@ def apply(root):
     liked_bytes=(HERE/'preview-liked-paging.js').read_bytes()
     if hashlib.sha256(liked_bytes).hexdigest()!=LIKED_SHA: raise ValueError('unexpected liked helper; no changes made')
     s=raw.decode('utf8'); helper=liked_bytes.decode('utf8')+'\n'+helper_bytes.decode('utf8')
+    # The upstream recovery loop used to leave a definitively failed script
+    # node in place forever. Retry only an explicit resource-load failure;
+    # never replace a pending node or re-execute a bridge that has entered.
+    # Reset the stage before injection so the new pending node is not mistaken
+    # for the old failure on the following bounded retry.
+    s=one(s, """        node.onerror = function() {
+            recordBridgeFailure('script-error', 'load-failed');""", """        node.onerror = function() {
+            node.__sfBridgeResourceFailed = true;
+            recordBridgeFailure('script-error', 'load-failed');""")
+    s=one(s, """            if (!node.onload) attachBridgeScriptEvents(node, src);
+            if (!window.__sfBridgeLoadStage""", """            if (!node.onload) attachBridgeScriptEvents(node, src);
+            else if (!node.__sfBridgeErrorObserved) {
+                node.__sfBridgeErrorObserved = true;
+                node.addEventListener('error', function() { node.__sfBridgeResourceFailed = true; }, {once:true});
+            }
+            if (!window.__sfBridgeLoadStage""")
+    s=one(s, """            if (!document.querySelector('script[data-sf-melodix-bridge=\"1\"]')) {
+                loadBundledBridge('spotify_bridge.js');
+            }
+            snapshotWatchdog();""", """            var tag = document.querySelector('script[data-sf-melodix-bridge=\"1\"]');
+            if (tag && tag.__sfBridgeResourceFailed === true && window.__sfBridgeEntered !== true) {
+                tag.remove();
+                tag = null;
+                window.__sfBridgeLoadStage = 'start';
+            }
+            if (!tag) loadBundledBridge('spotify_bridge.js');
+            snapshotWatchdog();""")
     # The liked tracks page is a detail view, not the library's category
     # index. The 9016 page fallback otherwise cannot publish its track rows.
     s=one(s, "        if (path === '/collection' || path.indexOf('/collection/') === 0 || path.indexOf('/your-library') === 0) return 'library';",
