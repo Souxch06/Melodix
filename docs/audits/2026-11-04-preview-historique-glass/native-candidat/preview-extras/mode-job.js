@@ -120,9 +120,89 @@
             setTimeout(step, 120);
         })();
     }
+    // Open only an explicitly announced add menu, then act only on a unique,
+    // explicitly unchecked Liked Songs item. Never select another playlist.
+    function viaLikeMenu(b, method, after) {
+        var id = testid(b).toLowerCase(), l = label(b), popup = String(b.getAttribute('aria-haspopup') || '');
+        if (!/^(true|menu|dialog|listbox)$/i.test(popup)) return false;
+        if (!identityMatches()) { log(method + ':menu-identity'); after('identity', 'unknown'); return true; }
+        if (!/^(add-button|add-to-library-button)$/.test(id) || labels.like.on.test(l) ||
+            shownState === 'true' || b.getAttribute('aria-checked') === 'true' || b.getAttribute('aria-pressed') === 'true' ||
+            b.matches(':disabled') || b.closest('[aria-disabled="true"], fieldset:disabled')) {
+            log(method + ':menu-unsafe'); after('menu-state', 'unknown'); return true;
+        }
+        var selector = '[role="menu"], [role="dialog"], [role="listbox"]';
+        function available(n) { return n && n.isConnected && !n.closest('[hidden], [aria-hidden="true"]'); }
+        var before = Array.from(document.querySelectorAll(selector)).filter(available);
+        var expanded = b.getAttribute('aria-expanded') === 'true', opened = false;
+        function root() {
+            var id = b.getAttribute('aria-controls'), controlled = id && document.getElementById(id);
+            if (available(controlled) && controlled.matches(selector) &&
+                (expanded || before.indexOf(controlled) < 0 || b.getAttribute('aria-expanded') === 'true')) return controlled;
+            if (expanded) return null;
+            var fresh = Array.from(document.querySelectorAll(selector)).filter(function(n) { return available(n) && before.indexOf(n) < 0; });
+            return fresh.length === 1 ? fresh[0] : null;
+        }
+        function closeMenu(r) {
+            if (!opened) return;
+            try {
+                (available(r) ? r : b).dispatchEvent(new KeyboardEvent('keydown', {key:'Escape', code:'Escape', bubbles:true, cancelable:true}));
+                log(available(r) && b.getAttribute('aria-expanded') === 'true' ? method + ':menu-close-unverified' : method + ':menu-close-requested');
+            } catch (_) { log(method + ':menu-close-error'); }
+        }
+        if (!expanded) {
+            try { b.click(); opened = true; log(method + ':menu-open'); }
+            catch (_) { log(method + ':menu-open-error'); after('menu-absent', 'unknown'); return true; }
+        }
+        wait(function() {
+            if (!identityMatches()) return 'identity-changed';
+            return root();
+        }, 1800, function(r) {
+            if (r === 'identity-changed') { closeMenu(null); after('identity', 'unknown'); return; }
+            if (!r) { log(method + ':menu-root'); closeMenu(null); after('menu-absent', 'unknown'); return; }
+            var likedName = /^(liked songs|your liked songs|titres likés|vos titres likés|titres que j['’]aime|liked-titel|canciones que te gustan|músicas curtidas)$/i;
+            function targets() {
+                if (!available(r)) return [];
+                return Array.from(r.querySelectorAll('[role="menuitemcheckbox"], [role="checkbox"], input[type="checkbox"]')).filter(function(n) {
+                    var labelNode = n.closest('label');
+                    var name = String(n.getAttribute('aria-label') || (labelNode && labelNode.textContent) || n.textContent || '').replace(/\s+/g, ' ').trim();
+                    return available(n) && likedName.test(name);
+                });
+            }
+            var candidates = targets();
+            if (candidates.length !== 1) { log(method + (candidates.length ? ':menu-ambiguous' : ':menu-target')); closeMenu(r); after(candidates.length ? 'menu-ambiguous' : 'menu-absent', 'unknown'); return; }
+            var target = candidates[0], raw = target.getAttribute('aria-checked');
+            var checked = target.tagName === 'INPUT' && target.type === 'checkbox' ? (target.checked ? 'true' : 'false') : null;
+            if (checked !== null && raw !== null && raw !== checked) raw = 'unknown';
+            else if (raw === null) raw = checked;
+            if (target.matches(':disabled') || target.closest('[aria-disabled="true"], fieldset:disabled') || (raw !== 'true' && raw !== 'false')) {
+                log(method + ':menu-state'); closeMenu(r); after('menu-state', 'unknown'); return;
+            }
+            if (raw === 'true') { log(method + ':menu-liked'); closeMenu(r); after('read', 'true'); return; }
+            if (!identityMatches()) { closeMenu(r); after('identity', 'unknown'); return; }
+            try { target.click(); log(method + ':menu-add'); }
+            catch (_) { log(method + ':menu-add-error'); closeMenu(r); after('unconfirmed', 'unknown'); return; }
+            wait(function() {
+                if (!identityMatches()) return 'identity-changed';
+                var current = targets();
+                if (current.length !== 1 || current[0] !== target || target.matches(':disabled') || target.closest('[aria-disabled="true"], fieldset:disabled')) return null;
+                var a = target.getAttribute('aria-checked');
+                var c = target.tagName === 'INPUT' && target.type === 'checkbox' ? target.checked : null;
+                return (a === 'true' && c !== false) || (a === null && c === true) ? 'true' : null;
+            }, 2200, function(state) {
+                closeMenu(r);
+                if (state === 'identity-changed') { log(method + ':menu-identity'); after('identity', 'unknown'); }
+                else if (state === 'true') { log(method + ':menu-verified'); after('confirmed', 'true'); }
+                else { log(method + ':menu-unverified'); after('unconfirmed', 'false'); }
+            });
+        });
+        return true;
+    }
     // Decide and click on a readable control; verify the change afterwards.
     function act(found, method, after) {
-        var b = found.node, before = read(b);
+        var b = found.node;
+        if (kind === 'like' && viaLikeMenu(b, method, after)) return;
+        var before = read(b);
         log(method + ':state-' + before);
         if (before === 'unknown') { after('state', before); return; }
         if (kind === 'like') {
@@ -163,7 +243,7 @@
     }
     function result(outcome, state, method) {
         if (outcome === 'confirmed' || outcome === 'unconfirmed' || outcome === 'read') finish(outcome, state, method);
-        else if (outcome === 'identity') finish('identity', 'unknown', method);
+        else if (outcome === 'identity' || outcome === 'menu-absent' || outcome === 'menu-ambiguous' || outcome === 'menu-state') finish(outcome, 'unknown', method);
         else finish('failed', state, method);
     }
     try {

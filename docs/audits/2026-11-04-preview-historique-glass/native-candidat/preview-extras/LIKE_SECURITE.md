@@ -1,12 +1,19 @@
 # Like Preview — sécurité et vérification
 
 Une action Like est uniquement un ajout, jamais un retrait. Avant le clic, le
-contrôle doit être unique, actif, hors menu, et son action d'ajout et son état
-non liké ne doivent pas se contredire. Le titre et l'identifiant de piste lus
+contrôle doit être unique et actif, et son action d'ajout et son état
+non liké ne doivent pas se contredire. Si un bouton d'ajout annonce un menu,
+il peut l'ouvrir ; seul un élément unique explicitement nommé « Titres likés »
+et explicitement décoché peut être sélectionné. Une playlist ordinaire, une
+case déjà cochée ou un état ambigu ne sont jamais cliqués. Le titre et l'identifiant de piste lus
 dans la page doivent correspondre à l'observation transmise par le lecteur ;
 une identité absente ou modifiée bloque l'action. La confirmation recontrôle
 la même identité et un changement d'état lisible ; une commande sans preuve est
 signalée non confirmée et n'est pas répétée automatiquement.
+
+Un appui signale la vérification, un ajout confirmé ou la cause du blocage.
+La fermeture du menu est demandée par Échap ; sa prise en compte dépend de la
+page et doit être vérifiée sur téléphone.
 
 Si le bouton est caché mais que la barre fournit une identité unique, un appui
 peut essayer d'ouvrir la vue « en cours de lecture », puis d'y chercher un

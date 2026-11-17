@@ -74,3 +74,8 @@ test('hidden like exposes only a unique bar identity, never an inferred state',(
  let other=x.w.document.createElement('a');other.setAttribute('data-testid','context-item-link');other.href='/track/other';other.textContent='Titre';x.w.document.querySelector('[data-testid=now-playing-widget]').append(other);
  p=q(x,'like');assert.equal(p.track,'');assert.equal(p.title,'');assert.equal(p.state,'unknown');
 }finally{x.close()}});
+
+
+test('menu like exposes current-track identity but never claims a liked state',()=>{const x=boot();try{
+ let b=x.w.document.querySelector('div>div>button');b.setAttribute('aria-haspopup','menu');let p=q(x,'like');assert.equal(p.reason,'menu');assert.equal(p.state,'unknown');assert.equal(p.track,'track:abc');assert.equal(p.title,'Titre');
+}finally{x.close()}});

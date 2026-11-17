@@ -268,7 +268,6 @@ test('like: refuse removal IDs, picker menus, generic or conflicting states', as
   for (const attrs of [
     'data-testid="remove-button" aria-checked="false"',
     'data-testid="remove-from-library-button" aria-label="Ajouter aux titres likés" aria-checked="false"',
-    'data-testid="add-button" aria-haspopup="menu" aria-label="Ajouter aux titres likés" aria-checked="false"',
     'data-testid="add-button" aria-checked="false"',
     'data-testid="add-to-library-button" aria-checked="false" aria-pressed="true"',
     'data-testid="add-to-library-button" aria-checked="mixed" aria-label="Ajouter aux titres likés"',
@@ -318,4 +317,57 @@ test('like: a track switch after completion but before native polling invalidate
   run(dom,mode,'like','run','false','Titre','track:x');assert.equal(counter.clicks,1);
   dom.window.document.querySelector('a').setAttribute('href','/track/y');
   assert.equal(run(dom,mode,'like','poll','unknown','Titre','track:x').outcome,'identity');dom.window.close();
+});
+
+
+function pickerPage(items) {
+  const dom = page(`<aside data-testid="now-playing-bar"><a data-testid="context-item-link" href="/track/x">Titre</a><button data-testid="add-button" aria-haspopup="menu" aria-expanded="false" aria-controls="picker">+</button></aside><div id="slot"></div>`);
+  const d=dom.window.document, b=d.querySelector('button'), counts={open:0,selected:0,other:0,closed:0};
+  b.onclick=()=>{counts.open++;b.setAttribute('aria-expanded','true');d.querySelector('#slot').innerHTML=`<div id="picker" role="menu">${items}</div>`;let r=d.querySelector('#picker');r.addEventListener('keydown',e=>{if(e.key==='Escape'){counts.closed++;b.setAttribute('aria-expanded','false');r.remove()}});r.querySelectorAll('[role=menuitemcheckbox]').forEach(n=>n.addEventListener('click',()=>{if(n.textContent.trim()==='Titres likés')counts.selected++;else counts.other++;n.setAttribute('aria-checked',n.getAttribute('aria-checked')==='true'?'false':'true')}));};
+  return {dom,d,b,counts};
+}
+
+test('picker: adds only the explicitly unchecked Liked Songs item once and confirms',async()=>{
+  const x=pickerPage('<div role="menuitemcheckbox" aria-checked="false">Titres likés</div><div role="menuitemcheckbox" aria-checked="false">Ma playlist</div>');
+  run(x.dom,mode,'like','run','unknown','Titre','track:x');await settle(40);
+  const out=run(x.dom,mode,'like','poll','unknown','Titre','track:x');
+  assert.deepEqual(x.counts,{open:1,selected:1,other:0,closed:1});assert.equal(out.outcome,'confirmed');assert.equal(out.state,'true');x.dom.window.close();
+});
+
+test('picker: an already checked Liked Songs item is read, never removed',async()=>{
+  const x=pickerPage('<div role="menuitemcheckbox" aria-checked="true">Titres likés</div>');
+  run(x.dom,mode,'like','run','unknown','Titre','track:x');await settle(40);
+  assert.equal(x.counts.selected,0);assert.equal(run(x.dom,mode,'like','poll','unknown','Titre','track:x').outcome,'read');x.dom.window.close();
+});
+
+test('picker: missing, ambiguous, or unreadable Liked Songs never picks a playlist',async()=>{
+  for(const items of ['<div role="menuitemcheckbox" aria-checked="false">Ma playlist</div>', '<div role="menuitemcheckbox" aria-checked="false">Titres likés</div><div role="menuitemcheckbox" aria-checked="false">Titres likés</div>', '<div role="menuitemcheckbox">Titres likés</div>', '<div role="menuitemcheckbox" aria-checked="mixed">Titres likés</div>']){
+    const x=pickerPage(items);run(x.dom,mode,'like','run','unknown','Titre','track:x');await settle(30);let out=run(x.dom,mode,'like','poll','unknown','Titre','track:x');
+    assert.equal(x.counts.selected,0);assert.equal(x.counts.other,0);assert.match(out.outcome,/^menu-(absent|ambiguous|state)$/);x.dom.window.close();
+  }
+});
+
+test('picker: missing or changed identity and unsafe triggers never open or select',async()=>{
+  for(const [title,id,remove,checked,shown] of [['','track:x',false,'false','unknown'],['Titre','track:y',false,'false','unknown'],['Titre','track:x',true,'false','unknown'],['Titre','track:x',false,'true','unknown'],['Titre','track:x',false,'false','true']]){
+    const x=pickerPage('<div role="menuitemcheckbox" aria-checked="false">Titres likés</div>');if(remove)x.b.setAttribute('data-testid','remove-button');x.b.setAttribute('aria-checked',checked);
+    run(x.dom,mode,'like','run',shown,title,id);await settle(30);assert.equal(x.counts.open,0);assert.equal(x.counts.selected,0);x.dom.window.close();
+  }
+});
+
+test('picker: a track change on open cannot add even a homonymous track',async()=>{
+  const x=pickerPage('<div role="menuitemcheckbox" aria-checked="false">Titres likés</div>');const open=x.b.onclick;x.b.onclick=()=>{open();x.d.querySelector('a').setAttribute('href','/track/y')};
+  run(x.dom,mode,'like','run','unknown','Titre','track:x');await settle(30);assert.equal(x.counts.selected,0);assert.equal(run(x.dom,mode,'like','poll','unknown','Titre','track:x').outcome,'identity');x.dom.window.close();
+});
+
+test('picker: an unrelated already-open menu cannot be selected',async()=>{
+  const x=pickerPage('<div role="menuitemcheckbox" aria-checked="false">Titres likés</div>');x.b.setAttribute('aria-expanded','true');x.b.removeAttribute('aria-controls');x.d.querySelector('#slot').innerHTML='<div role="menu"><div role="menuitemcheckbox" aria-checked="false">Titres likés</div></div>';
+  run(x.dom,mode,'like','run','unknown','Titre','track:x');await settle(2000);assert.equal(x.counts.open,0);assert.equal(x.counts.selected,0);assert.equal(run(x.dom,mode,'like','poll','unknown','Titre','track:x').outcome,'menu-absent');x.dom.window.close();
+});
+
+
+test('picker: an exception during the add is unconfirmed, not claimed unsent',async()=>{
+  const x=pickerPage('<div role="menuitemcheckbox" aria-checked="false">Titres likés</div>');const open=x.b.onclick;
+  x.b.onclick=()=>{open();x.d.querySelector('[role=menuitemcheckbox]').click=()=>{throw Error('uncertain command')}};
+  run(x.dom,mode,'like','run','unknown','Titre','track:x');await settle(30);
+  assert.equal(run(x.dom,mode,'like','poll','unknown','Titre','track:x').outcome,'unconfirmed');x.dom.window.close();
 });

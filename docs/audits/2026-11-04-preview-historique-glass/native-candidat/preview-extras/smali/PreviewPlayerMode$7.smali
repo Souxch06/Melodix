@@ -30,7 +30,7 @@
     .locals 0
 
     .prologue
-    .line 181
+    .line 186
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerMode$7;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
     iput-wide p2, p0, Lcom/melodix/music/PreviewPlayerMode$7;->val$g:J
@@ -46,7 +46,7 @@
     .locals 1
 
     .prologue
-    .line 181
+    .line 186
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode$7;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
     return-object v0
@@ -58,7 +58,7 @@
     .locals 6
 
     .prologue
-    .line 182
+    .line 187
     iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerMode$7;->val$g:J
 
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerMode$7;->this$0:Lcom/melodix/music/PreviewPlayerMode;
@@ -79,12 +79,12 @@
 
     if-nez v0, :cond_1
 
-    .line 191
+    .line 196
     :cond_0
     :goto_0
     return-void
 
-    .line 183
+    .line 188
     :cond_1
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode$7;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
@@ -100,7 +100,7 @@
 
     goto :goto_0
 
-    .line 184
+    .line 189
     :cond_2
     :try_start_0
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerMode$7;->this$0:Lcom/melodix/music/PreviewPlayerMode;
@@ -131,7 +131,7 @@
 
     goto :goto_0
 
-    .line 190
+    .line 195
     :catch_0
     move-exception v0
 
