@@ -260,25 +260,6 @@
         }, true);
     } catch (_) {}
 
-    // Record DOM activations that can change the track, so a field report shows
-    // whether the change came from the app or from Spotify's own player.
-    try {
-        document.addEventListener('click', function(event) {
-            const target = event && event.target;
-            if (!target || typeof target.closest !== 'function') return;
-            try {
-                const skip = target.closest('[data-testid="control-button-skip-forward"], [data-testid="control-button-skip-back"]');
-                if (skip) {
-                    tracePlayback('dom-skip', String(skip.getAttribute('data-testid') || ''));
-                    return;
-                }
-                if (!window.__sfUserRequestedPause) return;
-                const row = target.closest('[data-testid="tracklist-row"]');
-                if (row) tracePlayback('dom-track-row-while-paused');
-            } catch (_) {}
-        }, true);
-    } catch (_) {}
-
     // ---- Sticky pause hold -------------------------------------------------
     // After an explicit pause the player is watched for a short while. If
     // playback restarts without a user play request (native timer, media
@@ -384,11 +365,18 @@
             endPauseHold();
         }
     }
+    // If the shell was controlling pause while the bridge loaded, transfer
+    // its active watcher rather than leaving two timers fighting each other.
+    const transferShellPause = window.__sfPauseHoldActive === true && window.__sfUserRequestedPause === true;
+    if (transferShellPause && typeof window.__sfEndPauseHold === 'function') {
+        try { window.__sfEndPauseHold(); } catch (_) {}
+    }
     window.__sfMarkUserPlaybackIntent = markUserPlaybackIntent;
     window.__sfIsUserPaused = function() {
         return Boolean(window.__sfUserRequestedPause);
     };
     window.__sfEndPauseHold = endPauseHold;
+    if (transferShellPause) startPauseHold('mark');
     // <<< sf-pause-intent
     let pfint = null;
     let afint = null;
@@ -4197,6 +4185,45 @@
     window.parseLibrary = parseLibrary;
 
     // =========================================================================
+    // >>> sf-liked-visible-rows
+    // Only rows actually present on Spotify's liked-tracks page. Virtualized
+    // rows do not prove a complete library; never query private APIs here.
+    window.__sfReadLikedRows = function(root) {
+        if (!root || typeof root.querySelectorAll !== 'function') return [];
+        const selector='[data-testid="tracklist-row"], [data-testid="track-list-row"], [role="row"][aria-rowindex]';
+        const seen=new Set(), rows=[];
+        function resource(link,kind) {
+            try {
+                const u=new URL(link.href || link.getAttribute('href'), window.location.href);
+                if (u.protocol !== 'https:' || u.hostname !== 'open.spotify.com' || u.username || u.password || (u.port && u.port !== '443')) return '';
+                const m=u.pathname.match(new RegExp('^/(?:intl-[a-z]{2}(?:-[a-z]{2})?/)?'+kind+'/([a-z0-9]+)(?:/)?$', 'i'));
+                return m ? 'spotify:'+kind+':'+m[1] : '';
+            } catch (_) { return ''; }
+        }
+        Array.from(root.querySelectorAll(selector)).forEach(function(row) {
+            if (row.parentElement && row.parentElement.closest(selector) && root.contains(row.parentElement.closest(selector))) return;
+            const links=Array.from(row.querySelectorAll('a[href]'));
+            const tracks=links.filter(a=>resource(a,'track'));
+            const link=tracks.find(a=>String(a.textContent || '').trim()) || tracks[0];
+            if (!link) return;
+            const uri=resource(link,'track');if (seen.has(uri)) return;
+            const titleNode=row.querySelector('[data-testid="tracklist-row-title"], [data-testid="track-name"], [data-testid="internal-track-link"]');
+            const title=String(titleNode && titleNode.textContent || link.textContent || '').replace(/\s+/g,' ').trim().slice(0,100);
+            if (!title) return;
+            const artists=[],artistIds=new Set();
+            links.forEach(function(a){const id=resource(a,'artist'), name=String(a.textContent || '').replace(/\s+/g,' ').trim();
+                if(id && name && !artistIds.has(id)){artistIds.add(id);artists.push(name);}});
+            let image='';const img=row.querySelector('img');
+            if(img) try {const u=new URL(img.currentSrc || img.src || '',window.location.href);const host=u.hostname.toLowerCase();
+                if(u.protocol==='https:' && !u.username && !u.password && (!u.port || u.port==='443') &&
+                    (host==='scdn.co' || host.endsWith('.scdn.co') || host==='spotifycdn.com' || host.endsWith('.spotifycdn.com'))) image=u.href;
+            } catch (_) {}
+            seen.add(uri);rows.push({title:title,subtitle:artists.join(', ').slice(0,120),image:image,uri:uri});
+        });
+        return rows;
+    };
+    // <<< sf-liked-visible-rows
+
     // SECTION 5: ASYNCHRONOUS MEDIA BROWSER & SEARCH
     // =========================================================================
 
@@ -4478,4 +4505,9 @@
     firstFuck();
     window.__sfMelodixBridgeCompleted = true;
     __sfBridgeTrace('bridge done');
+    // A liked page may already be mounted before this optional bridge loaded.
+    if (/^\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\/)?collection\/tracks\/?$/i.test(window.location.pathname) &&
+        typeof window.__sfNativeUiRefresh === 'function') {
+        try { window.__sfNativeUiRefresh(); } catch (_) { __sfBridgeTrace('liked refresh failed'); }
+    }
 })();

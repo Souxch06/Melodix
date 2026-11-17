@@ -312,6 +312,8 @@
         var path = spotifyRoutePath();
         if (HOME_PATHS.indexOf(path) >= 0) return 'home';
         if (path === '/search' || path.indexOf('/search/') === 0) return 'search';
+        // Liked tracks are a track detail page, not a library category index.
+        if (path === '/collection/tracks') return 'detail';
         if (path === '/collection' || path.indexOf('/collection/') === 0 || path.indexOf('/your-library') === 0) return 'library';
         var firstSegment = path.split('/')[1];
         if (SUPPORTED_TYPES.indexOf(firstSegment) >= 0 && path.split('/')[2]) return 'detail';
@@ -352,6 +354,8 @@
         try {
             url = new URL(raw, window.location.href);
             if (url.hostname !== 'open.spotify.com') return raw;
+            if (url.protocol === 'https:' && !url.username && !url.password && !url.port &&
+                /^\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\/)?collection\/tracks\/?$/i.test(url.pathname)) return 'spotify:collection:tracks';
             parts = url.pathname.split('/').filter(Boolean);
             typeIndex = parts.findIndex(function(part) {
                 return SUPPORTED_TYPES.indexOf(part.toLowerCase()) >= 0;
@@ -611,6 +615,8 @@
             return '';
         }
         if (url.hostname !== 'open.spotify.com') return '';
+        var uri = nativeSpotifyUri(url.href);
+        if (uri === 'spotify:collection:tracks') return uri;
 
         var parts = url.pathname.split('/').filter(Boolean);
         var typeIndex = parts.findIndex(function(part) {
@@ -1665,10 +1671,11 @@
             } catch (_) {}
         }
 
-        rows = collectHomeRows(mainView);
+        var reader = window.__sfReadLikedRows;
+        rows = path === '/collection/tracks' ? (typeof reader === 'function' ? reader(mainView) : []) : collectHomeRows(mainView);
         signature = JSON.stringify(rows);
         window.__sfNativeUiDetailRowsCount = rows.length;
-        if (rows.length > 0 && signature !== lastInitialDetailSignature && sendNativeUiData('detail', rows)) {
+        if (rows.length > 0 && signature !== lastInitialDetailSignature && sendNativeUiData(path === '/collection/tracks' ? 'media:spotify:collection:tracks' : 'detail', rows)) {
             lastInitialDetailSignature = signature;
             if (typeof cancelPendingCollectionNavigation === 'function') cancelPendingCollectionNavigation();
         }
@@ -2037,7 +2044,9 @@
         return { playing: playing, hasButton: Boolean(playPauseButton()) };
     }
 
-    window.__sfGetPlaybackSnapshot = playbackSnapshot;
+    // A running playback bridge owns its own snapshot and pause watcher.
+    // The shell remains the fallback when the bridge has not started.
+    if (window.__sfMelodixBridgeStarted !== true) window.__sfGetPlaybackSnapshot = playbackSnapshot;
 
     var PAUSE_HOLD_MS = 45000;
     var PAUSE_HOLD_SETTLE_MS = 1200;
@@ -2130,11 +2139,13 @@
         }
     }
 
-    window.__sfMarkUserPlaybackIntent = markUserPlaybackIntent;
-    window.__sfIsUserPaused = function() {
-        return Boolean(window.__sfUserRequestedPause);
-    };
-    window.__sfEndPauseHold = endPauseHold;
+    if (window.__sfMelodixBridgeStarted !== true) {
+        window.__sfMarkUserPlaybackIntent = markUserPlaybackIntent;
+        window.__sfIsUserPaused = function() {
+            return Boolean(window.__sfUserRequestedPause);
+        };
+        window.__sfEndPauseHold = endPauseHold;
+    }
 
     function clockSeconds(value) {
         var parts = String(value || '').trim().split(':');
@@ -2184,34 +2195,6 @@
         return fallback;
     }
 
-    function textOf(selectors) {
-        var i;
-        var node;
-        for (i = 0; i < selectors.length; i += 1) {
-            node = document.querySelector(selectors[i]);
-            if (!node) continue;
-            var text = String(node.textContent || '').replace(/\s+/g, ' ').trim();
-            if (text) return text;
-        }
-        return '';
-    }
-
-    function imageOf(selectors) {
-        var i;
-        var node;
-        var img;
-        for (i = 0; i < selectors.length; i += 1) {
-            node = document.querySelector(selectors[i]);
-            if (!node) continue;
-            img = node.tagName && String(node.tagName).toUpperCase() === 'IMG' ? node : node.querySelector && node.querySelector('img');
-            if (img) {
-                var url = safeSpotifyImage(img.currentSrc || img.src || '');
-                if (url) return url;
-            }
-        }
-        return '';
-    }
-
     function readNowPlaying() {
         var bar = null;
         try {
@@ -2234,9 +2217,9 @@
             '[data-testid="now-playing-widget"] img',
             '[data-testid="now-playing-bar"] img'
         ];
-        var title = bar ? textIn(bar, titleSelectors) : textOf(titleSelectors);
-        var artist = bar ? textIn(bar, artistSelectors) : textOf(artistSelectors);
-        var cover = bar ? imageIn(bar, coverSelectors) : imageOf(coverSelectors);
+        var title = textIn(bar || document, titleSelectors);
+        var artist = textIn(bar || document, artistSelectors);
+        var cover = imageIn(bar || document, coverSelectors);
         var progress = readMediaProgress();
         var position = progress.position;
         var duration = progress.duration;
@@ -2330,21 +2313,36 @@
         }, delay || 400);
     }
 
+    // Never predict playback state. Suppress duplicate taps only while the
+    // last requested change is still unobserved, with a bounded retry window.
+    var wait = null;
     // Single entry point for the native play/pause button.
     window.__sfTogglePlayback = function() {
         var playing = playbackSnapshot().playing;
+        var now = Date.now();
+        if (wait) {
+            if (playing === wait.to || now < wait.at ||
+                now - wait.at >= 1500) wait = null;
+            else return false;
+        }
         var target = !playing;
-        markUserPlaybackIntent(target);
         if (typeof window.actPlayPause === 'function') {
+            // The bridge records the intent and owns the watchdog. Starting
+            // the fallback too would create two independent re-pause timers.
+            if (window.__sfMelodixBridgeStarted === true) endPauseHold();
+            else markUserPlaybackIntent(target);
             try {
+                wait = {to:target, at:now};
                 window.actPlayPause(target);
-            } catch (_) {}
+            } catch (_) { wait = null; }
         } else {
             var pb = playPauseButton();
             if (pb && typeof pb.click === 'function') {
+                markUserPlaybackIntent(target);
                 try {
+                    wait = {to:target, at:now};
                     pb.click();
-                } catch (_) {}
+                } catch (_) { wait = null; }
             }
         }
         refreshPlayerSoon(350);
@@ -2355,6 +2353,7 @@
     // Single entry point for the native previous/next buttons. A skip is an
     // explicit user action, so it releases the pause latch and the hold.
     window.__sfSkip = function(direction) {
+        wait = null;
         var back = String(direction || '') === 'back' || String(direction || '') === 'previous';
         window.__sfUserRequestedPause = false;
         window.__sfLastPlayRequestAt = Date.now();
