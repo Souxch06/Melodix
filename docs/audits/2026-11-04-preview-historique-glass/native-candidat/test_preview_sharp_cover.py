@@ -3,10 +3,10 @@ import json
 import subprocess
 import unittest
 
-from apply_preview_sharp_cover import ANCHORS, HELPER, patch
+from apply_preview_sharp_cover import ANCHORS, HELPER, ROW_SOURCE, patch
 
 BASE = ("    function safeSpotifyImage(value) { return /^https:\\/\\/i\\.scdn\\.co\\//.test(value) ? value : ''; }\n"
-        + ANCHORS[0][0] + "\n" + ANCHORS[1][0] + "\n" + ANCHORS[2][0] + "\n")
+        + "\n".join(a[0] for a in ANCHORS) + "\n")
 
 
 class SharpCoverTest(unittest.TestCase):
@@ -15,6 +15,18 @@ class SharpCoverTest(unittest.TestCase):
         self.assertEqual(out.count('= previewLargestImage(img);'), 2)
         with self.assertRaises(ValueError):
             patch(out)
+
+    def test_row_srcset_picks_real_trusted_candidate(self):
+        js = BASE.split('\n')[0] + "\nfunction extract(image,raw){\n" + ROW_SOURCE + "\n}\n" + r"""
+function img(s){return {getAttribute:function(){return s;}};}
+console.log(JSON.stringify([
+ extract(img('https://i.scdn.co/64 64w, https://i.scdn.co/300 300w'), 'https://i.scdn.co/64'),
+ extract(img('https://evil.example/x 640w'), 'https://i.scdn.co/64'),
+ extract(img('https://i.scdn.co/large 1000w, https://i.scdn.co/2x 2x'), 'https://i.scdn.co/64'),
+ extract(img(''), 'https://evil.example/x')
+]));"""
+        res=json.loads(subprocess.run(['node','-e',js],capture_output=True,text=True,check=True).stdout)
+        self.assertEqual(res,['https://i.scdn.co/300','https://i.scdn.co/64','https://i.scdn.co/2x',''])
 
     def test_largest_listed_image_within_allowlist(self):
         js = BASE.split('\n')[0] + '\n' + HELPER + ' }\n' + '''

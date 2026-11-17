@@ -103,3 +103,91 @@ test('session absent at deadline reports unavailable without navigation while pl
   assert.equal(f.events.filter(e=>e.id==='preview-load').at(-1).data,'waiting-bridge:no-token');
  }finally{f.close()}
 });
+
+test('liked reopening displays a labelled same-session snapshot synchronously and still refreshes',async()=>{
+ let resolve, n=0;const f=setup(()=>++n===1?Promise.resolve(resp([item(1)],1)):new Promise(r=>{resolve=r}));try{
+  f.open();for(let i=0;i<4;i++)await tick();const before=f.rows().length;
+  f.open();assert.equal(f.rows().length,before+1);assert.equal(f.rows().at(-1)[0].uri,'spotify:track:T1');
+  assert.match(f.rows().at(-1).at(-1).title,/Actualisation/);assert.equal(f.calls.length,2);
+  resolve(resp([item(2)],1));for(let i=0;i<4;i++)await tick();assert.equal(f.rows().at(-1)[0].uri,'spotify:track:T2');assert.equal(f.commands(),0);
+ }finally{f.close()}
+});
+test('like attempt or token change prevents snapshot reuse',async()=>{
+ for(const invalidate of [w=>w.__sfLikedMutationAttempted(),w=>{w.spotAuthToken='Bearer other'}]){
+  let n=0;const f=setup(()=>++n===1?Promise.resolve(resp([item(1)],1)):new Promise(()=>{}));try{
+   f.open();for(let i=0;i<4;i++)await tick();invalidate(f.w);const before=f.rows().length;f.open();
+   assert.equal(f.rows().length,before);assert.equal(f.calls.length,2);
+  }finally{f.close()}
+ }
+});
+test('snapshot expiration and backwards clock reject the cache',async()=>{
+ for(const elapsed of [90001,-1]){
+  let n=0,now=200000;const f=setup(()=>++n===1?Promise.resolve(resp([item(1)],1)):new Promise(()=>{}));try{
+   f.w.Date.now=()=>now;f.open();for(let i=0;i<4;i++)await tick();now+=elapsed;const before=f.rows().length;f.open();assert.equal(f.rows().length,before);
+  }finally{f.close()}
+ }
+});
+test('failed refresh discloses old data and offers retry, without playback navigation',async()=>{
+ let n=0;const f=setup(()=>Promise.resolve(++n===1?resp([item(1)],1):{ok:false,status:403}));try{
+  f.open();for(let i=0;i<4;i++)await tick();f.open();for(let i=0;i<4;i++)await tick();
+  assert.equal(f.rows().at(-1)[0].uri,'spotify:track:T1');assert.match(f.rows().at(-1).at(-2).title,/Actualisation indisponible/);
+  assert.equal(f.rows().at(-1).at(-1).uri,'melodix:retry-collection');assert.equal(f.commands(),0);
+ }finally{f.close()}
+});
+test('liked artwork selects a real trusted larger source instead of first tiny thumbnail',async()=>{
+ const f=setup(()=>Promise.resolve(resp([item(1,{album:{images:[{url:'https://i.scdn.co/64',width:64},{url:'https://i.scdn.co/300',width:300},{url:'https://evil.test/640',width:640}]}})],1)));try{
+  f.open();for(let i=0;i<4;i++)await tick();assert.equal(f.rows().at(-1)[0].image,'https://i.scdn.co/300');
+ }finally{f.close()}
+});
+test('only the matching visible playlist DOM may appear immediately while bridge is unavailable',()=>{
+ const f=setup(()=>{throw Error('no network')},'/playlist/abc');try{
+  f.w.__sfMelodixBridgeCompleted=false;f.w.document.querySelector('main').innerHTML='<div data-testid="tracklist-row"><a href="/track/id">Observed</a></div>';
+  f.w.__sfOpenCollection('spotify:playlist:wrong');assert.equal(f.detail().length,0);
+  f.w.__sfOpenCollection('spotify:playlist:abc');assert.equal(f.detail().at(-1)[0].title,'Observed');assert.match(f.detail().at(-1).at(-1).title,/Aperçu/);assert.equal(f.commands(),0);
+ }finally{f.close()}
+});
+
+test('only the bridge complete playlist cache permits early delivery before bootstrap finishes',async()=>{
+ for (const valid of [true,false]) {
+  const f=setup(()=>{throw Error('no network')});try{
+   f.w.__sfMelodixBridgeStarted=true;f.w.__sfMelodixBridgeCompleted=false;
+   f.w.__sfMediaItemsCache=new f.w.Map([['spotify:playlist:abc',[{id:'spotify:track:one'}]]]);
+   f.w.__sfCompleteNativePlaylistTokens=new f.w.Map([['spotify:playlist:abc',valid?'Bearer synthetic':'Bearer other']]);
+   f.w.__sfOpenCollection('spotify:playlist:abc');await tick();assert.equal(f.commands(),valid?1:0);assert.equal(f.calls.length,0);
+  }finally{f.close()}
+ }
+});
+test('liked snapshot is bounded to its visible eighty rows and playback context',async()=>{
+ const f=setup((url,o)=>{let offset=JSON.parse(o.body).variables.offset;
+  return Promise.resolve(resp(Array.from({length:Math.min(50,120-offset)},(_,i)=>item(offset+i,offset+i===1?{is_playable:false}:{})),120));
+ });try{
+  f.open();for(let i=0;i<12;i++)await tick();f.open();let snapshot=f.rows().at(-1);
+  assert.equal(snapshot.length,81);assert.equal(snapshot.at(-1).title,'Actualisation des titres');
+  assert.equal(f.w.__sfCurrentTrackUris.length,79);assert.equal(f.w.__sfCurrentTrackUris.at(-1),'spotify:track:T79');
+ }finally{f.close()}
+});
+
+test('long liked collections render first page immediately and coalesce later rebuilds',async()=>{
+ const f=setup((url,o)=>{const offset=JSON.parse(o.body).variables.offset;return Promise.resolve(resp(Array.from({length:Math.min(50,320-offset)},(_,i)=>item(offset+i)),320));});try{
+  f.open();for(let i=0;i<20;i++)await tick();
+  const lengths=f.rows().map(a=>a.filter(r=>r.uri&&r.uri.startsWith('spotify:track:')).length);
+  assert.deepEqual(lengths,[50,200,320]);assert.equal(f.calls.length,7);
+ }finally{f.close()}
+});
+
+test('a freshly confirmed empty collection removes the earlier snapshot',async()=>{
+ let n=0;const f=setup(()=>++n===1?Promise.resolve(resp([item(1)],1)):n===2?Promise.resolve(resp([],0)):new Promise(()=>{}));try{
+  f.open();for(let i=0;i<4;i++)await tick();f.open();for(let i=0;i<4;i++)await tick();assert.match(f.rows().at(-1)[0].title,/Aucun titre/);
+  const count=f.rows().length;f.open();assert.equal(f.rows().length,count);
+ }finally{f.close()}
+});
+
+test('actual protected bridge delivers a completed same-session playlist cache before bootstrap',()=>{
+ const f=setup(()=>{throw Error('cache must not access network')});try{
+  const received=[];f.w.AndBridge.onMediaItemsLoaded=(id,data)=>received.push({id,rows:JSON.parse(data)});
+  f.w.SF_CONFIG={guiMode:'csshack',isCanvasDisabled:false};f.w.__sfMelodixBridgeCompleted=false;f.w.eval(fs.readFileSync(path.join(root,'assets/spotify_bridge.js'),'utf8'));
+  f.w.__sfMediaItemsCache.set('spotify:playlist:abc',[{id:'spotify:track:cached',name:'Observed'}]);
+  f.w.__sfCompleteNativePlaylistTokens.set('spotify:playlist:abc','Bearer synthetic');f.w.__sfMelodixBridgeCompleted=false;
+  f.w.__sfOpenCollection('spotify:playlist:abc');assert.equal(received.length,1);assert.equal(received[0].rows[0].uri,'spotify:track:cached');assert.equal(f.calls.length,0);
+ }finally{f.close()}
+});

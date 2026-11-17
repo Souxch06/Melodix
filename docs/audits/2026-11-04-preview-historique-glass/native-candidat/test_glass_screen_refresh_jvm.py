@@ -45,7 +45,7 @@ public class RefreshTest{
   GlassScreenStyler.style(a,restored,"detail","spotify:playlist:A","Ma playlist");yes(old.getParent()==null);yes(hasText(restored,"Titre réel"));yes(NativeImageLoader.calls==2);
   LinearLayout liked=group(a);TextView loading=new TextView(a);loading.setText("Chargement en attente");liked.addView(loading);
   GlassScreenStyler.style(a,liked,"detail","spotify:collection:tracks","Titres likés");
-  yes(hasText(liked,"Titres likés"));yes(hasText(liked,"♥"));yes(hasText(liked,"Chargement en attente"));yes(NativeImageLoader.calls==2);
+  yes(hasText(liked,"Titres likés"));yes(hasText(liked,"♥︎"));yes(hasText(liked,"Chargement en attente"));yes(NativeImageLoader.calls==2);
   yes(GlassScreenStyler.liked("spotify:collection:tracks"));yes(GlassScreenStyler.liked("https://open.spotify.com/collection/tracks?x=1"));
   yes(!GlassScreenStyler.liked("spotify:collection:tracks:other"));yes(!GlassScreenStyler.liked("https://evil.com/collection/tracks"));
   LinearLayout artist=group(a);GlassScreenStyler.style(a,artist,"detail","spotify:artist:A","Artiste");yes(artist.getChildCount()==0);

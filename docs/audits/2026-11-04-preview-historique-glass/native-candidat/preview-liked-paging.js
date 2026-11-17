@@ -8,7 +8,25 @@
         try { return typeof window.spotAuthToken === 'string' && /^Bearer \S+$/.test(window.spotAuthToken); }
         catch (_) { return false; }
     }
+    // A short-lived, account-bound in-memory preview. Always refresh on open;
+    // never persist it, reuse a partial playback queue from another session, or
+    // treat cached data as proof that the current Spotify request succeeded.
+    var previewLikedSnapshot = null;
     var previewLikedController = null;
+    function previewReadyPlaylistCache(uri) {
+        var cache=window.__sfMediaItemsCache, tokens=window.__sfCompleteNativePlaylistTokens;
+        return /^spotify:playlist:/i.test(uri) && window.__sfMelodixBridgeStarted === true &&
+            typeof window.fetchMediaItems === 'function' && !!window.spotAuthToken &&
+            !!cache && typeof cache.has === 'function' && !!tokens && typeof tokens.get === 'function' &&
+            cache.has(uri) && tokens.get(uri) === window.spotAuthToken;
+    }
+    function previewLikedCachedRows() {
+        var c = previewLikedSnapshot, now = Date.now();
+        if (!c || c.token !== window.spotAuthToken || now < c.at || now - c.at > 90000) {
+            previewLikedSnapshot = null; return null;
+        }
+        return c;
+    }
     function cancelPreviewLikedRequest() {
         if (previewLikedController) { try { previewLikedController.abort(); } catch (_) {} }
         previewLikedController = null;
@@ -39,6 +57,12 @@
                     window.__sfCurrentContextUri = uri;
                     window.__sfCurrentTrackUris = tracks.map(function(t) { return t.id; });
                 }
+            }
+            if (message === 'Aucun titre liké') previewLikedSnapshot = null;
+            if (rows.length) {
+                var visibleRows = rows.slice(0,80);
+                previewLikedSnapshot = {token:token, at:Date.now(), rows:visibleRows,
+                    trackUris:visibleRows.map(function(r){return r.uri;}).filter(function(id){return /^spotify:track:[a-z0-9]+$/i.test(id);})};
             }
             var data = rows.slice();
             if (message) data.push({title:message, subtitle:subtitle || '', settingValue:'Info', uri:''});
@@ -93,7 +117,14 @@
                     var source = track.artists && (track.artists.items || track.artists);
                     var artists = Array.isArray(source) ? source.map(function(a) { return a && (a.profile && a.profile.name || a.name) || ''; }).filter(function(s) {return typeof s === 'string' && s.trim();}).slice(0,10) : [];
                     var album = track.albumOfTrack || track.album || {}, images = album.coverArt && album.coverArt.sources || album.images || [];
-                    var image = Array.isArray(images) && images[0] ? safeSpotifyImage(images[0].url) : '';
+                    // Pick an actually advertised, trusted source, preferring
+                    // roughly 320px over Spotify's tiny first thumbnail.
+                    var image = '', bestWidth = 0;
+                    if (Array.isArray(images)) images.forEach(function(source) {
+                        var url = safeSpotifyImage(source && source.url), width = Number(source && source.width) || 0;
+                        if (!url) return;
+                        if (!image || (width > bestWidth && (width <= 640 || bestWidth === 0))) { image=url; bestWidth=width; }
+                    });
                     var disabled = track.is_playable === false || !!track.restrictions;
                     rows.push({title:title.trim().slice(0,120),subtitle:artists.join(', ').slice(0,160),image:image,uri:disabled?'':id,settingValue:disabled?'Indisponible':''});
                     if (!disabled) tracks.push({id:id,name:title.trim(),image:image,artists:artists,browsable:false});
@@ -107,7 +138,10 @@
                     else publish(skipped ? 'Certains titres sont indisponibles' : total === null ? 'Liste possiblement incomplète' : '', total === null ? 'Spotify n’a pas fourni le nombre total.' : '');
                     return;
                 }
-                if (rows.length) publish('Chargement des titres', 'Les titres suivants arrivent…');
+                // The first page is immediate; coalesce subsequent pages so
+                // large libraries do not repeatedly rebuild every native row.
+                if (rows.length && (page === 0 || (page + 1) % 4 === 0))
+                    publish('Chargement des titres', 'Les titres suivants arrivent…');
             }
             incomplete();
         } catch (_) { incomplete(); }

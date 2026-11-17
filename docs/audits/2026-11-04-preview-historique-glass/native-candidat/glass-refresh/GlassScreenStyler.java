@@ -34,7 +34,7 @@ public final class GlassScreenStyler {
         if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);return t;
     }
     private static LinearLayout vertical(Context c) { LinearLayout v=new LinearLayout(c);v.setOrientation(LinearLayout.VERTICAL);return v; }
-    private static boolean playlist(String uri) {
+    static boolean playlist(String uri) {
         return uri!=null && (uri.contains(":playlist:") || uri.contains("/playlist/"));
     }
     static boolean liked(String uri) {
@@ -80,22 +80,26 @@ public final class GlassScreenStyler {
         View old=rows.findViewWithTag("glass-old-playlist-heading");
         if(old!=null && old.getParent()==rows)rows.removeView(old);
         boolean isLiked=liked(uri);
-        LinearLayout hero=vertical(a); if(isLiked)hero.setTag("liked-hero"); hero.setPadding(dp(a,12),dp(a,12),dp(a,12),dp(a,14));
+        LinearLayout hero=vertical(a); hero.setTag("glass-playlist-hero"); hero.setPadding(dp(a,12),dp(a,12),dp(a,12),dp(a,14));
         LinearLayout artLine=new LinearLayout(a);artLine.setGravity(Gravity.CENTER);
         ImageView image=new ImageView(a);image.setScaleType(ImageView.ScaleType.CENTER_CROP);
         image.setBackground(glass(a,0xff6e3c9d,0xff24193d,14,0x45ffffff));
         image.setClipToOutline(true); image.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         String imageUrl=selectedArtwork(a,uri);
         LinearLayout artBox=vertical(a);artBox.setGravity(Gravity.CENTER);
-        artBox.setBackground(isLiked ? glass(a,0xff7655e8,0xff3630a3,14,0x4affffff) : glass(a,0xff764fa7,0xff272038,14,0x4affffff));
+        artBox.setBackground(isLiked ? glass(a,0xff8056e5,0xff362d94,14,0x35ffffff) : glass(a,0xff764fa7,0xff272038,14,0x4affffff));
         if(imageUrl!=null && !imageUrl.isEmpty()) {
             artBox.addView(image,new LinearLayout.LayoutParams(-1,-1));
             NativeImageLoader.load(image,imageUrl,dp(a,200));
         } else {
-            TextView glyph=text(a,isLiked?"♥":"♫",58,0xffe6d6ff,true);glyph.setGravity(Gravity.CENTER);
+            // Force text presentation: the heart must not turn into a coloured
+            // system emoji. The cover is decorative, not track artwork.
+            TextView glyph=text(a,isLiked?"♥︎":"♫",isLiked?72:58,0xfff8f5ff,!isLiked);glyph.setGravity(Gravity.CENTER);
             glyph.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);artBox.addView(glyph);
-            TextView hint=text(a,isLiked?"TITRES LIKÉS":"PLAYLIST",10,0xffe6dcf1,true);hint.setLetterSpacing(.16f);hint.setGravity(Gravity.CENTER);
-            hint.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);artBox.addView(hint);
+            if(!isLiked) {
+                TextView hint=text(a,"PLAYLIST",10,0xffe6dcf1,true);hint.setLetterSpacing(.16f);hint.setGravity(Gravity.CENTER);
+                hint.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);artBox.addView(hint);
+            }
         }
         artLine.addView(artBox,new LinearLayout.LayoutParams(dp(a,164),dp(a,164)));hero.addView(artLine);
         TextView eyebrow=text(a,isLiked?"VOTRE BIBLIOTHÈQUE":"PLAYLIST",10,LILAC,true);eyebrow.setLetterSpacing(.16f);

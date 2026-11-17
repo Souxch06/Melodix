@@ -24,7 +24,21 @@ HELPER = '''    // Largest picture listed by the page itself for this <img> (<= 
         return url.replace(/\\/image\\/ab67616d0000(4851|1e02)/, '/image/ab67616d0000b273');
     }
     function imageOf(selectors) {'''
+ROW_SOURCE = r"""        // Use only an image candidate actually advertised by this element.
+        // currentSrc can be a 64px phone thumbnail even on a tablet.
+        var selected = '', largest = 0;
+        try {
+            String(image.getAttribute('srcset') || '').split(',').forEach(function(part) {
+                var bits = part.trim().split(/\s+/), desc = bits[1] || '', size = 0;
+                if (/^\d+w$/i.test(desc)) size = parseInt(desc, 10);
+                else if (/^\d+(?:\.\d+)?x$/i.test(desc)) size = Math.round(parseFloat(desc) * 64);
+                var candidate = safeSpotifyImage(bits[0]);
+                if (candidate && size > largest && size <= 640) { selected = candidate; largest = size; }
+            });
+        } catch (_) { selected = ''; }
+        return selected || (raw ? safeSpotifyImage(raw) : '');"""
 ANCHORS = [
+    ("        return raw ? safeSpotifyImage(raw) : '';", ROW_SOURCE),
     ('    function imageOf(selectors) {', HELPER),
     ("                var url = safeSpotifyImage(img.currentSrc || img.src || '');",
      "                var url = previewLargestImage(img);"),

@@ -4,8 +4,8 @@ import hashlib,sys
 from pathlib import Path
 HERE=Path(__file__).resolve().parent
 EXPECTED='ed18ae0b137951fc9b9f1d9fbc65a3f596fad94f38d6f31c8b22c7fa74462984'
-HELPER_SHA='e42fc3adf749b454b46a9e92d59847daa24286dd0266d0f3e6ecc3df3fa6a989'
-LIKED_SHA='9a72404ee1e2ed586d5e1c27e12f08a76562dbc853131ff7d5bf379e1b36ba87'
+HELPER_SHA='b646a8faf29a450137f2bd12571f5457a02d496ab732e12111d6a5eaeb8c9939'
+LIKED_SHA='5355232ea283e1081f5051533a73c803a749c0678360fad7d3c88f37fc67fc0a'
 
 def one(text, old, new):
     if text.count(old)!=1: raise ValueError('unexpected anchor: '+old[:90])
@@ -239,6 +239,21 @@ def apply(root):
     return-object v0
     :preview_normal_row
 """)
+    # Decode row covers at least at their actual 48dp pixel size. The previous
+    # fixed 176px target could upscale high-density displays; cap memory use.
+    r=one(r, """    const/16 v10, 0xb0
+    invoke-static {v1, v9, v10}, Lcom/melodix/music/NativeImageLoader;->load(Landroid/widget/ImageView;Ljava/lang/String;I)V""", """    const/16 v10, 0x30
+    invoke-static {p0, v10}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
+    move-result v10
+    const/16 v11, 0xb0
+    if-ge v10, v11, :preview_cover_min_done
+    move v10, v11
+    :preview_cover_min_done
+    const/16 v11, 0x180
+    if-le v10, v11, :preview_cover_max_done
+    move v10, v11
+    :preview_cover_max_done
+    invoke-static {v1, v9, v10}, Lcom/melodix/music/NativeImageLoader;->load(Landroid/widget/ImageView;Ljava/lang/String;I)V""")
     # User-specific next-button policy: in positively identified repeat-one,
     # do not move to the next item. No seek, pause, play or retry is issued.
     s=one(s, """        var back = String(direction || '') === 'back' || String(direction || '') === 'previous';

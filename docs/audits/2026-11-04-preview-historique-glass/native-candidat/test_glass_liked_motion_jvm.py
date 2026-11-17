@@ -38,16 +38,22 @@ public class MotionTest {
   ValueAnimator.enabled=false;move(s,80,m);yes(image(rows,8).starts==1,"animation disabled");yes(image(rows,0).alpha==1,"disabled reset");ValueAnimator.enabled=true;android.os.Build.VERSION.SDK_INT=24;android.provider.Settings.Global.scale=0;move(s,0,m);yes(image(rows,0).starts==2,"API 24 disabled");android.os.Build.VERSION.SDK_INT=35;
   GlassLikedMotion.bind(a,content,"other","spotify:collection:tracks");yes(s.obs.sc==0&&s.obs.gl==0&&s.attachListeners==0,"dispose on navigation");
   View.clipTop=0;View.clipBottom=40;s.y=0;
-  LinearLayout heroRows=new LinearLayout(a),hero=new LinearLayout(a);hero.setTag("liked-hero");hero.top=0;hero.bottom=40;
+  LinearLayout heroRows=new LinearLayout(a),hero=new LinearLayout(a);hero.setTag("glass-playlist-hero");hero.top=0;hero.bottom=40;
   for(int i=0;i<4;i++){TextView child=new TextView(a);child.top=i*10;child.bottom=child.top+10;hero.addView(child);}heroRows.addView(hero);
   for(int i=4;i<12;i++)heroRows.addView(row(a,i));content.removeView(rows);content.addView(heroRows);
   GlassLikedMotion.bind(a,content,"detail","spotify:collection:tracks");s.flush();m=(GlassLikedMotion)s.listener;
   yes(hero.getChildAt(0).starts==1&&hero.getChildAt(2).starts==1,"art and title entrance");
   move(s,40,m);move(s,0,m);yes(hero.getChildAt(0).starts==2&&hero.getChildAt(0).lastInitialY<0,"hero return upward");
-  LinearLayout replacement=new LinearLayout(a),hero2=new LinearLayout(a);hero2.setTag("liked-hero");hero2.top=0;hero2.bottom=40;
-  for(int i=0;i<4;i++){TextView child=new TextView(a);child.top=i*10;child.bottom=child.top+10;hero2.addView(child);}replacement.addView(hero2);
+  LinearLayout replacement=new LinearLayout(a),hero2=new LinearLayout(a);hero2.setTag("glass-playlist-hero");hero2.top=0;hero2.bottom=40;
+  for(int i=0;i<4;i++){TextView child=new TextView(a);child.top=i*10;child.bottom=child.top+10;hero2.addView(child);}replacement.addView(hero2);replacement.addView(row(a,4));
   content.removeView(heroRows);content.addView(replacement);GlassLikedMotion.bind(a,content,"detail","spotify:collection:tracks");s.flush();
   yes(hero2.getChildAt(0).starts==0,"partial refresh preserves visible hero");
+  GlassLikedMotion.bind(a,content,"detail","spotify:playlist:Other");s.flush();yes(hero2.getChildAt(0).starts==1,"another playlist animates instead of inheriting old cache");
+  move(s,40,m);yes(image(replacement,1).starts==1 && image(replacement,1).lastInitialY>0,"ordinary playlist row downward");
+  move(s,80,m);move(s,40,m);yes(image(replacement,1).starts==2 && image(replacement,1).lastInitialY<0,"ordinary playlist row upward");
+  move(s,0,m);yes(hero2.getChildAt(0).starts==2,"ordinary playlist hero scroll");
+  GlassLikedMotion.bind(a,content,"detail","spotify:album:NotAPlaylist");yes(s.obs.sc==0,"album is not in playlist animation scope");
+  GlassLikedMotion.bind(a,content,"detail","spotify:playlist:Other");s.flush();m=(GlassLikedMotion)s.listener;
   m.onViewDetachedFromWindow(s);yes(s.obs.sc==0&&s.obs.gl==0&&s.attachListeners==0&&s.pending==null,"detach cleanup");
   System.out.println("Glass liked motion JVM simulation passed (10,000 rows)");
  }

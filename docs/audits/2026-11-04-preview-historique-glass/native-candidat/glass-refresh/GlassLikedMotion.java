@@ -27,6 +27,7 @@ public final class GlassLikedMotion implements ViewTreeObserver.OnScrollChangedL
     private ViewTreeObserver observer;
     private LinearLayout content;
     private ViewGroup rows;
+    private String collection="";
     private final HashMap<View,Integer> visible = new HashMap<View,Integer>();
     private final Set<Integer> preserve = new HashSet<Integer>();
     private final HashMap<View,Integer> heroVisible = new HashMap<View,Integer>();
@@ -44,12 +45,12 @@ public final class GlassLikedMotion implements ViewTreeObserver.OnScrollChangedL
         ScrollView s=(ScrollView)v;
         WeakReference<GlassLikedMotion> ref=INSTANCES.get(s);
         GlassLikedMotion m=ref==null?null:ref.get();
-        if(!"detail".equals(screen) || !GlassScreenStyler.liked(uri) || content==null ||
+        if(!"detail".equals(screen) || !(GlassScreenStyler.liked(uri) || GlassScreenStyler.playlist(uri)) || content==null ||
            content.getChildCount()!=1 || !(content.getChildAt(0) instanceof ViewGroup)) {
             if(m!=null)m.dispose();return;
         }
         if(m==null){m=new GlassLikedMotion(s);INSTANCES.put(s,new WeakReference<GlassLikedMotion>(m));}
-        m.setRows(content,(ViewGroup)content.getChildAt(0));
+        m.setRows(content,(ViewGroup)content.getChildAt(0),uri);
     }
     private void listen() {
         if(!scroll.isAttachedToWindow())return;
@@ -64,11 +65,11 @@ public final class GlassLikedMotion implements ViewTreeObserver.OnScrollChangedL
         }
         observer=null;
     }
-    private void setRows(LinearLayout parent,ViewGroup next) {
-        if(rows!=next){
+    private void setRows(LinearLayout parent,ViewGroup next,String uri) {
+        if(rows!=next || !collection.equals(uri)){
             preserve.clear();
-            if(enabled && content==parent){preserve.addAll(visible.values());preserve.addAll(heroVisible.values());}
-            resetAll();content=parent;rows=next;lastY=scroll.getScrollY();
+            if(enabled && content==parent && collection.equals(uri)){preserve.addAll(visible.values());preserve.addAll(heroVisible.values());}
+            resetAll();content=parent;rows=next;collection=uri;lastY=scroll.getScrollY();
         }
         enabled=true;listen();schedule();
     }
@@ -81,7 +82,7 @@ public final class GlassLikedMotion implements ViewTreeObserver.OnScrollChangedL
         catch (RuntimeException ignored) {return true;}
     }
     private static boolean parts(View row) {
-        if(!(row instanceof ViewGroup) || "liked-hero".equals(row.getTag()))return false;
+        if(!(row instanceof ViewGroup) || "glass-playlist-hero".equals(row.getTag()))return false;
         ViewGroup g=(ViewGroup)row;
         return g.getChildCount()>=2 && g.getChildAt(0) instanceof ImageView && g.getChildAt(1) instanceof ViewGroup;
     }
@@ -111,7 +112,7 @@ public final class GlassLikedMotion implements ViewTreeObserver.OnScrollChangedL
     private void hero(int direction) {
         HashMap<View,Integer> next=new HashMap<View,Integer>();
         if(rows.getChildCount()>0 && rows.getChildAt(0) instanceof ViewGroup &&
-           "liked-hero".equals(rows.getChildAt(0).getTag())) {
+           "glass-playlist-hero".equals(rows.getChildAt(0).getTag())) {
             ViewGroup hero=(ViewGroup)rows.getChildAt(0);
             for(int i=0;i<hero.getChildCount() && i<4;i++) {
                 View child=hero.getChildAt(i);Rect r=new Rect();int key=-1-i;
@@ -147,7 +148,7 @@ public final class GlassLikedMotion implements ViewTreeObserver.OnScrollChangedL
     }
     private void dispose() {
         enabled=false;scroll.removeCallbacks(this);scheduled=false;resetAll();preserve.clear();unlisten();
-        scroll.removeOnAttachStateChangeListener(this);INSTANCES.remove(scroll);content=null;rows=null;
+        scroll.removeOnAttachStateChangeListener(this);INSTANCES.remove(scroll);content=null;rows=null;collection="";
     }
     @Override public void onScrollChanged(){schedule();}
     @Override public void onGlobalLayout(){schedule();}

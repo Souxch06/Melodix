@@ -976,10 +976,12 @@ jobs:
             node --check "$work/assets/native_ui_shell.js"
             phase="apply playback-safe collection retry"
             python3 "$audit/native-candidat/apply_preview_library_followup.py" "$work"
+            MELODIX_PREVIEW_ROOT="$work" python3 "$audit/native-candidat/test_preview_row_cover.py"
             node --check "$work/assets/native_ui_shell.js"
             phase="apply preview aurora glass restyle"
             python3 "$audit/native-candidat/apply_preview_redesign.py" "$work"
             phase="apply preview sharp player cover"
+            python3 "$audit/native-candidat/test_preview_sharp_cover.py"
             python3 "$audit/native-candidat/apply_preview_sharp_cover.py" "$work"
             node --check "$work/assets/native_ui_shell.js"
           fi
@@ -1066,6 +1068,7 @@ jobs:
             MELODIX_PREVIEW_ROOT="$RUNNER_TEMP/historical-decoded" python3 "$audit/native-candidat/preview-extras/test_player_chrome.py"
             MELODIX_PREVIEW_ROOT="$RUNNER_TEMP/historical-decoded" python3 "$audit/native-candidat/preview-extras/test_five_buttons.py"
             MELODIX_PREVIEW_ROOT="$RUNNER_TEMP/historical-decoded" python3 "$audit/native-candidat/test_glass_screen_refresh.py"
+            MELODIX_PREVIEW_ROOT="$RUNNER_TEMP/historical-decoded" python3 "$audit/native-candidat/test_preview_row_cover.py"
             MELODIX_CANDIDATE_ROOT="$RUNNER_TEMP/historical-decoded" NODE_PATH="$RUNNER_TEMP/test-deps/node_modules" \
               node --test "$audit/native-candidat/preview-player-shell.test.cjs" \
                 "$audit/native-candidat/preview-player-clock-model.test.cjs" \

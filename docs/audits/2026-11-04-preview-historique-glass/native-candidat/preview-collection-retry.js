@@ -39,6 +39,7 @@
     // Even an unconfirmed add can have reached Spotify. Prevent an older
     // in-flight collection response from being shown or cached afterward.
     window.__sfLikedMutationAttempted = function() {
+        previewLikedSnapshot = null;
         if (window.__sfNativeCollectionUri === 'spotify:collection:tracks') cancelPendingCollectionNavigation();
     };
     window.__sfNativeCollectionLoaded = function(uri, requestId) {
@@ -59,7 +60,7 @@
         return !!(label && /^(?:play|resume|lire|lecture|reprendre)(?:\s|$)/i.test(label));
     }
     window.__sfOpenCollection = function(value) {
-        var uri = nativeSpotifyUri(value), requestId, started = false, done = false, failedOnce = false;
+        var uri = nativeSpotifyUri(value), requestId, started = false, done = false, failedOnce = false, cachedLiked = null;
         if (!uri) return false;
         cancelPendingCollectionNavigation();
         requestId = ++nativeCollectionSequence;
@@ -78,6 +79,13 @@
             stopPreviewCollectionRetry();
             stopCollectionFallback();
             previewLoadState(stage, uri === 'spotify:collection:tracks' && !previewLikedSessionReady() ? 'no-token' : 'unknown');
+            if (cachedLiked && previewLikedCachedRows() === cachedLiked) {
+                sendNativeUiData('media:' + String(value), cachedLiked.rows.concat([
+                    {title:'Actualisation indisponible', subtitle:'Affichage précédent ; réessaie pour vérifier les titres.', settingValue:'Info', uri:''},
+                    {title:'Réessayer', subtitle:'Une nouvelle tentative', uri:'melodix:retry-collection'}
+                ]));
+                return;
+            }
             if (previewDefinitelyStopped()) {
                 // Historical 9016 fallback; the current playback page is only
                 // replaced when paused/stopped is positively observed.
@@ -113,6 +121,12 @@
             if (uri === 'spotify:collection:tracks' && previewLikedSessionReady()) {
                 request(); return;
             }
+            // fetchMediaItems can already exist before bootstrap completes. Use
+            // it early only for the bridge's own complete, same-token playlist
+            // cache; that code path does not issue a network request.
+            if (previewReadyPlaylistCache(uri)) {
+                request(); return;
+            }
             if (window.__sfMelodixBridgeCompleted === true && typeof window.fetchMediaItems === 'function') {
                 request(); return;
             }
@@ -120,12 +134,24 @@
             previewLoadState('waiting-bridge', uri === 'spotify:collection:tracks' ? 'no-token' : 'unknown');
             previewCollectionRetry = window.setTimeout(function() { waitForBridge(remaining - 1); }, 250);
         }
-        // Re-publish only the already visible liked DOM for this explicit tap;
-        // clear its presentation signature so an earlier native screen cannot
-        // suppress the new detail. No navigation or extra request is added.
-        if (uri === 'spotify:collection:tracks' && spotifyResourceUri(window.location.href) === uri) {
+        // Only an exact matching, already visible Spotify route can provide a
+        // partial preview. The bridge request still runs and can replace it.
+        if (spotifyResourceUri(window.location.href) === uri &&
+            (uri === 'spotify:collection:tracks' || /^spotify:playlist:/i.test(uri))) {
             lastInitialDetailSignature = null;
             updateDetailRows(homeScrapeRoot());
+        }
+        // A bounded same-token snapshot accelerates liked reopens, while the
+        // fresh paginated read still starts below. Mark it explicitly as stale.
+        if (uri === 'spotify:collection:tracks' && !window.__sfNativeCollectionDomReady) {
+            cachedLiked = previewLikedCachedRows();
+            if (cachedLiked && cachedLiked.rows.length) {
+                window.__sfCurrentContextUri = uri;
+                window.__sfCurrentTrackUris = cachedLiked.trackUris.slice();
+                sendNativeUiData('media:' + String(value), cachedLiked.rows.concat([
+                    {title:'Actualisation des titres', subtitle:'Affichage précédent, vérification en cours…', settingValue:'Info', uri:''}
+                ]));
+            }
         }
         openCollectionTimer = window.setTimeout(function() {
             if (current() && !done) failed('timeout');
