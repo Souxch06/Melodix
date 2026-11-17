@@ -7,7 +7,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 STUBS = {
-'android/content/Context.java': '''package android.content; public class Context { public java.io.File getNoBackupFilesDir(){return null;} }''',
+'android/content/Context.java': '''package android.content; public class Context { private java.io.File f; public Context(java.io.File f){this.f=f;} public java.io.File getNoBackupFilesDir(){return f;} }''',
 'android/os/Looper.java': '''package android.os; public class Looper { public static Looper getMainLooper(){return new Looper();} }''',
 'android/os/Handler.java': '''package android.os; public class Handler { public Handler(Looper l){} public boolean post(Runnable r){r.run();return true;} }''',
 'android/graphics/Bitmap.java': '''package android.graphics; public class Bitmap { public enum CompressFormat { JPEG } public boolean isRecycled(){return false;} public int getWidth(){return 1;} public int getHeight(){return 1;} public static Bitmap createScaledBitmap(Bitmap b,int w,int h,boolean f){return b;} public boolean compress(CompressFormat f,int q,java.io.OutputStream o){return false;} public void recycle(){} }''',
@@ -19,6 +19,19 @@ public class StoreTest {
  static void yes(boolean b){if(!b)throw new AssertionError();}
  public static void main(String[] a)throws Exception {
   File f=new File(a[1]); long now=System.currentTimeMillis();
+  if(a[0].equals("async")){
+   File dir=new File(a[1]);yes(dir.mkdir());android.content.Context ctx=new android.content.Context(dir);
+   final java.util.concurrent.CountDownLatch absent=new java.util.concurrent.CountDownLatch(1);
+   PreviewLastTrackStore.load(ctx,new PreviewLastTrackStore.Callback(){public void loaded(PreviewLastTrackStore.Record r,android.graphics.Bitmap b,String status){yes(r==null&&status.equals("absent ou inaccessible"));absent.countDown();}});
+   yes(absent.await(5,java.util.concurrent.TimeUnit.SECONDS));
+   PreviewLastTrackStore.Record item=new PreviewLastTrackStore.Record();item.title="Fixture";item.artist="Artist";item.state="paused";item.duration=120000;item.position=30000;item.observed=now;
+   PreviewLastTrackStore.save(ctx,item,null);
+   final java.util.concurrent.CountDownLatch loaded=new java.util.concurrent.CountDownLatch(1);
+   PreviewLastTrackStore.load(ctx,new PreviewLastTrackStore.Callback(){public void loaded(PreviewLastTrackStore.Record r,android.graphics.Bitmap b,String status){yes(r!=null&&r.position==30000&&status.equals("valide"));yes(PreviewLastTrackStore.writeStatus().equals("réussie"));loaded.countDown();}});
+   yes(loaded.await(5,java.util.concurrent.TimeUnit.SECONDS));PreviewLastTrackStore.clear(ctx);
+   yes(!new File(dir,"preview_last_track_v1").exists());yes(PreviewLastTrackStore.writeStatus().equals("effacé"));
+   System.out.println("Store async JVM test passed (not Android)");System.exit(0);
+  }
   if(a[0].equals("write")){
    yes(PreviewLastTrackStore.read(f,now)==null);
    PreviewLastTrackStore.Record r=new PreviewLastTrackStore.Record();r.title="Fixture";r.artist="Artist";r.state="playing";r.duration=120000;r.position=30000;r.observed=now;r.image=new byte[]{1,2,3};
@@ -51,4 +64,5 @@ def main():
         record=str(root/'record');runner=[java,'-cp',str(out),'com.melodix.music.StoreTest']
         subprocess.run(runner+['write',record],check=True)
         subprocess.run(runner+['read',record],check=True)
+        subprocess.run(runner+['async',str(root/'async')],check=True,timeout=15)
 if __name__=='__main__': main()

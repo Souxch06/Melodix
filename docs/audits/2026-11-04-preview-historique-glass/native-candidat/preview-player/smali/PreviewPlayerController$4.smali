@@ -28,7 +28,7 @@
     .locals 0
 
     .prologue
-    .line 740
+    .line 753
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerController$4;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     iput-wide p2, p0, Lcom/melodix/music/PreviewPlayerController$4;->val$id:J
@@ -46,10 +46,10 @@
     .prologue
     const/4 v4, 0x0
 
-    .line 741
+    .line 754
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$4;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$43(Lcom/melodix/music/PreviewPlayerController;)Z
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$45(Lcom/melodix/music/PreviewPlayerController;)Z
 
     move-result v0
 
@@ -57,7 +57,7 @@
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$4;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$44(Lcom/melodix/music/PreviewPlayerController;)J
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$46(Lcom/melodix/music/PreviewPlayerController;)J
 
     move-result-wide v0
 
@@ -67,30 +67,30 @@
 
     if-nez v0, :cond_0
 
-    .line 742
+    .line 755
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$4;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
-    invoke-static {v0, v4}, Lcom/melodix/music/PreviewPlayerController;->access$45(Lcom/melodix/music/PreviewPlayerController;Z)V
+    invoke-static {v0, v4}, Lcom/melodix/music/PreviewPlayerController;->access$47(Lcom/melodix/music/PreviewPlayerController;Z)V
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$4;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$4;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
-    invoke-static {v1}, Lcom/melodix/music/PreviewPlayerController;->access$46(Lcom/melodix/music/PreviewPlayerController;)Z
+    invoke-static {v1}, Lcom/melodix/music/PreviewPlayerController;->access$48(Lcom/melodix/music/PreviewPlayerController;)Z
 
     move-result v1
 
-    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerController;->access$28(Lcom/melodix/music/PreviewPlayerController;Z)V
+    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerController;->access$30(Lcom/melodix/music/PreviewPlayerController;Z)V
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$4;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$41(Lcom/melodix/music/PreviewPlayerController;)V
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$43(Lcom/melodix/music/PreviewPlayerController;)V
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$4;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$42(Lcom/melodix/music/PreviewPlayerController;)V
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$44(Lcom/melodix/music/PreviewPlayerController;)V
 
-    .line 743
+    .line 756
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$4;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$19(Lcom/melodix/music/PreviewPlayerController;)Ljava/lang/ref/WeakReference;
@@ -103,7 +103,7 @@
 
     check-cast v0, Landroid/app/Activity;
 
-    .line 744
+    .line 757
     if-eqz v0, :cond_0
 
     const-string v1, "Commande non confirm\u00e9e"
@@ -114,7 +114,7 @@
 
     invoke-virtual {v0}, Landroid/widget/Toast;->show()V
 
-    .line 746
+    .line 759
     :cond_0
     return-void
 .end method

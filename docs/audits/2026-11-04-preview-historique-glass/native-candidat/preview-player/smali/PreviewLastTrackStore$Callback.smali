@@ -15,5 +15,5 @@
 
 
 # virtual methods
-.method public abstract loaded(Lcom/melodix/music/PreviewLastTrackStore$Record;Landroid/graphics/Bitmap;)V
+.method public abstract loaded(Lcom/melodix/music/PreviewLastTrackStore$Record;Landroid/graphics/Bitmap;Ljava/lang/String;)V
 .end method

@@ -26,7 +26,7 @@
     .locals 0
 
     .prologue
-    .line 116
+    .line 123
     iput-object p1, p0, Lcom/melodix/music/PreviewLastTrackStore$3;->val$path:Ljava/io/File;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -40,7 +40,7 @@
     .locals 2
 
     .prologue
-    .line 116
+    .line 123
     new-instance v0, Landroid/util/AtomicFile;
 
     iget-object v1, p0, Lcom/melodix/music/PreviewLastTrackStore$3;->val$path:Ljava/io/File;

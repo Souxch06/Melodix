@@ -32,7 +32,7 @@
     .locals 1
 
     .prologue
-    .line 94
+    .line 100
     iput-wide p1, p0, Lcom/melodix/music/PreviewLastTrackStore$2;->val$current:J
 
     iput-object p3, p0, Lcom/melodix/music/PreviewLastTrackStore$2;->val$bitmap:Landroid/graphics/Bitmap;
@@ -52,7 +52,7 @@
     .locals 6
 
     .prologue
-    .line 95
+    .line 101
     iget-wide v0, p0, Lcom/melodix/music/PreviewLastTrackStore$2;->val$current:J
 
     invoke-static {}, Lcom/melodix/music/PreviewLastTrackStore;->access$1()J
@@ -61,18 +61,21 @@
 
     cmp-long v0, v0, v2
 
-    if-eqz v0, :cond_1
+    if-eqz v0, :cond_0
 
-    .line 110
-    :cond_0
+    const-string v0, "annul\u00e9e"
+
+    invoke-static {v0}, Lcom/melodix/music/PreviewLastTrackStore;->access$2(Ljava/lang/String;)V
+
+    .line 117
     :goto_0
     return-void
 
-    .line 96
-    :cond_1
+    .line 102
+    :cond_0
     iget-object v0, p0, Lcom/melodix/music/PreviewLastTrackStore$2;->val$bitmap:Landroid/graphics/Bitmap;
 
-    if-eqz v0, :cond_3
+    if-eqz v0, :cond_2
 
     iget-object v0, p0, Lcom/melodix/music/PreviewLastTrackStore$2;->val$bitmap:Landroid/graphics/Bitmap;
 
@@ -80,9 +83,9 @@
 
     move-result v0
 
-    if-nez v0, :cond_3
+    if-nez v0, :cond_2
 
-    .line 97
+    .line 103
     :try_start_0
     iget-object v0, p0, Lcom/melodix/music/PreviewLastTrackStore$2;->val$bitmap:Landroid/graphics/Bitmap;
 
@@ -96,7 +99,7 @@
 
     move-result v1
 
-    .line 98
+    .line 104
     const/high16 v2, 0x3f800000    # 1.0f
 
     const/high16 v3, 0x43c00000    # 384.0f
@@ -113,7 +116,7 @@
 
     move-result v2
 
-    .line 99
+    .line 105
     iget-object v3, p0, Lcom/melodix/music/PreviewLastTrackStore$2;->val$bitmap:Landroid/graphics/Bitmap;
 
     const/4 v4, 0x1
@@ -150,12 +153,12 @@
 
     move-result-object v0
 
-    .line 100
+    .line 106
     new-instance v1, Ljava/io/ByteArrayOutputStream;
 
     invoke-direct {v1}, Ljava/io/ByteArrayOutputStream;-><init>()V
 
-    .line 101
+    .line 107
     sget-object v2, Landroid/graphics/Bitmap$CompressFormat;->JPEG:Landroid/graphics/Bitmap$CompressFormat;
 
     const/16 v3, 0x55
@@ -164,7 +167,7 @@
 
     move-result v2
 
-    if-eqz v2, :cond_2
+    if-eqz v2, :cond_1
 
     invoke-virtual {v1}, Ljava/io/ByteArrayOutputStream;->size()I
 
@@ -172,7 +175,7 @@
 
     const/high16 v3, 0x80000
 
-    if-gt v2, v3, :cond_2
+    if-gt v2, v3, :cond_1
 
     iget-object v2, p0, Lcom/melodix/music/PreviewLastTrackStore$2;->val$record:Lcom/melodix/music/PreviewLastTrackStore$Record;
 
@@ -182,26 +185,26 @@
 
     iput-object v1, v2, Lcom/melodix/music/PreviewLastTrackStore$Record;->image:[B
 
-    .line 102
-    :cond_2
+    .line 108
+    :cond_1
     iget-object v1, p0, Lcom/melodix/music/PreviewLastTrackStore$2;->val$bitmap:Landroid/graphics/Bitmap;
 
-    if-eq v0, v1, :cond_3
+    if-eq v0, v1, :cond_2
 
     invoke-virtual {v0}, Landroid/graphics/Bitmap;->recycle()V
     :try_end_0
     .catch Ljava/lang/RuntimeException; {:try_start_0 .. :try_end_0} :catch_0
 
-    .line 104
-    :cond_3
+    .line 110
+    :cond_2
     :goto_1
     iget-object v0, p0, Lcom/melodix/music/PreviewLastTrackStore$2;->val$record:Lcom/melodix/music/PreviewLastTrackStore$Record;
 
     iget-object v0, v0, Lcom/melodix/music/PreviewLastTrackStore$Record;->image:[B
 
-    if-nez v0, :cond_4
+    if-nez v0, :cond_3
 
-    .line 105
+    .line 111
     iget-object v0, p0, Lcom/melodix/music/PreviewLastTrackStore$2;->val$path:Ljava/io/File;
 
     invoke-static {}, Ljava/lang/System;->currentTimeMillis()J
@@ -212,8 +215,8 @@
 
     move-result-object v0
 
-    .line 106
-    if-eqz v0, :cond_4
+    .line 112
+    if-eqz v0, :cond_3
 
     iget-object v1, v0, Lcom/melodix/music/PreviewLastTrackStore$Record;->title:Ljava/lang/String;
 
@@ -225,7 +228,7 @@
 
     move-result v1
 
-    if-eqz v1, :cond_4
+    if-eqz v1, :cond_3
 
     iget-object v1, v0, Lcom/melodix/music/PreviewLastTrackStore$Record;->artist:Ljava/lang/String;
 
@@ -237,7 +240,7 @@
 
     move-result v1
 
-    if-eqz v1, :cond_4
+    if-eqz v1, :cond_3
 
     iget-wide v2, v0, Lcom/melodix/music/PreviewLastTrackStore$Record;->duration:J
 
@@ -247,17 +250,17 @@
 
     cmp-long v1, v2, v4
 
-    if-nez v1, :cond_4
+    if-nez v1, :cond_3
 
-    .line 107
+    .line 113
     iget-object v1, p0, Lcom/melodix/music/PreviewLastTrackStore$2;->val$record:Lcom/melodix/music/PreviewLastTrackStore$Record;
 
     iget-object v0, v0, Lcom/melodix/music/PreviewLastTrackStore$Record;->image:[B
 
     iput-object v0, v1, Lcom/melodix/music/PreviewLastTrackStore$Record;->image:[B
 
-    .line 109
-    :cond_4
+    .line 115
+    :cond_3
     iget-wide v0, p0, Lcom/melodix/music/PreviewLastTrackStore$2;->val$current:J
 
     invoke-static {}, Lcom/melodix/music/PreviewLastTrackStore;->access$1()J
@@ -266,13 +269,35 @@
 
     cmp-long v0, v0, v2
 
-    if-nez v0, :cond_0
+    if-nez v0, :cond_5
 
     iget-object v0, p0, Lcom/melodix/music/PreviewLastTrackStore$2;->val$path:Ljava/io/File;
 
     iget-object v1, p0, Lcom/melodix/music/PreviewLastTrackStore$2;->val$record:Lcom/melodix/music/PreviewLastTrackStore$Record;
 
     invoke-static {v0, v1}, Lcom/melodix/music/PreviewLastTrackStore;->write(Ljava/io/File;Lcom/melodix/music/PreviewLastTrackStore$Record;)Z
+
+    move-result v0
+
+    if-eqz v0, :cond_4
+
+    const-string v0, "r\u00e9ussie"
+
+    :goto_2
+    invoke-static {v0}, Lcom/melodix/music/PreviewLastTrackStore;->access$2(Ljava/lang/String;)V
+
+    goto/16 :goto_0
+
+    :cond_4
+    const-string v0, "\u00e9chou\u00e9e"
+
+    goto :goto_2
+
+    .line 116
+    :cond_5
+    const-string v0, "annul\u00e9e"
+
+    invoke-static {v0}, Lcom/melodix/music/PreviewLastTrackStore;->access$2(Ljava/lang/String;)V
 
     goto/16 :goto_0
 

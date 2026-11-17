@@ -25,6 +25,8 @@
 
 .field private static volatile generation:J
 
+.field private static volatile lastWriteStatus:Ljava/lang/String;
+
 
 # direct methods
 .method static constructor <clinit>()V
@@ -49,7 +51,11 @@
 
     sput-object v0, Lcom/melodix/music/PreviewLastTrackStore;->MAIN:Landroid/os/Handler;
 
-    .line 23
+    .line 24
+    const-string v0, "aucune \u00e9criture dans ce processus"
+
+    sput-object v0, Lcom/melodix/music/PreviewLastTrackStore;->lastWriteStatus:Ljava/lang/String;
+
     return-void
 .end method
 
@@ -83,11 +89,21 @@
     return-wide v0
 .end method
 
+.method static synthetic access$2(Ljava/lang/String;)V
+    .locals 0
+
+    .prologue
+    .line 24
+    sput-object p0, Lcom/melodix/music/PreviewLastTrackStore;->lastWriteStatus:Ljava/lang/String;
+
+    return-void
+.end method
+
 .method static clear(Landroid/content/Context;)V
     .locals 6
 
     .prologue
-    .line 113
+    .line 120
     invoke-static {p0}, Lcom/melodix/music/PreviewLastTrackStore;->file(Landroid/content/Context;)Ljava/io/File;
 
     move-result-object v0
@@ -100,14 +116,22 @@
 
     sput-wide v2, Lcom/melodix/music/PreviewLastTrackStore;->generation:J
 
-    .line 114
+    const-string v1, "effacement demand\u00e9"
+
+    sput-object v1, Lcom/melodix/music/PreviewLastTrackStore;->lastWriteStatus:Ljava/lang/String;
+
+    .line 121
     if-nez v0, :cond_0
 
-    .line 118
+    const-string v0, "stockage indisponible"
+
+    sput-object v0, Lcom/melodix/music/PreviewLastTrackStore;->lastWriteStatus:Ljava/lang/String;
+
+    .line 125
     :goto_0
     return-void
 
-    .line 116
+    .line 123
     :cond_0
     :try_start_0
     sget-object v1, Lcom/melodix/music/PreviewLastTrackStore;->IO:Ljava/util/concurrent/ExecutorService;
@@ -121,13 +145,22 @@
     move-result-object v0
 
     invoke-interface {v0}, Ljava/util/concurrent/Future;->get()Ljava/lang/Object;
+
+    const-string v0, "effac\u00e9"
+
+    sput-object v0, Lcom/melodix/music/PreviewLastTrackStore;->lastWriteStatus:Ljava/lang/String;
     :try_end_0
     .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
 
     goto :goto_0
 
+    .line 124
     :catch_0
     move-exception v0
+
+    const-string v0, "effacement non confirm\u00e9"
+
+    sput-object v0, Lcom/melodix/music/PreviewLastTrackStore;->lastWriteStatus:Ljava/lang/String;
 
     goto :goto_0
 .end method
@@ -138,20 +171,20 @@
     .prologue
     const/4 v0, 0x0
 
-    .line 32
+    .line 34
     :try_start_0
     invoke-virtual {p0}, Landroid/content/Context;->getNoBackupFilesDir()Ljava/io/File;
 
     move-result-object v2
 
-    .line 33
+    .line 35
     if-nez v2, :cond_0
 
-    .line 34
+    .line 36
     :goto_0
     return-object v0
 
-    .line 33
+    .line 35
     :cond_0
     new-instance v1, Ljava/io/File;
 
@@ -165,7 +198,7 @@
 
     goto :goto_0
 
-    .line 34
+    .line 36
     :catch_0
     move-exception v1
 
@@ -176,14 +209,14 @@
     .locals 5
 
     .prologue
-    .line 76
+    .line 78
     invoke-static {p0}, Lcom/melodix/music/PreviewLastTrackStore;->file(Landroid/content/Context;)Ljava/io/File;
 
     move-result-object v0
 
     sget-wide v2, Lcom/melodix/music/PreviewLastTrackStore;->generation:J
 
-    .line 77
+    .line 79
     sget-object v1, Lcom/melodix/music/PreviewLastTrackStore;->IO:Ljava/util/concurrent/ExecutorService;
 
     new-instance v4, Lcom/melodix/music/PreviewLastTrackStore$1;
@@ -192,7 +225,7 @@
 
     invoke-interface {v1, v4}, Ljava/util/concurrent/ExecutorService;->execute(Ljava/lang/Runnable;)V
 
-    .line 90
+    .line 95
     return-void
 .end method
 
@@ -202,21 +235,21 @@
     .prologue
     const/4 v0, 0x0
 
-    .line 47
+    .line 49
     if-nez p0, :cond_0
 
-    .line 62
+    .line 64
     :goto_0
     return-object v0
 
-    .line 49
+    .line 51
     :cond_0
     :try_start_0
     new-instance v1, Landroid/util/AtomicFile;
 
     invoke-direct {v1, p0}, Landroid/util/AtomicFile;-><init>(Ljava/io/File;)V
 
-    .line 50
+    .line 52
     new-instance v2, Ljava/io/DataInputStream;
 
     invoke-virtual {v1}, Landroid/util/AtomicFile;->openRead()Ljava/io/FileInputStream;
@@ -227,7 +260,7 @@
     :try_end_0
     .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
 
-    .line 52
+    .line 54
     :try_start_1
     invoke-virtual {v2}, Ljava/io/DataInputStream;->readInt()I
     :try_end_1
@@ -239,7 +272,7 @@
 
     if-eq v1, v3, :cond_1
 
-    .line 61
+    .line 63
     :try_start_2
     invoke-virtual {v2}, Ljava/io/DataInputStream;->close()V
     :try_end_2
@@ -247,20 +280,20 @@
 
     goto :goto_0
 
-    .line 62
+    .line 64
     :catch_0
     move-exception v1
 
     goto :goto_0
 
-    .line 53
+    .line 55
     :cond_1
     :try_start_3
     new-instance v1, Lcom/melodix/music/PreviewLastTrackStore$Record;
 
     invoke-direct {v1}, Lcom/melodix/music/PreviewLastTrackStore$Record;-><init>()V
 
-    .line 54
+    .line 56
     invoke-virtual {v2}, Ljava/io/DataInputStream;->readUTF()Ljava/lang/String;
 
     move-result-object v3
@@ -279,7 +312,7 @@
 
     iput-object v3, v1, Lcom/melodix/music/PreviewLastTrackStore$Record;->state:Ljava/lang/String;
 
-    .line 55
+    .line 57
     invoke-virtual {v2}, Ljava/io/DataInputStream;->readLong()J
 
     move-result-wide v4
@@ -298,21 +331,21 @@
 
     iput-wide v4, v1, Lcom/melodix/music/PreviewLastTrackStore$Record;->observed:J
 
-    .line 56
+    .line 58
     invoke-virtual {v2}, Ljava/io/DataInputStream;->readInt()I
     :try_end_3
     .catchall {:try_start_3 .. :try_end_3} :catchall_0
 
     move-result v3
 
-    .line 57
+    .line 59
     if-ltz v3, :cond_2
 
     const/high16 v4, 0x80000
 
     if-le v3, v4, :cond_3
 
-    .line 61
+    .line 63
     :cond_2
     :try_start_4
     invoke-virtual {v2}, Ljava/io/DataInputStream;->close()V
@@ -321,7 +354,7 @@
 
     goto :goto_0
 
-    .line 58
+    .line 60
     :cond_3
     :try_start_5
     new-array v3, v3, [B
@@ -332,7 +365,7 @@
 
     invoke-virtual {v2, v3}, Ljava/io/DataInputStream;->readFully([B)V
 
-    .line 59
+    .line 61
     invoke-virtual {v2}, Ljava/io/DataInputStream;->read()I
 
     move-result v3
@@ -349,7 +382,7 @@
 
     if-nez v3, :cond_5
 
-    .line 61
+    .line 63
     :cond_4
     :try_start_6
     invoke-virtual {v2}, Ljava/io/DataInputStream;->close()V
@@ -361,10 +394,10 @@
 
     move-object v0, v1
 
-    .line 60
+    .line 62
     goto :goto_0
 
-    .line 61
+    .line 63
     :catchall_0
     move-exception v1
 
@@ -379,22 +412,31 @@
     .locals 7
 
     .prologue
-    .line 92
+    .line 97
     invoke-static {p0}, Lcom/melodix/music/PreviewLastTrackStore;->file(Landroid/content/Context;)Ljava/io/File;
 
     move-result-object v6
 
     sget-wide v2, Lcom/melodix/music/PreviewLastTrackStore;->generation:J
 
-    .line 93
+    .line 98
     if-nez v6, :cond_0
 
-    .line 111
+    const-string v0, "stockage indisponible"
+
+    sput-object v0, Lcom/melodix/music/PreviewLastTrackStore;->lastWriteStatus:Ljava/lang/String;
+
+    .line 118
     :goto_0
     return-void
 
-    .line 94
+    .line 99
     :cond_0
+    const-string v0, "en attente"
+
+    sput-object v0, Lcom/melodix/music/PreviewLastTrackStore;->lastWriteStatus:Ljava/lang/String;
+
+    .line 100
     sget-object v0, Lcom/melodix/music/PreviewLastTrackStore;->IO:Ljava/util/concurrent/ExecutorService;
 
     new-instance v1, Lcom/melodix/music/PreviewLastTrackStore$2;
@@ -418,7 +460,7 @@
 
     const-wide/16 v4, 0x0
 
-    .line 37
+    .line 39
     if-eqz p0, :cond_2
 
     iget-object v0, p0, Lcom/melodix/music/PreviewLastTrackStore$Record;->title:Ljava/lang/String;
@@ -433,49 +475,49 @@
 
     if-eqz v0, :cond_2
 
-    .line 38
-    iget-object v0, p0, Lcom/melodix/music/PreviewLastTrackStore$Record;->title:Ljava/lang/String;
-
-    invoke-virtual {v0}, Ljava/lang/String;->trim()Ljava/lang/String;
-
-    move-result-object v0
-
-    invoke-virtual {v0}, Ljava/lang/String;->isEmpty()Z
-
-    move-result v0
-
-    if-nez v0, :cond_2
-
-    iget-object v0, p0, Lcom/melodix/music/PreviewLastTrackStore$Record;->artist:Ljava/lang/String;
-
-    invoke-virtual {v0}, Ljava/lang/String;->trim()Ljava/lang/String;
-
-    move-result-object v0
-
-    invoke-virtual {v0}, Ljava/lang/String;->isEmpty()Z
-
-    move-result v0
-
-    if-nez v0, :cond_2
-
-    .line 39
-    iget-object v0, p0, Lcom/melodix/music/PreviewLastTrackStore$Record;->title:Ljava/lang/String;
-
-    invoke-virtual {v0}, Ljava/lang/String;->length()I
-
-    move-result v0
-
-    if-gt v0, v1, :cond_2
-
-    iget-object v0, p0, Lcom/melodix/music/PreviewLastTrackStore$Record;->artist:Ljava/lang/String;
-
-    invoke-virtual {v0}, Ljava/lang/String;->length()I
-
-    move-result v0
-
-    if-gt v0, v1, :cond_2
-
     .line 40
+    iget-object v0, p0, Lcom/melodix/music/PreviewLastTrackStore$Record;->title:Ljava/lang/String;
+
+    invoke-virtual {v0}, Ljava/lang/String;->trim()Ljava/lang/String;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/String;->isEmpty()Z
+
+    move-result v0
+
+    if-nez v0, :cond_2
+
+    iget-object v0, p0, Lcom/melodix/music/PreviewLastTrackStore$Record;->artist:Ljava/lang/String;
+
+    invoke-virtual {v0}, Ljava/lang/String;->trim()Ljava/lang/String;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/String;->isEmpty()Z
+
+    move-result v0
+
+    if-nez v0, :cond_2
+
+    .line 41
+    iget-object v0, p0, Lcom/melodix/music/PreviewLastTrackStore$Record;->title:Ljava/lang/String;
+
+    invoke-virtual {v0}, Ljava/lang/String;->length()I
+
+    move-result v0
+
+    if-gt v0, v1, :cond_2
+
+    iget-object v0, p0, Lcom/melodix/music/PreviewLastTrackStore$Record;->artist:Ljava/lang/String;
+
+    invoke-virtual {v0}, Ljava/lang/String;->length()I
+
+    move-result v0
+
+    if-gt v0, v1, :cond_2
+
+    .line 42
     iget-object v0, p0, Lcom/melodix/music/PreviewLastTrackStore$Record;->state:Ljava/lang/String;
 
     const-string v1, "playing"
@@ -496,7 +538,7 @@
 
     if-eqz v0, :cond_2
 
-    .line 41
+    .line 43
     :cond_0
     iget-wide v0, p0, Lcom/melodix/music/PreviewLastTrackStore$Record;->duration:J
 
@@ -512,7 +554,7 @@
 
     if-gtz v0, :cond_2
 
-    .line 42
+    .line 44
     iget-wide v0, p0, Lcom/melodix/music/PreviewLastTrackStore$Record;->position:J
 
     cmp-long v0, v0, v4
@@ -527,7 +569,7 @@
 
     if-gtz v0, :cond_2
 
-    .line 43
+    .line 45
     iget-wide v0, p0, Lcom/melodix/music/PreviewLastTrackStore$Record;->observed:J
 
     cmp-long v0, v0, v4
@@ -550,7 +592,7 @@
 
     if-gtz v0, :cond_2
 
-    .line 44
+    .line 46
     iget-object v0, p0, Lcom/melodix/music/PreviewLastTrackStore$Record;->image:[B
 
     if-eqz v0, :cond_1
@@ -561,7 +603,7 @@
 
     const/high16 v1, 0x80000
 
-    .line 37
+    .line 39
     if-gt v0, v1, :cond_2
 
     :cond_1
@@ -582,7 +624,7 @@
     .prologue
     const/4 v0, 0x0
 
-    .line 65
+    .line 67
     if-eqz p0, :cond_0
 
     invoke-static {}, Ljava/lang/System;->currentTimeMillis()J
@@ -595,12 +637,12 @@
 
     if-nez v1, :cond_1
 
-    .line 73
+    .line 75
     :cond_0
     :goto_0
     return v0
 
-    .line 66
+    .line 68
     :cond_1
     new-instance v3, Landroid/util/AtomicFile;
 
@@ -608,7 +650,7 @@
 
     const/4 v1, 0x0
 
-    .line 68
+    .line 70
     :try_start_0
     invoke-virtual {v3}, Landroid/util/AtomicFile;->startWrite()Ljava/io/FileOutputStream;
 
@@ -618,7 +660,7 @@
 
     invoke-direct {v4, v1}, Ljava/io/DataOutputStream;-><init>(Ljava/io/OutputStream;)V
 
-    .line 69
+    .line 71
     const v2, 0x4d445831    # 2.05882128E8f
 
     invoke-virtual {v4, v2}, Ljava/io/DataOutputStream;->writeInt(I)V
@@ -635,7 +677,7 @@
 
     invoke-virtual {v4, v2}, Ljava/io/DataOutputStream;->writeUTF(Ljava/lang/String;)V
 
-    .line 70
+    .line 72
     iget-wide v6, p1, Lcom/melodix/music/PreviewLastTrackStore$Record;->duration:J
 
     invoke-virtual {v4, v6, v7}, Ljava/io/DataOutputStream;->writeLong(J)V
@@ -648,7 +690,7 @@
 
     invoke-virtual {v4, v6, v7}, Ljava/io/DataOutputStream;->writeLong(J)V
 
-    .line 71
+    .line 73
     iget-object v2, p1, Lcom/melodix/music/PreviewLastTrackStore$Record;->image:[B
 
     if-nez v2, :cond_2
@@ -657,7 +699,7 @@
 
     new-array v2, v2, [B
 
-    .line 72
+    .line 74
     :goto_1
     array-length v5, v2
 
@@ -673,7 +715,7 @@
 
     goto :goto_0
 
-    .line 71
+    .line 73
     :cond_2
     iget-object v2, p1, Lcom/melodix/music/PreviewLastTrackStore$Record;->image:[B
     :try_end_0
@@ -681,7 +723,7 @@
 
     goto :goto_1
 
-    .line 73
+    .line 75
     :catch_0
     move-exception v2
 
@@ -690,4 +732,14 @@
     invoke-virtual {v3, v1}, Landroid/util/AtomicFile;->failWrite(Ljava/io/FileOutputStream;)V
 
     goto :goto_0
+.end method
+
+.method static writeStatus()Ljava/lang/String;
+    .locals 1
+
+    .prologue
+    .line 25
+    sget-object v0, Lcom/melodix/music/PreviewLastTrackStore;->lastWriteStatus:Ljava/lang/String;
+
+    return-object v0
 .end method

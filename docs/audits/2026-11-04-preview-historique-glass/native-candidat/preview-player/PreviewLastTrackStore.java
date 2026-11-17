@@ -21,12 +21,14 @@ final class PreviewLastTrackStore {
     private static final ExecutorService IO = Executors.newSingleThreadExecutor();
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private static volatile long generation;
+    private static volatile String lastWriteStatus = "aucune écriture dans ce processus";
+    static String writeStatus() { return lastWriteStatus; }
     static final class Record {
         String title, artist, state;
         long duration, position, observed;
         byte[] image;
     }
-    interface Callback { void loaded(Record record, Bitmap image); }
+    interface Callback { void loaded(Record record, Bitmap image, String status); }
     private static File file(Context context) {
         try {
             File dir = context.getNoBackupFilesDir();
@@ -75,7 +77,10 @@ final class PreviewLastTrackStore {
     static void load(Context context, final Callback callback) {
         final File path = file(context); final long current = generation;
         IO.execute(new Runnable() { public void run() {
-            final Record r = read(path, System.currentTimeMillis()); Bitmap result = null;
+            final Record r = read(path, System.currentTimeMillis());
+            final String status = r != null ? "valide" : path == null ? "stockage indisponible" :
+                (!path.exists() && !new File(path.getPath() + ".bak").exists()) ? "absent ou inaccessible" : "invalide, obsolète ou illisible";
+            Bitmap result = null;
             if (r != null && r.image.length > 0) {
                 try {
                     BitmapFactory.Options bounds = new BitmapFactory.Options(); bounds.inJustDecodeBounds = true;
@@ -85,14 +90,15 @@ final class PreviewLastTrackStore {
                 } catch (RuntimeException ignored) { }
             }
             final Bitmap image = result;
-            MAIN.post(new Runnable() { public void run() { if (current == generation) callback.loaded(r, image); } });
+            MAIN.post(new Runnable() { public void run() { if (current == generation) callback.loaded(r, image, status); } });
         }});
     }
     static void save(Context context, final Record record, final Bitmap bitmap) {
         final File path = file(context); final long current = generation;
-        if (path == null) return;
+        if (path == null) { lastWriteStatus = "stockage indisponible"; return; }
+        lastWriteStatus = "en attente";
         IO.execute(new Runnable() { public void run() {
-            if (current != generation) return;
+            if (current != generation) { lastWriteStatus = "annulée"; return; }
             if (bitmap != null && !bitmap.isRecycled()) try {
                 int w = bitmap.getWidth(), h = bitmap.getHeight();
                 float scale = Math.min(1f, 384f / Math.max(w, h));
@@ -106,14 +112,15 @@ final class PreviewLastTrackStore {
                 if (old != null && old.title.equals(record.title) && old.artist.equals(record.artist) && old.duration == record.duration)
                     record.image = old.image;
             }
-            if (current == generation) write(path, record);
+            if (current == generation) lastWriteStatus = write(path, record) ? "réussie" : "échouée";
+            else lastWriteStatus = "annulée";
         }});
     }
     static void clear(Context context) {
-        final File path = file(context); generation++;
-        if (path == null) return;
+        final File path = file(context); generation++; lastWriteStatus = "effacement demandé";
+        if (path == null) { lastWriteStatus = "stockage indisponible"; return; }
         // Logout must not return while an older queued write can resurrect data.
-        try { IO.submit(new Runnable() { public void run() { new AtomicFile(path).delete(); }}).get(); }
-        catch (Exception ignored) { }
+        try { IO.submit(new Runnable() { public void run() { new AtomicFile(path).delete(); }}).get(); lastWriteStatus = "effacé"; }
+        catch (Exception ignored) { lastWriteStatus = "effacement non confirmé"; }
     }
 }

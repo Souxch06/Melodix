@@ -224,15 +224,20 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     private boolean cacheLoading, restored, liveObserved, lastCachedHadArtwork;
     private long cacheStart = -1, cacheReadMs = -1, lastCacheWrite = -1;
     private String lastCachedIdentity = "", lastCachedState = "";
+    private String cacheOutcome = "non chargé";
     // Invoked once, immediately after the real native layout has been inflated.
     public void layoutReady() {
         final Activity a = activity.get(); if (a == null) return;
         cacheLoading = true; cacheStart = now();
         PreviewLastTrackStore.load(a, new PreviewLastTrackStore.Callback() {
-            public void loaded(PreviewLastTrackStore.Record r, Bitmap image) {
-                cacheLoading = false;
+            public void loaded(PreviewLastTrackStore.Record r, Bitmap image, String status) {
+                cacheLoading = false; cacheOutcome = "lecture : " + status;
                 Activity current = activity.get();
-                if (current == null || current.isFinishing() || liveObserved || r == null) { cacheReadMs = Math.max(0, now() - cacheStart); return; }
+                if (current == null || current.isFinishing() || liveObserved || r == null) {
+                    if (liveObserved) cacheOutcome += " ; remplacé par observation Spotify";
+                    else if (current == null || current.isFinishing()) cacheOutcome += " ; activité indisponible";
+                    cacheReadMs = Math.max(0, now() - cacheStart); return;
+                }
                 restored = true; valid = tupleIdentity = true; moving = interrupted = false;
                 haveReal = realPlaying = shownPlaying = false; playbackState = "unknown";
                 identityTitle = r.title; identityArtist = r.artist; identityDuration = duration = r.duration;
@@ -250,6 +255,14 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                     if (full instanceof ImageView) ((ImageView) full).setImageBitmap(image);
                 }
                 haveReal = true; renderProgress(); renderButtons(); syncGlow();
+                // The splash is a higher-elevation sibling of nativeRoot. Do
+                // not call showNativeUi(), which marks the session ready and
+                // starts WebView work. Never make a hidden login root visible.
+                View root = current.findViewById(0x7f09022f), splash = current.findViewById(0x7f0901c6);
+                if (root != null && root.getVisibility() == View.VISIBLE && splash != null) {
+                    splash.setVisibility(View.GONE);
+                    cacheOutcome += " ; vues appliquées ; écran de chargement masqué";
+                } else cacheOutcome += " ; vues appliquées ; interface non visible ou indisponible";
                 cacheReadMs = Math.max(0, now() - cacheStart);
             }
         });
@@ -789,7 +802,8 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         out.append("\nInterface optimiste : ").append(delta(optimisticAt));
         out.append("\nÉtat du lecteur observé : ").append(delta(stateAt));
         out.append("\nInterface confirmée : ").append(delta(uiAt));
-        out.append("\nCache local : lecture et application des vues, sans mesure de frame : ").append(cacheReadMs < 0 ? "—" : cacheReadMs + " ms");
+        out.append("\nCache local : ").append(cacheOutcome).append(" ; écriture : ").append(PreviewLastTrackStore.writeStatus());
+        out.append("\nCache local : lecture et application éventuelle des vues, sans mesure de frame : ").append(cacheReadMs < 0 ? "—" : cacheReadMs + " ms");
         out.append("\nDémarrage : processus → prochaine frame accueil avec données (Android 12+) : ")
             .append(processHomeFrameMs < 0 ? "—" : Long.toString(processHomeFrameMs) + " ms");
         out.append("\nDémarrage : activité → prochaine frame accueil avec données : ")

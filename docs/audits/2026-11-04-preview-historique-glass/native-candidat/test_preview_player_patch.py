@@ -113,6 +113,19 @@ class PreviewPlayer(unittest.TestCase):
         self.assertNotIn('evaluateJavascript',store)
         self.assertNotIn('playFromUri',store)
 
+    def test_restoration_can_uncover_only_existing_visible_native_root(self):
+        import xml.etree.ElementTree as ET
+        android = '{http://schemas.android.com/apk/res/android}'
+        for layout in ('res/layout/activity_main.xml', 'res/layout-w600dp/activity_main.xml'):
+            tree = ET.fromstring(self.get(layout))
+            native = next(v for v in tree.iter() if v.get(android+'id') == '@id/nativeRoot')
+            splash = next(v for v in tree.iter() if v.get(android+'id') == '@id/splashOverlay')
+            self.assertEqual(splash.get(android+'visibility'), 'visible')
+            self.assertGreater(float(splash.get(android+'elevation').replace('dip','')), float(native.get(android+'elevation').replace('dip','')))
+        source = (HERE/'preview-player/PreviewPlayerController.java').read_text()
+        self.assertIn('root.getVisibility() == View.VISIBLE && splash != null', source)
+        self.assertIn('splash.setVisibility(View.GONE)', source)
+
     def test_route_and_about_row_are_native_and_discreet(self):
         a=self.get('smali/com/melodix/music/MainActivity.smali')
         apply=method(a,'.method public final applyNativeUiData(')

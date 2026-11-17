@@ -26,7 +26,7 @@
     .locals 0
 
     .prologue
-    .line 231
+    .line 232
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -36,7 +36,7 @@
 
 
 # virtual methods
-.method public loaded(Lcom/melodix/music/PreviewLastTrackStore$Record;Landroid/graphics/Bitmap;)V
+.method public loaded(Lcom/melodix/music/PreviewLastTrackStore$Record;Landroid/graphics/Bitmap;Ljava/lang/String;)V
     .locals 12
 
     .prologue
@@ -48,12 +48,30 @@
 
     const/4 v4, 0x0
 
-    .line 233
+    .line 234
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     invoke-static {v0, v4}, Lcom/melodix/music/PreviewPlayerController;->access$20(Lcom/melodix/music/PreviewPlayerController;Z)V
 
-    .line 234
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
+
+    new-instance v1, Ljava/lang/StringBuilder;
+
+    const-string v2, "lecture : "
+
+    invoke-direct {v1, v2}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    invoke-virtual {v1, p3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v1
+
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v1
+
+    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerController;->access$21(Lcom/melodix/music/PreviewPlayerController;Ljava/lang/String;)V
+
+    .line 235
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$19(Lcom/melodix/music/PreviewPlayerController;)Ljava/lang/ref/WeakReference;
@@ -66,7 +84,7 @@
 
     check-cast v0, Landroid/app/Activity;
 
-    .line 235
+    .line 236
     if-eqz v0, :cond_0
 
     invoke-virtual {v0}, Landroid/app/Activity;->isFinishing()Z
@@ -77,15 +95,53 @@
 
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
-    invoke-static {v1}, Lcom/melodix/music/PreviewPlayerController;->access$21(Lcom/melodix/music/PreviewPlayerController;)Z
+    invoke-static {v1}, Lcom/melodix/music/PreviewPlayerController;->access$22(Lcom/melodix/music/PreviewPlayerController;)Z
 
     move-result v1
 
     if-nez v1, :cond_0
 
-    if-nez p1, :cond_1
+    if-nez p1, :cond_4
 
+    .line 237
     :cond_0
+    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
+
+    invoke-static {v1}, Lcom/melodix/music/PreviewPlayerController;->access$22(Lcom/melodix/music/PreviewPlayerController;)Z
+
+    move-result v1
+
+    if-eqz v1, :cond_2
+
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
+
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$23(Lcom/melodix/music/PreviewPlayerController;)Ljava/lang/String;
+
+    move-result-object v1
+
+    new-instance v2, Ljava/lang/StringBuilder;
+
+    invoke-static {v1}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
+
+    move-result-object v1
+
+    invoke-direct {v2, v1}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    const-string v1, " ; remplac\u00e9 par observation Spotify"
+
+    invoke-virtual {v2, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v1
+
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v1
+
+    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerController;->access$21(Lcom/melodix/music/PreviewPlayerController;Ljava/lang/String;)V
+
+    .line 239
+    :cond_1
+    :goto_0
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
@@ -96,7 +152,7 @@
 
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
-    invoke-static {v1}, Lcom/melodix/music/PreviewPlayerController;->access$22(Lcom/melodix/music/PreviewPlayerController;)J
+    invoke-static {v1}, Lcom/melodix/music/PreviewPlayerController;->access$24(Lcom/melodix/music/PreviewPlayerController;)J
 
     move-result-wide v4
 
@@ -106,23 +162,54 @@
 
     move-result-wide v2
 
-    invoke-static {v0, v2, v3}, Lcom/melodix/music/PreviewPlayerController;->access$23(Lcom/melodix/music/PreviewPlayerController;J)V
+    invoke-static {v0, v2, v3}, Lcom/melodix/music/PreviewPlayerController;->access$25(Lcom/melodix/music/PreviewPlayerController;J)V
 
-    .line 254
-    :goto_0
+    .line 267
+    :goto_1
     return-void
 
-    .line 236
-    :cond_1
+    .line 238
+    :cond_2
+    if-eqz v0, :cond_3
+
+    invoke-virtual {v0}, Landroid/app/Activity;->isFinishing()Z
+
+    move-result v0
+
+    if-eqz v0, :cond_1
+
+    :cond_3
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
+
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$23(Lcom/melodix/music/PreviewPlayerController;)Ljava/lang/String;
+
+    move-result-object v1
+
+    new-instance v2, Ljava/lang/StringBuilder;
+
+    invoke-static {v1}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
+
+    move-result-object v1
+
+    invoke-direct {v2, v1}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    const-string v1, " ; activit\u00e9 indisponible"
+
+    invoke-virtual {v2, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v1
+
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v1
+
+    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerController;->access$21(Lcom/melodix/music/PreviewPlayerController;Ljava/lang/String;)V
+
+    goto :goto_0
+
+    .line 241
+    :cond_4
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
-
-    invoke-static {v1, v6}, Lcom/melodix/music/PreviewPlayerController;->access$24(Lcom/melodix/music/PreviewPlayerController;Z)V
-
-    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
-
-    iget-object v2, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
-
-    invoke-static {v2, v6}, Lcom/melodix/music/PreviewPlayerController;->access$25(Lcom/melodix/music/PreviewPlayerController;Z)V
 
     invoke-static {v1, v6}, Lcom/melodix/music/PreviewPlayerController;->access$26(Lcom/melodix/music/PreviewPlayerController;Z)V
 
@@ -130,41 +217,49 @@
 
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
-    invoke-static {v2, v4}, Lcom/melodix/music/PreviewPlayerController;->access$27(Lcom/melodix/music/PreviewPlayerController;Z)V
+    invoke-static {v2, v6}, Lcom/melodix/music/PreviewPlayerController;->access$27(Lcom/melodix/music/PreviewPlayerController;Z)V
+
+    invoke-static {v1, v6}, Lcom/melodix/music/PreviewPlayerController;->access$28(Lcom/melodix/music/PreviewPlayerController;Z)V
+
+    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
+
+    iget-object v2, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
+
+    invoke-static {v2, v4}, Lcom/melodix/music/PreviewPlayerController;->access$29(Lcom/melodix/music/PreviewPlayerController;Z)V
 
     invoke-static {v1, v4}, Lcom/melodix/music/PreviewPlayerController;->access$16(Lcom/melodix/music/PreviewPlayerController;Z)V
 
-    .line 237
+    .line 242
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     iget-object v3, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
-    invoke-static {v3, v4}, Lcom/melodix/music/PreviewPlayerController;->access$28(Lcom/melodix/music/PreviewPlayerController;Z)V
+    invoke-static {v3, v4}, Lcom/melodix/music/PreviewPlayerController;->access$30(Lcom/melodix/music/PreviewPlayerController;Z)V
 
-    invoke-static {v2, v4}, Lcom/melodix/music/PreviewPlayerController;->access$29(Lcom/melodix/music/PreviewPlayerController;Z)V
+    invoke-static {v2, v4}, Lcom/melodix/music/PreviewPlayerController;->access$31(Lcom/melodix/music/PreviewPlayerController;Z)V
 
-    invoke-static {v1, v4}, Lcom/melodix/music/PreviewPlayerController;->access$30(Lcom/melodix/music/PreviewPlayerController;Z)V
+    invoke-static {v1, v4}, Lcom/melodix/music/PreviewPlayerController;->access$32(Lcom/melodix/music/PreviewPlayerController;Z)V
 
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     const-string v2, "unknown"
 
-    invoke-static {v1, v2}, Lcom/melodix/music/PreviewPlayerController;->access$31(Lcom/melodix/music/PreviewPlayerController;Ljava/lang/String;)V
+    invoke-static {v1, v2}, Lcom/melodix/music/PreviewPlayerController;->access$33(Lcom/melodix/music/PreviewPlayerController;Ljava/lang/String;)V
 
-    .line 238
+    .line 243
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     iget-object v2, p1, Lcom/melodix/music/PreviewLastTrackStore$Record;->title:Ljava/lang/String;
 
-    invoke-static {v1, v2}, Lcom/melodix/music/PreviewPlayerController;->access$32(Lcom/melodix/music/PreviewPlayerController;Ljava/lang/String;)V
+    invoke-static {v1, v2}, Lcom/melodix/music/PreviewPlayerController;->access$34(Lcom/melodix/music/PreviewPlayerController;Ljava/lang/String;)V
 
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     iget-object v2, p1, Lcom/melodix/music/PreviewLastTrackStore$Record;->artist:Ljava/lang/String;
 
-    invoke-static {v1, v2}, Lcom/melodix/music/PreviewPlayerController;->access$33(Lcom/melodix/music/PreviewPlayerController;Ljava/lang/String;)V
+    invoke-static {v1, v2}, Lcom/melodix/music/PreviewPlayerController;->access$35(Lcom/melodix/music/PreviewPlayerController;Ljava/lang/String;)V
 
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
@@ -172,11 +267,11 @@
 
     iget-wide v4, p1, Lcom/melodix/music/PreviewLastTrackStore$Record;->duration:J
 
-    invoke-static {v2, v4, v5}, Lcom/melodix/music/PreviewPlayerController;->access$34(Lcom/melodix/music/PreviewPlayerController;J)V
+    invoke-static {v2, v4, v5}, Lcom/melodix/music/PreviewPlayerController;->access$36(Lcom/melodix/music/PreviewPlayerController;J)V
 
-    invoke-static {v1, v4, v5}, Lcom/melodix/music/PreviewPlayerController;->access$35(Lcom/melodix/music/PreviewPlayerController;J)V
+    invoke-static {v1, v4, v5}, Lcom/melodix/music/PreviewPlayerController;->access$37(Lcom/melodix/music/PreviewPlayerController;J)V
 
-    .line 239
+    .line 244
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     iget-wide v2, p1, Lcom/melodix/music/PreviewLastTrackStore$Record;->position:J
@@ -205,29 +300,29 @@
 
     const-string v2, ""
 
-    invoke-static {v1, v2}, Lcom/melodix/music/PreviewPlayerController;->access$36(Lcom/melodix/music/PreviewPlayerController;Ljava/lang/String;)V
+    invoke-static {v1, v2}, Lcom/melodix/music/PreviewPlayerController;->access$38(Lcom/melodix/music/PreviewPlayerController;Ljava/lang/String;)V
 
-    .line 240
+    .line 245
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
-    invoke-static {v2, v8, v9}, Lcom/melodix/music/PreviewPlayerController;->access$37(Lcom/melodix/music/PreviewPlayerController;J)V
+    invoke-static {v2, v8, v9}, Lcom/melodix/music/PreviewPlayerController;->access$39(Lcom/melodix/music/PreviewPlayerController;J)V
 
-    invoke-static {v1, v8, v9}, Lcom/melodix/music/PreviewPlayerController;->access$38(Lcom/melodix/music/PreviewPlayerController;J)V
+    invoke-static {v1, v8, v9}, Lcom/melodix/music/PreviewPlayerController;->access$40(Lcom/melodix/music/PreviewPlayerController;J)V
 
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
-    invoke-static {v1, v8, v9}, Lcom/melodix/music/PreviewPlayerController;->access$39(Lcom/melodix/music/PreviewPlayerController;J)V
+    invoke-static {v1, v8, v9}, Lcom/melodix/music/PreviewPlayerController;->access$41(Lcom/melodix/music/PreviewPlayerController;J)V
 
-    .line 241
+    .line 246
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     const v2, 0x7f090236
 
     iget-object v3, p1, Lcom/melodix/music/PreviewLastTrackStore$Record;->title:Ljava/lang/String;
 
-    invoke-static {v1, v0, v2, v3}, Lcom/melodix/music/PreviewPlayerController;->access$40(Lcom/melodix/music/PreviewPlayerController;Landroid/app/Activity;ILjava/lang/String;)V
+    invoke-static {v1, v0, v2, v3}, Lcom/melodix/music/PreviewPlayerController;->access$42(Lcom/melodix/music/PreviewPlayerController;Landroid/app/Activity;ILjava/lang/String;)V
 
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
@@ -235,25 +330,25 @@
 
     iget-object v3, p1, Lcom/melodix/music/PreviewLastTrackStore$Record;->title:Ljava/lang/String;
 
-    invoke-static {v1, v0, v2, v3}, Lcom/melodix/music/PreviewPlayerController;->access$40(Lcom/melodix/music/PreviewPlayerController;Landroid/app/Activity;ILjava/lang/String;)V
+    invoke-static {v1, v0, v2, v3}, Lcom/melodix/music/PreviewPlayerController;->access$42(Lcom/melodix/music/PreviewPlayerController;Landroid/app/Activity;ILjava/lang/String;)V
 
-    .line 242
+    .line 247
     const v1, 0x7f09023a
 
     invoke-virtual {v0, v1}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
 
     move-result-object v1
 
-    .line 243
-    if-nez v1, :cond_5
+    .line 248
+    if-nez v1, :cond_8
 
     const/4 v1, 0x0
 
-    .line 244
-    :goto_1
+    .line 249
+    :goto_2
     instance-of v2, v1, Landroid/widget/TextView;
 
-    if-eqz v2, :cond_2
+    if-eqz v2, :cond_5
 
     check-cast v1, Landroid/widget/TextView;
 
@@ -261,8 +356,8 @@
 
     invoke-virtual {v1, v2}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
 
-    .line 245
-    :cond_2
+    .line 250
+    :cond_5
     new-instance v1, Ljava/lang/StringBuilder;
 
     iget-object v2, p1, Lcom/melodix/music/PreviewLastTrackStore$Record;->artist:Ljava/lang/String;
@@ -283,23 +378,23 @@
 
     move-result-object v1
 
-    .line 246
+    .line 251
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     const v3, 0x7f090237
 
-    invoke-static {v2, v0, v3, v1}, Lcom/melodix/music/PreviewPlayerController;->access$40(Lcom/melodix/music/PreviewPlayerController;Landroid/app/Activity;ILjava/lang/String;)V
+    invoke-static {v2, v0, v3, v1}, Lcom/melodix/music/PreviewPlayerController;->access$42(Lcom/melodix/music/PreviewPlayerController;Landroid/app/Activity;ILjava/lang/String;)V
 
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     const v3, 0x7f09023c
 
-    invoke-static {v2, v0, v3, v1}, Lcom/melodix/music/PreviewPlayerController;->access$40(Lcom/melodix/music/PreviewPlayerController;Landroid/app/Activity;ILjava/lang/String;)V
+    invoke-static {v2, v0, v3, v1}, Lcom/melodix/music/PreviewPlayerController;->access$42(Lcom/melodix/music/PreviewPlayerController;Landroid/app/Activity;ILjava/lang/String;)V
 
-    .line 247
-    if-eqz p2, :cond_4
+    .line 252
+    if-eqz p2, :cond_7
 
-    .line 248
+    .line 253
     const v1, 0x7f090244
 
     invoke-virtual {v0, v1}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
@@ -312,48 +407,103 @@
 
     move-result-object v2
 
-    .line 249
-    instance-of v0, v1, Landroid/widget/ImageView;
+    .line 254
+    instance-of v3, v1, Landroid/widget/ImageView;
 
-    if-eqz v0, :cond_3
+    if-eqz v3, :cond_6
 
-    move-object v0, v1
+    check-cast v1, Landroid/widget/ImageView;
 
-    check-cast v0, Landroid/widget/ImageView;
+    invoke-virtual {v1, p2}, Landroid/widget/ImageView;->setImageBitmap(Landroid/graphics/Bitmap;)V
 
-    invoke-virtual {v0, p2}, Landroid/widget/ImageView;->setImageBitmap(Landroid/graphics/Bitmap;)V
+    .line 255
+    :cond_6
+    instance-of v1, v2, Landroid/widget/ImageView;
 
-    .line 250
-    :cond_3
-    instance-of v0, v2, Landroid/widget/ImageView;
+    if-eqz v1, :cond_7
 
-    if-eqz v0, :cond_4
+    move-object v1, v2
 
-    move-object v0, v2
+    check-cast v1, Landroid/widget/ImageView;
 
-    check-cast v0, Landroid/widget/ImageView;
+    invoke-virtual {v1, p2}, Landroid/widget/ImageView;->setImageBitmap(Landroid/graphics/Bitmap;)V
 
-    invoke-virtual {v0, p2}, Landroid/widget/ImageView;->setImageBitmap(Landroid/graphics/Bitmap;)V
+    .line 257
+    :cond_7
+    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
-    .line 252
-    :cond_4
+    invoke-static {v1, v6}, Lcom/melodix/music/PreviewPlayerController;->access$32(Lcom/melodix/music/PreviewPlayerController;Z)V
+
+    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
+
+    invoke-static {v1}, Lcom/melodix/music/PreviewPlayerController;->access$17(Lcom/melodix/music/PreviewPlayerController;)V
+
+    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
+
+    invoke-static {v1}, Lcom/melodix/music/PreviewPlayerController;->access$43(Lcom/melodix/music/PreviewPlayerController;)V
+
+    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
+
+    invoke-static {v1}, Lcom/melodix/music/PreviewPlayerController;->access$44(Lcom/melodix/music/PreviewPlayerController;)V
+
+    .line 261
+    const v1, 0x7f09022f
+
+    invoke-virtual {v0, v1}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+
+    move-result-object v1
+
+    const v2, 0x7f0901c6
+
+    invoke-virtual {v0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+
+    move-result-object v0
+
+    .line 262
+    if-eqz v1, :cond_9
+
+    invoke-virtual {v1}, Landroid/view/View;->getVisibility()I
+
+    move-result v1
+
+    if-nez v1, :cond_9
+
+    if-eqz v0, :cond_9
+
+    .line 263
+    const/16 v1, 0x8
+
+    invoke-virtual {v0, v1}, Landroid/view/View;->setVisibility(I)V
+
+    .line 264
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
-    invoke-static {v0, v6}, Lcom/melodix/music/PreviewPlayerController;->access$30(Lcom/melodix/music/PreviewPlayerController;Z)V
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$23(Lcom/melodix/music/PreviewPlayerController;)Ljava/lang/String;
 
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
+    move-result-object v1
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$17(Lcom/melodix/music/PreviewPlayerController;)V
+    new-instance v2, Ljava/lang/StringBuilder;
 
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
+    invoke-static {v1}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$41(Lcom/melodix/music/PreviewPlayerController;)V
+    move-result-object v1
 
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
+    invoke-direct {v2, v1}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$42(Lcom/melodix/music/PreviewPlayerController;)V
+    const-string v1, " ; vues appliqu\u00e9es ; \u00e9cran de chargement masqu\u00e9"
 
-    .line 253
+    invoke-virtual {v2, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v1
+
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v1
+
+    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerController;->access$21(Lcom/melodix/music/PreviewPlayerController;Ljava/lang/String;)V
+
+    .line 266
+    :goto_3
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
@@ -364,7 +514,7 @@
 
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
-    invoke-static {v1}, Lcom/melodix/music/PreviewPlayerController;->access$22(Lcom/melodix/music/PreviewPlayerController;)J
+    invoke-static {v1}, Lcom/melodix/music/PreviewPlayerController;->access$24(Lcom/melodix/music/PreviewPlayerController;)J
 
     move-result-wide v4
 
@@ -374,17 +524,47 @@
 
     move-result-wide v2
 
-    invoke-static {v0, v2, v3}, Lcom/melodix/music/PreviewPlayerController;->access$23(Lcom/melodix/music/PreviewPlayerController;J)V
+    invoke-static {v0, v2, v3}, Lcom/melodix/music/PreviewPlayerController;->access$25(Lcom/melodix/music/PreviewPlayerController;J)V
 
-    goto/16 :goto_0
+    goto/16 :goto_1
 
-    .line 243
-    :cond_5
+    .line 248
+    :cond_8
     const-string v2, "previewPlayerDragHandle"
 
     invoke-virtual {v1, v2}, Landroid/view/View;->findViewWithTag(Ljava/lang/Object;)Landroid/view/View;
 
     move-result-object v1
 
-    goto/16 :goto_1
+    goto/16 :goto_2
+
+    .line 265
+    :cond_9
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
+
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$23(Lcom/melodix/music/PreviewPlayerController;)Ljava/lang/String;
+
+    move-result-object v1
+
+    new-instance v2, Ljava/lang/StringBuilder;
+
+    invoke-static {v1}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
+
+    move-result-object v1
+
+    invoke-direct {v2, v1}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    const-string v1, " ; vues appliqu\u00e9es ; interface non visible ou indisponible"
+
+    invoke-virtual {v2, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v1
+
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v1
+
+    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerController;->access$21(Lcom/melodix/music/PreviewPlayerController;Ljava/lang/String;)V
+
+    goto :goto_3
 .end method
