@@ -91,7 +91,7 @@ test('queue: opens the panel, reads rows with duration, closes it again', async 
   });
   assert.equal(run(dom, queue, 'run').status, 'started'); await settle(500);
   const out = run(dom, queue, 'poll');
-  assert.equal(out.ok, true); assert.equal(out.now, 'Titre A\tArtiste A\t3:21'); assert.equal(out.next, 'Titre B\tArtiste B\t'); assert.equal(closes, 1);
+  assert.equal(out.ok, true); assert.equal(out.now, ''); assert.equal(out.next, 'Titre A\tArtiste A\t3:21\nTitre B\tArtiste B\t'); assert.equal(closes, 1);
 });
 
 test('queue: missing control reports a short reason without opening anything', async () => {
@@ -211,7 +211,7 @@ test('desktop layout: queue in a labelled side panel without row markers is read
   });
   run(dom, queue, 'run'); await settle(500);
   const out = run(dom, queue, 'poll');
-  assert.equal(out.ok, true); assert.ok(out.now.startsWith('Un\tA\t3:01')); assert.ok(out.next.startsWith('Deux\tB'));
+  assert.equal(out.ok, true); assert.equal(out.now,''); assert.ok(out.next.startsWith('Un\tA\t3:01')); assert.ok(out.next.includes('Deux\tB'));
 });
 
 test('lyrics: a disabled lyrics button is reported, never clicked', async () => {
@@ -245,7 +245,7 @@ test('narrow page: the queue opened as its own /queue page is read from the main
   });
   run(dom, queue, 'run'); await settle(500);
   const out = run(dom, queue, 'poll');
-  assert.equal(out.ok, true); assert.ok(out.now.startsWith('Un\tA')); assert.ok(out.next.startsWith('Deux\tB'));
+  assert.equal(out.ok, false); assert.equal(out.reason,'close-unverified'); assert.ok(out.next.startsWith('Un\tA')); assert.ok(out.next.includes('Deux\tB'));
 });
 
 test('hidden page: a 0-px queue panel is given a size while read, then restored exactly', async () => {
@@ -258,7 +258,7 @@ test('hidden page: a 0-px queue panel is given a size while read, then restored 
   }, 50);
   run(dom, queue, 'run'); await settle(1800); dom.window.clearInterval(timer);
   const out = run(dom, queue, 'poll');
-  assert.equal(out.ok, true); assert.ok(out.now.startsWith('Un\tA'));
+  assert.equal(out.ok, true); assert.equal(out.now,''); assert.ok(out.next.startsWith('Un\tA'));
   assert.equal(panel.getAttribute('style'), 'color: red;');
   assert.ok(out.journal.some((c) => /^sized:1,h:0$/.test(c)));
 });
@@ -407,4 +407,47 @@ test('like: Spotify "+" button (generic "Ajouter…" label, aria-checked) with a
   assert.equal(clicks, 1); assert.equal(out.state, 'true');
   run(dom, mode, 'like', 'run', 'true', 'Titre', 'album:al9'); await settle(1500);
   assert.equal(clicks, 1);
+});
+
+test('devices: the picker trigger itself is not mistaken for an open device panel', async () => {
+  const dom=page('<button data-testid="connect-device-picker" aria-expanded="false">Connecter</button><div id="slot"></div>');
+  const d=dom.window.document,b=d.querySelector('button');let clicks=0;
+  b.onclick=()=>{clicks++;if(b.getAttribute('aria-expanded')==='false'){b.setAttribute('aria-expanded','true');d.querySelector('#slot').innerHTML='<div data-testid="device-picker"><div data-testid="device-list-item" aria-selected="true"><span data-testid="device-name">Private speaker</span></div></div>';}else{b.setAttribute('aria-expanded','false');d.querySelector('#slot').innerHTML='';}};
+  run(dom,panel,'devices','run','');await settle(500);const result=run(dom,panel,'devices','poll');
+  assert.equal(result.ok,true);assert.equal(clicks,2);assert.ok(result.body.startsWith('Private speaker'));assert.ok(result.journal.includes('close:verified'));assert.ok(!JSON.stringify(result.journal).includes('Private'));
+  dom.window.close();
+});
+
+test('panel: ambiguous independent roots never trigger a click or read an arbitrary panel',async()=>{
+  const dom=page('<button data-testid="lyrics-button" aria-pressed="false"></button><div data-testid="lyrics-container"><p>one</p></div><div data-testid="lyrics-container"><p>two</p></div>');let clicks=0;
+  dom.window.document.querySelector('button').onclick=()=>clicks++;run(dom,panel,'lyrics','run','');await settle(50);
+  const r=run(dom,panel,'lyrics','poll');assert.equal(r.reason,'ambiguous');assert.equal(r.ok,false);assert.equal(clicks,0);dom.window.close();
+});
+
+test('queue: an unrelated sidebar with track links is not treated as a queue',async()=>{
+  const dom=page('<div data-testid="right-sidebar"><a href="/track/private">Private song</a></div>');run(dom,queue,'run');await settle(30);
+  const r=run(dom,queue,'poll');assert.equal(r.ok,false);assert.equal(r.reason,'absent');assert.ok(!JSON.stringify(r.journal).includes('Private'));dom.window.close();
+});
+
+test('queue: unverified closure is reported rather than claiming success or clicking blindly',async()=>{
+  const dom=page('<button data-testid="queue-button" aria-pressed="false"></button><div id="slot"></div>');const d=dom.window.document,b=d.querySelector('button');let clicks=0;
+  b.onclick=()=>{clicks++;d.querySelector('#slot').innerHTML='<div data-testid="queue-page"><div data-testid="tracklist-row"><a href="/track/a">A</a></div></div>';};
+  run(dom,queue,'run');await settle(500);const r=run(dom,queue,'poll');assert.equal(r.ok,false);assert.equal(r.reason,'close-unverified');assert.equal(clicks,1);assert.ok(r.journal.includes('close:unverified'));dom.window.close();
+});
+
+
+test('queue: only an explicitly marked current row is shown as playing now',async()=>{
+ const dom=page('<div data-testid="queue-page"><div data-testid="tracklist-row"><a href="/track/a">A</a></div><div data-testid="tracklist-row" aria-current="true"><a href="/track/b">B</a></div></div>');
+ run(dom,queue,'run');await settle(50);let r=run(dom,queue,'poll');assert.equal(r.ok,true);assert.equal(r.now,'B\t\t');assert.equal(r.next,'A\t\t');dom.window.close();
+});
+
+test('lyrics: result waits for verified close and never closes a replacement button',async()=>{
+ const dom=page('<button data-testid="lyrics-button" aria-pressed="false"></button><div id="slot"></div>');const d=dom.window.document,b=d.querySelector('button');let clicks=0;
+ b.onclick=()=>{clicks++;b.setAttribute('aria-pressed','true');d.querySelector('#slot').innerHTML='<div data-testid="lyrics-container"><p>A private lyric</p></div>';const replacement=b.cloneNode(true);b.replaceWith(replacement);};
+ run(dom,panel,'lyrics','run','');await settle(500);let out=run(dom,panel,'lyrics','poll');assert.equal(out.reason,'close-unverified');assert.equal(out.ok,false);assert.equal(clicks,1);assert.ok(!JSON.stringify(out.journal).includes('private'));dom.window.close();
+});
+
+test('devices: a panel originally open is read without clicking or closing it',async()=>{
+ const dom=page('<button data-testid="control-button-connect" aria-expanded="true"></button><div data-testid="device-picker"><div data-testid="device-list-item" aria-selected="true"><span data-testid="device-name">Secret</span></div></div>');let clicks=0;dom.window.document.querySelector('button').onclick=()=>clicks++;
+ run(dom,panel,'devices','run','');await settle(50);let out=run(dom,panel,'devices','poll');assert.equal(out.ok,true);assert.equal(clicks,0);assert.ok(out.journal.includes('already-open'));assert.ok(!JSON.stringify(out.journal).includes('Secret'));dom.window.close();
 });

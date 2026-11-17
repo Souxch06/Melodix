@@ -19,3 +19,10 @@ Ne tester un nouvel APK qu'après publication, versionCode et garde signée 7/7 
 | Recompter la playlist et les Titres likés après les essais | Même nombre de titres qu'avant, sauf like ajouté volontairement et vérifié | Titre disparu, doublon ou changement non demandé ; ne pas poursuivre d'actions destructives |
 
 Les contrôles File/Paroles/Appareils peuvent être délibérément indisponibles dans la version en attente : ne pas considérer le message natif comme une preuve que les futurs tiroirs fonctionnent. Les tests simulés ne remplacent pas ces vérifications.
+
+## Panneaux — diagnostic ciblé (à vérifier sur téléphone)
+
+1. Ouvrir séparément File, Paroles et Appareils, attendre le résultat ou l’erreur, puis fermer. Ne pas confirmer de transfert pendant ce test.
+2. Depuis À propos, copier le diagnostic : relever les lignes Structure et tiroir de chaque panneau. Elles contiennent uniquement des catégories et des compteurs, pas de titres, paroles, noms d’appareils ou données de session.
+3. `lecture=ok` et `rendu=natif` indiquent une lecture et construction des vues dans le code, pas une validation visuelle sur le téléphone. `close:verified` indique une fermeture observée ; `close:unverified` ne la garantit pas. Un délai ou une fermeture anticipée n'est pas une preuve de panneau vide.
+4. Pour la file, vérifier que les titres sont ceux de la file ; « En cours de lecture » n’est affiché que si la page marque explicitement le titre courant.

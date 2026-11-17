@@ -20,54 +20,27 @@
 # instance fields
 .field final synthetic this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-.field final synthetic val$a:Landroid/app/Activity;
+.field private final synthetic val$a:Landroid/app/Activity;
 
-.field final synthetic val$ask:Landroid/app/Dialog;
+.field private final synthetic val$ask:Landroid/app/Dialog;
 
-.field final synthetic val$dialog:Landroid/app/Dialog;
+.field private final synthetic val$dialog:Landroid/app/Dialog;
 
-.field final synthetic val$i:I
+.field private final synthetic val$i:I
 
-.field final synthetic val$list:Landroid/widget/LinearLayout;
+.field private final synthetic val$list:Landroid/widget/LinearLayout;
 
-.field final synthetic val$name:Ljava/lang/String;
+.field private final synthetic val$name:Ljava/lang/String;
 
-.field final synthetic val$retry:Landroid/widget/Button;
+.field private final synthetic val$retry:Landroid/widget/Button;
 
 
 # direct methods
 .method constructor <init>(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Dialog;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;)V
     .locals 0
-    .annotation system Ldalvik/annotation/MethodParameters;
-        accessFlags = {
-            0x8010,
-            0x1010,
-            0x1010,
-            0x1010,
-            0x1010,
-            0x1010,
-            0x1010,
-            0x1010
-        }
-        names = {
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null
-        }
-    .end annotation
 
-    .annotation system Ldalvik/annotation/Signature;
-        value = {
-            "()V"
-        }
-    .end annotation
-
-    .line 231
+    .prologue
+    .line 251
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$11;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerTiles$11;->val$ask:Landroid/app/Dialog;
@@ -94,10 +67,11 @@
 .method public onClick(Landroid/view/View;)V
     .locals 8
 
-    .line 231
-    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$11;->val$ask:Landroid/app/Dialog;
+    .prologue
+    .line 251
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$11;->val$ask:Landroid/app/Dialog;
 
-    invoke-virtual {p1}, Landroid/app/Dialog;->dismiss()V
+    invoke-virtual {v0}, Landroid/app/Dialog;->dismiss()V
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$11;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
@@ -115,7 +89,7 @@
 
     iget-object v7, p0, Lcom/melodix/music/PreviewPlayerTiles$11;->val$name:Ljava/lang/String;
 
-    invoke-static/range {v0 .. v7}, Lcom/melodix/music/PreviewPlayerTiles;->access$1900(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
+    invoke-static/range {v0 .. v7}, Lcom/melodix/music/PreviewPlayerTiles;->access$21(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
 
     return-void
 .end method

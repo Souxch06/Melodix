@@ -19,7 +19,8 @@
 .annotation system Ldalvik/annotation/Signature;
     value = {
         "Ljava/lang/Object;",
-        "Landroid/webkit/ValueCallback<",
+        "Landroid/webkit/ValueCallback",
+        "<",
         "Ljava/lang/String;",
         ">;"
     }
@@ -33,16 +34,9 @@
 # direct methods
 .method constructor <init>(Lcom/melodix/music/PreviewPlayerTiles;)V
     .locals 0
-    .annotation system Ldalvik/annotation/MethodParameters;
-        accessFlags = {
-            0x8010
-        }
-        names = {
-            null
-        }
-    .end annotation
 
-    .line 61
+    .prologue
+    .line 75
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$2;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -54,16 +48,9 @@
 # virtual methods
 .method public bridge synthetic onReceiveValue(Ljava/lang/Object;)V
     .locals 0
-    .annotation system Ldalvik/annotation/MethodParameters;
-        accessFlags = {
-            0x1000
-        }
-        names = {
-            null
-        }
-    .end annotation
 
-    .line 61
+    .prologue
+    .line 1
     check-cast p1, Ljava/lang/String;
 
     invoke-virtual {p0, p1}, Lcom/melodix/music/PreviewPlayerTiles$2;->onReceiveValue(Ljava/lang/String;)V
@@ -72,9 +59,10 @@
 .end method
 
 .method public onReceiveValue(Ljava/lang/String;)V
-    .locals 2
+    .locals 3
 
-    .line 62
+    .prologue
+    .line 76
     :try_start_0
     new-instance v0, Lorg/json/JSONTokener;
 
@@ -82,72 +70,78 @@
 
     invoke-virtual {v0}, Lorg/json/JSONTokener;->nextValue()Ljava/lang/Object;
 
-    move-result-object p1
+    move-result-object v0
 
-    instance-of v0, p1, Ljava/lang/String;
+    instance-of v1, v0, Ljava/lang/String;
 
-    if-eqz v0, :cond_0
+    if-eqz v1, :cond_3
 
-    check-cast p1, Ljava/lang/String;
-
-    goto :goto_0
-
-    :cond_0
-    const-string p1, ""
+    check-cast v0, Ljava/lang/String;
 
     :goto_0
-    invoke-static {p1}, Lcom/melodix/music/PreviewPlayerTiles;->formatTrace(Ljava/lang/String;)Ljava/lang/String;
-
-    move-result-object p1
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles;->formatTrace(Ljava/lang/String;)Ljava/lang/String;
     :try_end_0
     .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
 
-    goto :goto_1
+    move-result-object v0
 
-    :catch_0
-    move-exception p1
-
-    const-string p1, "illisible"
-
-    .line 64
+    .line 78
     :goto_1
-    const-string v0, "type="
+    const-string v1, "type="
 
-    invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    invoke-virtual {v0, v1}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+
+    move-result v1
+
+    if-eqz v1, :cond_0
+
+    const-string v1, "phase=none"
+
+    invoke-virtual {v0, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
 
     move-result v1
 
     if-eqz v1, :cond_1
 
-    const-string v1, "phase=none"
-
-    invoke-virtual {p1, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
-
-    move-result v1
-
-    if-eqz v1, :cond_2
-
-    :cond_1
-    invoke-static {}, Lcom/melodix/music/PreviewPlayerTiles;->access$200()Ljava/lang/String;
+    :cond_0
+    invoke-static {}, Lcom/melodix/music/PreviewPlayerTiles;->access$2()Ljava/lang/String;
 
     move-result-object v1
 
-    invoke-virtual {v1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    const-string v2, "type="
 
-    move-result v0
+    invoke-virtual {v1, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
 
-    if-nez v0, :cond_3
+    move-result v1
 
-    :cond_2
-    invoke-static {p1}, Lcom/melodix/music/PreviewPlayerTiles;->access$202(Ljava/lang/String;)Ljava/lang/String;
+    if-nez v1, :cond_2
+
+    :cond_1
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$3(Ljava/lang/String;)V
 
     invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
 
     move-result-wide v0
 
-    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->access$302(J)J
+    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->access$4(J)V
 
-    .line 65
-    :cond_3
+    .line 79
+    :cond_2
     return-void
+
+    .line 76
+    :cond_3
+    :try_start_1
+    const-string v0, ""
+    :try_end_1
+    .catch Ljava/lang/Exception; {:try_start_1 .. :try_end_1} :catch_0
+
+    goto :goto_0
+
+    :catch_0
+    move-exception v0
+
+    const-string v0, "illisible"
+
+    goto :goto_1
 .end method

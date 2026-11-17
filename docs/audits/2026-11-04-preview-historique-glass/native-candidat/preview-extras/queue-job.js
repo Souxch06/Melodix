@@ -19,7 +19,7 @@
         var shown = (bar.length ? bar : list).filter(function(b) { return b.getClientRects().length > 0; });
         return shown.length === 1 ? shown[0] : null;
     }
-    var found = 0;
+    var found = 0, rootAmbiguous = false;
     function button() {
         var list = Array.from(document.querySelectorAll('button, [role="button"]')).filter(function(b) {
             return b.isConnected && (/^(control-button-queue|queue-button)$/i.test(String(b.getAttribute('data-testid') || '')) ||
@@ -38,6 +38,7 @@
         var selectors = '[data-testid="queue-page"], [data-testid="queue-view"], [data-testid="queue-panel"], [data-testid="NPV-queue"], aside[aria-label="Queue"], aside[aria-label="File d’attente"], aside[aria-label="File d\'attente"], section[aria-label="Queue"], section[aria-label="File d’attente"], [role="region"][aria-label="Queue"], [role="region"][aria-label="File d’attente"]';
         var found = Array.from(document.querySelectorAll(selectors)).filter(function(n) { return n.isConnected; });
         if (found.length === 1) return found[0];
+        if (found.length > 1) { rootAmbiguous = true; return null; }
         var id = b && b.getAttribute('aria-controls');
         var controlled = id ? document.getElementById(id) : null;
         if (controlled && controlled.isConnected) return controlled;
@@ -45,9 +46,8 @@
         var labelled = Array.from(document.querySelectorAll('aside, section, [role="region"], [role="complementary"], [role="dialog"], div[aria-label]')).filter(function(n) {
             return n.isConnected && /^(queue|play queue|file d['’]attente|file de lecture|warteschlange|cola( de reproducción)?|fila( de reprodução)?)$/i.test(String(n.getAttribute('aria-label') || '').trim());
         });
-        if (labelled.length) return labelled[0];
-        var panel = document.querySelector('#Desktop_PanelContainer_Id, [data-testid="right-sidebar"], [data-testid="PanelContainer"]');
-        return panel && panel.isConnected && panel.querySelector('a[href*="/track/"], a[href*="/episode/"]') ? panel : null;
+        if (labelled.length > 1) { rootAmbiguous = true; return null; }
+        return labelled.length === 1 ? labelled[0] : null;
     }
     function rows(r) {
         var list = Array.from(r.querySelectorAll('[data-testid="queue-tracklist-row"], [data-testid="tracklist-row"], [role="row"]')).filter(function(n) {
@@ -73,7 +73,7 @@
                 if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(v)) { duration = v; return true; }
                 return false;
             });
-            return {title: text(t), artist: artists.join(', ').slice(0, 200), duration: duration};
+            return {title: text(t), artist: artists.join(', ').slice(0, 200), duration: duration, current: n.getAttribute('aria-current') === 'true' || n.getAttribute('data-testid') === 'queue-now-playing'};
         }).filter(function(x) { return x.title; });
     }
     // The page is hidden: a panel (or one of its parents) can measure 0 px, and
@@ -98,13 +98,41 @@
         sized.forEach(function(e) { try { if (e[1] === null) e[0].removeAttribute('style'); else e[0].setAttribute('style', e[1]); } catch (_) {} });
         sized = [];
     }
-    function finish(ok, reason) { restoreSize(); job.status = 'done'; job.ok = ok; job.reason = reason || ''; }
+    var b = null, wasOpen = true, openedHere = false;
+    function finish(ok, reason) {
+        restoreSize();
+        function done(closeOk) {
+            if (openedHere) log(closeOk ? 'close:verified' : 'close:unverified');
+            job.status = 'done'; job.ok = ok && closeOk;
+            job.reason = closeOk ? (reason || '') : 'close-unverified';
+        }
+        if (!openedHere) { done(true); return; }
+        // Only the same explicitly open trigger may be toggled back. Do not
+        // click a replacement, a disabled control, or guess at browser history.
+        try {
+            if (b && b.isConnected && button() === b && isOpen(b) && !b.disabled && b.getAttribute('aria-disabled') !== 'true') {
+                b.click(); log('closed');
+            }
+        } catch (_) { log('close-error'); }
+        setTimeout(function() {
+            var remains = null;
+            try { remains = root(b); } catch (_) { }
+            var hidden = remains && (remains.closest('[hidden], [aria-hidden="true"]') ||
+                window.getComputedStyle(remains).display === 'none' || window.getComputedStyle(remains).visibility === 'hidden');
+            var after = button();
+            var explicitlyClosed = after && (after.getAttribute('aria-pressed') === 'false' || after.getAttribute('aria-expanded') === 'false' || after.getAttribute('data-active') === 'false') && !isOpen(after);
+            var clearlyClosed = explicitlyClosed && (!remains || !!hidden);
+            done(!!clearlyClosed);
+        }, 150);
+    }
     try {
-        var b = button();
+        b = button();
         var already = root(b);
+        if (rootAmbiguous) { log('root:ambiguous'); finish(false, 'ambiguous'); return JSON.stringify({status: 'started'}); }
+        if (b && (b.disabled || b.getAttribute('aria-disabled') === 'true') && !already) { log('button:disabled'); finish(false, 'disabled'); return JSON.stringify({status: 'started'}); }
         if (!b && !already) { log(found > 1 ? 'button:ambiguous:' + Math.min(found, 9) : 'button:absent'); finish(false, found > 1 ? 'ambiguous' : 'absent'); return JSON.stringify({status: 'started'}); }
-        var wasOpen = !!already || (b && isOpen(b));
-        if (!wasOpen) { try { b.click(); log('opened'); } catch (_) { log('open-error'); finish(false, 'command'); return JSON.stringify({status: 'started'}); } }
+        wasOpen = !!already || (b && isOpen(b));
+        if (!wasOpen) { try { openedHere = true; b.click(); log('opened'); } catch (_) { log('open-error'); finish(false, 'command'); return JSON.stringify({status: 'started'}); } }
         else log('already-open');
         var end = Date.now() + 4500, forced = false;
         (function step() {
@@ -114,7 +142,9 @@
             if (!list.length && Date.now() < end) { setTimeout(step, 150); return; }
             if (list.length) {
                 var line = function(x) { return [x.title, x.artist, x.duration].join('\t').replace(/\n/g, ' '); };
-                job.now = line(list[0]); job.next = list.slice(1).map(line).join('\n');
+                var marked = list.filter(function(x) { return x.current; });
+                job.now = marked.length === 1 ? line(marked[0]) : '';
+                job.next = list.filter(function(x) { return marked.length !== 1 || x !== marked[0]; }).map(line).join('\n');
                 log('rows:' + Math.min(list.length, 40));
                 finish(true, '');
             } else {
@@ -123,12 +153,7 @@
                 log('path:' + (/^\/queue/.test(String(location.pathname || '')) ? 'queue' : 'other'));
                 log('links:' + Math.min(r ? r.querySelectorAll('a[href*="/track/"], a[href*="/episode/"]').length : 0, 99));
                 log('rowsdoc:' + Math.min(document.querySelectorAll('[data-testid="tracklist-row"], [role="row"]').length, 99));
-                finish(false, r ? 'empty' : 'panel');
-            }
-            if (!wasOpen) {
-                setTimeout(function() {
-                    try { var again = button() || b; if (again && isOpen(again)) { again.click(); log('closed'); } } catch (_) { log('close-error'); }
-                }, 100);
+                finish(false, rootAmbiguous ? 'ambiguous' : r ? 'empty' : 'panel');
             }
         })();
         return JSON.stringify({status: 'started'});

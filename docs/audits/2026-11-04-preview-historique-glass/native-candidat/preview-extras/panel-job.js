@@ -25,7 +25,7 @@
             roots: '[data-testid="device-picker"], [data-testid="connect-device-list"], [data-testid="connect-device-picker"], [role="dialog"][aria-label*="appareil" i], [role="dialog"][aria-label*="device" i]'
         }
     };
-    var spec = specs[kind], found = 0;
+    var spec = specs[kind], found = 0, rootAmbiguous = false;
     // Several copies of a control can exist (player bar and full view). Prefer
     // the one in the player bar, then the only visible one; otherwise refuse.
     function pickOne(list) {
@@ -44,20 +44,29 @@
     }
     function isOpen(b) { return b.getAttribute('aria-pressed') === 'true' || b.getAttribute('aria-expanded') === 'true' || b.getAttribute('data-active') === 'true'; }
     function root(b) {
-        var hits = Array.from(document.querySelectorAll(spec.roots)).filter(function(n) { return n.isConnected; });
-        if (hits.length >= 1) return hits[0];
+        var hits = Array.from(document.querySelectorAll(spec.roots)).filter(function(n) {
+            // Spotify may give the trigger itself a device-picker testid.
+            // A button is not its own content panel and must not imply open.
+            return n.isConnected && n !== b && !n.matches('button, [role="button"], [role="switch"]');
+        });
+        // Nested wrappers can describe the same panel; unrelated roots are
+        // ambiguous and must never be treated as the current content.
+        hits = hits.filter(function(n) { return !hits.some(function(other) { return other !== n && n.contains(other); }); });
+        if (hits.length === 1) return hits[0];
+        if (hits.length > 1) { rootAmbiguous = true; return null; }
         var id = b && b.getAttribute('aria-controls'), c = id ? document.getElementById(id) : null;
-        if (c && c.isConnected) return c;
+        if (c && c !== b && c.isConnected && !c.matches('button, [role="button"], [role="switch"]')) return c;
         if (spec.main) {
             // Desktop layout: lyrics replace the main view; use it only when it shows lyric lines.
             var main = document.querySelector('#main-view, main');
             return main && main.querySelector('[data-testid*="lyric" i]') ? main : null;
         }
         // Device picker opens as a popover/dialog mentioning devices.
-        var pops = Array.from(document.querySelectorAll('[role="dialog"], [data-tippy-root], [id^="tippy"], [data-testid*="device" i]')).filter(function(n) {
-            return n.isConnected && /appareil|device|dispositivo|gerät/i.test(String(n.getAttribute('aria-label') || '') + ' ' + String(n.textContent || '').slice(0, 400));
+        var pops = Array.from(document.querySelectorAll('[role="dialog"], [data-tippy-root], [id^="tippy"]')).filter(function(n) {
+            return n.isConnected && n !== b && /appareil|device|dispositivo|gerät/i.test(String(n.getAttribute('aria-label') || ''));
         });
-        return pops.length ? pops[0] : null;
+        if (pops.length > 1) rootAmbiguous = true;
+        return pops.length === 1 ? pops[0] : null;
     }
     function lyricLines(r) {
         var nodes = Array.from(r.querySelectorAll('[data-testid="fullscreen-lyric"], [data-testid="lyrics-line"]'));
@@ -105,20 +114,41 @@
         sized.forEach(function(e) { try { if (e[1] === null) e[0].removeAttribute('style'); else e[0].setAttribute('style', e[1]); } catch (_) {} });
         sized = [];
     }
-    function finish(ok, reason) { restoreSize(); job.status = 'done'; job.ok = ok; job.reason = reason || ''; }
+    var b = null, wasOpen = true, openedHere = false;
+    function finish(ok, reason) {
+        restoreSize();
+        function done(closeOk) {
+            if (openedHere) log(closeOk ? 'close:verified' : 'close:unverified');
+            job.status = 'done'; job.ok = ok && closeOk;
+            job.reason = closeOk ? (reason || '') : 'close-unverified';
+        }
+        if (!openedHere) { done(true); return; }
+        // Only the same explicitly open trigger may be toggled back. Do not
+        // click a replacement, a disabled control, or guess at browser history.
+        try {
+            if (b && b.isConnected && button() === b && isOpen(b) && !b.disabled && b.getAttribute('aria-disabled') !== 'true') {
+                b.click(); log('closed');
+            }
+        } catch (_) { log('close-error'); }
+        setTimeout(function() {
+            var remains = null;
+            try { remains = root(b); } catch (_) { }
+            var hidden = remains && (remains.closest('[hidden], [aria-hidden="true"]') ||
+                window.getComputedStyle(remains).display === 'none' || window.getComputedStyle(remains).visibility === 'hidden');
+            var after = button();
+            var explicitlyClosed = after && (after.getAttribute('aria-pressed') === 'false' || after.getAttribute('aria-expanded') === 'false' || after.getAttribute('data-active') === 'false') && !isOpen(after);
+            var clearlyClosed = explicitlyClosed && (!remains || !!hidden);
+            done(!!clearlyClosed);
+        }, 150);
+    }
     try {
-        var b = button(), already = root(b);
+        b = button(); var already = root(b);
+        if (rootAmbiguous) { log('root:ambiguous'); finish(false, 'ambiguous'); return JSON.stringify({status: 'started'}); }
         if (b && (b.disabled || b.getAttribute('aria-disabled') === 'true') && !already) { log('button:disabled'); finish(false, 'disabled'); return JSON.stringify({status: 'started'}); }
         if (!b && !already) { log(found > 1 ? 'button:ambiguous:' + Math.min(found, 9) : 'button:absent'); finish(false, found > 1 ? 'ambiguous' : 'absent'); return JSON.stringify({status: 'started'}); }
-        var wasOpen = !!already || (b && isOpen(b));
-        if (!wasOpen) { try { b.click(); log('opened'); } catch (_) { log('open-error'); finish(false, 'command'); return JSON.stringify({status: 'started'}); } }
+        wasOpen = !!already || (b && isOpen(b));
+        if (!wasOpen) { try { openedHere = true; b.click(); log('opened'); } catch (_) { log('open-error'); finish(false, 'command'); return JSON.stringify({status: 'started'}); } }
         else log('already-open');
-        var close = function() {
-            if (wasOpen) return;
-            setTimeout(function() {
-                try { var again = button() || b; if (again && (isOpen(again) || root(again))) { again.click(); log('closed'); } } catch (_) { log('close-error'); }
-            }, 120);
-        };
         var end = Date.now() + 4000, forced = false;
         (function step() {
             var r = null;
@@ -126,32 +156,32 @@
             var ready = r && (kind === 'lyrics' ? lyricLines(r).lines.length : deviceRows(r).length);
             if (!ready && r && !forced && Date.now() > end - 2000) { forced = true; giveSize(r); }
             if (!ready && Date.now() < end) { setTimeout(step, 150); return; }
-            if (!ready) { log(r ? 'rows:0' : 'panel:absent'); finish(false, r ? 'empty' : 'panel'); close(); return; }
+            if (!ready) { log(r ? 'rows:0' : 'panel:absent'); finish(false, rootAmbiguous ? 'ambiguous' : r ? 'empty' : 'panel'); return; }
             if (kind === 'lyrics') {
                 var l = lyricLines(r);
                 job.body = l.lines.join('\n'); job.active = l.active; job.synced = l.synced;
                 log('lines:' + Math.min(l.lines.length, 200) + (l.synced ? ':sync' : ''));
-                finish(true, ''); close(); return;
+                finish(true, ''); return;
             }
             var rows = deviceRows(r);
             if (action === 'transfer') {
                 var target = rows.filter(function(d) { return d.name === wanted; });
-                if (target.length !== 1) { log('target:' + (target.length ? 'ambiguous' : 'absent')); finish(false, 'target'); close(); return; }
-                if (target[0].current) { log('target:already-active'); job.transferred = true; finish(true, ''); close(); return; }
-                try { target[0].node.click(); log('transfer:click'); } catch (_) { log('transfer:error'); finish(false, 'command'); close(); return; }
+                if (target.length !== 1) { log('target:' + (target.length ? 'ambiguous' : 'absent')); finish(false, 'target'); return; }
+                if (target[0].current) { log('target:already-active'); job.transferred = true; finish(true, ''); return; }
+                try { target[0].node.click(); log('transfer:click'); } catch (_) { log('transfer:error'); finish(false, 'command'); return; }
                 var until = Date.now() + 3000;
                 (function verify() {
                     var again = null;
                     try { var r2 = root(button() || b); again = r2 ? deviceRows(r2).filter(function(d) { return d.name === wanted; })[0] : null; } catch (_) { again = null; }
-                    if (again && again.current) { log('transfer:verified'); job.transferred = true; finish(true, ''); close(); return; }
+                    if (again && again.current) { log('transfer:verified'); job.transferred = true; finish(true, ''); return; }
                     if (Date.now() < until) { setTimeout(verify, 200); return; }
-                    log('transfer:unverified'); finish(false, 'unverified'); close();
+                    log('transfer:unverified'); finish(false, 'unverified');
                 })();
                 return;
             }
             job.body = rows.map(function(d) { return [d.name, d.type, d.current ? '1' : ''].join('\t'); }).join('\n');
             log('devices:' + rows.length);
-            finish(true, ''); close();
+            finish(true, '');
         })();
         return JSON.stringify({status: 'started'});
     } catch (_) {

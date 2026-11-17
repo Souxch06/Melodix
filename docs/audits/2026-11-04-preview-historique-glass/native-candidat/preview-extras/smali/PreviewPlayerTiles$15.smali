@@ -22,30 +22,15 @@
 
 .field final synthetic this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-.field final synthetic val$dialog:Landroid/app/Dialog;
+.field private final synthetic val$dialog:Landroid/app/Dialog;
 
 
 # direct methods
 .method constructor <init>(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Dialog;)V
     .locals 0
-    .annotation system Ldalvik/annotation/MethodParameters;
-        accessFlags = {
-            0x8010,
-            0x1010
-        }
-        names = {
-            null,
-            null
-        }
-    .end annotation
 
-    .annotation system Ldalvik/annotation/Signature;
-        value = {
-            "()V"
-        }
-    .end annotation
-
-    .line 263
+    .prologue
+    .line 283
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$15;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerTiles$15;->val$dialog:Landroid/app/Dialog;
@@ -58,60 +43,62 @@
 
 # virtual methods
 .method public onTouch(Landroid/view/View;Landroid/view/MotionEvent;)Z
-    .locals 2
+    .locals 4
 
-    .line 264
+    .prologue
+    const/4 v3, 0x1
+
+    .line 284
     invoke-virtual {p2}, Landroid/view/MotionEvent;->getActionMasked()I
 
-    move-result p1
+    move-result v0
 
-    const/4 v0, 0x1
-
-    if-nez p1, :cond_0
+    if-nez v0, :cond_1
 
     invoke-virtual {p2}, Landroid/view/MotionEvent;->getRawY()F
 
-    move-result p1
+    move-result v0
 
-    iput p1, p0, Lcom/melodix/music/PreviewPlayerTiles$15;->startY:F
+    iput v0, p0, Lcom/melodix/music/PreviewPlayerTiles$15;->startY:F
 
-    return v0
-
-    .line 265
+    .line 286
     :cond_0
+    :goto_0
+    return v3
+
+    .line 285
+    :cond_1
     invoke-virtual {p2}, Landroid/view/MotionEvent;->getActionMasked()I
 
-    move-result p1
+    move-result v0
 
-    if-ne p1, v0, :cond_1
+    if-ne v0, v3, :cond_0
 
     invoke-virtual {p2}, Landroid/view/MotionEvent;->getRawY()F
 
-    move-result p1
+    move-result v0
 
-    iget p2, p0, Lcom/melodix/music/PreviewPlayerTiles$15;->startY:F
+    iget v1, p0, Lcom/melodix/music/PreviewPlayerTiles$15;->startY:F
 
-    sub-float/2addr p1, p2
+    sub-float/2addr v0, v1
 
-    iget-object p2, p0, Lcom/melodix/music/PreviewPlayerTiles$15;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
+    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerTiles$15;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-    const/high16 v1, 0x42800000    # 64.0f
+    const/high16 v2, 0x42800000    # 64.0f
 
-    invoke-static {p2, v1}, Lcom/melodix/music/PreviewPlayerTiles;->access$2700(Lcom/melodix/music/PreviewPlayerTiles;F)I
+    invoke-static {v1, v2}, Lcom/melodix/music/PreviewPlayerTiles;->access$29(Lcom/melodix/music/PreviewPlayerTiles;F)I
 
-    move-result p2
+    move-result v1
 
-    int-to-float p2, p2
+    int-to-float v1, v1
 
-    cmpl-float p1, p1, p2
+    cmpl-float v0, v0, v1
 
-    if-lez p1, :cond_1
+    if-lez v0, :cond_0
 
-    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$15;->val$dialog:Landroid/app/Dialog;
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$15;->val$dialog:Landroid/app/Dialog;
 
-    invoke-virtual {p1}, Landroid/app/Dialog;->dismiss()V
+    invoke-virtual {v0}, Landroid/app/Dialog;->dismiss()V
 
-    .line 266
-    :cond_1
-    return v0
+    goto :goto_0
 .end method

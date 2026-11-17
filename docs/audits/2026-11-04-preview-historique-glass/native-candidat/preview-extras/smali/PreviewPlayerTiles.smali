@@ -4,13 +4,13 @@
 
 
 # static fields
-.field private static final PANEL_JOB:Ljava/lang/String; = "(function(kind, action, wanted) {\n    \'use strict\';\n    // Lyrics and devices drawers. One explicit tap = open the page panel in the\n    // hidden page, read it, close it if it was closed. A device transfer is a\n    // separate, explicitly confirmed action, verified by re-reading the list.\n    // No scrolling, navigation, storage, cookies, tokens or network.\n    var W = window, jobs = W.__melodixPanelJobs = W.__melodixPanelJobs || {};\n    if (kind !== \'lyrics\' && kind !== \'devices\') return JSON.stringify({status: \'done\', ok: false, reason: \'kind\'});\n    if (action === \'poll\') return JSON.stringify(jobs[kind] || {status: \'none\'});\n    if (action !== \'run\' && action !== \'transfer\') return JSON.stringify({status: \'none\'});\n    if (jobs[kind] && jobs[kind].status === \'running\' && Date.now() - jobs[kind].started < 8000) return JSON.stringify({status: \'busy\'});\n    var job = jobs[kind] = {status: \'running\', started: Date.now(), ok: false, reason: \'\', body: \'\', active: -1, synced: false, transferred: false, journal: []};\n    function log(c) { if (job.journal.length < 12) job.journal.push(c); }\n    function text(n) { return String(n && n.textContent || \'\').replace(/\\s+/g, \' \').trim().slice(0, 300); }\n    var specs = {\n        lyrics: {\n            ids: /^(lyrics-button|control-button-lyrics)$/i,\n            label: /^(lyrics|show lyrics|paroles|afficher les paroles|songtext|letras|letra)$/i,\n            main: true,\n            roots: \'[data-testid=\"lyrics-container\"], [data-testid=\"lyrics-page\"], [data-testid=\"lyrics-lyricsContent\"]\'\n        },\n        devices: {\n            ids: /^(control-button-connect|connect-device-picker|device-picker|connect-button)$/i,\n            label: /^(connect to a device|connect to a device\\.\\.\\.|se connecter \u00e0 un appareil|connecter \u00e0 un appareil|appareils disponibles|mit einem ger\u00e4t verbinden|conectar a un dispositivo|conectar a um dispositivo)$/i,\n            roots: \'[data-testid=\"device-picker\"], [data-testid=\"connect-device-list\"], [data-testid=\"connect-device-picker\"], [role=\"dialog\"][aria-label*=\"appareil\" i], [role=\"dialog\"][aria-label*=\"device\" i]\'\n        }\n    };\n    var spec = specs[kind], found = 0;\n    // Several copies of a control can exist (player bar and full view). Prefer\n    // the one in the player bar, then the only visible one; otherwise refuse.\n    function pickOne(list) {\n        if (list.length <= 1) return list[0] || null;\n        var bar = list.filter(function(b) { return !!b.closest(\'[data-testid=\"now-playing-bar\"]\'); });\n        if (bar.length === 1) return bar[0];\n        var shown = (bar.length ? bar : list).filter(function(b) { return b.getClientRects().length > 0; });\n        return shown.length === 1 ? shown[0] : null;\n    }\n    function button() {\n        var list = Array.from(document.querySelectorAll(\'button, [role=\"button\"]\')).filter(function(b) {\n            return b.isConnected && (spec.ids.test(String(b.getAttribute(\'data-testid\') || \'\')) || spec.label.test(String(b.getAttribute(\'aria-label\') || \'\').trim()));\n        });\n        found = list.length;\n        return pickOne(list);\n    }\n    function isOpen(b) { return b.getAttribute(\'aria-pressed\') === \'true\' || b.getAttribute(\'aria-expanded\') === \'true\' || b.getAttribute(\'data-active\') === \'true\'; }\n    function root(b) {\n        var hits = Array.from(document.querySelectorAll(spec.roots)).filter(function(n) { return n.isConnected; });\n        if (hits.length >= 1) return hits[0];\n        var id = b && b.getAttribute(\'aria-controls\'), c = id ? document.getElementById(id) : null;\n        if (c && c.isConnected) return c;\n        if (spec.main) {\n            // Desktop layout: lyrics replace the main view; use it only when it shows lyric lines.\n            var main = document.querySelector(\'#main-view, main\');\n            return main && main.querySelector(\'[data-testid*=\"lyric\" i]\') ? main : null;\n        }\n        // Device picker opens as a popover/dialog mentioning devices.\n        var pops = Array.from(document.querySelectorAll(\'[role=\"dialog\"], [data-tippy-root], [id^=\"tippy\"], [data-testid*=\"device\" i]\')).filter(function(n) {\n            return n.isConnected && /appareil|device|dispositivo|ger\u00e4t/i.test(String(n.getAttribute(\'aria-label\') || \'\') + \' \' + String(n.textContent || \'\').slice(0, 400));\n        });\n        return pops.length ? pops[0] : null;\n    }\n    function lyricLines(r) {\n        var nodes = Array.from(r.querySelectorAll(\'[data-testid=\"fullscreen-lyric\"], [data-testid=\"lyrics-line\"]\'));\n        if (!nodes.length) nodes = Array.from(r.querySelectorAll(\'[data-testid*=\"lyric\" i]\')).filter(function(n) { return !n.children.length || !n.querySelector(\'[data-testid*=\"lyric\" i]\'); });\n        if (!nodes.length) nodes = Array.from(r.querySelectorAll(\'p\'));\n        var lines = [], active = -1, synced = false;\n        nodes.slice(0, 200).forEach(function(n) {\n            var t = text(n); if (!t) return;\n            if (n.getAttribute(\'aria-current\') === \'true\' || n.getAttribute(\'data-active\') === \'true\') { active = lines.length; synced = true; }\n            if (n.hasAttribute(\'data-start-time\') || n.hasAttribute(\'data-time\')) synced = true;\n            lines.push(t);\n        });\n        return {lines: lines, active: synced ? active : -1, synced: synced};\n    }\n    function deviceRows(r) {\n        var nodes = Array.from(r.querySelectorAll(\'[data-testid=\"device-list-item\"], [data-testid=\"device-picker-row\"], [role=\"option\"], li button\'));\n        var seen = [];\n        return nodes.filter(function(n) { if (seen.indexOf(n) >= 0) return false; seen.push(n); return true; }).slice(0, 30).map(function(n) {\n            var nameNode = n.querySelector(\'[data-testid=\"device-name\"], [data-encore-id=\"text\"]\');\n            var name = text(nameNode || n).slice(0, 80);\n            var typeNode = n.querySelector(\'[data-testid=\"device-type\"]\');\n            var current = n.getAttribute(\'aria-selected\') === \'true\' || n.getAttribute(\'aria-current\') === \'true\' || n.getAttribute(\'aria-checked\') === \'true\';\n            return {node: n, name: name, type: typeNode ? text(typeNode).slice(0, 40) : \'\', current: current};\n        }).filter(function(d) { return d.name; });\n    }\n    // The page is hidden: a panel (or one of its parents) can measure 0 px, and\n    // Spotify then draws no rows in it. Give it a size while it is read, then\n    // restore the original inline style exactly. No other change to the page.\n    var sized = [];\n    function giveSize(r) {\n        var h = 0;\n        try { h = Math.round(r.getBoundingClientRect().height); } catch (_) {}\n        for (var n = r; n && n !== document.body && sized.length < 12; n = n.parentElement) {\n            var cs = window.getComputedStyle(n), small = false;\n            try { small = n.getBoundingClientRect().height < 2; } catch (_) {}\n            if (cs.display !== \'none\' && cs.visibility !== \'hidden\' && !small) continue;\n            sized.push([n, n.getAttribute(\'style\')]);\n            if (cs.display === \'none\') n.style.setProperty(\'display\', \'block\', \'important\');\n            if (cs.visibility === \'hidden\') n.style.setProperty(\'visibility\', \'visible\', \'important\');\n            if (small) n.style.setProperty(\'min-height\', \'640px\', \'important\');\n        }\n        log(\'sized:\' + sized.length + \',h:\' + Math.min(h, 9999));\n    }\n    function restoreSize() {\n        sized.forEach(function(e) { try { if (e[1] === null) e[0].removeAttribute(\'style\'); else e[0].setAttribute(\'style\', e[1]); } catch (_) {} });\n        sized = [];\n    }\n    function finish(ok, reason) { restoreSize(); job.status = \'done\'; job.ok = ok; job.reason = reason || \'\'; }\n    try {\n        var b = button(), already = root(b);\n        if (b && (b.disabled || b.getAttribute(\'aria-disabled\') === \'true\') && !already) { log(\'button:disabled\'); finish(false, \'disabled\'); return JSON.stringify({status: \'started\'}); }\n        if (!b && !already) { log(found > 1 ? \'button:ambiguous:\' + Math.min(found, 9) : \'button:absent\'); finish(false, found > 1 ? \'ambiguous\' : \'absent\'); return JSON.stringify({status: \'started\'}); }\n        var wasOpen = !!already || (b && isOpen(b));\n        if (!wasOpen) { try { b.click(); log(\'opened\'); } catch (_) { log(\'open-error\'); finish(false, \'command\'); return JSON.stringify({status: \'started\'}); } }\n        else log(\'already-open\');\n        var close = function() {\n            if (wasOpen) return;\n            setTimeout(function() {\n                try { var again = button() || b; if (again && (isOpen(again) || root(again))) { again.click(); log(\'closed\'); } } catch (_) { log(\'close-error\'); }\n            }, 120);\n        };\n        var end = Date.now() + 4000, forced = false;\n        (function step() {\n            var r = null;\n            try { r = root(button() || b); } catch (_) { r = null; }\n            var ready = r && (kind === \'lyrics\' ? lyricLines(r).lines.length : deviceRows(r).length);\n            if (!ready && r && !forced && Date.now() > end - 2000) { forced = true; giveSize(r); }\n            if (!ready && Date.now() < end) { setTimeout(step, 150); return; }\n            if (!ready) { log(r ? \'rows:0\' : \'panel:absent\'); finish(false, r ? \'empty\' : \'panel\'); close(); return; }\n            if (kind === \'lyrics\') {\n                var l = lyricLines(r);\n                job.body = l.lines.join(\'\\n\'); job.active = l.active; job.synced = l.synced;\n                log(\'lines:\' + Math.min(l.lines.length, 200) + (l.synced ? \':sync\' : \'\'));\n                finish(true, \'\'); close(); return;\n            }\n            var rows = deviceRows(r);\n            if (action === \'transfer\') {\n                var target = rows.filter(function(d) { return d.name === wanted; });\n                if (target.length !== 1) { log(\'target:\' + (target.length ? \'ambiguous\' : \'absent\')); finish(false, \'target\'); close(); return; }\n                if (target[0].current) { log(\'target:already-active\'); job.transferred = true; finish(true, \'\'); close(); return; }\n                try { target[0].node.click(); log(\'transfer:click\'); } catch (_) { log(\'transfer:error\'); finish(false, \'command\'); close(); return; }\n                var until = Date.now() + 3000;\n                (function verify() {\n                    var again = null;\n                    try { var r2 = root(button() || b); again = r2 ? deviceRows(r2).filter(function(d) { return d.name === wanted; })[0] : null; } catch (_) { again = null; }\n                    if (again && again.current) { log(\'transfer:verified\'); job.transferred = true; finish(true, \'\'); close(); return; }\n                    if (Date.now() < until) { setTimeout(verify, 200); return; }\n                    log(\'transfer:unverified\'); finish(false, \'unverified\'); close();\n                })();\n                return;\n            }\n            job.body = rows.map(function(d) { return [d.name, d.type, d.current ? \'1\' : \'\'].join(\'\\t\'); }).join(\'\\n\');\n            log(\'devices:\' + rows.length);\n            finish(true, \'\'); close();\n        })();\n        return JSON.stringify({status: \'started\'});\n    } catch (_) {\n        finish(false, \'error\');\n        return JSON.stringify({status: \'started\'});\n    }\n})\n"
+.field private static final PANEL_JOB:Ljava/lang/String; = "(function(kind, action, wanted) {\n    \'use strict\';\n    // Lyrics and devices drawers. One explicit tap = open the page panel in the\n    // hidden page, read it, close it if it was closed. A device transfer is a\n    // separate, explicitly confirmed action, verified by re-reading the list.\n    // No scrolling, navigation, storage, cookies, tokens or network.\n    var W = window, jobs = W.__melodixPanelJobs = W.__melodixPanelJobs || {};\n    if (kind !== \'lyrics\' && kind !== \'devices\') return JSON.stringify({status: \'done\', ok: false, reason: \'kind\'});\n    if (action === \'poll\') return JSON.stringify(jobs[kind] || {status: \'none\'});\n    if (action !== \'run\' && action !== \'transfer\') return JSON.stringify({status: \'none\'});\n    if (jobs[kind] && jobs[kind].status === \'running\' && Date.now() - jobs[kind].started < 8000) return JSON.stringify({status: \'busy\'});\n    var job = jobs[kind] = {status: \'running\', started: Date.now(), ok: false, reason: \'\', body: \'\', active: -1, synced: false, transferred: false, journal: []};\n    function log(c) { if (job.journal.length < 12) job.journal.push(c); }\n    function text(n) { return String(n && n.textContent || \'\').replace(/\\s+/g, \' \').trim().slice(0, 300); }\n    var specs = {\n        lyrics: {\n            ids: /^(lyrics-button|control-button-lyrics)$/i,\n            label: /^(lyrics|show lyrics|paroles|afficher les paroles|songtext|letras|letra)$/i,\n            main: true,\n            roots: \'[data-testid=\"lyrics-container\"], [data-testid=\"lyrics-page\"], [data-testid=\"lyrics-lyricsContent\"]\'\n        },\n        devices: {\n            ids: /^(control-button-connect|connect-device-picker|device-picker|connect-button)$/i,\n            label: /^(connect to a device|connect to a device\\.\\.\\.|se connecter \u00e0 un appareil|connecter \u00e0 un appareil|appareils disponibles|mit einem ger\u00e4t verbinden|conectar a un dispositivo|conectar a um dispositivo)$/i,\n            roots: \'[data-testid=\"device-picker\"], [data-testid=\"connect-device-list\"], [data-testid=\"connect-device-picker\"], [role=\"dialog\"][aria-label*=\"appareil\" i], [role=\"dialog\"][aria-label*=\"device\" i]\'\n        }\n    };\n    var spec = specs[kind], found = 0, rootAmbiguous = false;\n    // Several copies of a control can exist (player bar and full view). Prefer\n    // the one in the player bar, then the only visible one; otherwise refuse.\n    function pickOne(list) {\n        if (list.length <= 1) return list[0] || null;\n        var bar = list.filter(function(b) { return !!b.closest(\'[data-testid=\"now-playing-bar\"]\'); });\n        if (bar.length === 1) return bar[0];\n        var shown = (bar.length ? bar : list).filter(function(b) { return b.getClientRects().length > 0; });\n        return shown.length === 1 ? shown[0] : null;\n    }\n    function button() {\n        var list = Array.from(document.querySelectorAll(\'button, [role=\"button\"]\')).filter(function(b) {\n            return b.isConnected && (spec.ids.test(String(b.getAttribute(\'data-testid\') || \'\')) || spec.label.test(String(b.getAttribute(\'aria-label\') || \'\').trim()));\n        });\n        found = list.length;\n        return pickOne(list);\n    }\n    function isOpen(b) { return b.getAttribute(\'aria-pressed\') === \'true\' || b.getAttribute(\'aria-expanded\') === \'true\' || b.getAttribute(\'data-active\') === \'true\'; }\n    function root(b) {\n        var hits = Array.from(document.querySelectorAll(spec.roots)).filter(function(n) {\n            // Spotify may give the trigger itself a device-picker testid.\n            // A button is not its own content panel and must not imply open.\n            return n.isConnected && n !== b && !n.matches(\'button, [role=\"button\"], [role=\"switch\"]\');\n        });\n        // Nested wrappers can describe the same panel; unrelated roots are\n        // ambiguous and must never be treated as the current content.\n        hits = hits.filter(function(n) { return !hits.some(function(other) { return other !== n && n.contains(other); }); });\n        if (hits.length === 1) return hits[0];\n        if (hits.length > 1) { rootAmbiguous = true; return null; }\n        var id = b && b.getAttribute(\'aria-controls\'), c = id ? document.getElementById(id) : null;\n        if (c && c !== b && c.isConnected && !c.matches(\'button, [role=\"button\"], [role=\"switch\"]\')) return c;\n        if (spec.main) {\n            // Desktop layout: lyrics replace the main view; use it only when it shows lyric lines.\n            var main = document.querySelector(\'#main-view, main\');\n            return main && main.querySelector(\'[data-testid*=\"lyric\" i]\') ? main : null;\n        }\n        // Device picker opens as a popover/dialog mentioning devices.\n        var pops = Array.from(document.querySelectorAll(\'[role=\"dialog\"], [data-tippy-root], [id^=\"tippy\"]\')).filter(function(n) {\n            return n.isConnected && n !== b && /appareil|device|dispositivo|ger\u00e4t/i.test(String(n.getAttribute(\'aria-label\') || \'\'));\n        });\n        if (pops.length > 1) rootAmbiguous = true;\n        return pops.length === 1 ? pops[0] : null;\n    }\n    function lyricLines(r) {\n        var nodes = Array.from(r.querySelectorAll(\'[data-testid=\"fullscreen-lyric\"], [data-testid=\"lyrics-line\"]\'));\n        if (!nodes.length) nodes = Array.from(r.querySelectorAll(\'[data-testid*=\"lyric\" i]\')).filter(function(n) { return !n.children.length || !n.querySelector(\'[data-testid*=\"lyric\" i]\'); });\n        if (!nodes.length) nodes = Array.from(r.querySelectorAll(\'p\'));\n        var lines = [], active = -1, synced = false;\n        nodes.slice(0, 200).forEach(function(n) {\n            var t = text(n); if (!t) return;\n            if (n.getAttribute(\'aria-current\') === \'true\' || n.getAttribute(\'data-active\') === \'true\') { active = lines.length; synced = true; }\n            if (n.hasAttribute(\'data-start-time\') || n.hasAttribute(\'data-time\')) synced = true;\n            lines.push(t);\n        });\n        return {lines: lines, active: synced ? active : -1, synced: synced};\n    }\n    function deviceRows(r) {\n        var nodes = Array.from(r.querySelectorAll(\'[data-testid=\"device-list-item\"], [data-testid=\"device-picker-row\"], [role=\"option\"], li button\'));\n        var seen = [];\n        return nodes.filter(function(n) { if (seen.indexOf(n) >= 0) return false; seen.push(n); return true; }).slice(0, 30).map(function(n) {\n            var nameNode = n.querySelector(\'[data-testid=\"device-name\"], [data-encore-id=\"text\"]\');\n            var name = text(nameNode || n).slice(0, 80);\n            var typeNode = n.querySelector(\'[data-testid=\"device-type\"]\');\n            var current = n.getAttribute(\'aria-selected\') === \'true\' || n.getAttribute(\'aria-current\') === \'true\' || n.getAttribute(\'aria-checked\') === \'true\';\n            return {node: n, name: name, type: typeNode ? text(typeNode).slice(0, 40) : \'\', current: current};\n        }).filter(function(d) { return d.name; });\n    }\n    // The page is hidden: a panel (or one of its parents) can measure 0 px, and\n    // Spotify then draws no rows in it. Give it a size while it is read, then\n    // restore the original inline style exactly. No other change to the page.\n    var sized = [];\n    function giveSize(r) {\n        var h = 0;\n        try { h = Math.round(r.getBoundingClientRect().height); } catch (_) {}\n        for (var n = r; n && n !== document.body && sized.length < 12; n = n.parentElement) {\n            var cs = window.getComputedStyle(n), small = false;\n            try { small = n.getBoundingClientRect().height < 2; } catch (_) {}\n            if (cs.display !== \'none\' && cs.visibility !== \'hidden\' && !small) continue;\n            sized.push([n, n.getAttribute(\'style\')]);\n            if (cs.display === \'none\') n.style.setProperty(\'display\', \'block\', \'important\');\n            if (cs.visibility === \'hidden\') n.style.setProperty(\'visibility\', \'visible\', \'important\');\n            if (small) n.style.setProperty(\'min-height\', \'640px\', \'important\');\n        }\n        log(\'sized:\' + sized.length + \',h:\' + Math.min(h, 9999));\n    }\n    function restoreSize() {\n        sized.forEach(function(e) { try { if (e[1] === null) e[0].removeAttribute(\'style\'); else e[0].setAttribute(\'style\', e[1]); } catch (_) {} });\n        sized = [];\n    }\n    var b = null, wasOpen = true, openedHere = false;\n    function finish(ok, reason) {\n        restoreSize();\n        function done(closeOk) {\n            if (openedHere) log(closeOk ? \'close:verified\' : \'close:unverified\');\n            job.status = \'done\'; job.ok = ok && closeOk;\n            job.reason = closeOk ? (reason || \'\') : \'close-unverified\';\n        }\n        if (!openedHere) { done(true); return; }\n        // Only the same explicitly open trigger may be toggled back. Do not\n        // click a replacement, a disabled control, or guess at browser history.\n        try {\n            if (b && b.isConnected && button() === b && isOpen(b) && !b.disabled && b.getAttribute(\'aria-disabled\') !== \'true\') {\n                b.click(); log(\'closed\');\n            }\n        } catch (_) { log(\'close-error\'); }\n        setTimeout(function() {\n            var remains = null;\n            try { remains = root(b); } catch (_) { }\n            var hidden = remains && (remains.closest(\'[hidden], [aria-hidden=\"true\"]\') ||\n                window.getComputedStyle(remains).display === \'none\' || window.getComputedStyle(remains).visibility === \'hidden\');\n            var after = button();\n            var explicitlyClosed = after && (after.getAttribute(\'aria-pressed\') === \'false\' || after.getAttribute(\'aria-expanded\') === \'false\' || after.getAttribute(\'data-active\') === \'false\') && !isOpen(after);\n            var clearlyClosed = explicitlyClosed && (!remains || !!hidden);\n            done(!!clearlyClosed);\n        }, 150);\n    }\n    try {\n        b = button(); var already = root(b);\n        if (rootAmbiguous) { log(\'root:ambiguous\'); finish(false, \'ambiguous\'); return JSON.stringify({status: \'started\'}); }\n        if (b && (b.disabled || b.getAttribute(\'aria-disabled\') === \'true\') && !already) { log(\'button:disabled\'); finish(false, \'disabled\'); return JSON.stringify({status: \'started\'}); }\n        if (!b && !already) { log(found > 1 ? \'button:ambiguous:\' + Math.min(found, 9) : \'button:absent\'); finish(false, found > 1 ? \'ambiguous\' : \'absent\'); return JSON.stringify({status: \'started\'}); }\n        wasOpen = !!already || (b && isOpen(b));\n        if (!wasOpen) { try { openedHere = true; b.click(); log(\'opened\'); } catch (_) { log(\'open-error\'); finish(false, \'command\'); return JSON.stringify({status: \'started\'}); } }\n        else log(\'already-open\');\n        var end = Date.now() + 4000, forced = false;\n        (function step() {\n            var r = null;\n            try { r = root(button() || b); } catch (_) { r = null; }\n            var ready = r && (kind === \'lyrics\' ? lyricLines(r).lines.length : deviceRows(r).length);\n            if (!ready && r && !forced && Date.now() > end - 2000) { forced = true; giveSize(r); }\n            if (!ready && Date.now() < end) { setTimeout(step, 150); return; }\n            if (!ready) { log(r ? \'rows:0\' : \'panel:absent\'); finish(false, rootAmbiguous ? \'ambiguous\' : r ? \'empty\' : \'panel\'); return; }\n            if (kind === \'lyrics\') {\n                var l = lyricLines(r);\n                job.body = l.lines.join(\'\\n\'); job.active = l.active; job.synced = l.synced;\n                log(\'lines:\' + Math.min(l.lines.length, 200) + (l.synced ? \':sync\' : \'\'));\n                finish(true, \'\'); return;\n            }\n            var rows = deviceRows(r);\n            if (action === \'transfer\') {\n                var target = rows.filter(function(d) { return d.name === wanted; });\n                if (target.length !== 1) { log(\'target:\' + (target.length ? \'ambiguous\' : \'absent\')); finish(false, \'target\'); return; }\n                if (target[0].current) { log(\'target:already-active\'); job.transferred = true; finish(true, \'\'); return; }\n                try { target[0].node.click(); log(\'transfer:click\'); } catch (_) { log(\'transfer:error\'); finish(false, \'command\'); return; }\n                var until = Date.now() + 3000;\n                (function verify() {\n                    var again = null;\n                    try { var r2 = root(button() || b); again = r2 ? deviceRows(r2).filter(function(d) { return d.name === wanted; })[0] : null; } catch (_) { again = null; }\n                    if (again && again.current) { log(\'transfer:verified\'); job.transferred = true; finish(true, \'\'); return; }\n                    if (Date.now() < until) { setTimeout(verify, 200); return; }\n                    log(\'transfer:unverified\'); finish(false, \'unverified\');\n                })();\n                return;\n            }\n            job.body = rows.map(function(d) { return [d.name, d.type, d.current ? \'1\' : \'\'].join(\'\\t\'); }).join(\'\\n\');\n            log(\'devices:\' + rows.length);\n            finish(true, \'\');\n        })();\n        return JSON.stringify({status: \'started\'});\n    } catch (_) {\n        finish(false, \'error\');\n        return JSON.stringify({status: \'started\'});\n    }\n})\n"
 
-.field private static final PANEL_PROBE:Ljava/lang/String; = "(function(kind) {\n    \'use strict\';\n    // Observation only. Never open a panel, navigate, click, or read its text.\n    // Fixed categories and bounded counts only; no arbitrary testids or labels.\n    var selectors={\n        queue:\'[data-testid=\"queue-page\"], [data-testid=\"queue-view\"]\',\n        lyrics:\'[data-testid=\"lyrics-page\"], [data-testid=\"lyrics-lyricsContent\"], [data-testid=\"lyrics-container\"]\',\n        devices:\'[data-testid=\"device-picker\"], [data-testid=\"connect-device-list\"]\'\n    };\n    if(!Object.prototype.hasOwnProperty.call(selectors,kind))return JSON.stringify({reason:\'kind\',roots:0,rows:0,buttons:0,roles:0,testids:0});\n    var roots=Array.from(document.querySelectorAll(selectors[kind])).filter(function(n){return n.isConnected;});\n    var nodes=[];roots.forEach(function(r){Array.from(r.querySelectorAll(\'[role], [data-testid], button\')).forEach(function(n){if(nodes.indexOf(n)<0)nodes.push(n);});});\n    function count(test){return Math.min(99,nodes.filter(test).length);}\n    return JSON.stringify({reason:roots.length?\'observed\':\'absent\',roots:Math.min(roots.length,99),\n        rows:count(function(n){return n.getAttribute(\'role\')===\'listitem\'||/^(queue-tracklist-row|device-list-item|lyrics-line)$/.test(n.getAttribute(\'data-testid\')||\'\');}),\n        buttons:count(function(n){return n.tagName===\'BUTTON\'||n.getAttribute(\'role\')===\'button\';}),\n        roles:count(function(n){return n.hasAttribute(\'role\');}),testids:count(function(n){return n.hasAttribute(\'data-testid\');})});\n})\n"
+.field private static final PANEL_PROBE:Ljava/lang/String; = "(function(kind) {\n    \'use strict\';\n    // Observation only. Never open a panel, navigate, click, or read its text.\n    // Fixed categories and bounded counts only; no arbitrary testids or labels.\n    var selectors={\n        queue:\'[data-testid=\"queue-page\"], [data-testid=\"queue-view\"]\',\n        lyrics:\'[data-testid=\"lyrics-page\"], [data-testid=\"lyrics-lyricsContent\"], [data-testid=\"lyrics-container\"]\',\n        devices:\'[data-testid=\"device-picker\"], [data-testid=\"connect-device-list\"], [data-testid=\"connect-device-picker\"]\'\n    };\n    if(!Object.prototype.hasOwnProperty.call(selectors,kind))return JSON.stringify({reason:\'kind\',roots:0,rows:0,buttons:0,roles:0,testids:0});\n    var roots=Array.from(document.querySelectorAll(selectors[kind])).filter(function(n){return n.isConnected && !n.matches(\'button, [role=\"button\"], [role=\"switch\"]\');});\n    var controls={\n        queue:/^(control-button-queue|queue-button)$/i,\n        lyrics:/^(lyrics-button|control-button-lyrics)$/i,\n        devices:/^(control-button-connect|connect-device-picker|device-picker|connect-button)$/i\n    };\n    var labels={\n        queue:/^(queue|play queue|file d[\'\u2019]attente|file de lecture|warteschlange|cola( de reproducci\u00f3n)?|fila( de reprodu\u00e7\u00e3o)?)$/i,\n        lyrics:/^(lyrics|show lyrics|paroles|afficher les paroles|songtext|letras|letra)$/i,\n        devices:/^(connect to a device|connect to a device\\.\\.\\.|se connecter \u00e0 un appareil|connecter \u00e0 un appareil|appareils disponibles|mit einem ger\u00e4t verbinden|conectar a un dispositivo|conectar a um dispositivo)$/i\n    };\n    var triggers=Array.from(document.querySelectorAll(\'button,[role=\"button\"]\')).filter(function(b){\n        return b.isConnected && (controls[kind].test(String(b.getAttribute(\'data-testid\')||\'\')) || labels[kind].test(String(b.getAttribute(\'aria-label\')||\'\').trim()));\n    });\n    var nodes=[];roots.forEach(function(r){Array.from(r.querySelectorAll(\'[role], [data-testid], button\')).forEach(function(n){if(nodes.indexOf(n)<0)nodes.push(n);});});\n    function count(test){return Math.min(99,nodes.filter(test).length);}\n    return JSON.stringify({reason:roots.length?\'observed\':\'absent\',roots:Math.min(roots.length,99),\n        rows:count(function(n){return n.getAttribute(\'role\')===\'listitem\'||/^(queue-tracklist-row|device-list-item|lyrics-line)$/.test(n.getAttribute(\'data-testid\')||\'\');}),\n        controls:Math.min(triggers.length,99), buttons:count(function(n){return n.tagName===\'BUTTON\'||n.getAttribute(\'role\')===\'button\';}),\n        roles:count(function(n){return n.hasAttribute(\'role\');}),testids:count(function(n){return n.hasAttribute(\'data-testid\');})});\n})\n"
 
 .field private static final PANEL_READ:Ljava/lang/String; = "(function(kind) {\n    \'use strict\';\n    // Read only a uniquely recognised panel already present in the page.\n    // Never open a panel, issue a command, access session data or navigate.\n    var selectors={\n        queue:\'[data-testid=\"queue-page\"], [data-testid=\"queue-view\"]\',\n        lyrics:\'[data-testid=\"lyrics-lyricsContent\"]\',\n        devices:\'[data-testid=\"device-picker\"], [data-testid=\"connect-device-list\"]\'\n    };\n    if(!Object.prototype.hasOwnProperty.call(selectors,kind))return JSON.stringify({ok:false,reason:\'unsupported\'});\n    var roots=Array.from(document.querySelectorAll(selectors[kind])).filter(function(n){return n.isConnected;});\n    if(roots.length!==1)return JSON.stringify({ok:false,reason:roots.length?\'ambiguous\':\'absent\'});\n    var root=roots[0], lines=[];\n    function text(n){return String(n&&n.textContent||\'\').replace(/\\s+/g,\' \').trim().slice(0,300);}\n    if(kind===\'lyrics\'){\n        Array.from(root.querySelectorAll(\'p, [data-testid=\"lyrics-line\"]\')).slice(0,100).forEach(function(n){var t=text(n);if(t)lines.push(t);});\n    }else if(kind===\'queue\'){\n        Array.from(root.querySelectorAll(\'[data-testid=\"queue-tracklist-row\"]\')).slice(0,60).forEach(function(n){\n            var title=text(n.querySelector(\'[data-testid=\"track-title\"], [data-testid=\"context-item-info-title\"]\'));\n            var artist=text(n.querySelector(\'[data-testid=\"track-artist\"], [data-testid=\"context-item-info-artist\"]\'));\n            if(title)lines.push(title+(artist?\' \u2014 \'+artist:\'\'));\n        });\n    }else{\n        Array.from(root.querySelectorAll(\'[data-testid=\"device-list-item\"]\')).slice(0,30).forEach(function(n){\n            var name=text(n.querySelector(\'[data-testid=\"device-name\"]\'));if(name)lines.push(name+(n.getAttribute(\'aria-selected\')===\'true\'?\' \u00b7 Actif\':\'\'));\n        });\n    }\n    if(!lines.length)return JSON.stringify({ok:false,reason:\'unreadable\'});\n    return JSON.stringify({ok:true,body:lines.join(\'\\n\').slice(0,8000)});\n})\n"
 
-.field private static final QUEUE_JOB:Ljava/lang/String; = "(function(action) {\n    \'use strict\';\n    // Queue drawer source. One explicit tap = open the page\'s queue panel in the\n    // hidden page, read visible rows, then close it if it was closed before.\n    // No scrolling, navigation, storage, cookies, tokens or network.\n    var W = window;\n    if (action === \'poll\') return JSON.stringify(W.__melodixQueueJob || {status: \'none\'});\n    if (action !== \'run\') return JSON.stringify({status: \'none\'});\n    if (W.__melodixQueueJob && W.__melodixQueueJob.status === \'running\' && Date.now() - W.__melodixQueueJob.started < 8000) return JSON.stringify({status: \'busy\'});\n    var job = W.__melodixQueueJob = {status: \'running\', started: Date.now(), ok: false, reason: \'\', now: \'\', next: \'\', journal: []};\n    function log(code) { if (job.journal.length < 12) job.journal.push(code); }\n    function text(n) { return String(n && n.textContent || \'\').replace(/\\s+/g, \' \').trim().slice(0, 200); }\n    // Several copies of a control can exist (player bar and full view). Prefer\n    // the one in the player bar, then the only visible one; otherwise refuse.\n    function pickOne(list) {\n        if (list.length <= 1) return list[0] || null;\n        var bar = list.filter(function(b) { return !!b.closest(\'[data-testid=\"now-playing-bar\"]\'); });\n        if (bar.length === 1) return bar[0];\n        var shown = (bar.length ? bar : list).filter(function(b) { return b.getClientRects().length > 0; });\n        return shown.length === 1 ? shown[0] : null;\n    }\n    var found = 0;\n    function button() {\n        var list = Array.from(document.querySelectorAll(\'button, [role=\"button\"]\')).filter(function(b) {\n            return b.isConnected && (/^(control-button-queue|queue-button)$/i.test(String(b.getAttribute(\'data-testid\') || \'\')) ||\n                /^(queue|play queue|file d[\'\u2019]attente|file de lecture|warteschlange|cola de reproducci\u00f3n|cola|fila de reprodu\u00e7\u00e3o|fila)$/i.test(String(b.getAttribute(\'aria-label\') || \'\').trim()));\n        });\n        found = list.length;\n        return pickOne(list);\n    }\n    function isOpen(b) { return b.getAttribute(\'aria-pressed\') === \'true\' || b.getAttribute(\'aria-expanded\') === \'true\' || b.getAttribute(\'data-active\') === \'true\'; }\n    function root(b) {\n        // Narrow page: Spotify opens the queue as its own page (/queue) in the main view.\n        if (/^\\/queue/.test(String(location.pathname || \'\'))) {\n            var mainView = document.querySelector(\'#main-view, main\');\n            if (mainView && mainView.isConnected) return mainView;\n        }\n        var selectors = \'[data-testid=\"queue-page\"], [data-testid=\"queue-view\"], [data-testid=\"queue-panel\"], [data-testid=\"NPV-queue\"], aside[aria-label=\"Queue\"], aside[aria-label=\"File d\u2019attente\"], aside[aria-label=\"File d\\\'attente\"], section[aria-label=\"Queue\"], section[aria-label=\"File d\u2019attente\"], [role=\"region\"][aria-label=\"Queue\"], [role=\"region\"][aria-label=\"File d\u2019attente\"]\';\n        var found = Array.from(document.querySelectorAll(selectors)).filter(function(n) { return n.isConnected; });\n        if (found.length === 1) return found[0];\n        var id = b && b.getAttribute(\'aria-controls\');\n        var controlled = id ? document.getElementById(id) : null;\n        if (controlled && controlled.isConnected) return controlled;\n        // Desktop layout: the queue opens in the right-hand panel, labelled in any language.\n        var labelled = Array.from(document.querySelectorAll(\'aside, section, [role=\"region\"], [role=\"complementary\"], [role=\"dialog\"], div[aria-label]\')).filter(function(n) {\n            return n.isConnected && /^(queue|play queue|file d[\'\u2019]attente|file de lecture|warteschlange|cola( de reproducci\u00f3n)?|fila( de reprodu\u00e7\u00e3o)?)$/i.test(String(n.getAttribute(\'aria-label\') || \'\').trim());\n        });\n        if (labelled.length) return labelled[0];\n        var panel = document.querySelector(\'#Desktop_PanelContainer_Id, [data-testid=\"right-sidebar\"], [data-testid=\"PanelContainer\"]\');\n        return panel && panel.isConnected && panel.querySelector(\'a[href*=\"/track/\"], a[href*=\"/episode/\"]\') ? panel : null;\n    }\n    function rows(r) {\n        var list = Array.from(r.querySelectorAll(\'[data-testid=\"queue-tracklist-row\"], [data-testid=\"tracklist-row\"], [role=\"row\"]\')).filter(function(n) {\n            return !n.querySelector(\'[data-testid=\"queue-tracklist-row\"], [data-testid=\"tracklist-row\"], [role=\"row\"]\');\n        });\n        if (!list.length) {\n            // No row markers: one row per track link, its closest list item or row-like block.\n            var seen = [];\n            Array.from(r.querySelectorAll(\'a[href*=\"/track/\"], a[href*=\"/episode/\"]\')).forEach(function(a) {\n                var row = a.closest(\'li, [role=\"listitem\"], [draggable=\"true\"], [data-encore-id=\"listRow\"]\') || a.parentElement && a.parentElement.parentElement || a;\n                if (seen.indexOf(row) < 0) seen.push(row);\n            });\n            list = seen;\n        }\n        return list.slice(0, 40).map(function(n) {\n            var t = n.querySelector(\'[data-testid=\"internal-track-link\"], a[href*=\"/track/\"], a[href*=\"/episode/\"], [data-testid=\"track-title\"], [data-testid=\"context-item-info-title\"]\');\n            var artists = Array.from(n.querySelectorAll(\'a[href*=\"/artist/\"], a[href*=\"/show/\"]\')).map(text).filter(Boolean);\n            if (!artists.length) { var a = n.querySelector(\'[data-testid=\"track-artist\"], [data-testid=\"context-item-info-artist\"]\'); if (a) artists.push(text(a)); }\n            var duration = \'\';\n            Array.from(n.querySelectorAll(\'div, span\')).some(function(x) {\n                if (x.children.length) return false;\n                var v = text(x);\n                if (/^\\d{1,2}:\\d{2}(:\\d{2})?$/.test(v)) { duration = v; return true; }\n                return false;\n            });\n            return {title: text(t), artist: artists.join(\', \').slice(0, 200), duration: duration};\n        }).filter(function(x) { return x.title; });\n    }\n    // The page is hidden: a panel (or one of its parents) can measure 0 px, and\n    // Spotify then draws no rows in it. Give it a size while it is read, then\n    // restore the original inline style exactly. No other change to the page.\n    var sized = [];\n    function giveSize(r) {\n        var h = 0;\n        try { h = Math.round(r.getBoundingClientRect().height); } catch (_) {}\n        for (var n = r; n && n !== document.body && sized.length < 12; n = n.parentElement) {\n            var cs = window.getComputedStyle(n), small = false;\n            try { small = n.getBoundingClientRect().height < 2; } catch (_) {}\n            if (cs.display !== \'none\' && cs.visibility !== \'hidden\' && !small) continue;\n            sized.push([n, n.getAttribute(\'style\')]);\n            if (cs.display === \'none\') n.style.setProperty(\'display\', \'block\', \'important\');\n            if (cs.visibility === \'hidden\') n.style.setProperty(\'visibility\', \'visible\', \'important\');\n            if (small) n.style.setProperty(\'min-height\', \'640px\', \'important\');\n        }\n        log(\'sized:\' + sized.length + \',h:\' + Math.min(h, 9999));\n    }\n    function restoreSize() {\n        sized.forEach(function(e) { try { if (e[1] === null) e[0].removeAttribute(\'style\'); else e[0].setAttribute(\'style\', e[1]); } catch (_) {} });\n        sized = [];\n    }\n    function finish(ok, reason) { restoreSize(); job.status = \'done\'; job.ok = ok; job.reason = reason || \'\'; }\n    try {\n        var b = button();\n        var already = root(b);\n        if (!b && !already) { log(found > 1 ? \'button:ambiguous:\' + Math.min(found, 9) : \'button:absent\'); finish(false, found > 1 ? \'ambiguous\' : \'absent\'); return JSON.stringify({status: \'started\'}); }\n        var wasOpen = !!already || (b && isOpen(b));\n        if (!wasOpen) { try { b.click(); log(\'opened\'); } catch (_) { log(\'open-error\'); finish(false, \'command\'); return JSON.stringify({status: \'started\'}); } }\n        else log(\'already-open\');\n        var end = Date.now() + 4500, forced = false;\n        (function step() {\n            var r = null, list = [];\n            try { r = root(button() || b); list = r ? rows(r) : []; } catch (_) { list = []; }\n            if (!list.length && r && !forced && Date.now() > end - 3500) { forced = true; giveSize(r); }\n            if (!list.length && Date.now() < end) { setTimeout(step, 150); return; }\n            if (list.length) {\n                var line = function(x) { return [x.title, x.artist, x.duration].join(\'\\t\').replace(/\\n/g, \' \'); };\n                job.now = line(list[0]); job.next = list.slice(1).map(line).join(\'\\n\');\n                log(\'rows:\' + Math.min(list.length, 40));\n                finish(true, \'\');\n            } else {\n                log(r ? \'rows:0\' : \'panel:absent\');\n                // Counts only, to locate the queue next time: route, links in the panel, rows in the page.\n                log(\'path:\' + (/^\\/queue/.test(String(location.pathname || \'\')) ? \'queue\' : \'other\'));\n                log(\'links:\' + Math.min(r ? r.querySelectorAll(\'a[href*=\"/track/\"], a[href*=\"/episode/\"]\').length : 0, 99));\n                log(\'rowsdoc:\' + Math.min(document.querySelectorAll(\'[data-testid=\"tracklist-row\"], [role=\"row\"]\').length, 99));\n                finish(false, r ? \'empty\' : \'panel\');\n            }\n            if (!wasOpen) {\n                setTimeout(function() {\n                    try { var again = button() || b; if (again && isOpen(again)) { again.click(); log(\'closed\'); } } catch (_) { log(\'close-error\'); }\n                }, 100);\n            }\n        })();\n        return JSON.stringify({status: \'started\'});\n    } catch (_) {\n        finish(false, \'error\');\n        return JSON.stringify({status: \'started\'});\n    }\n})\n"
+.field private static final QUEUE_JOB:Ljava/lang/String; = "(function(action) {\n    \'use strict\';\n    // Queue drawer source. One explicit tap = open the page\'s queue panel in the\n    // hidden page, read visible rows, then close it if it was closed before.\n    // No scrolling, navigation, storage, cookies, tokens or network.\n    var W = window;\n    if (action === \'poll\') return JSON.stringify(W.__melodixQueueJob || {status: \'none\'});\n    if (action !== \'run\') return JSON.stringify({status: \'none\'});\n    if (W.__melodixQueueJob && W.__melodixQueueJob.status === \'running\' && Date.now() - W.__melodixQueueJob.started < 8000) return JSON.stringify({status: \'busy\'});\n    var job = W.__melodixQueueJob = {status: \'running\', started: Date.now(), ok: false, reason: \'\', now: \'\', next: \'\', journal: []};\n    function log(code) { if (job.journal.length < 12) job.journal.push(code); }\n    function text(n) { return String(n && n.textContent || \'\').replace(/\\s+/g, \' \').trim().slice(0, 200); }\n    // Several copies of a control can exist (player bar and full view). Prefer\n    // the one in the player bar, then the only visible one; otherwise refuse.\n    function pickOne(list) {\n        if (list.length <= 1) return list[0] || null;\n        var bar = list.filter(function(b) { return !!b.closest(\'[data-testid=\"now-playing-bar\"]\'); });\n        if (bar.length === 1) return bar[0];\n        var shown = (bar.length ? bar : list).filter(function(b) { return b.getClientRects().length > 0; });\n        return shown.length === 1 ? shown[0] : null;\n    }\n    var found = 0, rootAmbiguous = false;\n    function button() {\n        var list = Array.from(document.querySelectorAll(\'button, [role=\"button\"]\')).filter(function(b) {\n            return b.isConnected && (/^(control-button-queue|queue-button)$/i.test(String(b.getAttribute(\'data-testid\') || \'\')) ||\n                /^(queue|play queue|file d[\'\u2019]attente|file de lecture|warteschlange|cola de reproducci\u00f3n|cola|fila de reprodu\u00e7\u00e3o|fila)$/i.test(String(b.getAttribute(\'aria-label\') || \'\').trim()));\n        });\n        found = list.length;\n        return pickOne(list);\n    }\n    function isOpen(b) { return b.getAttribute(\'aria-pressed\') === \'true\' || b.getAttribute(\'aria-expanded\') === \'true\' || b.getAttribute(\'data-active\') === \'true\'; }\n    function root(b) {\n        // Narrow page: Spotify opens the queue as its own page (/queue) in the main view.\n        if (/^\\/queue/.test(String(location.pathname || \'\'))) {\n            var mainView = document.querySelector(\'#main-view, main\');\n            if (mainView && mainView.isConnected) return mainView;\n        }\n        var selectors = \'[data-testid=\"queue-page\"], [data-testid=\"queue-view\"], [data-testid=\"queue-panel\"], [data-testid=\"NPV-queue\"], aside[aria-label=\"Queue\"], aside[aria-label=\"File d\u2019attente\"], aside[aria-label=\"File d\\\'attente\"], section[aria-label=\"Queue\"], section[aria-label=\"File d\u2019attente\"], [role=\"region\"][aria-label=\"Queue\"], [role=\"region\"][aria-label=\"File d\u2019attente\"]\';\n        var found = Array.from(document.querySelectorAll(selectors)).filter(function(n) { return n.isConnected; });\n        if (found.length === 1) return found[0];\n        if (found.length > 1) { rootAmbiguous = true; return null; }\n        var id = b && b.getAttribute(\'aria-controls\');\n        var controlled = id ? document.getElementById(id) : null;\n        if (controlled && controlled.isConnected) return controlled;\n        // Desktop layout: the queue opens in the right-hand panel, labelled in any language.\n        var labelled = Array.from(document.querySelectorAll(\'aside, section, [role=\"region\"], [role=\"complementary\"], [role=\"dialog\"], div[aria-label]\')).filter(function(n) {\n            return n.isConnected && /^(queue|play queue|file d[\'\u2019]attente|file de lecture|warteschlange|cola( de reproducci\u00f3n)?|fila( de reprodu\u00e7\u00e3o)?)$/i.test(String(n.getAttribute(\'aria-label\') || \'\').trim());\n        });\n        if (labelled.length > 1) { rootAmbiguous = true; return null; }\n        return labelled.length === 1 ? labelled[0] : null;\n    }\n    function rows(r) {\n        var list = Array.from(r.querySelectorAll(\'[data-testid=\"queue-tracklist-row\"], [data-testid=\"tracklist-row\"], [role=\"row\"]\')).filter(function(n) {\n            return !n.querySelector(\'[data-testid=\"queue-tracklist-row\"], [data-testid=\"tracklist-row\"], [role=\"row\"]\');\n        });\n        if (!list.length) {\n            // No row markers: one row per track link, its closest list item or row-like block.\n            var seen = [];\n            Array.from(r.querySelectorAll(\'a[href*=\"/track/\"], a[href*=\"/episode/\"]\')).forEach(function(a) {\n                var row = a.closest(\'li, [role=\"listitem\"], [draggable=\"true\"], [data-encore-id=\"listRow\"]\') || a.parentElement && a.parentElement.parentElement || a;\n                if (seen.indexOf(row) < 0) seen.push(row);\n            });\n            list = seen;\n        }\n        return list.slice(0, 40).map(function(n) {\n            var t = n.querySelector(\'[data-testid=\"internal-track-link\"], a[href*=\"/track/\"], a[href*=\"/episode/\"], [data-testid=\"track-title\"], [data-testid=\"context-item-info-title\"]\');\n            var artists = Array.from(n.querySelectorAll(\'a[href*=\"/artist/\"], a[href*=\"/show/\"]\')).map(text).filter(Boolean);\n            if (!artists.length) { var a = n.querySelector(\'[data-testid=\"track-artist\"], [data-testid=\"context-item-info-artist\"]\'); if (a) artists.push(text(a)); }\n            var duration = \'\';\n            Array.from(n.querySelectorAll(\'div, span\')).some(function(x) {\n                if (x.children.length) return false;\n                var v = text(x);\n                if (/^\\d{1,2}:\\d{2}(:\\d{2})?$/.test(v)) { duration = v; return true; }\n                return false;\n            });\n            return {title: text(t), artist: artists.join(\', \').slice(0, 200), duration: duration, current: n.getAttribute(\'aria-current\') === \'true\' || n.getAttribute(\'data-testid\') === \'queue-now-playing\'};\n        }).filter(function(x) { return x.title; });\n    }\n    // The page is hidden: a panel (or one of its parents) can measure 0 px, and\n    // Spotify then draws no rows in it. Give it a size while it is read, then\n    // restore the original inline style exactly. No other change to the page.\n    var sized = [];\n    function giveSize(r) {\n        var h = 0;\n        try { h = Math.round(r.getBoundingClientRect().height); } catch (_) {}\n        for (var n = r; n && n !== document.body && sized.length < 12; n = n.parentElement) {\n            var cs = window.getComputedStyle(n), small = false;\n            try { small = n.getBoundingClientRect().height < 2; } catch (_) {}\n            if (cs.display !== \'none\' && cs.visibility !== \'hidden\' && !small) continue;\n            sized.push([n, n.getAttribute(\'style\')]);\n            if (cs.display === \'none\') n.style.setProperty(\'display\', \'block\', \'important\');\n            if (cs.visibility === \'hidden\') n.style.setProperty(\'visibility\', \'visible\', \'important\');\n            if (small) n.style.setProperty(\'min-height\', \'640px\', \'important\');\n        }\n        log(\'sized:\' + sized.length + \',h:\' + Math.min(h, 9999));\n    }\n    function restoreSize() {\n        sized.forEach(function(e) { try { if (e[1] === null) e[0].removeAttribute(\'style\'); else e[0].setAttribute(\'style\', e[1]); } catch (_) {} });\n        sized = [];\n    }\n    var b = null, wasOpen = true, openedHere = false;\n    function finish(ok, reason) {\n        restoreSize();\n        function done(closeOk) {\n            if (openedHere) log(closeOk ? \'close:verified\' : \'close:unverified\');\n            job.status = \'done\'; job.ok = ok && closeOk;\n            job.reason = closeOk ? (reason || \'\') : \'close-unverified\';\n        }\n        if (!openedHere) { done(true); return; }\n        // Only the same explicitly open trigger may be toggled back. Do not\n        // click a replacement, a disabled control, or guess at browser history.\n        try {\n            if (b && b.isConnected && button() === b && isOpen(b) && !b.disabled && b.getAttribute(\'aria-disabled\') !== \'true\') {\n                b.click(); log(\'closed\');\n            }\n        } catch (_) { log(\'close-error\'); }\n        setTimeout(function() {\n            var remains = null;\n            try { remains = root(b); } catch (_) { }\n            var hidden = remains && (remains.closest(\'[hidden], [aria-hidden=\"true\"]\') ||\n                window.getComputedStyle(remains).display === \'none\' || window.getComputedStyle(remains).visibility === \'hidden\');\n            var after = button();\n            var explicitlyClosed = after && (after.getAttribute(\'aria-pressed\') === \'false\' || after.getAttribute(\'aria-expanded\') === \'false\' || after.getAttribute(\'data-active\') === \'false\') && !isOpen(after);\n            var clearlyClosed = explicitlyClosed && (!remains || !!hidden);\n            done(!!clearlyClosed);\n        }, 150);\n    }\n    try {\n        b = button();\n        var already = root(b);\n        if (rootAmbiguous) { log(\'root:ambiguous\'); finish(false, \'ambiguous\'); return JSON.stringify({status: \'started\'}); }\n        if (b && (b.disabled || b.getAttribute(\'aria-disabled\') === \'true\') && !already) { log(\'button:disabled\'); finish(false, \'disabled\'); return JSON.stringify({status: \'started\'}); }\n        if (!b && !already) { log(found > 1 ? \'button:ambiguous:\' + Math.min(found, 9) : \'button:absent\'); finish(false, found > 1 ? \'ambiguous\' : \'absent\'); return JSON.stringify({status: \'started\'}); }\n        wasOpen = !!already || (b && isOpen(b));\n        if (!wasOpen) { try { openedHere = true; b.click(); log(\'opened\'); } catch (_) { log(\'open-error\'); finish(false, \'command\'); return JSON.stringify({status: \'started\'}); } }\n        else log(\'already-open\');\n        var end = Date.now() + 4500, forced = false;\n        (function step() {\n            var r = null, list = [];\n            try { r = root(button() || b); list = r ? rows(r) : []; } catch (_) { list = []; }\n            if (!list.length && r && !forced && Date.now() > end - 3500) { forced = true; giveSize(r); }\n            if (!list.length && Date.now() < end) { setTimeout(step, 150); return; }\n            if (list.length) {\n                var line = function(x) { return [x.title, x.artist, x.duration].join(\'\\t\').replace(/\\n/g, \' \'); };\n                var marked = list.filter(function(x) { return x.current; });\n                job.now = marked.length === 1 ? line(marked[0]) : \'\';\n                job.next = list.filter(function(x) { return marked.length !== 1 || x !== marked[0]; }).map(line).join(\'\\n\');\n                log(\'rows:\' + Math.min(list.length, 40));\n                finish(true, \'\');\n            } else {\n                log(r ? \'rows:0\' : \'panel:absent\');\n                // Counts only, to locate the queue next time: route, links in the panel, rows in the page.\n                log(\'path:\' + (/^\\/queue/.test(String(location.pathname || \'\')) ? \'queue\' : \'other\'));\n                log(\'links:\' + Math.min(r ? r.querySelectorAll(\'a[href*=\"/track/\"], a[href*=\"/episode/\"]\').length : 0, 99));\n                log(\'rowsdoc:\' + Math.min(document.querySelectorAll(\'[data-testid=\"tracklist-row\"], [role=\"row\"]\').length, 99));\n                finish(false, rootAmbiguous ? \'ambiguous\' : r ? \'empty\' : \'panel\');\n            }\n        })();\n        return JSON.stringify({status: \'started\'});\n    } catch (_) {\n        finish(false, \'error\');\n        return JSON.stringify({status: \'started\'});\n    }\n})\n"
 
 .field private static final TRACE_READ:Ljava/lang/String; = "(function(){var t=window.__melodixOpenTrace;if(!t||typeof t!==\'object\')return \'\';var n=function(x){return typeof x===\'number\'&&isFinite(x)&&x>=0?String(Math.min(Math.round(x),9999999)):\'-\';};var k=t.kind===\'liked\'||t.kind===\'playlist\'?t.kind:\'-\';var ph=/^(none|open|ready|dom|dom-empty|classified|classified-empty|rendered|unavailable)$/.test(String(t.phase))?t.phase:\'-\';return [k,ph,n(t.nav),n(t.ready),n(t.dom),n(t.classified),n(t.rendered),n(t.first),n(t.full),n(t.updates)].join(\',\');})()"
 
@@ -67,258 +67,286 @@
 
 # direct methods
 .method static constructor <clinit>()V
-    .locals 7
+    .locals 6
+
+    .prologue
+    const/4 v5, 0x3
+
+    const/4 v4, 0x2
+
+    const/4 v3, 0x1
+
+    const/4 v2, 0x0
 
     .line 38
     const-string v0, "aucune"
 
     sput-object v0, Lcom/melodix/music/PreviewPlayerTiles;->queueJournal:Ljava/lang/String;
 
-    .line 41
-    const/4 v1, 0x3
+    .line 55
+    new-array v0, v5, [Ljava/lang/String;
 
-    new-array v2, v1, [Ljava/lang/String;
+    const-string v1, "non observ\u00e9e"
 
-    const/4 v3, 0x0
+    aput-object v1, v0, v2
 
-    const-string v4, "non observ\u00e9e"
+    const-string v1, "non observ\u00e9e"
 
-    aput-object v4, v2, v3
+    aput-object v1, v0, v3
 
-    const/4 v5, 0x1
+    const-string v1, "non observ\u00e9e"
 
-    aput-object v4, v2, v5
+    aput-object v1, v0, v4
 
-    const/4 v6, 0x2
+    sput-object v0, Lcom/melodix/music/PreviewPlayerTiles;->observations:[Ljava/lang/String;
 
-    aput-object v4, v2, v6
+    .line 56
+    new-array v0, v5, [J
 
-    sput-object v2, Lcom/melodix/music/PreviewPlayerTiles;->observations:[Ljava/lang/String;
+    sput-object v0, Lcom/melodix/music/PreviewPlayerTiles;->probeSerial:[J
 
-    .line 42
-    new-array v1, v1, [J
+    .line 58
+    const-wide/16 v0, -0x1
 
-    fill-array-data v1, :array_0
+    sput-wide v0, Lcom/melodix/music/PreviewPlayerTiles;->traceAt:J
 
-    sput-object v1, Lcom/melodix/music/PreviewPlayerTiles;->probeSerial:[J
+    .line 62
+    const-string v0, "non lue"
 
-    .line 44
-    const-wide/16 v1, -0x1
+    sput-object v0, Lcom/melodix/music/PreviewPlayerTiles;->openTrace:Ljava/lang/String;
 
-    sput-wide v1, Lcom/melodix/music/PreviewPlayerTiles;->traceAt:J
+    .line 64
+    const-string v0, "\nAffichage lecteur : non observ\u00e9"
 
-    .line 48
-    const-string v1, "non lue"
+    sput-object v0, Lcom/melodix/music/PreviewPlayerTiles;->displayReport:Ljava/lang/String;
 
-    sput-object v1, Lcom/melodix/music/PreviewPlayerTiles;->openTrace:Ljava/lang/String;
+    .line 204
+    new-array v0, v4, [Ljava/lang/String;
 
-    .line 50
-    const-string v1, "\nAffichage lecteur : non observ\u00e9"
+    const-string v1, "aucune"
 
-    sput-object v1, Lcom/melodix/music/PreviewPlayerTiles;->displayReport:Ljava/lang/String;
+    aput-object v1, v0, v2
 
-    .line 186
-    new-array v1, v6, [Ljava/lang/String;
+    const-string v1, "aucune"
 
-    aput-object v0, v1, v3
+    aput-object v1, v0, v3
 
-    aput-object v0, v1, v5
-
-    sput-object v1, Lcom/melodix/music/PreviewPlayerTiles;->panelJournals:[Ljava/lang/String;
+    sput-object v0, Lcom/melodix/music/PreviewPlayerTiles;->panelJournals:[Ljava/lang/String;
 
     return-void
-
-    :array_0
-    .array-data 8
-        0x0
-        0x0
-        0x0
-    .end array-data
 .end method
 
 .method public constructor <init>(Landroid/content/Context;Landroid/util/AttributeSet;)V
     .locals 12
 
-    .line 299
+    .prologue
+    const/high16 v4, 0x3f800000    # 1.0f
+
+    const/4 v11, 0x0
+
+    const/4 v10, 0x1
+
+    const/4 v9, 0x3
+
+    const/4 v1, 0x0
+
+    .line 319
     invoke-direct {p0, p1, p2}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;Landroid/util/AttributeSet;)V
 
-    .line 45
-    new-instance p2, Lcom/melodix/music/PreviewPlayerTiles$1;
+    .line 59
+    new-instance v0, Lcom/melodix/music/PreviewPlayerTiles$1;
 
-    invoke-direct {p2, p0}, Lcom/melodix/music/PreviewPlayerTiles$1;-><init>(Lcom/melodix/music/PreviewPlayerTiles;)V
+    invoke-direct {v0, p0}, Lcom/melodix/music/PreviewPlayerTiles$1;-><init>(Lcom/melodix/music/PreviewPlayerTiles;)V
 
-    iput-object p2, p0, Lcom/melodix/music/PreviewPlayerTiles;->traceTick:Ljava/lang/Runnable;
+    iput-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->traceTick:Ljava/lang/Runnable;
 
-    .line 111
-    const/4 p2, 0x3
+    .line 125
+    new-array v0, v9, [Ljava/lang/String;
 
-    new-array v0, p2, [Ljava/lang/String;
+    const-string v2, "File"
 
-    const-string v1, "File"
+    aput-object v2, v0, v1
 
-    const/4 v2, 0x0
+    const-string v2, "Paroles"
 
-    aput-object v1, v0, v2
+    aput-object v2, v0, v10
 
-    const-string v1, "Paroles"
+    const/4 v2, 0x2
 
-    const/4 v3, 0x1
+    const-string v3, "Appareils"
 
-    aput-object v1, v0, v3
-
-    const-string v1, "Appareils"
-
-    const/4 v4, 0x2
-
-    aput-object v1, v0, v4
+    aput-object v3, v0, v2
 
     iput-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->names:[Ljava/lang/String;
 
-    .line 112
-    new-array v0, p2, [Ljava/lang/String;
+    .line 126
+    new-array v0, v9, [Ljava/lang/String;
 
-    const-string v1, "\u2630"
+    const-string v2, "\u2630"
 
-    aput-object v1, v0, v2
+    aput-object v2, v0, v1
 
-    const-string v1, "\u266c"
+    const-string v2, "\u266c"
 
-    aput-object v1, v0, v3
+    aput-object v2, v0, v10
 
-    const-string v1, "\u25a3"
+    const/4 v2, 0x2
 
-    aput-object v1, v0, v4
+    const-string v3, "\u25a3"
+
+    aput-object v3, v0, v2
 
     iput-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->icons:[Ljava/lang/String;
 
-    .line 113
-    new-array v0, p2, [Landroid/widget/Button;
+    .line 127
+    new-array v0, v9, [Landroid/widget/Button;
 
     iput-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->controls:[Landroid/widget/Button;
 
-    .line 115
-    const-wide/16 v0, -0x3e8
+    .line 129
+    const-wide/16 v2, -0x3e8
 
-    iput-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->lastAction:J
+    iput-wide v2, p0, Lcom/melodix/music/PreviewPlayerTiles;->lastAction:J
 
-    .line 139
+    .line 153
     const-string v0, ""
 
     iput-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->queueReason:Ljava/lang/String;
 
-    const-string v1, "envoi"
+    const-string v0, "envoi"
 
-    iput-object v1, p0, Lcom/melodix/music/PreviewPlayerTiles;->queueStep:Ljava/lang/String;
+    iput-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->queueStep:Ljava/lang/String;
 
-    iput-object v1, p0, Lcom/melodix/music/PreviewPlayerTiles;->panelStep:Ljava/lang/String;
+    const-string v0, "envoi"
 
-    .line 163
-    const-wide/16 v5, -0x1
+    iput-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->panelStep:Ljava/lang/String;
 
-    iput-wide v5, p0, Lcom/melodix/music/PreviewPlayerTiles;->settledSerial:J
+    .line 181
+    const-wide/16 v2, -0x1
 
-    .line 187
-    iput-wide v5, p0, Lcom/melodix/music/PreviewPlayerTiles;->panelSettled:J
+    iput-wide v2, p0, Lcom/melodix/music/PreviewPlayerTiles;->settledSerial:J
 
-    .line 192
+    .line 205
+    const-wide/16 v2, -0x1
+
+    iput-wide v2, p0, Lcom/melodix/music/PreviewPlayerTiles;->panelSettled:J
+
+    .line 210
+    const-string v0, ""
+
     iput-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->panelReason:Ljava/lang/String;
 
-    .line 299
-    invoke-virtual {p0, v2}, Lcom/melodix/music/PreviewPlayerTiles;->setOrientation(I)V
+    .line 319
+    invoke-virtual {p0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->setOrientation(I)V
 
     const/16 v0, 0x11
 
     invoke-virtual {p0, v0}, Lcom/melodix/music/PreviewPlayerTiles;->setGravity(I)V
 
-    .line 300
+    .line 320
     const/4 v0, 0x4
 
-    new-array v1, v0, [Ljava/lang/String;
+    new-array v5, v0, [Ljava/lang/String;
 
-    const-string v5, "\u2630\nFile"
+    const-string v0, "\u2630\nFile"
 
-    aput-object v5, v1, v2
+    aput-object v0, v5, v1
 
-    const-string v5, "\u266c\nParoles"
+    const-string v0, "\u266c\nParoles"
 
-    aput-object v5, v1, v3
+    aput-object v0, v5, v10
 
-    const-string v5, "\u25a3\nAppareils"
+    const/4 v0, 0x2
 
-    aput-object v5, v1, v4
+    const-string v2, "\u25a3\nAppareils"
 
-    const-string v4, "\u25d6))\nVolume"
+    aput-object v2, v5, v0
 
-    aput-object v4, v1, p2
+    const-string v0, "\u25d6))\nVolume"
 
-    .line 301
-    move v4, v2
+    aput-object v0, v5, v9
 
+    move v0, v1
+
+    .line 321
     :goto_0
-    if-ge v4, v0, :cond_7
+    array-length v2, v5
 
-    .line 302
-    if-ne v4, p2, :cond_0
+    if-lt v0, v2, :cond_0
 
-    new-instance v5, Lcom/melodix/music/PreviewPlayerVolume;
+    .line 336
+    return-void
 
-    invoke-direct {v5, p1}, Lcom/melodix/music/PreviewPlayerVolume;-><init>(Landroid/content/Context;)V
-
-    goto :goto_1
-
+    .line 322
     :cond_0
-    new-instance v5, Landroid/widget/Button;
+    if-ne v0, v9, :cond_4
 
-    invoke-direct {v5, p1}, Landroid/widget/Button;-><init>(Landroid/content/Context;)V
+    new-instance v2, Lcom/melodix/music/PreviewPlayerVolume;
 
-    .line 303
+    invoke-direct {v2, p1}, Lcom/melodix/music/PreviewPlayerVolume;-><init>(Landroid/content/Context;)V
+
+    .line 323
     :goto_1
-    new-instance v6, Landroid/text/SpannableString;
+    new-instance v3, Landroid/text/SpannableString;
 
-    aget-object v7, v1, v4
+    aget-object v6, v5, v0
 
-    invoke-direct {v6, v7}, Landroid/text/SpannableString;-><init>(Ljava/lang/CharSequence;)V
+    invoke-direct {v3, v6}, Landroid/text/SpannableString;-><init>(Ljava/lang/CharSequence;)V
 
-    .line 304
-    new-instance v7, Landroid/text/style/RelativeSizeSpan;
+    .line 324
+    new-instance v6, Landroid/text/style/RelativeSizeSpan;
 
-    const v8, 0x400ccccd    # 2.2f
+    const v7, 0x400ccccd    # 2.2f
 
-    invoke-direct {v7, v8}, Landroid/text/style/RelativeSizeSpan;-><init>(F)V
+    invoke-direct {v6, v7}, Landroid/text/style/RelativeSizeSpan;-><init>(F)V
 
-    aget-object v8, v1, v4
+    aget-object v7, v5, v0
 
-    const/16 v9, 0xa
+    const/16 v8, 0xa
 
-    invoke-virtual {v8, v9}, Ljava/lang/String;->indexOf(I)I
+    invoke-virtual {v7, v8}, Ljava/lang/String;->indexOf(I)I
 
-    move-result v8
+    move-result v7
 
-    const/16 v9, 0x21
+    const/16 v8, 0x21
 
-    invoke-virtual {v6, v7, v2, v8, v9}, Landroid/text/SpannableString;->setSpan(Ljava/lang/Object;III)V
+    invoke-virtual {v3, v6, v1, v7, v8}, Landroid/text/SpannableString;->setSpan(Ljava/lang/Object;III)V
 
-    .line 305
-    invoke-virtual {v5, v6}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
+    .line 325
+    invoke-virtual {v2, v3}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
 
-    const/high16 v6, 0x41200000    # 10.0f
+    const/high16 v3, 0x41200000    # 10.0f
 
-    invoke-virtual {v5, v6}, Landroid/widget/Button;->setTextSize(F)V
+    invoke-virtual {v2, v3}, Landroid/widget/Button;->setTextSize(F)V
 
-    const v6, -0x4b513b
+    const v3, -0x4b513b
 
-    invoke-virtual {v5, v6}, Landroid/widget/Button;->setTextColor(I)V
+    invoke-virtual {v2, v3}, Landroid/widget/Button;->setTextColor(I)V
 
-    .line 306
-    invoke-virtual {v5, v2}, Landroid/widget/Button;->setAllCaps(Z)V
+    .line 326
+    invoke-virtual {v2, v1}, Landroid/widget/Button;->setAllCaps(Z)V
 
-    invoke-virtual {v5, v2}, Landroid/widget/Button;->setSingleLine(Z)V
+    invoke-virtual {v2, v1}, Landroid/widget/Button;->setSingleLine(Z)V
 
-    invoke-virtual {v5, v0}, Landroid/widget/Button;->setMaxLines(I)V
+    const/4 v3, 0x4
 
-    const/high16 v6, 0x40000000    # 2.0f
+    invoke-virtual {v2, v3}, Landroid/widget/Button;->setMaxLines(I)V
+
+    const/high16 v3, 0x40000000    # 2.0f
+
+    invoke-direct {p0, v3}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v3
+
+    const/high16 v6, 0x40800000    # 4.0f
 
     invoke-direct {p0, v6}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v6
+
+    const/high16 v7, 0x40000000    # 2.0f
+
+    invoke-direct {p0, v7}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
 
     move-result v7
 
@@ -326,918 +354,183 @@
 
     invoke-direct {p0, v8}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
 
-    move-result v9
-
-    invoke-direct {p0, v6}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v6
-
-    invoke-direct {p0, v8}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
     move-result v8
 
-    invoke-virtual {v5, v7, v9, v6, v8}, Landroid/widget/Button;->setPadding(IIII)V
+    invoke-virtual {v2, v3, v6, v7, v8}, Landroid/widget/Button;->setPadding(IIII)V
 
-    invoke-virtual {v5, v2}, Landroid/widget/Button;->setMinWidth(I)V
+    invoke-virtual {v2, v1}, Landroid/widget/Button;->setMinWidth(I)V
 
-    invoke-virtual {v5, v2}, Landroid/widget/Button;->setMinimumWidth(I)V
+    invoke-virtual {v2, v1}, Landroid/widget/Button;->setMinimumWidth(I)V
 
-    const/high16 v6, 0x42600000    # 56.0f
+    const/high16 v3, 0x42600000    # 56.0f
+
+    invoke-direct {p0, v3}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v3
+
+    invoke-virtual {v2, v3}, Landroid/widget/Button;->setMinimumHeight(I)V
+
+    .line 327
+    new-instance v3, Landroid/graphics/drawable/GradientDrawable;
+
+    invoke-direct {v3}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
+
+    const v6, 0x14ffffff
+
+    invoke-virtual {v3, v6}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
+
+    const/high16 v6, 0x41900000    # 18.0f
 
     invoke-direct {p0, v6}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v7
-
-    invoke-virtual {v5, v7}, Landroid/widget/Button;->setMinimumHeight(I)V
-
-    .line 307
-    new-instance v7, Landroid/graphics/drawable/GradientDrawable;
-
-    invoke-direct {v7}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
-
-    const v8, 0x14ffffff
-
-    invoke-virtual {v7, v8}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
-
-    const/high16 v8, 0x41900000    # 18.0f
-
-    invoke-direct {p0, v8}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v8
-
-    int-to-float v8, v8
-
-    invoke-virtual {v7, v8}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
-
-    const/high16 v8, 0x3f800000    # 1.0f
-
-    invoke-direct {p0, v8}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v9
-
-    const v10, 0x1fffffff
-
-    invoke-virtual {v7, v9, v10}, Landroid/graphics/drawable/GradientDrawable;->setStroke(II)V
-
-    .line 308
-    const/4 v9, 0x0
-
-    invoke-virtual {v5, v9}, Landroid/widget/Button;->setBackgroundTintList(Landroid/content/res/ColorStateList;)V
-
-    invoke-virtual {v5, v9}, Landroid/widget/Button;->setStateListAnimator(Landroid/animation/StateListAnimator;)V
-
-    const/4 v10, 0x0
-
-    invoke-virtual {v5, v10}, Landroid/widget/Button;->setElevation(F)V
-
-    invoke-virtual {v5, v10}, Landroid/widget/Button;->setTranslationZ(F)V
-
-    invoke-virtual {v5, v9}, Landroid/widget/Button;->setForeground(Landroid/graphics/drawable/Drawable;)V
-
-    .line 309
-    new-instance v10, Landroid/graphics/drawable/RippleDrawable;
-
-    const v11, 0x447b3fe4
-
-    invoke-static {v11}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
-
-    move-result-object v11
-
-    invoke-direct {v10, v11, v7, v9}, Landroid/graphics/drawable/RippleDrawable;-><init>(Landroid/content/res/ColorStateList;Landroid/graphics/drawable/Drawable;Landroid/graphics/drawable/Drawable;)V
-
-    invoke-virtual {v5, v10}, Landroid/widget/Button;->setBackground(Landroid/graphics/drawable/Drawable;)V
-
-    .line 310
-    if-ne v4, p2, :cond_1
-
-    const-string v7, "Volume du lecteur indisponible"
-
-    goto :goto_2
-
-    :cond_1
-    new-instance v7, Ljava/lang/StringBuilder;
-
-    invoke-direct {v7}, Ljava/lang/StringBuilder;-><init>()V
-
-    iget-object v9, p0, Lcom/melodix/music/PreviewPlayerTiles;->names:[Ljava/lang/String;
-
-    aget-object v9, v9, v4
-
-    invoke-virtual {v7, v9}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v7
-
-    const-string v9, " : indisponible, page Spotify non accessible"
-
-    invoke-virtual {v7, v9}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v7
-
-    invoke-virtual {v7}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-
-    move-result-object v7
-
-    :goto_2
-    invoke-virtual {v5, v7}, Landroid/widget/Button;->setContentDescription(Ljava/lang/CharSequence;)V
-
-    .line 311
-    if-ge v4, p2, :cond_2
-
-    invoke-virtual {v5, v3}, Landroid/widget/Button;->setEnabled(Z)V
-
-    :cond_2
-    if-ne v4, p2, :cond_3
-
-    move v7, v8
-
-    goto :goto_3
-
-    :cond_3
-    const v7, 0x3f4ccccd    # 0.8f
-
-    :goto_3
-    invoke-virtual {v5, v7}, Landroid/widget/Button;->setAlpha(F)V
-
-    invoke-virtual {v5, v2}, Landroid/widget/Button;->setSelected(Z)V
-
-    invoke-virtual {v5, v2}, Landroid/widget/Button;->setActivated(Z)V
-
-    .line 312
-    new-instance v7, Landroid/widget/LinearLayout$LayoutParams;
-
-    invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerTiles;->getResources()Landroid/content/res/Resources;
-
-    move-result-object v9
-
-    invoke-virtual {v9}, Landroid/content/res/Resources;->getConfiguration()Landroid/content/res/Configuration;
-
-    move-result-object v9
-
-    iget v9, v9, Landroid/content/res/Configuration;->fontScale:F
-
-    const v10, 0x3fa66666    # 1.3f
-
-    cmpl-float v9, v9, v10
-
-    if-lez v9, :cond_4
-
-    const/4 v6, -0x2
-
-    goto :goto_4
-
-    :cond_4
-    invoke-direct {p0, v6}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v6
-
-    :goto_4
-    invoke-direct {v7, v2, v6, v8}, Landroid/widget/LinearLayout$LayoutParams;-><init>(IIF)V
-
-    if-lez v4, :cond_5
-
-    const/high16 v6, 0x41000000    # 8.0f
-
-    invoke-direct {p0, v6}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v6
-
-    iput v6, v7, Landroid/widget/LinearLayout$LayoutParams;->leftMargin:I
-
-    :cond_5
-    invoke-virtual {p0, v5, v7}, Lcom/melodix/music/PreviewPlayerTiles;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
-
-    .line 313
-    if-ge v4, p2, :cond_6
-
-    iget-object v6, p0, Lcom/melodix/music/PreviewPlayerTiles;->controls:[Landroid/widget/Button;
-
-    aput-object v5, v6, v4
-
-    new-instance v6, Lcom/melodix/music/PreviewPlayerTiles$21;
-
-    invoke-direct {v6, p0, v4}, Lcom/melodix/music/PreviewPlayerTiles$21;-><init>(Lcom/melodix/music/PreviewPlayerTiles;I)V
-
-    invoke-virtual {v5, v6}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
-
-    .line 301
-    :cond_6
-    add-int/lit8 v4, v4, 0x1
-
-    goto/16 :goto_0
-
-    .line 316
-    :cond_7
-    return-void
-.end method
-
-.method static synthetic access$000(Lcom/melodix/music/PreviewPlayerTiles;)Landroid/app/Activity;
-    .locals 0
-
-    .line 34
-    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerTiles;->activity()Landroid/app/Activity;
-
-    move-result-object p0
-
-    return-object p0
-.end method
-
-.method static synthetic access$100(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Activity;)V
-    .locals 0
-
-    .line 34
-    invoke-direct {p0, p1}, Lcom/melodix/music/PreviewPlayerTiles;->readTrace(Landroid/app/Activity;)V
-
-    return-void
-.end method
-
-.method static synthetic access$1000(Lcom/melodix/music/PreviewPlayerTiles;)J
-    .locals 2
-
-    .line 34
-    iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->settledSerial:J
-
-    return-wide v0
-.end method
-
-.method static synthetic access$1102(Ljava/lang/String;)Ljava/lang/String;
-    .locals 0
-
-    .line 34
-    sput-object p0, Lcom/melodix/music/PreviewPlayerTiles;->queueJournal:Ljava/lang/String;
-
-    return-object p0
-.end method
-
-.method static synthetic access$1200(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
-    .locals 0
-
-    .line 34
-    invoke-direct {p0, p1, p2, p3}, Lcom/melodix/music/PreviewPlayerTiles;->queueFailed(Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
-
-    return-void
-.end method
-
-.method static synthetic access$1300(Lcom/melodix/music/PreviewPlayerTiles;Ljava/lang/String;)Lorg/json/JSONObject;
-    .locals 0
-
-    .line 34
-    invoke-direct {p0, p1}, Lcom/melodix/music/PreviewPlayerTiles;->parseObject(Ljava/lang/String;)Lorg/json/JSONObject;
-
-    move-result-object p0
-
-    return-object p0
-.end method
-
-.method static synthetic access$1400(Lcom/melodix/music/PreviewPlayerTiles;)Ljava/lang/String;
-    .locals 0
-
-    .line 34
-    iget-object p0, p0, Lcom/melodix/music/PreviewPlayerTiles;->queueStep:Ljava/lang/String;
-
-    return-object p0
-.end method
-
-.method static synthetic access$1402(Lcom/melodix/music/PreviewPlayerTiles;Ljava/lang/String;)Ljava/lang/String;
-    .locals 0
-
-    .line 34
-    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles;->queueStep:Ljava/lang/String;
-
-    return-object p1
-.end method
-
-.method static synthetic access$1500(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;JI)V
-    .locals 0
-
-    .line 34
-    invoke-direct/range {p0 .. p7}, Lcom/melodix/music/PreviewPlayerTiles;->pollQueue(Landroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;JI)V
-
-    return-void
-.end method
-
-.method static synthetic access$1600(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Activity;)Landroid/webkit/WebView;
-    .locals 0
-
-    .line 34
-    invoke-direct {p0, p1}, Lcom/melodix/music/PreviewPlayerTiles;->web(Landroid/app/Activity;)Landroid/webkit/WebView;
-
-    move-result-object p0
-
-    return-object p0
-.end method
-
-.method static synthetic access$1700(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;Lorg/json/JSONObject;)V
-    .locals 0
-
-    .line 34
-    invoke-direct {p0, p1, p2, p3, p4}, Lcom/melodix/music/PreviewPlayerTiles;->renderQueue(Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;Lorg/json/JSONObject;)V
-
-    return-void
-.end method
-
-.method static synthetic access$1800(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;)V
-    .locals 0
-
-    .line 34
-    invoke-direct/range {p0 .. p6}, Lcom/melodix/music/PreviewPlayerTiles;->confirmTransfer(ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;)V
-
-    return-void
-.end method
-
-.method static synthetic access$1900(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
-    .locals 0
-
-    .line 34
-    invoke-direct/range {p0 .. p7}, Lcom/melodix/music/PreviewPlayerTiles;->loadPanel(ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
-
-    return-void
-.end method
-
-.method static synthetic access$200()Ljava/lang/String;
-    .locals 1
-
-    .line 34
-    sget-object v0, Lcom/melodix/music/PreviewPlayerTiles;->openTrace:Ljava/lang/String;
-
-    return-object v0
-.end method
-
-.method static synthetic access$2000(Lcom/melodix/music/PreviewPlayerTiles;)J
-    .locals 2
-
-    .line 34
-    iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->panelSerial:J
-
-    return-wide v0
-.end method
-
-.method static synthetic access$2008(Lcom/melodix/music/PreviewPlayerTiles;)J
-    .locals 4
-
-    .line 34
-    iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->panelSerial:J
-
-    const-wide/16 v2, 0x1
-
-    add-long/2addr v2, v0
-
-    iput-wide v2, p0, Lcom/melodix/music/PreviewPlayerTiles;->panelSerial:J
-
-    return-wide v0
-.end method
-
-.method static synthetic access$202(Ljava/lang/String;)Ljava/lang/String;
-    .locals 0
-
-    .line 34
-    sput-object p0, Lcom/melodix/music/PreviewPlayerTiles;->openTrace:Ljava/lang/String;
-
-    return-object p0
-.end method
-
-.method static synthetic access$2100(Lcom/melodix/music/PreviewPlayerTiles;)J
-    .locals 2
-
-    .line 34
-    iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->panelSettled:J
-
-    return-wide v0
-.end method
-
-.method static synthetic access$2200()[Ljava/lang/String;
-    .locals 1
-
-    .line 34
-    sget-object v0, Lcom/melodix/music/PreviewPlayerTiles;->panelJournals:[Ljava/lang/String;
-
-    return-object v0
-.end method
-
-.method static synthetic access$2300(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
-    .locals 0
-
-    .line 34
-    invoke-direct {p0, p1, p2, p3, p4}, Lcom/melodix/music/PreviewPlayerTiles;->panelFailed(ILandroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
-
-    return-void
-.end method
-
-.method static synthetic access$2400(Lcom/melodix/music/PreviewPlayerTiles;)Ljava/lang/String;
-    .locals 0
-
-    .line 34
-    iget-object p0, p0, Lcom/melodix/music/PreviewPlayerTiles;->panelStep:Ljava/lang/String;
-
-    return-object p0
-.end method
-
-.method static synthetic access$2402(Lcom/melodix/music/PreviewPlayerTiles;Ljava/lang/String;)Ljava/lang/String;
-    .locals 0
-
-    .line 34
-    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles;->panelStep:Ljava/lang/String;
-
-    return-object p1
-.end method
-
-.method static synthetic access$2500(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;JILjava/lang/String;Ljava/lang/String;)V
-    .locals 0
-
-    .line 34
-    invoke-direct/range {p0 .. p10}, Lcom/melodix/music/PreviewPlayerTiles;->pollPanel(ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;JILjava/lang/String;Ljava/lang/String;)V
-
-    return-void
-.end method
-
-.method static synthetic access$2600(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Lorg/json/JSONObject;Ljava/lang/String;)V
-    .locals 0
-
-    .line 34
-    invoke-direct/range {p0 .. p7}, Lcom/melodix/music/PreviewPlayerTiles;->renderPanel(ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Lorg/json/JSONObject;Ljava/lang/String;)V
-
-    return-void
-.end method
-
-.method static synthetic access$2700(Lcom/melodix/music/PreviewPlayerTiles;F)I
-    .locals 0
-
-    .line 34
-    invoke-direct {p0, p1}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result p0
-
-    return p0
-.end method
-
-.method static synthetic access$2800(Lcom/melodix/music/PreviewPlayerTiles;)J
-    .locals 2
-
-    .line 34
-    iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->openedAt:J
-
-    return-wide v0
-.end method
-
-.method static synthetic access$2900(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
-    .locals 0
-
-    .line 34
-    invoke-direct {p0, p1, p2, p3, p4}, Lcom/melodix/music/PreviewPlayerTiles;->loadQueue(Landroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
-
-    return-void
-.end method
-
-.method static synthetic access$3000(Lcom/melodix/music/PreviewPlayerTiles;)V
-    .locals 0
-
-    .line 34
-    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerTiles;->syncVolume()V
-
-    return-void
-.end method
-
-.method static synthetic access$302(J)J
-    .locals 0
-
-    .line 34
-    sput-wide p0, Lcom/melodix/music/PreviewPlayerTiles;->traceAt:J
-
-    return-wide p0
-.end method
-
-.method static synthetic access$3100(Lcom/melodix/music/PreviewPlayerTiles;I)V
-    .locals 0
-
-    .line 34
-    invoke-direct {p0, p1}, Lcom/melodix/music/PreviewPlayerTiles;->activate(I)V
-
-    return-void
-.end method
-
-.method static synthetic access$400()[J
-    .locals 1
-
-    .line 34
-    sget-object v0, Lcom/melodix/music/PreviewPlayerTiles;->probeSerial:[J
-
-    return-object v0
-.end method
-
-.method static synthetic access$500()[Ljava/lang/String;
-    .locals 1
-
-    .line 34
-    sget-object v0, Lcom/melodix/music/PreviewPlayerTiles;->observations:[Ljava/lang/String;
-
-    return-object v0
-.end method
-
-.method static synthetic access$600(Lorg/json/JSONObject;Ljava/lang/String;)I
-    .locals 0
-
-    .line 34
-    invoke-static {p0, p1}, Lcom/melodix/music/PreviewPlayerTiles;->count(Lorg/json/JSONObject;Ljava/lang/String;)I
-
-    move-result p0
-
-    return p0
-.end method
-
-.method static synthetic access$700(Lcom/melodix/music/PreviewPlayerTiles;)J
-    .locals 2
-
-    .line 34
-    iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->readSerial:J
-
-    return-wide v0
-.end method
-
-.method static synthetic access$708(Lcom/melodix/music/PreviewPlayerTiles;)J
-    .locals 4
-
-    .line 34
-    iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->readSerial:J
-
-    const-wide/16 v2, 0x1
-
-    add-long/2addr v2, v0
-
-    iput-wide v2, p0, Lcom/melodix/music/PreviewPlayerTiles;->readSerial:J
-
-    return-wide v0
-.end method
-
-.method static synthetic access$800(Lcom/melodix/music/PreviewPlayerTiles;)Landroid/app/Dialog;
-    .locals 0
-
-    .line 34
-    iget-object p0, p0, Lcom/melodix/music/PreviewPlayerTiles;->webDialog:Landroid/app/Dialog;
-
-    return-object p0
-.end method
-
-.method static synthetic access$802(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Dialog;)Landroid/app/Dialog;
-    .locals 0
-
-    .line 34
-    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles;->webDialog:Landroid/app/Dialog;
-
-    return-object p1
-.end method
-
-.method static synthetic access$900(Lcom/melodix/music/PreviewPlayerTiles;)J
-    .locals 2
-
-    .line 34
-    iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->queueSerial:J
-
-    return-wide v0
-.end method
-
-.method static synthetic access$908(Lcom/melodix/music/PreviewPlayerTiles;)J
-    .locals 4
-
-    .line 34
-    iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->queueSerial:J
-
-    const-wide/16 v2, 0x1
-
-    add-long/2addr v2, v0
-
-    iput-wide v2, p0, Lcom/melodix/music/PreviewPlayerTiles;->queueSerial:J
-
-    return-wide v0
-.end method
-
-.method private activate(I)V
-    .locals 18
-
-    .line 256
-    move-object/from16 v9, p0
-
-    move/from16 v0, p1
-
-    const-string v1, "envoi"
-
-    invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
-
-    move-result-wide v2
-
-    invoke-direct/range {p0 .. p0}, Lcom/melodix/music/PreviewPlayerTiles;->activity()Landroid/app/Activity;
-
-    move-result-object v8
-
-    .line 257
-    iget-boolean v4, v9, Lcom/melodix/music/PreviewPlayerTiles;->volumeRunning:Z
-
-    if-eqz v4, :cond_6
-
-    invoke-virtual/range {p0 .. p0}, Lcom/melodix/music/PreviewPlayerTiles;->isShown()Z
-
-    move-result v4
-
-    if-eqz v4, :cond_6
-
-    invoke-virtual/range {p0 .. p0}, Lcom/melodix/music/PreviewPlayerTiles;->getWindowVisibility()I
-
-    move-result v4
-
-    if-nez v4, :cond_6
-
-    if-eqz v8, :cond_6
-
-    invoke-virtual {v8}, Landroid/app/Activity;->isFinishing()Z
-
-    move-result v4
-
-    if-nez v4, :cond_6
-
-    invoke-virtual {v8}, Landroid/app/Activity;->isDestroyed()Z
-
-    move-result v4
-
-    if-nez v4, :cond_6
-
-    iget-object v4, v9, Lcom/melodix/music/PreviewPlayerTiles;->webDialog:Landroid/app/Dialog;
-
-    if-nez v4, :cond_6
-
-    iget-wide v4, v9, Lcom/melodix/music/PreviewPlayerTiles;->lastAction:J
-
-    sub-long v4, v2, v4
-
-    const-wide/16 v6, 0x190
-
-    cmp-long v4, v4, v6
-
-    if-gez v4, :cond_0
-
-    goto/16 :goto_4
-
-    .line 258
-    :cond_0
-    iput-wide v2, v9, Lcom/melodix/music/PreviewPlayerTiles;->lastAction:J
-
-    iget-object v2, v9, Lcom/melodix/music/PreviewPlayerTiles;->controls:[Landroid/widget/Button;
-
-    aget-object v2, v2, v0
-
-    const/4 v3, 0x3
-
-    invoke-virtual {v2, v3}, Landroid/widget/Button;->performHapticFeedback(I)Z
-
-    invoke-direct {v9, v0, v8}, Lcom/melodix/music/PreviewPlayerTiles;->probe(ILandroid/app/Activity;)V
-
-    .line 260
-    :try_start_0
-    new-instance v10, Landroid/app/Dialog;
-
-    invoke-direct {v10, v8}, Landroid/app/Dialog;-><init>(Landroid/content/Context;)V
-
-    .line 261
-    new-instance v11, Landroid/widget/LinearLayout;
-
-    invoke-direct {v11, v8}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
-
-    const/4 v2, 0x1
-
-    invoke-virtual {v11, v2}, Landroid/widget/LinearLayout;->setOrientation(I)V
-
-    const/high16 v4, 0x41a00000    # 20.0f
-
-    invoke-direct {v9, v4}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v5
-
-    const/high16 v6, 0x41000000    # 8.0f
-
-    invoke-direct {v9, v6}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v6
-
-    invoke-direct {v9, v4}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v7
-
-    const/high16 v12, 0x41c00000    # 24.0f
-
-    invoke-direct {v9, v12}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v12
-
-    invoke-virtual {v11, v5, v6, v7, v12}, Landroid/widget/LinearLayout;->setPadding(IIII)V
-
-    .line 262
-    new-instance v5, Landroid/graphics/drawable/GradientDrawable;
-
-    invoke-direct {v5}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
-
-    const v6, -0x14e8f4cd
-
-    invoke-virtual {v5, v6}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
-
-    const/high16 v6, 0x3f800000    # 1.0f
-
-    invoke-direct {v9, v6}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v6
-
-    const v7, 0x1fffffff
-
-    invoke-virtual {v5, v6, v7}, Landroid/graphics/drawable/GradientDrawable;->setStroke(II)V
-
-    const/high16 v6, 0x41e00000    # 28.0f
-
-    invoke-direct {v9, v6}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
 
     move-result v6
 
     int-to-float v6, v6
 
-    const/16 v7, 0x8
+    invoke-virtual {v3, v6}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
 
-    new-array v7, v7, [F
+    invoke-direct {p0, v4}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
 
-    const/4 v12, 0x0
+    move-result v6
 
-    aput v6, v7, v12
+    const v7, 0x1fffffff
 
-    aput v6, v7, v2
+    invoke-virtual {v3, v6, v7}, Landroid/graphics/drawable/GradientDrawable;->setStroke(II)V
 
-    const/4 v13, 0x2
+    .line 328
+    invoke-virtual {v2, v11}, Landroid/widget/Button;->setBackgroundTintList(Landroid/content/res/ColorStateList;)V
 
-    aput v6, v7, v13
-
-    aput v6, v7, v3
-
-    const/4 v3, 0x4
+    invoke-virtual {v2, v11}, Landroid/widget/Button;->setStateListAnimator(Landroid/animation/StateListAnimator;)V
 
     const/4 v6, 0x0
 
-    aput v6, v7, v3
+    invoke-virtual {v2, v6}, Landroid/widget/Button;->setElevation(F)V
 
-    const/4 v3, 0x5
+    const/4 v6, 0x0
 
-    aput v6, v7, v3
+    invoke-virtual {v2, v6}, Landroid/widget/Button;->setTranslationZ(F)V
 
-    const/4 v3, 0x6
+    invoke-virtual {v2, v11}, Landroid/widget/Button;->setForeground(Landroid/graphics/drawable/Drawable;)V
 
-    aput v6, v7, v3
+    .line 329
+    new-instance v6, Landroid/graphics/drawable/RippleDrawable;
 
-    const/4 v3, 0x7
+    const v7, 0x447b3fe4
 
-    aput v6, v7, v3
+    invoke-static {v7}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
 
-    invoke-virtual {v5, v7}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadii([F)V
+    move-result-object v7
 
-    invoke-virtual {v11, v5}, Landroid/widget/LinearLayout;->setBackground(Landroid/graphics/drawable/Drawable;)V
+    invoke-direct {v6, v7, v3, v11}, Landroid/graphics/drawable/RippleDrawable;-><init>(Landroid/content/res/ColorStateList;Landroid/graphics/drawable/Drawable;Landroid/graphics/drawable/Drawable;)V
 
-    .line 263
-    new-instance v3, Lcom/melodix/music/PreviewPlayerTiles$15;
+    invoke-virtual {v2, v6}, Landroid/widget/Button;->setBackground(Landroid/graphics/drawable/Drawable;)V
 
-    invoke-direct {v3, v9, v10}, Lcom/melodix/music/PreviewPlayerTiles$15;-><init>(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Dialog;)V
+    .line 330
+    if-ne v0, v9, :cond_5
 
-    .line 267
-    new-instance v5, Landroid/widget/TextView;
+    const-string v3, "Volume du lecteur indisponible"
 
-    invoke-direct {v5, v8}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
+    :goto_2
+    invoke-virtual {v2, v3}, Landroid/widget/Button;->setContentDescription(Ljava/lang/CharSequence;)V
 
-    const-string v6, "\u2501\u2501\u2501\u2501"
+    .line 331
+    if-ge v0, v9, :cond_1
 
-    invoke-virtual {v5, v6}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-
-    const/16 v6, 0x11
-
-    invoke-virtual {v5, v6}, Landroid/widget/TextView;->setGravity(I)V
-
-    const v6, -0x66000001
-
-    invoke-virtual {v5, v6}, Landroid/widget/TextView;->setTextColor(I)V
-
-    const-string v6, "Glisser vers le bas pour fermer"
-
-    invoke-virtual {v5, v6}, Landroid/widget/TextView;->setContentDescription(Ljava/lang/CharSequence;)V
-
-    invoke-virtual {v5, v3}, Landroid/widget/TextView;->setOnTouchListener(Landroid/view/View$OnTouchListener;)V
-
-    new-instance v6, Landroid/widget/LinearLayout$LayoutParams;
-
-    const/high16 v7, 0x42000000    # 32.0f
-
-    invoke-direct {v9, v7}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v7
-
-    const/4 v13, -0x1
-
-    invoke-direct {v6, v13, v7}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-
-    invoke-virtual {v11, v5, v6}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
-
-    .line 268
-    if-nez v0, :cond_1
-
-    const-string v5, "File d\u2019attente"
-
-    goto :goto_0
+    invoke-virtual {v2, v10}, Landroid/widget/Button;->setEnabled(Z)V
 
     :cond_1
-    iget-object v5, v9, Lcom/melodix/music/PreviewPlayerTiles;->names:[Ljava/lang/String;
+    if-ne v0, v9, :cond_6
 
-    aget-object v5, v5, v0
+    move v3, v4
 
-    :goto_0
-    invoke-direct {v9, v8, v5, v13, v4}, Lcom/melodix/music/PreviewPlayerTiles;->line(Landroid/app/Activity;Ljava/lang/String;IF)Landroid/widget/TextView;
+    :goto_3
+    invoke-virtual {v2, v3}, Landroid/widget/Button;->setAlpha(F)V
 
-    move-result-object v4
+    invoke-virtual {v2, v1}, Landroid/widget/Button;->setSelected(Z)V
 
-    invoke-virtual {v4, v3}, Landroid/widget/TextView;->setOnTouchListener(Landroid/view/View$OnTouchListener;)V
+    invoke-virtual {v2, v1}, Landroid/widget/Button;->setActivated(Z)V
 
-    new-instance v3, Landroid/widget/LinearLayout$LayoutParams;
+    .line 332
+    new-instance v6, Landroid/widget/LinearLayout$LayoutParams;
 
-    const/high16 v14, 0x42400000    # 48.0f
-
-    invoke-direct {v9, v14}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v5
-
-    invoke-direct {v3, v13, v5}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-
-    invoke-virtual {v11, v4, v3}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
-
-    .line 269
-    new-instance v15, Landroid/widget/LinearLayout;
-
-    invoke-direct {v15, v8}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
-
-    invoke-virtual {v15, v2}, Landroid/widget/LinearLayout;->setOrientation(I)V
-
-    .line 270
-    new-instance v3, Landroid/widget/ScrollView;
-
-    invoke-direct {v3, v8}, Landroid/widget/ScrollView;-><init>(Landroid/content/Context;)V
-
-    invoke-virtual {v3, v15}, Landroid/widget/ScrollView;->addView(Landroid/view/View;)V
-
-    new-instance v4, Landroid/widget/LinearLayout$LayoutParams;
-
-    if-ne v0, v2, :cond_2
-
-    const/high16 v5, 0x43e60000    # 460.0f
-
-    goto :goto_1
-
-    :cond_2
-    const/high16 v5, 0x43aa0000    # 340.0f
-
-    :goto_1
-    invoke-direct {v9, v5}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v5
-
-    invoke-direct {v4, v13, v5}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-
-    invoke-virtual {v11, v3, v4}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
-
-    .line 271
-    new-instance v7, Landroid/widget/Button;
-
-    invoke-direct {v7, v8}, Landroid/widget/Button;-><init>(Landroid/content/Context;)V
-
-    const-string v3, "R\u00e9essayer"
-
-    invoke-virtual {v7, v3}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
-
-    invoke-direct {v9, v14}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v3
-
-    invoke-virtual {v7, v3}, Landroid/widget/Button;->setMinimumHeight(I)V
-
-    .line 272
-    new-instance v6, Landroid/widget/Button;
-
-    invoke-direct {v6, v8}, Landroid/widget/Button;-><init>(Landroid/content/Context;)V
-
-    const-string v3, "Fermer"
-
-    invoke-virtual {v6, v3}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
-
-    new-instance v3, Ljava/lang/StringBuilder;
-
-    invoke-direct {v3}, Ljava/lang/StringBuilder;-><init>()V
-
-    const-string v4, "Fermer "
-
-    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerTiles;->getResources()Landroid/content/res/Resources;
 
     move-result-object v3
 
-    iget-object v4, v9, Lcom/melodix/music/PreviewPlayerTiles;->names:[Ljava/lang/String;
+    invoke-virtual {v3}, Landroid/content/res/Resources;->getConfiguration()Landroid/content/res/Configuration;
 
-    aget-object v4, v4, v0
+    move-result-object v3
 
-    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    iget v3, v3, Landroid/content/res/Configuration;->fontScale:F
+
+    const v7, 0x3fa66666    # 1.3f
+
+    cmpl-float v3, v3, v7
+
+    if-lez v3, :cond_7
+
+    const/4 v3, -0x2
+
+    :goto_4
+    invoke-direct {v6, v1, v3, v4}, Landroid/widget/LinearLayout$LayoutParams;-><init>(IIF)V
+
+    if-lez v0, :cond_2
+
+    const/high16 v3, 0x41000000    # 8.0f
+
+    invoke-direct {p0, v3}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v3
+
+    iput v3, v6, Landroid/widget/LinearLayout$LayoutParams;->leftMargin:I
+
+    :cond_2
+    invoke-virtual {p0, v2, v6}, Lcom/melodix/music/PreviewPlayerTiles;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    .line 333
+    if-ge v0, v9, :cond_3
+
+    iget-object v3, p0, Lcom/melodix/music/PreviewPlayerTiles;->controls:[Landroid/widget/Button;
+
+    aput-object v2, v3, v0
+
+    new-instance v3, Lcom/melodix/music/PreviewPlayerTiles$21;
+
+    invoke-direct {v3, p0, v0}, Lcom/melodix/music/PreviewPlayerTiles$21;-><init>(Lcom/melodix/music/PreviewPlayerTiles;I)V
+
+    invoke-virtual {v2, v3}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
+
+    .line 321
+    :cond_3
+    add-int/lit8 v0, v0, 0x1
+
+    goto/16 :goto_0
+
+    .line 322
+    :cond_4
+    new-instance v2, Landroid/widget/Button;
+
+    invoke-direct {v2, p1}, Landroid/widget/Button;-><init>(Landroid/content/Context;)V
+
+    goto/16 :goto_1
+
+    .line 330
+    :cond_5
+    new-instance v3, Ljava/lang/StringBuilder;
+
+    iget-object v6, p0, Lcom/melodix/music/PreviewPlayerTiles;->names:[Ljava/lang/String;
+
+    aget-object v6, v6, v0
+
+    invoke-static {v6}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
+
+    move-result-object v6
+
+    invoke-direct {v3, v6}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    const-string v6, " : indisponible, page Spotify non accessible"
+
+    invoke-virtual {v3, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v3
 
@@ -1245,788 +538,923 @@
 
     move-result-object v3
 
-    invoke-virtual {v6, v3}, Landroid/widget/Button;->setContentDescription(Ljava/lang/CharSequence;)V
+    goto :goto_2
 
-    invoke-direct {v9, v14}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+    .line 331
+    :cond_6
+    const v3, 0x3f4ccccd    # 0.8f
+
+    goto :goto_3
+
+    .line 332
+    :cond_7
+    const/high16 v3, 0x42600000    # 56.0f
+
+    invoke-direct {p0, v3}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
 
     move-result v3
 
-    invoke-virtual {v6, v3}, Landroid/widget/Button;->setMinimumHeight(I)V
+    goto :goto_4
+.end method
 
-    .line 273
-    new-instance v3, Lcom/melodix/music/PreviewPlayerTiles$16;
+.method static synthetic access$0(Lcom/melodix/music/PreviewPlayerTiles;)Landroid/app/Activity;
+    .locals 1
 
-    invoke-direct {v3, v9, v10}, Lcom/melodix/music/PreviewPlayerTiles$16;-><init>(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Dialog;)V
+    .prologue
+    .line 131
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerTiles;->activity()Landroid/app/Activity;
 
-    invoke-virtual {v6, v3}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
+    move-result-object v0
 
-    .line 274
-    iget-object v3, v9, Lcom/melodix/music/PreviewPlayerTiles;->names:[Ljava/lang/String;
+    return-object v0
+.end method
 
-    aget-object v3, v3, v0
+.method static synthetic access$1(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Activity;)V
+    .locals 0
 
-    invoke-virtual {v10, v3}, Landroid/app/Dialog;->setTitle(Ljava/lang/CharSequence;)V
+    .prologue
+    .line 73
+    invoke-direct {p0, p1}, Lcom/melodix/music/PreviewPlayerTiles;->readTrace(Landroid/app/Activity;)V
 
-    invoke-virtual {v10, v11}, Landroid/app/Dialog;->setContentView(Landroid/view/View;)V
+    return-void
+.end method
 
-    invoke-virtual {v10, v2}, Landroid/app/Dialog;->setCanceledOnTouchOutside(Z)V
+.method static synthetic access$10(Lcom/melodix/music/PreviewPlayerTiles;J)V
+    .locals 1
 
+    .prologue
+    .line 102
+    iput-wide p1, p0, Lcom/melodix/music/PreviewPlayerTiles;->readSerial:J
+
+    return-void
+.end method
+
+.method static synthetic access$11(Lcom/melodix/music/PreviewPlayerTiles;)J
+    .locals 2
+
+    .prologue
+    .line 181
+    iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->queueSerial:J
+
+    return-wide v0
+.end method
+
+.method static synthetic access$12(Lcom/melodix/music/PreviewPlayerTiles;)J
+    .locals 2
+
+    .prologue
+    .line 181
+    iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->settledSerial:J
+
+    return-wide v0
+.end method
+
+.method static synthetic access$13(Ljava/lang/String;)V
+    .locals 0
+
+    .prologue
+    .line 38
+    sput-object p0, Lcom/melodix/music/PreviewPlayerTiles;->queueJournal:Ljava/lang/String;
+
+    return-void
+.end method
+
+.method static synthetic access$14(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
+    .locals 0
+
+    .prologue
+    .line 155
+    invoke-direct {p0, p1, p2, p3}, Lcom/melodix/music/PreviewPlayerTiles;->queueFailed(Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
+
+    return-void
+.end method
+
+.method static synthetic access$15(Lcom/melodix/music/PreviewPlayerTiles;Ljava/lang/String;)Lorg/json/JSONObject;
+    .locals 1
+
+    .prologue
+    .line 182
+    invoke-direct {p0, p1}, Lcom/melodix/music/PreviewPlayerTiles;->parseObject(Ljava/lang/String;)Lorg/json/JSONObject;
+
+    move-result-object v0
+
+    return-object v0
+.end method
+
+.method static synthetic access$16(Lcom/melodix/music/PreviewPlayerTiles;Ljava/lang/String;)V
+    .locals 0
+
+    .prologue
+    .line 153
+    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles;->queueStep:Ljava/lang/String;
+
+    return-void
+.end method
+
+.method static synthetic access$17(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;JI)V
+    .locals 1
+
+    .prologue
+    .line 192
+    invoke-direct/range {p0 .. p7}, Lcom/melodix/music/PreviewPlayerTiles;->pollQueue(Landroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;JI)V
+
+    return-void
+.end method
+
+.method static synthetic access$18(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Activity;)Landroid/webkit/WebView;
+    .locals 1
+
+    .prologue
+    .line 147
+    invoke-direct {p0, p1}, Lcom/melodix/music/PreviewPlayerTiles;->web(Landroid/app/Activity;)Landroid/webkit/WebView;
+
+    move-result-object v0
+
+    return-object v0
+.end method
+
+.method static synthetic access$19(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;Lorg/json/JSONObject;)V
+    .locals 0
+
+    .prologue
+    .line 166
+    invoke-direct {p0, p1, p2, p3, p4}, Lcom/melodix/music/PreviewPlayerTiles;->renderQueue(Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;Lorg/json/JSONObject;)V
+
+    return-void
+.end method
+
+.method static synthetic access$2()Ljava/lang/String;
+    .locals 1
+
+    .prologue
+    .line 62
+    sget-object v0, Lcom/melodix/music/PreviewPlayerTiles;->openTrace:Ljava/lang/String;
+
+    return-object v0
+.end method
+
+.method static synthetic access$20(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;)V
+    .locals 0
+
+    .prologue
+    .line 246
+    invoke-direct/range {p0 .. p6}, Lcom/melodix/music/PreviewPlayerTiles;->confirmTransfer(ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;)V
+
+    return-void
+.end method
+
+.method static synthetic access$21(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
+    .locals 0
+
+    .prologue
+    .line 255
+    invoke-direct/range {p0 .. p7}, Lcom/melodix/music/PreviewPlayerTiles;->loadPanel(ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
+
+    return-void
+.end method
+
+.method static synthetic access$22(Lcom/melodix/music/PreviewPlayerTiles;)J
+    .locals 2
+
+    .prologue
+    .line 205
+    iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->panelSerial:J
+
+    return-wide v0
+.end method
+
+.method static synthetic access$23(Lcom/melodix/music/PreviewPlayerTiles;)J
+    .locals 2
+
+    .prologue
+    .line 205
+    iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->panelSettled:J
+
+    return-wide v0
+.end method
+
+.method static synthetic access$24()[Ljava/lang/String;
+    .locals 1
+
+    .prologue
+    .line 204
+    sget-object v0, Lcom/melodix/music/PreviewPlayerTiles;->panelJournals:[Ljava/lang/String;
+
+    return-object v0
+.end method
+
+.method static synthetic access$25(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
+    .locals 0
+
+    .prologue
+    .line 211
+    invoke-direct {p0, p1, p2, p3, p4}, Lcom/melodix/music/PreviewPlayerTiles;->panelFailed(ILandroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
+
+    return-void
+.end method
+
+.method static synthetic access$26(Lcom/melodix/music/PreviewPlayerTiles;Ljava/lang/String;)V
+    .locals 0
+
+    .prologue
+    .line 153
+    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles;->panelStep:Ljava/lang/String;
+
+    return-void
+.end method
+
+.method static synthetic access$27(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;JILjava/lang/String;Ljava/lang/String;)V
+    .locals 0
+
+    .prologue
+    .line 264
+    invoke-direct/range {p0 .. p10}, Lcom/melodix/music/PreviewPlayerTiles;->pollPanel(ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;JILjava/lang/String;Ljava/lang/String;)V
+
+    return-void
+.end method
+
+.method static synthetic access$28(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Lorg/json/JSONObject;Ljava/lang/String;)V
+    .locals 0
+
+    .prologue
+    .line 219
+    invoke-direct/range {p0 .. p7}, Lcom/melodix/music/PreviewPlayerTiles;->renderPanel(ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Lorg/json/JSONObject;Ljava/lang/String;)V
+
+    return-void
+.end method
+
+.method static synthetic access$29(Lcom/melodix/music/PreviewPlayerTiles;F)I
+    .locals 1
+
+    .prologue
+    .line 337
+    invoke-direct {p0, p1}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v0
+
+    return v0
+.end method
+
+.method static synthetic access$3(Ljava/lang/String;)V
+    .locals 0
+
+    .prologue
+    .line 62
+    sput-object p0, Lcom/melodix/music/PreviewPlayerTiles;->openTrace:Ljava/lang/String;
+
+    return-void
+.end method
+
+.method static synthetic access$30(Lcom/melodix/music/PreviewPlayerTiles;)J
+    .locals 2
+
+    .prologue
+    .line 154
+    iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->openedAt:J
+
+    return-wide v0
+.end method
+
+.method static synthetic access$31(Lcom/melodix/music/PreviewPlayerTiles;)Ljava/lang/String;
+    .locals 1
+
+    .prologue
+    .line 153
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->queueStep:Ljava/lang/String;
+
+    return-object v0
+.end method
+
+.method static synthetic access$32(Lcom/melodix/music/PreviewPlayerTiles;)Ljava/lang/String;
+    .locals 1
+
+    .prologue
+    .line 153
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->panelStep:Ljava/lang/String;
+
+    return-object v0
+.end method
+
+.method static synthetic access$33(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Dialog;)V
+    .locals 0
+
+    .prologue
+    .line 128
+    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles;->webDialog:Landroid/app/Dialog;
+
+    return-void
+.end method
+
+.method static synthetic access$34(Lcom/melodix/music/PreviewPlayerTiles;J)V
+    .locals 1
+
+    .prologue
+    .line 181
+    iput-wide p1, p0, Lcom/melodix/music/PreviewPlayerTiles;->queueSerial:J
+
+    return-void
+.end method
+
+.method static synthetic access$35(Lcom/melodix/music/PreviewPlayerTiles;J)V
+    .locals 1
+
+    .prologue
+    .line 205
+    iput-wide p1, p0, Lcom/melodix/music/PreviewPlayerTiles;->panelSerial:J
+
+    return-void
+.end method
+
+.method static synthetic access$36(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
+    .locals 0
+
+    .prologue
+    .line 183
+    invoke-direct {p0, p1, p2, p3, p4}, Lcom/melodix/music/PreviewPlayerTiles;->loadQueue(Landroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
+
+    return-void
+.end method
+
+.method static synthetic access$37(Lcom/melodix/music/PreviewPlayerTiles;)V
+    .locals 0
+
+    .prologue
+    .line 309
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerTiles;->syncVolume()V
+
+    return-void
+.end method
+
+.method static synthetic access$38(Lcom/melodix/music/PreviewPlayerTiles;I)V
+    .locals 0
+
+    .prologue
     .line 275
-    new-instance v2, Lcom/melodix/music/PreviewPlayerTiles$17;
+    invoke-direct {p0, p1}, Lcom/melodix/music/PreviewPlayerTiles;->activate(I)V
 
-    invoke-direct {v2, v9, v0}, Lcom/melodix/music/PreviewPlayerTiles$17;-><init>(Lcom/melodix/music/PreviewPlayerTiles;I)V
+    return-void
+.end method
 
-    invoke-virtual {v10, v2}, Landroid/app/Dialog;->setOnDismissListener(Landroid/content/DialogInterface$OnDismissListener;)V
+.method static synthetic access$4(J)V
+    .locals 0
+
+    .prologue
+    .line 58
+    sput-wide p0, Lcom/melodix/music/PreviewPlayerTiles;->traceAt:J
+
+    return-void
+.end method
+
+.method static synthetic access$5()[J
+    .locals 1
+
+    .prologue
+    .line 56
+    sget-object v0, Lcom/melodix/music/PreviewPlayerTiles;->probeSerial:[J
+
+    return-object v0
+.end method
+
+.method static synthetic access$6()[Ljava/lang/String;
+    .locals 1
+
+    .prologue
+    .line 55
+    sget-object v0, Lcom/melodix/music/PreviewPlayerTiles;->observations:[Ljava/lang/String;
+
+    return-object v0
+.end method
+
+.method static synthetic access$7(Lorg/json/JSONObject;Ljava/lang/String;)I
+    .locals 1
+
+    .prologue
+    .line 81
+    invoke-static {p0, p1}, Lcom/melodix/music/PreviewPlayerTiles;->count(Lorg/json/JSONObject;Ljava/lang/String;)I
+
+    move-result v0
+
+    return v0
+.end method
+
+.method static synthetic access$8(Lcom/melodix/music/PreviewPlayerTiles;)J
+    .locals 2
+
+    .prologue
+    .line 102
+    iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->readSerial:J
+
+    return-wide v0
+.end method
+
+.method static synthetic access$9(Lcom/melodix/music/PreviewPlayerTiles;)Landroid/app/Dialog;
+    .locals 1
+
+    .prologue
+    .line 128
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->webDialog:Landroid/app/Dialog;
+
+    return-object v0
+.end method
+
+.method private activate(I)V
+    .locals 9
+
+    .prologue
+    const/4 v8, 0x1
+
+    .line 276
+    invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
+
+    move-result-wide v0
+
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerTiles;->activity()Landroid/app/Activity;
+
+    move-result-object v3
+
+    .line 277
+    iget-boolean v2, p0, Lcom/melodix/music/PreviewPlayerTiles;->volumeRunning:Z
+
+    if-eqz v2, :cond_0
+
+    invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerTiles;->isShown()Z
+
+    move-result v2
+
+    if-eqz v2, :cond_0
+
+    invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerTiles;->getWindowVisibility()I
+
+    move-result v2
+
+    if-nez v2, :cond_0
+
+    if-eqz v3, :cond_0
+
+    invoke-virtual {v3}, Landroid/app/Activity;->isFinishing()Z
+
+    move-result v2
+
+    if-nez v2, :cond_0
+
+    invoke-virtual {v3}, Landroid/app/Activity;->isDestroyed()Z
+
+    move-result v2
+
+    if-nez v2, :cond_0
+
+    iget-object v2, p0, Lcom/melodix/music/PreviewPlayerTiles;->webDialog:Landroid/app/Dialog;
+
+    if-nez v2, :cond_0
+
+    iget-wide v4, p0, Lcom/melodix/music/PreviewPlayerTiles;->lastAction:J
+
+    sub-long v4, v0, v4
+
+    const-wide/16 v6, 0x190
+
+    cmp-long v2, v4, v6
+
+    if-gez v2, :cond_1
+
+    .line 308
+    :cond_0
+    :goto_0
+    return-void
+
+    .line 278
+    :cond_1
+    iput-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->lastAction:J
+
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->controls:[Landroid/widget/Button;
+
+    aget-object v0, v0, p1
+
+    const/4 v1, 0x3
+
+    invoke-virtual {v0, v1}, Landroid/widget/Button;->performHapticFeedback(I)Z
+
+    invoke-direct {p0, p1, v3}, Lcom/melodix/music/PreviewPlayerTiles;->probe(ILandroid/app/Activity;)V
 
     .line 280
-    iput-object v10, v9, Lcom/melodix/music/PreviewPlayerTiles;->webDialog:Landroid/app/Dialog;
+    :try_start_0
+    new-instance v4, Landroid/app/Dialog;
+
+    invoke-direct {v4, v3}, Landroid/app/Dialog;-><init>(Landroid/content/Context;)V
+
+    .line 281
+    new-instance v7, Landroid/widget/LinearLayout;
+
+    invoke-direct {v7, v3}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
+
+    const/4 v0, 0x1
+
+    invoke-virtual {v7, v0}, Landroid/widget/LinearLayout;->setOrientation(I)V
+
+    const/high16 v0, 0x41a00000    # 20.0f
+
+    invoke-direct {p0, v0}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v0
+
+    const/high16 v1, 0x41000000    # 8.0f
+
+    invoke-direct {p0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v1
+
+    const/high16 v2, 0x41a00000    # 20.0f
+
+    invoke-direct {p0, v2}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v2
+
+    const/high16 v5, 0x41c00000    # 24.0f
+
+    invoke-direct {p0, v5}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v5
+
+    invoke-virtual {v7, v0, v1, v2, v5}, Landroid/widget/LinearLayout;->setPadding(IIII)V
+
+    .line 282
+    new-instance v0, Landroid/graphics/drawable/GradientDrawable;
+
+    invoke-direct {v0}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
+
+    const v1, -0x14e8f4cd
+
+    invoke-virtual {v0, v1}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
+
+    const/high16 v1, 0x3f800000    # 1.0f
+
+    invoke-direct {p0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v1
+
+    const v2, 0x1fffffff
+
+    invoke-virtual {v0, v1, v2}, Landroid/graphics/drawable/GradientDrawable;->setStroke(II)V
+
+    const/high16 v1, 0x41e00000    # 28.0f
+
+    invoke-direct {p0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v1
+
+    int-to-float v1, v1
+
+    const/16 v2, 0x8
+
+    new-array v2, v2, [F
+
+    const/4 v5, 0x0
+
+    aput v1, v2, v5
+
+    const/4 v5, 0x1
+
+    aput v1, v2, v5
+
+    const/4 v5, 0x2
+
+    aput v1, v2, v5
+
+    const/4 v5, 0x3
+
+    aput v1, v2, v5
+
+    const/4 v1, 0x4
+
+    const/4 v5, 0x0
+
+    aput v5, v2, v1
+
+    const/4 v1, 0x5
+
+    const/4 v5, 0x0
+
+    aput v5, v2, v1
+
+    const/4 v1, 0x6
+
+    const/4 v5, 0x0
+
+    aput v5, v2, v1
+
+    const/4 v1, 0x7
+
+    const/4 v5, 0x0
+
+    aput v5, v2, v1
+
+    invoke-virtual {v0, v2}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadii([F)V
+
+    invoke-virtual {v7, v0}, Landroid/widget/LinearLayout;->setBackground(Landroid/graphics/drawable/Drawable;)V
+
+    .line 283
+    new-instance v1, Lcom/melodix/music/PreviewPlayerTiles$15;
+
+    invoke-direct {v1, p0, v4}, Lcom/melodix/music/PreviewPlayerTiles$15;-><init>(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Dialog;)V
+
+    .line 287
+    new-instance v0, Landroid/widget/TextView;
+
+    invoke-direct {v0, v3}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
+
+    const-string v2, "\u2501\u2501\u2501\u2501"
+
+    invoke-virtual {v0, v2}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+
+    const/16 v2, 0x11
+
+    invoke-virtual {v0, v2}, Landroid/widget/TextView;->setGravity(I)V
+
+    const v2, -0x66000001
+
+    invoke-virtual {v0, v2}, Landroid/widget/TextView;->setTextColor(I)V
+
+    const-string v2, "Glisser vers le bas pour fermer"
+
+    invoke-virtual {v0, v2}, Landroid/widget/TextView;->setContentDescription(Ljava/lang/CharSequence;)V
+
+    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setOnTouchListener(Landroid/view/View$OnTouchListener;)V
+
+    new-instance v2, Landroid/widget/LinearLayout$LayoutParams;
+
+    const/4 v5, -0x1
+
+    const/high16 v6, 0x42000000    # 32.0f
+
+    invoke-direct {p0, v6}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v6
+
+    invoke-direct {v2, v5, v6}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+
+    invoke-virtual {v7, v0, v2}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    .line 288
+    if-nez p1, :cond_3
+
+    const-string v0, "File d\u2019attente"
+
+    :goto_1
+    const/4 v2, -0x1
+
+    const/high16 v5, 0x41a00000    # 20.0f
+
+    invoke-direct {p0, v3, v0, v2, v5}, Lcom/melodix/music/PreviewPlayerTiles;->line(Landroid/app/Activity;Ljava/lang/String;IF)Landroid/widget/TextView;
+
+    move-result-object v0
+
+    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setOnTouchListener(Landroid/view/View$OnTouchListener;)V
+
+    new-instance v1, Landroid/widget/LinearLayout$LayoutParams;
+
+    const/4 v2, -0x1
+
+    const/high16 v5, 0x42400000    # 48.0f
+
+    invoke-direct {p0, v5}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v5
+
+    invoke-direct {v1, v2, v5}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+
+    invoke-virtual {v7, v0, v1}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    .line 289
+    new-instance v5, Landroid/widget/LinearLayout;
+
+    invoke-direct {v5, v3}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
+
+    const/4 v0, 0x1
+
+    invoke-virtual {v5, v0}, Landroid/widget/LinearLayout;->setOrientation(I)V
+
+    .line 290
+    new-instance v1, Landroid/widget/ScrollView;
+
+    invoke-direct {v1, v3}, Landroid/widget/ScrollView;-><init>(Landroid/content/Context;)V
+
+    invoke-virtual {v1, v5}, Landroid/widget/ScrollView;->addView(Landroid/view/View;)V
+
+    new-instance v2, Landroid/widget/LinearLayout$LayoutParams;
+
+    const/4 v6, -0x1
+
+    if-ne p1, v8, :cond_4
+
+    const/16 v0, 0x1cc
+
+    :goto_2
+    int-to-float v0, v0
+
+    invoke-direct {p0, v0}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v0
+
+    invoke-direct {v2, v6, v0}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+
+    invoke-virtual {v7, v1, v2}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    .line 291
+    new-instance v6, Landroid/widget/Button;
+
+    invoke-direct {v6, v3}, Landroid/widget/Button;-><init>(Landroid/content/Context;)V
+
+    const-string v0, "R\u00e9essayer"
+
+    invoke-virtual {v6, v0}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
+
+    const/high16 v0, 0x42400000    # 48.0f
+
+    invoke-direct {p0, v0}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v0
+
+    invoke-virtual {v6, v0}, Landroid/widget/Button;->setMinimumHeight(I)V
+
+    .line 292
+    new-instance v8, Landroid/widget/Button;
+
+    invoke-direct {v8, v3}, Landroid/widget/Button;-><init>(Landroid/content/Context;)V
+
+    const-string v0, "Fermer"
+
+    invoke-virtual {v8, v0}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
+
+    new-instance v0, Ljava/lang/StringBuilder;
+
+    const-string v1, "Fermer "
+
+    invoke-direct {v0, v1}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerTiles;->names:[Ljava/lang/String;
+
+    aget-object v1, v1, p1
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    invoke-virtual {v8, v0}, Landroid/widget/Button;->setContentDescription(Ljava/lang/CharSequence;)V
+
+    const/high16 v0, 0x42400000    # 48.0f
+
+    invoke-direct {p0, v0}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v0
+
+    invoke-virtual {v8, v0}, Landroid/widget/Button;->setMinimumHeight(I)V
+
+    .line 293
+    new-instance v0, Lcom/melodix/music/PreviewPlayerTiles$16;
+
+    invoke-direct {v0, p0, v4}, Lcom/melodix/music/PreviewPlayerTiles$16;-><init>(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Dialog;)V
+
+    invoke-virtual {v8, v0}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
+
+    .line 294
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->names:[Ljava/lang/String;
+
+    aget-object v0, v0, p1
+
+    invoke-virtual {v4, v0}, Landroid/app/Dialog;->setTitle(Ljava/lang/CharSequence;)V
+
+    invoke-virtual {v4, v7}, Landroid/app/Dialog;->setContentView(Landroid/view/View;)V
+
+    const/4 v0, 0x1
+
+    invoke-virtual {v4, v0}, Landroid/app/Dialog;->setCanceledOnTouchOutside(Z)V
+
+    .line 295
+    new-instance v0, Lcom/melodix/music/PreviewPlayerTiles$17;
+
+    invoke-direct {v0, p0, p1}, Lcom/melodix/music/PreviewPlayerTiles$17;-><init>(Lcom/melodix/music/PreviewPlayerTiles;I)V
+
+    invoke-virtual {v4, v0}, Landroid/app/Dialog;->setOnDismissListener(Landroid/content/DialogInterface$OnDismissListener;)V
+
+    .line 300
+    iput-object v4, p0, Lcom/melodix/music/PreviewPlayerTiles;->webDialog:Landroid/app/Dialog;
 
     invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
 
-    move-result-wide v2
+    move-result-wide v0
 
-    iput-wide v2, v9, Lcom/melodix/music/PreviewPlayerTiles;->openedAt:J
+    iput-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->openedAt:J
 
-    iput-object v1, v9, Lcom/melodix/music/PreviewPlayerTiles;->queueStep:Ljava/lang/String;
+    const-string v0, "envoi"
 
-    iput-object v1, v9, Lcom/melodix/music/PreviewPlayerTiles;->panelStep:Ljava/lang/String;
+    iput-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->queueStep:Ljava/lang/String;
 
-    .line 281
-    new-instance v5, Lcom/melodix/music/PreviewPlayerTiles$18;
+    const-string v0, "envoi"
 
-    move-object v1, v5
+    iput-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->panelStep:Ljava/lang/String;
 
-    move-object/from16 v2, p0
+    .line 301
+    new-instance v0, Lcom/melodix/music/PreviewPlayerTiles$18;
 
-    move/from16 v3, p1
+    move-object v1, p0
 
-    move-object v4, v8
+    move v2, p1
 
-    move-object v12, v5
+    invoke-direct/range {v0 .. v6}, Lcom/melodix/music/PreviewPlayerTiles$18;-><init>(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
 
-    move-object v5, v10
+    invoke-virtual {v6, v0}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
 
-    move-object/from16 v16, v6
+    .line 302
+    new-instance v0, Landroid/widget/LinearLayout$LayoutParams;
 
-    move-object v6, v15
+    const/4 v1, -0x1
 
-    move-object/from16 v17, v7
+    const/high16 v2, 0x42400000    # 48.0f
 
-    invoke-direct/range {v1 .. v7}, Lcom/melodix/music/PreviewPlayerTiles$18;-><init>(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
-
-    move-object/from16 v6, v17
-
-    invoke-virtual {v6, v12}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
-
-    .line 282
-    new-instance v1, Landroid/widget/LinearLayout$LayoutParams;
-
-    invoke-direct {v9, v14}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+    invoke-direct {p0, v2}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
 
     move-result v2
 
-    invoke-direct {v1, v13, v2}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    invoke-direct {v0, v1, v2}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
 
-    invoke-virtual {v11, v6, v1}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    invoke-virtual {v7, v6, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 283
-    new-instance v1, Landroid/widget/LinearLayout$LayoutParams;
+    .line 303
+    new-instance v0, Landroid/widget/LinearLayout$LayoutParams;
 
-    invoke-direct {v9, v14}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+    const/4 v1, -0x1
+
+    const/high16 v2, 0x42400000    # 48.0f
+
+    invoke-direct {p0, v2}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
 
     move-result v2
 
-    invoke-direct {v1, v13, v2}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    invoke-direct {v0, v1, v2}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
 
-    move-object/from16 v2, v16
+    invoke-virtual {v7, v8, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    invoke-virtual {v11, v2, v1}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    .line 304
+    invoke-virtual {v4}, Landroid/app/Dialog;->show()V
 
-    .line 284
-    invoke-virtual {v10}, Landroid/app/Dialog;->show()V
+    invoke-static {v7}, Lcom/melodix/music/PreviewUiRestyle;->sheet(Landroid/view/View;)V
 
-    invoke-static {v11}, Lcom/melodix/music/PreviewUiRestyle;->sheet(Landroid/view/View;)V
+    invoke-virtual {v4}, Landroid/app/Dialog;->getWindow()Landroid/view/Window;
 
-    invoke-virtual {v10}, Landroid/app/Dialog;->getWindow()Landroid/view/Window;
+    move-result-object v0
 
-    move-result-object v1
+    if-nez v0, :cond_5
 
-    if-nez v1, :cond_3
-
-    invoke-virtual {v10}, Landroid/app/Dialog;->dismiss()V
-
-    return-void
-
-    .line 285
-    :cond_3
-    new-instance v2, Landroid/graphics/drawable/ColorDrawable;
-
-    const/4 v3, 0x0
-
-    invoke-direct {v2, v3}, Landroid/graphics/drawable/ColorDrawable;-><init>(I)V
-
-    invoke-virtual {v1, v2}, Landroid/view/Window;->setBackgroundDrawable(Landroid/graphics/drawable/Drawable;)V
-
-    const/16 v2, 0x50
-
-    invoke-virtual {v1, v2}, Landroid/view/Window;->setGravity(I)V
-
-    const/4 v2, -0x2
-
-    invoke-virtual {v1, v13, v2}, Landroid/view/Window;->setLayout(II)V
-
-    .line 286
-    if-nez v0, :cond_4
-
-    invoke-direct {v9, v8, v10, v15, v6}, Lcom/melodix/music/PreviewPlayerTiles;->loadQueue(Landroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
-
-    goto :goto_2
-
-    :cond_4
-    const-string v7, "run"
-
-    const-string v11, ""
-
-    move-object/from16 v1, p0
-
-    move/from16 v2, p1
-
-    move-object v3, v8
-
-    move-object v4, v10
-
-    move-object v5, v15
-
-    move-object v8, v11
-
-    invoke-direct/range {v1 .. v8}, Lcom/melodix/music/PreviewPlayerTiles;->loadPanel(ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
+    invoke-virtual {v4}, Landroid/app/Dialog;->dismiss()V
     :try_end_0
     .catch Ljava/lang/RuntimeException; {:try_start_0 .. :try_end_0} :catch_0
 
-    .line 287
-    :goto_2
-    goto :goto_3
+    goto/16 :goto_0
 
+    .line 307
     :catch_0
     move-exception v0
 
-    iget-object v0, v9, Lcom/melodix/music/PreviewPlayerTiles;->webDialog:Landroid/app/Dialog;
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->webDialog:Landroid/app/Dialog;
 
-    if-eqz v0, :cond_5
+    if-eqz v0, :cond_2
 
-    iget-object v0, v9, Lcom/melodix/music/PreviewPlayerTiles;->webDialog:Landroid/app/Dialog;
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->webDialog:Landroid/app/Dialog;
 
     invoke-virtual {v0}, Landroid/app/Dialog;->dismiss()V
 
     const/4 v0, 0x0
 
-    iput-object v0, v9, Lcom/melodix/music/PreviewPlayerTiles;->webDialog:Landroid/app/Dialog;
+    iput-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->webDialog:Landroid/app/Dialog;
 
-    :cond_5
+    :cond_2
     const-string v0, "Indisponible dans cette version"
 
-    invoke-direct {v9, v0}, Lcom/melodix/music/PreviewPlayerTiles;->message(Ljava/lang/String;)V
+    invoke-direct {p0, v0}, Lcom/melodix/music/PreviewPlayerTiles;->message(Ljava/lang/String;)V
+
+    goto/16 :goto_0
 
     .line 288
-    :goto_3
-    return-void
-
-    .line 257
-    :cond_6
-    :goto_4
-    return-void
-.end method
-
-.method private activity()Landroid/app/Activity;
-    .locals 3
-
-    .line 118
-    invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerTiles;->getContext()Landroid/content/Context;
-
-    move-result-object v0
-
-    const/4 v1, 0x0
-
-    :goto_0
-    const/16 v2, 0x8
-
-    if-ge v1, v2, :cond_2
-
-    instance-of v2, v0, Landroid/content/ContextWrapper;
-
-    if-eqz v2, :cond_2
-
-    .line 119
-    instance-of v2, v0, Landroid/app/Activity;
-
-    if-eqz v2, :cond_0
-
-    check-cast v0, Landroid/app/Activity;
-
-    return-object v0
-
-    .line 120
-    :cond_0
-    move-object v2, v0
-
-    check-cast v2, Landroid/content/ContextWrapper;
-
-    invoke-virtual {v2}, Landroid/content/ContextWrapper;->getBaseContext()Landroid/content/Context;
-
-    move-result-object v2
-
-    if-ne v2, v0, :cond_1
-
-    goto :goto_1
-
-    .line 118
-    :cond_1
-    add-int/lit8 v1, v1, 0x1
-
-    move-object v0, v2
-
-    goto :goto_0
-
-    .line 121
-    :cond_2
-    :goto_1
-    instance-of v1, v0, Landroid/app/Activity;
-
-    if-eqz v1, :cond_3
-
-    check-cast v0, Landroid/app/Activity;
-
-    goto :goto_2
-
     :cond_3
-    const/4 v0, 0x0
+    :try_start_1
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->names:[Ljava/lang/String;
 
-    :goto_2
-    return-object v0
-.end method
+    aget-object v0, v0, p1
 
-.method private addRow(Landroid/app/Activity;Landroid/widget/LinearLayout;Ljava/lang/String;)V
-    .locals 7
+    goto/16 :goto_1
 
-    .line 147
-    const-string v0, "\t"
-
-    const/4 v1, -0x1
-
-    invoke-virtual {p3, v0, v1}, Ljava/lang/String;->split(Ljava/lang/String;I)[Ljava/lang/String;
-
-    move-result-object p3
-
-    array-length v0, p3
-
-    if-eqz v0, :cond_6
-
-    const/4 v0, 0x0
-
-    aget-object v2, p3, v0
-
-    invoke-virtual {v2}, Ljava/lang/String;->trim()Ljava/lang/String;
-
-    move-result-object v2
-
-    invoke-virtual {v2}, Ljava/lang/String;->isEmpty()Z
-
-    move-result v2
-
-    if-eqz v2, :cond_0
-
-    goto/16 :goto_5
-
-    .line 148
-    :cond_0
-    array-length v2, p3
-
-    const/4 v3, 0x1
-
-    const-string v4, ""
-
-    if-le v2, v3, :cond_1
-
-    aget-object v2, p3, v3
-
-    goto :goto_0
-
-    :cond_1
-    move-object v2, v4
-
-    :goto_0
-    array-length v3, p3
-
-    const/4 v5, 0x2
-
-    if-le v3, v5, :cond_2
-
-    aget-object v3, p3, v5
-
-    goto :goto_1
-
-    :cond_2
-    move-object v3, v4
-
-    .line 149
-    :goto_1
-    new-instance v5, Ljava/lang/StringBuilder;
-
-    invoke-direct {v5}, Ljava/lang/StringBuilder;-><init>()V
-
-    invoke-virtual {v5, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v5
-
-    invoke-virtual {v3}, Ljava/lang/String;->isEmpty()Z
-
-    move-result v6
-
-    if-nez v6, :cond_4
-
-    new-instance v6, Ljava/lang/StringBuilder;
-
-    invoke-direct {v6}, Ljava/lang/StringBuilder;-><init>()V
-
-    invoke-virtual {v2}, Ljava/lang/String;->isEmpty()Z
-
-    move-result v2
-
-    if-eqz v2, :cond_3
-
-    move-object v2, v4
-
-    goto :goto_2
-
-    :cond_3
-    const-string v2, " \u00b7 "
-
-    :goto_2
-    invoke-virtual {v6, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v2
-
-    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v2
-
-    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-
-    move-result-object v2
-
-    goto :goto_3
-
+    .line 290
     :cond_4
-    move-object v2, v4
+    const/16 v0, 0x154
 
-    :goto_3
-    invoke-virtual {v5, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    goto/16 :goto_2
 
-    move-result-object v2
-
-    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-
-    move-result-object v2
-
-    .line 150
-    new-instance v3, Ljava/lang/StringBuilder;
-
-    invoke-direct {v3}, Ljava/lang/StringBuilder;-><init>()V
-
-    aget-object p3, p3, v0
-
-    invoke-virtual {v3, p3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object p3
-
-    invoke-virtual {v2}, Ljava/lang/String;->isEmpty()Z
-
-    move-result v3
-
-    if-eqz v3, :cond_5
-
-    goto :goto_4
-
+    .line 305
     :cond_5
-    new-instance v3, Ljava/lang/StringBuilder;
-
-    invoke-direct {v3}, Ljava/lang/StringBuilder;-><init>()V
-
-    const-string v4, "\n"
-
-    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v3
-
-    invoke-virtual {v3, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v2
-
-    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-
-    move-result-object v4
-
-    :goto_4
-    invoke-virtual {p3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object p3
-
-    invoke-virtual {p3}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-
-    move-result-object p3
-
-    const/high16 v2, 0x41700000    # 15.0f
-
-    invoke-direct {p0, p1, p3, v1, v2}, Lcom/melodix/music/PreviewPlayerTiles;->line(Landroid/app/Activity;Ljava/lang/String;IF)Landroid/widget/TextView;
-
-    move-result-object p1
-
-    const/4 p3, 0x3
-
-    invoke-virtual {p1, p3}, Landroid/widget/TextView;->setMaxLines(I)V
-
-    const/high16 p3, 0x40c00000    # 6.0f
-
-    invoke-direct {p0, p3}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v2
-
-    invoke-direct {p0, p3}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result p3
-
-    invoke-virtual {p1, v0, v2, v0, p3}, Landroid/widget/TextView;->setPadding(IIII)V
-
-    new-instance p3, Landroid/widget/LinearLayout$LayoutParams;
-
-    const/4 v0, -0x2
-
-    invoke-direct {p3, v1, v0}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-
-    invoke-virtual {p2, p1, p3}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
-
-    .line 151
-    return-void
-
-    .line 147
-    :cond_6
-    :goto_5
-    return-void
-.end method
-
-.method private static clean(Ljava/lang/String;)Ljava/lang/String;
-    .locals 5
-
-    .line 40
-    new-instance v0, Ljava/lang/StringBuilder;
-
-    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
-
-    invoke-virtual {p0}, Ljava/lang/String;->toCharArray()[C
-
-    move-result-object p0
-
-    array-length v1, p0
-
-    const/4 v2, 0x0
-
-    :goto_0
-    if-ge v2, v1, :cond_5
-
-    aget-char v3, p0, v2
-
-    const/16 v4, 0x61
-
-    if-lt v3, v4, :cond_0
-
-    const/16 v4, 0x7a
-
-    if-le v3, v4, :cond_2
-
-    :cond_0
-    const/16 v4, 0x30
-
-    if-lt v3, v4, :cond_1
-
-    const/16 v4, 0x39
-
-    if-le v3, v4, :cond_2
-
-    :cond_1
-    const/16 v4, 0x3a
-
-    if-eq v3, v4, :cond_2
-
-    const/16 v4, 0x2d
-
-    if-eq v3, v4, :cond_2
-
-    const/16 v4, 0x2c
-
-    if-eq v3, v4, :cond_2
-
-    const/16 v4, 0x3e
-
-    if-ne v3, v4, :cond_3
-
-    :cond_2
-    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(C)Ljava/lang/StringBuilder;
-
-    :cond_3
-    invoke-virtual {v0}, Ljava/lang/StringBuilder;->length()I
-
-    move-result v3
-
-    const/16 v4, 0x78
-
-    if-le v3, v4, :cond_4
-
-    goto :goto_1
-
-    :cond_4
-    add-int/lit8 v2, v2, 0x1
-
-    goto :goto_0
-
-    :cond_5
-    :goto_1
-    invoke-virtual {v0}, Ljava/lang/StringBuilder;->length()I
-
-    move-result p0
-
-    if-nez p0, :cond_6
-
-    const-string p0, "aucune"
-
-    goto :goto_2
-
-    :cond_6
-    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-
-    move-result-object p0
-
-    :goto_2
-    return-object p0
-.end method
-
-.method private confirmTransfer(ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;)V
-    .locals 16
-
-    .line 227
-    move-object/from16 v9, p0
-
-    move-object/from16 v4, p2
-
-    move-object/from16 v8, p6
-
-    new-instance v10, Landroid/app/Dialog;
-
-    invoke-direct {v10, v4}, Landroid/app/Dialog;-><init>(Landroid/content/Context;)V
-
-    new-instance v11, Landroid/widget/LinearLayout;
-
-    invoke-direct {v11, v4}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
-
-    const/4 v0, 0x1
-
-    invoke-virtual {v11, v0}, Landroid/widget/LinearLayout;->setOrientation(I)V
-
-    const/high16 v0, 0x41a00000    # 20.0f
-
-    invoke-direct {v9, v0}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v1
-
-    const/high16 v2, 0x41800000    # 16.0f
-
-    invoke-direct {v9, v2}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v3
-
-    invoke-direct {v9, v0}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v5
-
-    invoke-direct {v9, v2}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v2
-
-    invoke-virtual {v11, v1, v3, v5, v2}, Landroid/widget/LinearLayout;->setPadding(IIII)V
-
-    .line 228
-    new-instance v1, Landroid/graphics/drawable/GradientDrawable;
-
-    invoke-direct {v1}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
-
-    const v2, -0xde8f4cd
-
-    invoke-virtual {v1, v2}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
-
-    invoke-direct {v9, v0}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v0
-
-    int-to-float v0, v0
-
-    invoke-virtual {v1, v0}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
-
-    invoke-virtual {v11, v1}, Landroid/widget/LinearLayout;->setBackground(Landroid/graphics/drawable/Drawable;)V
-
-    .line 229
-    new-instance v0, Ljava/lang/StringBuilder;
-
-    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
-
-    const-string v1, "Transf\u00e9rer la lecture vers \u00ab "
-
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    invoke-virtual {v0, v8}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    const-string v1, " \u00bb ?"
-
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-
-    move-result-object v0
-
-    const/high16 v1, 0x41880000    # 17.0f
-
-    const/4 v12, -0x1
-
-    invoke-direct {v9, v4, v0, v12, v1}, Lcom/melodix/music/PreviewPlayerTiles;->line(Landroid/app/Activity;Ljava/lang/String;IF)Landroid/widget/TextView;
-
-    move-result-object v0
-
-    new-instance v1, Landroid/widget/LinearLayout$LayoutParams;
-
-    const/4 v2, -0x2
-
-    invoke-direct {v1, v12, v2}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-
-    invoke-virtual {v11, v0, v1}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
-
-    .line 230
-    new-instance v13, Landroid/widget/Button;
-
-    invoke-direct {v13, v4}, Landroid/widget/Button;-><init>(Landroid/content/Context;)V
-
-    const-string v0, "Annuler"
-
-    invoke-virtual {v13, v0}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
-
-    const/high16 v14, 0x42400000    # 48.0f
-
-    invoke-direct {v9, v14}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v0
-
-    invoke-virtual {v13, v0}, Landroid/widget/Button;->setMinimumHeight(I)V
-
-    new-instance v0, Lcom/melodix/music/PreviewPlayerTiles$10;
-
-    invoke-direct {v0, v9, v10}, Lcom/melodix/music/PreviewPlayerTiles$10;-><init>(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Dialog;)V
-
-    invoke-virtual {v13, v0}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
-
-    .line 231
-    new-instance v15, Landroid/widget/Button;
-
-    invoke-direct {v15, v4}, Landroid/widget/Button;-><init>(Landroid/content/Context;)V
-
-    const-string v0, "Confirmer"
-
-    invoke-virtual {v15, v0}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
-
-    new-instance v0, Ljava/lang/StringBuilder;
-
-    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
-
-    const-string v1, "Confirmer le transfert vers "
-
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    invoke-virtual {v0, v8}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-
-    move-result-object v0
-
-    invoke-virtual {v15, v0}, Landroid/widget/Button;->setContentDescription(Ljava/lang/CharSequence;)V
-
-    invoke-direct {v9, v14}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v0
-
-    invoke-virtual {v15, v0}, Landroid/widget/Button;->setMinimumHeight(I)V
-
-    new-instance v7, Lcom/melodix/music/PreviewPlayerTiles$11;
-
-    move-object v0, v7
-
-    move-object/from16 v1, p0
-
-    move-object v2, v10
-
-    move/from16 v3, p1
-
-    move-object/from16 v5, p3
-
-    move-object/from16 v6, p4
-
-    move-object v12, v7
-
-    move-object/from16 v7, p5
-
-    invoke-direct/range {v0 .. v8}, Lcom/melodix/music/PreviewPlayerTiles$11;-><init>(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Dialog;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;)V
-
-    invoke-virtual {v15, v12}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
-
-    .line 232
-    new-instance v0, Landroid/widget/LinearLayout$LayoutParams;
-
-    invoke-direct {v9, v14}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v1
-
-    const/4 v2, -0x1
-
-    invoke-direct {v0, v2, v1}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-
-    invoke-virtual {v11, v13, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
-
-    new-instance v0, Landroid/widget/LinearLayout$LayoutParams;
-
-    invoke-direct {v9, v14}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v1
-
-    invoke-direct {v0, v2, v1}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-
-    invoke-virtual {v11, v15, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
-
-    .line 233
-    invoke-virtual {v10, v11}, Landroid/app/Dialog;->setContentView(Landroid/view/View;)V
-
-    invoke-virtual {v10}, Landroid/app/Dialog;->show()V
-
-    invoke-virtual {v10}, Landroid/app/Dialog;->getWindow()Landroid/view/Window;
-
-    move-result-object v0
-
-    if-eqz v0, :cond_0
-
     new-instance v1, Landroid/graphics/drawable/ColorDrawable;
 
     const/4 v2, 0x0
@@ -2035,53 +1463,683 @@
 
     invoke-virtual {v0, v1}, Landroid/view/Window;->setBackgroundDrawable(Landroid/graphics/drawable/Drawable;)V
 
-    .line 234
+    const/16 v1, 0x50
+
+    invoke-virtual {v0, v1}, Landroid/view/Window;->setGravity(I)V
+
+    const/4 v1, -0x1
+
+    const/4 v2, -0x2
+
+    invoke-virtual {v0, v1, v2}, Landroid/view/Window;->setLayout(II)V
+
+    .line 306
+    if-nez p1, :cond_6
+
+    invoke-direct {p0, v3, v4, v5, v6}, Lcom/melodix/music/PreviewPlayerTiles;->loadQueue(Landroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
+
+    goto/16 :goto_0
+
+    :cond_6
+    const-string v7, "run"
+
+    const-string v8, ""
+
+    move-object v1, p0
+
+    move v2, p1
+
+    invoke-direct/range {v1 .. v8}, Lcom/melodix/music/PreviewPlayerTiles;->loadPanel(ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
+    :try_end_1
+    .catch Ljava/lang/RuntimeException; {:try_start_1 .. :try_end_1} :catch_0
+
+    goto/16 :goto_0
+.end method
+
+.method private activity()Landroid/app/Activity;
+    .locals 4
+
+    .prologue
+    .line 132
+    invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerTiles;->getContext()Landroid/content/Context;
+
+    move-result-object v0
+
+    const/4 v1, 0x0
+
+    move v2, v1
+
+    :goto_0
+    const/16 v1, 0x8
+
+    if-ge v2, v1, :cond_0
+
+    instance-of v1, v0, Landroid/content/ContextWrapper;
+
+    if-nez v1, :cond_1
+
+    .line 135
+    :cond_0
+    instance-of v1, v0, Landroid/app/Activity;
+
+    if-eqz v1, :cond_3
+
+    check-cast v0, Landroid/app/Activity;
+
+    :goto_1
+    return-object v0
+
+    .line 133
+    :cond_1
+    instance-of v1, v0, Landroid/app/Activity;
+
+    if-eqz v1, :cond_2
+
+    check-cast v0, Landroid/app/Activity;
+
+    goto :goto_1
+
+    :cond_2
+    move-object v1, v0
+
+    .line 134
+    check-cast v1, Landroid/content/ContextWrapper;
+
+    invoke-virtual {v1}, Landroid/content/ContextWrapper;->getBaseContext()Landroid/content/Context;
+
+    move-result-object v3
+
+    if-eq v3, v0, :cond_0
+
+    .line 132
+    add-int/lit8 v1, v2, 0x1
+
+    move v2, v1
+
+    move-object v0, v3
+
+    goto :goto_0
+
+    .line 135
+    :cond_3
+    const/4 v0, 0x0
+
+    goto :goto_1
+.end method
+
+.method private addRow(Landroid/app/Activity;Landroid/widget/LinearLayout;Ljava/lang/String;)V
+    .locals 8
+
+    .prologue
+    const/4 v3, 0x2
+
+    const/4 v1, 0x1
+
+    const/high16 v7, 0x40c00000    # 6.0f
+
+    const/4 v6, -0x1
+
+    const/4 v5, 0x0
+
+    .line 161
+    const-string v0, "\t"
+
+    invoke-virtual {p3, v0, v6}, Ljava/lang/String;->split(Ljava/lang/String;I)[Ljava/lang/String;
+
+    move-result-object v2
+
+    array-length v0, v2
+
+    if-eqz v0, :cond_0
+
+    aget-object v0, v2, v5
+
+    invoke-virtual {v0}, Ljava/lang/String;->trim()Ljava/lang/String;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/String;->isEmpty()Z
+
+    move-result v0
+
+    if-eqz v0, :cond_1
+
+    .line 165
+    :cond_0
+    :goto_0
+    return-void
+
+    .line 162
+    :cond_1
+    array-length v0, v2
+
+    if-le v0, v1, :cond_2
+
+    aget-object v0, v2, v1
+
+    :goto_1
+    array-length v1, v2
+
+    if-le v1, v3, :cond_3
+
+    aget-object v1, v2, v3
+
+    .line 163
+    :goto_2
+    new-instance v3, Ljava/lang/StringBuilder;
+
+    invoke-static {v0}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
+
+    move-result-object v4
+
+    invoke-direct {v3, v4}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    invoke-virtual {v1}, Ljava/lang/String;->isEmpty()Z
+
+    move-result v4
+
+    if-nez v4, :cond_5
+
+    new-instance v4, Ljava/lang/StringBuilder;
+
+    invoke-virtual {v0}, Ljava/lang/String;->isEmpty()Z
+
+    move-result v0
+
+    if-eqz v0, :cond_4
+
+    const-string v0, ""
+
+    :goto_3
+    invoke-static {v0}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
+
+    move-result-object v0
+
+    invoke-direct {v4, v0}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    invoke-virtual {v4, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    :goto_4
+    invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    .line 164
+    new-instance v1, Ljava/lang/StringBuilder;
+
+    aget-object v2, v2, v5
+
+    invoke-static {v2}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
+
+    move-result-object v2
+
+    invoke-direct {v1, v2}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    invoke-virtual {v0}, Ljava/lang/String;->isEmpty()Z
+
+    move-result v2
+
+    if-eqz v2, :cond_6
+
+    const-string v0, ""
+
+    :goto_5
+    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    const/high16 v1, 0x41700000    # 15.0f
+
+    invoke-direct {p0, p1, v0, v6, v1}, Lcom/melodix/music/PreviewPlayerTiles;->line(Landroid/app/Activity;Ljava/lang/String;IF)Landroid/widget/TextView;
+
+    move-result-object v0
+
+    const/4 v1, 0x3
+
+    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setMaxLines(I)V
+
+    invoke-direct {p0, v7}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v1
+
+    invoke-direct {p0, v7}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v2
+
+    invoke-virtual {v0, v5, v1, v5, v2}, Landroid/widget/TextView;->setPadding(IIII)V
+
+    new-instance v1, Landroid/widget/LinearLayout$LayoutParams;
+
+    const/4 v2, -0x2
+
+    invoke-direct {v1, v6, v2}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+
+    invoke-virtual {p2, v0, v1}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    goto :goto_0
+
+    .line 162
+    :cond_2
+    const-string v0, ""
+
+    goto :goto_1
+
+    :cond_3
+    const-string v1, ""
+
+    goto :goto_2
+
+    .line 163
+    :cond_4
+    const-string v0, " \u00b7 "
+
+    goto :goto_3
+
+    :cond_5
+    const-string v0, ""
+
+    goto :goto_4
+
+    .line 164
+    :cond_6
+    new-instance v2, Ljava/lang/StringBuilder;
+
+    const-string v3, "\n"
+
+    invoke-direct {v2, v3}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    invoke-virtual {v2, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    goto :goto_5
+.end method
+
+.method private static clean(Ljava/lang/String;)Ljava/lang/String;
+    .locals 6
+
+    .prologue
+    .line 48
+    new-instance v1, Ljava/lang/StringBuilder;
+
+    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
+
+    .line 49
+    const-string v0, "[^a-z0-9:-]+"
+
+    invoke-virtual {p0, v0}, Ljava/lang/String;->split(Ljava/lang/String;)[Ljava/lang/String;
+
+    move-result-object v2
+
+    array-length v3, v2
+
+    const/4 v0, 0x0
+
+    :goto_0
+    if-lt v0, v3, :cond_0
+
+    .line 53
+    :goto_1
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->length()I
+
+    move-result v0
+
+    if-nez v0, :cond_4
+
+    const-string v0, "aucune"
+
+    :goto_2
+    return-object v0
+
+    .line 49
+    :cond_0
+    aget-object v4, v2, v0
+
+    .line 50
+    const-string v5, "(opened|already-open|open-error|closed|close-error|panel:absent|root:ambiguous|button:absent|button:disabled|button:ambiguous:[0-9]{1,2}|rows:[0-9]{1,2}|lines:[0-9]{1,3}(:sync)?|devices:[0-9]{1,2}|sized:[0-9]{1,2}|h:[0-9]{1,4}|path:(queue|other)|links:[0-9]{1,2}|rowsdoc:[0-9]{1,2}|target:(ambiguous|absent|already-active)|transfer:(click|error|verified|unverified)|close:(verified|unverified))"
+
+    invoke-virtual {v4, v5}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+
+    move-result v5
+
+    if-nez v5, :cond_2
+
+    .line 49
+    :cond_1
+    add-int/lit8 v0, v0, 0x1
+
+    goto :goto_0
+
+    .line 51
+    :cond_2
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->length()I
+
+    move-result v5
+
+    if-lez v5, :cond_3
+
+    const/16 v5, 0x3e
+
+    invoke-virtual {v1, v5}, Ljava/lang/StringBuilder;->append(C)Ljava/lang/StringBuilder;
+
+    :cond_3
+    invoke-virtual {v1, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->length()I
+
+    move-result v4
+
+    const/16 v5, 0x78
+
+    if-le v4, v5, :cond_1
+
+    goto :goto_1
+
+    .line 53
+    :cond_4
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    goto :goto_2
+.end method
+
+.method private confirmTransfer(ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;)V
+    .locals 13
+
+    .prologue
+    .line 247
+    new-instance v3, Landroid/app/Dialog;
+
+    invoke-direct {v3, p2}, Landroid/app/Dialog;-><init>(Landroid/content/Context;)V
+
+    new-instance v10, Landroid/widget/LinearLayout;
+
+    invoke-direct {v10, p2}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
+
+    const/4 v1, 0x1
+
+    invoke-virtual {v10, v1}, Landroid/widget/LinearLayout;->setOrientation(I)V
+
+    const/high16 v1, 0x41a00000    # 20.0f
+
+    invoke-direct {p0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v1
+
+    const/high16 v2, 0x41800000    # 16.0f
+
+    invoke-direct {p0, v2}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v2
+
+    const/high16 v4, 0x41a00000    # 20.0f
+
+    invoke-direct {p0, v4}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v4
+
+    const/high16 v5, 0x41800000    # 16.0f
+
+    invoke-direct {p0, v5}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v5
+
+    invoke-virtual {v10, v1, v2, v4, v5}, Landroid/widget/LinearLayout;->setPadding(IIII)V
+
+    .line 248
+    new-instance v1, Landroid/graphics/drawable/GradientDrawable;
+
+    invoke-direct {v1}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
+
+    const v2, -0xde8f4cd
+
+    invoke-virtual {v1, v2}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
+
+    const/high16 v2, 0x41a00000    # 20.0f
+
+    invoke-direct {p0, v2}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v2
+
+    int-to-float v2, v2
+
+    invoke-virtual {v1, v2}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
+
+    invoke-virtual {v10, v1}, Landroid/widget/LinearLayout;->setBackground(Landroid/graphics/drawable/Drawable;)V
+
+    .line 249
+    new-instance v1, Ljava/lang/StringBuilder;
+
+    const-string v2, "Transf\u00e9rer la lecture vers \u00ab "
+
+    invoke-direct {v1, v2}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    move-object/from16 v0, p6
+
+    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v1
+
+    const-string v2, " \u00bb ?"
+
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v1
+
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v1
+
+    const/4 v2, -0x1
+
+    const/high16 v4, 0x41880000    # 17.0f
+
+    invoke-direct {p0, p2, v1, v2, v4}, Lcom/melodix/music/PreviewPlayerTiles;->line(Landroid/app/Activity;Ljava/lang/String;IF)Landroid/widget/TextView;
+
+    move-result-object v1
+
+    new-instance v2, Landroid/widget/LinearLayout$LayoutParams;
+
+    const/4 v4, -0x1
+
+    const/4 v5, -0x2
+
+    invoke-direct {v2, v4, v5}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+
+    invoke-virtual {v10, v1, v2}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    .line 250
+    new-instance v11, Landroid/widget/Button;
+
+    invoke-direct {v11, p2}, Landroid/widget/Button;-><init>(Landroid/content/Context;)V
+
+    const-string v1, "Annuler"
+
+    invoke-virtual {v11, v1}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
+
+    const/high16 v1, 0x42400000    # 48.0f
+
+    invoke-direct {p0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v1
+
+    invoke-virtual {v11, v1}, Landroid/widget/Button;->setMinimumHeight(I)V
+
+    new-instance v1, Lcom/melodix/music/PreviewPlayerTiles$10;
+
+    invoke-direct {v1, p0, v3}, Lcom/melodix/music/PreviewPlayerTiles$10;-><init>(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Dialog;)V
+
+    invoke-virtual {v11, v1}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
+
+    .line 251
+    new-instance v12, Landroid/widget/Button;
+
+    invoke-direct {v12, p2}, Landroid/widget/Button;-><init>(Landroid/content/Context;)V
+
+    const-string v1, "Confirmer"
+
+    invoke-virtual {v12, v1}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
+
+    new-instance v1, Ljava/lang/StringBuilder;
+
+    const-string v2, "Confirmer le transfert vers "
+
+    invoke-direct {v1, v2}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    move-object/from16 v0, p6
+
+    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v1
+
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v1
+
+    invoke-virtual {v12, v1}, Landroid/widget/Button;->setContentDescription(Ljava/lang/CharSequence;)V
+
+    const/high16 v1, 0x42400000    # 48.0f
+
+    invoke-direct {p0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v1
+
+    invoke-virtual {v12, v1}, Landroid/widget/Button;->setMinimumHeight(I)V
+
+    new-instance v1, Lcom/melodix/music/PreviewPlayerTiles$11;
+
+    move-object v2, p0
+
+    move v4, p1
+
+    move-object v5, p2
+
+    move-object/from16 v6, p3
+
+    move-object/from16 v7, p4
+
+    move-object/from16 v8, p5
+
+    move-object/from16 v9, p6
+
+    invoke-direct/range {v1 .. v9}, Lcom/melodix/music/PreviewPlayerTiles$11;-><init>(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Dialog;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;)V
+
+    invoke-virtual {v12, v1}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
+
+    .line 252
+    new-instance v1, Landroid/widget/LinearLayout$LayoutParams;
+
+    const/4 v2, -0x1
+
+    const/high16 v4, 0x42400000    # 48.0f
+
+    invoke-direct {p0, v4}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v4
+
+    invoke-direct {v1, v2, v4}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+
+    invoke-virtual {v10, v11, v1}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    new-instance v1, Landroid/widget/LinearLayout$LayoutParams;
+
+    const/4 v2, -0x1
+
+    const/high16 v4, 0x42400000    # 48.0f
+
+    invoke-direct {p0, v4}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v4
+
+    invoke-direct {v1, v2, v4}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+
+    invoke-virtual {v10, v12, v1}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    .line 253
+    invoke-virtual {v3, v10}, Landroid/app/Dialog;->setContentView(Landroid/view/View;)V
+
+    invoke-virtual {v3}, Landroid/app/Dialog;->show()V
+
+    invoke-virtual {v3}, Landroid/app/Dialog;->getWindow()Landroid/view/Window;
+
+    move-result-object v1
+
+    if-eqz v1, :cond_0
+
+    new-instance v2, Landroid/graphics/drawable/ColorDrawable;
+
+    const/4 v3, 0x0
+
+    invoke-direct {v2, v3}, Landroid/graphics/drawable/ColorDrawable;-><init>(I)V
+
+    invoke-virtual {v1, v2}, Landroid/view/Window;->setBackgroundDrawable(Landroid/graphics/drawable/Drawable;)V
+
+    .line 254
     :cond_0
     return-void
 .end method
 
 .method private static count(Lorg/json/JSONObject;Ljava/lang/String;)I
-    .locals 2
+    .locals 3
 
-    .line 67
+    .prologue
+    const/4 v2, 0x0
+
+    .line 81
     const/16 v0, 0x63
 
-    const/4 v1, 0x0
+    invoke-virtual {p0, p1, v2}, Lorg/json/JSONObject;->optInt(Ljava/lang/String;I)I
 
-    invoke-virtual {p0, p1, v1}, Lorg/json/JSONObject;->optInt(Ljava/lang/String;I)I
+    move-result v1
 
-    move-result p0
+    invoke-static {v0, v1}, Ljava/lang/Math;->min(II)I
 
-    invoke-static {v0, p0}, Ljava/lang/Math;->min(II)I
+    move-result v0
 
-    move-result p0
+    invoke-static {v2, v0}, Ljava/lang/Math;->max(II)I
 
-    invoke-static {v1, p0}, Ljava/lang/Math;->max(II)I
+    move-result v0
 
-    move-result p0
-
-    return p0
+    return v0
 .end method
 
 .method public static diagnosticReport()Ljava/lang/String;
     .locals 6
 
-    .line 43
-    new-instance v0, Ljava/lang/StringBuilder;
+    .prologue
+    const/4 v4, 0x1
 
-    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+    const/4 v3, 0x0
+
+    .line 57
+    new-instance v0, Ljava/lang/StringBuilder;
 
     const-string v1, "\nStructure File : "
 
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v0
+    invoke-direct {v0, v1}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
 
     sget-object v1, Lcom/melodix/music/PreviewPlayerTiles;->observations:[Ljava/lang/String;
 
-    const/4 v2, 0x0
-
-    aget-object v1, v1, v2
+    aget-object v1, v1, v3
 
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
@@ -2095,9 +2153,7 @@
 
     sget-object v1, Lcom/melodix/music/PreviewPlayerTiles;->observations:[Ljava/lang/String;
 
-    const/4 v3, 0x1
-
-    aget-object v1, v1, v3
+    aget-object v1, v1, v4
 
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
@@ -2111,9 +2167,9 @@
 
     sget-object v1, Lcom/melodix/music/PreviewPlayerTiles;->observations:[Ljava/lang/String;
 
-    const/4 v4, 0x2
+    const/4 v2, 0x2
 
-    aget-object v1, v1, v4
+    aget-object v1, v1, v2
 
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
@@ -2139,7 +2195,7 @@
 
     sget-object v1, Lcom/melodix/music/PreviewPlayerTiles;->panelJournals:[Ljava/lang/String;
 
-    aget-object v1, v1, v2
+    aget-object v1, v1, v3
 
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
@@ -2153,7 +2209,7 @@
 
     sget-object v1, Lcom/melodix/music/PreviewPlayerTiles;->panelJournals:[Ljava/lang/String;
 
-    aget-object v1, v1, v3
+    aget-object v1, v1, v4
 
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
@@ -2175,30 +2231,35 @@
 
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
+    move-result-object v1
+
+    sget-wide v2, Lcom/melodix/music/PreviewPlayerTiles;->traceAt:J
+
+    const-wide/16 v4, 0x0
+
+    cmp-long v0, v2, v4
+
+    if-gez v0, :cond_0
+
+    const-string v0, ""
+
+    :goto_0
+    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
     move-result-object v0
 
-    sget-wide v1, Lcom/melodix/music/PreviewPlayerTiles;->traceAt:J
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
-    const-wide/16 v3, 0x0
+    move-result-object v0
 
-    cmp-long v1, v1, v3
-
-    if-gez v1, :cond_0
-
-    const-string v1, ""
-
-    goto :goto_0
+    return-object v0
 
     :cond_0
-    new-instance v1, Ljava/lang/StringBuilder;
-
-    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
+    new-instance v0, Ljava/lang/StringBuilder;
 
     const-string v2, " ; relev\u00e9 il y a "
 
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v1
+    invoke-direct {v0, v2}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
 
     invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
 
@@ -2212,22 +2273,13 @@
 
     div-long/2addr v2, v4
 
-    invoke-virtual {v1, v2, v3}, Ljava/lang/StringBuilder;->append(J)Ljava/lang/StringBuilder;
+    invoke-virtual {v0, v2, v3}, Ljava/lang/StringBuilder;->append(J)Ljava/lang/StringBuilder;
 
-    move-result-object v1
+    move-result-object v0
 
     const-string v2, " s"
 
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v1
-
-    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-
-    move-result-object v1
-
-    :goto_0
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v0
 
@@ -2235,13 +2287,14 @@
 
     move-result-object v0
 
-    return-object v0
+    goto :goto_0
 .end method
 
 .method private dp(F)I
-    .locals 1
+    .locals 2
 
-    .line 317
+    .prologue
+    .line 337
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerTiles;->getResources()Landroid/content/res/Resources;
 
     move-result-object v0
@@ -2252,313 +2305,312 @@
 
     iget v0, v0, Landroid/util/DisplayMetrics;->density:F
 
-    mul-float/2addr p1, v0
+    mul-float/2addr v0, p1
 
-    const/high16 v0, 0x3f000000    # 0.5f
+    const/high16 v1, 0x3f000000    # 0.5f
 
-    add-float/2addr p1, v0
+    add-float/2addr v0, v1
 
-    float-to-int p1, p1
+    float-to-int v0, v0
 
-    return p1
+    return v0
 .end method
 
 .method static formatTrace(Ljava/lang/String;)Ljava/lang/String;
-    .locals 6
+    .locals 8
 
-    .line 53
-    if-eqz p0, :cond_6
+    .prologue
+    const/16 v7, 0x8
+
+    const/4 v6, 0x7
+
+    const/4 v5, 0x0
+
+    .line 67
+    if-eqz p0, :cond_0
 
     invoke-virtual {p0}, Ljava/lang/String;->isEmpty()Z
 
     move-result v0
 
-    if-eqz v0, :cond_0
+    if-eqz v0, :cond_1
 
-    goto/16 :goto_3
-
-    .line 54
     :cond_0
+    const-string v0, "aucune ouverture observ\u00e9e"
+
+    .line 70
+    :goto_0
+    return-object v0
+
+    .line 68
+    :cond_1
     const-string v0, "(liked|playlist|-),(none|open|ready|dom|dom-empty|classified|classified-empty|rendered|unavailable|-)(,(-|\\d{1,7})){8}"
 
     invoke-virtual {p0, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
 
     move-result v0
 
-    if-nez v0, :cond_1
+    if-nez v0, :cond_2
 
-    const-string p0, "illisible"
+    const-string v0, "illisible"
 
-    return-object p0
+    goto :goto_0
 
-    .line 55
-    :cond_1
+    .line 69
+    :cond_2
     const-string v0, ","
 
     invoke-virtual {p0, v0}, Ljava/lang/String;->split(Ljava/lang/String;)[Ljava/lang/String;
 
-    move-result-object p0
-
-    .line 56
-    new-instance v0, Ljava/lang/StringBuilder;
-
-    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
-
-    const-string v1, "type="
-
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    const/4 v1, 0x0
-
-    aget-object v2, p0, v1
-
-    const-string v3, "liked"
-
-    invoke-virtual {v2, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-
-    move-result v2
-
-    const-string v3, "\u2014"
-
-    if-eqz v2, :cond_2
-
-    const-string v1, "lik\u00e9s"
-
-    goto :goto_0
-
-    :cond_2
-    aget-object v1, p0, v1
-
-    const-string v2, "playlist"
-
-    invoke-virtual {v1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-
-    move-result v1
-
-    if-eqz v1, :cond_3
-
-    move-object v1, v2
-
-    goto :goto_0
-
-    :cond_3
-    move-object v1, v3
-
-    :goto_0
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    const-string v1, ", phase="
-
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    const/4 v1, 0x1
-
-    aget-object v1, p0, v1
-
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    const-string v1, ", navigation="
-
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    const/4 v1, 0x2
-
-    aget-object v1, p0, v1
-
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    const-string v1, ", page pr\u00eate="
-
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    const/4 v1, 0x3
-
-    aget-object v1, p0, v1
-
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    const-string v1, ", lignes DOM="
-
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    const/4 v1, 0x4
-
-    aget-object v1, p0, v1
-
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    const-string v1, ", lignes class\u00e9es="
-
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    const/4 v1, 0x5
-
-    aget-object v1, p0, v1
-
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    const-string v1, ", lignes envoy\u00e9es au natif="
-
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    const/4 v1, 0x6
-
-    aget-object v1, p0, v1
-
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    const-string v1, ", premi\u00e8re liste="
-
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    .line 57
-    const/4 v1, 0x7
-
-    aget-object v2, p0, v1
-
-    const-string v4, "-"
-
-    invoke-virtual {v2, v4}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-
-    move-result v2
-
-    const-string v5, " ms"
-
-    if-eqz v2, :cond_4
-
-    move-object v1, v3
-
-    goto :goto_1
-
-    :cond_4
-    new-instance v2, Ljava/lang/StringBuilder;
-
-    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
-
-    aget-object v1, p0, v1
-
-    invoke-virtual {v2, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
     move-result-object v1
 
-    invoke-virtual {v1, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v2, " ms"
 
-    move-result-object v1
+    .line 70
+    new-instance v3, Ljava/lang/StringBuilder;
 
-    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    const-string v0, "type="
 
-    move-result-object v1
+    invoke-direct {v3, v0}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    aget-object v0, v1, v5
+
+    const-string v4, "liked"
+
+    invoke-virtual {v0, v4}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-eqz v0, :cond_3
+
+    const-string v0, "lik\u00e9s"
 
     :goto_1
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v0
 
-    const-string v1, ", liste compl\u00e8te="
+    const-string v3, ", phase="
 
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    const/16 v1, 0x8
-
-    aget-object v2, p0, v1
-
-    invoke-virtual {v2, v4}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-
-    move-result v2
-
-    if-eqz v2, :cond_5
-
-    goto :goto_2
-
-    :cond_5
-    new-instance v2, Ljava/lang/StringBuilder;
-
-    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
-
-    aget-object v1, p0, v1
-
-    invoke-virtual {v2, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v1
-
-    invoke-virtual {v1, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v1
-
-    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-
-    move-result-object v3
-
-    :goto_2
     invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v0
 
-    const-string v1, ", mises \u00e0 jour="
+    const/4 v3, 0x1
+
+    aget-object v3, v1, v3
+
+    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    const-string v3, ", navigation="
+
+    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    const/4 v3, 0x2
+
+    aget-object v3, v1, v3
+
+    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    const-string v3, ", page pr\u00eate="
+
+    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    const/4 v3, 0x3
+
+    aget-object v3, v1, v3
+
+    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    const-string v3, ", lignes DOM="
+
+    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    const/4 v3, 0x4
+
+    aget-object v3, v1, v3
+
+    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    const-string v3, ", lignes class\u00e9es="
+
+    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    const/4 v3, 0x5
+
+    aget-object v3, v1, v3
+
+    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    const-string v3, ", lignes envoy\u00e9es au natif="
+
+    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    const/4 v3, 0x6
+
+    aget-object v3, v1, v3
+
+    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    .line 71
+    const-string v3, ", premi\u00e8re liste="
+
+    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v3
+
+    aget-object v0, v1, v6
+
+    const-string v4, "-"
+
+    invoke-virtual {v0, v4}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-eqz v0, :cond_5
+
+    const-string v0, "\u2014"
+
+    :goto_2
+    invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    const-string v3, ", liste compl\u00e8te="
+
+    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v3
+
+    aget-object v0, v1, v7
+
+    const-string v4, "-"
+
+    invoke-virtual {v0, v4}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-eqz v0, :cond_6
+
+    const-string v0, "\u2014"
+
+    :goto_3
+    invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    const-string v2, ", mises \u00e0 jour="
+
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    const/16 v2, 0x9
+
+    aget-object v1, v1, v2
 
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v0
 
-    const/16 v1, 0x9
+    .line 70
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
-    aget-object p0, p0, v1
+    move-result-object v0
 
-    invoke-virtual {v0, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    goto/16 :goto_0
 
-    move-result-object p0
+    :cond_3
+    aget-object v0, v1, v5
 
-    invoke-virtual {p0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    const-string v4, "playlist"
 
-    move-result-object p0
+    invoke-virtual {v0, v4}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
-    .line 56
-    return-object p0
+    move-result v0
 
-    .line 53
+    if-eqz v0, :cond_4
+
+    const-string v0, "playlist"
+
+    goto/16 :goto_1
+
+    :cond_4
+    const-string v0, "\u2014"
+
+    goto/16 :goto_1
+
+    .line 71
+    :cond_5
+    new-instance v0, Ljava/lang/StringBuilder;
+
+    aget-object v4, v1, v6
+
+    invoke-static {v4}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
+
+    move-result-object v4
+
+    invoke-direct {v0, v4}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    goto :goto_2
+
     :cond_6
-    :goto_3
-    const-string p0, "aucune ouverture observ\u00e9e"
+    new-instance v0, Ljava/lang/StringBuilder;
 
-    return-object p0
+    aget-object v4, v1, v7
+
+    invoke-static {v4}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
+
+    move-result-object v4
+
+    invoke-direct {v0, v4}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    goto :goto_3
 .end method
 
 .method private line(Landroid/app/Activity;Ljava/lang/String;IF)Landroid/widget/TextView;
     .locals 1
 
-    .line 134
+    .prologue
+    .line 148
     new-instance v0, Landroid/widget/TextView;
 
     invoke-direct {v0, p1}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
@@ -2575,323 +2627,317 @@
 .method private loadPanel(ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
     .locals 19
 
-    .line 236
-    move-object/from16 v12, p0
+    .prologue
+    .line 256
+    move-object/from16 v0, p0
 
-    move/from16 v13, p1
+    iget-wide v6, v0, Lcom/melodix/music/PreviewPlayerTiles;->panelSerial:J
 
-    move-object/from16 v14, p2
+    const-wide/16 v8, 0x1
 
-    move-object/from16 v15, p4
+    add-long/2addr v8, v6
 
-    move-object/from16 v11, p5
+    move-object/from16 v0, p0
 
-    const-string v0, ","
+    iput-wide v8, v0, Lcom/melodix/music/PreviewPlayerTiles;->panelSerial:J
 
-    iget-wide v1, v12, Lcom/melodix/music/PreviewPlayerTiles;->panelSerial:J
+    move-object/from16 v0, p0
 
-    const-wide/16 v3, 0x1
+    move-object/from16 v1, p2
 
-    add-long v9, v1, v3
+    move-object/from16 v2, p4
 
-    iput-wide v9, v12, Lcom/melodix/music/PreviewPlayerTiles;->panelSerial:J
+    invoke-direct {v0, v1, v2}, Lcom/melodix/music/PreviewPlayerTiles;->skeleton(Landroid/app/Activity;Landroid/widget/LinearLayout;)V
 
-    invoke-direct {v12, v14, v15}, Lcom/melodix/music/PreviewPlayerTiles;->skeleton(Landroid/app/Activity;Landroid/widget/LinearLayout;)V
+    const/4 v6, 0x0
 
-    const/4 v1, 0x0
+    move-object/from16 v0, p5
 
-    invoke-virtual {v11, v1}, Landroid/widget/Button;->setEnabled(Z)V
+    invoke-virtual {v0, v6}, Landroid/widget/Button;->setEnabled(Z)V
 
-    const/4 v1, 0x1
+    const/4 v6, 0x1
 
-    if-ne v13, v1, :cond_0
+    move/from16 v0, p1
 
-    const-string v1, "lyrics"
+    if-ne v0, v6, :cond_0
 
-    goto :goto_0
+    const-string v16, "lyrics"
 
-    :cond_0
-    const-string v1, "devices"
-
+    .line 257
     :goto_0
-    move-object/from16 v16, v1
+    new-instance v6, Lcom/melodix/music/PreviewPlayerTiles$12;
 
-    .line 237
-    new-instance v8, Lcom/melodix/music/PreviewPlayerTiles$12;
+    move-object/from16 v7, p0
 
-    move-object v1, v8
+    move-object/from16 v10, p3
 
-    move-object/from16 v2, p0
+    move/from16 v11, p1
 
-    move-wide v3, v9
+    move-object/from16 v12, p2
 
-    move-object/from16 v5, p3
+    move-object/from16 v13, p4
 
-    move/from16 v6, p1
+    move-object/from16 v14, p5
 
-    move-object/from16 v7, p2
+    invoke-direct/range {v6 .. v14}, Lcom/melodix/music/PreviewPlayerTiles$12;-><init>(Lcom/melodix/music/PreviewPlayerTiles;JLandroid/app/Dialog;ILandroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
 
-    move-wide/from16 v17, v9
+    const-string v7, "transfer"
 
-    move-object v10, v8
+    move-object/from16 v0, p6
 
-    move-object/from16 v8, p4
+    invoke-virtual {v0, v7}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
-    move-object/from16 v9, p5
+    move-result v7
 
-    invoke-direct/range {v1 .. v9}, Lcom/melodix/music/PreviewPlayerTiles$12;-><init>(Lcom/melodix/music/PreviewPlayerTiles;JLandroid/app/Dialog;ILandroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
+    if-eqz v7, :cond_1
 
-    const-string v1, "transfer"
-
-    move-object/from16 v9, p6
-
-    invoke-virtual {v9, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-
-    move-result v1
-
-    if-eqz v1, :cond_1
-
-    const-wide/16 v1, 0x2af8
-
-    goto :goto_1
-
-    :cond_1
-    const-wide/16 v1, 0x1f40
+    const/16 v7, 0x2af8
 
     :goto_1
-    invoke-virtual {v12, v10, v1, v2}, Lcom/melodix/music/PreviewPlayerTiles;->postDelayed(Ljava/lang/Runnable;J)Z
+    int-to-long v10, v7
 
-    .line 238
-    invoke-direct {v12, v14}, Lcom/melodix/music/PreviewPlayerTiles;->web(Landroid/app/Activity;)Landroid/webkit/WebView;
+    move-object/from16 v0, p0
 
-    move-result-object v10
+    invoke-virtual {v0, v6, v10, v11}, Lcom/melodix/music/PreviewPlayerTiles;->postDelayed(Ljava/lang/Runnable;J)Z
 
-    if-nez v10, :cond_2
+    .line 258
+    move-object/from16 v0, p0
 
-    sget-object v0, Lcom/melodix/music/PreviewPlayerTiles;->panelJournals:[Ljava/lang/String;
+    move-object/from16 v1, p2
 
-    add-int/lit8 v1, v13, -0x1
+    invoke-direct {v0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->web(Landroid/app/Activity;)Landroid/webkit/WebView;
 
-    const-string v2, "page:inaccessible"
+    move-result-object v17
 
-    aput-object v2, v0, v1
+    if-nez v17, :cond_2
 
-    invoke-direct {v12, v13, v14, v15, v11}, Lcom/melodix/music/PreviewPlayerTiles;->panelFailed(ILandroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
+    sget-object v6, Lcom/melodix/music/PreviewPlayerTiles;->panelJournals:[Ljava/lang/String;
 
-    return-void
+    add-int/lit8 v7, p1, -0x1
 
-    .line 239
-    :cond_2
-    :try_start_0
-    new-instance v1, Ljava/lang/StringBuilder;
+    const-string v8, "page:inaccessible"
 
-    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
+    aput-object v8, v6, v7
 
-    const-string v2, "((function(kind, action, wanted) {\n    \'use strict\';\n    // Lyrics and devices drawers. One explicit tap = open the page panel in the\n    // hidden page, read it, close it if it was closed. A device transfer is a\n    // separate, explicitly confirmed action, verified by re-reading the list.\n    // No scrolling, navigation, storage, cookies, tokens or network.\n    var W = window, jobs = W.__melodixPanelJobs = W.__melodixPanelJobs || {};\n    if (kind !== \'lyrics\' && kind !== \'devices\') return JSON.stringify({status: \'done\', ok: false, reason: \'kind\'});\n    if (action === \'poll\') return JSON.stringify(jobs[kind] || {status: \'none\'});\n    if (action !== \'run\' && action !== \'transfer\') return JSON.stringify({status: \'none\'});\n    if (jobs[kind] && jobs[kind].status === \'running\' && Date.now() - jobs[kind].started < 8000) return JSON.stringify({status: \'busy\'});\n    var job = jobs[kind] = {status: \'running\', started: Date.now(), ok: false, reason: \'\', body: \'\', active: -1, synced: false, transferred: false, journal: []};\n    function log(c) { if (job.journal.length < 12) job.journal.push(c); }\n    function text(n) { return String(n && n.textContent || \'\').replace(/\\s+/g, \' \').trim().slice(0, 300); }\n    var specs = {\n        lyrics: {\n            ids: /^(lyrics-button|control-button-lyrics)$/i,\n            label: /^(lyrics|show lyrics|paroles|afficher les paroles|songtext|letras|letra)$/i,\n            main: true,\n            roots: \'[data-testid=\"lyrics-container\"], [data-testid=\"lyrics-page\"], [data-testid=\"lyrics-lyricsContent\"]\'\n        },\n        devices: {\n            ids: /^(control-button-connect|connect-device-picker|device-picker|connect-button)$/i,\n            label: /^(connect to a device|connect to a device\\.\\.\\.|se connecter \u00e0 un appareil|connecter \u00e0 un appareil|appareils disponibles|mit einem ger\u00e4t verbinden|conectar a un dispositivo|conectar a um dispositivo)$/i,\n            roots: \'[data-testid=\"device-picker\"], [data-testid=\"connect-device-list\"], [data-testid=\"connect-device-picker\"], [role=\"dialog\"][aria-label*=\"appareil\" i], [role=\"dialog\"][aria-label*=\"device\" i]\'\n        }\n    };\n    var spec = specs[kind], found = 0;\n    // Several copies of a control can exist (player bar and full view). Prefer\n    // the one in the player bar, then the only visible one; otherwise refuse.\n    function pickOne(list) {\n        if (list.length <= 1) return list[0] || null;\n        var bar = list.filter(function(b) { return !!b.closest(\'[data-testid=\"now-playing-bar\"]\'); });\n        if (bar.length === 1) return bar[0];\n        var shown = (bar.length ? bar : list).filter(function(b) { return b.getClientRects().length > 0; });\n        return shown.length === 1 ? shown[0] : null;\n    }\n    function button() {\n        var list = Array.from(document.querySelectorAll(\'button, [role=\"button\"]\')).filter(function(b) {\n            return b.isConnected && (spec.ids.test(String(b.getAttribute(\'data-testid\') || \'\')) || spec.label.test(String(b.getAttribute(\'aria-label\') || \'\').trim()));\n        });\n        found = list.length;\n        return pickOne(list);\n    }\n    function isOpen(b) { return b.getAttribute(\'aria-pressed\') === \'true\' || b.getAttribute(\'aria-expanded\') === \'true\' || b.getAttribute(\'data-active\') === \'true\'; }\n    function root(b) {\n        var hits = Array.from(document.querySelectorAll(spec.roots)).filter(function(n) { return n.isConnected; });\n        if (hits.length >= 1) return hits[0];\n        var id = b && b.getAttribute(\'aria-controls\'), c = id ? document.getElementById(id) : null;\n        if (c && c.isConnected) return c;\n        if (spec.main) {\n            // Desktop layout: lyrics replace the main view; use it only when it shows lyric lines.\n            var main = document.querySelector(\'#main-view, main\');\n            return main && main.querySelector(\'[data-testid*=\"lyric\" i]\') ? main : null;\n        }\n        // Device picker opens as a popover/dialog mentioning devices.\n        var pops = Array.from(document.querySelectorAll(\'[role=\"dialog\"], [data-tippy-root], [id^=\"tippy\"], [data-testid*=\"device\" i]\')).filter(function(n) {\n            return n.isConnected && /appareil|device|dispositivo|ger\u00e4t/i.test(String(n.getAttribute(\'aria-label\') || \'\') + \' \' + String(n.textContent || \'\').slice(0, 400));\n        });\n        return pops.length ? pops[0] : null;\n    }\n    function lyricLines(r) {\n        var nodes = Array.from(r.querySelectorAll(\'[data-testid=\"fullscreen-lyric\"], [data-testid=\"lyrics-line\"]\'));\n        if (!nodes.length) nodes = Array.from(r.querySelectorAll(\'[data-testid*=\"lyric\" i]\')).filter(function(n) { return !n.children.length || !n.querySelector(\'[data-testid*=\"lyric\" i]\'); });\n        if (!nodes.length) nodes = Array.from(r.querySelectorAll(\'p\'));\n        var lines = [], active = -1, synced = false;\n        nodes.slice(0, 200).forEach(function(n) {\n            var t = text(n); if (!t) return;\n            if (n.getAttribute(\'aria-current\') === \'true\' || n.getAttribute(\'data-active\') === \'true\') { active = lines.length; synced = true; }\n            if (n.hasAttribute(\'data-start-time\') || n.hasAttribute(\'data-time\')) synced = true;\n            lines.push(t);\n        });\n        return {lines: lines, active: synced ? active : -1, synced: synced};\n    }\n    function deviceRows(r) {\n        var nodes = Array.from(r.querySelectorAll(\'[data-testid=\"device-list-item\"], [data-testid=\"device-picker-row\"], [role=\"option\"], li button\'));\n        var seen = [];\n        return nodes.filter(function(n) { if (seen.indexOf(n) >= 0) return false; seen.push(n); return true; }).slice(0, 30).map(function(n) {\n            var nameNode = n.querySelector(\'[data-testid=\"device-name\"], [data-encore-id=\"text\"]\');\n            var name = text(nameNode || n).slice(0, 80);\n            var typeNode = n.querySelector(\'[data-testid=\"device-type\"]\');\n            var current = n.getAttribute(\'aria-selected\') === \'true\' || n.getAttribute(\'aria-current\') === \'true\' || n.getAttribute(\'aria-checked\') === \'true\';\n            return {node: n, name: name, type: typeNode ? text(typeNode).slice(0, 40) : \'\', current: current};\n        }).filter(function(d) { return d.name; });\n    }\n    // The page is hidden: a panel (or one of its parents) can measure 0 px, and\n    // Spotify then draws no rows in it. Give it a size while it is read, then\n    // restore the original inline style exactly. No other change to the page.\n    var sized = [];\n    function giveSize(r) {\n        var h = 0;\n        try { h = Math.round(r.getBoundingClientRect().height); } catch (_) {}\n        for (var n = r; n && n !== document.body && sized.length < 12; n = n.parentElement) {\n            var cs = window.getComputedStyle(n), small = false;\n            try { small = n.getBoundingClientRect().height < 2; } catch (_) {}\n            if (cs.display !== \'none\' && cs.visibility !== \'hidden\' && !small) continue;\n            sized.push([n, n.getAttribute(\'style\')]);\n            if (cs.display === \'none\') n.style.setProperty(\'display\', \'block\', \'important\');\n            if (cs.visibility === \'hidden\') n.style.setProperty(\'visibility\', \'visible\', \'important\');\n            if (small) n.style.setProperty(\'min-height\', \'640px\', \'important\');\n        }\n        log(\'sized:\' + sized.length + \',h:\' + Math.min(h, 9999));\n    }\n    function restoreSize() {\n        sized.forEach(function(e) { try { if (e[1] === null) e[0].removeAttribute(\'style\'); else e[0].setAttribute(\'style\', e[1]); } catch (_) {} });\n        sized = [];\n    }\n    function finish(ok, reason) { restoreSize(); job.status = \'done\'; job.ok = ok; job.reason = reason || \'\'; }\n    try {\n        var b = button(), already = root(b);\n        if (b && (b.disabled || b.getAttribute(\'aria-disabled\') === \'true\') && !already) { log(\'button:disabled\'); finish(false, \'disabled\'); return JSON.stringify({status: \'started\'}); }\n        if (!b && !already) { log(found > 1 ? \'button:ambiguous:\' + Math.min(found, 9) : \'button:absent\'); finish(false, found > 1 ? \'ambiguous\' : \'absent\'); return JSON.stringify({status: \'started\'}); }\n        var wasOpen = !!already || (b && isOpen(b));\n        if (!wasOpen) { try { b.click(); log(\'opened\'); } catch (_) { log(\'open-error\'); finish(false, \'command\'); return JSON.stringify({status: \'started\'}); } }\n        else log(\'already-open\');\n        var close = function() {\n            if (wasOpen) return;\n            setTimeout(function() {\n                try { var again = button() || b; if (again && (isOpen(again) || root(again))) { again.click(); log(\'closed\'); } } catch (_) { log(\'close-error\'); }\n            }, 120);\n        };\n        var end = Date.now() + 4000, forced = false;\n        (function step() {\n            var r = null;\n            try { r = root(button() || b); } catch (_) { r = null; }\n            var ready = r && (kind === \'lyrics\' ? lyricLines(r).lines.length : deviceRows(r).length);\n            if (!ready && r && !forced && Date.now() > end - 2000) { forced = true; giveSize(r); }\n            if (!ready && Date.now() < end) { setTimeout(step, 150); return; }\n            if (!ready) { log(r ? \'rows:0\' : \'panel:absent\'); finish(false, r ? \'empty\' : \'panel\'); close(); return; }\n            if (kind === \'lyrics\') {\n                var l = lyricLines(r);\n                job.body = l.lines.join(\'\\n\'); job.active = l.active; job.synced = l.synced;\n                log(\'lines:\' + Math.min(l.lines.length, 200) + (l.synced ? \':sync\' : \'\'));\n                finish(true, \'\'); close(); return;\n            }\n            var rows = deviceRows(r);\n            if (action === \'transfer\') {\n                var target = rows.filter(function(d) { return d.name === wanted; });\n                if (target.length !== 1) { log(\'target:\' + (target.length ? \'ambiguous\' : \'absent\')); finish(false, \'target\'); close(); return; }\n                if (target[0].current) { log(\'target:already-active\'); job.transferred = true; finish(true, \'\'); close(); return; }\n                try { target[0].node.click(); log(\'transfer:click\'); } catch (_) { log(\'transfer:error\'); finish(false, \'command\'); close(); return; }\n                var until = Date.now() + 3000;\n                (function verify() {\n                    var again = null;\n                    try { var r2 = root(button() || b); again = r2 ? deviceRows(r2).filter(function(d) { return d.name === wanted; })[0] : null; } catch (_) { again = null; }\n                    if (again && again.current) { log(\'transfer:verified\'); job.transferred = true; finish(true, \'\'); close(); return; }\n                    if (Date.now() < until) { setTimeout(verify, 200); return; }\n                    log(\'transfer:unverified\'); finish(false, \'unverified\'); close();\n                })();\n                return;\n            }\n            job.body = rows.map(function(d) { return [d.name, d.type, d.current ? \'1\' : \'\'].join(\'\\t\'); }).join(\'\\n\');\n            log(\'devices:\' + rows.length);\n            finish(true, \'\'); close();\n        })();\n        return JSON.stringify({status: \'started\'});\n    } catch (_) {\n        finish(false, \'error\');\n        return JSON.stringify({status: \'started\'});\n    }\n})\n)("
+    move-object/from16 v0, p0
 
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v1
-
-    invoke-static/range {v16 .. v16}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
-
-    move-result-object v2
-
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v1
-
-    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v1
-
-    invoke-static/range {p6 .. p6}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
-
-    move-result-object v2
-
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v1
-
-    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    invoke-static/range {p7 .. p7}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
-
-    move-result-object v1
-
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    const-string v1, ");"
-
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-
-    move-result-object v0
-
-    new-instance v8, Lcom/melodix/music/PreviewPlayerTiles$13;
-
-    move-object v1, v8
-
-    move-object/from16 v2, p0
-
-    move-wide/from16 v3, v17
-
-    move-object/from16 v5, p3
-
-    move/from16 v6, p1
-
-    move-object/from16 v7, p2
-
-    move-object v12, v8
-
-    move-object/from16 v8, p4
-
-    move-object/from16 v9, p5
-
-    move-object v14, v10
-
-    move-object/from16 v10, p6
-
-    move-object/from16 v11, v16
-
-    invoke-direct/range {v1 .. v11}, Lcom/melodix/music/PreviewPlayerTiles$13;-><init>(Lcom/melodix/music/PreviewPlayerTiles;JLandroid/app/Dialog;ILandroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
-
-    invoke-virtual {v14, v0, v12}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
-    :try_end_0
-    .catch Ljava/lang/RuntimeException; {:try_start_0 .. :try_end_0} :catch_0
-
-    .line 242
-    move-object/from16 v1, p0
-
-    goto :goto_2
-
-    :catch_0
-    move-exception v0
-
-    sget-object v0, Lcom/melodix/music/PreviewPlayerTiles;->panelJournals:[Ljava/lang/String;
-
-    add-int/lit8 v1, v13, -0x1
-
-    const-string v2, "demarrage:erreur"
-
-    aput-object v2, v0, v1
-
-    move-object/from16 v1, p0
+    move/from16 v1, p1
 
     move-object/from16 v2, p2
 
-    move-object/from16 v3, p5
+    move-object/from16 v3, p4
 
-    invoke-direct {v1, v13, v2, v15, v3}, Lcom/melodix/music/PreviewPlayerTiles;->panelFailed(ILandroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
+    move-object/from16 v4, p5
 
-    .line 243
+    invoke-direct {v0, v1, v2, v3, v4}, Lcom/melodix/music/PreviewPlayerTiles;->panelFailed(ILandroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
+
+    .line 263
     :goto_2
     return-void
+
+    .line 256
+    :cond_0
+    const-string v16, "devices"
+
+    goto :goto_0
+
+    .line 257
+    :cond_1
+    const/16 v7, 0x1f40
+
+    goto :goto_1
+
+    .line 259
+    :cond_2
+    :try_start_0
+    new-instance v6, Ljava/lang/StringBuilder;
+
+    const-string v7, "((function(kind, action, wanted) {\n    \'use strict\';\n    // Lyrics and devices drawers. One explicit tap = open the page panel in the\n    // hidden page, read it, close it if it was closed. A device transfer is a\n    // separate, explicitly confirmed action, verified by re-reading the list.\n    // No scrolling, navigation, storage, cookies, tokens or network.\n    var W = window, jobs = W.__melodixPanelJobs = W.__melodixPanelJobs || {};\n    if (kind !== \'lyrics\' && kind !== \'devices\') return JSON.stringify({status: \'done\', ok: false, reason: \'kind\'});\n    if (action === \'poll\') return JSON.stringify(jobs[kind] || {status: \'none\'});\n    if (action !== \'run\' && action !== \'transfer\') return JSON.stringify({status: \'none\'});\n    if (jobs[kind] && jobs[kind].status === \'running\' && Date.now() - jobs[kind].started < 8000) return JSON.stringify({status: \'busy\'});\n    var job = jobs[kind] = {status: \'running\', started: Date.now(), ok: false, reason: \'\', body: \'\', active: -1, synced: false, transferred: false, journal: []};\n    function log(c) { if (job.journal.length < 12) job.journal.push(c); }\n    function text(n) { return String(n && n.textContent || \'\').replace(/\\s+/g, \' \').trim().slice(0, 300); }\n    var specs = {\n        lyrics: {\n            ids: /^(lyrics-button|control-button-lyrics)$/i,\n            label: /^(lyrics|show lyrics|paroles|afficher les paroles|songtext|letras|letra)$/i,\n            main: true,\n            roots: \'[data-testid=\"lyrics-container\"], [data-testid=\"lyrics-page\"], [data-testid=\"lyrics-lyricsContent\"]\'\n        },\n        devices: {\n            ids: /^(control-button-connect|connect-device-picker|device-picker|connect-button)$/i,\n            label: /^(connect to a device|connect to a device\\.\\.\\.|se connecter \u00e0 un appareil|connecter \u00e0 un appareil|appareils disponibles|mit einem ger\u00e4t verbinden|conectar a un dispositivo|conectar a um dispositivo)$/i,\n            roots: \'[data-testid=\"device-picker\"], [data-testid=\"connect-device-list\"], [data-testid=\"connect-device-picker\"], [role=\"dialog\"][aria-label*=\"appareil\" i], [role=\"dialog\"][aria-label*=\"device\" i]\'\n        }\n    };\n    var spec = specs[kind], found = 0, rootAmbiguous = false;\n    // Several copies of a control can exist (player bar and full view). Prefer\n    // the one in the player bar, then the only visible one; otherwise refuse.\n    function pickOne(list) {\n        if (list.length <= 1) return list[0] || null;\n        var bar = list.filter(function(b) { return !!b.closest(\'[data-testid=\"now-playing-bar\"]\'); });\n        if (bar.length === 1) return bar[0];\n        var shown = (bar.length ? bar : list).filter(function(b) { return b.getClientRects().length > 0; });\n        return shown.length === 1 ? shown[0] : null;\n    }\n    function button() {\n        var list = Array.from(document.querySelectorAll(\'button, [role=\"button\"]\')).filter(function(b) {\n            return b.isConnected && (spec.ids.test(String(b.getAttribute(\'data-testid\') || \'\')) || spec.label.test(String(b.getAttribute(\'aria-label\') || \'\').trim()));\n        });\n        found = list.length;\n        return pickOne(list);\n    }\n    function isOpen(b) { return b.getAttribute(\'aria-pressed\') === \'true\' || b.getAttribute(\'aria-expanded\') === \'true\' || b.getAttribute(\'data-active\') === \'true\'; }\n    function root(b) {\n        var hits = Array.from(document.querySelectorAll(spec.roots)).filter(function(n) {\n            // Spotify may give the trigger itself a device-picker testid.\n            // A button is not its own content panel and must not imply open.\n            return n.isConnected && n !== b && !n.matches(\'button, [role=\"button\"], [role=\"switch\"]\');\n        });\n        // Nested wrappers can describe the same panel; unrelated roots are\n        // ambiguous and must never be treated as the current content.\n        hits = hits.filter(function(n) { return !hits.some(function(other) { return other !== n && n.contains(other); }); });\n        if (hits.length === 1) return hits[0];\n        if (hits.length > 1) { rootAmbiguous = true; return null; }\n        var id = b && b.getAttribute(\'aria-controls\'), c = id ? document.getElementById(id) : null;\n        if (c && c !== b && c.isConnected && !c.matches(\'button, [role=\"button\"], [role=\"switch\"]\')) return c;\n        if (spec.main) {\n            // Desktop layout: lyrics replace the main view; use it only when it shows lyric lines.\n            var main = document.querySelector(\'#main-view, main\');\n            return main && main.querySelector(\'[data-testid*=\"lyric\" i]\') ? main : null;\n        }\n        // Device picker opens as a popover/dialog mentioning devices.\n        var pops = Array.from(document.querySelectorAll(\'[role=\"dialog\"], [data-tippy-root], [id^=\"tippy\"]\')).filter(function(n) {\n            return n.isConnected && n !== b && /appareil|device|dispositivo|ger\u00e4t/i.test(String(n.getAttribute(\'aria-label\') || \'\'));\n        });\n        if (pops.length > 1) rootAmbiguous = true;\n        return pops.length === 1 ? pops[0] : null;\n    }\n    function lyricLines(r) {\n        var nodes = Array.from(r.querySelectorAll(\'[data-testid=\"fullscreen-lyric\"], [data-testid=\"lyrics-line\"]\'));\n        if (!nodes.length) nodes = Array.from(r.querySelectorAll(\'[data-testid*=\"lyric\" i]\')).filter(function(n) { return !n.children.length || !n.querySelector(\'[data-testid*=\"lyric\" i]\'); });\n        if (!nodes.length) nodes = Array.from(r.querySelectorAll(\'p\'));\n        var lines = [], active = -1, synced = false;\n        nodes.slice(0, 200).forEach(function(n) {\n            var t = text(n); if (!t) return;\n            if (n.getAttribute(\'aria-current\') === \'true\' || n.getAttribute(\'data-active\') === \'true\') { active = lines.length; synced = true; }\n            if (n.hasAttribute(\'data-start-time\') || n.hasAttribute(\'data-time\')) synced = true;\n            lines.push(t);\n        });\n        return {lines: lines, active: synced ? active : -1, synced: synced};\n    }\n    function deviceRows(r) {\n        var nodes = Array.from(r.querySelectorAll(\'[data-testid=\"device-list-item\"], [data-testid=\"device-picker-row\"], [role=\"option\"], li button\'));\n        var seen = [];\n        return nodes.filter(function(n) { if (seen.indexOf(n) >= 0) return false; seen.push(n); return true; }).slice(0, 30).map(function(n) {\n            var nameNode = n.querySelector(\'[data-testid=\"device-name\"], [data-encore-id=\"text\"]\');\n            var name = text(nameNode || n).slice(0, 80);\n            var typeNode = n.querySelector(\'[data-testid=\"device-type\"]\');\n            var current = n.getAttribute(\'aria-selected\') === \'true\' || n.getAttribute(\'aria-current\') === \'true\' || n.getAttribute(\'aria-checked\') === \'true\';\n            return {node: n, name: name, type: typeNode ? text(typeNode).slice(0, 40) : \'\', current: current};\n        }).filter(function(d) { return d.name; });\n    }\n    // The page is hidden: a panel (or one of its parents) can measure 0 px, and\n    // Spotify then draws no rows in it. Give it a size while it is read, then\n    // restore the original inline style exactly. No other change to the page.\n    var sized = [];\n    function giveSize(r) {\n        var h = 0;\n        try { h = Math.round(r.getBoundingClientRect().height); } catch (_) {}\n        for (var n = r; n && n !== document.body && sized.length < 12; n = n.parentElement) {\n            var cs = window.getComputedStyle(n), small = false;\n            try { small = n.getBoundingClientRect().height < 2; } catch (_) {}\n            if (cs.display !== \'none\' && cs.visibility !== \'hidden\' && !small) continue;\n            sized.push([n, n.getAttribute(\'style\')]);\n            if (cs.display === \'none\') n.style.setProperty(\'display\', \'block\', \'important\');\n            if (cs.visibility === \'hidden\') n.style.setProperty(\'visibility\', \'visible\', \'important\');\n            if (small) n.style.setProperty(\'min-height\', \'640px\', \'important\');\n        }\n        log(\'sized:\' + sized.length + \',h:\' + Math.min(h, 9999));\n    }\n    function restoreSize() {\n        sized.forEach(function(e) { try { if (e[1] === null) e[0].removeAttribute(\'style\'); else e[0].setAttribute(\'style\', e[1]); } catch (_) {} });\n        sized = [];\n    }\n    var b = null, wasOpen = true, openedHere = false;\n    function finish(ok, reason) {\n        restoreSize();\n        function done(closeOk) {\n            if (openedHere) log(closeOk ? \'close:verified\' : \'close:unverified\');\n            job.status = \'done\'; job.ok = ok && closeOk;\n            job.reason = closeOk ? (reason || \'\') : \'close-unverified\';\n        }\n        if (!openedHere) { done(true); return; }\n        // Only the same explicitly open trigger may be toggled back. Do not\n        // click a replacement, a disabled control, or guess at browser history.\n        try {\n            if (b && b.isConnected && button() === b && isOpen(b) && !b.disabled && b.getAttribute(\'aria-disabled\') !== \'true\') {\n                b.click(); log(\'closed\');\n            }\n        } catch (_) { log(\'close-error\'); }\n        setTimeout(function() {\n            var remains = null;\n            try { remains = root(b); } catch (_) { }\n            var hidden = remains && (remains.closest(\'[hidden], [aria-hidden=\"true\"]\') ||\n                window.getComputedStyle(remains).display === \'none\' || window.getComputedStyle(remains).visibility === \'hidden\');\n            var after = button();\n            var explicitlyClosed = after && (after.getAttribute(\'aria-pressed\') === \'false\' || after.getAttribute(\'aria-expanded\') === \'false\' || after.getAttribute(\'data-active\') === \'false\') && !isOpen(after);\n            var clearlyClosed = explicitlyClosed && (!remains || !!hidden);\n            done(!!clearlyClosed);\n        }, 150);\n    }\n    try {\n        b = button(); var already = root(b);\n        if (rootAmbiguous) { log(\'root:ambiguous\'); finish(false, \'ambiguous\'); return JSON.stringify({status: \'started\'}); }\n        if (b && (b.disabled || b.getAttribute(\'aria-disabled\') === \'true\') && !already) { log(\'button:disabled\'); finish(false, \'disabled\'); return JSON.stringify({status: \'started\'}); }\n        if (!b && !already) { log(found > 1 ? \'button:ambiguous:\' + Math.min(found, 9) : \'button:absent\'); finish(false, found > 1 ? \'ambiguous\' : \'absent\'); return JSON.stringify({status: \'started\'}); }\n        wasOpen = !!already || (b && isOpen(b));\n        if (!wasOpen) { try { openedHere = true; b.click(); log(\'opened\'); } catch (_) { log(\'open-error\'); finish(false, \'command\'); return JSON.stringify({status: \'started\'}); } }\n        else log(\'already-open\');\n        var end = Date.now() + 4000, forced = false;\n        (function step() {\n            var r = null;\n            try { r = root(button() || b); } catch (_) { r = null; }\n            var ready = r && (kind === \'lyrics\' ? lyricLines(r).lines.length : deviceRows(r).length);\n            if (!ready && r && !forced && Date.now() > end - 2000) { forced = true; giveSize(r); }\n            if (!ready && Date.now() < end) { setTimeout(step, 150); return; }\n            if (!ready) { log(r ? \'rows:0\' : \'panel:absent\'); finish(false, rootAmbiguous ? \'ambiguous\' : r ? \'empty\' : \'panel\'); return; }\n            if (kind === \'lyrics\') {\n                var l = lyricLines(r);\n                job.body = l.lines.join(\'\\n\'); job.active = l.active; job.synced = l.synced;\n                log(\'lines:\' + Math.min(l.lines.length, 200) + (l.synced ? \':sync\' : \'\'));\n                finish(true, \'\'); return;\n            }\n            var rows = deviceRows(r);\n            if (action === \'transfer\') {\n                var target = rows.filter(function(d) { return d.name === wanted; });\n                if (target.length !== 1) { log(\'target:\' + (target.length ? \'ambiguous\' : \'absent\')); finish(false, \'target\'); return; }\n                if (target[0].current) { log(\'target:already-active\'); job.transferred = true; finish(true, \'\'); return; }\n                try { target[0].node.click(); log(\'transfer:click\'); } catch (_) { log(\'transfer:error\'); finish(false, \'command\'); return; }\n                var until = Date.now() + 3000;\n                (function verify() {\n                    var again = null;\n                    try { var r2 = root(button() || b); again = r2 ? deviceRows(r2).filter(function(d) { return d.name === wanted; })[0] : null; } catch (_) { again = null; }\n                    if (again && again.current) { log(\'transfer:verified\'); job.transferred = true; finish(true, \'\'); return; }\n                    if (Date.now() < until) { setTimeout(verify, 200); return; }\n                    log(\'transfer:unverified\'); finish(false, \'unverified\');\n                })();\n                return;\n            }\n            job.body = rows.map(function(d) { return [d.name, d.type, d.current ? \'1\' : \'\'].join(\'\\t\'); }).join(\'\\n\');\n            log(\'devices:\' + rows.length);\n            finish(true, \'\');\n        })();\n        return JSON.stringify({status: \'started\'});\n    } catch (_) {\n        finish(false, \'error\');\n        return JSON.stringify({status: \'started\'});\n    }\n})\n)("
+
+    invoke-direct {v6, v7}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    invoke-static/range {v16 .. v16}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v7
+
+    invoke-virtual {v6, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v6
+
+    const-string v7, ","
+
+    invoke-virtual {v6, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v6
+
+    invoke-static/range {p6 .. p6}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v7
+
+    invoke-virtual {v6, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v6
+
+    const-string v7, ","
+
+    invoke-virtual {v6, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v6
+
+    invoke-static/range {p7 .. p7}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v7
+
+    invoke-virtual {v6, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v6
+
+    const-string v7, ");"
+
+    invoke-virtual {v6, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v6
+
+    invoke-virtual {v6}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v18
+
+    new-instance v6, Lcom/melodix/music/PreviewPlayerTiles$13;
+
+    move-object/from16 v7, p0
+
+    move-object/from16 v10, p3
+
+    move/from16 v11, p1
+
+    move-object/from16 v12, p2
+
+    move-object/from16 v13, p4
+
+    move-object/from16 v14, p5
+
+    move-object/from16 v15, p6
+
+    invoke-direct/range {v6 .. v16}, Lcom/melodix/music/PreviewPlayerTiles$13;-><init>(Lcom/melodix/music/PreviewPlayerTiles;JLandroid/app/Dialog;ILandroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
+
+    move-object/from16 v0, v17
+
+    move-object/from16 v1, v18
+
+    invoke-virtual {v0, v1, v6}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
+    :try_end_0
+    .catch Ljava/lang/RuntimeException; {:try_start_0 .. :try_end_0} :catch_0
+
+    goto :goto_2
+
+    .line 262
+    :catch_0
+    move-exception v6
+
+    sget-object v6, Lcom/melodix/music/PreviewPlayerTiles;->panelJournals:[Ljava/lang/String;
+
+    add-int/lit8 v7, p1, -0x1
+
+    const-string v8, "demarrage:erreur"
+
+    aput-object v8, v6, v7
+
+    move-object/from16 v0, p0
+
+    move/from16 v1, p1
+
+    move-object/from16 v2, p2
+
+    move-object/from16 v3, p4
+
+    move-object/from16 v4, p5
+
+    invoke-direct {v0, v1, v2, v3, v4}, Lcom/melodix/music/PreviewPlayerTiles;->panelFailed(ILandroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
+
+    goto :goto_2
 .end method
 
 .method private loadQueue(Landroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
-    .locals 16
+    .locals 10
 
-    .line 166
-    move-object/from16 v9, p0
-
-    move-object/from16 v10, p1
-
-    move-object/from16 v11, p3
-
-    move-object/from16 v12, p4
-
-    iget-wide v0, v9, Lcom/melodix/music/PreviewPlayerTiles;->queueSerial:J
+    .prologue
+    .line 184
+    iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->queueSerial:J
 
     const-wide/16 v2, 0x1
 
-    add-long v13, v0, v2
+    add-long/2addr v2, v0
 
-    iput-wide v13, v9, Lcom/melodix/music/PreviewPlayerTiles;->queueSerial:J
+    iput-wide v2, p0, Lcom/melodix/music/PreviewPlayerTiles;->queueSerial:J
 
-    invoke-direct {v9, v10, v11}, Lcom/melodix/music/PreviewPlayerTiles;->skeleton(Landroid/app/Activity;Landroid/widget/LinearLayout;)V
+    invoke-direct {p0, p1, p3}, Lcom/melodix/music/PreviewPlayerTiles;->skeleton(Landroid/app/Activity;Landroid/widget/LinearLayout;)V
 
     const/4 v0, 0x0
 
-    invoke-virtual {v12, v0}, Landroid/widget/Button;->setEnabled(Z)V
+    invoke-virtual {p4, v0}, Landroid/widget/Button;->setEnabled(Z)V
 
-    .line 167
+    .line 185
     new-instance v0, Lcom/melodix/music/PreviewPlayerTiles$6;
 
-    move-object v1, v0
+    move-object v1, p0
 
-    move-object/from16 v2, p0
+    move-object v4, p2
 
-    move-wide v3, v13
+    move-object v5, p1
 
-    move-object/from16 v5, p2
+    move-object v6, p3
 
-    move-object/from16 v6, p1
+    move-object v7, p4
 
-    move-object/from16 v7, p3
+    invoke-direct/range {v0 .. v7}, Lcom/melodix/music/PreviewPlayerTiles$6;-><init>(Lcom/melodix/music/PreviewPlayerTiles;JLandroid/app/Dialog;Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
 
-    move-object/from16 v8, p4
+    const-wide/16 v4, 0x1f40
 
-    invoke-direct/range {v1 .. v8}, Lcom/melodix/music/PreviewPlayerTiles$6;-><init>(Lcom/melodix/music/PreviewPlayerTiles;JLandroid/app/Dialog;Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
+    invoke-virtual {p0, v0, v4, v5}, Lcom/melodix/music/PreviewPlayerTiles;->postDelayed(Ljava/lang/Runnable;J)Z
 
-    const-wide/16 v1, 0x1f40
+    .line 186
+    invoke-direct {p0, p1}, Lcom/melodix/music/PreviewPlayerTiles;->web(Landroid/app/Activity;)Landroid/webkit/WebView;
 
-    invoke-virtual {v9, v0, v1, v2}, Lcom/melodix/music/PreviewPlayerTiles;->postDelayed(Ljava/lang/Runnable;J)Z
+    move-result-object v8
 
-    .line 168
-    invoke-direct/range {p0 .. p1}, Lcom/melodix/music/PreviewPlayerTiles;->web(Landroid/app/Activity;)Landroid/webkit/WebView;
-
-    move-result-object v0
-
-    if-nez v0, :cond_0
+    if-nez v8, :cond_0
 
     const-string v0, "page:inaccessible"
 
     sput-object v0, Lcom/melodix/music/PreviewPlayerTiles;->queueJournal:Ljava/lang/String;
 
-    invoke-direct {v9, v10, v11, v12}, Lcom/melodix/music/PreviewPlayerTiles;->queueFailed(Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
+    invoke-direct {p0, p1, p3, p4}, Lcom/melodix/music/PreviewPlayerTiles;->queueFailed(Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
 
+    .line 191
+    :goto_0
     return-void
 
-    .line 169
+    .line 187
     :cond_0
     :try_start_0
-    const-string v15, "((function(action) {\n    \'use strict\';\n    // Queue drawer source. One explicit tap = open the page\'s queue panel in the\n    // hidden page, read visible rows, then close it if it was closed before.\n    // No scrolling, navigation, storage, cookies, tokens or network.\n    var W = window;\n    if (action === \'poll\') return JSON.stringify(W.__melodixQueueJob || {status: \'none\'});\n    if (action !== \'run\') return JSON.stringify({status: \'none\'});\n    if (W.__melodixQueueJob && W.__melodixQueueJob.status === \'running\' && Date.now() - W.__melodixQueueJob.started < 8000) return JSON.stringify({status: \'busy\'});\n    var job = W.__melodixQueueJob = {status: \'running\', started: Date.now(), ok: false, reason: \'\', now: \'\', next: \'\', journal: []};\n    function log(code) { if (job.journal.length < 12) job.journal.push(code); }\n    function text(n) { return String(n && n.textContent || \'\').replace(/\\s+/g, \' \').trim().slice(0, 200); }\n    // Several copies of a control can exist (player bar and full view). Prefer\n    // the one in the player bar, then the only visible one; otherwise refuse.\n    function pickOne(list) {\n        if (list.length <= 1) return list[0] || null;\n        var bar = list.filter(function(b) { return !!b.closest(\'[data-testid=\"now-playing-bar\"]\'); });\n        if (bar.length === 1) return bar[0];\n        var shown = (bar.length ? bar : list).filter(function(b) { return b.getClientRects().length > 0; });\n        return shown.length === 1 ? shown[0] : null;\n    }\n    var found = 0;\n    function button() {\n        var list = Array.from(document.querySelectorAll(\'button, [role=\"button\"]\')).filter(function(b) {\n            return b.isConnected && (/^(control-button-queue|queue-button)$/i.test(String(b.getAttribute(\'data-testid\') || \'\')) ||\n                /^(queue|play queue|file d[\'\u2019]attente|file de lecture|warteschlange|cola de reproducci\u00f3n|cola|fila de reprodu\u00e7\u00e3o|fila)$/i.test(String(b.getAttribute(\'aria-label\') || \'\').trim()));\n        });\n        found = list.length;\n        return pickOne(list);\n    }\n    function isOpen(b) { return b.getAttribute(\'aria-pressed\') === \'true\' || b.getAttribute(\'aria-expanded\') === \'true\' || b.getAttribute(\'data-active\') === \'true\'; }\n    function root(b) {\n        // Narrow page: Spotify opens the queue as its own page (/queue) in the main view.\n        if (/^\\/queue/.test(String(location.pathname || \'\'))) {\n            var mainView = document.querySelector(\'#main-view, main\');\n            if (mainView && mainView.isConnected) return mainView;\n        }\n        var selectors = \'[data-testid=\"queue-page\"], [data-testid=\"queue-view\"], [data-testid=\"queue-panel\"], [data-testid=\"NPV-queue\"], aside[aria-label=\"Queue\"], aside[aria-label=\"File d\u2019attente\"], aside[aria-label=\"File d\\\'attente\"], section[aria-label=\"Queue\"], section[aria-label=\"File d\u2019attente\"], [role=\"region\"][aria-label=\"Queue\"], [role=\"region\"][aria-label=\"File d\u2019attente\"]\';\n        var found = Array.from(document.querySelectorAll(selectors)).filter(function(n) { return n.isConnected; });\n        if (found.length === 1) return found[0];\n        var id = b && b.getAttribute(\'aria-controls\');\n        var controlled = id ? document.getElementById(id) : null;\n        if (controlled && controlled.isConnected) return controlled;\n        // Desktop layout: the queue opens in the right-hand panel, labelled in any language.\n        var labelled = Array.from(document.querySelectorAll(\'aside, section, [role=\"region\"], [role=\"complementary\"], [role=\"dialog\"], div[aria-label]\')).filter(function(n) {\n            return n.isConnected && /^(queue|play queue|file d[\'\u2019]attente|file de lecture|warteschlange|cola( de reproducci\u00f3n)?|fila( de reprodu\u00e7\u00e3o)?)$/i.test(String(n.getAttribute(\'aria-label\') || \'\').trim());\n        });\n        if (labelled.length) return labelled[0];\n        var panel = document.querySelector(\'#Desktop_PanelContainer_Id, [data-testid=\"right-sidebar\"], [data-testid=\"PanelContainer\"]\');\n        return panel && panel.isConnected && panel.querySelector(\'a[href*=\"/track/\"], a[href*=\"/episode/\"]\') ? panel : null;\n    }\n    function rows(r) {\n        var list = Array.from(r.querySelectorAll(\'[data-testid=\"queue-tracklist-row\"], [data-testid=\"tracklist-row\"], [role=\"row\"]\')).filter(function(n) {\n            return !n.querySelector(\'[data-testid=\"queue-tracklist-row\"], [data-testid=\"tracklist-row\"], [role=\"row\"]\');\n        });\n        if (!list.length) {\n            // No row markers: one row per track link, its closest list item or row-like block.\n            var seen = [];\n            Array.from(r.querySelectorAll(\'a[href*=\"/track/\"], a[href*=\"/episode/\"]\')).forEach(function(a) {\n                var row = a.closest(\'li, [role=\"listitem\"], [draggable=\"true\"], [data-encore-id=\"listRow\"]\') || a.parentElement && a.parentElement.parentElement || a;\n                if (seen.indexOf(row) < 0) seen.push(row);\n            });\n            list = seen;\n        }\n        return list.slice(0, 40).map(function(n) {\n            var t = n.querySelector(\'[data-testid=\"internal-track-link\"], a[href*=\"/track/\"], a[href*=\"/episode/\"], [data-testid=\"track-title\"], [data-testid=\"context-item-info-title\"]\');\n            var artists = Array.from(n.querySelectorAll(\'a[href*=\"/artist/\"], a[href*=\"/show/\"]\')).map(text).filter(Boolean);\n            if (!artists.length) { var a = n.querySelector(\'[data-testid=\"track-artist\"], [data-testid=\"context-item-info-artist\"]\'); if (a) artists.push(text(a)); }\n            var duration = \'\';\n            Array.from(n.querySelectorAll(\'div, span\')).some(function(x) {\n                if (x.children.length) return false;\n                var v = text(x);\n                if (/^\\d{1,2}:\\d{2}(:\\d{2})?$/.test(v)) { duration = v; return true; }\n                return false;\n            });\n            return {title: text(t), artist: artists.join(\', \').slice(0, 200), duration: duration};\n        }).filter(function(x) { return x.title; });\n    }\n    // The page is hidden: a panel (or one of its parents) can measure 0 px, and\n    // Spotify then draws no rows in it. Give it a size while it is read, then\n    // restore the original inline style exactly. No other change to the page.\n    var sized = [];\n    function giveSize(r) {\n        var h = 0;\n        try { h = Math.round(r.getBoundingClientRect().height); } catch (_) {}\n        for (var n = r; n && n !== document.body && sized.length < 12; n = n.parentElement) {\n            var cs = window.getComputedStyle(n), small = false;\n            try { small = n.getBoundingClientRect().height < 2; } catch (_) {}\n            if (cs.display !== \'none\' && cs.visibility !== \'hidden\' && !small) continue;\n            sized.push([n, n.getAttribute(\'style\')]);\n            if (cs.display === \'none\') n.style.setProperty(\'display\', \'block\', \'important\');\n            if (cs.visibility === \'hidden\') n.style.setProperty(\'visibility\', \'visible\', \'important\');\n            if (small) n.style.setProperty(\'min-height\', \'640px\', \'important\');\n        }\n        log(\'sized:\' + sized.length + \',h:\' + Math.min(h, 9999));\n    }\n    function restoreSize() {\n        sized.forEach(function(e) { try { if (e[1] === null) e[0].removeAttribute(\'style\'); else e[0].setAttribute(\'style\', e[1]); } catch (_) {} });\n        sized = [];\n    }\n    function finish(ok, reason) { restoreSize(); job.status = \'done\'; job.ok = ok; job.reason = reason || \'\'; }\n    try {\n        var b = button();\n        var already = root(b);\n        if (!b && !already) { log(found > 1 ? \'button:ambiguous:\' + Math.min(found, 9) : \'button:absent\'); finish(false, found > 1 ? \'ambiguous\' : \'absent\'); return JSON.stringify({status: \'started\'}); }\n        var wasOpen = !!already || (b && isOpen(b));\n        if (!wasOpen) { try { b.click(); log(\'opened\'); } catch (_) { log(\'open-error\'); finish(false, \'command\'); return JSON.stringify({status: \'started\'}); } }\n        else log(\'already-open\');\n        var end = Date.now() + 4500, forced = false;\n        (function step() {\n            var r = null, list = [];\n            try { r = root(button() || b); list = r ? rows(r) : []; } catch (_) { list = []; }\n            if (!list.length && r && !forced && Date.now() > end - 3500) { forced = true; giveSize(r); }\n            if (!list.length && Date.now() < end) { setTimeout(step, 150); return; }\n            if (list.length) {\n                var line = function(x) { return [x.title, x.artist, x.duration].join(\'\\t\').replace(/\\n/g, \' \'); };\n                job.now = line(list[0]); job.next = list.slice(1).map(line).join(\'\\n\');\n                log(\'rows:\' + Math.min(list.length, 40));\n                finish(true, \'\');\n            } else {\n                log(r ? \'rows:0\' : \'panel:absent\');\n                // Counts only, to locate the queue next time: route, links in the panel, rows in the page.\n                log(\'path:\' + (/^\\/queue/.test(String(location.pathname || \'\')) ? \'queue\' : \'other\'));\n                log(\'links:\' + Math.min(r ? r.querySelectorAll(\'a[href*=\"/track/\"], a[href*=\"/episode/\"]\').length : 0, 99));\n                log(\'rowsdoc:\' + Math.min(document.querySelectorAll(\'[data-testid=\"tracklist-row\"], [role=\"row\"]\').length, 99));\n                finish(false, r ? \'empty\' : \'panel\');\n            }\n            if (!wasOpen) {\n                setTimeout(function() {\n                    try { var again = button() || b; if (again && isOpen(again)) { again.click(); log(\'closed\'); } } catch (_) { log(\'close-error\'); }\n                }, 100);\n            }\n        })();\n        return JSON.stringify({status: \'started\'});\n    } catch (_) {\n        finish(false, \'error\');\n        return JSON.stringify({status: \'started\'});\n    }\n})\n)(\"run\");"
+    const-string v9, "((function(action) {\n    \'use strict\';\n    // Queue drawer source. One explicit tap = open the page\'s queue panel in the\n    // hidden page, read visible rows, then close it if it was closed before.\n    // No scrolling, navigation, storage, cookies, tokens or network.\n    var W = window;\n    if (action === \'poll\') return JSON.stringify(W.__melodixQueueJob || {status: \'none\'});\n    if (action !== \'run\') return JSON.stringify({status: \'none\'});\n    if (W.__melodixQueueJob && W.__melodixQueueJob.status === \'running\' && Date.now() - W.__melodixQueueJob.started < 8000) return JSON.stringify({status: \'busy\'});\n    var job = W.__melodixQueueJob = {status: \'running\', started: Date.now(), ok: false, reason: \'\', now: \'\', next: \'\', journal: []};\n    function log(code) { if (job.journal.length < 12) job.journal.push(code); }\n    function text(n) { return String(n && n.textContent || \'\').replace(/\\s+/g, \' \').trim().slice(0, 200); }\n    // Several copies of a control can exist (player bar and full view). Prefer\n    // the one in the player bar, then the only visible one; otherwise refuse.\n    function pickOne(list) {\n        if (list.length <= 1) return list[0] || null;\n        var bar = list.filter(function(b) { return !!b.closest(\'[data-testid=\"now-playing-bar\"]\'); });\n        if (bar.length === 1) return bar[0];\n        var shown = (bar.length ? bar : list).filter(function(b) { return b.getClientRects().length > 0; });\n        return shown.length === 1 ? shown[0] : null;\n    }\n    var found = 0, rootAmbiguous = false;\n    function button() {\n        var list = Array.from(document.querySelectorAll(\'button, [role=\"button\"]\')).filter(function(b) {\n            return b.isConnected && (/^(control-button-queue|queue-button)$/i.test(String(b.getAttribute(\'data-testid\') || \'\')) ||\n                /^(queue|play queue|file d[\'\u2019]attente|file de lecture|warteschlange|cola de reproducci\u00f3n|cola|fila de reprodu\u00e7\u00e3o|fila)$/i.test(String(b.getAttribute(\'aria-label\') || \'\').trim()));\n        });\n        found = list.length;\n        return pickOne(list);\n    }\n    function isOpen(b) { return b.getAttribute(\'aria-pressed\') === \'true\' || b.getAttribute(\'aria-expanded\') === \'true\' || b.getAttribute(\'data-active\') === \'true\'; }\n    function root(b) {\n        // Narrow page: Spotify opens the queue as its own page (/queue) in the main view.\n        if (/^\\/queue/.test(String(location.pathname || \'\'))) {\n            var mainView = document.querySelector(\'#main-view, main\');\n            if (mainView && mainView.isConnected) return mainView;\n        }\n        var selectors = \'[data-testid=\"queue-page\"], [data-testid=\"queue-view\"], [data-testid=\"queue-panel\"], [data-testid=\"NPV-queue\"], aside[aria-label=\"Queue\"], aside[aria-label=\"File d\u2019attente\"], aside[aria-label=\"File d\\\'attente\"], section[aria-label=\"Queue\"], section[aria-label=\"File d\u2019attente\"], [role=\"region\"][aria-label=\"Queue\"], [role=\"region\"][aria-label=\"File d\u2019attente\"]\';\n        var found = Array.from(document.querySelectorAll(selectors)).filter(function(n) { return n.isConnected; });\n        if (found.length === 1) return found[0];\n        if (found.length > 1) { rootAmbiguous = true; return null; }\n        var id = b && b.getAttribute(\'aria-controls\');\n        var controlled = id ? document.getElementById(id) : null;\n        if (controlled && controlled.isConnected) return controlled;\n        // Desktop layout: the queue opens in the right-hand panel, labelled in any language.\n        var labelled = Array.from(document.querySelectorAll(\'aside, section, [role=\"region\"], [role=\"complementary\"], [role=\"dialog\"], div[aria-label]\')).filter(function(n) {\n            return n.isConnected && /^(queue|play queue|file d[\'\u2019]attente|file de lecture|warteschlange|cola( de reproducci\u00f3n)?|fila( de reprodu\u00e7\u00e3o)?)$/i.test(String(n.getAttribute(\'aria-label\') || \'\').trim());\n        });\n        if (labelled.length > 1) { rootAmbiguous = true; return null; }\n        return labelled.length === 1 ? labelled[0] : null;\n    }\n    function rows(r) {\n        var list = Array.from(r.querySelectorAll(\'[data-testid=\"queue-tracklist-row\"], [data-testid=\"tracklist-row\"], [role=\"row\"]\')).filter(function(n) {\n            return !n.querySelector(\'[data-testid=\"queue-tracklist-row\"], [data-testid=\"tracklist-row\"], [role=\"row\"]\');\n        });\n        if (!list.length) {\n            // No row markers: one row per track link, its closest list item or row-like block.\n            var seen = [];\n            Array.from(r.querySelectorAll(\'a[href*=\"/track/\"], a[href*=\"/episode/\"]\')).forEach(function(a) {\n                var row = a.closest(\'li, [role=\"listitem\"], [draggable=\"true\"], [data-encore-id=\"listRow\"]\') || a.parentElement && a.parentElement.parentElement || a;\n                if (seen.indexOf(row) < 0) seen.push(row);\n            });\n            list = seen;\n        }\n        return list.slice(0, 40).map(function(n) {\n            var t = n.querySelector(\'[data-testid=\"internal-track-link\"], a[href*=\"/track/\"], a[href*=\"/episode/\"], [data-testid=\"track-title\"], [data-testid=\"context-item-info-title\"]\');\n            var artists = Array.from(n.querySelectorAll(\'a[href*=\"/artist/\"], a[href*=\"/show/\"]\')).map(text).filter(Boolean);\n            if (!artists.length) { var a = n.querySelector(\'[data-testid=\"track-artist\"], [data-testid=\"context-item-info-artist\"]\'); if (a) artists.push(text(a)); }\n            var duration = \'\';\n            Array.from(n.querySelectorAll(\'div, span\')).some(function(x) {\n                if (x.children.length) return false;\n                var v = text(x);\n                if (/^\\d{1,2}:\\d{2}(:\\d{2})?$/.test(v)) { duration = v; return true; }\n                return false;\n            });\n            return {title: text(t), artist: artists.join(\', \').slice(0, 200), duration: duration, current: n.getAttribute(\'aria-current\') === \'true\' || n.getAttribute(\'data-testid\') === \'queue-now-playing\'};\n        }).filter(function(x) { return x.title; });\n    }\n    // The page is hidden: a panel (or one of its parents) can measure 0 px, and\n    // Spotify then draws no rows in it. Give it a size while it is read, then\n    // restore the original inline style exactly. No other change to the page.\n    var sized = [];\n    function giveSize(r) {\n        var h = 0;\n        try { h = Math.round(r.getBoundingClientRect().height); } catch (_) {}\n        for (var n = r; n && n !== document.body && sized.length < 12; n = n.parentElement) {\n            var cs = window.getComputedStyle(n), small = false;\n            try { small = n.getBoundingClientRect().height < 2; } catch (_) {}\n            if (cs.display !== \'none\' && cs.visibility !== \'hidden\' && !small) continue;\n            sized.push([n, n.getAttribute(\'style\')]);\n            if (cs.display === \'none\') n.style.setProperty(\'display\', \'block\', \'important\');\n            if (cs.visibility === \'hidden\') n.style.setProperty(\'visibility\', \'visible\', \'important\');\n            if (small) n.style.setProperty(\'min-height\', \'640px\', \'important\');\n        }\n        log(\'sized:\' + sized.length + \',h:\' + Math.min(h, 9999));\n    }\n    function restoreSize() {\n        sized.forEach(function(e) { try { if (e[1] === null) e[0].removeAttribute(\'style\'); else e[0].setAttribute(\'style\', e[1]); } catch (_) {} });\n        sized = [];\n    }\n    var b = null, wasOpen = true, openedHere = false;\n    function finish(ok, reason) {\n        restoreSize();\n        function done(closeOk) {\n            if (openedHere) log(closeOk ? \'close:verified\' : \'close:unverified\');\n            job.status = \'done\'; job.ok = ok && closeOk;\n            job.reason = closeOk ? (reason || \'\') : \'close-unverified\';\n        }\n        if (!openedHere) { done(true); return; }\n        // Only the same explicitly open trigger may be toggled back. Do not\n        // click a replacement, a disabled control, or guess at browser history.\n        try {\n            if (b && b.isConnected && button() === b && isOpen(b) && !b.disabled && b.getAttribute(\'aria-disabled\') !== \'true\') {\n                b.click(); log(\'closed\');\n            }\n        } catch (_) { log(\'close-error\'); }\n        setTimeout(function() {\n            var remains = null;\n            try { remains = root(b); } catch (_) { }\n            var hidden = remains && (remains.closest(\'[hidden], [aria-hidden=\"true\"]\') ||\n                window.getComputedStyle(remains).display === \'none\' || window.getComputedStyle(remains).visibility === \'hidden\');\n            var after = button();\n            var explicitlyClosed = after && (after.getAttribute(\'aria-pressed\') === \'false\' || after.getAttribute(\'aria-expanded\') === \'false\' || after.getAttribute(\'data-active\') === \'false\') && !isOpen(after);\n            var clearlyClosed = explicitlyClosed && (!remains || !!hidden);\n            done(!!clearlyClosed);\n        }, 150);\n    }\n    try {\n        b = button();\n        var already = root(b);\n        if (rootAmbiguous) { log(\'root:ambiguous\'); finish(false, \'ambiguous\'); return JSON.stringify({status: \'started\'}); }\n        if (b && (b.disabled || b.getAttribute(\'aria-disabled\') === \'true\') && !already) { log(\'button:disabled\'); finish(false, \'disabled\'); return JSON.stringify({status: \'started\'}); }\n        if (!b && !already) { log(found > 1 ? \'button:ambiguous:\' + Math.min(found, 9) : \'button:absent\'); finish(false, found > 1 ? \'ambiguous\' : \'absent\'); return JSON.stringify({status: \'started\'}); }\n        wasOpen = !!already || (b && isOpen(b));\n        if (!wasOpen) { try { openedHere = true; b.click(); log(\'opened\'); } catch (_) { log(\'open-error\'); finish(false, \'command\'); return JSON.stringify({status: \'started\'}); } }\n        else log(\'already-open\');\n        var end = Date.now() + 4500, forced = false;\n        (function step() {\n            var r = null, list = [];\n            try { r = root(button() || b); list = r ? rows(r) : []; } catch (_) { list = []; }\n            if (!list.length && r && !forced && Date.now() > end - 3500) { forced = true; giveSize(r); }\n            if (!list.length && Date.now() < end) { setTimeout(step, 150); return; }\n            if (list.length) {\n                var line = function(x) { return [x.title, x.artist, x.duration].join(\'\\t\').replace(/\\n/g, \' \'); };\n                var marked = list.filter(function(x) { return x.current; });\n                job.now = marked.length === 1 ? line(marked[0]) : \'\';\n                job.next = list.filter(function(x) { return marked.length !== 1 || x !== marked[0]; }).map(line).join(\'\\n\');\n                log(\'rows:\' + Math.min(list.length, 40));\n                finish(true, \'\');\n            } else {\n                log(r ? \'rows:0\' : \'panel:absent\');\n                // Counts only, to locate the queue next time: route, links in the panel, rows in the page.\n                log(\'path:\' + (/^\\/queue/.test(String(location.pathname || \'\')) ? \'queue\' : \'other\'));\n                log(\'links:\' + Math.min(r ? r.querySelectorAll(\'a[href*=\"/track/\"], a[href*=\"/episode/\"]\').length : 0, 99));\n                log(\'rowsdoc:\' + Math.min(document.querySelectorAll(\'[data-testid=\"tracklist-row\"], [role=\"row\"]\').length, 99));\n                finish(false, rootAmbiguous ? \'ambiguous\' : r ? \'empty\' : \'panel\');\n            }\n        })();\n        return JSON.stringify({status: \'started\'});\n    } catch (_) {\n        finish(false, \'error\');\n        return JSON.stringify({status: \'started\'});\n    }\n})\n)(\"run\");"
 
-    new-instance v8, Lcom/melodix/music/PreviewPlayerTiles$7;
+    new-instance v0, Lcom/melodix/music/PreviewPlayerTiles$7;
 
-    move-object v1, v8
+    move-object v1, p0
 
-    move-object/from16 v2, p0
+    move-object v4, p2
 
-    move-wide v3, v13
+    move-object v5, p1
 
-    move-object/from16 v5, p2
+    move-object v6, p3
 
-    move-object/from16 v6, p1
+    move-object v7, p4
 
-    move-object/from16 v7, p3
+    invoke-direct/range {v0 .. v7}, Lcom/melodix/music/PreviewPlayerTiles$7;-><init>(Lcom/melodix/music/PreviewPlayerTiles;JLandroid/app/Dialog;Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
 
-    move-object v13, v8
-
-    move-object/from16 v8, p4
-
-    invoke-direct/range {v1 .. v8}, Lcom/melodix/music/PreviewPlayerTiles$7;-><init>(Lcom/melodix/music/PreviewPlayerTiles;JLandroid/app/Dialog;Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
-
-    invoke-virtual {v0, v15, v13}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
+    invoke-virtual {v8, v9, v0}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
     :try_end_0
     .catch Ljava/lang/RuntimeException; {:try_start_0 .. :try_end_0} :catch_0
 
-    .line 172
     goto :goto_0
 
+    .line 190
     :catch_0
     move-exception v0
 
@@ -2899,17 +2945,16 @@
 
     sput-object v0, Lcom/melodix/music/PreviewPlayerTiles;->queueJournal:Ljava/lang/String;
 
-    invoke-direct {v9, v10, v11, v12}, Lcom/melodix/music/PreviewPlayerTiles;->queueFailed(Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
+    invoke-direct {p0, p1, p3, p4}, Lcom/melodix/music/PreviewPlayerTiles;->queueFailed(Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
 
-    .line 173
-    :goto_0
-    return-void
+    goto :goto_0
 .end method
 
 .method private message(Ljava/lang/String;)V
     .locals 2
 
-    .line 132
+    .prologue
+    .line 146
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->volumeRunning:Z
 
     if-eqz v0, :cond_0
@@ -2928,9 +2973,9 @@
 
     invoke-static {v0, p1, v1}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
 
-    move-result-object p1
+    move-result-object v0
 
-    invoke-virtual {p1}, Landroid/widget/Toast;->show()V
+    invoke-virtual {v0}, Landroid/widget/Toast;->show()V
 
     :cond_0
     return-void
@@ -2939,27 +2984,36 @@
 .method private paintControls()V
     .locals 7
 
-    .line 124
-    const/4 v0, 0x0
+    .prologue
+    const/4 v1, 0x0
 
-    move v1, v0
+    .line 138
+    move v0, v1
 
     :goto_0
     const/4 v2, 0x3
 
-    if-ge v1, v2, :cond_1
+    if-lt v0, v2, :cond_0
 
-    .line 125
+    .line 145
+    return-void
+
+    .line 139
+    :cond_0
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerTiles;->controls:[Landroid/widget/Button;
 
-    aget-object v2, v2, v1
+    aget-object v2, v2, v0
 
-    if-nez v2, :cond_0
+    if-nez v2, :cond_1
 
-    goto :goto_1
+    .line 138
+    :goto_1
+    add-int/lit8 v0, v0, 0x1
 
-    .line 126
-    :cond_0
+    goto :goto_0
+
+    .line 140
+    :cond_1
     const/4 v3, 0x1
 
     invoke-virtual {v2, v3}, Landroid/widget/Button;->setEnabled(Z)V
@@ -2968,18 +3022,18 @@
 
     invoke-virtual {v2, v3}, Landroid/widget/Button;->setAlpha(F)V
 
-    .line 127
+    .line 141
     new-instance v3, Ljava/lang/StringBuilder;
-
-    invoke-direct {v3}, Ljava/lang/StringBuilder;-><init>()V
 
     iget-object v4, p0, Lcom/melodix/music/PreviewPlayerTiles;->icons:[Ljava/lang/String;
 
-    aget-object v4, v4, v1
+    aget-object v4, v4, v0
 
-    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-static {v4}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
 
-    move-result-object v3
+    move-result-object v4
+
+    invoke-direct {v3, v4}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
 
     const-string v4, "\n"
 
@@ -2989,7 +3043,7 @@
 
     iget-object v4, p0, Lcom/melodix/music/PreviewPlayerTiles;->names:[Ljava/lang/String;
 
-    aget-object v4, v4, v1
+    aget-object v4, v4, v0
 
     invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
@@ -2999,7 +3053,7 @@
 
     move-result-object v3
 
-    .line 128
+    .line 142
     new-instance v4, Landroid/text/SpannableString;
 
     invoke-direct {v4, v3}, Landroid/text/SpannableString;-><init>(Ljava/lang/CharSequence;)V
@@ -3018,22 +3072,22 @@
 
     const/16 v6, 0x21
 
-    invoke-virtual {v4, v5, v0, v3, v6}, Landroid/text/SpannableString;->setSpan(Ljava/lang/Object;III)V
+    invoke-virtual {v4, v5, v1, v3, v6}, Landroid/text/SpannableString;->setSpan(Ljava/lang/Object;III)V
 
     invoke-virtual {v2, v4}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
 
-    .line 129
+    .line 143
     new-instance v3, Ljava/lang/StringBuilder;
-
-    invoke-direct {v3}, Ljava/lang/StringBuilder;-><init>()V
 
     iget-object v4, p0, Lcom/melodix/music/PreviewPlayerTiles;->names:[Ljava/lang/String;
 
-    aget-object v4, v4, v1
+    aget-object v4, v4, v0
 
-    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-static {v4}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
 
-    move-result-object v3
+    move-result-object v4
+
+    invoke-direct {v3, v4}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
 
     const-string v4, " : consulter si disponible"
 
@@ -3047,50 +3101,36 @@
 
     invoke-virtual {v2, v3}, Landroid/widget/Button;->setContentDescription(Ljava/lang/CharSequence;)V
 
-    .line 124
-    :goto_1
-    add-int/lit8 v1, v1, 0x1
-
-    goto :goto_0
-
-    .line 131
-    :cond_1
-    return-void
+    goto :goto_1
 .end method
 
 .method private panelFailed(ILandroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
-    .locals 9
+    .locals 6
 
-    .line 194
+    .prologue
+    const/4 v2, 0x1
+
+    .line 212
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->panelReason:Ljava/lang/String;
 
     const-string v1, ""
 
     iput-object v1, p0, Lcom/melodix/music/PreviewPlayerTiles;->panelReason:Ljava/lang/String;
 
-    .line 195
+    .line 213
     const-string v1, "absent"
 
     invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v1
 
-    const/4 v2, 0x1
-
     if-eqz v1, :cond_1
 
     if-ne p1, v2, :cond_0
 
-    const-string p1, "Paroles non disponibles sur cette page Spotify"
-
-    goto :goto_0
-
-    :cond_0
-    const-string p1, "Appareils non disponibles sur cette page Spotify"
+    const-string v4, "Paroles non disponibles sur cette page Spotify"
 
     :goto_0
-    move-object v4, p1
-
     const-string v5, "Le bouton correspondant est absent de la page."
 
     move-object v0, p0
@@ -3103,9 +3143,17 @@
 
     invoke-direct/range {v0 .. v5}, Lcom/melodix/music/PreviewPlayerTiles;->panelMessage(Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
 
+    .line 218
+    :goto_1
     return-void
 
-    .line 196
+    .line 213
+    :cond_0
+    const-string v4, "Appareils non disponibles sur cette page Spotify"
+
+    goto :goto_0
+
+    .line 214
     :cond_1
     const-string v1, "disabled"
 
@@ -3113,45 +3161,59 @@
 
     move-result v1
 
-    if-eqz v1, :cond_4
+    if-eqz v1, :cond_3
 
     if-ne p1, v2, :cond_2
 
-    const-string v0, "Pas de paroles pour ce titre"
+    const-string v4, "Bouton Paroles d\u00e9sactiv\u00e9"
+
+    :goto_2
+    const-string v5, "Le bouton Spotify est d\u00e9sactiv\u00e9 ; r\u00e9essayez plus tard."
+
+    move-object v0, p0
+
+    move-object v1, p2
+
+    move-object v2, p3
+
+    move-object v3, p4
+
+    invoke-direct/range {v0 .. v5}, Lcom/melodix/music/PreviewPlayerTiles;->panelMessage(Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
 
     goto :goto_1
 
     :cond_2
-    const-string v0, "Appareils indisponibles pour le moment"
-
-    :goto_1
-    move-object v7, v0
-
-    if-ne p1, v2, :cond_3
-
-    const-string p1, "Spotify ne propose pas de paroles pour ce titre."
+    const-string v4, "Appareils indisponibles pour le moment"
 
     goto :goto_2
 
+    .line 215
     :cond_3
-    const-string p1, "Le bouton Spotify est d\u00e9sactiv\u00e9 ; r\u00e9essayez plus tard."
+    const-string v1, "close-unverified"
 
-    :goto_2
-    move-object v8, p1
+    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
-    move-object v3, p0
+    move-result v1
 
-    move-object v4, p2
+    if-eqz v1, :cond_4
 
-    move-object v5, p3
+    const-string v4, "Fermeture du panneau non confirm\u00e9e"
 
-    move-object v6, p4
+    const-string v5, "Le contenu n\u2019a pas \u00e9t\u00e9 pr\u00e9sent\u00e9 comme confirm\u00e9 ; voir le diagnostic."
 
-    invoke-direct/range {v3 .. v8}, Lcom/melodix/music/PreviewPlayerTiles;->panelMessage(Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
+    move-object v0, p0
 
-    return-void
+    move-object v1, p2
 
-    .line 197
+    move-object v2, p3
+
+    move-object v3, p4
+
+    invoke-direct/range {v0 .. v5}, Lcom/melodix/music/PreviewPlayerTiles;->panelMessage(Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
+
+    goto :goto_1
+
+    .line 216
     :cond_4
     const-string v1, "ambiguous"
 
@@ -3161,66 +3223,66 @@
 
     if-eqz v0, :cond_5
 
-    const-string v7, "Lecture refus\u00e9e"
+    const-string v4, "Lecture refus\u00e9e"
 
-    const-string v8, "Plusieurs boutons possibles dans la page ; aucun n\u2019a \u00e9t\u00e9 touch\u00e9."
+    const-string v5, "Plusieurs boutons possibles dans la page ; aucun n\u2019a \u00e9t\u00e9 touch\u00e9."
 
-    move-object v3, p0
+    move-object v0, p0
 
-    move-object v4, p2
+    move-object v1, p2
 
-    move-object v5, p3
+    move-object v2, p3
 
-    move-object v6, p4
+    move-object v3, p4
 
-    invoke-direct/range {v3 .. v8}, Lcom/melodix/music/PreviewPlayerTiles;->panelMessage(Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
+    invoke-direct/range {v0 .. v5}, Lcom/melodix/music/PreviewPlayerTiles;->panelMessage(Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
 
-    return-void
+    goto :goto_1
 
-    .line 198
+    .line 217
     :cond_5
     if-ne p1, v2, :cond_6
 
-    const-string v0, "Paroles indisponibles pour ce titre"
+    const-string v4, "Paroles indisponibles"
+
+    :goto_3
+    if-ne p1, v2, :cond_7
+
+    const-string v5, "Contenu non lu ; touchez R\u00e9essayer."
+
+    :goto_4
+    move-object v0, p0
+
+    move-object v1, p2
+
+    move-object v2, p3
+
+    move-object v3, p4
+
+    invoke-direct/range {v0 .. v5}, Lcom/melodix/music/PreviewPlayerTiles;->panelMessage(Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
+
+    goto :goto_1
+
+    :cond_6
+    const-string v4, "Liste d\u2019appareils indisponible"
 
     goto :goto_3
 
-    :cond_6
-    const-string v0, "Aucun autre appareil d\u00e9tect\u00e9"
-
-    :goto_3
-    move-object v7, v0
-
-    if-ne p1, v2, :cond_7
-
-    const-string p1, "Touchez R\u00e9essayer pour relire les paroles."
+    :cond_7
+    const-string v5, "Liste non lue ; touchez R\u00e9essayer."
 
     goto :goto_4
-
-    :cond_7
-    const-string p1, "Touchez R\u00e9essayer pour relire la liste."
-
-    :goto_4
-    move-object v8, p1
-
-    move-object v3, p0
-
-    move-object v4, p2
-
-    move-object v5, p3
-
-    move-object v6, p4
-
-    invoke-direct/range {v3 .. v8}, Lcom/melodix/music/PreviewPlayerTiles;->panelMessage(Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
-
-    .line 199
-    return-void
 .end method
 
 .method private panelMessage(Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
-    .locals 3
+    .locals 4
 
-    .line 189
+    .prologue
+    const/4 v3, -0x2
+
+    const/4 v2, -0x1
+
+    .line 207
     iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->panelSerial:J
 
     iput-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->panelSettled:J
@@ -3229,335 +3291,336 @@
 
     const/high16 v0, 0x41900000    # 18.0f
 
-    const/4 v1, -0x1
+    invoke-direct {p0, p1, p4, v2, v0}, Lcom/melodix/music/PreviewPlayerTiles;->line(Landroid/app/Activity;Ljava/lang/String;IF)Landroid/widget/TextView;
 
-    invoke-direct {p0, p1, p4, v1, v0}, Lcom/melodix/music/PreviewPlayerTiles;->line(Landroid/app/Activity;Ljava/lang/String;IF)Landroid/widget/TextView;
+    move-result-object v0
 
-    move-result-object p4
+    new-instance v1, Landroid/widget/LinearLayout$LayoutParams;
 
-    new-instance v0, Landroid/widget/LinearLayout$LayoutParams;
+    invoke-direct {v1, v2, v3}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
 
-    const/4 v2, -0x2
+    invoke-virtual {p2, v0, v1}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    invoke-direct {v0, v1, v2}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-
-    invoke-virtual {p2, p4, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
-
-    .line 190
+    .line 208
     invoke-virtual {p5}, Ljava/lang/String;->isEmpty()Z
 
-    move-result p4
+    move-result v0
 
-    if-nez p4, :cond_0
+    if-nez v0, :cond_0
 
-    const p4, -0x384424
+    const v0, -0x384424
 
-    const/high16 v0, 0x41600000    # 14.0f
+    const/high16 v1, 0x41600000    # 14.0f
 
-    invoke-direct {p0, p1, p5, p4, v0}, Lcom/melodix/music/PreviewPlayerTiles;->line(Landroid/app/Activity;Ljava/lang/String;IF)Landroid/widget/TextView;
+    invoke-direct {p0, p1, p5, v0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->line(Landroid/app/Activity;Ljava/lang/String;IF)Landroid/widget/TextView;
 
-    move-result-object p1
+    move-result-object v0
 
-    new-instance p4, Landroid/widget/LinearLayout$LayoutParams;
+    new-instance v1, Landroid/widget/LinearLayout$LayoutParams;
 
-    invoke-direct {p4, v1, v2}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    invoke-direct {v1, v2, v3}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
 
-    invoke-virtual {p2, p1, p4}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    invoke-virtual {p2, v0, v1}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
     :cond_0
-    const/4 p1, 0x1
+    const/4 v0, 0x1
 
-    invoke-virtual {p3, p1}, Landroid/widget/Button;->setEnabled(Z)V
+    invoke-virtual {p3, v0}, Landroid/widget/Button;->setEnabled(Z)V
 
-    .line 191
+    .line 209
     return-void
 .end method
 
 .method private parseObject(Ljava/lang/String;)Lorg/json/JSONObject;
-    .locals 2
+    .locals 3
 
-    .line 164
-    const/4 v0, 0x0
+    .prologue
+    const/4 v2, 0x0
 
+    .line 182
     :try_start_0
-    new-instance v1, Lorg/json/JSONTokener;
+    new-instance v0, Lorg/json/JSONTokener;
 
-    invoke-direct {v1, p1}, Lorg/json/JSONTokener;-><init>(Ljava/lang/String;)V
+    invoke-direct {v0, p1}, Lorg/json/JSONTokener;-><init>(Ljava/lang/String;)V
 
-    invoke-virtual {v1}, Lorg/json/JSONTokener;->nextValue()Ljava/lang/Object;
+    invoke-virtual {v0}, Lorg/json/JSONTokener;->nextValue()Ljava/lang/Object;
 
-    move-result-object p1
+    move-result-object v0
 
-    instance-of v1, p1, Ljava/lang/String;
+    instance-of v1, v0, Ljava/lang/String;
 
     if-eqz v1, :cond_0
 
     new-instance v1, Lorg/json/JSONObject;
 
-    check-cast p1, Ljava/lang/String;
+    check-cast v0, Ljava/lang/String;
 
-    invoke-direct {v1, p1}, Lorg/json/JSONObject;-><init>(Ljava/lang/String;)V
+    invoke-direct {v1, v0}, Lorg/json/JSONObject;-><init>(Ljava/lang/String;)V
     :try_end_0
     .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
 
     move-object v0, v1
 
-    :cond_0
+    :goto_0
     return-object v0
+
+    :cond_0
+    move-object v0, v2
+
+    goto :goto_0
 
     :catch_0
-    move-exception p1
+    move-exception v0
 
-    return-object v0
+    move-object v0, v2
+
+    goto :goto_0
 .end method
 
 .method private pollPanel(ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;JILjava/lang/String;Ljava/lang/String;)V
     .locals 14
 
-    .line 245
-    move-object v12, p0
+    .prologue
+    .line 265
+    new-instance v2, Ljava/lang/StringBuilder;
 
-    move/from16 v10, p8
+    const-string v3, "demarre:lectures="
 
-    new-instance v0, Ljava/lang/StringBuilder;
+    invoke-direct {v2, v3}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
 
-    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+    move/from16 v0, p8
 
-    const-string v1, "demarre:lectures="
+    invoke-virtual {v2, v0}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
 
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    move-result-object v2
 
-    move-result-object v0
+    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
-    invoke-virtual {v0, v10}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    move-result-object v2
 
-    move-result-object v0
+    iput-object v2, p0, Lcom/melodix/music/PreviewPlayerTiles;->panelStep:Ljava/lang/String;
 
-    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    const/16 v2, 0x2c
 
-    move-result-object v0
+    move/from16 v0, p8
 
-    iput-object v0, v12, Lcom/melodix/music/PreviewPlayerTiles;->panelStep:Ljava/lang/String;
+    if-le v0, v2, :cond_0
 
-    const/16 v0, 0x2c
-
-    if-le v10, v0, :cond_0
-
+    .line 274
+    :goto_0
     return-void
 
-    .line 246
+    .line 266
     :cond_0
-    new-instance v13, Lcom/melodix/music/PreviewPlayerTiles$14;
+    new-instance v2, Lcom/melodix/music/PreviewPlayerTiles$14;
 
-    move-object v0, v13
+    move-object v3, p0
 
-    move-object v1, p0
+    move-wide/from16 v4, p6
 
-    move-wide/from16 v2, p6
+    move-object/from16 v6, p3
 
-    move-object/from16 v4, p3
+    move-object/from16 v7, p2
 
-    move-object/from16 v5, p2
+    move v8, p1
 
-    move v6, p1
+    move-object/from16 v9, p4
 
-    move-object/from16 v7, p4
+    move-object/from16 v10, p5
 
-    move-object/from16 v8, p5
+    move-object/from16 v11, p10
 
-    move-object/from16 v9, p10
+    move/from16 v12, p8
 
-    move/from16 v10, p8
+    move-object/from16 v13, p9
 
-    move-object/from16 v11, p9
+    invoke-direct/range {v2 .. v13}, Lcom/melodix/music/PreviewPlayerTiles$14;-><init>(Lcom/melodix/music/PreviewPlayerTiles;JLandroid/app/Dialog;Landroid/app/Activity;ILandroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;ILjava/lang/String;)V
 
-    invoke-direct/range {v0 .. v11}, Lcom/melodix/music/PreviewPlayerTiles$14;-><init>(Lcom/melodix/music/PreviewPlayerTiles;JLandroid/app/Dialog;Landroid/app/Activity;ILandroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;ILjava/lang/String;)V
+    .line 273
+    const-wide/16 v4, 0xfa
 
-    const-wide/16 v0, 0xfa
+    .line 266
+    invoke-virtual {p0, v2, v4, v5}, Lcom/melodix/music/PreviewPlayerTiles;->postDelayed(Ljava/lang/Runnable;J)Z
 
-    invoke-virtual {p0, v13, v0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->postDelayed(Ljava/lang/Runnable;J)Z
-
-    .line 254
-    return-void
+    goto :goto_0
 .end method
 
 .method private pollQueue(Landroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;JI)V
     .locals 11
 
-    .line 175
-    move-object v9, p0
+    .prologue
+    .line 193
+    new-instance v2, Ljava/lang/StringBuilder;
 
-    move/from16 v8, p7
+    const-string v3, "demarre:lectures="
 
-    new-instance v0, Ljava/lang/StringBuilder;
+    invoke-direct {v2, v3}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
 
-    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+    move/from16 v0, p7
 
-    const-string v1, "demarre:lectures="
+    invoke-virtual {v2, v0}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
 
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    move-result-object v2
 
-    move-result-object v0
+    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
-    invoke-virtual {v0, v8}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    move-result-object v2
 
-    move-result-object v0
+    iput-object v2, p0, Lcom/melodix/music/PreviewPlayerTiles;->queueStep:Ljava/lang/String;
 
-    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    .line 194
+    const/16 v2, 0x1e
 
-    move-result-object v0
+    move/from16 v0, p7
 
-    iput-object v0, v9, Lcom/melodix/music/PreviewPlayerTiles;->queueStep:Ljava/lang/String;
+    if-le v0, v2, :cond_1
 
-    .line 176
-    const/16 v0, 0x1e
+    iget-wide v2, p0, Lcom/melodix/music/PreviewPlayerTiles;->queueSerial:J
 
-    if-le v8, v0, :cond_1
+    cmp-long v2, p5, v2
 
-    iget-wide v0, v9, Lcom/melodix/music/PreviewPlayerTiles;->queueSerial:J
+    if-nez v2, :cond_0
 
-    cmp-long v0, p5, v0
+    iget-object v2, p0, Lcom/melodix/music/PreviewPlayerTiles;->webDialog:Landroid/app/Dialog;
 
-    if-nez v0, :cond_0
+    if-ne v2, p2, :cond_0
 
-    iget-object v0, v9, Lcom/melodix/music/PreviewPlayerTiles;->webDialog:Landroid/app/Dialog;
+    const-string v2, "delai"
 
-    move-object v4, p2
-
-    if-ne v0, v4, :cond_0
-
-    const-string v0, "delai"
-
-    sput-object v0, Lcom/melodix/music/PreviewPlayerTiles;->queueJournal:Ljava/lang/String;
-
-    move-object v5, p1
-
-    move-object v6, p3
-
-    move-object v7, p4
+    sput-object v2, Lcom/melodix/music/PreviewPlayerTiles;->queueJournal:Ljava/lang/String;
 
     invoke-direct {p0, p1, p3, p4}, Lcom/melodix/music/PreviewPlayerTiles;->queueFailed(Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
 
+    .line 203
     :cond_0
+    :goto_0
     return-void
 
-    .line 177
+    .line 195
     :cond_1
-    move-object v5, p1
+    new-instance v2, Lcom/melodix/music/PreviewPlayerTiles$8;
 
-    move-object v4, p2
+    move-object v3, p0
 
-    move-object v6, p3
+    move-wide/from16 v4, p5
 
-    move-object v7, p4
+    move-object v6, p2
 
-    new-instance v10, Lcom/melodix/music/PreviewPlayerTiles$8;
+    move-object v7, p1
 
-    move-object v0, v10
+    move-object v8, p3
 
-    move-object v1, p0
+    move-object v9, p4
 
-    move-wide/from16 v2, p5
+    move/from16 v10, p7
 
-    move/from16 v8, p7
+    invoke-direct/range {v2 .. v10}, Lcom/melodix/music/PreviewPlayerTiles$8;-><init>(Lcom/melodix/music/PreviewPlayerTiles;JLandroid/app/Dialog;Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;I)V
 
-    invoke-direct/range {v0 .. v8}, Lcom/melodix/music/PreviewPlayerTiles$8;-><init>(Lcom/melodix/music/PreviewPlayerTiles;JLandroid/app/Dialog;Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;I)V
+    .line 202
+    const-wide/16 v4, 0xfa
 
-    const-wide/16 v0, 0xfa
+    .line 195
+    invoke-virtual {p0, v2, v4, v5}, Lcom/melodix/music/PreviewPlayerTiles;->postDelayed(Ljava/lang/Runnable;J)Z
 
-    invoke-virtual {p0, v10, v0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->postDelayed(Ljava/lang/Runnable;J)Z
-
-    .line 185
-    return-void
+    goto :goto_0
 .end method
 
 .method private probe(ILandroid/app/Activity;)V
-    .locals 7
+    .locals 6
 
-    .line 69
-    const-string v0, "page inaccessible"
-
+    .prologue
+    .line 83
     if-nez p1, :cond_0
 
-    const-string v1, "queue"
+    const-string v0, "queue"
 
-    goto :goto_0
+    move-object v1, v0
 
+    :goto_0
+    sget-object v0, Lcom/melodix/music/PreviewPlayerTiles;->probeSerial:[J
+
+    aget-wide v2, v0, p1
+
+    const-wide/16 v4, 0x1
+
+    add-long/2addr v2, v4
+
+    aput-wide v2, v0, p1
+
+    .line 85
+    :try_start_0
+    invoke-virtual {p2}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+
+    move-result-object v0
+
+    const-string v4, "G"
+
+    invoke-virtual {v0, v4}, Ljava/lang/Class;->getField(Ljava/lang/String;)Ljava/lang/reflect/Field;
+
+    move-result-object v0
+
+    invoke-virtual {v0, p2}, Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;
+
+    move-result-object v0
+
+    .line 86
+    instance-of v4, v0, Landroid/webkit/WebView;
+
+    if-nez v4, :cond_2
+
+    sget-object v0, Lcom/melodix/music/PreviewPlayerTiles;->observations:[Ljava/lang/String;
+
+    const-string v1, "page inaccessible"
+
+    aput-object v1, v0, p1
+    :try_end_0
+    .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
+
+    .line 101
+    :goto_1
+    return-void
+
+    .line 83
     :cond_0
-    const/4 v1, 0x1
+    const/4 v0, 0x1
 
-    if-ne p1, v1, :cond_1
+    if-ne p1, v0, :cond_1
 
-    const-string v1, "lyrics"
+    const-string v0, "lyrics"
+
+    move-object v1, v0
 
     goto :goto_0
 
     :cond_1
-    const-string v1, "devices"
+    const-string v0, "devices"
 
-    :goto_0
-    sget-object v2, Lcom/melodix/music/PreviewPlayerTiles;->probeSerial:[J
+    move-object v1, v0
 
-    aget-wide v3, v2, p1
+    goto :goto_0
 
-    const-wide/16 v5, 0x1
-
-    add-long/2addr v3, v5
-
-    aput-wide v3, v2, p1
-
-    .line 71
-    :try_start_0
-    invoke-virtual {p2}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
-
-    move-result-object v2
-
-    const-string v5, "G"
-
-    invoke-virtual {v2, v5}, Ljava/lang/Class;->getField(Ljava/lang/String;)Ljava/lang/reflect/Field;
-
-    move-result-object v2
-
-    invoke-virtual {v2, p2}, Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;
-
-    move-result-object p2
-
-    .line 72
-    instance-of v2, p2, Landroid/webkit/WebView;
-
-    if-nez v2, :cond_2
-
-    sget-object p2, Lcom/melodix/music/PreviewPlayerTiles;->observations:[Ljava/lang/String;
-
-    aput-object v0, p2, p1
-
-    return-void
-
-    .line 73
+    .line 87
     :cond_2
-    check-cast p2, Landroid/webkit/WebView;
+    :try_start_1
+    check-cast v0, Landroid/webkit/WebView;
 
-    new-instance v2, Ljava/lang/StringBuilder;
+    new-instance v4, Ljava/lang/StringBuilder;
 
-    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v5, "((function(kind) {\n    \'use strict\';\n    // Observation only. Never open a panel, navigate, click, or read its text.\n    // Fixed categories and bounded counts only; no arbitrary testids or labels.\n    var selectors={\n        queue:\'[data-testid=\"queue-page\"], [data-testid=\"queue-view\"]\',\n        lyrics:\'[data-testid=\"lyrics-page\"], [data-testid=\"lyrics-lyricsContent\"], [data-testid=\"lyrics-container\"]\',\n        devices:\'[data-testid=\"device-picker\"], [data-testid=\"connect-device-list\"], [data-testid=\"connect-device-picker\"]\'\n    };\n    if(!Object.prototype.hasOwnProperty.call(selectors,kind))return JSON.stringify({reason:\'kind\',roots:0,rows:0,buttons:0,roles:0,testids:0});\n    var roots=Array.from(document.querySelectorAll(selectors[kind])).filter(function(n){return n.isConnected && !n.matches(\'button, [role=\"button\"], [role=\"switch\"]\');});\n    var controls={\n        queue:/^(control-button-queue|queue-button)$/i,\n        lyrics:/^(lyrics-button|control-button-lyrics)$/i,\n        devices:/^(control-button-connect|connect-device-picker|device-picker|connect-button)$/i\n    };\n    var labels={\n        queue:/^(queue|play queue|file d[\'\u2019]attente|file de lecture|warteschlange|cola( de reproducci\u00f3n)?|fila( de reprodu\u00e7\u00e3o)?)$/i,\n        lyrics:/^(lyrics|show lyrics|paroles|afficher les paroles|songtext|letras|letra)$/i,\n        devices:/^(connect to a device|connect to a device\\.\\.\\.|se connecter \u00e0 un appareil|connecter \u00e0 un appareil|appareils disponibles|mit einem ger\u00e4t verbinden|conectar a un dispositivo|conectar a um dispositivo)$/i\n    };\n    var triggers=Array.from(document.querySelectorAll(\'button,[role=\"button\"]\')).filter(function(b){\n        return b.isConnected && (controls[kind].test(String(b.getAttribute(\'data-testid\')||\'\')) || labels[kind].test(String(b.getAttribute(\'aria-label\')||\'\').trim()));\n    });\n    var nodes=[];roots.forEach(function(r){Array.from(r.querySelectorAll(\'[role], [data-testid], button\')).forEach(function(n){if(nodes.indexOf(n)<0)nodes.push(n);});});\n    function count(test){return Math.min(99,nodes.filter(test).length);}\n    return JSON.stringify({reason:roots.length?\'observed\':\'absent\',roots:Math.min(roots.length,99),\n        rows:count(function(n){return n.getAttribute(\'role\')===\'listitem\'||/^(queue-tracklist-row|device-list-item|lyrics-line)$/.test(n.getAttribute(\'data-testid\')||\'\');}),\n        controls:Math.min(triggers.length,99), buttons:count(function(n){return n.tagName===\'BUTTON\'||n.getAttribute(\'role\')===\'button\';}),\n        roles:count(function(n){return n.hasAttribute(\'role\');}),testids:count(function(n){return n.hasAttribute(\'data-testid\');})});\n})\n)("
 
-    const-string v5, "((function(kind) {\n    \'use strict\';\n    // Observation only. Never open a panel, navigate, click, or read its text.\n    // Fixed categories and bounded counts only; no arbitrary testids or labels.\n    var selectors={\n        queue:\'[data-testid=\"queue-page\"], [data-testid=\"queue-view\"]\',\n        lyrics:\'[data-testid=\"lyrics-page\"], [data-testid=\"lyrics-lyricsContent\"], [data-testid=\"lyrics-container\"]\',\n        devices:\'[data-testid=\"device-picker\"], [data-testid=\"connect-device-list\"]\'\n    };\n    if(!Object.prototype.hasOwnProperty.call(selectors,kind))return JSON.stringify({reason:\'kind\',roots:0,rows:0,buttons:0,roles:0,testids:0});\n    var roots=Array.from(document.querySelectorAll(selectors[kind])).filter(function(n){return n.isConnected;});\n    var nodes=[];roots.forEach(function(r){Array.from(r.querySelectorAll(\'[role], [data-testid], button\')).forEach(function(n){if(nodes.indexOf(n)<0)nodes.push(n);});});\n    function count(test){return Math.min(99,nodes.filter(test).length);}\n    return JSON.stringify({reason:roots.length?\'observed\':\'absent\',roots:Math.min(roots.length,99),\n        rows:count(function(n){return n.getAttribute(\'role\')===\'listitem\'||/^(queue-tracklist-row|device-list-item|lyrics-line)$/.test(n.getAttribute(\'data-testid\')||\'\');}),\n        buttons:count(function(n){return n.tagName===\'BUTTON\'||n.getAttribute(\'role\')===\'button\';}),\n        roles:count(function(n){return n.hasAttribute(\'role\');}),testids:count(function(n){return n.hasAttribute(\'data-testid\');})});\n})\n)("
-
-    invoke-virtual {v2, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v2
+    invoke-direct {v4, v5}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
 
     invoke-static {v1}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
 
     move-result-object v1
 
-    invoke-virtual {v2, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v4, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v1
 
-    const-string v2, ");"
+    const-string v4, ");"
 
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v1, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v1
 
@@ -3565,119 +3628,88 @@
 
     move-result-object v1
 
-    new-instance v2, Lcom/melodix/music/PreviewPlayerTiles$3;
+    new-instance v4, Lcom/melodix/music/PreviewPlayerTiles$3;
 
-    invoke-direct {v2, p0, v3, v4, p1}, Lcom/melodix/music/PreviewPlayerTiles$3;-><init>(Lcom/melodix/music/PreviewPlayerTiles;JI)V
+    invoke-direct {v4, p0, v2, v3, p1}, Lcom/melodix/music/PreviewPlayerTiles$3;-><init>(Lcom/melodix/music/PreviewPlayerTiles;JI)V
 
-    invoke-virtual {p2, v1, v2}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
-    :try_end_0
-    .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
+    invoke-virtual {v0, v1, v4}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
+    :try_end_1
+    .catch Ljava/lang/Exception; {:try_start_1 .. :try_end_1} :catch_0
 
-    .line 86
     goto :goto_1
 
+    .line 100
     :catch_0
-    move-exception p2
+    move-exception v0
 
-    sget-object p2, Lcom/melodix/music/PreviewPlayerTiles;->observations:[Ljava/lang/String;
+    sget-object v0, Lcom/melodix/music/PreviewPlayerTiles;->observations:[Ljava/lang/String;
 
-    aput-object v0, p2, p1
+    const-string v1, "page inaccessible"
 
-    .line 87
-    :goto_1
-    return-void
+    aput-object v1, v0, p1
+
+    goto :goto_1
 .end method
 
 .method private queueFailed(Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
-    .locals 7
+    .locals 5
 
-    .line 142
+    .prologue
+    const/4 v4, -0x1
+
+    .line 156
     iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->queueSerial:J
 
     iput-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->settledSerial:J
 
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->queueReason:Ljava/lang/String;
+    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerTiles;->queueReason:Ljava/lang/String;
 
-    const-string v1, ""
+    const-string v0, ""
 
-    iput-object v1, p0, Lcom/melodix/music/PreviewPlayerTiles;->queueReason:Ljava/lang/String;
+    iput-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->queueReason:Ljava/lang/String;
 
-    .line 143
+    .line 157
     invoke-virtual {p2}, Landroid/widget/LinearLayout;->removeAllViews()V
 
-    const-string v1, "absent"
+    const-string v0, "absent"
 
-    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
-    move-result v2
+    move-result v0
 
-    const-string v3, "ambiguous"
+    if-eqz v0, :cond_0
 
-    if-eqz v2, :cond_0
-
-    const-string v2, "File non disponible sur cette page Spotify"
-
-    goto :goto_0
-
-    :cond_0
-    invoke-virtual {v0, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-
-    move-result v2
-
-    if-eqz v2, :cond_1
-
-    const-string v2, "Lecture refus\u00e9e"
-
-    goto :goto_0
-
-    :cond_1
-    const-string v2, "File indisponible"
+    const-string v0, "File non disponible sur cette page Spotify"
 
     :goto_0
-    const/high16 v4, 0x41900000    # 18.0f
+    const/high16 v2, 0x41900000    # 18.0f
 
-    const/4 v5, -0x1
+    invoke-direct {p0, p1, v0, v4, v2}, Lcom/melodix/music/PreviewPlayerTiles;->line(Landroid/app/Activity;Ljava/lang/String;IF)Landroid/widget/TextView;
 
-    invoke-direct {p0, p1, v2, v5, v4}, Lcom/melodix/music/PreviewPlayerTiles;->line(Landroid/app/Activity;Ljava/lang/String;IF)Landroid/widget/TextView;
+    move-result-object v0
 
-    move-result-object v2
+    new-instance v2, Landroid/widget/LinearLayout$LayoutParams;
 
-    new-instance v4, Landroid/widget/LinearLayout$LayoutParams;
+    const/high16 v3, 0x42200000    # 40.0f
 
-    const/high16 v6, 0x42200000    # 40.0f
+    invoke-direct {p0, v3}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
 
-    invoke-direct {p0, v6}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+    move-result v3
 
-    move-result v6
+    invoke-direct {v2, v4, v3}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
 
-    invoke-direct {v4, v5, v6}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    invoke-virtual {p2, v0, v2}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    invoke-virtual {p2, v2, v4}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    .line 158
+    const-string v0, "absent"
 
-    .line 144
-    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-
-    move-result v1
-
-    if-eqz v1, :cond_2
-
-    const-string v0, "Le bouton File d\u2019attente est absent de la page."
-
-    goto :goto_1
-
-    :cond_2
-    invoke-virtual {v0, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v0
 
     if-eqz v0, :cond_3
 
-    const-string v0, "Plusieurs boutons possibles dans la page ; aucun n\u2019a \u00e9t\u00e9 touch\u00e9."
-
-    goto :goto_1
-
-    :cond_3
-    const-string v0, "Touchez R\u00e9essayer pour relire la file."
+    const-string v0, "Le bouton File d\u2019attente est absent de la page."
 
     :goto_1
     const v1, -0x384424
@@ -3686,527 +3718,757 @@
 
     invoke-direct {p0, p1, v0, v1, v2}, Lcom/melodix/music/PreviewPlayerTiles;->line(Landroid/app/Activity;Ljava/lang/String;IF)Landroid/widget/TextView;
 
-    move-result-object p1
+    move-result-object v0
 
-    new-instance v0, Landroid/widget/LinearLayout$LayoutParams;
+    new-instance v1, Landroid/widget/LinearLayout$LayoutParams;
 
-    const/4 v1, -0x2
+    const/4 v2, -0x2
 
-    invoke-direct {v0, v5, v1}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    invoke-direct {v1, v4, v2}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
 
-    invoke-virtual {p2, p1, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    invoke-virtual {p2, v0, v1}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    const/4 p1, 0x1
+    const/4 v0, 0x1
 
-    invoke-virtual {p3, p1}, Landroid/widget/Button;->setEnabled(Z)V
+    invoke-virtual {p3, v0}, Landroid/widget/Button;->setEnabled(Z)V
 
-    .line 145
+    .line 159
     return-void
+
+    .line 157
+    :cond_0
+    const-string v0, "ambiguous"
+
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-eqz v0, :cond_1
+
+    const-string v0, "Lecture refus\u00e9e"
+
+    goto :goto_0
+
+    :cond_1
+    const-string v0, "close-unverified"
+
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-eqz v0, :cond_2
+
+    const-string v0, "Fermeture de la file non confirm\u00e9e"
+
+    goto :goto_0
+
+    :cond_2
+    const-string v0, "File indisponible"
+
+    goto :goto_0
+
+    .line 158
+    :cond_3
+    const-string v0, "ambiguous"
+
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-eqz v0, :cond_4
+
+    const-string v0, "Plusieurs boutons possibles dans la page ; aucun n\u2019a \u00e9t\u00e9 touch\u00e9."
+
+    goto :goto_1
+
+    :cond_4
+    const-string v0, "Touchez R\u00e9essayer pour relire la file."
+
+    goto :goto_1
 .end method
 
 .method private readPanel(ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/TextView;)V
-    .locals 11
+    .locals 10
 
-    .line 90
-    const-string v0, "Indisponible dans cette version"
+    .prologue
+    .line 104
+    iget-wide v2, p0, Lcom/melodix/music/PreviewPlayerTiles;->readSerial:J
 
-    iget-wide v1, p0, Lcom/melodix/music/PreviewPlayerTiles;->readSerial:J
+    const-wide/16 v4, 0x1
 
-    const-wide/16 v3, 0x1
+    add-long/2addr v4, v2
 
-    add-long/2addr v1, v3
-
-    iput-wide v1, p0, Lcom/melodix/music/PreviewPlayerTiles;->readSerial:J
+    iput-wide v4, p0, Lcom/melodix/music/PreviewPlayerTiles;->readSerial:J
 
     if-nez p1, :cond_0
 
-    const-string p1, "queue"
+    const-string v2, "queue"
 
-    goto :goto_0
+    move-object v3, v2
 
-    :cond_0
-    const/4 v3, 0x1
-
-    if-ne p1, v3, :cond_1
-
-    const-string p1, "lyrics"
-
-    goto :goto_0
-
-    :cond_1
-    const-string p1, "devices"
-
-    .line 91
+    .line 105
     :goto_0
-    const-string v3, "Chargement\u2026"
+    const-string v2, "Chargement\u2026"
 
-    invoke-virtual {p4, v3}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    invoke-virtual {p4, v2}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
 
-    .line 93
+    .line 107
     :try_start_0
     invoke-virtual {p2}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
 
-    move-result-object v3
+    move-result-object v2
 
-    const-string v4, "G"
+    const-string v6, "G"
 
-    invoke-virtual {v3, v4}, Ljava/lang/Class;->getField(Ljava/lang/String;)Ljava/lang/reflect/Field;
+    invoke-virtual {v2, v6}, Ljava/lang/Class;->getField(Ljava/lang/String;)Ljava/lang/reflect/Field;
 
-    move-result-object v3
+    move-result-object v2
 
-    invoke-virtual {v3, p2}, Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;
+    invoke-virtual {v2, p2}, Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;
 
-    move-result-object p2
-
-    .line 94
-    instance-of v3, p2, Landroid/webkit/WebView;
-
-    if-nez v3, :cond_2
-
-    invoke-virtual {p4, v0}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-
-    return-void
-
-    .line 95
-    :cond_2
-    check-cast p2, Landroid/webkit/WebView;
-
-    new-instance v3, Ljava/lang/StringBuilder;
-
-    invoke-direct {v3}, Ljava/lang/StringBuilder;-><init>()V
-
-    const-string v4, "((function(kind) {\n    \'use strict\';\n    // Read only a uniquely recognised panel already present in the page.\n    // Never open a panel, issue a command, access session data or navigate.\n    var selectors={\n        queue:\'[data-testid=\"queue-page\"], [data-testid=\"queue-view\"]\',\n        lyrics:\'[data-testid=\"lyrics-lyricsContent\"]\',\n        devices:\'[data-testid=\"device-picker\"], [data-testid=\"connect-device-list\"]\'\n    };\n    if(!Object.prototype.hasOwnProperty.call(selectors,kind))return JSON.stringify({ok:false,reason:\'unsupported\'});\n    var roots=Array.from(document.querySelectorAll(selectors[kind])).filter(function(n){return n.isConnected;});\n    if(roots.length!==1)return JSON.stringify({ok:false,reason:roots.length?\'ambiguous\':\'absent\'});\n    var root=roots[0], lines=[];\n    function text(n){return String(n&&n.textContent||\'\').replace(/\\s+/g,\' \').trim().slice(0,300);}\n    if(kind===\'lyrics\'){\n        Array.from(root.querySelectorAll(\'p, [data-testid=\"lyrics-line\"]\')).slice(0,100).forEach(function(n){var t=text(n);if(t)lines.push(t);});\n    }else if(kind===\'queue\'){\n        Array.from(root.querySelectorAll(\'[data-testid=\"queue-tracklist-row\"]\')).slice(0,60).forEach(function(n){\n            var title=text(n.querySelector(\'[data-testid=\"track-title\"], [data-testid=\"context-item-info-title\"]\'));\n            var artist=text(n.querySelector(\'[data-testid=\"track-artist\"], [data-testid=\"context-item-info-artist\"]\'));\n            if(title)lines.push(title+(artist?\' \u2014 \'+artist:\'\'));\n        });\n    }else{\n        Array.from(root.querySelectorAll(\'[data-testid=\"device-list-item\"]\')).slice(0,30).forEach(function(n){\n            var name=text(n.querySelector(\'[data-testid=\"device-name\"]\'));if(name)lines.push(name+(n.getAttribute(\'aria-selected\')===\'true\'?\' \u00b7 Actif\':\'\'));\n        });\n    }\n    if(!lines.length)return JSON.stringify({ok:false,reason:\'unreadable\'});\n    return JSON.stringify({ok:true,body:lines.join(\'\\n\').slice(0,8000)});\n})\n)("
-
-    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v3
-
-    invoke-static {p1}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
-
-    move-result-object p1
-
-    invoke-virtual {v3, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object p1
-
-    const-string v3, ");"
-
-    invoke-virtual {p1, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object p1
-
-    invoke-virtual {p1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-
-    move-result-object p1
-
-    new-instance v3, Lcom/melodix/music/PreviewPlayerTiles$4;
-
-    move-object v5, v3
-
-    move-object v6, p0
-
-    move-wide v7, v1
-
-    move-object v9, p3
-
-    move-object v10, p4
-
-    invoke-direct/range {v5 .. v10}, Lcom/melodix/music/PreviewPlayerTiles$4;-><init>(Lcom/melodix/music/PreviewPlayerTiles;JLandroid/app/Dialog;Landroid/widget/TextView;)V
-
-    invoke-virtual {p2, p1, v3}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
+    move-result-object v2
 
     .line 108
-    new-instance p1, Lcom/melodix/music/PreviewPlayerTiles$5;
+    instance-of v6, v2, Landroid/webkit/WebView;
 
-    move-object v5, p1
+    if-nez v6, :cond_2
 
-    move-object v6, p0
+    const-string v2, "Indisponible dans cette version"
 
-    move-wide v7, v1
-
-    move-object v9, p3
-
-    move-object v10, p4
-
-    invoke-direct/range {v5 .. v10}, Lcom/melodix/music/PreviewPlayerTiles$5;-><init>(Lcom/melodix/music/PreviewPlayerTiles;JLandroid/app/Dialog;Landroid/widget/TextView;)V
-
-    const-wide/16 p2, 0xdac
-
-    invoke-virtual {p0, p1, p2, p3}, Lcom/melodix/music/PreviewPlayerTiles;->postDelayed(Ljava/lang/Runnable;J)Z
+    invoke-virtual {p4, v2}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
     :try_end_0
     .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
 
-    .line 109
-    goto :goto_1
-
-    :catch_0
-    move-exception p1
-
-    invoke-virtual {p4, v0}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-
-    .line 110
+    .line 124
     :goto_1
     return-void
+
+    .line 104
+    :cond_0
+    const/4 v2, 0x1
+
+    if-ne p1, v2, :cond_1
+
+    const-string v2, "lyrics"
+
+    move-object v3, v2
+
+    goto :goto_0
+
+    :cond_1
+    const-string v2, "devices"
+
+    move-object v3, v2
+
+    goto :goto_0
+
+    .line 109
+    :cond_2
+    :try_start_1
+    move-object v0, v2
+
+    check-cast v0, Landroid/webkit/WebView;
+
+    move-object v8, v0
+
+    new-instance v2, Ljava/lang/StringBuilder;
+
+    const-string v6, "((function(kind) {\n    \'use strict\';\n    // Read only a uniquely recognised panel already present in the page.\n    // Never open a panel, issue a command, access session data or navigate.\n    var selectors={\n        queue:\'[data-testid=\"queue-page\"], [data-testid=\"queue-view\"]\',\n        lyrics:\'[data-testid=\"lyrics-lyricsContent\"]\',\n        devices:\'[data-testid=\"device-picker\"], [data-testid=\"connect-device-list\"]\'\n    };\n    if(!Object.prototype.hasOwnProperty.call(selectors,kind))return JSON.stringify({ok:false,reason:\'unsupported\'});\n    var roots=Array.from(document.querySelectorAll(selectors[kind])).filter(function(n){return n.isConnected;});\n    if(roots.length!==1)return JSON.stringify({ok:false,reason:roots.length?\'ambiguous\':\'absent\'});\n    var root=roots[0], lines=[];\n    function text(n){return String(n&&n.textContent||\'\').replace(/\\s+/g,\' \').trim().slice(0,300);}\n    if(kind===\'lyrics\'){\n        Array.from(root.querySelectorAll(\'p, [data-testid=\"lyrics-line\"]\')).slice(0,100).forEach(function(n){var t=text(n);if(t)lines.push(t);});\n    }else if(kind===\'queue\'){\n        Array.from(root.querySelectorAll(\'[data-testid=\"queue-tracklist-row\"]\')).slice(0,60).forEach(function(n){\n            var title=text(n.querySelector(\'[data-testid=\"track-title\"], [data-testid=\"context-item-info-title\"]\'));\n            var artist=text(n.querySelector(\'[data-testid=\"track-artist\"], [data-testid=\"context-item-info-artist\"]\'));\n            if(title)lines.push(title+(artist?\' \u2014 \'+artist:\'\'));\n        });\n    }else{\n        Array.from(root.querySelectorAll(\'[data-testid=\"device-list-item\"]\')).slice(0,30).forEach(function(n){\n            var name=text(n.querySelector(\'[data-testid=\"device-name\"]\'));if(name)lines.push(name+(n.getAttribute(\'aria-selected\')===\'true\'?\' \u00b7 Actif\':\'\'));\n        });\n    }\n    if(!lines.length)return JSON.stringify({ok:false,reason:\'unreadable\'});\n    return JSON.stringify({ok:true,body:lines.join(\'\\n\').slice(0,8000)});\n})\n)("
+
+    invoke-direct {v2, v6}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    invoke-static {v3}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v3
+
+    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v2
+
+    const-string v3, ");"
+
+    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v2
+
+    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v9
+
+    new-instance v2, Lcom/melodix/music/PreviewPlayerTiles$4;
+
+    move-object v3, p0
+
+    move-object v6, p3
+
+    move-object v7, p4
+
+    invoke-direct/range {v2 .. v7}, Lcom/melodix/music/PreviewPlayerTiles$4;-><init>(Lcom/melodix/music/PreviewPlayerTiles;JLandroid/app/Dialog;Landroid/widget/TextView;)V
+
+    invoke-virtual {v8, v9, v2}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
+
+    .line 122
+    new-instance v2, Lcom/melodix/music/PreviewPlayerTiles$5;
+
+    move-object v3, p0
+
+    move-object v6, p3
+
+    move-object v7, p4
+
+    invoke-direct/range {v2 .. v7}, Lcom/melodix/music/PreviewPlayerTiles$5;-><init>(Lcom/melodix/music/PreviewPlayerTiles;JLandroid/app/Dialog;Landroid/widget/TextView;)V
+
+    const-wide/16 v4, 0xdac
+
+    invoke-virtual {p0, v2, v4, v5}, Lcom/melodix/music/PreviewPlayerTiles;->postDelayed(Ljava/lang/Runnable;J)Z
+    :try_end_1
+    .catch Ljava/lang/Exception; {:try_start_1 .. :try_end_1} :catch_0
+
+    goto :goto_1
+
+    .line 123
+    :catch_0
+    move-exception v2
+
+    const-string v2, "Indisponible dans cette version"
+
+    invoke-virtual {p4, v2}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+
+    goto :goto_1
 .end method
 
 .method private readTrace(Landroid/app/Activity;)V
-    .locals 2
+    .locals 3
 
-    .line 60
+    .prologue
+    .line 74
     if-nez p1, :cond_0
 
-    const/4 p1, 0x0
+    const/4 v0, 0x0
 
-    goto :goto_0
+    :goto_0
+    if-nez v0, :cond_1
 
+    .line 80
+    :goto_1
+    return-void
+
+    .line 74
     :cond_0
     invoke-direct {p0, p1}, Lcom/melodix/music/PreviewPlayerTiles;->web(Landroid/app/Activity;)Landroid/webkit/WebView;
 
-    move-result-object p1
-
-    :goto_0
-    if-nez p1, :cond_1
-
-    return-void
-
-    .line 61
-    :cond_1
-    :try_start_0
-    const-string v0, "(function(){var t=window.__melodixOpenTrace;if(!t||typeof t!==\'object\')return \'\';var n=function(x){return typeof x===\'number\'&&isFinite(x)&&x>=0?String(Math.min(Math.round(x),9999999)):\'-\';};var k=t.kind===\'liked\'||t.kind===\'playlist\'?t.kind:\'-\';var ph=/^(none|open|ready|dom|dom-empty|classified|classified-empty|rendered|unavailable)$/.test(String(t.phase))?t.phase:\'-\';return [k,ph,n(t.nav),n(t.ready),n(t.dom),n(t.classified),n(t.rendered),n(t.first),n(t.full),n(t.updates)].join(\',\');})()"
-
-    new-instance v1, Lcom/melodix/music/PreviewPlayerTiles$2;
-
-    invoke-direct {v1, p0}, Lcom/melodix/music/PreviewPlayerTiles$2;-><init>(Lcom/melodix/music/PreviewPlayerTiles;)V
-
-    invoke-virtual {p1, v0, v1}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
-    :try_end_0
-    .catch Ljava/lang/RuntimeException; {:try_start_0 .. :try_end_0} :catch_0
-
-    goto :goto_1
-
-    .line 65
-    :catch_0
-    move-exception p1
-
-    :goto_1
-    nop
-
-    .line 66
-    return-void
-.end method
-
-.method private renderPanel(ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Lorg/json/JSONObject;Ljava/lang/String;)V
-    .locals 22
-
-    .line 201
-    move-object/from16 v9, p0
-
-    move/from16 v0, p1
-
-    move-object/from16 v10, p2
-
-    move-object/from16 v11, p4
-
-    move-object/from16 v12, p5
-
-    move-object/from16 v1, p6
-
-    sget-object v2, Lcom/melodix/music/PreviewPlayerTiles;->panelJournals:[Ljava/lang/String;
-
-    add-int/lit8 v3, v0, -0x1
-
-    const-string v4, "journal"
-
-    const-string v13, ""
-
-    invoke-virtual {v1, v4, v13}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
-
-    move-result-object v4
-
-    invoke-static {v4}, Lcom/melodix/music/PreviewPlayerTiles;->clean(Ljava/lang/String;)Ljava/lang/String;
-
-    move-result-object v4
-
-    aput-object v4, v2, v3
-
-    .line 202
-    const-string v2, "transfer"
-
-    move-object/from16 v3, p7
-
-    invoke-virtual {v3, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-
-    move-result v2
-
-    const-string v3, "ok"
-
-    const/4 v14, 0x0
-
-    if-eqz v2, :cond_1
-
-    .line 203
-    invoke-virtual/range {p0 .. p0}, Lcom/melodix/music/PreviewPlayerTiles;->getContext()Landroid/content/Context;
-
-    move-result-object v2
-
-    invoke-virtual {v1, v3, v14}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;Z)Z
-
-    move-result v3
-
-    if-eqz v3, :cond_0
-
-    const-string v3, "transferred"
-
-    invoke-virtual {v1, v3, v14}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;Z)Z
-
-    move-result v1
-
-    if-eqz v1, :cond_0
-
-    const-string v1, "Lecture transf\u00e9r\u00e9e (v\u00e9rifi\u00e9)"
+    move-result-object v0
 
     goto :goto_0
 
-    :cond_0
-    const-string v1, "Transfert non v\u00e9rifi\u00e9, R\u00e9essayer"
-
-    :goto_0
-    invoke-static {v2, v1, v14}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
-
-    move-result-object v1
-
-    invoke-virtual {v1}, Landroid/widget/Toast;->show()V
-
-    .line 204
-    const-string v7, "run"
-
-    const-string v8, ""
-
-    move-object/from16 v1, p0
-
-    move/from16 v2, p1
-
-    move-object/from16 v3, p2
-
-    move-object/from16 v4, p3
-
-    move-object/from16 v5, p4
-
-    move-object/from16 v6, p5
-
-    invoke-direct/range {v1 .. v8}, Lcom/melodix/music/PreviewPlayerTiles;->loadPanel(ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
-
-    return-void
-
-    .line 206
+    .line 75
     :cond_1
-    invoke-virtual {v1, v3, v14}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;Z)Z
-
-    move-result v2
-
-    if-nez v2, :cond_2
-
-    const-string v2, "reason"
-
-    invoke-virtual {v1, v2, v13}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
-
-    move-result-object v1
-
-    iput-object v1, v9, Lcom/melodix/music/PreviewPlayerTiles;->panelReason:Ljava/lang/String;
-
-    invoke-direct {v9, v0, v10, v11, v12}, Lcom/melodix/music/PreviewPlayerTiles;->panelFailed(ILandroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
-
-    return-void
-
-    .line 207
-    :cond_2
-    iget-wide v2, v9, Lcom/melodix/music/PreviewPlayerTiles;->panelSerial:J
-
-    iput-wide v2, v9, Lcom/melodix/music/PreviewPlayerTiles;->panelSettled:J
-
-    invoke-virtual/range {p4 .. p4}, Landroid/widget/LinearLayout;->removeAllViews()V
-
-    const/4 v15, 0x1
-
-    invoke-virtual {v12, v15}, Landroid/widget/Button;->setEnabled(Z)V
-
-    .line 208
-    const-string v2, "body"
-
-    invoke-virtual {v1, v2, v13}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
-
-    move-result-object v2
-
-    .line 209
-    const/4 v8, -0x2
-
-    const v16, -0x1fb762
-
-    const-string v7, "\n"
-
-    const/4 v6, -0x1
-
-    if-ne v0, v15, :cond_6
-
-    .line 210
     :try_start_0
-    const-string v0, "active"
+    const-string v1, "(function(){var t=window.__melodixOpenTrace;if(!t||typeof t!==\'object\')return \'\';var n=function(x){return typeof x===\'number\'&&isFinite(x)&&x>=0?String(Math.min(Math.round(x),9999999)):\'-\';};var k=t.kind===\'liked\'||t.kind===\'playlist\'?t.kind:\'-\';var ph=/^(none|open|ready|dom|dom-empty|classified|classified-empty|rendered|unavailable)$/.test(String(t.phase))?t.phase:\'-\';return [k,ph,n(t.nav),n(t.ready),n(t.dom),n(t.classified),n(t.rendered),n(t.first),n(t.full),n(t.updates)].join(\',\');})()"
 
-    const-string v3, "-1"
+    new-instance v2, Lcom/melodix/music/PreviewPlayerTiles$2;
 
-    invoke-virtual {v1, v0, v3}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    invoke-direct {v2, p0}, Lcom/melodix/music/PreviewPlayerTiles$2;-><init>(Lcom/melodix/music/PreviewPlayerTiles;)V
 
-    move-result-object v0
-
-    invoke-static {v0}, Ljava/lang/Integer;->parseInt(Ljava/lang/String;)I
-
-    move-result v0
+    invoke-virtual {v0, v1, v2}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
     :try_end_0
-    .catch Ljava/lang/NumberFormatException; {:try_start_0 .. :try_end_0} :catch_0
+    .catch Ljava/lang/RuntimeException; {:try_start_0 .. :try_end_0} :catch_0
 
     goto :goto_1
 
     :catch_0
     move-exception v0
 
-    move v0, v6
+    goto :goto_1
+.end method
 
-    .line 211
+.method private renderPanel(ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Lorg/json/JSONObject;Ljava/lang/String;)V
+    .locals 18
+
+    .prologue
+    .line 220
+    sget-object v6, Lcom/melodix/music/PreviewPlayerTiles;->panelJournals:[Ljava/lang/String;
+
+    add-int/lit8 v7, p1, -0x1
+
+    new-instance v8, Ljava/lang/StringBuilder;
+
+    invoke-static/range {p6 .. p6}, Lcom/melodix/music/PreviewPlayerTiles;->resultCode(Lorg/json/JSONObject;)Ljava/lang/String;
+
+    move-result-object v9
+
+    invoke-static {v9}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
+
+    move-result-object v9
+
+    invoke-direct {v8, v9}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    const-string v9, ":"
+
+    invoke-virtual {v8, v9}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v8
+
+    const-string v9, "journal"
+
+    const-string v10, ""
+
+    move-object/from16 v0, p6
+
+    invoke-virtual {v0, v9, v10}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v9
+
+    invoke-static {v9}, Lcom/melodix/music/PreviewPlayerTiles;->clean(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v9
+
+    invoke-virtual {v8, v9}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v8
+
+    invoke-virtual {v8}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v8
+
+    aput-object v8, v6, v7
+
+    .line 221
+    const-string v6, "transfer"
+
+    move-object/from16 v0, p7
+
+    invoke-virtual {v0, v6}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v6
+
+    if-eqz v6, :cond_1
+
+    .line 222
+    invoke-virtual/range {p0 .. p0}, Lcom/melodix/music/PreviewPlayerTiles;->getContext()Landroid/content/Context;
+
+    move-result-object v7
+
+    const-string v6, "ok"
+
+    const/4 v8, 0x0
+
+    move-object/from16 v0, p6
+
+    invoke-virtual {v0, v6, v8}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;Z)Z
+
+    move-result v6
+
+    if-eqz v6, :cond_0
+
+    const-string v6, "transferred"
+
+    const/4 v8, 0x0
+
+    move-object/from16 v0, p6
+
+    invoke-virtual {v0, v6, v8}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;Z)Z
+
+    move-result v6
+
+    if-eqz v6, :cond_0
+
+    const-string v6, "Lecture transf\u00e9r\u00e9e (v\u00e9rifi\u00e9)"
+
+    :goto_0
+    const/4 v8, 0x0
+
+    invoke-static {v7, v6, v8}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
+
+    move-result-object v6
+
+    invoke-virtual {v6}, Landroid/widget/Toast;->show()V
+
+    .line 223
+    const-string v12, "run"
+
+    const-string v13, ""
+
+    move-object/from16 v6, p0
+
+    move/from16 v7, p1
+
+    move-object/from16 v8, p2
+
+    move-object/from16 v9, p3
+
+    move-object/from16 v10, p4
+
+    move-object/from16 v11, p5
+
+    invoke-direct/range {v6 .. v13}, Lcom/melodix/music/PreviewPlayerTiles;->loadPanel(ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
+
+    .line 245
     :goto_1
-    invoke-virtual {v2, v7}, Ljava/lang/String;->split(Ljava/lang/String;)[Ljava/lang/String;
+    return-void
 
-    move-result-object v1
+    .line 222
+    :cond_0
+    const-string v6, "Transfert non v\u00e9rifi\u00e9, R\u00e9essayer"
 
-    .line 212
-    move v2, v14
+    goto :goto_0
 
+    .line 225
+    :cond_1
+    const-string v6, "ok"
+
+    const/4 v7, 0x0
+
+    move-object/from16 v0, p6
+
+    invoke-virtual {v0, v6, v7}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;Z)Z
+
+    move-result v6
+
+    if-nez v6, :cond_2
+
+    const-string v6, "reason"
+
+    const-string v7, ""
+
+    move-object/from16 v0, p6
+
+    invoke-virtual {v0, v6, v7}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v6
+
+    move-object/from16 v0, p0
+
+    iput-object v6, v0, Lcom/melodix/music/PreviewPlayerTiles;->panelReason:Ljava/lang/String;
+
+    move-object/from16 v0, p0
+
+    move/from16 v1, p1
+
+    move-object/from16 v2, p2
+
+    move-object/from16 v3, p4
+
+    move-object/from16 v4, p5
+
+    invoke-direct {v0, v1, v2, v3, v4}, Lcom/melodix/music/PreviewPlayerTiles;->panelFailed(ILandroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
+
+    goto :goto_1
+
+    .line 226
+    :cond_2
+    const-string v6, "body"
+
+    const-string v7, ""
+
+    move-object/from16 v0, p6
+
+    invoke-virtual {v0, v6, v7}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v7
+
+    .line 227
+    invoke-virtual {v7}, Ljava/lang/String;->trim()Ljava/lang/String;
+
+    move-result-object v6
+
+    invoke-virtual {v6}, Ljava/lang/String;->isEmpty()Z
+
+    move-result v6
+
+    if-eqz v6, :cond_3
+
+    const-string v6, "empty"
+
+    move-object/from16 v0, p0
+
+    iput-object v6, v0, Lcom/melodix/music/PreviewPlayerTiles;->panelReason:Ljava/lang/String;
+
+    sget-object v6, Lcom/melodix/music/PreviewPlayerTiles;->panelJournals:[Ljava/lang/String;
+
+    add-int/lit8 v7, p1, -0x1
+
+    const-string v8, "lecture=non-confirmee:motif=empty"
+
+    aput-object v8, v6, v7
+
+    move-object/from16 v0, p0
+
+    move/from16 v1, p1
+
+    move-object/from16 v2, p2
+
+    move-object/from16 v3, p4
+
+    move-object/from16 v4, p5
+
+    invoke-direct {v0, v1, v2, v3, v4}, Lcom/melodix/music/PreviewPlayerTiles;->panelFailed(ILandroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
+
+    goto :goto_1
+
+    .line 228
+    :cond_3
+    move-object/from16 v0, p0
+
+    iget-wide v8, v0, Lcom/melodix/music/PreviewPlayerTiles;->panelSerial:J
+
+    move-object/from16 v0, p0
+
+    iput-wide v8, v0, Lcom/melodix/music/PreviewPlayerTiles;->panelSettled:J
+
+    sget-object v6, Lcom/melodix/music/PreviewPlayerTiles;->panelJournals:[Ljava/lang/String;
+
+    add-int/lit8 v8, p1, -0x1
+
+    aget-object v9, v6, v8
+
+    new-instance v10, Ljava/lang/StringBuilder;
+
+    invoke-static {v9}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
+
+    move-result-object v9
+
+    invoke-direct {v10, v9}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    const-string v9, ":rendu=natif"
+
+    invoke-virtual {v10, v9}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v9
+
+    invoke-virtual {v9}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v9
+
+    aput-object v9, v6, v8
+
+    invoke-virtual/range {p4 .. p4}, Landroid/widget/LinearLayout;->removeAllViews()V
+
+    const/4 v6, 0x1
+
+    move-object/from16 v0, p5
+
+    invoke-virtual {v0, v6}, Landroid/widget/Button;->setEnabled(Z)V
+
+    .line 229
+    const/4 v6, 0x1
+
+    move/from16 v0, p1
+
+    if-ne v0, v6, :cond_8
+
+    .line 230
+    const/4 v6, -0x1
+
+    :try_start_0
+    const-string v8, "active"
+
+    const-string v9, "-1"
+
+    move-object/from16 v0, p6
+
+    invoke-virtual {v0, v8, v9}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v8
+
+    invoke-static {v8}, Ljava/lang/Integer;->parseInt(Ljava/lang/String;)I
+    :try_end_0
+    .catch Ljava/lang/NumberFormatException; {:try_start_0 .. :try_end_0} :catch_0
+
+    move-result v6
+
+    .line 231
     :goto_2
-    array-length v3, v1
+    const-string v8, "\n"
 
-    if-ge v2, v3, :cond_5
+    invoke-virtual {v7, v8}, Ljava/lang/String;->split(Ljava/lang/String;)[Ljava/lang/String;
 
-    const/16 v3, 0xc8
+    move-result-object v10
 
-    if-ge v2, v3, :cond_5
+    .line 232
+    const/4 v7, 0x0
 
-    aget-object v3, v1, v2
+    :goto_3
+    array-length v8, v10
 
-    if-ne v2, v0, :cond_3
+    if-ge v7, v8, :cond_4
 
-    move/from16 v4, v16
+    const/16 v8, 0xc8
+
+    if-lt v7, v8, :cond_5
+
+    .line 233
+    :cond_4
+    move-object/from16 v0, p0
+
+    move-object/from16 v1, p4
+
+    invoke-direct {v0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->riseAll(Landroid/widget/LinearLayout;)V
+
+    goto/16 :goto_1
+
+    .line 232
+    :cond_5
+    aget-object v11, v10, v7
+
+    if-ne v7, v6, :cond_6
+
+    const v8, -0x1fb762
+
+    move v9, v8
+
+    :goto_4
+    if-ne v7, v6, :cond_7
+
+    const/16 v8, 0x13
+
+    :goto_5
+    int-to-float v8, v8
+
+    move-object/from16 v0, p0
+
+    move-object/from16 v1, p2
+
+    invoke-direct {v0, v1, v11, v9, v8}, Lcom/melodix/music/PreviewPlayerTiles;->line(Landroid/app/Activity;Ljava/lang/String;IF)Landroid/widget/TextView;
+
+    move-result-object v8
+
+    const/4 v9, 0x0
+
+    const/high16 v11, 0x40800000    # 4.0f
+
+    move-object/from16 v0, p0
+
+    invoke-direct {v0, v11}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v11
+
+    const/4 v12, 0x0
+
+    const/high16 v13, 0x40800000    # 4.0f
+
+    move-object/from16 v0, p0
+
+    invoke-direct {v0, v13}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v13
+
+    invoke-virtual {v8, v9, v11, v12, v13}, Landroid/widget/TextView;->setPadding(IIII)V
+
+    new-instance v9, Landroid/widget/LinearLayout$LayoutParams;
+
+    const/4 v11, -0x1
+
+    const/4 v12, -0x2
+
+    invoke-direct {v9, v11, v12}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+
+    move-object/from16 v0, p4
+
+    invoke-virtual {v0, v8, v9}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    add-int/lit8 v7, v7, 0x1
 
     goto :goto_3
 
-    :cond_3
-    move v4, v6
+    :cond_6
+    const/4 v8, -0x1
 
-    :goto_3
-    if-ne v2, v0, :cond_4
-
-    const/high16 v5, 0x41980000    # 19.0f
+    move v9, v8
 
     goto :goto_4
 
-    :cond_4
-    const/high16 v5, 0x41880000    # 17.0f
-
-    :goto_4
-    invoke-direct {v9, v10, v3, v4, v5}, Lcom/melodix/music/PreviewPlayerTiles;->line(Landroid/app/Activity;Ljava/lang/String;IF)Landroid/widget/TextView;
-
-    move-result-object v3
-
-    const/high16 v4, 0x40800000    # 4.0f
-
-    invoke-direct {v9, v4}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v5
-
-    invoke-direct {v9, v4}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v4
-
-    invoke-virtual {v3, v14, v5, v14, v4}, Landroid/widget/TextView;->setPadding(IIII)V
-
-    new-instance v4, Landroid/widget/LinearLayout$LayoutParams;
-
-    invoke-direct {v4, v6, v8}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-
-    invoke-virtual {v11, v3, v4}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
-
-    add-int/lit8 v2, v2, 0x1
-
-    goto :goto_2
-
-    .line 213
-    :cond_5
-    invoke-direct {v9, v11}, Lcom/melodix/music/PreviewPlayerTiles;->riseAll(Landroid/widget/LinearLayout;)V
-
-    return-void
-
-    .line 215
-    :cond_6
-    invoke-virtual {v2, v7}, Ljava/lang/String;->split(Ljava/lang/String;)[Ljava/lang/String;
-
-    move-result-object v5
-
-    .line 216
-    array-length v4, v5
-
-    move v3, v14
-
-    :goto_5
-    if-ge v3, v4, :cond_10
-
-    aget-object v1, v5, v3
-
-    .line 217
-    const-string v2, "\t"
-
-    invoke-virtual {v1, v2, v6}, Ljava/lang/String;->split(Ljava/lang/String;I)[Ljava/lang/String;
-
-    move-result-object v1
-
-    array-length v2, v1
-
-    if-eqz v2, :cond_f
-
-    aget-object v2, v1, v14
-
-    invoke-virtual {v2}, Ljava/lang/String;->trim()Ljava/lang/String;
-
-    move-result-object v2
-
-    invoke-virtual {v2}, Ljava/lang/String;->isEmpty()Z
-
-    move-result v2
-
-    if-eqz v2, :cond_7
-
-    move/from16 v18, v3
-
-    move/from16 v19, v4
-
-    move-object/from16 v20, v5
-
-    move v2, v6
-
-    move-object/from16 v21, v7
-
-    move v10, v8
-
-    goto/16 :goto_d
-
-    .line 218
     :cond_7
-    aget-object v2, v1, v14
+    const/16 v8, 0x11
 
-    array-length v6, v1
+    goto :goto_5
+
+    .line 235
+    :cond_8
+    const-string v6, "\n"
+
+    invoke-virtual {v7, v6}, Ljava/lang/String;->split(Ljava/lang/String;)[Ljava/lang/String;
+
+    move-result-object v15
+
+    .line 236
+    array-length v0, v15
+
+    move/from16 v16, v0
+
+    const/4 v6, 0x0
+
+    move v14, v6
+
+    :goto_6
+    move/from16 v0, v16
+
+    if-lt v14, v0, :cond_9
+
+    .line 244
+    move-object/from16 v0, p0
+
+    move-object/from16 v1, p4
+
+    invoke-direct {v0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->riseAll(Landroid/widget/LinearLayout;)V
+
+    goto/16 :goto_1
+
+    .line 236
+    :cond_9
+    aget-object v6, v15, v14
+
+    .line 237
+    const-string v7, "\t"
+
+    const/4 v8, -0x1
+
+    invoke-virtual {v6, v7, v8}, Ljava/lang/String;->split(Ljava/lang/String;I)[Ljava/lang/String;
+
+    move-result-object v7
+
+    array-length v6, v7
+
+    if-eqz v6, :cond_a
+
+    const/4 v6, 0x0
+
+    aget-object v6, v7, v6
+
+    invoke-virtual {v6}, Ljava/lang/String;->trim()Ljava/lang/String;
+
+    move-result-object v6
+
+    invoke-virtual {v6}, Ljava/lang/String;->isEmpty()Z
+
+    move-result v6
+
+    if-eqz v6, :cond_b
+
+    .line 236
+    :cond_a
+    :goto_7
+    add-int/lit8 v6, v14, 0x1
+
+    move v14, v6
+
+    goto :goto_6
+
+    .line 238
+    :cond_b
+    const/4 v6, 0x0
+
+    aget-object v13, v7, v6
+
+    array-length v6, v7
 
     const/4 v8, 0x2
 
-    if-le v6, v8, :cond_8
+    if-le v6, v8, :cond_d
 
-    aget-object v6, v1, v8
+    const/4 v6, 0x2
+
+    aget-object v6, v7, v6
 
     const-string v8, "1"
 
@@ -4214,282 +4476,271 @@
 
     move-result v6
 
-    if-eqz v6, :cond_8
-
-    move v6, v15
-
-    goto :goto_6
-
-    :cond_8
-    move v6, v14
-
-    :goto_6
-    array-length v8, v1
-
-    if-le v8, v15, :cond_9
-
-    aget-object v1, v1, v15
-
-    goto :goto_7
-
-    :cond_9
-    move-object v1, v13
-
-    .line 219
-    :goto_7
-    new-instance v8, Landroid/widget/Button;
-
-    invoke-direct {v8, v10}, Landroid/widget/Button;-><init>(Landroid/content/Context;)V
-
-    new-instance v15, Ljava/lang/StringBuilder;
-
-    invoke-direct {v15}, Ljava/lang/StringBuilder;-><init>()V
-
-    invoke-virtual {v15, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v15
-
-    invoke-virtual {v1}, Ljava/lang/String;->isEmpty()Z
-
-    move-result v17
-
-    if-eqz v17, :cond_a
-
-    move-object v1, v13
-
-    goto :goto_8
-
-    :cond_a
-    new-instance v14, Ljava/lang/StringBuilder;
-
-    invoke-direct {v14}, Ljava/lang/StringBuilder;-><init>()V
-
-    invoke-virtual {v14, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v14
-
-    invoke-virtual {v14, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v1
-
-    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-
-    move-result-object v1
-
-    :goto_8
-    invoke-virtual {v15, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v1
-
-    if-eqz v6, :cond_b
-
-    const-string v14, "\nActif"
-
-    goto :goto_9
-
-    :cond_b
-    move-object v14, v13
-
-    :goto_9
-    invoke-virtual {v1, v14}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v1
-
-    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-
-    move-result-object v1
-
-    invoke-virtual {v8, v1}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
-
-    if-eqz v6, :cond_c
-
-    move/from16 v1, v16
-
-    goto :goto_a
-
-    :cond_c
-    const/4 v1, -0x1
-
-    :goto_a
-    invoke-virtual {v8, v1}, Landroid/widget/Button;->setTextColor(I)V
-
-    const/4 v14, 0x0
-
-    invoke-virtual {v8, v14}, Landroid/widget/Button;->setAllCaps(Z)V
-
-    const/high16 v1, 0x42600000    # 56.0f
-
-    invoke-direct {v9, v1}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v1
-
-    invoke-virtual {v8, v1}, Landroid/widget/Button;->setMinimumHeight(I)V
-
-    .line 220
-    new-instance v1, Ljava/lang/StringBuilder;
-
-    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
-
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v1
-
     if-eqz v6, :cond_d
 
-    const-string v15, ", appareil actif"
+    const/4 v6, 0x1
 
-    goto :goto_b
+    :goto_8
+    array-length v8, v7
 
-    :cond_d
-    const-string v15, ", transf\u00e9rer la lecture vers cet appareil"
+    const/4 v9, 0x1
+
+    if-le v8, v9, :cond_e
+
+    const/4 v8, 0x1
+
+    aget-object v7, v7, v8
+
+    .line 239
+    :goto_9
+    new-instance v17, Landroid/widget/Button;
+
+    move-object/from16 v0, v17
+
+    move-object/from16 v1, p2
+
+    invoke-direct {v0, v1}, Landroid/widget/Button;-><init>(Landroid/content/Context;)V
+
+    new-instance v8, Ljava/lang/StringBuilder;
+
+    invoke-static {v13}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
+
+    move-result-object v9
+
+    invoke-direct {v8, v9}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    invoke-virtual {v7}, Ljava/lang/String;->isEmpty()Z
+
+    move-result v9
+
+    if-eqz v9, :cond_f
+
+    const-string v7, ""
+
+    :goto_a
+    invoke-virtual {v8, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v8
+
+    if-eqz v6, :cond_10
+
+    const-string v7, "\nActif"
 
     :goto_b
-    invoke-virtual {v1, v15}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v8, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    move-result-object v1
+    move-result-object v7
 
-    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    invoke-virtual {v7}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
-    move-result-object v1
+    move-result-object v7
 
-    invoke-virtual {v8, v1}, Landroid/widget/Button;->setContentDescription(Ljava/lang/CharSequence;)V
+    move-object/from16 v0, v17
 
-    .line 221
-    if-nez v6, :cond_e
+    invoke-virtual {v0, v7}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
 
-    new-instance v15, Lcom/melodix/music/PreviewPlayerTiles$9;
+    if-eqz v6, :cond_11
 
-    move-object v1, v15
+    const v7, -0x1fb762
 
-    move-object/from16 v17, v2
+    :goto_c
+    move-object/from16 v0, v17
 
-    move-object/from16 v2, p0
+    invoke-virtual {v0, v7}, Landroid/widget/Button;->setTextColor(I)V
 
-    move/from16 v18, v3
+    const/4 v7, 0x0
 
-    move/from16 v3, p1
+    move-object/from16 v0, v17
 
-    move/from16 v19, v4
+    invoke-virtual {v0, v7}, Landroid/widget/Button;->setAllCaps(Z)V
 
-    move-object/from16 v4, p2
+    const/high16 v7, 0x42600000    # 56.0f
 
-    move-object/from16 v20, v5
+    move-object/from16 v0, p0
 
-    move-object/from16 v5, p3
+    invoke-direct {v0, v7}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
 
-    const/4 v14, -0x1
+    move-result v7
 
-    move-object/from16 v6, p4
+    move-object/from16 v0, v17
 
-    move-object/from16 v21, v7
+    invoke-virtual {v0, v7}, Landroid/widget/Button;->setMinimumHeight(I)V
 
-    move-object/from16 v7, p5
+    .line 240
+    new-instance v8, Ljava/lang/StringBuilder;
 
-    move-object v14, v8
+    invoke-static {v13}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
 
-    const/4 v10, -0x2
+    move-result-object v7
 
-    move-object/from16 v8, v17
+    invoke-direct {v8, v7}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
 
-    invoke-direct/range {v1 .. v8}, Lcom/melodix/music/PreviewPlayerTiles$9;-><init>(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;)V
+    if-eqz v6, :cond_12
 
-    invoke-virtual {v14, v15}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
+    const-string v7, ", appareil actif"
+
+    :goto_d
+    invoke-virtual {v8, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v7
+
+    invoke-virtual {v7}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v7
+
+    move-object/from16 v0, v17
+
+    invoke-virtual {v0, v7}, Landroid/widget/Button;->setContentDescription(Ljava/lang/CharSequence;)V
+
+    .line 241
+    if-nez v6, :cond_c
+
+    new-instance v6, Lcom/melodix/music/PreviewPlayerTiles$9;
+
+    move-object/from16 v7, p0
+
+    move/from16 v8, p1
+
+    move-object/from16 v9, p2
+
+    move-object/from16 v10, p3
+
+    move-object/from16 v11, p4
+
+    move-object/from16 v12, p5
+
+    invoke-direct/range {v6 .. v13}, Lcom/melodix/music/PreviewPlayerTiles$9;-><init>(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;)V
+
+    move-object/from16 v0, v17
+
+    invoke-virtual {v0, v6}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
+
+    .line 242
+    :cond_c
+    new-instance v6, Landroid/widget/LinearLayout$LayoutParams;
+
+    const/4 v7, -0x1
+
+    const/4 v8, -0x2
+
+    invoke-direct {v6, v7, v8}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+
+    move-object/from16 v0, p4
+
+    move-object/from16 v1, v17
+
+    invoke-virtual {v0, v1, v6}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    goto/16 :goto_7
+
+    .line 238
+    :cond_d
+    const/4 v6, 0x0
+
+    goto/16 :goto_8
+
+    :cond_e
+    const-string v7, ""
+
+    goto/16 :goto_9
+
+    .line 239
+    :cond_f
+    new-instance v9, Ljava/lang/StringBuilder;
+
+    const-string v10, "\n"
+
+    invoke-direct {v9, v10}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    invoke-virtual {v9, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v7
+
+    invoke-virtual {v7}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v7
+
+    goto/16 :goto_a
+
+    :cond_10
+    const-string v7, ""
+
+    goto/16 :goto_b
+
+    :cond_11
+    const/4 v7, -0x1
 
     goto :goto_c
 
-    :cond_e
-    move/from16 v18, v3
-
-    move/from16 v19, v4
-
-    move-object/from16 v20, v5
-
-    move-object/from16 v21, v7
-
-    move-object v14, v8
-
-    const/4 v10, -0x2
-
-    .line 222
-    :goto_c
-    new-instance v1, Landroid/widget/LinearLayout$LayoutParams;
-
-    const/4 v2, -0x1
-
-    invoke-direct {v1, v2, v10}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-
-    invoke-virtual {v11, v14, v1}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    .line 240
+    :cond_12
+    const-string v7, ", transf\u00e9rer la lecture vers cet appareil"
 
     goto :goto_d
 
-    .line 217
-    :cond_f
-    move/from16 v18, v3
+    :catch_0
+    move-exception v8
 
-    move/from16 v19, v4
-
-    move-object/from16 v20, v5
-
-    move v2, v6
-
-    move-object/from16 v21, v7
-
-    move v10, v8
-
-    .line 216
-    :goto_d
-    add-int/lit8 v3, v18, 0x1
-
-    move v6, v2
-
-    move v8, v10
-
-    move/from16 v4, v19
-
-    move-object/from16 v5, v20
-
-    move-object/from16 v7, v21
-
-    const/4 v14, 0x0
-
-    const/4 v15, 0x1
-
-    move-object/from16 v10, p2
-
-    goto/16 :goto_5
-
-    .line 224
-    :cond_10
-    invoke-direct {v9, v11}, Lcom/melodix/music/PreviewPlayerTiles;->riseAll(Landroid/widget/LinearLayout;)V
-
-    .line 225
-    return-void
+    goto/16 :goto_2
 .end method
 
 .method private renderQueue(Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;Lorg/json/JSONObject;)V
     .locals 8
 
-    .line 153
-    const-string v0, "journal"
+    .prologue
+    const/4 v1, 0x0
 
-    const-string v1, ""
+    const v7, -0x587406
 
-    invoke-virtual {p4, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    const/high16 v6, 0x41500000    # 13.0f
+
+    const/4 v5, -0x1
+
+    .line 167
+    new-instance v0, Ljava/lang/StringBuilder;
+
+    invoke-static {p4}, Lcom/melodix/music/PreviewPlayerTiles;->resultCode(Lorg/json/JSONObject;)Ljava/lang/String;
+
+    move-result-object v2
+
+    invoke-static {v2}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
+
+    move-result-object v2
+
+    invoke-direct {v0, v2}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    const-string v2, ":"
+
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v0
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles;->clean(Ljava/lang/String;)Ljava/lang/String;
+    const-string v2, "journal"
+
+    const-string v3, ""
+
+    invoke-virtual {p4, v2, v3}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v2
+
+    invoke-static {v2}, Lcom/melodix/music/PreviewPlayerTiles;->clean(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v2
+
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
     move-result-object v0
 
     sput-object v0, Lcom/melodix/music/PreviewPlayerTiles;->queueJournal:Ljava/lang/String;
 
-    .line 154
+    .line 168
     const-string v0, "ok"
 
-    const/4 v2, 0x0
-
-    invoke-virtual {p4, v0, v2}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;Z)Z
+    invoke-virtual {p4, v0, v1}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;Z)Z
 
     move-result v0
 
@@ -4497,147 +4748,303 @@
 
     const-string v0, "reason"
 
+    const-string v1, ""
+
     invoke-virtual {p4, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
 
-    move-result-object p4
+    move-result-object v0
 
-    iput-object p4, p0, Lcom/melodix/music/PreviewPlayerTiles;->queueReason:Ljava/lang/String;
+    iput-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->queueReason:Ljava/lang/String;
 
     invoke-direct {p0, p1, p2, p3}, Lcom/melodix/music/PreviewPlayerTiles;->queueFailed(Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
 
+    .line 179
+    :goto_0
     return-void
 
-    .line 155
+    .line 169
     :cond_0
-    iget-wide v3, p0, Lcom/melodix/music/PreviewPlayerTiles;->queueSerial:J
-
-    iput-wide v3, p0, Lcom/melodix/music/PreviewPlayerTiles;->settledSerial:J
-
-    invoke-virtual {p2}, Landroid/widget/LinearLayout;->removeAllViews()V
-
-    const-string v0, "En cours de lecture"
-
-    const v3, -0x587406
-
-    const/high16 v4, 0x41500000    # 13.0f
-
-    invoke-direct {p0, p1, v0, v3, v4}, Lcom/melodix/music/PreviewPlayerTiles;->line(Landroid/app/Activity;Ljava/lang/String;IF)Landroid/widget/TextView;
-
-    move-result-object v0
-
-    new-instance v5, Landroid/widget/LinearLayout$LayoutParams;
-
-    const/high16 v6, 0x42000000    # 32.0f
-
-    invoke-direct {p0, v6}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v6
-
-    const/4 v7, -0x1
-
-    invoke-direct {v5, v7, v6}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-
-    invoke-virtual {p2, v0, v5}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
-
     const-string v0, "now"
 
-    invoke-virtual {p4, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    const-string v2, ""
+
+    invoke-virtual {p4, v0, v2}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
 
     move-result-object v0
 
-    invoke-direct {p0, p1, p2, v0}, Lcom/melodix/music/PreviewPlayerTiles;->addRow(Landroid/app/Activity;Landroid/widget/LinearLayout;Ljava/lang/String;)V
-
-    .line 156
-    const-string v0, "\u00c0 suivre"
-
-    invoke-direct {p0, p1, v0, v3, v4}, Lcom/melodix/music/PreviewPlayerTiles;->line(Landroid/app/Activity;Ljava/lang/String;IF)Landroid/widget/TextView;
+    invoke-virtual {v0}, Ljava/lang/String;->trim()Ljava/lang/String;
 
     move-result-object v0
 
-    new-instance v3, Landroid/widget/LinearLayout$LayoutParams;
-
-    const/high16 v4, 0x42200000    # 40.0f
-
-    invoke-direct {p0, v4}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v4
-
-    invoke-direct {v3, v7, v4}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-
-    invoke-virtual {p2, v0, v3}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
-
-    .line 157
-    const-string v0, "next"
-
-    invoke-virtual {p4, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
-
-    move-result-object p4
-
-    .line 158
-    invoke-virtual {p4}, Ljava/lang/String;->isEmpty()Z
+    invoke-virtual {v0}, Ljava/lang/String;->isEmpty()Z
 
     move-result v0
 
     if-eqz v0, :cond_1
 
-    const p4, -0x384424
+    const-string v0, "next"
 
-    const/high16 v0, 0x41600000    # 14.0f
+    const-string v2, ""
 
-    const-string v1, "Aucun titre \u00e0 suivre"
+    invoke-virtual {p4, v0, v2}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
 
-    invoke-direct {p0, p1, v1, p4, v0}, Lcom/melodix/music/PreviewPlayerTiles;->line(Landroid/app/Activity;Ljava/lang/String;IF)Landroid/widget/TextView;
+    move-result-object v0
 
-    move-result-object p1
+    invoke-virtual {v0}, Ljava/lang/String;->trim()Ljava/lang/String;
 
-    new-instance p4, Landroid/widget/LinearLayout$LayoutParams;
+    move-result-object v0
 
-    const/4 v0, -0x2
+    invoke-virtual {v0}, Ljava/lang/String;->isEmpty()Z
 
-    invoke-direct {p4, v7, v0}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    move-result v0
 
-    invoke-virtual {p2, p1, p4}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    if-eqz v0, :cond_1
 
-    goto :goto_1
+    .line 170
+    const-string v0, "empty"
 
-    .line 159
-    :cond_1
-    const-string v0, "\n"
+    iput-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->queueReason:Ljava/lang/String;
 
-    invoke-virtual {p4, v0}, Ljava/lang/String;->split(Ljava/lang/String;)[Ljava/lang/String;
+    const-string v0, "lecture=non-confirmee:motif=empty"
 
-    move-result-object p4
+    sput-object v0, Lcom/melodix/music/PreviewPlayerTiles;->queueJournal:Ljava/lang/String;
 
-    array-length v0, p4
-
-    :goto_0
-    if-ge v2, v0, :cond_2
-
-    aget-object v1, p4, v2
-
-    invoke-direct {p0, p1, p2, v1}, Lcom/melodix/music/PreviewPlayerTiles;->addRow(Landroid/app/Activity;Landroid/widget/LinearLayout;Ljava/lang/String;)V
-
-    add-int/lit8 v2, v2, 0x1
+    invoke-direct {p0, p1, p2, p3}, Lcom/melodix/music/PreviewPlayerTiles;->queueFailed(Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
 
     goto :goto_0
 
-    .line 160
-    :cond_2
-    :goto_1
-    const/4 p1, 0x1
+    .line 172
+    :cond_1
+    iget-wide v2, p0, Lcom/melodix/music/PreviewPlayerTiles;->queueSerial:J
 
-    invoke-virtual {p3, p1}, Landroid/widget/Button;->setEnabled(Z)V
+    iput-wide v2, p0, Lcom/melodix/music/PreviewPlayerTiles;->settledSerial:J
+
+    sget-object v0, Lcom/melodix/music/PreviewPlayerTiles;->queueJournal:Ljava/lang/String;
+
+    new-instance v2, Ljava/lang/StringBuilder;
+
+    invoke-static {v0}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
+
+    move-result-object v0
+
+    invoke-direct {v2, v0}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    const-string v0, ":rendu=natif"
+
+    invoke-virtual {v2, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    sput-object v0, Lcom/melodix/music/PreviewPlayerTiles;->queueJournal:Ljava/lang/String;
+
+    invoke-virtual {p2}, Landroid/widget/LinearLayout;->removeAllViews()V
+
+    const-string v0, "now"
+
+    const-string v2, ""
+
+    invoke-virtual {p4, v0, v2}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v0
+
+    .line 173
+    invoke-virtual {v0}, Ljava/lang/String;->isEmpty()Z
+
+    move-result v2
+
+    if-nez v2, :cond_2
+
+    const-string v2, "En cours de lecture"
+
+    invoke-direct {p0, p1, v2, v7, v6}, Lcom/melodix/music/PreviewPlayerTiles;->line(Landroid/app/Activity;Ljava/lang/String;IF)Landroid/widget/TextView;
+
+    move-result-object v2
+
+    new-instance v3, Landroid/widget/LinearLayout$LayoutParams;
+
+    const/high16 v4, 0x42000000    # 32.0f
+
+    invoke-direct {p0, v4}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v4
+
+    invoke-direct {v3, v5, v4}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+
+    invoke-virtual {p2, v2, v3}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    invoke-direct {p0, p1, p2, v0}, Lcom/melodix/music/PreviewPlayerTiles;->addRow(Landroid/app/Activity;Landroid/widget/LinearLayout;Ljava/lang/String;)V
+
+    .line 174
+    :cond_2
+    invoke-virtual {v0}, Ljava/lang/String;->isEmpty()Z
+
+    move-result v0
+
+    if-eqz v0, :cond_4
+
+    const-string v0, "Titres de la file"
+
+    :goto_1
+    invoke-direct {p0, p1, v0, v7, v6}, Lcom/melodix/music/PreviewPlayerTiles;->line(Landroid/app/Activity;Ljava/lang/String;IF)Landroid/widget/TextView;
+
+    move-result-object v0
+
+    new-instance v2, Landroid/widget/LinearLayout$LayoutParams;
+
+    const/high16 v3, 0x42200000    # 40.0f
+
+    invoke-direct {p0, v3}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v3
+
+    invoke-direct {v2, v5, v3}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+
+    invoke-virtual {p2, v0, v2}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    .line 175
+    const-string v0, "next"
+
+    const-string v2, ""
+
+    invoke-virtual {p4, v0, v2}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v0
+
+    .line 176
+    invoke-virtual {v0}, Ljava/lang/String;->isEmpty()Z
+
+    move-result v2
+
+    if-eqz v2, :cond_5
+
+    const-string v0, "Aucun titre \u00e0 suivre"
+
+    const v1, -0x384424
+
+    const/high16 v2, 0x41600000    # 14.0f
+
+    invoke-direct {p0, p1, v0, v1, v2}, Lcom/melodix/music/PreviewPlayerTiles;->line(Landroid/app/Activity;Ljava/lang/String;IF)Landroid/widget/TextView;
+
+    move-result-object v0
+
+    new-instance v1, Landroid/widget/LinearLayout$LayoutParams;
+
+    const/4 v2, -0x2
+
+    invoke-direct {v1, v5, v2}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+
+    invoke-virtual {p2, v0, v1}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    .line 178
+    :cond_3
+    const/4 v0, 0x1
+
+    invoke-virtual {p3, v0}, Landroid/widget/Button;->setEnabled(Z)V
 
     invoke-direct {p0, p2}, Lcom/melodix/music/PreviewPlayerTiles;->riseAll(Landroid/widget/LinearLayout;)V
 
-    .line 161
-    return-void
+    goto/16 :goto_0
+
+    .line 174
+    :cond_4
+    const-string v0, "\u00c0 suivre"
+
+    goto :goto_1
+
+    .line 177
+    :cond_5
+    const-string v2, "\n"
+
+    invoke-virtual {v0, v2}, Ljava/lang/String;->split(Ljava/lang/String;)[Ljava/lang/String;
+
+    move-result-object v2
+
+    array-length v3, v2
+
+    move v0, v1
+
+    :goto_2
+    if-ge v0, v3, :cond_3
+
+    aget-object v1, v2, v0
+
+    invoke-direct {p0, p1, p2, v1}, Lcom/melodix/music/PreviewPlayerTiles;->addRow(Landroid/app/Activity;Landroid/widget/LinearLayout;Ljava/lang/String;)V
+
+    add-int/lit8 v0, v0, 0x1
+
+    goto :goto_2
+.end method
+
+.method private static resultCode(Lorg/json/JSONObject;)Ljava/lang/String;
+    .locals 3
+
+    .prologue
+    .line 40
+    const-string v0, "ok"
+
+    const/4 v1, 0x0
+
+    invoke-virtual {p0, v0, v1}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;Z)Z
+
+    move-result v0
+
+    if-eqz v0, :cond_0
+
+    const-string v0, "lecture=ok"
+
+    .line 43
+    :goto_0
+    return-object v0
+
+    .line 41
+    :cond_0
+    const-string v0, "reason"
+
+    const-string v1, ""
+
+    invoke-virtual {p0, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v0
+
+    .line 42
+    const-string v1, "(absent|ambiguous|disabled|panel|empty|close-unverified|command|error|target|unverified)"
+
+    invoke-virtual {v0, v1}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+
+    move-result v1
+
+    if-nez v1, :cond_1
+
+    const-string v0, "unknown"
+
+    .line 43
+    :cond_1
+    new-instance v1, Ljava/lang/StringBuilder;
+
+    const-string v2, "lecture=non-confirmee:motif="
+
+    invoke-direct {v1, v2}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    goto :goto_0
 .end method
 
 .method private riseAll(Landroid/widget/LinearLayout;)V
     .locals 2
 
-    .line 162
+    .prologue
+    .line 180
     const/4 v0, 0x0
 
     :goto_0
@@ -4649,8 +5056,12 @@
 
     const/16 v1, 0xe
 
-    if-ge v0, v1, :cond_0
+    if-lt v0, v1, :cond_1
 
+    :cond_0
+    return-void
+
+    :cond_1
     invoke-virtual {p1, v0}, Landroid/widget/LinearLayout;->getChildAt(I)Landroid/view/View;
 
     move-result-object v1
@@ -4660,32 +5071,35 @@
     add-int/lit8 v0, v0, 0x1
 
     goto :goto_0
-
-    :cond_0
-    return-void
 .end method
 
 .method private skeleton(Landroid/app/Activity;Landroid/widget/LinearLayout;)V
     .locals 5
 
-    .line 136
+    .prologue
+    .line 150
     invoke-virtual {p2}, Landroid/widget/LinearLayout;->removeAllViews()V
 
-    .line 137
+    .line 151
     const/4 v0, 0x0
 
     :goto_0
     const/4 v1, 0x4
 
-    if-ge v0, v1, :cond_0
+    if-lt v0, v1, :cond_0
 
-    const v1, 0x40ffffff    # 7.9999995f
+    .line 152
+    return-void
 
-    const/high16 v2, 0x41600000    # 14.0f
+    .line 151
+    :cond_0
+    const-string v1, "\u25ac\u25ac\u25ac\u25ac\u25ac\u25ac\u25ac\u25ac\u25ac\u25ac\u25ac\u25ac\n\u25ac\u25ac\u25ac\u25ac\u25ac\u25ac"
 
-    const-string v3, "\u25ac\u25ac\u25ac\u25ac\u25ac\u25ac\u25ac\u25ac\u25ac\u25ac\u25ac\u25ac\n\u25ac\u25ac\u25ac\u25ac\u25ac\u25ac"
+    const v2, 0x40ffffff    # 7.9999995f
 
-    invoke-direct {p0, p1, v3, v1, v2}, Lcom/melodix/music/PreviewPlayerTiles;->line(Landroid/app/Activity;Ljava/lang/String;IF)Landroid/widget/TextView;
+    const/high16 v3, 0x41600000    # 14.0f
+
+    invoke-direct {p0, p1, v1, v2, v3}, Lcom/melodix/music/PreviewPlayerTiles;->line(Landroid/app/Activity;Ljava/lang/String;IF)Landroid/widget/TextView;
 
     move-result-object v1
 
@@ -4695,63 +5109,55 @@
 
     new-instance v2, Landroid/widget/LinearLayout$LayoutParams;
 
-    const/high16 v3, 0x42600000    # 56.0f
+    const/4 v3, -0x1
 
-    invoke-direct {p0, v3}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+    const/high16 v4, 0x42600000    # 56.0f
 
-    move-result v3
+    invoke-direct {p0, v4}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
 
-    const/4 v4, -0x1
+    move-result v4
 
-    invoke-direct {v2, v4, v3}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    invoke-direct {v2, v3, v4}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
 
     invoke-virtual {p2, v1, v2}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
     add-int/lit8 v0, v0, 0x1
 
     goto :goto_0
-
-    .line 138
-    :cond_0
-    return-void
 .end method
 
 .method private syncVolume()V
     .locals 2
 
-    .line 290
+    .prologue
+    .line 310
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerTiles;->isAttachedToWindow()Z
 
     move-result v0
 
-    if-eqz v0, :cond_0
+    if-eqz v0, :cond_2
 
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerTiles;->isShown()Z
 
     move-result v0
 
-    if-eqz v0, :cond_0
+    if-eqz v0, :cond_2
 
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerTiles;->getWindowVisibility()I
 
     move-result v0
 
-    if-nez v0, :cond_0
+    if-nez v0, :cond_2
 
     const/4 v0, 0x1
 
-    goto :goto_0
-
-    :cond_0
-    const/4 v0, 0x0
-
-    .line 291
+    .line 311
     :goto_0
-    if-eqz v0, :cond_1
+    if-eqz v0, :cond_0
 
     iget-boolean v1, p0, Lcom/melodix/music/PreviewPlayerTiles;->volumeRunning:Z
 
-    if-nez v1, :cond_1
+    if-nez v1, :cond_0
 
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerTiles;->activity()Landroid/app/Activity;
 
@@ -4759,73 +5165,86 @@
 
     invoke-direct {p0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->readTrace(Landroid/app/Activity;)V
 
-    .line 292
-    :cond_1
+    .line 312
+    :cond_0
     iput-boolean v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->volumeRunning:Z
 
-    if-nez v0, :cond_2
+    if-nez v0, :cond_1
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->webDialog:Landroid/app/Dialog;
 
-    if-eqz v0, :cond_2
+    if-eqz v0, :cond_1
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->webDialog:Landroid/app/Dialog;
 
     invoke-virtual {v0}, Landroid/app/Dialog;->dismiss()V
 
-    :cond_2
+    :cond_1
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerTiles;->paintControls()V
 
-    .line 293
+    .line 313
     return-void
+
+    .line 310
+    :cond_2
+    const/4 v0, 0x0
+
+    goto :goto_0
 .end method
 
 .method private web(Landroid/app/Activity;)Landroid/webkit/WebView;
     .locals 3
 
-    .line 133
-    const/4 v0, 0x0
+    .prologue
+    const/4 v1, 0x0
 
+    .line 147
     :try_start_0
     invoke-virtual {p1}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
 
-    move-result-object v1
+    move-result-object v0
 
     const-string v2, "G"
 
-    invoke-virtual {v1, v2}, Ljava/lang/Class;->getField(Ljava/lang/String;)Ljava/lang/reflect/Field;
+    invoke-virtual {v0, v2}, Ljava/lang/Class;->getField(Ljava/lang/String;)Ljava/lang/reflect/Field;
 
-    move-result-object v1
+    move-result-object v0
 
-    invoke-virtual {v1, p1}, Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;
+    invoke-virtual {v0, p1}, Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;
 
-    move-result-object p1
+    move-result-object v0
 
-    instance-of v1, p1, Landroid/webkit/WebView;
+    instance-of v2, v0, Landroid/webkit/WebView;
 
-    if-eqz v1, :cond_0
+    if-eqz v2, :cond_0
 
-    check-cast p1, Landroid/webkit/WebView;
+    check-cast v0, Landroid/webkit/WebView;
     :try_end_0
     .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
 
-    move-object v0, p1
+    :goto_0
+    return-object v0
 
     :cond_0
-    return-object v0
+    move-object v0, v1
+
+    goto :goto_0
 
     :catch_0
-    move-exception p1
+    move-exception v0
 
-    return-object v0
+    move-object v0, v1
+
+    goto :goto_0
 .end method
 
 
 # virtual methods
 .method protected onAttachedToWindow()V
-    .locals 3
+    .locals 4
 
-    .line 294
+    .prologue
+    .line 314
     invoke-super {p0}, Landroid/widget/LinearLayout;->onAttachedToWindow()V
 
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerTiles;->syncVolume()V
@@ -4836,9 +5255,9 @@
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->traceTick:Ljava/lang/Runnable;
 
-    const-wide/16 v1, 0x7d0
+    const-wide/16 v2, 0x7d0
 
-    invoke-virtual {p0, v0, v1, v2}, Lcom/melodix/music/PreviewPlayerTiles;->postDelayed(Ljava/lang/Runnable;J)Z
+    invoke-virtual {p0, v0, v2, v3}, Lcom/melodix/music/PreviewPlayerTiles;->postDelayed(Ljava/lang/Runnable;J)Z
 
     return-void
 .end method
@@ -4846,7 +5265,8 @@
 .method protected onDetachedFromWindow()V
     .locals 1
 
-    .line 295
+    .prologue
+    .line 315
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->traceTick:Ljava/lang/Runnable;
 
     invoke-virtual {p0, v0}, Lcom/melodix/music/PreviewPlayerTiles;->removeCallbacks(Ljava/lang/Runnable;)Z
@@ -4870,40 +5290,42 @@
 .end method
 
 .method protected onVisibilityChanged(Landroid/view/View;I)V
-    .locals 0
+    .locals 1
 
-    .line 296
+    .prologue
+    .line 316
     invoke-super {p0, p1, p2}, Landroid/widget/LinearLayout;->onVisibilityChanged(Landroid/view/View;I)V
 
-    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles;->controls:[Landroid/widget/Button;
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->controls:[Landroid/widget/Button;
 
-    if-eqz p1, :cond_0
+    if-eqz v0, :cond_0
 
-    new-instance p1, Lcom/melodix/music/PreviewPlayerTiles$19;
+    new-instance v0, Lcom/melodix/music/PreviewPlayerTiles$19;
 
-    invoke-direct {p1, p0}, Lcom/melodix/music/PreviewPlayerTiles$19;-><init>(Lcom/melodix/music/PreviewPlayerTiles;)V
+    invoke-direct {v0, p0}, Lcom/melodix/music/PreviewPlayerTiles$19;-><init>(Lcom/melodix/music/PreviewPlayerTiles;)V
 
-    invoke-virtual {p0, p1}, Lcom/melodix/music/PreviewPlayerTiles;->post(Ljava/lang/Runnable;)Z
+    invoke-virtual {p0, v0}, Lcom/melodix/music/PreviewPlayerTiles;->post(Ljava/lang/Runnable;)Z
 
     :cond_0
     return-void
 .end method
 
 .method protected onWindowVisibilityChanged(I)V
-    .locals 0
+    .locals 1
 
-    .line 297
+    .prologue
+    .line 317
     invoke-super {p0, p1}, Landroid/widget/LinearLayout;->onWindowVisibilityChanged(I)V
 
-    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles;->controls:[Landroid/widget/Button;
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->controls:[Landroid/widget/Button;
 
-    if-eqz p1, :cond_0
+    if-eqz v0, :cond_0
 
-    new-instance p1, Lcom/melodix/music/PreviewPlayerTiles$20;
+    new-instance v0, Lcom/melodix/music/PreviewPlayerTiles$20;
 
-    invoke-direct {p1, p0}, Lcom/melodix/music/PreviewPlayerTiles$20;-><init>(Lcom/melodix/music/PreviewPlayerTiles;)V
+    invoke-direct {v0, p0}, Lcom/melodix/music/PreviewPlayerTiles$20;-><init>(Lcom/melodix/music/PreviewPlayerTiles;)V
 
-    invoke-virtual {p0, p1}, Lcom/melodix/music/PreviewPlayerTiles;->post(Ljava/lang/Runnable;)Z
+    invoke-virtual {p0, v0}, Lcom/melodix/music/PreviewPlayerTiles;->post(Ljava/lang/Runnable;)Z
 
     :cond_0
     return-void

@@ -24,16 +24,9 @@
 # direct methods
 .method constructor <init>(Lcom/melodix/music/PreviewPlayerTiles;)V
     .locals 0
-    .annotation system Ldalvik/annotation/MethodParameters;
-        accessFlags = {
-            0x8010
-        }
-        names = {
-            null
-        }
-    .end annotation
 
-    .line 45
+    .prologue
+    .line 59
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$1;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -44,9 +37,10 @@
 
 # virtual methods
 .method public run()V
-    .locals 3
+    .locals 4
 
-    .line 45
+    .prologue
+    .line 59
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$1;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     invoke-virtual {v0}, Lcom/melodix/music/PreviewPlayerTiles;->isAttachedToWindow()Z
@@ -55,6 +49,7 @@
 
     if-nez v0, :cond_0
 
+    :goto_0
     return-void
 
     :cond_0
@@ -62,17 +57,17 @@
 
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerTiles$1;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-    invoke-static {v1}, Lcom/melodix/music/PreviewPlayerTiles;->access$000(Lcom/melodix/music/PreviewPlayerTiles;)Landroid/app/Activity;
+    invoke-static {v1}, Lcom/melodix/music/PreviewPlayerTiles;->access$0(Lcom/melodix/music/PreviewPlayerTiles;)Landroid/app/Activity;
 
     move-result-object v1
 
-    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->access$100(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Activity;)V
+    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->access$1(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Activity;)V
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$1;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-    const-wide/16 v1, 0x7d0
+    const-wide/16 v2, 0x7d0
 
-    invoke-virtual {v0, p0, v1, v2}, Lcom/melodix/music/PreviewPlayerTiles;->postDelayed(Ljava/lang/Runnable;J)Z
+    invoke-virtual {v0, p0, v2, v3}, Lcom/melodix/music/PreviewPlayerTiles;->postDelayed(Ljava/lang/Runnable;J)Z
 
-    return-void
+    goto :goto_0
 .end method

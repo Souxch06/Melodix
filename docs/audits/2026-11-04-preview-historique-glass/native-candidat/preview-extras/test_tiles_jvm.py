@@ -91,6 +91,10 @@ stubs.update({
   ok(PreviewPlayerTiles.formatTrace("").equals("aucune ouverture observée"));
   ok(PreviewPlayerTiles.formatTrace("liked,Mon titre,1,1,1,1,1,1,1,1").equals("illisible"));
   ok(PreviewPlayerTiles.formatTrace("spotify:track:abc,open,1,1,1,1,1,1,1,1").equals("illisible"));
+  java.lang.reflect.Method clean=PreviewPlayerTiles.class.getDeclaredMethod("clean",String.class);clean.setAccessible(true);
+  String safe=(String)clean.invoke(null,"opened>secrettrack>rows:3>privateartist>close:verified");
+  ok(safe.equals("opened>rows:3>close:verified"));ok(!safe.contains("secrettrack")&&!safe.contains("privateartist"));
+  ok(((String)clean.invoke(null,"unknownsongidentifier")).equals("aucune"));
   System.out.println("Native panel and volume JVM simulation passed");
  }
 }'''
