@@ -53,3 +53,26 @@ sont pas vérifiés, donc il ne constitue pas un repli sûr sous les contraintes
 Aucun fichier protégé n'a été modifié et aucun nouveau build n'a été déclenché
 pour ce constat. La copie de diagnostic ne contient ni titre, ni artiste, ni
 identifiant de piste, ni données de session.
+
+## Réexamen de la commande existante
+
+Le bridge protégé `spotify_bridge.js` expose aussi `actAddToFav`, mais cette
+fonction ne vérifie ni l'identité de piste ni l'action du bouton : elle clique
+le dernier bouton d'un conteneur positionnel puis programme `addAndAuto` deux
+fois. Une fixture DOM contenant un bouton sans rapport a reproduit le clic de
+ce bouton et les deux déclenchements différés (100 et 500 ms). Ce n'est pas une
+preuve que le téléphone clique ce bouton précis, mais cela prouve que ce repli
+n'assure pas les invariants « pas de retrait » et « lecture inchangée ».
+
+Le bridge capture *éventuellement* `window.Melodix.Platform`. Une implémentation
+externe documente `PlayerAPI.getState()` et des méthodes `LibraryAPI.contains`
+et `LibraryAPI.add` : https://github.com/kota-zo/Orpheon/blob/main/base/api-spotify/src/main/resources/bridge/player-bridge.js .
+La présence et la compatibilité de ces méthodes dans la WebView du téléphone
+ne sont pas établies. Les invoquer pour consulter ou modifier la bibliothèque
+constituerait en outre des requêtes déclenchées par notre propre code, interdites
+par la contrainte actuelle ; aucun appel de ce type n'a été ajouté ni exécuté.
+
+Sans un contrôle Spotify identifié avec une identité vérifiable, ou une
+modification explicite de cette contrainte, une correction effectivement
+fonctionnelle ne peut pas être garantie. Aucun faux succès, appel réseau propre,
+retrait ni nouveau build n'a été introduit lors de ce réexamen.
