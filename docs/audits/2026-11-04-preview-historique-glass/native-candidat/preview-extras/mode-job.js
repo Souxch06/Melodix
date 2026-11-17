@@ -86,16 +86,14 @@
         if (kind === 'like') {
             var id = testid(b).toLowerCase();
             var remove = /^(remove-button|remove-from-library-button)$/.test(id);
-            var add = id === 'add-to-library-button';
             if (/^(true|menu|dialog|listbox|tree|grid)$/i.test(String(b.getAttribute('aria-haspopup') || '')) ||
                 b.matches(':disabled') || b.closest('[aria-disabled="true"], fieldset:disabled') ||
                 (checked !== null && pressed !== null && checked !== pressed)) return 'unknown';
             if (raw !== null && raw !== 'true' && raw !== 'false') return 'unknown';
-            if (checked !== null && genericAdd(l)) return raw;
             if (raw === null) raw = on ? 'true' : off ? 'false' : 'unknown';
             if ((raw === 'false' && (on || remove)) || (raw === 'true' && off)) return 'unknown';
             // An unlabelled generic add-button may open a playlist picker.
-            if (raw === 'false' && !off && !add) return 'unknown';
+            if (!off && !on) return 'unknown';
             return raw;
         }
         if (raw === 'true' || raw === 'false' || raw === 'mixed') return raw;
@@ -108,8 +106,7 @@
         if (m) return m;
         var a = /^(?:https:\/\/open\.spotify\.com)?\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\/)?album\/[a-z0-9]+\/?\?(?:[^#]*&)?highlight=spotify(?::|%3a)(track)(?::|%3a)([a-z0-9]+)(?:[&#].*)?$/i.exec(h);
         if (a) return [a[0], a[1], a[2]];
-        var al = /^(?:https:\/\/open\.spotify\.com)?\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\/)?(album)\/([a-z0-9]+)\/?(?:[?#].*)?$/i.exec(h);
-        return al ? [al[0], al[1], al[2]] : null;
+        return null; // an album and title cannot uniquely identify a track
     }
     function identityMatches() {
         if (!expectedTitle || !expectedTrack) return false;
@@ -150,7 +147,7 @@
         if (!/^(true|menu|dialog|listbox)$/i.test(popup)) return false;
         if (!identityMatches()) { log(method + ':menu-identity'); after('identity', 'unknown'); return true; }
         if (!/^(add-button|add-to-library-button)$/.test(id) || labels.like.on.test(l) ||
-            shownState === 'true' || b.getAttribute('aria-checked') === 'true' || b.getAttribute('aria-pressed') === 'true' ||
+            shownState === 'true' || ((b.getAttribute('aria-checked') === 'true' || b.getAttribute('aria-pressed') === 'true') && !genericAdd(l)) ||
             b.matches(':disabled') || b.closest('[aria-disabled="true"], fieldset:disabled')) {
             log(method + ':menu-unsafe'); after('menu-state', 'unknown'); return true;
         }

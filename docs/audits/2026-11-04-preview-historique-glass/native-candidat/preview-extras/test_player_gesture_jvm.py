@@ -48,7 +48,7 @@ public class GestureHarness {
     def test_native_backdrop_capture_and_bounds(self):
         source=(HERE/'PreviewPlayerChrome.java').read_text(encoding='utf8')
         start=source.index('    public static void captureBeforeExpand')
-        end=source.index('    private void applyBackground',start)
+        end=source.index("    /** Match the reader's dark top",start)
         capture=source[start:end]
         harness="""
 public class PreviewPlayerChrome extends PreviewPlayerChromeView {
@@ -88,5 +88,39 @@ class PreviewPlayerChromeView {}
         self.assertIn('p.setTranslationY(Math.max(p.getHeight(),dp(300)))',source)
         patch=(HERE.parent/'apply_preview_player_visual.py').read_text(encoding='utf8')
         self.assertIn('captureBeforeExpand(Landroid/app/Activity;)V',patch)
+
+    def test_statusbar_restore_and_edge_inset(self):
+        source=(HERE/'PreviewPlayerChrome.java').read_text(encoding='utf8')
+        start=source.index('    private void applyStatusBar')
+        end=source.index('    private void applyBackground',start)
+        methods=source[start:end]
+        harness="""
+public class PreviewPlayerChrome {
+ static class Build {static class VERSION {static int SDK_INT=35;}}
+ static class WindowManager {static class LayoutParams {static final int FLAG_TRANSLUCENT_STATUS=4,FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS=8;int flags;}}
+ static class WindowInsets {int top;int getSystemWindowInsetTop(){return top;}}
+ static class Drawable {int bottom;void setBounds(int a,int b,int c,int d){bottom=d;}}
+ static class ColorDrawable extends Drawable {ColorDrawable(int color){}}
+ static class Overlay {int count;void add(Drawable x){count++;}void remove(Drawable x){count--;}}
+ static class View {static final int SYSTEM_UI_FLAG_LIGHT_STATUS_BAR=16;int ui,width=500,top,bottom,color;WindowInsets insets=new WindowInsets();Overlay overlay=new Overlay();View(){} View(Activity a){} int getSystemUiVisibility(){return ui;}void setSystemUiVisibility(int x){ui=x;}void setBackgroundColor(int x){color=x;}int getWidth(){return width;}WindowInsets getRootWindowInsets(){return insets;}Overlay getOverlay(){return overlay;}void layout(int a,int b,int c,int d){top=b;bottom=d;}}
+ static class Window {int color=123;View decor=new View();WindowManager.LayoutParams attr=new WindowManager.LayoutParams();View getDecorView(){return decor;}int getStatusBarColor(){return color;}void setStatusBarColor(int x){color=x;}WindowManager.LayoutParams getAttributes(){return attr;}void clearFlags(int f){attr.flags &= ~f;}void addFlags(int f){attr.flags |= f;}}
+ static class Activity {Window w=new Window();Window getWindow(){return w;}}
+ Window statusWindow;Drawable statusOverlay;View statusDecor;int originalStatusColor,originalStatusFlags,originalStatusUi;static final int PLAYER_STATUS_COLOR=0xff0a0614;
+ """+methods+"""
+ static void ok(boolean b){if(!b)throw new AssertionError();}
+ public static void main(String[] args){
+  PreviewPlayerChrome p=new PreviewPlayerChrome();Activity a=new Activity();a.w.attr.flags=4;a.w.decor.ui=16|32;a.w.decor.insets.top=28;
+  p.applyStatusBar(a);ok(a.w.color==PLAYER_STATUS_COLOR && a.w.attr.flags==8 && a.w.decor.ui==32);ok(a.w.decor.overlay.count==1 && p.statusOverlay.bottom==28);
+  p.applyStatusBar(a);ok(a.w.decor.overlay.count==1);a.w.decor.ui|=64;p.restoreStatusBar();ok(a.w.color==123 && a.w.attr.flags==4 && a.w.decor.ui==(16|32|64));ok(a.w.decor.overlay.count==0);
+  Build.VERSION.SDK_INT=34;p.applyStatusBar(a);ok(a.w.decor.overlay.count==0);p.restoreStatusBar();ok(a.w.color==123);
+  Build.VERSION.SDK_INT=35;a.w.decor.insets.top=0;p.applyStatusBar(a);ok(a.w.decor.overlay.count==0);p.restoreStatusBar();
+ }
+}
+"""
+        with tempfile.TemporaryDirectory(dir=os.environ.get('RUNNER_TEMP')) as d:
+            src=Path(d)/'PreviewPlayerChrome.java';src.write_text(harness,encoding='utf8')
+            cmd=['java','-cp',os.environ['ECJ_JAR'],'org.eclipse.jdt.internal.compiler.batch.Main','-encoding','UTF-8','-source','1.8','-target','1.8','-d',d,str(src)] if os.environ.get('ECJ_JAR') else ['javac','-encoding','UTF-8','-d',d,str(src)]
+            subprocess.run(cmd,check=True,capture_output=True,text=True)
+            subprocess.run(['java','-cp',d,'PreviewPlayerChrome'],check=True,capture_output=True,text=True)
 
 if __name__=='__main__':unittest.main(verbosity=2)

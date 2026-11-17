@@ -301,7 +301,7 @@
     .locals 0
 
     .prologue
-    .line 92
+    .line 89
     invoke-direct {p0, p1}, Lcom/melodix/music/PreviewPlayerVolume;->enqueue(I)V
 
     return-void
@@ -361,7 +361,7 @@
     .locals 0
 
     .prologue
-    .line 151
+    .line 148
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerVolume;->sync()V
 
     return-void
@@ -381,7 +381,7 @@
     .locals 0
 
     .prologue
-    .line 93
+    .line 90
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerVolume;->send()V
 
     return-void
@@ -391,7 +391,7 @@
     .locals 0
 
     .prologue
-    .line 118
+    .line 115
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerVolume;->open()V
 
     return-void
@@ -443,7 +443,7 @@
     .locals 2
 
     .prologue
-    .line 115
+    .line 112
     new-instance v0, Landroid/widget/Button;
 
     invoke-direct {v0, p1}, Landroid/widget/Button;-><init>(Landroid/content/Context;)V
@@ -470,7 +470,7 @@
 
     invoke-virtual {v0, v1}, Landroid/widget/Button;->setMinHeight(I)V
 
-    .line 116
+    .line 113
     const/4 v1, 0x0
 
     invoke-virtual {v0, v1}, Landroid/widget/Button;->setBackgroundTintList(Landroid/content/res/ColorStateList;)V
@@ -702,7 +702,7 @@
     .locals 8
 
     .prologue
-    .line 92
+    .line 89
     const/4 v0, 0x0
 
     const/16 v1, 0x64
@@ -822,7 +822,7 @@
     .prologue
     const/4 v10, 0x0
 
-    .line 119
+    .line 116
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerVolume;->activity()Landroid/app/Activity;
 
     move-result-object v0
@@ -845,12 +845,12 @@
 
     if-eqz v1, :cond_1
 
-    .line 150
+    .line 147
     :cond_0
     :goto_0
     return-void
 
-    .line 121
+    .line 118
     :cond_1
     :try_start_0
     new-instance v1, Landroid/app/Dialog;
@@ -859,7 +859,7 @@
 
     iput-object v1, p0, Lcom/melodix/music/PreviewPlayerVolume;->dialog:Landroid/app/Dialog;
 
-    .line 122
+    .line 119
     new-instance v2, Landroid/widget/LinearLayout;
 
     invoke-direct {v2, v0}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
@@ -894,7 +894,7 @@
 
     invoke-virtual {v2, v3, v4, v5, v6}, Landroid/widget/LinearLayout;->setPadding(IIII)V
 
-    .line 124
+    .line 121
     new-instance v3, Landroid/graphics/drawable/GradientDrawable;
 
     invoke-direct {v3}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
@@ -953,7 +953,7 @@
 
     invoke-virtual {v3, v5}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadii([F)V
 
-    .line 125
+    .line 122
     const/4 v4, 0x3
 
     new-array v4, v4, [I
@@ -974,7 +974,7 @@
 
     invoke-virtual {v2, v3}, Landroid/widget/LinearLayout;->setBackground(Landroid/graphics/drawable/Drawable;)V
 
-    .line 126
+    .line 123
     const/high16 v3, 0x41c00000    # 24.0f
 
     invoke-direct {p0, v3}, Lcom/melodix/music/PreviewPlayerVolume;->dp(F)I
@@ -1001,7 +1001,7 @@
 
     invoke-virtual {v2, v3, v4, v5, v6}, Landroid/widget/LinearLayout;->setPadding(IIII)V
 
-    .line 127
+    .line 124
     new-instance v3, Landroid/widget/TextView;
 
     invoke-direct {v3, v0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
@@ -1026,7 +1026,7 @@
 
     invoke-virtual {v3, v4}, Landroid/widget/TextView;->setBackground(Landroid/graphics/drawable/Drawable;)V
 
-    .line 128
+    .line 125
     new-instance v4, Landroid/widget/LinearLayout$LayoutParams;
 
     const/high16 v5, 0x42300000    # 44.0f
@@ -1057,7 +1057,7 @@
 
     invoke-virtual {v2, v3, v4}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 129
+    .line 126
     new-instance v3, Landroid/widget/TextView;
 
     invoke-direct {v3, v0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
@@ -1092,7 +1092,7 @@
 
     invoke-virtual {v2, v3, v4}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 130
+    .line 127
     new-instance v3, Landroid/widget/TextView;
 
     invoke-direct {v3, v0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
@@ -1123,7 +1123,7 @@
 
     invoke-virtual {v2, v3, v4}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 131
+    .line 128
     new-instance v3, Landroid/widget/LinearLayout;
 
     invoke-direct {v3, v0}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
@@ -1192,7 +1192,7 @@
 
     invoke-virtual {v3, v4}, Landroid/widget/LinearLayout;->setBackground(Landroid/graphics/drawable/Drawable;)V
 
-    .line 132
+    .line 129
     new-instance v4, Landroid/widget/TextView;
 
     invoke-direct {v4, v0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
@@ -1239,7 +1239,7 @@
 
     invoke-virtual {v3, v4, v5}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 133
+    .line 130
     new-instance v4, Landroid/widget/SeekBar;
 
     invoke-direct {v4, v0}, Landroid/widget/SeekBar;-><init>(Landroid/content/Context;)V
@@ -1270,7 +1270,7 @@
 
     invoke-virtual {v4, v5}, Landroid/widget/SeekBar;->setContentDescription(Ljava/lang/CharSequence;)V
 
-    .line 134
+    .line 131
     iget-object v4, p0, Lcom/melodix/music/PreviewPlayerVolume;->slider:Landroid/widget/SeekBar;
 
     const v5, -0x4b930b
@@ -1317,7 +1317,7 @@
 
     invoke-virtual {v3, v4, v5}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 135
+    .line 132
     new-instance v4, Landroid/widget/LinearLayout;
 
     invoke-direct {v4, v0}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
@@ -1326,40 +1326,14 @@
 
     invoke-virtual {v4, v5}, Landroid/widget/LinearLayout;->setOrientation(I)V
 
-    .line 136
+    .line 133
     new-instance v5, Landroid/widget/TextView;
 
     invoke-direct {v5, v0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
 
-    const-string v6, "Silence"
+    const-string v6, "\u25d6\u00d7  Silence"
 
     invoke-virtual {v5, v6}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-
-    const v6, 0x1080031
-
-    const/4 v7, 0x0
-
-    const/4 v8, 0x0
-
-    const/4 v9, 0x0
-
-    invoke-virtual {v5, v6, v7, v8, v9}, Landroid/widget/TextView;->setCompoundDrawablesWithIntrinsicBounds(IIII)V
-
-    const/high16 v6, 0x40c00000    # 6.0f
-
-    invoke-direct {p0, v6}, Lcom/melodix/music/PreviewPlayerVolume;->dp(F)I
-
-    move-result v6
-
-    invoke-virtual {v5, v6}, Landroid/widget/TextView;->setCompoundDrawablePadding(I)V
-
-    const v6, -0x30390e
-
-    invoke-static {v6}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
-
-    move-result-object v6
-
-    invoke-virtual {v5, v6}, Landroid/widget/TextView;->setCompoundDrawableTintList(Landroid/content/res/ColorStateList;)V
 
     const v6, -0x46512a
 
@@ -1385,40 +1359,14 @@
 
     invoke-virtual {v4, v5, v6}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 137
+    .line 134
     new-instance v5, Landroid/widget/TextView;
 
     invoke-direct {v5, v0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
 
-    const-string v6, "100 %"
+    const-string v6, "100 %  \u25d6))"
 
     invoke-virtual {v5, v6}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-
-    const/4 v6, 0x0
-
-    const/4 v7, 0x0
-
-    const v8, 0x1080032
-
-    const/4 v9, 0x0
-
-    invoke-virtual {v5, v6, v7, v8, v9}, Landroid/widget/TextView;->setCompoundDrawablesWithIntrinsicBounds(IIII)V
-
-    const/high16 v6, 0x40c00000    # 6.0f
-
-    invoke-direct {p0, v6}, Lcom/melodix/music/PreviewPlayerVolume;->dp(F)I
-
-    move-result v6
-
-    invoke-virtual {v5, v6}, Landroid/widget/TextView;->setCompoundDrawablePadding(I)V
-
-    const v6, -0x30390e
-
-    invoke-static {v6}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
-
-    move-result-object v6
-
-    invoke-virtual {v5, v6}, Landroid/widget/TextView;->setCompoundDrawableTintList(Landroid/content/res/ColorStateList;)V
 
     const v6, -0x46512a
 
@@ -1462,7 +1410,7 @@
 
     invoke-virtual {v3, v4, v5}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 138
+    .line 135
     new-instance v4, Landroid/widget/LinearLayout$LayoutParams;
 
     const/4 v5, -0x1
@@ -1473,7 +1421,7 @@
 
     invoke-virtual {v2, v3, v4}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 139
+    .line 136
     new-instance v3, Landroid/widget/LinearLayout;
 
     invoke-direct {v3, v0}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
@@ -1500,7 +1448,7 @@
 
     invoke-virtual {v3, v4, v5, v6, v7}, Landroid/widget/LinearLayout;->setPadding(IIII)V
 
-    .line 140
+    .line 137
     const-string v4, "Silence"
 
     const/4 v5, 0x1
@@ -1529,8 +1477,8 @@
 
     invoke-virtual {v3, v4, v5}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 141
-    const-string v4, "Actualiser"
+    .line 138
+    const-string v4, "\u21bb  Actualiser"
 
     const/4 v5, 0x0
 
@@ -1538,31 +1486,9 @@
 
     move-result-object v4
 
-    const v5, 0x108005f
+    const-string v5, "Actualiser le volume du lecteur"
 
-    const/4 v6, 0x0
-
-    const/4 v7, 0x0
-
-    const/4 v8, 0x0
-
-    invoke-virtual {v4, v5, v6, v7, v8}, Landroid/widget/Button;->setCompoundDrawablesWithIntrinsicBounds(IIII)V
-
-    const/high16 v5, 0x41000000    # 8.0f
-
-    invoke-direct {p0, v5}, Lcom/melodix/music/PreviewPlayerVolume;->dp(F)I
-
-    move-result v5
-
-    invoke-virtual {v4, v5}, Landroid/widget/Button;->setCompoundDrawablePadding(I)V
-
-    const/4 v5, -0x1
-
-    invoke-static {v5}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
-
-    move-result-object v5
-
-    invoke-virtual {v4, v5}, Landroid/widget/Button;->setCompoundDrawableTintList(Landroid/content/res/ColorStateList;)V
+    invoke-virtual {v4, v5}, Landroid/widget/Button;->setContentDescription(Ljava/lang/CharSequence;)V
 
     new-instance v5, Landroid/widget/LinearLayout$LayoutParams;
 
@@ -1598,12 +1524,12 @@
 
     invoke-virtual {v2, v3, v5}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 142
+    .line 139
     iget v3, p0, Lcom/melodix/music/PreviewPlayerVolume;->percent:I
 
     invoke-direct {p0, v3}, Lcom/melodix/music/PreviewPlayerVolume;->showValue(I)V
 
-    .line 143
+    .line 140
     iget-object v3, p0, Lcom/melodix/music/PreviewPlayerVolume;->mute:Landroid/widget/Button;
 
     new-instance v5, Lcom/melodix/music/PreviewPlayerVolume$7;
@@ -1612,7 +1538,7 @@
 
     invoke-virtual {v3, v5}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
 
-    .line 144
+    .line 141
     iget-object v3, p0, Lcom/melodix/music/PreviewPlayerVolume;->slider:Landroid/widget/SeekBar;
 
     new-instance v5, Lcom/melodix/music/PreviewPlayerVolume$8;
@@ -1621,14 +1547,14 @@
 
     invoke-virtual {v3, v5}, Landroid/widget/SeekBar;->setOnSeekBarChangeListener(Landroid/widget/SeekBar$OnSeekBarChangeListener;)V
 
-    .line 145
+    .line 142
     new-instance v3, Lcom/melodix/music/PreviewPlayerVolume$9;
 
     invoke-direct {v3, p0}, Lcom/melodix/music/PreviewPlayerVolume$9;-><init>(Lcom/melodix/music/PreviewPlayerVolume;)V
 
     invoke-virtual {v4, v3}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
 
-    .line 146
+    .line 143
     const-string v3, "Fermer"
 
     const/4 v4, 0x0
@@ -1665,7 +1591,7 @@
 
     invoke-virtual {v2, v0, v3}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 147
+    .line 144
     invoke-virtual {v1, v2}, Landroid/app/Dialog;->setContentView(Landroid/view/View;)V
 
     const/4 v0, 0x1
@@ -1678,7 +1604,7 @@
 
     invoke-virtual {v1, v0}, Landroid/app/Dialog;->setOnDismissListener(Landroid/content/DialogInterface$OnDismissListener;)V
 
-    .line 148
+    .line 145
     invoke-virtual {v1}, Landroid/app/Dialog;->show()V
 
     invoke-static {v2}, Lcom/melodix/music/PreviewUiRestyle;->sheet(Landroid/view/View;)V
@@ -1695,7 +1621,7 @@
 
     goto/16 :goto_0
 
-    .line 149
+    .line 146
     :catch_0
     move-exception v0
 
@@ -1726,7 +1652,7 @@
 
     goto/16 :goto_0
 
-    .line 148
+    .line 145
     :cond_3
     :try_start_1
     new-instance v1, Landroid/graphics/drawable/ColorDrawable;
@@ -1759,9 +1685,7 @@
 
     goto/16 :goto_0
 
-    .line 125
-    nop
-
+    .line 122
     :array_0
     .array-data 4
         -0x8c5e292
@@ -1769,7 +1693,7 @@
         -0x8f5f9ec
     .end array-data
 
-    .line 131
+    .line 128
     :array_1
     .array-data 4
         0x30ffffff
@@ -2097,7 +2021,7 @@
     .locals 3
 
     .prologue
-    .line 110
+    .line 107
     new-instance v0, Landroid/graphics/drawable/GradientDrawable;
 
     invoke-direct {v0}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
@@ -2112,7 +2036,7 @@
 
     invoke-virtual {v0, v1}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
 
-    .line 111
+    .line 108
     if-eqz p1, :cond_0
 
     const/4 v1, 0x2
@@ -2123,11 +2047,11 @@
 
     invoke-virtual {v0, v1}, Landroid/graphics/drawable/GradientDrawable;->setColors([I)V
 
-    .line 112
+    .line 109
     :goto_0
     return-object v0
 
-    .line 111
+    .line 108
     :cond_0
     const v1, 0x1cffffff
 
@@ -2361,7 +2285,7 @@
     .prologue
     const/4 v6, -0x1
 
-    .line 94
+    .line 91
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->running:Z
 
     if-eqz v0, :cond_0
@@ -2370,12 +2294,12 @@
 
     if-gez v0, :cond_1
 
-    .line 104
+    .line 101
     :cond_0
     :goto_0
     return-void
 
-    .line 94
+    .line 91
     :cond_1
     iget v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->queued:I
 
@@ -2399,7 +2323,7 @@
 
     iput-boolean v1, p0, Lcom/melodix/music/PreviewPlayerVolume;->readBusy:Z
 
-    .line 95
+    .line 92
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerVolume;->web()Landroid/webkit/WebView;
 
     move-result-object v1
@@ -2424,13 +2348,13 @@
 
     goto :goto_0
 
-    .line 96
+    .line 93
     :cond_2
     const-string v4, "en attente"
 
     sput-object v4, Lcom/melodix/music/PreviewPlayerVolume;->lastAction:Ljava/lang/String;
 
-    .line 97
+    .line 94
     :try_start_0
     new-instance v4, Ljava/lang/StringBuilder;
 
@@ -2472,7 +2396,7 @@
     :try_end_0
     .catch Ljava/lang/RuntimeException; {:try_start_0 .. :try_end_0} :catch_0
 
-    .line 103
+    .line 100
     :goto_1
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->dragging:Z
 
@@ -2490,7 +2414,7 @@
 
     goto :goto_0
 
-    .line 102
+    .line 99
     :catch_0
     move-exception v0
 
@@ -2528,11 +2452,9 @@
 .end method
 
 .method private showValue(I)V
-    .locals 4
+    .locals 3
 
     .prologue
-    const/4 v3, 0x0
-
     .line 83
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->valueLabel:Landroid/widget/TextView;
 
@@ -2571,7 +2493,7 @@
 
     if-nez p1, :cond_2
 
-    const-string v0, "R\u00e9activer"
+    const-string v0, "\u25d6))  R\u00e9activer"
 
     :goto_0
     invoke-virtual {v1, v0}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
@@ -2586,45 +2508,13 @@
     :goto_1
     invoke-virtual {v1, v0}, Landroid/widget/Button;->setContentDescription(Ljava/lang/CharSequence;)V
 
-    .line 87
-    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerVolume;->mute:Landroid/widget/Button;
-
-    if-nez p1, :cond_4
-
-    const v0, 0x1080032
-
-    :goto_2
-    invoke-virtual {v1, v0, v3, v3, v3}, Landroid/widget/Button;->setCompoundDrawablesWithIntrinsicBounds(IIII)V
-
     .line 88
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->mute:Landroid/widget/Button;
-
-    const/high16 v1, 0x41000000    # 8.0f
-
-    invoke-direct {p0, v1}, Lcom/melodix/music/PreviewPlayerVolume;->dp(F)I
-
-    move-result v1
-
-    invoke-virtual {v0, v1}, Landroid/widget/Button;->setCompoundDrawablePadding(I)V
-
-    .line 89
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->mute:Landroid/widget/Button;
-
-    const/4 v1, -0x1
-
-    invoke-static {v1}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
-
-    move-result-object v1
-
-    invoke-virtual {v0, v1}, Landroid/widget/Button;->setCompoundDrawableTintList(Landroid/content/res/ColorStateList;)V
-
-    .line 91
     :cond_1
     return-void
 
     .line 85
     :cond_2
-    const-string v0, "Silence"
+    const-string v0, "\u25d6\u00d7  Silence"
 
     goto :goto_0
 
@@ -2633,19 +2523,13 @@
     const-string v0, "Mettre le lecteur en silence"
 
     goto :goto_1
-
-    .line 87
-    :cond_4
-    const v0, 0x1080031
-
-    goto :goto_2
 .end method
 
 .method private surface(IIF)Landroid/graphics/drawable/GradientDrawable;
     .locals 2
 
     .prologue
-    .line 106
+    .line 103
     new-instance v0, Landroid/graphics/drawable/GradientDrawable;
 
     invoke-direct {v0}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
@@ -2681,7 +2565,7 @@
 
     const/4 v2, 0x0
 
-    .line 151
+    .line 148
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerVolume;->isAttachedToWindow()Z
 
     move-result v0
@@ -2841,7 +2725,7 @@
     .locals 0
 
     .prologue
-    .line 152
+    .line 149
     invoke-super {p0}, Landroid/widget/Button;->onAttachedToWindow()V
 
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerVolume;->sync()V
@@ -2855,7 +2739,7 @@
     .prologue
     const/4 v4, 0x0
 
-    .line 153
+    .line 150
     iput-boolean v4, p0, Lcom/melodix/music/PreviewPlayerVolume;->running:Z
 
     iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->serial:J
@@ -2902,7 +2786,7 @@
     .locals 1
 
     .prologue
-    .line 154
+    .line 151
     invoke-super {p0, p1, p2}, Landroid/widget/Button;->onVisibilityChanged(Landroid/view/View;I)V
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->handler:Landroid/os/Handler;
@@ -2923,7 +2807,7 @@
     .locals 1
 
     .prologue
-    .line 155
+    .line 152
     invoke-super {p0, p1}, Landroid/widget/Button;->onWindowVisibilityChanged(I)V
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->handler:Landroid/os/Handler;

@@ -396,17 +396,19 @@ test('like: bar title linking to the album with ?highlight=spotify:track:ID give
   assert.equal(clicks, 1);
 });
 
-test('like: Spotify "+" button (generic "Ajouter…" label, aria-checked) with album-only bar link adds once; title mismatch never clicks', async () => {
-  const dom = page(`<aside data-testid="now-playing-bar"><a data-testid="context-item-link" href="/album/al9">Titre</a><a href="/artist/z">Artiste</a><button aria-label="Ajouter à la playlist" aria-checked="false">+</button><button aria-label="Ajouter à la file d'attente">q</button></aside>`);
-  const b = dom.window.document.querySelectorAll('button')[0]; let clicks = 0;
-  b.addEventListener('click', () => { clicks++; b.setAttribute('aria-checked', 'true'); });
-  run(dom, mode, 'like', 'run', 'false', 'Autre titre', 'album:al9'); await settle(1500);
-  assert.equal(clicks, 0);
-  run(dom, mode, 'like', 'run', 'false', 'Titre', 'album:al9'); await settle(1500);
-  const out = run(dom, mode, 'like', 'poll', 'unknown', 'Titre', 'album:al9');
-  assert.equal(clicks, 1); assert.equal(out.state, 'true');
-  run(dom, mode, 'like', 'run', 'true', 'Titre', 'album:al9'); await settle(1500);
-  assert.equal(clicks, 1);
+test('like: generic playlist and album-only identity cannot be used to add', async () => {
+  const dom=page('<aside data-testid="now-playing-bar"><a href="/album/al9">Titre</a><button data-testid="add-button" aria-label="Ajouter à la playlist" aria-checked="false">+</button></aside>');
+  const b=dom.window.document.querySelector('button');let clicks=0;b.onclick=()=>clicks++;
+  run(dom,mode,'like','run','false','Titre','album:al9');await settle(300);assert.equal(clicks,0);
+  dom.window.document.querySelector('a').href='/track/x';run(dom,mode,'like','run','unknown','Titre','track:x');await settle(300);assert.equal(clicks,0);
+  b.setAttribute('aria-checked','true');run(dom,mode,'like','run','unknown','Titre','track:x');await settle(300);const out=run(dom,mode,'like','poll','unknown','Titre','track:x');assert.equal(clicks,0);assert.notEqual(out.outcome,'read');dom.window.close();
+});
+
+test('picker: a generic checked playlist opener may inspect only explicit unchecked liked songs',async()=>{
+  const x=pickerPage('<div role="menuitemcheckbox" aria-checked="false">Titres likés</div><div role="menuitemcheckbox" aria-checked="true">Ma playlist</div>');
+  x.b.setAttribute('aria-label','Ajouter à la playlist');x.b.setAttribute('aria-checked','true');
+  run(x.dom,mode,'like','run','unknown','Titre','track:x');await settle(40);
+  assert.deepEqual(x.counts,{open:1,selected:1,other:0,closed:1});assert.equal(run(x.dom,mode,'like','poll','unknown','Titre','track:x').outcome,'confirmed');x.dom.window.close();
 });
 
 test('devices: the picker trigger itself is not mistaken for an open device panel', async () => {

@@ -23,6 +23,9 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.view.ViewTreeObserver;
+import android.view.Window;
+import android.view.WindowInsets;
+import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -38,6 +41,11 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
     private boolean closing, bypassClose;
     private Drawable rootBackground, panelBackground, appliedBackground, backdrop;
     private Bitmap previousScreen;
+    private Window statusWindow;
+    private Drawable statusOverlay;
+    private View statusDecor;
+    private int originalStatusColor, originalStatusFlags, originalStatusUi;
+    private static final int PLAYER_STATUS_COLOR=0xff0a0614;
     private PreviewPlayerDecoration repeatArt, shuffleDot;
     private PreviewPlayerLikeArt likeArt;
     private View likeControl;
@@ -103,6 +111,40 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
             Bitmap bmp=Bitmap.createBitmap(Math.max(1,(int)(width*scale)),Math.max(1,(int)(height*scale)),Bitmap.Config.ARGB_8888);
             Canvas c=new Canvas(bmp);c.scale(scale,scale);r.draw(c);chrome.previousScreen=bmp;
         }catch(RuntimeException ignored){chrome.previousScreen=null;}catch(OutOfMemoryError ignored){chrome.previousScreen=null;}
+    }
+    /** Match the reader's dark top; restore only the window bits we touched. */
+    private void applyStatusBar(Activity a){
+        Window w=a.getWindow();if(w==null)return;
+        View decor=w.getDecorView();if(decor==null)return;
+        if(statusWindow==null){
+            statusWindow=w;statusDecor=decor;originalStatusColor=w.getStatusBarColor();
+            originalStatusFlags=w.getAttributes().flags;originalStatusUi=decor.getSystemUiVisibility();
+            w.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
+            w.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+            decor.setSystemUiVisibility(decor.getSystemUiVisibility() & ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+            w.setStatusBarColor(PLAYER_STATUS_COLOR);
+        }
+        // Android 15+ enforces a transparent status bar for target 35. Paint
+        // only its inset in the decor overlay; system icons remain above it.
+        if(Build.VERSION.SDK_INT>=35 && statusDecor==decor){
+            WindowInsets insets=decor.getRootWindowInsets();int top=insets==null?0:insets.getSystemWindowInsetTop();
+            if(top>0 && decor.getWidth()>0){
+                if(statusOverlay==null){statusOverlay=new ColorDrawable(PLAYER_STATUS_COLOR);decor.getOverlay().add(statusOverlay);}
+                statusOverlay.setBounds(0,0,decor.getWidth(),top);
+            }
+        }
+    }
+    private void restoreStatusBar(){
+        if(statusDecor!=null && statusOverlay!=null)statusDecor.getOverlay().remove(statusOverlay);
+        if(statusWindow!=null){
+            if(statusWindow.getStatusBarColor()==PLAYER_STATUS_COLOR)statusWindow.setStatusBarColor(originalStatusColor);
+            if((originalStatusFlags & WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS)!=0)statusWindow.addFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
+            else statusWindow.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
+            if((originalStatusFlags & WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)!=0)statusWindow.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+            else statusWindow.clearFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+            if(statusDecor!=null){int ui=statusDecor.getSystemUiVisibility();statusDecor.setSystemUiVisibility((ui & ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR) | (originalStatusUi & View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR));}
+        }
+        statusWindow=null;statusDecor=null;statusOverlay=null;
     }
     private void applyBackground(Activity a) {
         if(chromeApplied)return;
@@ -435,12 +477,12 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
             if(closing){closing=false;View p=activity()==null?null:activity().findViewById(0x7f09023a);if(p!=null){p.animate().cancel();p.setTranslationY(0f);p.setAlpha(1f);}}
             if(wasVisible && getParent() instanceof View){View content=(View)getParent();content.animate().cancel();content.setAlpha(1f);content.setTranslationY(0f);}
             wasVisible=false;
-            if(ticking){removeCallbacks(visualTick);ticking=false;}restoreHeader();restoreBackground();return;
+            if(ticking){removeCallbacks(visualTick);ticking=false;}restoreHeader();restoreBackground();restoreStatusBar();return;
         }
         Activity a=activity();if(a==null)return;
         boolean opening=!wasVisible;wasVisible=true;
         state="affiché, "+(getResources().getConfiguration().orientation==2?"paysage":"portrait");
-        hideHeader(a);applyBackground(a);stylePlay(a);sizeArtwork(a);landscape(a);sizeSkips(a);setupCosmetics(a);updateTint(a);
+        hideHeader(a);applyBackground(a);applyStatusBar(a);stylePlay(a);sizeArtwork(a);landscape(a);sizeSkips(a);setupCosmetics(a);updateTint(a);
         if(opening){
             View p=a.findViewById(0x7f09023a);
             if(p!=null && (Build.VERSION.SDK_INT<26 || ValueAnimator.areAnimatorsEnabled())){
@@ -453,7 +495,7 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
     }
     @Override public void onGlobalLayout(){sync();}
     @Override protected void onAttachedToWindow(){super.onAttachedToWindow();observer=getViewTreeObserver();observer.addOnGlobalLayoutListener(this);post(syncTask);}
-    @Override protected void onDetachedFromWindow(){closing=false;Activity a=activity();View p=a==null?null:a.findViewById(0x7f09023a);if(p!=null){p.animate().cancel();p.setAlpha(1f);p.setTranslationY(0f);}if(observer!=null && observer.isAlive())observer.removeOnGlobalLayoutListener(this);observer=null;removeCallbacks(syncTask);removeCallbacks(visualTick);ticking=false;restoreHeader();restoreBackground();super.onDetachedFromWindow();}
+    @Override protected void onDetachedFromWindow(){closing=false;Activity a=activity();View p=a==null?null:a.findViewById(0x7f09023a);if(p!=null){p.animate().cancel();p.setAlpha(1f);p.setTranslationY(0f);}if(observer!=null && observer.isAlive())observer.removeOnGlobalLayoutListener(this);observer=null;removeCallbacks(syncTask);removeCallbacks(visualTick);ticking=false;restoreHeader();restoreBackground();restoreStatusBar();super.onDetachedFromWindow();}
     @Override protected void onVisibilityChanged(View changed,int visibility){super.onVisibilityChanged(changed,visibility);if(syncTask!=null)post(syncTask);}
     @Override protected void onWindowVisibilityChanged(int visibility){super.onWindowVisibilityChanged(visibility);if(syncTask!=null)post(syncTask);}
 }

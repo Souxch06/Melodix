@@ -41,8 +41,8 @@ stubs={
   a.G.reply("status=started");Handler.advance(250);ok(a.G.js.contains("\\"poll\\""));a.G.reply("status=running");Handler.advance(250);
   a.G.reply("status=done;outcome=confirmed;state=true;method=now-playing-view;journal=a:absent>b:found>b:click>b:verified");ok(m.enabled);if(kind.equals("like"))ok(Toast.message.contains("Ajouté"));
   ok(PreviewPlayerMode.diagnosticReport().contains("méthode=now-playing-view"));ok(!PreviewPlayerMode.diagnosticReport().contains("Titre"));
-  // The narrow bar hides the control again: the last state actually read is kept.
-  java.lang.reflect.Method observe=PreviewPlayerMode.class.getDeclaredMethod("observe");observe.setAccessible(true);observe.invoke(m);a.G.reply(data("unknown")+";reason=control");ok(m.enabled);ok(!m.description.startsWith("État inconnu"));
+  // A hidden Like must not reuse an old state based on title alone.
+  java.lang.reflect.Method observe=PreviewPlayerMode.class.getDeclaredMethod("observe");observe.setAccessible(true);observe.invoke(m);a.G.reply(data("unknown")+";reason=control");ok(m.enabled);ok(kind.equals("like")?m.description.startsWith("État inconnu"):!m.description.startsWith("État inconnu"));
   // Unverifiable command: shown as unknown with an explicit message, never as on/off.
   SystemClock.t+=401;m.performClick();a.G.reply("status=started");Handler.advance(250);a.G.reply("status=done;outcome=unverified;state=unknown;method=keyboard");ok(m.description.startsWith("État inconnu"));ok(Toast.message.contains("non vérifiable"));
   // Unconfirmed action: French message with Réessayer.
@@ -51,6 +51,9 @@ stubs={
   SystemClock.t+=401;observe.invoke(m);a.G.reply(data("false"));m.performClick();ValueCallback<String> late=a.G.cb;Handler.advance(7001);ok(Toast.message.contains("Réessayer")||Toast.message.contains("indisponible"));int toasts=Toast.count;late.onReceiveValue("status=started");ok(Toast.count==toasts);
   m.shown=false;m.onVisibilityChanged(m,8);ok(!m.enabled);m.onDetachedFromWindow();ok(!m.enabled);
  }
+ // A readable true state without a track identity or matching title is not a pink heart.
+ Activity mismatch=page();PreviewPlayerMode ident=boot(mismatch,"like");Handler.step();mismatch.G.reply("state=true;track=;title=Titre;reason=observed");Handler.advance(2500);ok(!ident.description.startsWith("Titre aimé"));ident.onDetachedFromWindow();
+ mismatch=page();ident=boot(mismatch,"like");Handler.step();mismatch.G.reply("state=true;track=track:abc;title=Different;reason=observed");Handler.advance(2500);ok(!ident.description.startsWith("Titre aimé"));ident.onDetachedFromWindow();
  // Nothing playing: disabled reason, the tap sends nothing.
  Activity t=page();PreviewPlayerMode sh=boot(t,"shuffle");Handler.step();t.G.reply("state=unknown;reason=bar");Handler.advance(2500);int before=t.G.calls;ok(!sh.enabled);ok(sh.description.contains("barre du lecteur Spotify absente"));sh.performClick();ok(t.G.calls==before);sh.onDetachedFromWindow();
  // Restricted shuffle stays disabled with its reason.

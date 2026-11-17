@@ -9,7 +9,7 @@ test('French apostrophe and smart state are observable, never inferred from acco
  x=run('<button data-testid="control-button-shuffle" disabled aria-label="enable shuffle"></button>','shuffle');assert.equal(x.reason,'disabled');assert.equal(x.disabled,true);assert.ok(!JSON.stringify(x).includes('restriction'));
 });
 test('a menu is not represented as a direct liked-songs command',()=>{
- const x=run(bar('<button data-testid="add-button" aria-checked="false" aria-haspopup="menu"></button>'),'like');assert.equal(x.command,'menu');assert.equal(x.state,'false');
+ const x=run(bar('<button data-testid="add-button" aria-checked="false" aria-haspopup="menu"></button>'),'like');assert.equal(x.command,'menu');assert.equal(x.state,'unknown');
  const y=run(bar('<button data-testid="add-button" aria-checked="false"></button>'),'like');assert.equal(y.command,'unspecified');
 });
 test('unknown invalid mixed absent ambiguous and no sensitive page data',()=>{
@@ -62,4 +62,9 @@ test('outside-player candidates are counted but never identified or acted upon',
 test('outside counts are bounded and do not promote unrelated candidates to a like',()=>{
  const html=Array(120).fill('<button data-testid="add-button" aria-label="Add to your library"></button><a href="/track/a">x</a>').join('');const x=run(html,'like'),st=JSON.parse(x.structure);
  assert.equal(st.outside_like_id,99);assert.equal(st.outside_like_label,99);assert.equal(st.outside_track_links,99);assert.equal(x.count,0);
+});
+
+
+test('generic checked playlist controls never claim a liked state in diagnostics',()=>{
+ for(const checked of ['true','false']){const x=run(bar('<button data-testid="add-button" aria-label="Ajouter à la playlist" aria-checked="'+checked+'"></button>'),'like');assert.equal(x.state,'unknown');assert.equal(x.reason,'unverified');}
 });

@@ -23,3 +23,10 @@ Le nouveau retour indique que Like ne fonctionne toujours pas avec l'APK fournie
 La sonde passive compte désormais les boutons Like reconnus par identifiant ou libellé et les liens de piste **en dehors** des zones lecteur reconnues. Ces nombres sont plafonnés à 99, ne contiennent ni titre, ni lien, ni identifiant ni données de session, et peuvent correspondre à une playlist ou à une autre piste : ils ne déclenchent aucun clic et ne prouvent pas une identité. Ils permettent uniquement de distinguer un contrôle éventuellement présent ailleurs d'un contrôle non reconnu dans tout le document. La sécurité Like et la conclusion bloquée ci-dessus ne changent pas.
 
 Vérification locale de ce diagnostic : 99 scénarios JS du lot lecteur/panneaux, tests JVM et geste, décodage de l'APK non signée et garde 9016 7/7 réussis. Aucun résultat Like réel n'est établi par ces simulations.
+
+## Captures suivantes : bandeau, boutons et Like
+
+- Le bandeau de statut adopte la teinte sombre du haut du lecteur ; ses drapeaux et sa couleur d'origine sont restaurés à la fermeture. Pour Android 15 et la cible 35, un fond est dessiné uniquement dans l'inset du statut afin de gérer la barre transparente imposée par le système. Ceci reste à vérifier visuellement sur l'appareil réel.
+- Les icônes système de taille intrinsèque séparaient les icônes des libellés dans les boutons. Les commandes sont maintenant centrées avec de petits symboles et un texte accessible ; le curseur Spotify et la logique audio restent inchangés.
+- Le toast « Déjà dans vos titres likés » est bien visible dans la capture mais ne prouve pas le contenu de la bibliothèque. Les faux états/clics génériques reproductibles sont corrigés ; voir `LIKE_SECURITE.md`. L'ajout n'est pas présenté comme validé sur Spotify réel.
+- Vérification finale : 103 scénarios JS du lot lecteur/panneaux, simulation JVM (dont restauration de la barre d'état et gestes), compilation UTF-8 et décodage Smali, chaîne jusqu'à l'APK non signée et garde 9016 : 7/7. Aucun des sept fichiers protégés modifié.

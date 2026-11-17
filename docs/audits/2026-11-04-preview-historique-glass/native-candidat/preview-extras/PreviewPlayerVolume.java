@@ -82,11 +82,8 @@ public final class PreviewPlayerVolume extends Button {
     private void showValue(int n){
         if(valueLabel!=null)valueLabel.setText(n+" %");
         if(mute!=null){
-            mute.setText(n==0?"Réactiver":"Silence");
+            mute.setText(n==0?"◖))  Réactiver":"◖×  Silence");
             mute.setContentDescription(n==0?"Réactiver le volume du lecteur":"Mettre le lecteur en silence");
-            mute.setCompoundDrawablesWithIntrinsicBounds(n==0?android.R.drawable.ic_lock_silent_mode_off:android.R.drawable.ic_lock_silent_mode,0,0,0);
-            mute.setCompoundDrawablePadding(dp(8));
-            mute.setCompoundDrawableTintList(ColorStateList.valueOf(Color.WHITE));
         }
     }
     private void enqueue(int n){queued=Math.max(0,Math.min(100,n));if(!sendScheduled){sendScheduled=true;long delay=Math.max(0,100-(SystemClock.elapsedRealtime()-lastSent));handler.postDelayed(sendTask,delay);}}
@@ -133,12 +130,12 @@ public final class PreviewPlayerVolume extends Button {
             slider=new SeekBar(a);slider.setMax(100);slider.setProgress(Math.max(0,percent));slider.setContentDescription("Volume du lecteur, de zéro à cent pour cent");
             slider.setProgressTintList(ColorStateList.valueOf(0xffb46cf5));slider.setProgressBackgroundTintList(ColorStateList.valueOf(0x40ffffff));slider.setThumbTintList(ColorStateList.valueOf(0xffffffff));card.addView(slider,new LinearLayout.LayoutParams(-1,dp(48)));
             LinearLayout bounds=new LinearLayout(a);bounds.setOrientation(LinearLayout.HORIZONTAL);
-            TextView low=new TextView(a);low.setText("Silence");low.setCompoundDrawablesWithIntrinsicBounds(android.R.drawable.ic_lock_silent_mode,0,0,0);low.setCompoundDrawablePadding(dp(6));low.setCompoundDrawableTintList(ColorStateList.valueOf(0xffcfc6f2));low.setTextColor(0xffb9aed6);low.setTextSize(12);bounds.addView(low,new LinearLayout.LayoutParams(0,dp(24),1));
-            TextView high=new TextView(a);high.setText("100 %");high.setCompoundDrawablesWithIntrinsicBounds(0,0,android.R.drawable.ic_lock_silent_mode_off,0);high.setCompoundDrawablePadding(dp(6));high.setCompoundDrawableTintList(ColorStateList.valueOf(0xffcfc6f2));high.setTextColor(0xffb9aed6);high.setTextSize(12);high.setGravity(Gravity.RIGHT);bounds.addView(high,new LinearLayout.LayoutParams(0,dp(24),1));card.addView(bounds,new LinearLayout.LayoutParams(-1,dp(24)));
+            TextView low=new TextView(a);low.setText("◖×  Silence");low.setTextColor(0xffb9aed6);low.setTextSize(12);bounds.addView(low,new LinearLayout.LayoutParams(0,dp(24),1));
+            TextView high=new TextView(a);high.setText("100 %  ◖))");high.setTextColor(0xffb9aed6);high.setTextSize(12);high.setGravity(Gravity.RIGHT);bounds.addView(high,new LinearLayout.LayoutParams(0,dp(24),1));card.addView(bounds,new LinearLayout.LayoutParams(-1,dp(24)));
             content.addView(card,new LinearLayout.LayoutParams(-1,-2));
             LinearLayout actions=new LinearLayout(a);actions.setOrientation(LinearLayout.HORIZONTAL);actions.setPadding(0,dp(12),0,dp(8));
             mute=action(a,"Silence",true);actions.addView(mute,new LinearLayout.LayoutParams(0,dp(48),1));
-            Button retry=action(a,"Actualiser",false);retry.setCompoundDrawablesWithIntrinsicBounds(android.R.drawable.ic_popup_sync,0,0,0);retry.setCompoundDrawablePadding(dp(8));retry.setCompoundDrawableTintList(ColorStateList.valueOf(Color.WHITE));LinearLayout.LayoutParams retryLayout=new LinearLayout.LayoutParams(0,dp(48),1);retryLayout.leftMargin=dp(8);actions.addView(retry,retryLayout);content.addView(actions,new LinearLayout.LayoutParams(-1,-2));
+            Button retry=action(a,"↻  Actualiser",false);retry.setContentDescription("Actualiser le volume du lecteur");LinearLayout.LayoutParams retryLayout=new LinearLayout.LayoutParams(0,dp(48),1);retryLayout.leftMargin=dp(8);actions.addView(retry,retryLayout);content.addView(actions,new LinearLayout.LayoutParams(-1,-2));
             showValue(percent);
             mute.setOnClickListener(new View.OnClickListener(){public void onClick(View v){int p=slider.getProgress();if(p>0)lastNonZero=p;int target=p>0?0:lastNonZero;if(target<0){Toast.makeText(getContext(),"Utilisez le curseur pour réactiver",Toast.LENGTH_SHORT).show();return;}slider.setProgress(target);showValue(target);enqueue(target);}});
             slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onStartTrackingTouch(SeekBar b){dragging=true;}public void onProgressChanged(SeekBar b,int p,boolean user){if(user){if(p>0)lastNonZero=p;showValue(p);enqueue(p);}}public void onStopTrackingTouch(SeekBar b){dragging=false;enqueue(b.getProgress());}});

@@ -49,9 +49,7 @@
         if (m) return m;
         var a = /^(?:https:\/\/open\.spotify\.com)?\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\/)?album\/[a-z0-9]+\/?\?(?:[^#]*&)?highlight=spotify(?::|%3a)(track)(?::|%3a)([a-z0-9]+)(?:[&#].*)?$/i.exec(h);
         if (a) return [a[0], a[1], a[2]];
-        // No track link at all: the album link plus the exact title is the identity.
-        var al = /^(?:https:\/\/open\.spotify\.com)?\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\/)?(album)\/([a-z0-9]+)\/?(?:[?#].*)?$/i.exec(h);
-        return al ? [al[0], al[1], al[2]] : null;
+        return null; // album + title does not uniquely identify a track
     }
     if (kind === 'like') {
         var anchors = Array.from(document.querySelectorAll('[data-testid="now-playing-widget"] a[href], [data-testid="now-playing-bar"] a[href]'));
@@ -76,14 +74,16 @@
     }
     if (nodes.length !== 1) {result.reason='ambiguous';return JSON.stringify(result);}
     var button=nodes[0];
-    if (button.disabled || button.getAttribute('aria-disabled') === 'true') {
+    if (button.disabled || button.matches(':disabled') || button.closest('[aria-disabled="true"]')) {
         var description=String(button.getAttribute('aria-description')||'').trim();
         result.reason=kind==='shuffle' && /^(shuffle is not available (with|for) (this account|this playback)|l['’]aléatoire n['’]est pas disponible avec (ce compte|cette lecture))$/i.test(description)?'restriction':'disabled';
         return JSON.stringify(result);
     }
-    if (kind === 'like' && /^(true|menu|dialog)$/i.test(String(button.getAttribute('aria-haspopup')||''))) {result.reason='menu';return JSON.stringify(result);}
+    if (kind === 'like' && /^(true|menu|dialog|listbox|tree|grid)$/i.test(String(button.getAttribute('aria-haspopup')||''))) {result.reason='menu';return JSON.stringify(result);}
     var raw=button.getAttribute('aria-checked');
-    if (raw === null) raw=button.getAttribute('aria-pressed');
+    var pressed=button.getAttribute('aria-pressed');
+    if (kind === 'like' && raw !== null && pressed !== null && raw !== pressed) {result.reason='conflict';return JSON.stringify(result);}
+    if (raw === null) raw=pressed;
     var label=String(button.getAttribute('aria-label')||'').trim();
     if (raw === null) {
         raw=labels[kind].on.test(label) ? 'true' :
@@ -94,14 +94,11 @@
         // unlabeled generic add-button can be a playlist menu, not a like.
         var testId=String(button.getAttribute('data-testid')||'').toLowerCase();
         var removeId=/^(remove-button|remove-from-library-button)$/.test(testId);
-        var addId=testId==='add-to-library-button';
         var offLabel=labels.like.off.test(label), onLabel=labels.like.on.test(label);
-        var generic=genericAdd(label) && (raw==='true'||raw==='false');
-        if (generic) offLabel=raw==='false', onLabel=raw==='true';
         if ((raw==='false' && (onLabel||removeId)) || (raw==='true' && offLabel)) {
             result.reason='conflict';return JSON.stringify(result);
         }
-        if (raw==='false' && !offLabel && !addId) {result.reason='unverified';return JSON.stringify(result);}
+        if (!offLabel && !onLabel) {result.reason='unverified';return JSON.stringify(result);}
         // Display-only reads need no identity; a click (invoke) still does.
         if ((!result.track || !result.title) && action !== 'query') {result.reason='identity';return JSON.stringify(result);}
     }

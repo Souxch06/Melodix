@@ -30,7 +30,7 @@
     .locals 0
 
     .prologue
-    .line 310
+    .line 352
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerChrome$3;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerChrome$3;->val$p:Landroid/view/View;
@@ -56,7 +56,7 @@
 
     const/4 v5, 0x0
 
-    .line 311
+    .line 353
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$3;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerChrome;->access$12(Lcom/melodix/music/PreviewPlayerChrome;)Z
@@ -65,11 +65,11 @@
 
     if-nez v0, :cond_0
 
-    .line 316
+    .line 358
     :goto_0
     return-void
 
-    .line 312
+    .line 354
     :cond_0
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$3;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
@@ -79,7 +79,7 @@
 
     invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerChrome;->access$16(Lcom/melodix/music/PreviewPlayerChrome;Z)V
 
-    .line 313
+    .line 355
     :try_start_0
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$3;->val$a:Landroid/app/Activity;
 
@@ -114,7 +114,7 @@
     .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
     .catchall {:try_start_0 .. :try_end_0} :catchall_0
 
-    .line 315
+    .line 357
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$3;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
     invoke-static {v0, v5}, Lcom/melodix/music/PreviewPlayerChrome;->access$16(Lcom/melodix/music/PreviewPlayerChrome;Z)V
@@ -129,7 +129,7 @@
 
     goto :goto_0
 
-    .line 314
+    .line 356
     :catch_0
     move-exception v0
 
@@ -148,7 +148,7 @@
     :try_end_1
     .catchall {:try_start_1 .. :try_end_1} :catchall_0
 
-    .line 315
+    .line 357
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$3;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
     invoke-static {v0, v5}, Lcom/melodix/music/PreviewPlayerChrome;->access$16(Lcom/melodix/music/PreviewPlayerChrome;Z)V

@@ -27,7 +27,8 @@ for value in ('Titre aimé', 'Action non confirmée. Réessayer', 'Lecture aléa
 assert 'Indisponible dans cette version' in ''.join(text(p) for p in smali.glob('PreviewPlayerTiles*.smali'))
 volume = text(smali / 'PreviewPlayerVolume.smali')
 assert 'Volume du lecteur' in volume
-assert 'setCompoundDrawablesWithIntrinsicBounds' in volume
+assert '◖×  Silence' in volume and '↻  Actualiser' in volume
+assert 'setCompoundDrawablesWithIntrinsicBounds' not in volume
 chrome = text(smali / 'PreviewPlayerChrome.smali')
 assert 'captureBeforeExpand' in chrome and 'previousScreen' in chrome
 if root:

@@ -51,7 +51,7 @@ test('conflicting removal controls and generic unlabelled add controls are never
  b.setAttribute('aria-label','Remove from your library');assert.equal(q(x,'like').reason,'conflict');assert.equal(invoke(x,'like','false','track:abc','Titre'),false);
  b.removeAttribute('aria-label');b.setAttribute('data-testid','remove-button');assert.equal(q(x,'like').reason,'conflict');assert.equal(invoke(x,'like','false','track:abc','Titre'),false);
  b.setAttribute('data-testid','add-button');assert.equal(q(x,'like').reason,'unverified');assert.equal(invoke(x,'like','false','track:abc','Titre'),false);
- b.setAttribute('data-testid','add-to-library-button');assert.equal(q(x,'like').state,'false');assert.equal(invoke(x,'like','false','track:abc','Titre'),true);assert.equal(clicks,1);
+ b.setAttribute('data-testid','add-to-library-button');assert.equal(q(x,'like').state,'unknown');assert.equal(invoke(x,'like','false','track:abc','Titre'),false);assert.equal(clicks,0);
  }finally{x.close()}});
 
 test('localized repeat action uses a unique button, never the helper with playback side effects',()=>{const x=boot();try{
@@ -93,6 +93,21 @@ test('generic player links can supply identity without claiming like state',()=>
 }finally{x.close()}});
 
 test('a recognized role button in the player widget is observed',()=>{const x=boot();try{
- let b=x.w.document.querySelector('div>div>button');let r=x.w.document.createElement('div');r.setAttribute('role','button');r.setAttribute('data-testid','add-to-library-button');r.setAttribute('aria-checked','false');b.replaceWith(r);
+ let b=x.w.document.querySelector('div>div>button');let r=x.w.document.createElement('div');r.setAttribute('role','button');r.setAttribute('data-testid','add-to-library-button');r.setAttribute('aria-checked','false');r.setAttribute('aria-label','Save to your library');b.replaceWith(r);
  assert.equal(q(x,'like').state,'false');assert.equal(q(x,'like').track,'track:abc');
 }finally{x.close()}});
+
+
+test('generic playlist controls and album-only identity never claim or send a like',()=>{const x=boot();try{
+ const b=x.w.document.querySelector('div>div>button'),a=x.w.document.querySelector('a');let clicks=0;b.onclick=()=>clicks++;
+ b.setAttribute('aria-label','Ajouter à la playlist');for(const state of ['true','false']){b.setAttribute('aria-checked',state);assert.equal(q(x,'like').state,'unknown');assert.equal(invoke(x,'like',state,'track:abc','Titre'),false);}
+ b.setAttribute('aria-label','Save to your library');b.setAttribute('aria-checked','false');a.href='/album/same';assert.equal(q(x,'like').track,'');assert.equal(invoke(x,'like','false','album:same','Titre'),false);assert.equal(clicks,0);
+ }finally{x.close()}});
+
+
+test('like state is unknown for inherited disabled, contradictory ARIA or announced popups',()=>{const x=boot();try{
+ const b=x.w.document.querySelector('div>div>button');let clicks=0;b.onclick=()=>clicks++;
+ b.setAttribute('aria-pressed','true');assert.equal(q(x,'like').reason,'conflict');assert.equal(invoke(x,'like','false','track:abc','Titre'),false);b.removeAttribute('aria-pressed');
+ for(const popup of ['listbox','tree','grid']){b.setAttribute('aria-haspopup',popup);assert.equal(q(x,'like').reason,'menu');assert.equal(invoke(x,'like','false','track:abc','Titre'),false);}b.removeAttribute('aria-haspopup');
+ b.parentElement.setAttribute('aria-disabled','true');assert.equal(q(x,'like').reason,'disabled');assert.equal(invoke(x,'like','false','track:abc','Titre'),false);assert.equal(clicks,0);
+ }finally{x.close()}});

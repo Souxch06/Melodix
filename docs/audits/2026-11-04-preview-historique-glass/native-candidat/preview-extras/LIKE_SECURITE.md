@@ -33,3 +33,11 @@ artiste, ni identifiant de piste, ni données de session.
   confirmation ne doit être attribuée à l'autre piste.
 - Si le contrôle ou l'identité manque, relever le motif et copier la sonde sans
   données personnelles ; ne pas interpréter « envoyé » comme « confirmé ».
+
+## Retour 1022203 : faux Like possible
+
+La capture montre « Déjà dans vos titres likés », mais ne montre pas la liste Spotify : elle ne suffit pas à confirmer ou infirmer l'état réel du titre. Un contre-exemple DOM a cependant révélé deux défauts : un contrôle générique « Ajouter à la playlist » avec `aria-checked=true` pouvait être présenté comme un Like, et un bouton générique coché `false` pouvait être cliqué sans preuve de sa destination. De plus, un lien d'album et un titre ne distinguent pas forcément deux pistes homonymes.
+
+Ces cas ne constituent plus une preuve de Like ni une cible d'ajout. L'identité exige désormais un lien de piste ou un lien album avec `highlight` explicite ; l'état devient inconnu si l'identité manque ou ne correspond pas au titre natif, et un état Like ancien n'est plus réutilisé sur le seul titre. Les champs ARIA contradictoires et les contrôles désactivés restent bloqués. Un menu explicitement annoncé par un bouton d'ajout générique peut être inspecté même si le bouton est coché pour une autre playlist : seul l'élément unique « Titres likés » explicitement décoché est actionné, et l'identité et l'état sont vérifiés. On ne clique jamais une playlist ordinaire ni un titre déjà aimé.
+
+La correction est prouvée par des fixtures et tests JVM, pas sur Spotify réel : elle supprime les faux positifs et ouvre une voie plus sûre quand le menu approprié existe, mais la disponibilité du bouton, du menu et de l'identité dans la page du téléphone reste inconnue.

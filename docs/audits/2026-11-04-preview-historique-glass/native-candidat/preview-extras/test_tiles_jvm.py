@@ -97,8 +97,8 @@ stubs.update({
   c.G.setCalls=0;Handler.clear();
   PreviewPlayerVolume volume=(PreviewPlayerVolume)t.children.get(3);volume.onAttachedToWindow();Handler.step();ok(c.G.js.contains("query"));c.G.reply("ok=true;percent=45");ok(volume.enabled&&volume.text.contains("45 %"));
   volume.performClick();Dialog d=Dialog.last;ok(d.shown);LinearLayout l=(LinearLayout)d.content;LinearLayout card=(LinearLayout)l.children.get(3), actions=(LinearLayout)l.children.get(4);SeekBar bar=(SeekBar)card.children.get(1);
-  Button muteButton=(Button)actions.children.get(0);ok(muteButton.iconLeft==android.R.drawable.ic_lock_silent_mode);ok(((Button)actions.children.get(1)).iconLeft==android.R.drawable.ic_popup_sync);
-  java.lang.reflect.Method show=PreviewPlayerVolume.class.getDeclaredMethod("showValue",int.class);show.setAccessible(true);show.invoke(volume,0);ok(muteButton.text.equals("Réactiver")&&muteButton.iconLeft==android.R.drawable.ic_lock_silent_mode_off);show.invoke(volume,45);ok(muteButton.text.equals("Silence")&&muteButton.iconLeft==android.R.drawable.ic_lock_silent_mode);
+  Button muteButton=(Button)actions.children.get(0);ok(muteButton.text.equals("◖×  Silence"));ok(((Button)actions.children.get(1)).text.equals("↻  Actualiser"));ok(muteButton.iconLeft==0);
+  java.lang.reflect.Method show=PreviewPlayerVolume.class.getDeclaredMethod("showValue",int.class);show.setAccessible(true);show.invoke(volume,0);ok(muteButton.text.equals("◖))  Réactiver"));show.invoke(volume,45);ok(muteButton.text.equals("◖×  Silence"));
   bar.listener.onStartTrackingTouch(bar);
   bar.simulate(10);Handler.advance(0);int sent=c.G.setCalls;ok(sent==1);bar.simulate(20);bar.simulate(30);Handler.advance(99);ok(c.G.setCalls==sent);Handler.advance(1);ok(c.G.setCalls==sent+1);ok(c.G.js.contains("30"));
   bar.listener.onStopTrackingTouch(bar);Handler.advance(100);ok(c.G.setCalls==sent+2);
@@ -107,7 +107,7 @@ stubs.update({
   ok(audio.calls==0&&c.root.getVisibility()==original);d.dismiss();volume.onDetachedFromWindow();t.onDetachedFromWindow();
   // Even without a page range, tapping volume opens a native explanation
   // and retry action; it never fabricates a setting or calls Android audio.
-  Handler.clear();PreviewPlayerVolume missing=new PreviewPlayerVolume(c);missing.onAttachedToWindow();Handler.step();c.G.reply("ok=false;reason=absent");ok(missing.enabled);missing.performClick();d=Dialog.last;ok(d.shown);l=(LinearLayout)d.content;card=(LinearLayout)l.children.get(3);actions=(LinearLayout)l.children.get(4);bar=(SeekBar)card.children.get(1);ok(!bar.enabled);ok(((TextView)card.children.get(0)).text.contains("absent"));ok(((Button)actions.children.get(1)).text.equals("Actualiser"));ok(audio.calls==0&&c.root.getVisibility()==original);d.dismiss();missing.onDetachedFromWindow();
+  Handler.clear();PreviewPlayerVolume missing=new PreviewPlayerVolume(c);missing.onAttachedToWindow();Handler.step();c.G.reply("ok=false;reason=absent");ok(missing.enabled);missing.performClick();d=Dialog.last;ok(d.shown);l=(LinearLayout)d.content;card=(LinearLayout)l.children.get(3);actions=(LinearLayout)l.children.get(4);bar=(SeekBar)card.children.get(1);ok(!bar.enabled);ok(((TextView)card.children.get(0)).text.contains("absent"));ok(((Button)actions.children.get(1)).text.equals("↻  Actualiser"));ok(audio.calls==0&&c.root.getVisibility()==original);d.dismiss();missing.onDetachedFromWindow();
   // Collection-open counters: numbers and fixed phase codes only; anything else is discarded.
   String tr=PreviewPlayerTiles.formatTrace("liked,classified,1,1,42,30,0,-,-,3");
   ok(tr.contains("type=likés")&&tr.contains("lignes DOM=42")&&tr.contains("lignes classées=30")&&tr.contains("lignes envoyées au natif=0")&&tr.contains("première liste=—"));
