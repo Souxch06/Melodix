@@ -35,12 +35,28 @@
         if (found.length === 1) return found[0];
         var id = b && b.getAttribute('aria-controls');
         var controlled = id ? document.getElementById(id) : null;
-        return controlled && controlled.isConnected ? controlled : null;
+        if (controlled && controlled.isConnected) return controlled;
+        // Desktop layout: the queue opens in the right-hand panel, labelled in any language.
+        var labelled = Array.from(document.querySelectorAll('aside, section, [role="region"], [role="complementary"], [role="dialog"], div[aria-label]')).filter(function(n) {
+            return n.isConnected && /^(queue|play queue|file d['’]attente|file de lecture|warteschlange|cola( de reproducción)?|fila( de reprodução)?)$/i.test(String(n.getAttribute('aria-label') || '').trim());
+        });
+        if (labelled.length) return labelled[0];
+        var panel = document.querySelector('#Desktop_PanelContainer_Id, [data-testid="right-sidebar"], [data-testid="PanelContainer"]');
+        return panel && panel.isConnected && panel.querySelector('a[href*="/track/"], a[href*="/episode/"]') ? panel : null;
     }
     function rows(r) {
         var list = Array.from(r.querySelectorAll('[data-testid="queue-tracklist-row"], [data-testid="tracklist-row"], [role="row"]')).filter(function(n) {
             return !n.querySelector('[data-testid="queue-tracklist-row"], [data-testid="tracklist-row"], [role="row"]');
         });
+        if (!list.length) {
+            // No row markers: one row per track link, its closest list item or row-like block.
+            var seen = [];
+            Array.from(r.querySelectorAll('a[href*="/track/"], a[href*="/episode/"]')).forEach(function(a) {
+                var row = a.closest('li, [role="listitem"], [draggable="true"], [data-encore-id="listRow"]') || a.parentElement && a.parentElement.parentElement || a;
+                if (seen.indexOf(row) < 0) seen.push(row);
+            });
+            list = seen;
+        }
         return list.slice(0, 40).map(function(n) {
             var t = n.querySelector('[data-testid="internal-track-link"], a[href*="/track/"], a[href*="/episode/"], [data-testid="track-title"], [data-testid="context-item-info-title"]');
             var artists = Array.from(n.querySelectorAll('a[href*="/artist/"], a[href*="/show/"]')).map(text).filter(Boolean);

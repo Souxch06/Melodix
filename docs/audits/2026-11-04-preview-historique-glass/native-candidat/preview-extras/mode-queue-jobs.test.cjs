@@ -200,3 +200,38 @@ test('duplicate controls: the player-bar copy is used; two copies outside it are
   assert.equal(q.ok, false); assert.equal(q.reason, 'ambiguous'); assert.equal(clicks, 0);
   assert.ok(q.journal.some((c) => /^button:ambiguous:2$/.test(c)));
 });
+
+test('desktop layout: queue in a labelled side panel without row markers is read from its track links', async () => {
+  const dom = page(`<button data-testid="control-button-queue" aria-label="File d'attente" aria-pressed="false">q</button><div id="side"></div>`);
+  const doc = dom.window.document, b = doc.querySelector('button');
+  b.addEventListener('click', () => {
+    if (b.getAttribute('aria-pressed') === 'false') { b.setAttribute('aria-pressed', 'true');
+      doc.getElementById('side').innerHTML = `<aside aria-label="File d'attente"><ul><li><a href="/track/1">Un</a><a href="/artist/a">A</a><span>3:01</span></li><li><a href="/track/2">Deux</a><a href="/artist/b">B</a></li></ul></aside>`; }
+    else { b.setAttribute('aria-pressed', 'false'); doc.getElementById('side').innerHTML = ''; }
+  });
+  run(dom, queue, 'run'); await settle(500);
+  const out = run(dom, queue, 'poll');
+  assert.equal(out.ok, true); assert.ok(out.now.startsWith('Un\tA\t3:01')); assert.ok(out.next.startsWith('Deux\tB'));
+});
+
+test('lyrics: a disabled lyrics button is reported, never clicked', async () => {
+  const panelSrc = fs.readFileSync(path.join(__dirname, 'panel-job.js'), 'utf8');
+  const dom = page(`<button data-testid="lyrics-button" aria-label="Paroles" disabled>p</button>`);
+  let clicks = 0; dom.window.document.querySelector('button').addEventListener('click', () => clicks++);
+  run(dom, panelSrc, 'lyrics', 'run', ''); await settle(50);
+  const out = run(dom, panelSrc, 'lyrics', 'poll');
+  assert.equal(out.ok, false); assert.equal(out.reason, 'disabled'); assert.equal(clicks, 0);
+});
+
+test('desktop layout: lyrics shown in the main view are read', async () => {
+  const panelSrc = fs.readFileSync(path.join(__dirname, 'panel-job.js'), 'utf8');
+  const dom = page(`<button data-testid="lyrics-button" aria-label="Paroles" aria-pressed="false">p</button><main id="main-view"></main>`);
+  const doc = dom.window.document, b = doc.querySelector('button');
+  b.addEventListener('click', () => {
+    if (b.getAttribute('aria-pressed') === 'false') { b.setAttribute('aria-pressed', 'true'); doc.getElementById('main-view').innerHTML = '<div data-testid="lyrics-line-a">Ligne un</div><div data-testid="lyrics-line-b">Ligne deux</div>'; }
+    else { b.setAttribute('aria-pressed', 'false'); doc.getElementById('main-view').innerHTML = ''; }
+  });
+  run(dom, panelSrc, 'lyrics', 'run', ''); await settle(500);
+  const out = run(dom, panelSrc, 'lyrics', 'poll');
+  assert.equal(out.ok, true); assert.equal(out.body, 'Ligne un\nLigne deux');
+});

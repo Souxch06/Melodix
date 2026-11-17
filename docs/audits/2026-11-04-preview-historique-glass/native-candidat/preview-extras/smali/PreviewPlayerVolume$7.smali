@@ -33,7 +33,7 @@
         }
     .end annotation
 
-    .line 123
+    .line 134
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerVolume$7;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -46,7 +46,7 @@
 .method public onClick(Landroid/view/View;)V
     .locals 2
 
-    .line 123
+    .line 134
     iget-object p1, p0, Lcom/melodix/music/PreviewPlayerVolume$7;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
     invoke-static {p1}, Lcom/melodix/music/PreviewPlayerVolume;->access$1800(Lcom/melodix/music/PreviewPlayerVolume;)Landroid/widget/SeekBar;

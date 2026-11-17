@@ -45,7 +45,7 @@
         }
     .end annotation
 
-    .line 260
+    .line 261
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$15;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerTiles$15;->val$dialog:Landroid/app/Dialog;
@@ -60,7 +60,7 @@
 .method public onTouch(Landroid/view/View;Landroid/view/MotionEvent;)Z
     .locals 2
 
-    .line 261
+    .line 262
     invoke-virtual {p2}, Landroid/view/MotionEvent;->getActionMasked()I
 
     move-result p1
@@ -77,7 +77,7 @@
 
     return v0
 
-    .line 262
+    .line 263
     :cond_0
     invoke-virtual {p2}, Landroid/view/MotionEvent;->getActionMasked()I
 
@@ -111,7 +111,7 @@
 
     invoke-virtual {p1}, Landroid/app/Dialog;->dismiss()V
 
-    .line 263
+    .line 264
     :cond_1
     return v0
 .end method

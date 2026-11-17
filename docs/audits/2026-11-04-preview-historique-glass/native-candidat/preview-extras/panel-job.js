@@ -16,11 +16,12 @@
         lyrics: {
             ids: /^(lyrics-button|control-button-lyrics)$/i,
             label: /^(lyrics|show lyrics|paroles|afficher les paroles|songtext|letras|letra)$/i,
+            main: true,
             roots: '[data-testid="lyrics-container"], [data-testid="lyrics-page"], [data-testid="lyrics-lyricsContent"]'
         },
         devices: {
             ids: /^(control-button-connect|connect-device-picker|device-picker|connect-button)$/i,
-            label: /^(connect to a device|connect to a device\.\.\.|se connecter à un appareil|connecter à un appareil|mit einem gerät verbinden|conectar a un dispositivo|conectar a um dispositivo)$/i,
+            label: /^(connect to a device|connect to a device\.\.\.|se connecter à un appareil|connecter à un appareil|appareils disponibles|mit einem gerät verbinden|conectar a un dispositivo|conectar a um dispositivo)$/i,
             roots: '[data-testid="device-picker"], [data-testid="connect-device-list"], [data-testid="connect-device-picker"], [role="dialog"][aria-label*="appareil" i], [role="dialog"][aria-label*="device" i]'
         }
     };
@@ -46,10 +47,21 @@
         var hits = Array.from(document.querySelectorAll(spec.roots)).filter(function(n) { return n.isConnected; });
         if (hits.length >= 1) return hits[0];
         var id = b && b.getAttribute('aria-controls'), c = id ? document.getElementById(id) : null;
-        return c && c.isConnected ? c : null;
+        if (c && c.isConnected) return c;
+        if (spec.main) {
+            // Desktop layout: lyrics replace the main view; use it only when it shows lyric lines.
+            var main = document.querySelector('#main-view, main');
+            return main && main.querySelector('[data-testid*="lyric" i]') ? main : null;
+        }
+        // Device picker opens as a popover/dialog mentioning devices.
+        var pops = Array.from(document.querySelectorAll('[role="dialog"], [data-tippy-root], [id^="tippy"], [data-testid*="device" i]')).filter(function(n) {
+            return n.isConnected && /appareil|device|dispositivo|gerät/i.test(String(n.getAttribute('aria-label') || '') + ' ' + String(n.textContent || '').slice(0, 400));
+        });
+        return pops.length ? pops[0] : null;
     }
     function lyricLines(r) {
         var nodes = Array.from(r.querySelectorAll('[data-testid="fullscreen-lyric"], [data-testid="lyrics-line"]'));
+        if (!nodes.length) nodes = Array.from(r.querySelectorAll('[data-testid*="lyric" i]')).filter(function(n) { return !n.children.length || !n.querySelector('[data-testid*="lyric" i]'); });
         if (!nodes.length) nodes = Array.from(r.querySelectorAll('p'));
         var lines = [], active = -1, synced = false;
         nodes.slice(0, 200).forEach(function(n) {
@@ -74,6 +86,7 @@
     function finish(ok, reason) { job.status = 'done'; job.ok = ok; job.reason = reason || ''; }
     try {
         var b = button(), already = root(b);
+        if (b && (b.disabled || b.getAttribute('aria-disabled') === 'true') && !already) { log('button:disabled'); finish(false, 'disabled'); return JSON.stringify({status: 'started'}); }
         if (!b && !already) { log(found > 1 ? 'button:ambiguous:' + Math.min(found, 9) : 'button:absent'); finish(false, found > 1 ? 'ambiguous' : 'absent'); return JSON.stringify({status: 'started'}); }
         var wasOpen = !!already || (b && isOpen(b));
         if (!wasOpen) { try { b.click(); log('opened'); } catch (_) { log('open-error'); finish(false, 'command'); return JSON.stringify({status: 'started'}); } }

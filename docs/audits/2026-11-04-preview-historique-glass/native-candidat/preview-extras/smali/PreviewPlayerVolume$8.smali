@@ -33,7 +33,7 @@
         }
     .end annotation
 
-    .line 124
+    .line 135
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerVolume$8;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -46,7 +46,7 @@
 .method public onProgressChanged(Landroid/widget/SeekBar;IZ)V
     .locals 0
 
-    .line 124
+    .line 135
     if-eqz p3, :cond_1
 
     if-lez p2, :cond_0
@@ -71,7 +71,7 @@
 .method public onStartTrackingTouch(Landroid/widget/SeekBar;)V
     .locals 1
 
-    .line 124
+    .line 135
     iget-object p1, p0, Lcom/melodix/music/PreviewPlayerVolume$8;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
     const/4 v0, 0x1
@@ -84,7 +84,7 @@
 .method public onStopTrackingTouch(Landroid/widget/SeekBar;)V
     .locals 2
 
-    .line 124
+    .line 135
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume$8;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
     const/4 v1, 0x0
