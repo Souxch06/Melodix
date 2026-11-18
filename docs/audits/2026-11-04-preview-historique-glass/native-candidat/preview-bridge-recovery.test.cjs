@@ -16,21 +16,22 @@ function setup(){
  w.fetch=async()=>{throw Error('synthetic network blocked')};
  w.AndBridge=new Proxy({readBundledAsset:()=>{readCount++;return bridge}},{get:(t,k)=>k in t?t[k]:()=>{}});
  w.eval(shell);w.__sfLoadBundledBridge('spotify_bridge.js');
- return {w,timers,reads:()=>readCount,close:()=>dom.window.close()};
+ return {w,timers,initialTimerCount:timers.length,reads:()=>readCount,close:()=>dom.window.close()};
 }
 function fire(x,ms,index=0){const t=x.timers.filter(t=>t.ms===ms)[index];assert.ok(t,'missing timer '+ms);t.fn()}
+function fireRecovery(x,index=0){const t=x.timers.slice(x.initialTimerCount).filter(t=>t.ms===2500)[index];assert.ok(t,'missing recovery timer');t.fn()}
 function tag(x){return x.w.document.querySelector('script[data-sf-melodix-bridge="1"]')}
 test('resource error permits bounded replacement; pending retry is not duplicated',()=>{
  const x=setup();try{const old=tag(x);old.onerror();assert.equal(x.w.__sfBridgeLoadStage,'script-error');fire(x,1200);
  const next=tag(x);assert.ok(next);assert.notEqual(next,old);assert.equal(x.w.document.querySelectorAll('script[data-sf-melodix-bridge="1"]').length,1);
- fire(x,2500);assert.equal(tag(x),next,'pending tag must remain');assert.equal(x.w.__sfNativeUiBridgeRecoveryAttempts,2);
- next.onerror();fire(x,2500,1);assert.notEqual(tag(x),next);assert.equal(x.w.document.querySelectorAll('script[data-sf-melodix-bridge="1"]').length,1);
+ fireRecovery(x);assert.equal(tag(x),next,'pending tag must remain');assert.equal(x.w.__sfNativeUiBridgeRecoveryAttempts,2);
+ next.onerror();fireRecovery(x,1);assert.notEqual(tag(x),next);assert.equal(x.w.document.querySelectorAll('script[data-sf-melodix-bridge="1"]').length,1);
  }finally{x.close()}
 });
 test('pending and entered bridges are never replaced',()=>{for(const entered of [false,true]){const x=setup();try{const old=tag(x);if(entered){old.onerror();x.w.__sfBridgeEntered=true;}fire(x,1200);assert.equal(tag(x),old)}finally{x.close()}}});
 test('started bridge is never retried after a previous resource error',()=>{const x=setup();try{const old=tag(x);old.onerror();x.w.__sfMelodixBridgeStarted=true;fire(x,1200);assert.equal(tag(x),old);assert.equal(x.w.__sfNativeUiBridgeRecoveryAttempts,undefined)}finally{x.close()}});
-test('a recovered tag can execute the real embedded bridge without duplicate start',()=>{const x=setup();try{tag(x).onerror();fire(x,1200);const retry=tag(x);x.w.eval(bridge);assert.equal(x.w.__sfMelodixBridgeCompleted,true);const wrapped=x.w.fetch;fire(x,2500);assert.equal(tag(x),retry);assert.equal(x.w.fetch,wrapped)}finally{x.close()}});
-test('late callback on old tag cannot discard a pending new tag',()=>{const x=setup();try{const old=tag(x);old.onerror();fire(x,1200);const next=tag(x);old.onerror();fire(x,2500);assert.equal(tag(x),next)}finally{x.close()}});
+test('a recovered tag can execute the real embedded bridge without duplicate start',()=>{const x=setup();try{tag(x).onerror();fire(x,1200);const retry=tag(x);x.w.eval(bridge);assert.equal(x.w.__sfMelodixBridgeCompleted,true);const wrapped=x.w.fetch;fireRecovery(x);assert.equal(tag(x),retry);assert.equal(x.w.fetch,wrapped)}finally{x.close()}});
+test('late callback on old tag cannot discard a pending new tag',()=>{const x=setup();try{const old=tag(x);old.onerror();fire(x,1200);const next=tag(x);old.onerror();fireRecovery(x);assert.equal(tag(x),next)}finally{x.close()}});
 test('a pre-existing native loader tag receives an error observer',()=>{
  const x=setup();try{const existing=tag(x);existing.remove();const n=x.w.document.createElement('script');n.dataset.sfMelodixBridge='1';n.onload=()=>{};n.onerror=()=>{};x.w.document.head.appendChild(n);x.w.__sfLoadBundledBridge('spotify_bridge.js');n.dispatchEvent(new x.w.Event('error'));fire(x,1200);assert.notEqual(tag(x),n)}finally{x.close()}
 });
