@@ -154,6 +154,8 @@
         var testId=String(button.getAttribute('data-testid')||'').toLowerCase();
         var removeId=/^(remove-button|remove-from-library-button)$/.test(testId);
         var offLabel=labels.like.off.test(label), onLabel=labels.like.on.test(label);
+        // Once liked, Spotify relabels the checked button to a generic "Ajouter à une playlist" (phone 1022229).
+        if (!offLabel && !onLabel && raw==='true' && button.getAttribute('aria-checked')==='true' && genericAdd(label)) onLabel=true;
         if ((raw==='false' && (onLabel||removeId)) || (raw==='true' && offLabel)) {
             result.reason='conflict';return JSON.stringify(result);
         }

@@ -396,12 +396,12 @@ test('like: bar title linking to the album with ?highlight=spotify:track:ID give
   assert.equal(clicks, 1);
 });
 
-test('like: generic playlist and album-only identity cannot be used to add', async () => {
+test('like: generic playlist and album-only identity cannot be used to add (checked generic = liked, read only)', async () => {
   const dom=page('<aside data-testid="now-playing-bar"><a href="/album/al9">Titre</a><button data-testid="add-button" aria-label="Ajouter à la playlist" aria-checked="false">+</button></aside>');
   const b=dom.window.document.querySelector('button');let clicks=0;b.onclick=()=>clicks++;
   run(dom,mode,'like','run','false','Titre','album:al9');await settle(300);assert.equal(clicks,0);
   dom.window.document.querySelector('a').href='/track/x';run(dom,mode,'like','run','unknown','Titre','track:x');await settle(300);assert.equal(clicks,0);
-  b.setAttribute('aria-checked','true');run(dom,mode,'like','run','unknown','Titre','track:x');await settle(300);const out=run(dom,mode,'like','poll','unknown','Titre','track:x');assert.equal(clicks,0);assert.notEqual(out.outcome,'read');dom.window.close();
+  b.setAttribute('aria-checked','true');run(dom,mode,'like','run','unknown','Titre','track:x');await settle(300);const out=run(dom,mode,'like','poll','unknown','Titre','track:x');assert.equal(clicks,0);assert.deepEqual([out.outcome,out.state,out.journal.at(-1)],['read','true','a:liked-read-only']);dom.window.close();
 });
 
 test('picker: a generic checked playlist opener may inspect only explicit unchecked liked songs',async()=>{

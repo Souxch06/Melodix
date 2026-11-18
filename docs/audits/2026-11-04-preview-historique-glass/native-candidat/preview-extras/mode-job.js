@@ -91,6 +91,8 @@
                 (checked !== null && pressed !== null && checked !== pressed)) return 'unknown';
             if (raw !== null && raw !== 'true' && raw !== 'false') return 'unknown';
             if (raw === null) raw = on ? 'true' : off ? 'false' : 'unknown';
+            // Once liked, Spotify relabels the checked button generically (phone 1022229).
+            if (raw === 'true' && checked === 'true' && !on && !off && genericAdd(l)) on = true;
             if ((raw === 'false' && (on || remove)) || (raw === 'true' && off)) return 'unknown';
             // An unlabelled generic add-button may open a playlist picker.
             if (!off && !on) return 'unknown';

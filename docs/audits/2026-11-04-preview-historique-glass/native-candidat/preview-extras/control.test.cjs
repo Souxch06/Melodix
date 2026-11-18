@@ -100,7 +100,7 @@ test('a recognized role button in the player widget is observed',()=>{const x=bo
 
 test('generic playlist controls and album-only identity never claim or send a like',()=>{const x=boot();try{
  const b=x.w.document.querySelector('div>div>button'),a=x.w.document.querySelector('a');let clicks=0;b.onclick=()=>clicks++;
- b.setAttribute('aria-label','Ajouter à la playlist');for(const state of ['true','false']){b.setAttribute('aria-checked',state);assert.equal(q(x,'like').state,'unknown');assert.equal(invoke(x,'like',state,'track:abc','Titre'),false);}
+ b.setAttribute('aria-label','Ajouter à la playlist');for(const state of ['true','false']){b.setAttribute('aria-checked',state);assert.equal(q(x,'like').state,state==='true'?'true':'unknown');assert.equal(invoke(x,'like',state,'track:abc','Titre'),false);}
  b.setAttribute('aria-label','Save to your library');b.setAttribute('aria-checked','false');a.href='/album/same';assert.equal(q(x,'like').track,'');assert.equal(invoke(x,'like','false','album:same','Titre'),false);assert.equal(clicks,0);
  }finally{x.close()}});
 
@@ -182,4 +182,9 @@ test('id-less bar whose title links to the album (phone 1022228) still identifie
  const p=JSON.parse(x.fn('like','query','','','Titre'));assert.deepEqual([p.state,p.track,p.title],['false','title:Titre','Titre']);
  a.setAttribute('href','/album/xyz?highlight=spotify:track:abc');a.removeAttribute('data-testid');a.setAttribute('href','/track/zzz');
  assert.notEqual(JSON.parse(x.fn('like','query','','','Titre')).track,'title:Titre');
+}finally{x.close()}});
+
+test('liked button relabelled generically with aria-checked=true reads as liked (phone 1022229)',()=>{const x=boot();try{
+ const b=x.w.document.querySelector('div>div>button');b.removeAttribute('data-testid');b.setAttribute('aria-checked','true');b.setAttribute('aria-label','Ajouter à une playlist');
+ assert.equal(q(x,'like').state,'true');b.setAttribute('aria-checked','false');assert.notEqual(q(x,'like').state,'false');
 }finally{x.close()}});
