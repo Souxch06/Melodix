@@ -4,7 +4,7 @@ import hashlib,sys
 from pathlib import Path
 HERE=Path(__file__).resolve().parent
 EXPECTED='ed18ae0b137951fc9b9f1d9fbc65a3f596fad94f38d6f31c8b22c7fa74462984'
-HELPER_SHA='3eaefa8348bf393b0e3bda66e0e66fa032175f3ace2f709e4ba4a55701d32069'
+HELPER_SHA='3a043f34ad6a36cc79363ef4a3616f6841759e355ae66be23e5fb99ef6fdd3d3'
 LIKED_SHA='5355232ea283e1081f5051533a73c803a749c0678360fad7d3c88f37fc67fc0a'
 PREFETCH_SHA='272a7608bd2e2b0c539a63bd778895aa87f1d2fdc7a3a86c2e13076e63c0fd6d'
 
@@ -295,6 +295,8 @@ def apply(root):
     if-eqz v3, :preview_playlist_loading_done
     :preview_playlist_loading_rows
     const-string v2, "[{\\\"title\\\":\\\"Chargement…\\\",\\\"settingValue\\\":\\\"Info\\\"},{\\\"title\\\":\\\"────────────\\\",\\\"settingValue\\\":\\\"Info\\\"},{\\\"title\\\":\\\"──────────\\\",\\\"settingValue\\\":\\\"Info\\\"}]"
+    invoke-static {p0, p1, v2}, Lcom/melodix/music/PreviewPlayerController;->cachedRows(Landroid/content/Context;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v2
     :preview_playlist_loading_done
     if-eqz p2, :native_collection_default_title""")
     activity.write_text(a,encoding='utf8')

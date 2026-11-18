@@ -243,6 +243,7 @@ public final class PreviewPlayerMode extends ImageButton {
         if(reason.equals("web"))return "page Spotify ou réponse non accessible";
         return "état ou langue non reconnu";
     }
+    private int lastIcon=0;
     private void paint() {
         boolean known=!state.equals("unknown");
         String shown=state;
@@ -254,6 +255,9 @@ public final class PreviewPlayerMode extends ImageButton {
         else {icon=state.equals("mixed")?"repone":active?"repon":"repoff";desc=!known?"Répétition indisponible":state.equals("mixed")?"Répéter le titre":active?"Répéter la liste":"Répétition désactivée";}
         boolean loading=running && !known && SystemClock.elapsedRealtime()-visibleSince<2400;
         int id=loading?android.R.drawable.ic_popup_sync:drawable(icon);if(id!=0)setImageResource(id);
+        // Small pop when the shown state flips (honours the system animation switch).
+        if(id!=0 && lastIcon!=0 && id!=lastIcon && !loading && (Build.VERSION.SDK_INT<26 || ValueAnimator.areAnimatorsEnabled())){setScaleX(0.6f);setScaleY(0.6f);animate().scaleX(1f).scaleY(1f).setDuration(260).setInterpolator(new android.view.animation.OvershootInterpolator(2.5f)).start();}
+        lastIcon=id;
         boolean tap=running && !known && tappable() && !loading;
         if(!known && tap && shuffleMissing())desc="Aléatoire : bouton absent de la page Spotify ; touchez pour envoyer le raccourci clavier (effet non vérifiable)";
         else if(!known && likeMissing())desc="Like indisponible : bouton absent de la page Spotify";

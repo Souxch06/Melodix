@@ -6,37 +6,6 @@
     var pendingCollectionUri = null;
     var previewCollectionValue = null;
     var nativeCollectionSequence = 0;
-    // User-approved on-device copy of opened playlists (titles shown natively only;
-    // no token, cookie or account field). Shown at once on reopen, then replaced.
-    var PREVIEW_PLAYLIST_STORE = 'melodix:playlists:v1';
-    function previewStoredAll() {
-        try { var o = JSON.parse(window.localStorage.getItem(PREVIEW_PLAYLIST_STORE) || '{}'); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch (_) { return {}; }
-    }
-    function previewStoredRows(uri) {
-        var e = previewStoredAll()[uri];
-        return e && Array.isArray(e.rows) && e.rows.length ? e.rows : null;
-    }
-    function previewStoreRows(uri, rows) {
-        try {
-            var o = previewStoredAll(); o[uri] = {t: Date.now(), rows: rows.slice(0, 300)};
-            Object.keys(o).sort(function(a, b) { return (o[b].t || 0) - (o[a].t || 0); }).slice(30).forEach(function(k) { delete o[k]; });
-            window.localStorage.setItem(PREVIEW_PLAYLIST_STORE, JSON.stringify(o));
-        } catch (_) {}
-    }
-    (function() {
-        var send = sendNativeUiData;
-        sendNativeUiData = function(screen, items) {
-            try {
-                var m = /^media:(spotify:playlist:[A-Za-z0-9]+)$/.exec(String(screen));
-                if (m && Array.isArray(items)) {
-                    var tracks = items.filter(function(r) { return r && /^spotify:track:[A-Za-z0-9]+$/.test(String(r.uri || '')); });
-                    var stale = items.some(function(r) { return r && !r.uri && /^(Copie enregistrée|Aperçu préchargé)$/.test(String(r.title || '')); });
-                    if (tracks.length && !stale) previewStoreRows(m[1], tracks);
-                }
-            } catch (_) {}
-            return send.apply(this, arguments);
-        };
-    })();
     function previewPhase(stage) {
         try { if (window.AndBridge && typeof window.AndBridge.onNativeUiData === 'function')
             window.AndBridge.onNativeUiData('preview-phase', stage); } catch (_) {}
@@ -181,18 +150,6 @@
                 sendNativeUiData('media:' + String(value), cachedPlaylist.rows.concat([
                     {title:'Aperçu préchargé', subtitle:'Actualisation des titres en cours…', settingValue:'Info', uri:''}
                 ]));
-            } else {
-                var storedRows = previewStoredRows(uri);
-                if (storedRows) {
-                    window.__sfCurrentContextUri = uri;
-                    window.__sfCurrentTrackUris = storedRows.map(function(r) { return r.uri; });
-                    sendNativeUiData('media:' + String(value), storedRows.concat([
-                        {title:'Copie enregistrée', subtitle:'Actualisation des titres en cours…', settingValue:'Info', uri:''}
-                    ]));
-                } else {
-                    // Nothing cached yet: answer at once instead of leaving the screen blank.
-                    sendNativeUiData('media:' + String(value), [{title:'Chargement des titres…', subtitle:'Les titres arrivent', settingValue:'Info', uri:''}]);
-                }
             }
         }
         // Only an exact matching, already visible Spotify route can provide a

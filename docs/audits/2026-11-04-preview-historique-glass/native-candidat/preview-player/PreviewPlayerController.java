@@ -323,8 +323,54 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             pendingPlaylist = uri; playlistStart = now();
         }
     }
+    // User-approved on-device copy of opened playlists: only the rows already shown
+    // natively (no token, cookie or account field), app-private, 30 playlists max.
+    private static final String PLAYLIST_STORE = "melodix_playlists";
+    static String playlistKey(String uri) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?:spotify:playlist:|/playlist/)([A-Za-z0-9]+)").matcher(uri == null ? "" : uri);
+        return m.find() ? "spotify:playlist:" + m.group(1) : "";
+    }
+    public static String cachedRows(Context c, String uri, String fallback) {
+        try {
+            String k = playlistKey(uri); if (c == null || k.isEmpty()) return fallback;
+            String s = c.getSharedPreferences(PLAYLIST_STORE, Context.MODE_PRIVATE).getString(k, null);
+            if (s == null) return fallback;
+            JSONArray a = new JSONArray(s); if (a.length() == 0) return fallback;
+            JSONObject info = new JSONObject();
+            info.put("title", "Copie enregistrée"); info.put("subtitle", "Actualisation des titres en cours…"); info.put("settingValue", "Info");
+            a.put(info); return a.toString();
+        } catch (Exception e) { return fallback; }
+    }
+    static JSONArray storableRows(JSONArray data) {
+        JSONArray keep = new JSONArray();
+        for (int i = 0; i < data.length(); i++) {
+            JSONObject row = data.optJSONObject(i); if (row == null) continue;
+            String uri = row.optString("uri", row.optString("id", ""));
+            if (uri.isEmpty() && row.optString("title", "").matches("Copie enregistrée|Aperçu préchargé")) return new JSONArray();
+            if (uri.matches("(?i)^spotify:track:[a-z0-9]+$") && keep.length() < 300) keep.put(row);
+        }
+        return keep;
+    }
+    private void storeRows(String context, JSONArray data) {
+        Activity a = activity.get(); String k = playlistKey(context);
+        if (a == null || k.isEmpty() || !context.equals(k)) return;
+        JSONArray keep = storableRows(data); if (keep.length() == 0) return;
+        try {
+            android.content.SharedPreferences p = a.getSharedPreferences(PLAYLIST_STORE, Context.MODE_PRIVATE);
+            android.content.SharedPreferences.Editor e = p.edit().putString(k, keep.toString()).putLong(k + "#t", System.currentTimeMillis());
+            java.util.List<String> keys = new java.util.ArrayList<String>();
+            for (String key : p.getAll().keySet()) if (!key.endsWith("#t") && !key.equals(k)) keys.add(key);
+            while (keys.size() >= 30) {
+                String old = keys.get(0);
+                for (String key : keys) if (p.getLong(key + "#t", 0) < p.getLong(old + "#t", 0)) old = key;
+                keys.remove(old); e.remove(old).remove(old + "#t");
+            }
+            e.apply();
+        } catch (RuntimeException ignored) { }
+    }
     public void rowsPainted(String screen, String context, String rows) {
         if ("home".equals(screen) && firstCreateAt >= 0 && firstHomeFrameMs < 0) measureHomeFrame = true;
+        if ("detail".equals(screen) && context != null) { try { storeRows(context, new JSONArray(rows)); } catch (Exception ignored) { } }
         if ("detail".equals(screen) && playlistStart >= 0 && pendingPlaylist.equals(context)) {
             try {
                 JSONArray data = new JSONArray(rows);
