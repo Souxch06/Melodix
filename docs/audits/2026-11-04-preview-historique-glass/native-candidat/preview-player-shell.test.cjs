@@ -183,3 +183,12 @@ test('next does not leave the current item when repeat-one is unambiguously obse
  r.removeAttribute('aria-pressed');let clone=r.cloneNode();x.w.document.body.append(clone);x.w.__sfSkip('forward');assert.equal(forward,3);assert.equal(seek,0);
  }finally{x.close()}
 });
+
+test('v2 player cover arriving after metadata is published without waiting for clock or forced refresh',()=>{
+ const x=fixture('<main id="main-view"></main><div data-testid="now-playing-widget-v2"><a data-testid="context-item-link" href="/track/abc123">Song</a><span data-testid="context-item-info-artist">Artist</span></div><span data-testid="playback-position">0:00</span><span data-testid="playback-duration">2:00</span><button data-testid="control-button-playpause" aria-label="Pause"></button>');try{
+  const before=x.events.filter(e=>e.kind==='player').length;
+  const bar=x.w.document.querySelector('[data-testid="now-playing-widget-v2"]');bar.insertAdjacentHTML('beforeend','<img data-testid="cover-art-image" src="https://i.scdn.co/image/ab67616d00004851abc">');
+  x.step(1000);assert.equal(x.events.filter(e=>e.kind==='player').length,before+1);
+  assert.equal(x.payload().cover,'https://i.scdn.co/image/ab67616d0000b273abc');assert.equal(x.payload().track,'Song');assert.deepEqual(x.commands,[]);
+ }finally{x.close()}
+});

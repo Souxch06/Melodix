@@ -158,6 +158,11 @@ def apply(root):
     end=s.index('    function publishPlayerState(force)', start)
     s=s[:start]+tuple_bytes.decode('utf8')+'\n'+s[end:]
     s=one(s, "            payload.playing ? '1' : '0',\n            payload.duration,", "            payload.playing ? '1' : '0',\n            payload.previewPlaybackState,\n            payload.previewConfirmPositionMs,\n            payload.duration,")
+    # Artwork can arrive after metadata; include its URL in the update signature.
+    # It is passed only to the native player, never included in diagnostics.
+    s=one(s, "            payload.artist,\n            payload.playing ? '1' : '0',", "            payload.artist,\n            payload.cover,\n            payload.playing ? '1' : '0',")
+    # Recognise the new widget only as an explicit current-player container.
+    s=one(s, "bar = document.querySelector('[data-testid=\"now-playing-bar\"], [data-testid=\"now-playing-widget\"]');", "bar = document.querySelector('[data-testid=\"now-playing-bar\"], [data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]');")
     # Native timing spans survive a WebView reload; include only the already
     # visible route to reject a stale ready event from a different collection.
     s=one(s, "        try {\n            bridge.onNativeUiReady();", "        try {\n            previewPhase('page-ready|' + spotifyResourceUri(window.location.href));\n            melodixTrace('ready', 0);\n            bridge.onNativeUiReady();")
@@ -200,8 +205,42 @@ def apply(root):
     :preview_not_phase
     if-eqz p2, :apply_done
 """)
+    # The existing image loader cancels every outstanding Picasso request. The
+    # player is refreshed each second, so an unchanged cover used to be
+    # cancelled and restarted repeatedly. Reuse it for 15 seconds; retry even
+    # after failure, and reload immediately on URL changes. No player command.
+    a=one(a, '.field private nativeBackStack:Ljava/util/ArrayDeque;\n',
+          '.field private nativePreviewArtworkUrl:Ljava/lang/String;\n.field private nativePreviewArtworkAt:J\n.field private nativeBackStack:Ljava/util/ArrayDeque;\n')
     anchor_player='.method public final updateNativePlayer(Ljava/lang/String;)V'
     prefix, method = a.split(anchor_player, 1)
+    method=one(method, """    const-string v1, "cover"
+    const-string v2, ""
+    invoke-virtual {v0, v1, v2}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v2
+
+    const v8, 0x7f090244""", """    const-string v1, "cover"
+    const-string v2, ""
+    invoke-virtual {v0, v1, v2}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v2
+
+    invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
+    move-result-wide v4
+    iget-object v3, p0, Lcom/melodix/music/MainActivity;->nativePreviewArtworkUrl:Ljava/lang/String;
+    invoke-virtual {v2, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v3
+    if-eqz v3, :preview_artwork_reload
+    iget-wide v6, p0, Lcom/melodix/music/MainActivity;->nativePreviewArtworkAt:J
+    sub-long v6, v4, v6
+    const-wide/16 v8, 0x0
+    cmp-long v3, v6, v8
+    if-ltz v3, :preview_artwork_reload
+    const-wide/16 v8, 0x3a98
+    cmp-long v3, v6, v8
+    if-ltz v3, :native_player_progress
+    :preview_artwork_reload
+    iput-object v2, p0, Lcom/melodix/music/MainActivity;->nativePreviewArtworkUrl:Ljava/lang/String;
+    iput-wide v4, p0, Lcom/melodix/music/MainActivity;->nativePreviewArtworkAt:J
+    const v8, 0x7f090244""")
     method=one(method, """    move-result-object v3
 
     const v1, 0x7f090236""", """    move-result-object v3

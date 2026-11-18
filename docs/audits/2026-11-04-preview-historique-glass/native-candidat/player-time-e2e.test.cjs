@@ -53,12 +53,19 @@ function interpret(name,params,source=activity){
    const x=val(a[0]), pass=op==='if-eqz'?!x:op==='if-nez'?!!x:op==='if-ltz'?x<0:op==='if-gez'?x>=0:x<=0;
    if(pass)pc=labels[a[1]];
   }
-  else if(op==='iget-object')r[a[0]]=val(a[1]).screen;
+  else if(op==='iget-object'||op==='iget-wide'){
+   const field=a[2].match(/->([^:]+):/)[1];
+   r[a[0]]=field==='nativeCurrentScreen'?val(a[1]).screen:(val(a[1])[field]??(op==='iget-wide'?0:null));
+  }
+  else if(op==='iput-object'||op==='iput-wide'){
+   const field=a[2].match(/->([^:]+):/)[1];val(a[1])[field]=val(a[0]);
+  }
   else if(op==='iput-boolean')val(a[1]).hasTrack=!!val(a[0]);
   else if(op.startsWith('invoke-')){
    const m=args.match(/^\{([^}]*)\},\s*(\S+)$/);if(!m)throw Error(line);
    const regs=m[1].split(',').map(x=>x.trim()), values=regs.map(val), target=m[2];
-   if(target.includes('JSONObject;-><init>'))values[0].json=JSON.parse(values[1]);
+   if(target.includes('SystemClock;->elapsedRealtime'))result=params.p0.now??0;
+   else if(target.includes('JSONObject;-><init>'))values[0].json=JSON.parse(values[1]);
    else if(target.includes('StringBuilder;-><init>'))values[0].value='';
    else if(target.includes('StringBuilder;->append')){values[0].value+=String(values[1]);result=values[0];}
    else if(target.includes('StringBuilder;->toString'))result=values[0].value;
@@ -75,7 +82,7 @@ function interpret(name,params,source=activity){
    else if(target.includes('String;->format')){
     let i=0;result=values[1].replace(/%0?(\d*)d/g,(_,w)=>String(values[2][i++]).padStart(Number(w||0),'0'));
    }
-   else if(target.includes('NativeImageLoader;->load')){}
+   else if(target.includes('NativeImageLoader;->load')){params.p0.loads=(params.p0.loads||0)+1;}
    else if(target.includes(';->setText'))values[0].text=values[1];
    else if(target.includes(';->setProgress'))values[0].progress=values[1];
    else if(target.includes(';->setMax'))values[0].max=values[1];
@@ -141,4 +148,17 @@ test('decoded native player writes the artist into mini and full player views',(
 test('clamps negative native input and pads both hour components',()=>{
  assert.equal(interpret('formatNativeTime',{p0:-5}),'0:00');
  assert.equal(interpret('formatNativeTime',{p0:3665}),'1:01:05');
+});
+
+
+test('artwork requests are reused, retried after 15 seconds and changed URLs reload immediately',()=>{
+ const views={0x7f090237:{},0x7f09023c:{},0x7f090244:{},0x7f090245:{}};
+ const a={screen:'player',views,now:1000,loads:0};
+ const update=(url)=>interpret('updateNativePlayer',{p0:a,p1:JSON.stringify({track:'Song',artist:'Artist',cover:url})});
+ update('https://i.scdn.co/image/A');assert.equal(a.loads,2);assert.equal(views[0x7f090237].text,'Artist');
+ for(let i=1;i<15;i++){a.now=1000+i*1000;update('https://i.scdn.co/image/A');assert.equal(a.loads,2)}
+ a.now=16000;update('https://i.scdn.co/image/A');assert.equal(a.loads,4);
+ a.now=16001;update('https://i.scdn.co/image/B');assert.equal(a.loads,6);
+ a.now=100;update('https://i.scdn.co/image/B');assert.equal(a.loads,8);
+ a.now=101;update('');assert.equal(a.loads,10);
 });
