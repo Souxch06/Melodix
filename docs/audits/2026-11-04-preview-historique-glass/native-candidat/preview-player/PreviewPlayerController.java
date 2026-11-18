@@ -209,6 +209,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                  event.substring("page-ready|".length()).equals(pendingPlaylist)) pageReadyAt = t;
     }
     private String pendingPlaylist = "";
+    private int firstTracks = -1, shownTracks = -1;
     public void activityCreated() {
         if (firstCreateAt >= 0) return;
         firstCreateAt = now();
@@ -317,7 +318,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     public void playlistOpened(String uri) {
         if (playlistFrameMs >= 0) previousPlaylistFrameMs = playlistFrameMs;
         playlistStart = -1; playlistFrameMs = -1; pendingPlaylist = ""; measurePlaylistFrame = false; loadStage = "—";
-        bridgeAt = navigationAt = pageReadyAt = receivedAt = rowsAt = frameAt = -1; stageAtRows = "—"; likedObservation = "non observée"; staleWaitingObserved = false;
+        bridgeAt = navigationAt = pageReadyAt = receivedAt = rowsAt = frameAt = -1; firstTracks = shownTracks = -1; stageAtRows = "—"; likedObservation = "non observée"; staleWaitingObserved = false;
         likedCollection = "spotify:collection:tracks".equals(uri);
         if (uri != null && (uri.matches("(?i)^spotify:playlist:[a-z0-9]+$") || uri.equals("spotify:collection:tracks"))) {
             pendingPlaylist = uri; playlistStart = now();
@@ -374,6 +375,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         if ("detail".equals(screen) && playlistStart >= 0 && pendingPlaylist.equals(context)) {
             try {
                 JSONArray data = new JSONArray(rows);
+                int tracks = storableRows(data).length(); if (tracks > 0) { shownTracks = tracks; if (firstTracks < 0) firstTracks = tracks; }
                 for (int i = 0; i < data.length(); i++) {
                     JSONObject row = data.optJSONObject(i);
                     if (row != null && row.optString("uri", row.optString("id", "")).matches("(?i)^spotify:track:[a-z0-9]+$")) {
@@ -867,6 +869,8 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         out.append(" ; état : ").append(playbackState);
         out.append(" ; âge de la mesure : ").append(measurementAt < 0 ? "—" : Long.toString(Math.max(0, now() - measurementAt)) + " ms");
         out.append("\nPlaylist — attente pont : ").append(phaseDuration(playlistStart, bridgeAt));
+        out.append(" ; appui → navigation : ").append(phaseDuration(playlistStart, navigationAt));
+        out.append(" ; titres affichés : première liste=").append(firstTracks < 0 ? "—" : Integer.toString(firstTracks)).append(", dernière=").append(shownTracks < 0 ? "—" : Integer.toString(shownTracks));
         out.append(" ; navigation → page prête : ").append(phaseDuration(navigationAt, pageReadyAt));
         out.append(" ; page prête/pont → lignes reçues : ").append(phaseDuration(pageReadyAt >= 0 ? pageReadyAt : bridgeAt, receivedAt));
         out.append(" ; réception → rendu natif : ").append(phaseDuration(receivedAt, rowsAt));

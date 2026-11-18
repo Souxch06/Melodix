@@ -22,15 +22,15 @@ EXPECTED = {
     'res/layout-w600dp/activity_main.xml': '4d110f1df062fdf7676b9aa5e70146dd7ec148da3c0c614a553b5586ad5af8fe',
     'res/drawable/widget_progress_drawable.xml': '3a5f8f51ea984c7a8226d5acd69bf6b20383ca9622843d617b055c9fe18d772f',
 }
-SOURCE_SHA = 'bb14592ce8a9f87cbe0c3809b133b7eabcf82a4913419f884bc79ca94e11a20c'
+SOURCE_SHA = 'c2b8b4c5683502cdfbce48f1d8904ee5179eacd33a225546dfb326c679d4eef7'
 HELPER_SHA = {
     'PreviewPlayerController$1.smali': '04b724419c430be5f4ebacc3a1d443d30f480de152d809128c94ac4f13f4296c',
     'PreviewPlayerController$2.smali': 'ff9f8f02b423a2b9de58a5fb8ed5244f555f3bf9478776834d9e5bcb3616d39e',
-    'PreviewPlayerController$3.smali': '7f99de0946ace58d899d4b8b1731ce20c846e2914346b716592cc13c6e1a8a6e',
-    'PreviewPlayerController$4.smali': 'a7ab55344580a046cfdfb2b59d337e1a4a1011d7d335b6d9a3d6da0291f42dca',
-    'PreviewPlayerController$5.smali': '5bad3c9c12b325ec216da00e4b378167de4cc0b0f98ed69a42a6976824f64365',
-    'PreviewPlayerController$6.smali': 'd36d33bf48e35d4e988f4bf7810be4e7e7e256e7e7393c1323d5c47e217b7d63',
-    'PreviewPlayerController.smali': '86824963f99ba3b20c46109756eb72bf14d1509436277ad7eb89591dff95a9c4',
+    'PreviewPlayerController$3.smali': '8a3f8330bebf5c3b0e1a9ac09e9a8dbe793428e49857096cb72ec7700129840e',
+    'PreviewPlayerController$4.smali': '04c186f308299890a0042e2d27d1bbf3aef4ac49d1b07f6f67c4790bee4fb475',
+    'PreviewPlayerController$5.smali': '7926ba083aaad637435e423b43e49be75370e11dbf92756820f2b92f93c669b7',
+    'PreviewPlayerController$6.smali': 'f7f0d6ab150bd88db84b533d241d811d8b38f05ec0f0cce941eb9792c2f6190f',
+    'PreviewPlayerController.smali': 'ea1ae50a15690ca824f986fe08a978d855e1859baf62d50ea2814eb25fa3810b',
     'PreviewLastTrackStore$1$1.smali': '945ee7420a49b41550b889369932b30e3f0f43943fdb46700d0dbfaf550792dc',
     'PreviewLastTrackStore$1.smali': '8f54f12ff47b7a995072f2255a1c28ffa996e311e8865cd8550330758557ace2',
     'PreviewLastTrackStore$2.smali': '1e3ffc3af8858e6b6f609c18bdf689f5d00d0aaf1c592a201844e24fb91c5aaa',
