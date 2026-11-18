@@ -35,7 +35,7 @@
         window.__sfNativeCollectionHasData = false;
         window.__sfNativeCollectionDomReady = false;
     }
-    window.__sfCancelPendingCollection = cancelPendingCollectionNavigation;
+    window.__sfCancelPendingCollection = function() { cancelPendingCollectionNavigation(); previewSchedulePrefetch(); };
     // Even an unconfirmed add can have reached Spotify. Prevent an older
     // in-flight collection response from being shown or cached afterward.
     window.__sfLikedMutationAttempted = function() {
