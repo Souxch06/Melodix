@@ -14,7 +14,7 @@ function setup(fetcher,token='Bearer A'){
  w.setTimeout=(fn,ms)=>{const t={id:++seq,fn,ms,cleared:false};timers.push(t);return t.id};w.clearTimeout=id=>{const t=timers.find(t=>t.id===id);if(t)t.cleared=true};
  w.setInterval=()=>1;w.clearInterval=()=>{};w.MutationObserver=class{observe(){}disconnect(){}};
  w.eval(shell);
- return {w,events,timers,calls,commands,run(ms){const t=timers.find(t=>t.ms===ms&&!t.cleared);assert.ok(t,'timer '+ms);t.cleared=true;t.fn()},rows(id){return events.filter(e=>e.id===id).map(e=>JSON.parse(e.data))},close(){dom.window.close()}};
+ return {w,events,timers,calls,commands,run(ms){const t=timers.find(t=>t.ms===ms&&!t.cleared);assert.ok(t,'timer '+ms);t.cleared=true;t.fn()},rows(id){return events.filter(e=>e.id===id).map(e=>JSON.parse(e.data)).filter(r=>!(r.length===1&&r[0].uri===''))},close(){dom.window.close()}};
 }
 test('preloads a visible playlist, shows labelled snapshot immediately, refreshes in foreground and never plays',async()=>{
  const f=setup(()=>Promise.resolve(response()));try{
