@@ -297,14 +297,24 @@
         var before = Array.from(document.querySelectorAll(selector)).filter(available);
         function fresh() { var f = Array.from(document.querySelectorAll(selector)).filter(function(n) { return available(n) && before.indexOf(n) < 0; }); return f.length === 1 ? f[0] : null; }
         function barState() { var a = find(); return a.node ? read(a.node) : 'unknown'; }
+        var checkSel = '[role="menuitemcheckbox"], [role="checkbox"], [role="switch"], input[type="checkbox"], [aria-checked], [aria-pressed]';
         function targets(r) {
-            return Array.from(r.querySelectorAll('[role="menuitemcheckbox"], [role="checkbox"], input[type="checkbox"], button[aria-checked]')).filter(function(n) {
-                var ln = n.closest('label');
-                var name = String(n.getAttribute('aria-label') || (ln && ln.textContent) || n.textContent || '').replace(/\s+/g, ' ').trim();
-                if (!likedName.test(name) && n.closest('li, [role="row"], [role="option"]')) name = String(n.closest('li, [role="row"], [role="option"]').textContent || '').replace(/\s+/g, ' ').trim();
-                return available(n) && likedName.test(name);
+            // The Liked Songs name may sit beside its checkbox: climb from the exact
+            // name to the nearest ancestor holding exactly one checkable control.
+            var out = [];
+            Array.from(r.querySelectorAll('*')).forEach(function(n) {
+                if (!available(n) || n.children.length > 1) return;
+                var name = String(n.getAttribute('aria-label') || n.textContent || '').replace(/\s+/g, ' ').trim();
+                if (!likedName.test(name)) return;
+                for (var p = n; p && p !== r.parentNode; p = p.parentElement) {
+                    var c = (p.matches && p.matches(checkSel) ? [p] : []).concat(Array.from(p.querySelectorAll(checkSel))).filter(available);
+                    if (c.length === 1) { if (out.indexOf(c[0]) < 0) out.push(c[0]); return; }
+                    if (c.length > 1) return;
+                }
             });
+            return out;
         }
+        function counts(r) { return '-c' + Math.min(r.querySelectorAll(checkSel).length, 99) + '-n' + Math.min(Array.from(r.querySelectorAll('*')).filter(function(n) { return n.children.length <= 1 && likedName.test(String(n.textContent || '').replace(/\s+/g, ' ').trim()); }).length, 99); }
         function close(r) { try { (available(r) ? r : b).dispatchEvent(new KeyboardEvent('keydown', {key:'Escape', code:'Escape', bubbles:true, cancelable:true})); } catch (_) {} }
         invalidateLikedRead();
         try { b.click(); log(method + ':unlike-open'); } catch (_) { after('command', 'true'); return; }
@@ -317,7 +327,7 @@
             if (r === 'direct') { log(method + ':unlike-verified'); after('confirmed', 'false'); return; }
             if (!r) { log(method + ':unlike-no-picker'); after('menu-absent', 'true'); return; }
             var t = targets(r);
-            if (t.length !== 1) { log(method + (t.length ? ':unlike-ambiguous' : ':unlike-target')); close(r); after(t.length ? 'menu-ambiguous' : 'menu-absent', 'true'); return; }
+            if (t.length !== 1) { log(method + (t.length ? ':unlike-ambiguous' : ':unlike-target') + counts(r)); close(r); after(t.length ? 'menu-ambiguous' : 'menu-absent', 'true'); return; }
             var on = t[0].getAttribute('aria-checked') === 'true' || t[0].checked === true;
             if (!on) { log(method + ':unlike-not-checked'); close(r); after('menu-state', 'true'); return; }
             try { t[0].click(); log(method + ':unlike-uncheck'); } catch (_) { close(r); after('unconfirmed', 'true'); return; }
