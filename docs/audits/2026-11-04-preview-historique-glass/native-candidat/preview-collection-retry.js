@@ -143,6 +143,7 @@
             previewCollectionRetry = window.setTimeout(function() { waitForBridge(remaining - 1); }, 250);
         }
         if (/^spotify:playlist:/i.test(uri)) {
+            previewPlaylistPages(uri);
             cachedPlaylist=previewPrefetchSnapshot(uri);
             if (cachedPlaylist && cachedPlaylist.rows.length) {
                 window.__sfCurrentContextUri=uri;

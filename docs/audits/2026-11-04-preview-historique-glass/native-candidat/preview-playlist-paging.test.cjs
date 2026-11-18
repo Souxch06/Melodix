@@ -1,0 +1,28 @@
+'use strict';
+// Simulated fetch: checks paging past the bridge's 100-track page. Not a Spotify benchmark.
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const src=fs.readFileSync(path.join(__dirname,'preview-playlist-paging.js'),'utf8');
+function setup(total){
+ const calls=[],sent=[],timers=[];
+ const w={spotAuthToken:'Bearer T',__sfNativeCollectionUri:'spotify:playlist:P1',AbortController:undefined,
+  AndBridge:{onMediaItemsLoaded:(u,j)=>sent.push([u,JSON.parse(j)])},
+  setTimeout:(f)=>{timers.push(f);return timers.length},clearTimeout(){},
+  fetch:(u,o)=>{const v=JSON.parse(o.body).variables;calls.push(v);const n=Math.max(0,Math.min(v.limit,total-v.offset));
+   return Promise.resolve({ok:true,json:async()=>({data:{playlistV2:{content:{totalCount:total,items:Array.from({length:n},(_,i)=>({itemV2:{data:{uri:'spotify:track:t'+(v.offset+i),name:'N'+(v.offset+i),artists:{items:[{profile:{name:'A'}}]}}}}))}}}})});}};
+ const api=new Function('window',src+'\nreturn previewPlaylistPages;')(w);
+ return {w,calls,sent,timers,api};
+}
+const settle=()=>new Promise(r=>setTimeout(r,20));
+test('237-track playlist: three pages, full list delivered to the bridge callback',async()=>{
+ const x=setup(237);x.api('spotify:playlist:P1');x.timers.shift()();for(let i=0;i<10;i++)await settle();
+ assert.deepEqual(x.calls.map(c=>c.offset),[0,100,200]);
+ const last=x.sent.at(-1);assert.equal(last[0],'spotify:playlist:P1');assert.equal(last[1].length,237);assert.equal(last[1][236].id,'spotify:track:t236');
+});
+test('playlist of 100 or fewer: nothing delivered (bridge already has it)',async()=>{
+ const x=setup(80);x.api('spotify:playlist:P1');x.timers.shift()();for(let i=0;i<5;i++)await settle();
+ assert.equal(x.calls.length,1);assert.equal(x.sent.length,0);
+});
+test('leaving the playlist stops paging',async()=>{
+ const x=setup(500);x.api('spotify:playlist:P1');x.w.__sfNativeCollectionUri=null;x.timers.shift()();for(let i=0;i<5;i++)await settle();
+ assert.equal(x.calls.length,0);assert.equal(x.sent.length,0);
+});

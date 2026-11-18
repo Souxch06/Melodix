@@ -255,7 +255,7 @@ public class ControllerTest {
   }
   {android.content.Context cx=new android.content.Context();
    yes(PreviewPlayerController.cachedRows(cx,"spotify:playlist:Ab1","SK").equals("SK"));
-   yes(PreviewPlayerController.playlistKey("https://open.spotify.com/playlist/Ab1?si=x").equals("spotify:playlist:Ab1"));
+   yes(PreviewPlayerController.playlistKey("https://open.spotify.com/playlist/Ab1?si=x").equals("spotify:playlist:Ab1"));yes(PreviewPlayerController.playlistKey("spotify:collection:tracks").equals("spotify:collection:tracks"));yes(PreviewPlayerController.playlistKey("spotify:album:X").isEmpty());
    org.json.JSONArray kept=PreviewPlayerController.storableRows(new org.json.JSONArray("uri=spotify:track:T1;title=A|title=Info|uri=spotify:track:T2;title=B"));eq(kept.length(),2);
    eq(PreviewPlayerController.storableRows(new org.json.JSONArray("uri=spotify:track:T1|title=Copie enregistrée")).length(),0);
    cx.prefs.m.put("spotify:playlist:Ab1",kept.toString());String shown=PreviewPlayerController.cachedRows(cx,"/playlist/Ab1","SK");

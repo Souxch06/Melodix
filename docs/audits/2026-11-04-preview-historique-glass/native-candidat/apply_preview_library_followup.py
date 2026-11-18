@@ -4,8 +4,9 @@ import hashlib,sys
 from pathlib import Path
 HERE=Path(__file__).resolve().parent
 EXPECTED='ed18ae0b137951fc9b9f1d9fbc65a3f596fad94f38d6f31c8b22c7fa74462984'
-HELPER_SHA='3a043f34ad6a36cc79363ef4a3616f6841759e355ae66be23e5fb99ef6fdd3d3'
+HELPER_SHA='8e50e4ef814b37decbf9f0f410fe622797f76b4ddf4df4f450881dab66caff34'
 LIKED_SHA='5355232ea283e1081f5051533a73c803a749c0678360fad7d3c88f37fc67fc0a'
+PAGING_SHA='9162f059a6c1ee0efe8d0cbf5219874eae3faa1c2f50ba96188310a714b614ab'
 PREFETCH_SHA='272a7608bd2e2b0c539a63bd778895aa87f1d2fdc7a3a86c2e13076e63c0fd6d'
 
 def one(text, old, new):
@@ -37,6 +38,9 @@ def apply(root):
     prefetch_bytes=(HERE/'preview-playlist-prefetch.js').read_bytes()
     if hashlib.sha256(prefetch_bytes).hexdigest()!=PREFETCH_SHA: raise ValueError('unexpected prefetch helper; no changes made')
     prefetch=prefetch_bytes.decode('utf8')
+    paging_bytes=(HERE/'preview-playlist-paging.js').read_bytes()
+    if hashlib.sha256(paging_bytes).hexdigest()!=PAGING_SHA: raise ValueError('unexpected paging helper; no changes made')
+    prefetch=prefetch+'\n'+paging_bytes.decode('utf8')
     s=raw.decode('utf8'); helper=liked_bytes.decode('utf8')+'\n'+prefetch+'\n'+helper_bytes.decode('utf8')
     # The upstream recovery loop used to leave a definitively failed script
     # node in place forever. Retry only an explicit resource-load failure;
@@ -290,6 +294,14 @@ def apply(root):
     move-result v3
     if-nez v3, :preview_playlist_loading_rows
     const-string v3, "/playlist/"
+    invoke-virtual {p1, v3}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v3
+    if-nez v3, :preview_playlist_loading_rows
+    const-string v3, "collection:tracks"
+    invoke-virtual {p1, v3}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v3
+    if-nez v3, :preview_playlist_loading_rows
+    const-string v3, "/collection/tracks"
     invoke-virtual {p1, v3}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
     move-result v3
     if-eqz v3, :preview_playlist_loading_done

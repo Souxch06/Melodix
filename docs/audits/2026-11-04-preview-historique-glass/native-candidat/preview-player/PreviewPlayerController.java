@@ -328,6 +328,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     // natively (no token, cookie or account field), app-private, 30 playlists max.
     private static final String PLAYLIST_STORE = "melodix_playlists";
     static String playlistKey(String uri) {
+        if (uri != null && (uri.equals("spotify:collection:tracks") || uri.contains("/collection/tracks"))) return "spotify:collection:tracks";
         java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?:spotify:playlist:|/playlist/)([A-Za-z0-9]+)").matcher(uri == null ? "" : uri);
         return m.find() ? "spotify:playlist:" + m.group(1) : "";
     }
