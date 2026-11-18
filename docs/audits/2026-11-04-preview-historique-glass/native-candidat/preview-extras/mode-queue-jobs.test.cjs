@@ -167,7 +167,7 @@ test('lyrics: panel opened, lines read, active line only when synchronised, pane
     for (const bad of ['localStorage', 'cookie', 'fetch(', 'XMLHttpRequest', 'token', 'location.href']) assert.equal(src.includes(bad), false, bad); }
 });
 
-test('devices: transfer clicks only the named device, verifies it, never clicks the active one', async () => {
+test('devices: active target is untouched and replacement nodes cannot confirm a transfer', async () => {
   const html = `<button data-testid="control-button-connect" aria-label="Se connecter à un appareil" aria-expanded="false">c</button><div id="slot"></div>`;
   const dom = page(html), doc = dom.window.document, b = doc.querySelector('button'); let picks = 0;
   const render = (active) => `<div data-testid="device-picker"><div data-testid="device-list-item" aria-selected="${active === 'Salon'}"><span data-testid="device-name">Salon</span></div><div data-testid="device-list-item" aria-selected="${active === 'Web'}"><span data-testid="device-name">Web</span></div></div>`;
@@ -179,9 +179,10 @@ test('devices: transfer clicks only the named device, verifies it, never clicks 
   });
   run(dom, panel, 'devices', 'transfer', 'Web'); await settle(500);
   assert.equal(run(dom, panel, 'devices', 'poll').ok, true); assert.equal(picks, 0);
-  run(dom, panel, 'devices', 'transfer', 'Salon'); await settle(900);
+  run(dom, panel, 'devices', 'transfer', 'Salon'); await settle(3700);
   const out = run(dom, panel, 'devices', 'poll');
-  assert.equal(out.transferred, true); assert.equal(picks, 1);
+  assert.equal(out.transferred, false); assert.equal(out.reason, 'unverified'); assert.equal(picks, 1);
+  dom.window.close();
 });
 
 test('duplicate controls: the player-bar copy is used; two copies outside it are refused, untouched', async () => {
@@ -475,8 +476,8 @@ test('a completed safe drawer releases the shared lease for another drawer',asyn
 
 test('queue: cleanup inspection errors settle and quarantine instead of leaving a job running',async()=>{
  const dom=page('<button data-testid="queue-button" aria-pressed="false"></button><div id="slot"></div>');const d=dom.window.document,b=d.querySelector('button');let clicks=0;
- b.onclick=()=>{clicks++;b.setAttribute('aria-pressed', clicks===1?'true':'false');d.querySelector('#slot').innerHTML='<div data-testid="queue-page"><div data-testid="tracklist-row"><a href="/track/x">A</a></div></div>';};
- dom.window.getComputedStyle=()=>{throw new Error('synthetic style error')};const start=run(dom,queue,'run');await settle(500);const r=run(dom,queue,'poll');
+ b.onclick=()=>{clicks++;b.setAttribute('aria-pressed', clicks===1?'true':'false');d.querySelector('#slot').innerHTML='<div data-testid="queue-page"><div data-testid="tracklist-row"><a href="/track/x">A</a></div></div>';dom.window.getComputedStyle=()=>{throw new Error('synthetic style error')};};
+ const start=run(dom,queue,'run');await settle(500);const r=run(dom,queue,'poll');
  assert.equal(r.id,start.id);assert.equal(r.status,'done');assert.equal(r.reason,'close-unverified');assert.equal(run(dom,panel,'devices','run','').status,'blocked');dom.window.close();
 });
 

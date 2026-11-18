@@ -73,26 +73,39 @@
         return pops.length === 1 ? pops[0] : null;
     }
     function lyricLines(r) {
+        // aria-controls by itself may point at unrelated content. Require a
+        // lyrics-specific root or a lyrics-specific line marker, not just <p>.
+        if (!r.matches(spec.roots) && !r.querySelector('[data-testid="fullscreen-lyric"], [data-testid^="lyrics-line"]')) return {lines: [], active: -1, synced: false};
         var nodes = Array.from(r.querySelectorAll('[data-testid="fullscreen-lyric"], [data-testid="lyrics-line"]'));
         if (!nodes.length) nodes = Array.from(r.querySelectorAll('[data-testid*="lyric" i]')).filter(function(n) {
             // A button such as lyrics-close-button is a control, not a lyric
             // line. Ignoring it lets the paragraph fallback read real lines.
             return !n.closest('button, [role="button"], [role="switch"]') && (!n.children.length || !n.querySelector('[data-testid*="lyric" i]'));
         });
-        if (!nodes.length) nodes = Array.from(r.querySelectorAll('p'));
-        var lines = [], active = -1, synced = false;
+        if (!nodes.length && r.matches(spec.roots)) nodes = Array.from(r.querySelectorAll('p'));
+        nodes = nodes.filter(function(n) { return !hiddenBeforeTap(n) && !n.closest('button, [role="button"], [role="switch"]'); });
+        var lines = [], active = -1, activeCount = 0, synced = false;
         nodes.slice(0, 200).forEach(function(n) {
             var t = text(n); if (!t) return;
-            if (n.getAttribute('aria-current') === 'true' || n.getAttribute('data-active') === 'true') { active = lines.length; synced = true; }
+            if (n.getAttribute('aria-current') === 'true' || n.getAttribute('data-active') === 'true') { active = lines.length; activeCount++; synced = true; }
             if (n.hasAttribute('data-start-time') || n.hasAttribute('data-time')) synced = true;
             lines.push(t);
         });
-        return {lines: lines, active: synced ? active : -1, synced: synced};
+        return {lines: lines, active: synced && activeCount === 1 ? active : -1, synced: synced};
     }
-    function deviceRows(r) {
+    function trustedDevices(r) {
+        // A trigger's aria-controls alone does not prove the target is Spotify's
+        // device picker; never send a transfer into an arbitrary region.
+        return !!r && r.matches(spec.roots);
+    }
+    function deviceRows(r, includeHidden) {
         var nodes = Array.from(r.querySelectorAll('[data-testid="device-list-item"], [data-testid="device-picker-row"], [role="option"], li button'));
         var seen = [];
-        return nodes.filter(function(n) { if (seen.indexOf(n) >= 0) return false; seen.push(n); return true; }).slice(0, 30).map(function(n) {
+        nodes = nodes.filter(function(n) { if (seen.indexOf(n) >= 0) return false; seen.push(n); return includeHidden || !hiddenBeforeTap(n); });
+        // Limit display only. Transfer ambiguity must consider every matching
+        // element, including hidden items beyond the first page of results.
+        if (!includeHidden) nodes = nodes.slice(0, 30);
+        return nodes.map(function(n) {
             var nameNode = n.querySelector('[data-testid="device-name"], [data-encore-id="text"]');
             var name = text(nameNode || n).slice(0, 80);
             var typeNode = n.querySelector('[data-testid="device-type"]');
@@ -100,9 +113,8 @@
             return {node: n, name: name, type: typeNode ? text(typeNode).slice(0, 40) : '', current: current};
         }).filter(function(d) { return d.name; });
     }
-    // The page is hidden: a panel (or one of its parents) can measure 0 px, and
-    // Spotify then draws no rows in it. Give it a size while it is read, then
-    // restore the original inline style exactly. No other change to the page.
+    // Temporarily size zero-height containers. Restore only properties that
+    // still have our value, preserving concurrent changes made by Spotify.
     var sized = [];
     function giveSize(r) {
         var h = 0;
@@ -111,15 +123,26 @@
             var cs = window.getComputedStyle(n), small = false;
             try { small = n.getBoundingClientRect().height < 2; } catch (_) {}
             if (cs.display !== 'none' && cs.visibility !== 'hidden' && !small) continue;
-            sized.push([n, n.getAttribute('style')]);
-            if (cs.display === 'none') n.style.setProperty('display', 'block', 'important');
-            if (cs.visibility === 'hidden') n.style.setProperty('visibility', 'visible', 'important');
-            if (small) n.style.setProperty('min-height', '640px', 'important');
+            var entry = {node:n, hadStyle:n.hasAttribute('style'), props:[]};
+            sized.push(entry);
+            function set(prop, value) {
+                entry.props.push([prop, n.style.getPropertyValue(prop), n.style.getPropertyPriority(prop), value]);
+                n.style.setProperty(prop, value, 'important');
+            }
+            if (cs.display === 'none') set('display', 'block');
+            if (cs.visibility === 'hidden') set('visibility', 'visible');
+            if (small) set('min-height', '640px');
         }
         log('sized:' + sized.length + ',h:' + Math.min(h, 9999));
     }
     function restoreSize() {
-        sized.forEach(function(e) { try { if (e[1] === null) e[0].removeAttribute('style'); else e[0].setAttribute('style', e[1]); } catch (_) {} });
+        sized.forEach(function(e) { try {
+            e.props.forEach(function(p) {
+                if (e.node.style.getPropertyValue(p[0]) !== p[3] || e.node.style.getPropertyPriority(p[0]) !== 'important') return;
+                if (p[1]) e.node.style.setProperty(p[0], p[1], p[2]); else e.node.style.removeProperty(p[0]);
+            });
+            if (!e.hadStyle && !e.node.style.length) e.node.removeAttribute('style');
+        } catch (_) {} });
         sized = [];
     }
     // Close only a unique, panel-specific control inside the recognised
@@ -164,7 +187,7 @@
         // close control scoped to this recognised panel. Never guess history.
         var closeAttempted = false;
         try {
-            if (b && b.isConnected && button() === b && isOpen(b) && !b.disabled && !b.matches(':disabled') && !b.closest('[aria-disabled="true"]')) {
+            if (b && b.isConnected && button() === b && isOpen(b) && !hiddenBeforeTap(b) && !b.disabled && !b.matches(':disabled') && !b.closest('[aria-disabled="true"]')) {
                 b.click(); closeAttempted = true; log('closed');
             } else {
                 var currentRoot = root(b), closer = explicitCloser(currentRoot, b);
@@ -201,6 +224,7 @@
         if (rootAmbiguous) { log('root:ambiguous'); finish(false, 'ambiguous'); return JSON.stringify({status: 'started', id: job.id}); }
         if (b && (b.disabled || b.matches(':disabled') || b.closest('[aria-disabled="true"]')) && !already) { log('button:disabled'); finish(false, 'disabled'); return JSON.stringify({status: 'started', id: job.id}); }
         if (!b && !already) { log(found > 1 ? 'button:ambiguous:' + Math.min(found, 9) : 'button:absent'); finish(false, found > 1 ? 'ambiguous' : 'absent'); return JSON.stringify({status: 'started', id: job.id}); }
+        if (b && !already && hiddenBeforeTap(b)) { log('button:absent'); finish(false, 'absent'); return JSON.stringify({status: 'started', id: job.id}); }
         wasOpen = !!already || (b && isOpen(b));
         if (!wasOpen) { try { openedHere = true; b.click(); log('opened'); } catch (_) { log('open-error'); finish(false, 'command'); return JSON.stringify({status: 'started', id: job.id}); } }
         else log('already-open');
@@ -209,7 +233,8 @@
           try {
             var r = null;
             r = root(button() || b); if (r && hiddenBeforeTap(r)) r = null;
-            var ready = r && (kind === 'lyrics' ? lyricLines(r).lines.length : deviceRows(r).length);
+            if (kind === 'devices' && action === 'transfer' && r && !trustedDevices(r)) { log('target:absent'); finish(false, 'target'); return; }
+            var ready = r && (kind === 'lyrics' ? lyricLines(r).lines.length : deviceRows(r, action === 'transfer').length);
             if (!ready && r && !forced && Date.now() > end - 2000) { forced = true; giveSize(r); }
             if (!ready && Date.now() < end) { setTimeout(step, 150); return; }
             if (!ready) { log(r ? 'rows:0' : 'panel:absent'); finish(false, rootAmbiguous ? 'ambiguous' : r ? 'empty' : 'panel'); return; }
@@ -219,25 +244,25 @@
                 log('lines:' + Math.min(l.lines.length, 200) + (l.synced ? ':sync' : ''));
                 finish(true, ''); return;
             }
-            var rows = deviceRows(r);
+            var rows = deviceRows(r, action === 'transfer');
             if (action === 'transfer') {
                 var target = rows.filter(function(d) { return d.name === wanted; });
                 if (target.length !== 1) { log('target:' + (target.length ? 'ambiguous' : 'absent')); finish(false, 'target'); return; }
-                if (target[0].current) { log('target:already-active'); job.transferred = true; finish(true, ''); return; }
                 var targetNode = target[0].node;
                 if (targetNode.disabled || targetNode.matches(':disabled') || targetNode.closest('[aria-disabled="true"]') || hiddenBeforeTap(targetNode)) {
                     log('target:disabled'); finish(false, 'target'); return;
                 }
+                if (target[0].current) { log('target:already-active'); job.transferred = true; finish(true, ''); return; }
                 try { targetNode.click(); log('transfer:click'); } catch (_) { log('transfer:error'); finish(false, 'command'); return; }
                 var until = Date.now() + 3000;
                 (function verify() {
                   try {
                     var again = null;
                     try {
-                        var r2 = root(button() || b), matches = r2 ? deviceRows(r2).filter(function(d) { return d.name === wanted; }) : [];
-                        // Name alone is not a device identity if a duplicate
-                        // arrives after the tap. Do not claim confirmation.
-                        again = matches.length === 1 ? matches[0] : null;
+                        var r2 = root(button() || b), matches = r2 === r && trustedDevices(r2) ? deviceRows(r2, true).filter(function(d) { return d.name === wanted; }) : [];
+                        // A duplicate, replacement element or changed panel is
+                        // not proof that the original target became active.
+                        again = matches.length === 1 && matches[0].node === targetNode && targetNode.isConnected && !targetNode.disabled && !targetNode.matches(':disabled') && !targetNode.closest('[aria-disabled="true"]') && !hiddenBeforeTap(targetNode) ? matches[0] : null;
                     } catch (_) { again = null; }
                     if (again && again.current) { log('transfer:verified'); job.transferred = true; finish(true, ''); return; }
                     if (Date.now() < until) { setTimeout(verify, 200); return; }

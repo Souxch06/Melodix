@@ -228,7 +228,7 @@
     :cond_5
     new-instance v0, Ljava/lang/StringBuilder;
 
-    const-string v2, "r\u00e9gl\u00e9 par la m\u00e9thode "
+    const-string v2, "commande envoy\u00e9e par la m\u00e9thode "
 
     invoke-direct {v0, v2}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
 

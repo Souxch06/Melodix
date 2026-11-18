@@ -19,3 +19,9 @@ for name in ('panel-structure.js', 'panel-read.js', 'queue-job.js', 'panel-job.j
     encoded = json.dumps((here / name).read_text(encoding='utf-8'), ensure_ascii=True).replace("'", "\\'")[1:-1]
     assert content.count(encoded) == 2, f'{name}: expected field and inlined runtime code'
 print('Player panel scripts match both compiled copies')
+
+volume = (Path(root) / 'smali/com/melodix/music/PreviewPlayerVolume.smali') if root else here / 'smali/PreviewPlayerVolume.smali'
+content = volume.read_text(encoding='utf-8')
+encoded = json.dumps((here / 'volume-control.js').read_text(encoding='utf-8'), ensure_ascii=True).replace("'", "\\'")[1:-1]
+assert content.count(encoded) == 3, 'volume-control.js: expected field and both inlined runtime copies'
+print('Player volume script matches all three compiled copies')

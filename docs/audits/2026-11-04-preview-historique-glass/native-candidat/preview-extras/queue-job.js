@@ -95,31 +95,37 @@
         return titles.length === 1 ? titles[0] : null;
     }
     function rows(r) {
-        var list = Array.from(r.querySelectorAll('[data-testid="queue-tracklist-row"], [data-testid="tracklist-row"], [role="row"]')).filter(function(n) {
-            return !n.querySelector('[data-testid="queue-tracklist-row"], [data-testid="tracklist-row"], [role="row"]');
+        if (!queueScope(r)) return [];
+        // A labelled outer sidebar can contain both queue and listening history.
+        // If there is an explicit queue panel, read only that subtree.
+        var panels = r.matches('#queue-panel') ? [r] : Array.from(r.querySelectorAll('#queue-panel'));
+        if (panels.length > 1) return [];
+        var scope = panels.length === 1 ? panels[0] : r;
+        var list = Array.from(scope.querySelectorAll('[data-testid="queue-tracklist-row"], [data-testid="tracklist-row"], [role="row"]')).filter(function(n) {
+            return !hiddenBeforeTap(n) && !n.closest('#history-panel') && !n.querySelector('[data-testid="queue-tracklist-row"], [data-testid="tracklist-row"], [role="row"]');
         });
         if (!list.length) {
             // No row markers: one row per track link, its closest list item or row-like block.
             var seen = [];
-            Array.from(r.querySelectorAll('a[href*="/track/"], a[href*="/episode/"]')).forEach(function(a) {
+            Array.from(scope.querySelectorAll('a[href*="/track/"], a[href*="/episode/"]')).forEach(function(a) {
                 var row = a.closest('li, [role="listitem"], [draggable="true"], [data-encore-id="listRow"]') || a.parentElement && a.parentElement.parentElement || a;
-                if (seen.indexOf(row) < 0) seen.push(row);
+                if (!hiddenBeforeTap(a) && !hiddenBeforeTap(row) && !a.closest('#history-panel') && seen.indexOf(row) < 0) seen.push(row);
             });
             list = seen;
         }
         if (!list.length && queueScope(r)) {
             // Newer Encore queue rows may have a title marker without any
             // track href. Only row containers bearing that marker qualify.
-            var marked = Array.from(r.querySelectorAll('li, [role="listitem"], [data-encore-id="listRow"]')).filter(function(n) { return !!semanticTitle(n) || !!titleFallback(n); });
+            var marked = Array.from(scope.querySelectorAll('li, [role="listitem"], [data-encore-id="listRow"]')).filter(function(n) { return !hiddenBeforeTap(n) && !n.closest('#history-panel') && (!!semanticTitle(n) || !!titleFallback(n)); });
             list = marked.filter(function(n) { return !marked.some(function(other) { return other !== n && n.contains(other); }); });
         }
         return list.slice(0, 40).map(function(n) {
-            var t = n.querySelector('[data-testid="internal-track-link"], a[href*="/track/"], a[href*="/episode/"], [data-testid="track-title"], [data-testid="context-item-info-title"]');
+            var t = Array.from(n.querySelectorAll('[data-testid="internal-track-link"], a[href*="/track/"], a[href*="/episode/"], [data-testid="track-title"], [data-testid="context-item-info-title"]')).filter(function(el) { return !hiddenBeforeTap(el); })[0] || null;
             var semantic = !t ? semanticTitle(n) : null;
             if (!t) t = semantic;
             if (!t && queueScope(r)) t = titleFallback(n);
             var artistRoot = semantic ? n.querySelector('[data-encore-id="listRowSubtitle"]') : n;
-            var artists = artistRoot ? Array.from(artistRoot.querySelectorAll('a[href*="/artist/"], a[href*="/show/"]')).filter(function(el) { return !semantic || !hiddenBeforeTap(el); }).map(text).filter(Boolean) : [];
+            var artists = artistRoot ? Array.from(artistRoot.querySelectorAll('a[href*="/artist/"], a[href*="/show/"]')).filter(function(el) { return !hiddenBeforeTap(el); }).map(text).filter(Boolean) : [];
             if (!artists.length) { var a = n.querySelector('[data-testid="track-artist"], [data-testid="context-item-info-artist"]'); if (a) artists.push(text(a)); }
             if (!artists.length && t && queueScope(r)) {
                 var details = Array.from(n.querySelectorAll('[class*="ListRowDetails__ListRowDetailText"]')).filter(function(el) { return !hiddenBeforeTap(el) && !!text(el); });
@@ -177,9 +183,8 @@
         var rowCount = Array.from(panel.querySelectorAll('li, [role="listitem"], [role="row"], [data-encore-id="listRow"]')).filter(function(n) { return !!semanticTitle(n); }).length;
         return 'sem:' + [1, Math.min(titles.length,9), Math.min(panel.querySelectorAll('[data-encore-id="listRowSubtitle"]').length,9), Math.min(rowCount,9), Math.min(titles.filter(hiddenBeforeTap).length,9)].join('');
     }
-    // The page is hidden: a panel (or one of its parents) can measure 0 px, and
-    // Spotify then draws no rows in it. Give it a size while it is read, then
-    // restore the original inline style exactly. No other change to the page.
+    // Temporarily size zero-height containers. Restore only properties that
+    // still have our value, preserving concurrent changes made by Spotify.
     var sized = [];
     function giveSize(r) {
         var h = 0;
@@ -188,15 +193,26 @@
             var cs = window.getComputedStyle(n), small = false;
             try { small = n.getBoundingClientRect().height < 2; } catch (_) {}
             if (cs.display !== 'none' && cs.visibility !== 'hidden' && !small) continue;
-            sized.push([n, n.getAttribute('style')]);
-            if (cs.display === 'none') n.style.setProperty('display', 'block', 'important');
-            if (cs.visibility === 'hidden') n.style.setProperty('visibility', 'visible', 'important');
-            if (small) n.style.setProperty('min-height', '640px', 'important');
+            var entry = {node:n, hadStyle:n.hasAttribute('style'), props:[]};
+            sized.push(entry);
+            function set(prop, value) {
+                entry.props.push([prop, n.style.getPropertyValue(prop), n.style.getPropertyPriority(prop), value]);
+                n.style.setProperty(prop, value, 'important');
+            }
+            if (cs.display === 'none') set('display', 'block');
+            if (cs.visibility === 'hidden') set('visibility', 'visible');
+            if (small) set('min-height', '640px');
         }
         log('sized:' + sized.length + ',h:' + Math.min(h, 9999));
     }
     function restoreSize() {
-        sized.forEach(function(e) { try { if (e[1] === null) e[0].removeAttribute('style'); else e[0].setAttribute('style', e[1]); } catch (_) {} });
+        sized.forEach(function(e) { try {
+            e.props.forEach(function(p) {
+                if (e.node.style.getPropertyValue(p[0]) !== p[3] || e.node.style.getPropertyPriority(p[0]) !== 'important') return;
+                if (p[1]) e.node.style.setProperty(p[0], p[1], p[2]); else e.node.style.removeProperty(p[0]);
+            });
+            if (!e.hadStyle && !e.node.style.length) e.node.removeAttribute('style');
+        } catch (_) {} });
         sized = [];
     }
     // Only an explicitly named queue close control inside the recognised
@@ -240,7 +256,7 @@
         // close control scoped to this recognised panel. Never guess history.
         var closeAttempted = false;
         try {
-            if (b && b.isConnected && button() === b && isOpen(b) && !b.disabled && !b.matches(':disabled') && !b.closest('[aria-disabled="true"]')) {
+            if (b && b.isConnected && button() === b && isOpen(b) && !hiddenBeforeTap(b) && !b.disabled && !b.matches(':disabled') && !b.closest('[aria-disabled="true"]')) {
                 b.click(); closeAttempted = true; log('closed');
             } else {
                 var currentRoot = root(b), closer = explicitCloser(currentRoot, b);
@@ -278,6 +294,7 @@
         if (rootAmbiguous) { log('root:ambiguous'); finish(false, 'ambiguous'); return JSON.stringify({status: 'started', id: job.id}); }
         if (b && (b.disabled || b.matches(':disabled') || b.closest('[aria-disabled="true"]')) && !already) { log('button:disabled'); finish(false, 'disabled'); return JSON.stringify({status: 'started', id: job.id}); }
         if (!b && !already) { log(found > 1 ? 'button:ambiguous:' + Math.min(found, 9) : 'button:absent'); finish(false, found > 1 ? 'ambiguous' : 'absent'); return JSON.stringify({status: 'started', id: job.id}); }
+        if (b && !already && hiddenBeforeTap(b)) { log('button:absent'); finish(false, 'absent'); return JSON.stringify({status: 'started', id: job.id}); }
         wasOpen = !!already || (b && isOpen(b));
         if (!wasOpen) { try { openedHere = true; b.click(); log('opened'); } catch (_) { log('open-error'); finish(false, 'command'); return JSON.stringify({status: 'started', id: job.id}); } }
         else log('already-open');
