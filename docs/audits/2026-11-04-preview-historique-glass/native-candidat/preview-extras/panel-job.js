@@ -72,6 +72,26 @@
         if (pops.length > 1) rootAmbiguous = true;
         return pops.length === 1 ? pops[0] : null;
     }
+    // Exclude hidden descendants and embedded controls rather than treating
+    // all textContent inside a visible lyric element as a line.
+    function lyricText(n) {
+        if (!n || hiddenBeforeTap(n)) return '';
+        var parts = [], visited = 0;
+        function walk(node) {
+            if (++visited > 1000) return;
+            if (node.nodeType === 3) { parts.push(node.nodeValue || ''); return; }
+            if (node.nodeType !== 1) return;
+            if (node !== n) {
+                if (node.matches('button, [role="button"], [role="switch"]') || node.hasAttribute('hidden') || node.getAttribute('aria-hidden') === 'true') return;
+                var cs = window.getComputedStyle(node);
+                if (cs.display === 'none' || cs.visibility === 'hidden') return;
+            }
+            if (node.tagName === 'BR') parts.push(' ');
+            for (var child = node.firstChild; child; child = child.nextSibling) walk(child);
+        }
+        walk(n);
+        return parts.join('').replace(/\s+/g, ' ').trim().slice(0, 300);
+    }
     function lyricLines(r) {
         // aria-controls by itself may point at unrelated content. Require a
         // lyrics-specific root or a lyrics-specific line marker, not just <p>.
@@ -86,7 +106,7 @@
         nodes = nodes.filter(function(n) { return !hiddenBeforeTap(n) && !n.closest('button, [role="button"], [role="switch"]'); });
         var lines = [], active = -1, activeCount = 0, synced = false;
         nodes.slice(0, 200).forEach(function(n) {
-            var t = text(n); if (!t) return;
+            var t = lyricText(n); if (!t) return;
             if (n.getAttribute('aria-current') === 'true' || n.getAttribute('data-active') === 'true') { active = lines.length; activeCount++; synced = true; }
             if (n.hasAttribute('data-start-time') || n.hasAttribute('data-time')) synced = true;
             lines.push(t);
@@ -252,6 +272,7 @@
                 if (targetNode.disabled || targetNode.matches(':disabled') || targetNode.closest('[aria-disabled="true"]') || hiddenBeforeTap(targetNode)) {
                     log('target:disabled'); finish(false, 'target'); return;
                 }
+                if (rows.filter(function(d) { return d.current; }).length > 1) { log('target:ambiguous'); finish(false, 'target'); return; }
                 if (target[0].current) { log('target:already-active'); job.transferred = true; finish(true, ''); return; }
                 try { targetNode.click(); log('transfer:click'); } catch (_) { log('transfer:error'); finish(false, 'command'); return; }
                 var until = Date.now() + 3000;
@@ -259,10 +280,12 @@
                   try {
                     var again = null;
                     try {
-                        var r2 = root(button() || b), matches = r2 === r && trustedDevices(r2) ? deviceRows(r2, true).filter(function(d) { return d.name === wanted; }) : [];
-                        // A duplicate, replacement element or changed panel is
-                        // not proof that the original target became active.
-                        again = matches.length === 1 && matches[0].node === targetNode && targetNode.isConnected && !targetNode.disabled && !targetNode.matches(':disabled') && !targetNode.closest('[aria-disabled="true"]') && !hiddenBeforeTap(targetNode) ? matches[0] : null;
+                        var r2 = root(button() || b), all = r2 === r && trustedDevices(r2) ? deviceRows(r2, true) : [];
+                        var matches = all.filter(function(d) { return d.name === wanted; });
+                        var activeCount = all.filter(function(d) { return d.current; }).length;
+                        // A duplicate, replacement, changed panel or conflicting
+                        // active states do not prove the original target is active.
+                        again = activeCount === 1 && matches.length === 1 && matches[0].node === targetNode && targetNode.isConnected && !targetNode.disabled && !targetNode.matches(':disabled') && !targetNode.closest('[aria-disabled="true"]') && !hiddenBeforeTap(targetNode) ? matches[0] : null;
                     } catch (_) { again = null; }
                     if (again && again.current) { log('transfer:verified'); job.transferred = true; finish(true, ''); return; }
                     if (Date.now() < until) { setTimeout(verify, 200); return; }

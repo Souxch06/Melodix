@@ -13,7 +13,26 @@
     var job = W.__melodixQueueJob = {status: 'running', started: Date.now(), id: String(Date.now()) + ':' + W.__melodixDrawerCounter, ok: false, reason: '', now: '', next: '', journal: []};
     W.__melodixDrawerLease = job;
     function log(code) { if (job.journal.length < 12) job.journal.push(code); }
-    function text(n) { return String(n && n.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 200); }
+    // textContent includes aria-hidden nodes and embedded controls. Only read
+    // visible text, with a bounded walk, so hidden metadata cannot leak into a title.
+    function text(n) {
+        if (!n || hiddenBeforeTap(n)) return '';
+        var parts = [], visited = 0;
+        function walk(node) {
+            if (++visited > 1000) return;
+            if (node.nodeType === 3) { parts.push(node.nodeValue || ''); return; }
+            if (node.nodeType !== 1) return;
+            if (node !== n) {
+                if (node.matches('button, [role="button"], [role="switch"]') || node.hasAttribute('hidden') || node.getAttribute('aria-hidden') === 'true') return;
+                var cs = window.getComputedStyle(node);
+                if (cs.display === 'none' || cs.visibility === 'hidden') return;
+            }
+            if (node.tagName === 'BR') parts.push(' ');
+            for (var child = node.firstChild; child; child = child.nextSibling) walk(child);
+        }
+        walk(n);
+        return parts.join('').replace(/\s+/g, ' ').trim().slice(0, 200);
+    }
     // Several copies of a control can exist (player bar and full view). Prefer
     // the one in the player bar, then the only visible one; otherwise refuse.
     function pickOne(list) {
@@ -119,8 +138,14 @@
             var marked = Array.from(scope.querySelectorAll('li, [role="listitem"], [data-encore-id="listRow"]')).filter(function(n) { return !hiddenBeforeTap(n) && !n.closest('#history-panel') && (!!semanticTitle(n) || !!titleFallback(n)); });
             list = marked.filter(function(n) { return !marked.some(function(other) { return other !== n && n.contains(other); }); });
         }
-        return list.slice(0, 40).map(function(n) {
-            var t = Array.from(n.querySelectorAll('[data-testid="internal-track-link"], a[href*="/track/"], a[href*="/episode/"], [data-testid="track-title"], [data-testid="context-item-info-title"]')).filter(function(el) { return !hiddenBeforeTap(el); })[0] || null;
+        // Scan beyond invalid/placeholder rows, but cap the work. Only the
+        // first 40 validated rows are ultimately returned.
+        var output = [];
+        list.slice(0, 400).some(function(n) {
+            var candidates = Array.from(n.querySelectorAll('[data-testid="internal-track-link"], a[href*="/track/"], a[href*="/episode/"], [data-testid="track-title"], [data-testid="context-item-info-title"]')).filter(function(el) { return !hiddenBeforeTap(el) && !!text(el); });
+            candidates = candidates.filter(function(el) { return !candidates.some(function(other) { return el !== other && el.contains(other); }); });
+            if (candidates.length > 1) return false;
+            var t = candidates[0] || null;
             var semantic = !t ? semanticTitle(n) : null;
             if (!t) t = semantic;
             if (!t && queueScope(r)) t = titleFallback(n);
@@ -138,8 +163,11 @@
                 if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(v)) { duration = v; return true; }
                 return false;
             });
-            return {title: text(t), artist: artists.join(', ').slice(0, 200), duration: duration, current: n.getAttribute('aria-current') === 'true' || n.getAttribute('data-testid') === 'queue-now-playing'};
-        }).filter(function(x) { return x.title; });
+            var item = {title: text(t), artist: artists.join(', ').slice(0, 200), duration: duration, current: n.getAttribute('aria-current') === 'true' || n.getAttribute('data-testid') === 'queue-now-playing'};
+            if (item.title) output.push(item);
+            return output.length >= 40;
+        });
+        return output;
     }
     // Failure-only structural fingerprint. Every character is a fixed category
     // or a count capped at 9; no page text, IDs, hrefs or arbitrary labels leave
