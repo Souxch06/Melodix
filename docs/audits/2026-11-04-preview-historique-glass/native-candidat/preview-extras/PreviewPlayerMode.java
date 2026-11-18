@@ -244,6 +244,12 @@ public final class PreviewPlayerMode extends ImageButton {
         return "état ou langue non reconnu";
     }
     private int lastIcon=0;
+    // Press feedback: shrink while held, spring back on release.
+    @Override public void setPressed(boolean p) {
+        boolean was=isPressed(); super.setPressed(p);
+        if(was==p || (Build.VERSION.SDK_INT>=26 && !ValueAnimator.areAnimatorsEnabled()))return;
+        animate().scaleX(p?0.86f:1f).scaleY(p?0.86f:1f).setDuration(p?90:220).setInterpolator(p?null:new android.view.animation.OvershootInterpolator(2f)).start();
+    }
     private void paint() {
         boolean known=!state.equals("unknown");
         String shown=state;
