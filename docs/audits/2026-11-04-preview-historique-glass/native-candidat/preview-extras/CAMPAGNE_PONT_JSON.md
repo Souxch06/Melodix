@@ -30,3 +30,5 @@ NODE_PATH=/tmp/melodix-jsdom/node_modules ORG_JSON_SOURCE_ROOT=/tmp/melodix-andr
 ```
 
 Le test choisit par défaut `javac` et `java`. Les variables `PREVIEW_TEST_JAVA` et `PREVIEW_TEST_ECJ` permettent d'utiliser ECJ comme compilateur JVM, comme lors de cette campagne. Les sources externes ne font pas partie du livrable applicatif.
+
+**Suite de la campagne :** les tests de réponses tardives et les deux vérifications strictes en échec sur le volume sont détaillés dans `CAMPAGNE_REPONSES_TARDIVES.md`. Le test par défaut caractérise ces limites et ne les considère pas comme corrigées.
