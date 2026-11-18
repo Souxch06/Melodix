@@ -1,0 +1,9 @@
+# Piste File : marqueurs Encore sémantiques
+
+Le retour du candidat 1022246 est `shape:61999000099091`, `detail:100900090`. La racine contient notamment un descendant `#queue-panel`, des liens d'artistes et des textes Encore, mais pas les marqueurs `ListRowTitle__ListRowText` précédemment essayés. Les comptes sont plafonnés et ne permettent pas de rattacher chaque élément à une ligne ni d'identifier les titres.
+
+Deux projets indépendants décrivent des lignes `li[role=row]` avec `[data-encore-id=listRowTitle]` et `listRowSubtitle` dans `#queue-panel` : https://github.com/7xeh/QueueETA/blob/0fae70b4a8839ad891c737f207f7455cb80be06d/docs/how-it-works.md et https://github.com/robo311/spotify-custom/blob/1b0b03c358c74b12f1d0167ce688a36e242e611d/payload/src/shortcuts/index.test.ts. Ce sont des exemples externes, pas une preuve que le téléphone utilise cette structure.
+
+Cette piste lit le titre sémantique uniquement dans une ligne contenue dans `#queue-panel`, sans lien de piste ni supposition sur l'ordre du texte. Un titre masqué, un bouton d'action, plusieurs titres distincts, et une ligne dans l'historique voisin sont refusés dans ce nouveau chemin. Une ligne cliquable est tolérée seulement si elle contient aussi le sous-titre sémantique. Les liens artiste sont limités au sous-titre pour cette variante. Aucun clic sur les morceaux n'est ajouté.
+
+En cas d'échec, `sem:` est un code de cinq chiffres plafonnés à 9 : nombre de conteneurs `#queue-panel`, nombre de titres sémantiques, de sous-titres sémantiques, de conteneurs de ligne avec titre acceptable, puis de titres sémantiques masqués. Tous les comptes concernent la racine choisie et le panneau unique, sans contenu utilisateur. Tests locaux synthétiques seulement : ni validation Spotify ni validation téléphone. Les autres panneaux et l'audio restent à diagnostiquer ; Like reste distinct.

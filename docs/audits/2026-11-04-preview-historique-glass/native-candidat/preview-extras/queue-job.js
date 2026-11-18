@@ -80,6 +80,20 @@
         candidates = candidates.filter(function(el) { return !candidates.some(function(other) { return el !== other && el.contains(other); }); });
         return candidates.length === 1 ? candidates[0] : null;
     }
+    // Spotify's queue may use an explicit Encore title rather than a track
+    // link. This is limited to actual rows under #queue-panel, never a
+    // neighbouring history or an arbitrary aria-controls target.
+    function semanticTitle(n) {
+        if (!n.closest('#queue-panel')) return null;
+        var titles = Array.from(n.querySelectorAll('[data-encore-id="listRowTitle"]')).filter(function(el) {
+            if (!el.isConnected || hiddenBeforeTap(el) || !text(el) || el.closest('button, [role="switch"]') || el.querySelector('a[href*="/artist/"], [data-encore-id="listRowSubtitle"]')) return false;
+            var clickable = el.closest('[role="button"]');
+            // A row itself may be clickable; a separate action control is not a song.
+            return !clickable || (n.contains(clickable) && !!clickable.querySelector('[data-encore-id="listRowSubtitle"]'));
+        });
+        titles = titles.filter(function(el) { return !titles.some(function(other) { return other !== el && el.contains(other); }); });
+        return titles.length === 1 ? titles[0] : null;
+    }
     function rows(r) {
         var list = Array.from(r.querySelectorAll('[data-testid="queue-tracklist-row"], [data-testid="tracklist-row"], [role="row"]')).filter(function(n) {
             return !n.querySelector('[data-testid="queue-tracklist-row"], [data-testid="tracklist-row"], [role="row"]');
@@ -96,13 +110,16 @@
         if (!list.length && queueScope(r)) {
             // Newer Encore queue rows may have a title marker without any
             // track href. Only row containers bearing that marker qualify.
-            var marked = Array.from(r.querySelectorAll('li, [role="listitem"], [data-encore-id="listRow"]')).filter(function(n) { return !!titleFallback(n); });
+            var marked = Array.from(r.querySelectorAll('li, [role="listitem"], [data-encore-id="listRow"]')).filter(function(n) { return !!semanticTitle(n) || !!titleFallback(n); });
             list = marked.filter(function(n) { return !marked.some(function(other) { return other !== n && n.contains(other); }); });
         }
         return list.slice(0, 40).map(function(n) {
             var t = n.querySelector('[data-testid="internal-track-link"], a[href*="/track/"], a[href*="/episode/"], [data-testid="track-title"], [data-testid="context-item-info-title"]');
+            var semantic = !t ? semanticTitle(n) : null;
+            if (!t) t = semantic;
             if (!t && queueScope(r)) t = titleFallback(n);
-            var artists = Array.from(n.querySelectorAll('a[href*="/artist/"], a[href*="/show/"]')).map(text).filter(Boolean);
+            var artistRoot = semantic ? n.querySelector('[data-encore-id="listRowSubtitle"]') : n;
+            var artists = artistRoot ? Array.from(artistRoot.querySelectorAll('a[href*="/artist/"], a[href*="/show/"]')).filter(function(el) { return !semantic || !hiddenBeforeTap(el); }).map(text).filter(Boolean) : [];
             if (!artists.length) { var a = n.querySelector('[data-testid="track-artist"], [data-testid="context-item-info-artist"]'); if (a) artists.push(text(a)); }
             if (!artists.length && t && queueScope(r)) {
                 var details = Array.from(n.querySelectorAll('[class*="ListRowDetails__ListRowDetailText"]')).filter(function(el) { return !hiddenBeforeTap(el) && !!text(el); });
@@ -151,6 +168,14 @@
             count('[class*="ListRowDetails__ListRowDetailText"]'), count('a[href*="/artist/"]'),
             count('a[href*="/album/"]'), count('[data-context-item-type="track"], [data-context-item-type="episode"]'),
             count('[role="gridcell"]'), count('[data-encore-id="text"]'), count('[data-flip-id*="section-header-"]')].join('');
+    }
+    function semanticDetail(r) {
+        var panels = Array.from(r.querySelectorAll('#queue-panel'));
+        if (r.matches('#queue-panel')) panels.unshift(r);
+        if (panels.length !== 1) return 'sem:' + Math.min(panels.length, 9) + '0000';
+        var panel = panels[0], titles = Array.from(panel.querySelectorAll('[data-encore-id="listRowTitle"]'));
+        var rowCount = Array.from(panel.querySelectorAll('li, [role="listitem"], [role="row"], [data-encore-id="listRow"]')).filter(function(n) { return !!semanticTitle(n); }).length;
+        return 'sem:' + [1, Math.min(titles.length,9), Math.min(panel.querySelectorAll('[data-encore-id="listRowSubtitle"]').length,9), Math.min(rowCount,9), Math.min(titles.filter(hiddenBeforeTap).length,9)].join('');
     }
     // The page is hidden: a panel (or one of its parents) can measure 0 px, and
     // Spotify then draws no rows in it. Give it a size while it is read, then
@@ -276,7 +301,7 @@
                 log('path:' + (/^\/queue(?:\/|$)/.test(String(location.pathname || '')) ? 'queue' : 'other'));
                 log('links:' + Math.min(r ? r.querySelectorAll('a[href*="/track/"], a[href*="/episode/"]').length : 0, 99));
                 log('rowsdoc:' + Math.min(document.querySelectorAll('[data-testid="tracklist-row"], [role="row"]').length, 99));
-                if (r) { log(emptyShape(r, b)); log(emptyDetail(r)); }
+                if (r) { log(emptyShape(r, b)); log(emptyDetail(r)); log(semanticDetail(r)); }
                 finish(false, rootAmbiguous ? 'ambiguous' : r ? 'empty' : 'panel');
             }
           } catch (_) { finish(false, 'error'); }
