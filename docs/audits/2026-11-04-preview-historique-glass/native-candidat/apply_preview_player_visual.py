@@ -14,12 +14,14 @@ EXPECTED = {
 }
 
 EXTRAS = {
+    'PreviewSnapshotRenderer.java': '799e2bf909b31eaa28d427efccb3f3f49f33814fab504fe5c934432021772c95',
+    'smali/PreviewSnapshotRenderer.smali': '7df3a5e66ca2f15a629867268976103a8dcbb13adfb336642d093ac853aaec3b',
     'smali/PreviewPlayerChrome$1.smali': 'bd1720f5f0fae96a8a4a9189aa4dd08fc58d2495ded69fd17da44defe41ff4c3',
     'smali/PreviewPlayerChrome$2.smali': '98d6ef5e530db15f693b74bd94312ab67d3a5287c96c6cc2133d131884d683b6',
     'smali/PreviewPlayerChrome$PressEffect.smali': '4c48d8402d9f35a913f8b328b2e3fddfd2941a30cac0649445da59c7ef4e2e49',
     'smali/PreviewPlayerChrome$3.smali': '82ef77016459b31aa273633a7632d30b501db93ef300a79c0f56767947c6d972',
     'smali/PreviewPlayerChrome$DismissGesture.smali': '0ccec83c26bb5f0d631c6d240b2e413c0429c2df31bfad29c0ebbb5a26168601',
-    'smali/PreviewPlayerChrome.smali': '9de27f30fadca917da507e994d29fa2e79cfa753efa3dc32b26ea7f598a3e524',
+    'smali/PreviewPlayerChrome.smali': 'e78f2140e623481e39c87cfb67fc2ac764f612b8ee98599670c3333fb7231938',
     'smali/PreviewPlayerMode$1.smali': '2b0047d2ede66423132428772b27eb74ee648b1fe5e12b525781c3e7fddf358d',
     'smali/PreviewPlayerMode$2.smali': 'b98238b4d487a829908df011d523438eeb48d656560794ed30685b918641d87f',
     'smali/PreviewPlayerMode$3.smali': 'f73f71550e68891d12de0aac28307f47638c9b7156a16ef3acd0ed3b7dbbbdc9',
@@ -80,7 +82,7 @@ EXTRAS = {
     'smali/PreviewPlayerPlayButton.smali': '10fa7289606a9481f8f6af0cac9e36790c1bf1ba73d9218d551ad194e9287e27',
     'smali/PreviewPlayerPlayButton$1.smali': '4fd83f3fd7382c2861383c9b7197d59d28b8dc96808e0cd32f157ccddb4af3a0',
     'smali/PreviewPlayerDecoration.smali': 'd6603b418eaf73a509548f2f74b5a89489d5259dc8b52832f9c720ded5f96f41',
-    'PreviewPlayerChrome.java': 'd62e1f334655d5252c9d8f1e4de1cd0c5c1f761f5b7ad12c5e0e94d6638cdb32',
+    'PreviewPlayerChrome.java': 'b19feb16ababa7dff4c8cbe116a87d66bc7abf479dd58b2651f3f5815bb70e2d',
     'PreviewPlayerLikeArt.java': '49892fbb54b2c66dd9fe477fc851e55dedb2a4f8a31670e53530e5f03c289979',
     'smali/PreviewPlayerLikeArt.smali': '8caf0d0292ff562b70b85aef9fbe20f306e6bdf7239b337971c063f6fe9888ca',
     'PreviewPlayerMode.java': '966d26eb107f6e41917ae16f3730118c2408fe123a03f22ed4c069568d3fba78',

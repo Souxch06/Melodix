@@ -1078,6 +1078,7 @@ jobs:
                 "$audit/native-candidat/preview-player-clock-model.test.cjs" \
                 "$audit/native-candidat/preview-optimistic-play-model.test.cjs" \
                 "$audit/native-candidat/preview-liked-paging.test.cjs" \
+                "$audit/native-candidat/preview-playlist-prefetch.test.cjs" \
                 "$audit/native-candidat/preview-bridge-recovery.test.cjs" \
                 "$audit/native-candidat/preview-shell-payload.test.cjs"
           fi

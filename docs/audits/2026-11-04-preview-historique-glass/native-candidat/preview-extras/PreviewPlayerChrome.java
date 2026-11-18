@@ -102,26 +102,7 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
      * Draw the header logo and mini-player artwork with their native rounded
      * masks so the temporary backdrop matches the real screen underneath. */
     private static void drawNativeSnapshot(Activity a,View root,Canvas c){
-        int[] ids={0x7f090249,0x7f090244}; // header avatar, mini-player artwork
-        View[] images=new View[ids.length];int[] xs=new int[ids.length],ys=new int[ids.length];
-        int[] rootAt=new int[2],at=new int[2];root.getLocationOnScreen(rootAt);
-        try{
-            for(int i=0;i<ids.length;i++){
-                View v=a.findViewById(ids[i]);
-                if(!(v instanceof ImageView)||!v.isShown()||v.getWidth()<=0||v.getHeight()<=0||v.getAlpha()!=1f)continue;
-                v.getLocationOnScreen(at);int x=at[0]-rootAt[0],y=at[1]-rootAt[1];
-                if(x<0||y<0||x+v.getWidth()>root.getWidth()||y+v.getHeight()>root.getHeight())continue;
-                images[i]=v;xs[i]=x;ys[i]=y;v.setAlpha(0f);
-            }
-            root.draw(c);
-        }finally{for(View v:images)if(v!=null)v.setAlpha(1f);}
-        for(int i=0;i<images.length;i++){
-            View v=images[i];if(v==null)continue;
-            int saved=c.save();c.translate(xs[i],ys[i]);
-            float radius=i==0?Math.min(v.getWidth(),v.getHeight())/2f:Math.min(10f*a.getResources().getDisplayMetrics().density,Math.min(v.getWidth(),v.getHeight())/2f);
-            Path mask=new Path();mask.addRoundRect(0,0,v.getWidth(),v.getHeight(),radius,radius,Path.Direction.CW);
-            c.clipPath(mask);v.draw(c);c.restoreToCount(saved);
-        }
+        PreviewSnapshotRenderer.draw(a,root,c);
     }
     /** Capture only the native shell before opening; never the hidden WebView. */
     public static void captureBeforeExpand(Activity a){

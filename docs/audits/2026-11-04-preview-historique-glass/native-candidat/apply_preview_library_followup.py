@@ -4,8 +4,9 @@ import hashlib,sys
 from pathlib import Path
 HERE=Path(__file__).resolve().parent
 EXPECTED='ed18ae0b137951fc9b9f1d9fbc65a3f596fad94f38d6f31c8b22c7fa74462984'
-HELPER_SHA='b646a8faf29a450137f2bd12571f5457a02d496ab732e12111d6a5eaeb8c9939'
+HELPER_SHA='5c06494781a207403d777b2147291020132f0d07cdcdeaa5407e1360361b40bf'
 LIKED_SHA='5355232ea283e1081f5051533a73c803a749c0678360fad7d3c88f37fc67fc0a'
+PREFETCH_SHA='0656e67eda90da7d1429d035e36980ad65574cd2ae132c74da857f621c536d18'
 
 def one(text, old, new):
     if text.count(old)!=1: raise ValueError('unexpected anchor: '+old[:90])
@@ -33,7 +34,10 @@ def apply(root):
     if hashlib.sha256(helper_bytes).hexdigest()!=HELPER_SHA: raise ValueError('unexpected helper; no changes made')
     liked_bytes=(HERE/'preview-liked-paging.js').read_bytes()
     if hashlib.sha256(liked_bytes).hexdigest()!=LIKED_SHA: raise ValueError('unexpected liked helper; no changes made')
-    s=raw.decode('utf8'); helper=liked_bytes.decode('utf8')+'\n'+helper_bytes.decode('utf8')
+    prefetch_bytes=(HERE/'preview-playlist-prefetch.js').read_bytes()
+    if hashlib.sha256(prefetch_bytes).hexdigest()!=PREFETCH_SHA: raise ValueError('unexpected prefetch helper; no changes made')
+    prefetch=prefetch_bytes.decode('utf8')
+    s=raw.decode('utf8'); helper=liked_bytes.decode('utf8')+'\n'+prefetch+'\n'+helper_bytes.decode('utf8')
     # The upstream recovery loop used to leave a definitively failed script
     # node in place forever. Retry only an explicit resource-load failure;
     # never replace a pending node or re-execute a bridge that has entered.
@@ -127,6 +131,10 @@ def apply(root):
     # readiness guard, navigation policy and one-call retrieval flow unchanged.
     s=one(s, """        if (rows.length > 0 && signature !== lastInitialDetailSignature && sendNativeUiData('detail', displayedRows)) {""", """        if (rows.length > 0 && signature !== lastInitialDetailSignature) previewPhase('rows-received');
         if (rows.length > 0 && signature !== lastInitialDetailSignature && sendNativeUiData('detail', displayedRows)) {""")
+    # Start only a small, bounded, account-scoped background preview after
+    # visible Home rows exist. A foreground collection always has priority.
+    s=one(s, '        rows = stabilizeHomeRows(rows);\n        signature = JSON.stringify(rows);',
+          '        rows = stabilizeHomeRows(rows);\n        previewSchedulePrefetch();\n        signature = JSON.stringify(rows);')
     # Non-Home rows used to overwrite the Home-only text cache and send two
     # unnecessary native text callbacks on every library/detail refresh.
     s=one(s, "            if (lines.length) {\n                var listText = lines.join('\\n');",
@@ -171,8 +179,8 @@ def apply(root):
     start=s.index('    var openCollectionTimer = null;')
     end=s.index('    // Search normally goes through the bridge.', start)
     s=s[:start]+helper+'\n'+s[end:]
-    s=one(s, "        if (!uri) return false;\n        cancelPendingCollectionNavigation();",
-             "        if (!uri) return false;\n        melodixTrace('open', uri === 'spotify:collection:tracks' ? 'liked' : 'playlist');\n        cancelPendingCollectionNavigation();")
+    s=one(s, "        if (!uri) return false;\n        previewPausePrefetch();\n        cancelPendingCollectionNavigation();",
+             "        if (!uri) return false;\n        melodixTrace('open', uri === 'spotify:collection:tracks' ? 'liked' : 'playlist');\n        previewPausePrefetch();\n        cancelPendingCollectionNavigation();")
     activity=root/'smali/com/melodix/music/MainActivity.smali'
     a=activity.read_text(encoding='utf8')
     anchor = ".method public final openNativeRow(Ljava/lang/String;Ljava/lang/String;)V"

@@ -60,8 +60,9 @@
         return !!(label && /^(?:play|resume|lire|lecture|reprendre)(?:\s|$)/i.test(label));
     }
     window.__sfOpenCollection = function(value) {
-        var uri = nativeSpotifyUri(value), requestId, started = false, done = false, failedOnce = false, cachedLiked = null;
+        var uri = nativeSpotifyUri(value), requestId, started = false, done = false, failedOnce = false, cachedLiked = null, cachedPlaylist = null;
         if (!uri) return false;
+        previewPausePrefetch();
         cancelPendingCollectionNavigation();
         requestId = ++nativeCollectionSequence;
         window.__sfNativeCollectionRequest = requestId;
@@ -82,6 +83,13 @@
             if (cachedLiked && previewLikedCachedRows() === cachedLiked) {
                 sendNativeUiData('media:' + String(value), cachedLiked.rows.concat([
                     {title:'Actualisation indisponible', subtitle:'Affichage précédent ; réessaie pour vérifier les titres.', settingValue:'Info', uri:''},
+                    {title:'Réessayer', subtitle:'Une nouvelle tentative', uri:'melodix:retry-collection'}
+                ]));
+                return;
+            }
+            if (cachedPlaylist && previewPrefetchSnapshot(uri) === cachedPlaylist) {
+                sendNativeUiData('media:' + String(value), cachedPlaylist.rows.concat([
+                    {title:'Actualisation indisponible', subtitle:'Aperçu préchargé ; réessaie pour actualiser.', settingValue:'Info', uri:''},
                     {title:'Réessayer', subtitle:'Une nouvelle tentative', uri:'melodix:retry-collection'}
                 ]));
                 return;
@@ -133,6 +141,16 @@
             if (remaining <= 0) { failed('waiting-bridge'); return; }
             previewLoadState('waiting-bridge', uri === 'spotify:collection:tracks' ? 'no-token' : 'unknown');
             previewCollectionRetry = window.setTimeout(function() { waitForBridge(remaining - 1); }, 250);
+        }
+        if (/^spotify:playlist:/i.test(uri)) {
+            cachedPlaylist=previewPrefetchSnapshot(uri);
+            if (cachedPlaylist && cachedPlaylist.rows.length) {
+                window.__sfCurrentContextUri=uri;
+                window.__sfCurrentTrackUris=cachedPlaylist.rows.map(function(r){return r.uri;});
+                sendNativeUiData('media:' + String(value), cachedPlaylist.rows.concat([
+                    {title:'Aperçu préchargé', subtitle:'Actualisation des titres en cours…', settingValue:'Info', uri:''}
+                ]));
+            }
         }
         // Only an exact matching, already visible Spotify route can provide a
         // partial preview. The bridge request still runs and can replace it.
