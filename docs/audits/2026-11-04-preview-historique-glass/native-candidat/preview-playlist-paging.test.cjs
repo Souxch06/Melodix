@@ -16,7 +16,7 @@ const settle=()=>new Promise(r=>setTimeout(r,20));
 test('237-track playlist: three pages, full list delivered to the bridge callback',async()=>{
  const x=setup(237);x.api('spotify:playlist:P1');x.timers.shift()();for(let i=0;i<10;i++)await settle();
  assert.deepEqual(x.calls.map(c=>c.offset),[0,100,200]);
- const last=x.sent.at(-1);assert.equal(last[0],'spotify:playlist:P1');assert.equal(last[1].length,237);assert.equal(last[1][236].id,'spotify:track:t236');
+ assert.equal(x.sent.length,2);x.timers.pop()();assert.equal(x.sent.length,3);const last=x.sent.at(-1);assert.equal(last[0],'spotify:playlist:P1');assert.equal(last[1].length,237);assert.equal(last[1][236].id,'spotify:track:t236');
 });
 test('playlist of 100 or fewer: nothing delivered (bridge already has it)',async()=>{
  const x=setup(80);x.api('spotify:playlist:P1');x.timers.shift()();for(let i=0;i<5;i++)await settle();

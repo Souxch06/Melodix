@@ -42,6 +42,8 @@
                 offset += items.length;
                 if (offset > limit) deliver();
                 if (items.length === limit && (typeof total !== 'number' || offset < total)) page();
+                // A late bridge reply would cut the list back to 100: send the full list once more.
+                else if (offset > limit) window.setTimeout(deliver, 2500);
             }).catch(function() {}).then(function() { if (deadline) window.clearTimeout(deadline); });
         }
         // Let the bridge's own first page land first; ours then extends it.
