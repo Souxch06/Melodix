@@ -74,7 +74,11 @@
     }
     function lyricLines(r) {
         var nodes = Array.from(r.querySelectorAll('[data-testid="fullscreen-lyric"], [data-testid="lyrics-line"]'));
-        if (!nodes.length) nodes = Array.from(r.querySelectorAll('[data-testid*="lyric" i]')).filter(function(n) { return !n.children.length || !n.querySelector('[data-testid*="lyric" i]'); });
+        if (!nodes.length) nodes = Array.from(r.querySelectorAll('[data-testid*="lyric" i]')).filter(function(n) {
+            // A button such as lyrics-close-button is a control, not a lyric
+            // line. Ignoring it lets the paragraph fallback read real lines.
+            return !n.closest('button, [role="button"], [role="switch"]') && (!n.children.length || !n.querySelector('[data-testid*="lyric" i]'));
+        });
         if (!nodes.length) nodes = Array.from(r.querySelectorAll('p'));
         var lines = [], active = -1, synced = false;
         nodes.slice(0, 200).forEach(function(n) {
@@ -167,17 +171,29 @@
                 if (closer) { closer.click(); closeAttempted = true; log('close:button'); }
             }
         } catch (_) { log('close-error'); }
-        setTimeout(function() {
-            try {
-                var remains = root(b);
-                var hidden = remains && (remains.closest('[hidden], [aria-hidden="true"]') ||
-                    window.getComputedStyle(remains).display === 'none' || window.getComputedStyle(remains).visibility === 'hidden');
-                var after = button();
-                var explicitlyClosed = after && (after.getAttribute('aria-pressed') === 'false' || after.getAttribute('aria-expanded') === 'false' || after.getAttribute('data-active') === 'false') && !isOpen(after);
-                var clearlyClosed = closeAttempted && !rootAmbiguous && explicitlyClosed && (!remains || !!hidden);
-                done(!!clearlyClosed);
-            } catch (_) { done(false); }
-        }, 150);
+        // The close animation and the aria state can settle asynchronously.
+        // Inspect for a bounded interval; never send a second close click.
+        // If the same unique trigger has no state attributes, a successful
+        // panel-specific close plus disappearance of the recognised root is
+        // evidence of closure. A replacement trigger, a new visible root, or
+        // an ambiguous root is never accepted as confirmation.
+        if (!closeAttempted) { done(false); return; }
+        var closeDeadline = Date.now() + 900;
+        (function verifyClose() {
+            setTimeout(function() {
+                try {
+                    var remains = root(b), hidden = remains && hiddenBeforeTap(remains);
+                    var after = button();
+                    if (rootAmbiguous || after !== b || !b.isConnected) { done(false); return; }
+                    var explicitlyClosed = after && (after.getAttribute('aria-pressed') === 'false' || after.getAttribute('aria-expanded') === 'false' || after.getAttribute('data-active') === 'false') && !isOpen(after);
+                    var noState = after && !after.hasAttribute('aria-pressed') && !after.hasAttribute('aria-expanded') && !after.hasAttribute('data-active');
+                    var clearlyClosed = closeAttempted && !rootAmbiguous && after === b && b.isConnected && !isOpen(b) && (explicitlyClosed || noState) && (!remains || !!hidden);
+                    if (clearlyClosed) { done(true); return; }
+                    if (Date.now() < closeDeadline) { verifyClose(); return; }
+                    done(false);
+                } catch (_) { done(false); }
+            }, 150);
+        })();
     }
     try {
         b = button(); var already = root(b);
@@ -208,12 +224,21 @@
                 var target = rows.filter(function(d) { return d.name === wanted; });
                 if (target.length !== 1) { log('target:' + (target.length ? 'ambiguous' : 'absent')); finish(false, 'target'); return; }
                 if (target[0].current) { log('target:already-active'); job.transferred = true; finish(true, ''); return; }
-                try { target[0].node.click(); log('transfer:click'); } catch (_) { log('transfer:error'); finish(false, 'command'); return; }
+                var targetNode = target[0].node;
+                if (targetNode.disabled || targetNode.matches(':disabled') || targetNode.closest('[aria-disabled="true"]') || hiddenBeforeTap(targetNode)) {
+                    log('target:disabled'); finish(false, 'target'); return;
+                }
+                try { targetNode.click(); log('transfer:click'); } catch (_) { log('transfer:error'); finish(false, 'command'); return; }
                 var until = Date.now() + 3000;
                 (function verify() {
                   try {
                     var again = null;
-                    try { var r2 = root(button() || b); again = r2 ? deviceRows(r2).filter(function(d) { return d.name === wanted; })[0] : null; } catch (_) { again = null; }
+                    try {
+                        var r2 = root(button() || b), matches = r2 ? deviceRows(r2).filter(function(d) { return d.name === wanted; }) : [];
+                        // Name alone is not a device identity if a duplicate
+                        // arrives after the tap. Do not claim confirmation.
+                        again = matches.length === 1 ? matches[0] : null;
+                    } catch (_) { again = null; }
                     if (again && again.current) { log('transfer:verified'); job.transferred = true; finish(true, ''); return; }
                     if (Date.now() < until) { setTimeout(verify, 200); return; }
                     log('transfer:unverified'); finish(false, 'unverified');

@@ -41,8 +41,18 @@
         }
         var selectors = '[data-testid="queue-page"], [data-testid="queue-view"], [data-testid="queue-panel"], [data-testid="NPV-queue"], aside[aria-label="Queue"], aside[aria-label="File d’attente"], aside[aria-label="File d\'attente"], section[aria-label="Queue"], section[aria-label="File d’attente"], [role="region"][aria-label="Queue"], [role="region"][aria-label="File d’attente"]';
         var found = Array.from(document.querySelectorAll(selectors)).filter(function(n) { return n.isConnected && n !== b && !n.matches('button, [role="button"], [role="switch"]'); });
+        // A chain of nested markers can describe one queue. Keep the outer
+        // wrapper so headers and rows belonging to that queue are retained;
+        // independent branches remain ambiguous and are never merged.
+        if (found.length > 1) {
+            var leaves = found.filter(function(n) { return !found.some(function(other) { return other !== n && n.contains(other); }); });
+            if (leaves.length === 1) {
+                var outer = found.filter(function(n) { return !found.some(function(other) { return other !== n && other.contains(n); }); });
+                if (outer.length === 1) return outer[0];
+            }
+            rootAmbiguous = true; return null;
+        }
         if (found.length === 1) return found[0];
-        if (found.length > 1) { rootAmbiguous = true; return null; }
         var id = b && b.getAttribute('aria-controls');
         var controlled = id ? document.getElementById(id) : null;
         if (controlled && controlled !== b && controlled.isConnected && !controlled.matches('button, [role="button"], [role="switch"]')) return controlled;
@@ -150,17 +160,29 @@
                 if (closer) { closer.click(); closeAttempted = true; log('close:button'); }
             }
         } catch (_) { log('close-error'); }
-        setTimeout(function() {
-            try {
-                var remains = root(b);
-                var hidden = remains && (remains.closest('[hidden], [aria-hidden="true"]') ||
-                    window.getComputedStyle(remains).display === 'none' || window.getComputedStyle(remains).visibility === 'hidden');
-                var after = button();
-                var explicitlyClosed = after && (after.getAttribute('aria-pressed') === 'false' || after.getAttribute('aria-expanded') === 'false' || after.getAttribute('data-active') === 'false') && !isOpen(after);
-                var clearlyClosed = closeAttempted && !rootAmbiguous && explicitlyClosed && (!remains || !!hidden);
-                done(!!clearlyClosed);
-            } catch (_) { done(false); }
-        }, 150);
+        // The close animation and the aria state can settle asynchronously.
+        // Inspect for a bounded interval; never send a second close click.
+        // If the same unique trigger has no state attributes, a successful
+        // panel-specific close plus disappearance of the recognised root is
+        // evidence of closure. A replacement trigger, a new visible root, or
+        // an ambiguous root is never accepted as confirmation.
+        if (!closeAttempted) { done(false); return; }
+        var closeDeadline = Date.now() + 900;
+        (function verifyClose() {
+            setTimeout(function() {
+                try {
+                    var remains = root(b), hidden = remains && hiddenBeforeTap(remains);
+                    var after = button();
+                    if (rootAmbiguous || after !== b || !b.isConnected) { done(false); return; }
+                    var explicitlyClosed = after && (after.getAttribute('aria-pressed') === 'false' || after.getAttribute('aria-expanded') === 'false' || after.getAttribute('data-active') === 'false') && !isOpen(after);
+                    var noState = after && !after.hasAttribute('aria-pressed') && !after.hasAttribute('aria-expanded') && !after.hasAttribute('data-active');
+                    var clearlyClosed = closeAttempted && !rootAmbiguous && after === b && b.isConnected && !isOpen(b) && (explicitlyClosed || noState) && (!remains || !!hidden);
+                    if (clearlyClosed) { done(true); return; }
+                    if (Date.now() < closeDeadline) { verifyClose(); return; }
+                    done(false);
+                } catch (_) { done(false); }
+            }, 150);
+        })();
     }
     try {
         b = button();

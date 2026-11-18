@@ -12,3 +12,10 @@ for name in ('control.js', 'control-diagnostic.js', 'mode-job.js'):
     encoded = json.dumps((here / name).read_text(encoding='utf-8'), ensure_ascii=True).replace("'", "\\'")[1:-1]
     assert content.count(encoded) == 2, f'{name}: expected field and inlined runtime code'
 print('Player mode scripts match both compiled copies')
+
+tiles = (Path(root) / 'smali/com/melodix/music/PreviewPlayerTiles.smali') if root else here / 'smali/PreviewPlayerTiles.smali'
+content = tiles.read_text(encoding='utf-8')
+for name in ('panel-structure.js', 'panel-read.js', 'queue-job.js', 'panel-job.js'):
+    encoded = json.dumps((here / name).read_text(encoding='utf-8'), ensure_ascii=True).replace("'", "\\'")[1:-1]
+    assert content.count(encoded) == 2, f'{name}: expected field and inlined runtime code'
+print('Player panel scripts match both compiled copies')

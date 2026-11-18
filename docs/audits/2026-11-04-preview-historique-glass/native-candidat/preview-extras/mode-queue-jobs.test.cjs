@@ -463,7 +463,7 @@ test('drawer jobs share a lease; a busy transfer must never run or reuse another
  const d=dom.window.document,q=d.querySelector('[data-testid=queue-button]'),c=d.querySelector('[data-testid=control-button-connect]');let connects=0;
  q.onclick=()=>{q.setAttribute('aria-pressed','true');d.querySelector('#slot').innerHTML='<div data-testid="queue-page"><div data-testid="tracklist-row"><a href="/track/a">A</a></div></div>';};c.onclick=()=>connects++;
  let first=run(dom,queue,'run');assert.match(first.id,/^\d+:\d+$/);let second=run(dom,panel,'devices','transfer','Private');assert.equal(second.status,'busy');assert.equal(connects,0);
- await settle(500);let result=run(dom,queue,'poll');assert.equal(result.id,first.id);assert.equal(result.reason,'close-unverified');
+ await settle(1200);let result=run(dom,queue,'poll');assert.equal(result.id,first.id);assert.equal(result.reason,'close-unverified');
  assert.equal(run(dom,panel,'devices','transfer','Private').status,'blocked');assert.equal(connects,0);dom.window.close();
 });
 
