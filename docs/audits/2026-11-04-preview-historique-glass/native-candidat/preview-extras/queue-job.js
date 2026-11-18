@@ -39,7 +39,7 @@
             var mainView = document.querySelector('#main-view, main');
             if (mainView && mainView.isConnected) return mainView;
         }
-        var selectors = '[data-testid="queue-page"], [data-testid="queue-view"], [data-testid="queue-panel"], [data-testid="NPV-queue"], aside[aria-label="Queue"], aside[aria-label="File d’attente"], aside[aria-label="File d\'attente"], section[aria-label="Queue"], section[aria-label="File d’attente"], [role="region"][aria-label="Queue"], [role="region"][aria-label="File d’attente"]';
+        var selectors = '#queue-panel, [data-testid="queue-page"], [data-testid="queue-view"], [data-testid="queue-panel"], [data-testid="NPV-queue"], aside[aria-label="Queue"], aside[aria-label="File d’attente"], aside[aria-label="File d\'attente"], section[aria-label="Queue"], section[aria-label="File d’attente"], [role="region"][aria-label="Queue"], [role="region"][aria-label="File d’attente"]';
         var found = Array.from(document.querySelectorAll(selectors)).filter(function(n) { return n.isConnected && n !== b && !n.matches('button, [role="button"], [role="switch"]'); });
         // A chain of nested markers can describe one queue. Keep the outer
         // wrapper so headers and rows belonging to that queue are retained;
@@ -63,6 +63,23 @@
         if (labelled.length > 1) { rootAmbiguous = true; return null; }
         return labelled.length === 1 ? labelled[0] : null;
     }
+    // Title fallbacks are permitted only inside a queue-specific region, not
+    // an arbitrary aria-controls target or a playlist elsewhere in the page.
+    function queueScope(r) {
+        if (!r) return false;
+        if (/^\/queue(?:\/|$)/.test(String(location.pathname || '')) && r.matches('#main-view, main')) return true;
+        if (r.matches('#queue-panel, [data-testid="queue-page"], [data-testid="queue-view"], [data-testid="queue-panel"], [data-testid="NPV-queue"]')) return true;
+        return /^(queue|play queue|file d['’]attente|file de lecture|warteschlange|cola( de reproducción)?|fila( de reprodução)?)$/i.test(String(r.getAttribute('aria-label') || '').trim());
+    }
+    function titleFallback(n) {
+        // These are specific track-title markers, not positional text guesses
+        // or generic album/artist links. Reject multiple distinct candidates.
+        var candidates = Array.from(n.querySelectorAll('[class*="ListRowTitle__ListRowText"]')).filter(function(el) {
+            return el.isConnected && !el.closest('button, [role="button"], [role="switch"]') && !hiddenBeforeTap(el) && !!text(el);
+        });
+        candidates = candidates.filter(function(el) { return !candidates.some(function(other) { return el !== other && el.contains(other); }); });
+        return candidates.length === 1 ? candidates[0] : null;
+    }
     function rows(r) {
         var list = Array.from(r.querySelectorAll('[data-testid="queue-tracklist-row"], [data-testid="tracklist-row"], [role="row"]')).filter(function(n) {
             return !n.querySelector('[data-testid="queue-tracklist-row"], [data-testid="tracklist-row"], [role="row"]');
@@ -76,10 +93,21 @@
             });
             list = seen;
         }
+        if (!list.length && queueScope(r)) {
+            // Newer Encore queue rows may have a title marker without any
+            // track href. Only row containers bearing that marker qualify.
+            var marked = Array.from(r.querySelectorAll('li, [role="listitem"], [data-encore-id="listRow"]')).filter(function(n) { return !!titleFallback(n); });
+            list = marked.filter(function(n) { return !marked.some(function(other) { return other !== n && n.contains(other); }); });
+        }
         return list.slice(0, 40).map(function(n) {
             var t = n.querySelector('[data-testid="internal-track-link"], a[href*="/track/"], a[href*="/episode/"], [data-testid="track-title"], [data-testid="context-item-info-title"]');
+            if (!t && queueScope(r)) t = titleFallback(n);
             var artists = Array.from(n.querySelectorAll('a[href*="/artist/"], a[href*="/show/"]')).map(text).filter(Boolean);
             if (!artists.length) { var a = n.querySelector('[data-testid="track-artist"], [data-testid="context-item-info-artist"]'); if (a) artists.push(text(a)); }
+            if (!artists.length && t && queueScope(r)) {
+                var details = Array.from(n.querySelectorAll('[class*="ListRowDetails__ListRowDetailText"]')).filter(function(el) { return !hiddenBeforeTap(el) && !!text(el); });
+                if (details.length === 1) artists.push(text(details[0]));
+            }
             var duration = '';
             Array.from(n.querySelectorAll('div, span')).some(function(x) {
                 if (x.children.length) return false;
@@ -101,6 +129,7 @@
         else if (r.matches('[data-testid="queue-view"]')) kind = 2;
         else if (r.matches('[data-testid="queue-panel"]')) kind = 3;
         else if (r.matches('[data-testid="NPV-queue"]')) kind = 4;
+        else if (r.matches('#queue-panel')) kind = 8;
         else if (trigger && trigger.getAttribute('aria-controls') && document.getElementById(trigger.getAttribute('aria-controls')) === r) kind = 5;
         else kind = 6;
         function count(selector) { return Math.min(r.querySelectorAll(selector).length, 9); }
@@ -112,6 +141,16 @@
             count('[data-testid*="track" i]'), count('li, [role="listitem"]'),
             count('[role="row"]'), count('[data-testid*="queue" i]'),
             count('[data-encore-id="listRow"]'), String(r.textContent || '').trim() ? 1 : 0].join('');
+    }
+    // Extra bounded categories diagnose which supported row shapes exist if
+    // extraction still fails. Never return selectors, text or attribute values.
+    function emptyDetail(r) {
+        if (!r) return '';
+        function count(selector) { return Math.min(r.querySelectorAll(selector).length, 9); }
+        return 'detail:' + [count('#queue-panel'), count('[class*="ListRowTitle__ListRowText"]'),
+            count('[class*="ListRowDetails__ListRowDetailText"]'), count('a[href*="/artist/"]'),
+            count('a[href*="/album/"]'), count('[data-context-item-type="track"], [data-context-item-type="episode"]'),
+            count('[role="gridcell"]'), count('[data-encore-id="text"]'), count('[data-flip-id*="section-header-"]')].join('');
     }
     // The page is hidden: a panel (or one of its parents) can measure 0 px, and
     // Spotify then draws no rows in it. Give it a size while it is read, then
@@ -237,7 +276,7 @@
                 log('path:' + (/^\/queue(?:\/|$)/.test(String(location.pathname || '')) ? 'queue' : 'other'));
                 log('links:' + Math.min(r ? r.querySelectorAll('a[href*="/track/"], a[href*="/episode/"]').length : 0, 99));
                 log('rowsdoc:' + Math.min(document.querySelectorAll('[data-testid="tracklist-row"], [role="row"]').length, 99));
-                if (r) log(emptyShape(r, b));
+                if (r) { log(emptyShape(r, b)); log(emptyDetail(r)); }
                 finish(false, rootAmbiguous ? 'ambiguous' : r ? 'empty' : 'panel');
             }
           } catch (_) { finish(false, 'error'); }

@@ -148,6 +148,8 @@ stubs.update({
   String shape=(String)clean.invoke(null,"opened>rows:0>shape:51234567890123>secret>closed>close:verified");
   ok(shape.equals("opened>rows:0>shape:51234567890123>closed>close:verified"));
   ok(((String)clean.invoke(null,"shape:1234567890123>shape:123456789012345>shape:1234567890123x")).equals("aucune"));
+  ok(((String)clean.invoke(null,"detail:123456789>detail:12345678>detail:1234567890>secret")).equals("detail:123456789"));
+  ok(((String)clean.invoke(null,"opened>sized:0>h:540>rows:0>path:other>links:0>rowsdoc:99>shape:61999000099091>detail:123456789>close:button>closed>close:verified")).endsWith("close:verified"));
   System.out.println("Native panel and volume JVM simulation passed");
  }
 }'''
