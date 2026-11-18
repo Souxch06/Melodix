@@ -13,6 +13,8 @@
             off:/^(save to your library|add to (your )?(liked songs|library)|ajouter (à|aux) (la bibliothèque|titres likés)|enregistrer dans (votre |la )?bibliothèque|in (deine |der )?bibliothek (aufnehmen|hinzufügen)|añadir a (tu )?biblioteca|adicionar (à biblioteca|aos títulos curtidos))$/i,
             on:/^(remove from (your )?(library|liked songs)|retirer (de la bibliothèque|des titres likés)|supprimer de (votre |la )?bibliothèque|aus (deiner |der )?bibliothek entfernen|quitar de (tu )?biblioteca|remover (da biblioteca|dos títulos curtidos))$/i}
     };
+    // Same liked-label widening as control.js, so the report matches what a tap can act on.
+    (function(){var w=/(titres likés|liked songs|liké|liked|favori|bibliothèque|library|biblioteca|bibliothek)/i,o=specs.like.off,n=specs.like.on;specs.like.off={test:function(l){return o.test(l)||(w.test(l)&&/^(ajouter|add|enregistrer|save|añadir|adicionar|hinzufügen|zu)\b/i.test(l));}};specs.like.on={test:function(l){return n.test(l)||(w.test(l)&&/^(ajouté|retirer|supprimer|remove|enregistré|saved|added|quitar|remover|entfernen)/i.test(l));}};})();
     // Aggregate structure only: fixed testid/role and label categories, never
     // arbitrary labels or identifiers that could contain a track or account.
     function structure() {
