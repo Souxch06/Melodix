@@ -165,3 +165,12 @@ for(let i=0;i<240;i++) test(`v2 scoped identity guard case ${i+1}`,()=>{const x=
  assert.equal(sent,scenario===0||scenario===5);assert.equal(clicks,sent?1:0);
  if(scenario===1||scenario===2)assert.equal(p.track,'');
  }finally{x.close()}});
+
+test('id-less bar: exact native title identifies the track for a display read and one add-only click',()=>{const x=boot();try{
+ const doc=x.w.document;const a=doc.querySelector('a');a.removeAttribute('href');a.removeAttribute('data-testid');
+ const qt=t=>JSON.parse(x.fn('like','query','','',t));let clicks=0;doc.querySelector('div>div>button').addEventListener('click',()=>clicks++);
+ let p=qt('Titre');assert.deepEqual([p.state,p.track,p.title],['false','title:Titre','Titre']);
+ assert.equal(qt('Autre').track,'');assert.equal(qt('').track,'');
+ assert.equal(JSON.parse(x.fn('like','invoke','false','title:Titre','Titre')).sent,true);assert.equal(clicks,1);
+ assert.equal(JSON.parse(x.fn('like','invoke','false','title:Titre','Autre')).sent,false);assert.equal(clicks,1);
+ }finally{x.close()}});

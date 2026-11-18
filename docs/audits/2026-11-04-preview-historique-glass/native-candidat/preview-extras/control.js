@@ -117,6 +117,11 @@
         if (!malformedIdentity && named.length && identities.every(function(x) { return x.track === named[0].track && (!x.title || x.title === named[0].title); })) {
             result.track=named[0].track; result.title=named[0].title;
         }
+        // Spotify's newer bar carries no track id. The exact native title shown
+        // as a leaf in the bar identifies the current track (add-only like).
+        if (!result.track && !malformedIdentity && !identities.length && expectedTitle && Array.from(document.querySelectorAll(':is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]), [data-testid="now-playing-bar"]')).some(function(r) {
+            return Array.from(r.querySelectorAll('a, span, div, p')).some(function(n) { return !n.children.length && String(n.textContent || '').replace(/\s+/g, ' ').trim() === expectedTitle; });
+        })) { result.track='title:'+expectedTitle; result.title=expectedTitle; }
     }
 
     if (!nodes.length) {

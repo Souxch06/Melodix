@@ -159,6 +159,13 @@
     }
     function identityMatches() {
         if (!expectedTitle || !expectedTrack) return false;
+        if (expectedTrack === 'title:' + expectedTitle) {
+            // Id-less bar: no track link may exist, the exact title must be a leaf of the bar.
+            if (document.querySelector(':is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]) a[href*="/track/"], [data-testid="now-playing-bar"] a[href*="/track/"]')) return false;
+            return Array.from(document.querySelectorAll(':is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]), [data-testid="now-playing-bar"]')).some(function(r) {
+                return Array.from(r.querySelectorAll('a, span, div, p')).some(function(n) { return !n.children.length && String(n.textContent || '').replace(/\s+/g, ' ').trim() === expectedTitle; });
+            });
+        }
         var links = Array.from(document.querySelectorAll(':is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]) a[href], [data-testid="now-playing-bar"] a[href], a[data-testid="nowplaying-track-link"][href], [data-testid="now-playing-view"] a[href]'));
         var malformedIdentity = false;
         var identities = links.map(function(link) {

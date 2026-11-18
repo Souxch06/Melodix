@@ -150,6 +150,9 @@
                 sendNativeUiData('media:' + String(value), cachedPlaylist.rows.concat([
                     {title:'Aperçu préchargé', subtitle:'Actualisation des titres en cours…', settingValue:'Info', uri:''}
                 ]));
+            } else {
+                // Nothing cached yet: answer at once instead of leaving the screen blank.
+                sendNativeUiData('media:' + String(value), [{title:'Chargement des titres…', subtitle:'Les titres arrivent', settingValue:'Info', uri:''}]);
             }
         }
         // Only an exact matching, already visible Spotify route can provide a

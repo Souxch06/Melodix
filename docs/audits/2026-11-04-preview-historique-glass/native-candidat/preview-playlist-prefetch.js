@@ -21,7 +21,7 @@
     function previewPrefetchSnapshot(uri) {
         if (!previewPrefetch.token || !previewPrefetch.entries.has(uri)) return null;
         var token=previewPrefetchSession(), entry=previewPrefetch.entries.get(uri), age=entry && Date.now()-entry.at;
-        if (!token || !entry || age < 0 || age > 120000) return null;
+        if (!token || !entry || age < 0 || age > 900000) return null;
         return entry;
     }
     function previewSchedulePrefetch() {
@@ -40,7 +40,7 @@
                 return;
             }
             previewPrefetch.readyWait=0;
-            if (previewPrefetch.attempted.size >= 6) return;
+            if (previewPrefetch.attempted.size >= 16) return;
             var candidates=(latestObservedHomeRows || []).map(function(r){return nativeSpotifyUri(r && r.uri);})
                 .filter(function(uri){return /^spotify:playlist:[a-z0-9]+$/i.test(uri) && !previewPrefetch.attempted.has(uri);});
             if (!candidates.length) return;
@@ -80,5 +80,5 @@
                 previewPrefetch.busy=false;previewPrefetch.controller=null;
                 if(isSpotifyHome() && !window.__sfNativeCollectionUri)previewSchedulePrefetch();
             });
-        },2500);
+        },600);
     }

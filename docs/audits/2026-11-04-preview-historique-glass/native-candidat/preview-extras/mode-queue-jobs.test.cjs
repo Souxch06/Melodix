@@ -622,3 +622,17 @@ test('v2 standalone widget: job adds only when explicit identity and state agree
  assert.equal(run(dom,mode,'like','poll','unknown','Titre','track:x').outcome,'identity');assert.equal(clicks,1);
  }finally{dom.window.close()}
 });
+
+test('like: id-less bar is identified by the exact native title only, still add-only', async () => {
+  for (const [expectedTitle, expectedTrack, html, clicksWanted] of [
+    ['Titre', 'title:Titre', '<span>Titre</span>', 1],
+    ['Titre', 'title:Titre', '<span>Autre</span>', 0],
+    ['Titre', 'title:Titre', '<span>Titre</span><a href="/track/z">Titre</a>', 0],
+    ['Titre', 'title:Autre', '<span>Titre</span>', 0],
+  ]) {
+    const dom = page(`<aside data-testid="now-playing-bar">${html}<button data-testid="add-button" aria-label="Ajouter aux titres likés" aria-checked="false">l</button></aside>`);
+    let clicks = 0; dom.window.document.querySelector('button').onclick = () => { clicks++; dom.window.document.querySelector('button').setAttribute('aria-checked', 'true'); };
+    run(dom, mode, 'like', 'run', 'false', expectedTitle, expectedTrack); await settle(60);
+    assert.equal(clicks, clicksWanted, html + expectedTrack); dom.window.close();
+  }
+});
