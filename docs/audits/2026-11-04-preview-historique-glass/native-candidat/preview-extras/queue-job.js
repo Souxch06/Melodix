@@ -90,6 +90,29 @@
             return {title: text(t), artist: artists.join(', ').slice(0, 200), duration: duration, current: n.getAttribute('aria-current') === 'true' || n.getAttribute('data-testid') === 'queue-now-playing'};
         }).filter(function(x) { return x.title; });
     }
+    // Failure-only structural fingerprint. Every character is a fixed category
+    // or a count capped at 9; no page text, IDs, hrefs or arbitrary labels leave
+    // the WebView. This does not read a different panel or perform any action.
+    function emptyShape(r, trigger) {
+        if (!r) return '';
+        var kind = 7;
+        if (/^\/queue(?:\/|$)/.test(String(location.pathname || '')) && r.matches('#main-view, main')) kind = 0;
+        else if (r.matches('[data-testid="queue-page"]')) kind = 1;
+        else if (r.matches('[data-testid="queue-view"]')) kind = 2;
+        else if (r.matches('[data-testid="queue-panel"]')) kind = 3;
+        else if (r.matches('[data-testid="NPV-queue"]')) kind = 4;
+        else if (trigger && trigger.getAttribute('aria-controls') && document.getElementById(trigger.getAttribute('aria-controls')) === r) kind = 5;
+        else kind = 6;
+        function count(selector) { return Math.min(r.querySelectorAll(selector).length, 9); }
+        return 'shape:' + [kind, Math.min(r.children.length,9), count('*'),
+            count('[data-testid="queue-tracklist-row"], [data-testid="tracklist-row"], [role="row"]'),
+            count('a[href]'), count('a[href*="/track/"], a[href*="/episode/"]'),
+            count('a[href^="spotify:track:"], a[href^="spotify:episode:"]'),
+            count('[data-uri], [data-track-uri], [data-spotify-uri]'),
+            count('[data-testid*="track" i]'), count('li, [role="listitem"]'),
+            count('[role="row"]'), count('[data-testid*="queue" i]'),
+            count('[data-encore-id="listRow"]'), String(r.textContent || '').trim() ? 1 : 0].join('');
+    }
     // The page is hidden: a panel (or one of its parents) can measure 0 px, and
     // Spotify then draws no rows in it. Give it a size while it is read, then
     // restore the original inline style exactly. No other change to the page.
@@ -214,6 +237,7 @@
                 log('path:' + (/^\/queue(?:\/|$)/.test(String(location.pathname || '')) ? 'queue' : 'other'));
                 log('links:' + Math.min(r ? r.querySelectorAll('a[href*="/track/"], a[href*="/episode/"]').length : 0, 99));
                 log('rowsdoc:' + Math.min(document.querySelectorAll('[data-testid="tracklist-row"], [role="row"]').length, 99));
+                if (r) log(emptyShape(r, b));
                 finish(false, rootAmbiguous ? 'ambiguous' : r ? 'empty' : 'panel');
             }
           } catch (_) { finish(false, 'error'); }

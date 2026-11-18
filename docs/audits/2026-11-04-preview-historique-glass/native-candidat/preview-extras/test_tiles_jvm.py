@@ -145,6 +145,9 @@ stubs.update({
   String safe=(String)clean.invoke(null,"opened>secrettrack>rows:3>privateartist>close:verified");
   ok(safe.equals("opened>rows:3>close:verified"));ok(!safe.contains("secrettrack")&&!safe.contains("privateartist"));
   ok(((String)clean.invoke(null,"unknownsongidentifier")).equals("aucune"));
+  String shape=(String)clean.invoke(null,"opened>rows:0>shape:51234567890123>secret>closed>close:verified");
+  ok(shape.equals("opened>rows:0>shape:51234567890123>closed>close:verified"));
+  ok(((String)clean.invoke(null,"shape:1234567890123>shape:123456789012345>shape:1234567890123x")).equals("aucune"));
   System.out.println("Native panel and volume JVM simulation passed");
  }
 }'''
