@@ -176,3 +176,10 @@ test('id-less bar: exact native title identifies the track for a display read an
  }finally{x.close()}});
 
 test('long unrecognised "liked" label on a checked bar button is read as like state',()=>{const x=boot();try{const b=x.w.document.querySelector('div>div>button');b.removeAttribute('data-testid');b.setAttribute('aria-label','Ajouter aux coups de cœur likés ou à une playlist');assert.equal(q(x,'like').state,'false');b.setAttribute('aria-checked','true');b.setAttribute('aria-label','Retirer des likés');assert.equal(q(x,'like').state,'true');}finally{x.close()}});
+
+test('id-less bar whose title links to the album (phone 1022228) still identifies by native title',()=>{const x=boot();try{
+ const a=x.w.document.querySelector('a');a.setAttribute('href','/album/xyz');
+ const p=JSON.parse(x.fn('like','query','','','Titre'));assert.deepEqual([p.state,p.track,p.title],['false','title:Titre','Titre']);
+ a.setAttribute('href','/album/xyz?highlight=spotify:track:abc');a.removeAttribute('data-testid');a.setAttribute('href','/track/zzz');
+ assert.notEqual(JSON.parse(x.fn('like','query','','','Titre')).track,'title:Titre');
+}finally{x.close()}});

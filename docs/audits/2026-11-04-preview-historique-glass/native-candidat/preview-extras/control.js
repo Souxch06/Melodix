@@ -102,7 +102,7 @@
     }
     if (kind === 'like') {
         var anchors = Array.from(document.querySelectorAll(':is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]) a[href], [data-testid="now-playing-bar"] a[href]'));
-        var malformedIdentity = false;
+        var malformedIdentity = false, conflictIdentity = false;
         var identities = anchors.map(function(link) {
             var match = trackHref(String(link.getAttribute('href') || ''));
             if (!match && /^(context-item-link|nowplaying-track-link)$/i.test(String(link.getAttribute('data-testid') || '')) && (hasTrackHint(link.getAttribute('href')) || (!markedTrack(link) && !parentTrack(link)))) malformedIdentity = true;
@@ -110,7 +110,7 @@
         }).filter(Boolean);
         markedTitleNodes().forEach(function(n) {
             var value=markedTrack(n);
-            if (value === '!') { malformedIdentity = true; return; }
+            if (value === '!') { malformedIdentity = conflictIdentity = true; return; }
             if (value) identities.push({track:value, title:String(n.textContent || '').replace(/\s+/g, ' ').trim()});
         });
         var named = identities.filter(function(x) { return !!x.title; });
@@ -119,7 +119,7 @@
         }
         // Spotify's newer bar carries no track id. The exact native title shown
         // as a leaf in the bar identifies the current track (add-only like).
-        if (!result.track && !malformedIdentity && !identities.length && expectedTitle && Array.from(document.querySelectorAll(':is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]), [data-testid="now-playing-bar"]')).some(function(r) {
+        if (!result.track && !conflictIdentity && !identities.length && expectedTitle && !anchors.some(function(l) { return hasTrackHint(l.getAttribute('href')); }) && Array.from(document.querySelectorAll(':is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]), [data-testid="now-playing-bar"]')).some(function(r) {
             return String(r.textContent || '').replace(/\s+/g, ' ').toLowerCase().indexOf(String(expectedTitle).replace(/\s+/g, ' ').trim().toLowerCase()) >= 0;
         })) { result.track='title:'+expectedTitle; result.title=expectedTitle; }
     }
