@@ -672,3 +672,19 @@ test('like removal via picker where the Liked Songs name sits beside its checkbo
   const out = run(dom, mode, 'like', 'poll', 'true', 'Titre', 'title:Titre');
   assert.deepEqual([out.outcome, out.state, other], ['confirmed', 'false', 0]); dom.window.close();
 });
+
+test('like removal waits for a picker that renders empty first (phone 1022237)', async () => {
+  const dom = page('<aside data-testid="now-playing-bar"><a href="/album/al">Titre</a><button aria-label="Ajouter à une playlist" aria-checked="true">+</button></aside>');
+  const d = dom.window.document, b = d.querySelector('button');
+  b.addEventListener('click', () => {
+    const m = d.createElement('div'); m.setAttribute('role', 'dialog'); d.body.appendChild(m);
+    setTimeout(() => {
+      m.innerHTML = '<div><span>Titres likés</span><button aria-checked="true"></button></div><button>Terminé</button>';
+      const c = m.querySelector('div button'); c.addEventListener('click', () => c.setAttribute('aria-checked', 'false'));
+      m.lastChild.addEventListener('click', () => { if (c.getAttribute('aria-checked') === 'false') { b.setAttribute('aria-checked', 'false'); b.setAttribute('aria-label', 'Ajouter aux titres likés'); } m.remove(); });
+    }, 600);
+  });
+  run(dom, mode, 'like', 'run', 'true', 'Titre', 'title:Titre'); await settle(1800);
+  const out = run(dom, mode, 'like', 'poll', 'true', 'Titre', 'title:Titre');
+  assert.deepEqual([out.outcome, out.state], ['confirmed', 'false']); dom.window.close();
+});

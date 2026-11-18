@@ -295,7 +295,9 @@
         var likedName = /^(liked songs|your liked songs|titres likés|vos titres likés|titres que j['’]aime|liked-titel|canciones que te gustan|músicas curtidas)$/i;
         function available(n) { return n && n.isConnected && !n.closest('[hidden], [aria-hidden="true"]'); }
         var before = Array.from(document.querySelectorAll(selector)).filter(available);
-        function fresh() { var f = Array.from(document.querySelectorAll(selector)).filter(function(n) { return available(n) && before.indexOf(n) < 0; }); return f.length === 1 ? f[0] : null; }
+        // The picker can render empty first and fill later: wait for the fresh root that holds the target.
+        function fresh() { var f = Array.from(document.querySelectorAll(selector)).filter(function(n) { return available(n) && before.indexOf(n) < 0; }); var withTarget = f.filter(function(n) { return targets(n).length; }); return withTarget.length === 1 ? withTarget[0] : null; }
+        function anyFresh() { return Array.from(document.querySelectorAll(selector)).filter(function(n) { return available(n) && before.indexOf(n) < 0; })[0] || null; }
         function barState() { var a = find(); return a.node ? read(a.node) : 'unknown'; }
         var checkSel = '[role="menuitemcheckbox"], [role="checkbox"], [role="switch"], input[type="checkbox"], [aria-checked], [aria-pressed]';
         function targets(r) {
@@ -322,10 +324,10 @@
             if (!identityMatches()) return 'identity-changed';
             if (barState() === 'false') return 'direct';
             return fresh();
-        }, 2200, function(r) {
+        }, 3500, function(r) {
             if (r === 'identity-changed') { after('identity', 'unknown'); return; }
             if (r === 'direct') { log(method + ':unlike-verified'); after('confirmed', 'false'); return; }
-            if (!r) { log(method + ':unlike-no-picker'); after('menu-absent', 'true'); return; }
+            if (!r) { var o = anyFresh(); log(method + (o ? ':unlike-target' + counts(o) : ':unlike-no-picker') + '-d' + Math.min(document.querySelectorAll(selector).length, 99)); close(o); after('menu-absent', 'true'); return; }
             var t = targets(r);
             if (t.length !== 1) { log(method + (t.length ? ':unlike-ambiguous' : ':unlike-target') + counts(r)); close(r); after(t.length ? 'menu-ambiguous' : 'menu-absent', 'true'); return; }
             var on = t[0].getAttribute('aria-checked') === 'true' || t[0].checked === true;
