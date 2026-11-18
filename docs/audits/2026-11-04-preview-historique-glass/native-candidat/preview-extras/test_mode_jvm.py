@@ -65,7 +65,7 @@ stubs={
  t=page();like=boot(t,"like");Handler.step();t.G.reply("state=unknown;reason=absent");Handler.advance(2500);before=t.G.calls;ok(like.enabled);ok(like.description.startsWith("Like indisponible : bouton absent"));like.performClick();ok(t.G.calls==before);ok(Toast.count>0);like.onDetachedFromWindow();
  t=page();sh=boot(t,"shuffle");Handler.step();t.G.reply(data("unknown")+";reason=absent");Handler.advance(2500);ok(sh.enabled);ok(sh.description.startsWith("Aléatoire : bouton absent")&&sh.description.contains("non vérifiable"));sh.onDetachedFromWindow();
  // An identified menu may be inspected; without identity, an explicit tap only explains the block.
- t=page();like=boot(t,"like");Handler.step();t.G.reply("state=unknown;reason=menu");Handler.advance(2500);before=t.G.calls;like.performClick();ok(t.G.calls==before);ok(Toast.message.contains("aucun ajout"));like.onDetachedFromWindow();
+ t=page();like=boot(t,"like");Handler.step();t.G.reply("state=unknown;reason=menu");Handler.advance(2500);before=t.G.calls;like.performClick();ok(t.G.calls==before);ok(Toast.message.contains("aucune modification"));like.onDetachedFromWindow();
  // A hidden Like with a uniquely observed current track may try the known now-playing view.
  t=page();like=boot(t,"like");Handler.step();t.G.reply(data("unknown")+";reason=absent");Handler.advance(2500);ok(like.enabled);like.performClick();ok(t.G.js.contains("\\"track:abc\\""));like.onDetachedFromWindow();
  // Like identity is captured at tap, survives observation, and must still match the native title at completion.

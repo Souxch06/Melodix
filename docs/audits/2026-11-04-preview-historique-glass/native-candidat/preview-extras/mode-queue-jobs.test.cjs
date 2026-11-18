@@ -109,8 +109,12 @@ function likePage(title, checked, label) {
   return { dom, counter };
 }
 
-test('like guarantee: an existing like is never clicked, whatever the native state shows', async () => {
-  for (const shown of ['unknown', 'true', 'false']) {
+test('like: an existing like is clicked only when the user tapped a button shown as liked (removal)', async () => {
+  { const { dom, counter } = likePage('Titre', 'true', 'Retirer des titres likés');
+    run(dom, mode, 'like', 'run', 'true', 'Titre', 'track:x'); await settle(400);
+    const out = run(dom, mode, 'like', 'poll', 'true', 'Titre', 'track:x');
+    assert.equal(counter.clicks, 1); assert.deepEqual([out.outcome, out.state], ['confirmed', 'false']); dom.window.close(); }
+  for (const shown of ['unknown', 'false']) {
     const { dom, counter } = likePage('Titre', 'true', 'Retirer des titres likés');
     run(dom, mode, 'like', 'run', shown, 'Titre', 'track:x'); await settle(60);
     const out = run(dom, mode, 'like', 'poll', 'unknown', 'Titre', 'track:x');
@@ -380,20 +384,20 @@ test('generic bar track link allows only the known now-playing view and matching
  run(dom,mode,'like','run','unknown','Titre','track:x');await settle(400);assert.equal(added,1);assert.equal(opened,1);assert.equal(closed,1);assert.equal(run(dom,mode,'like','poll','unknown','Titre','track:x').outcome,'confirmed');dom.window.close();
 });
 
-test('like: bar title linking to the album with ?highlight=spotify:track:ID gives the identity; current wording works; a liked track is never clicked', async () => {
+test('like: bar title linking to the album with ?highlight=spotify:track:ID gives the identity; current wording works; a liked track is clicked only for an explicit removal tap', async () => {
   const dom = page(`<aside data-testid="now-playing-bar"><a data-testid="context-item-link" href="/album/x1?highlight=spotify:track:abc">Titre</a><a href="/artist/z">Artiste</a><button aria-label="Ajouter à Titres likés" aria-checked="false">+</button></aside>`);
   const b = dom.window.document.querySelector('button'); let clicks = 0;
   b.addEventListener('click', () => { clicks++; b.setAttribute('aria-checked', 'true'); b.setAttribute('aria-label', 'Ajouté à Titres likés'); });
   run(dom, mode, 'like', 'run', 'false', 'Titre', 'track:abc'); await settle(1500);
   const out = run(dom, mode, 'like', 'poll', 'unknown', 'Titre', 'track:abc');
   assert.equal(clicks, 1); assert.equal(out.state, 'true');
-  run(dom, mode, 'like', 'run', 'true', 'Titre', 'track:abc'); await settle(1500);
-  assert.equal(clicks, 1);
+  run(dom, mode, 'like', 'run', 'true', 'Titre', 'track:abc'); await settle(5200);
+  assert.equal(clicks, 2);
   // Another track highlighted: no click.
   dom.window.document.querySelector('a').setAttribute('href', '/album/x1?highlight=spotify:track:zzz');
   b.setAttribute('aria-checked', 'false'); b.setAttribute('aria-label', 'Ajouter à Titres likés');
   run(dom, mode, 'like', 'run', 'false', 'Titre', 'track:abc'); await settle(1500);
-  assert.equal(clicks, 1);
+  assert.equal(clicks, 2);
 });
 
 test('like: generic playlist and album-only identity cannot be used to add (checked generic = liked, read only)', async () => {
@@ -635,4 +639,20 @@ test('like: id-less bar is identified by the exact native title only, still add-
     run(dom, mode, 'like', 'run', 'false', expectedTitle, expectedTrack); await settle(60);
     assert.equal(clicks, clicksWanted, html + expectedTrack); dom.window.close();
   }
+});
+
+test('like removal via Spotify picker: uncheck only Liked Songs, then Done (phone 1022230 shape)', async () => {
+  const dom = page('<aside data-testid="now-playing-bar"><a href="/album/al">Titre</a><button aria-label="Ajouter à une playlist" aria-checked="true">+</button></aside>');
+  const d = dom.window.document, b = d.querySelector('button'); let other = 0;
+  b.addEventListener('click', () => {
+    const m = d.createElement('div'); m.setAttribute('role', 'dialog');
+    m.innerHTML = '<div role="checkbox" aria-checked="true">Titres likés</div><div role="checkbox" aria-checked="true">Ma playlist</div><button>Terminé</button>';
+    d.body.appendChild(m);
+    m.children[0].addEventListener('click', e => e.target.setAttribute('aria-checked', 'false'));
+    m.children[1].addEventListener('click', () => other++);
+    m.children[2].addEventListener('click', () => { if (m.children[0].getAttribute('aria-checked') === 'false') { b.setAttribute('aria-checked', 'false'); b.setAttribute('aria-label', 'Ajouter aux titres likés'); } m.remove(); });
+  });
+  run(dom, mode, 'like', 'run', 'true', 'Titre', 'title:Titre'); await settle(1200);
+  const out = run(dom, mode, 'like', 'poll', 'true', 'Titre', 'title:Titre');
+  assert.deepEqual([out.outcome, out.state, other], ['confirmed', 'false', 0]); dom.window.close();
 });

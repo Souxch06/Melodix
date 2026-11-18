@@ -288,6 +288,52 @@
         });
         return true;
     }
+    // Spotify removes a like either directly or through its playlist picker,
+    // where only the unique checked Liked Songs item is unchecked, then Done.
+    function unlike(b, method, after) {
+        var selector = '[role="menu"], [role="dialog"], [role="listbox"]';
+        var likedName = /^(liked songs|your liked songs|titres likés|vos titres likés|titres que j['’]aime|liked-titel|canciones que te gustan|músicas curtidas)$/i;
+        function available(n) { return n && n.isConnected && !n.closest('[hidden], [aria-hidden="true"]'); }
+        var before = Array.from(document.querySelectorAll(selector)).filter(available);
+        function fresh() { var f = Array.from(document.querySelectorAll(selector)).filter(function(n) { return available(n) && before.indexOf(n) < 0; }); return f.length === 1 ? f[0] : null; }
+        function barState() { var a = find(); return a.node ? read(a.node) : 'unknown'; }
+        function targets(r) {
+            return Array.from(r.querySelectorAll('[role="menuitemcheckbox"], [role="checkbox"], input[type="checkbox"], button[aria-checked]')).filter(function(n) {
+                var ln = n.closest('label');
+                var name = String(n.getAttribute('aria-label') || (ln && ln.textContent) || n.textContent || '').replace(/\s+/g, ' ').trim();
+                if (!likedName.test(name) && n.closest('li, [role="row"], [role="option"]')) name = String(n.closest('li, [role="row"], [role="option"]').textContent || '').replace(/\s+/g, ' ').trim();
+                return available(n) && likedName.test(name);
+            });
+        }
+        function close(r) { try { (available(r) ? r : b).dispatchEvent(new KeyboardEvent('keydown', {key:'Escape', code:'Escape', bubbles:true, cancelable:true})); } catch (_) {} }
+        invalidateLikedRead();
+        try { b.click(); log(method + ':unlike-open'); } catch (_) { after('command', 'true'); return; }
+        wait(function() {
+            if (!identityMatches()) return 'identity-changed';
+            if (barState() === 'false') return 'direct';
+            return fresh();
+        }, 2200, function(r) {
+            if (r === 'identity-changed') { after('identity', 'unknown'); return; }
+            if (r === 'direct') { log(method + ':unlike-verified'); after('confirmed', 'false'); return; }
+            if (!r) { log(method + ':unlike-no-picker'); after('menu-absent', 'true'); return; }
+            var t = targets(r);
+            if (t.length !== 1) { log(method + (t.length ? ':unlike-ambiguous' : ':unlike-target')); close(r); after(t.length ? 'menu-ambiguous' : 'menu-absent', 'true'); return; }
+            var on = t[0].getAttribute('aria-checked') === 'true' || t[0].checked === true;
+            if (!on) { log(method + ':unlike-not-checked'); close(r); after('menu-state', 'true'); return; }
+            try { t[0].click(); log(method + ':unlike-uncheck'); } catch (_) { close(r); after('unconfirmed', 'true'); return; }
+            var done = Array.from(r.querySelectorAll('button')).filter(function(n) { return available(n) && /^(terminé|terminer|done|ok|valider|enregistrer|save)$/i.test(String(n.getAttribute('aria-label') || n.textContent || '').replace(/\s+/g, ' ').trim()); });
+            if (done.length === 1) { try { done[0].click(); log(method + ':unlike-done'); } catch (_) {} }
+            wait(function() {
+                if (!identityMatches()) return 'identity-changed';
+                return barState() === 'false' ? 'false' : null;
+            }, 2600, function(st) {
+                if (available(r)) close(r);
+                if (st === 'identity-changed') after('identity', 'unknown');
+                else if (st === 'false') { log(method + ':unlike-verified'); after('confirmed', 'false'); }
+                else { log(method + ':unlike-unverified'); after('unconfirmed', 'true'); }
+            });
+        });
+    }
     // Decide and click on a readable control; verify the change afterwards.
     function act(found, method, after) {
         var b = found.node;
@@ -297,8 +343,8 @@
         if (before === 'unknown') { after('state', before); return; }
         if (kind === 'like') {
             if (!identityMatches()) { log(method + ':identity'); after('identity', before); return; }
-            // A tap can only ADD a like: an existing like is never clicked,
-            // whatever the native button shows. Only a verified 'false' is clicked.
+            // Remove only when the user tapped a button shown as liked and the page agrees.
+            if (before === 'true' && shownState === 'true') { unlike(b, method, after); return; }
             if (before !== 'false') { log(method + ':liked-read-only'); after('read', before); return; }
             if (shownState === 'true') { log(method + ':mismatch'); after('read', before); return; }
         }

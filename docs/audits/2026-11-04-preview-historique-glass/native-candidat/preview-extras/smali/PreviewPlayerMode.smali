@@ -8,7 +8,7 @@
 
 .field private static final DIAGNOSTIC:Ljava/lang/String; = "(function(kind) {\n    \'use strict\';\n    // Passive, bounded, allowlisted observations only. No account, track or\n    // arbitrary page text is returned. This probe does not click or send data.\n    var specs={\n        repeat:{selector:\'button[data-testid=\"control-button-repeat\"], [role=\"button\"][data-testid=\"control-button-repeat\"], button[aria-label], [role=\"button\"][aria-label]\', ids:/^control-button-repeat$/i,\n            off:/^(enable repeat|turn repeat on|activer la r\u00e9p\u00e9tition|wiederholung aktivieren|activar repetici\u00f3n|ativar repeti\u00e7\u00e3o)$/i,\n            on:/^(disable repeat|turn repeat off|d\u00e9sactiver la r\u00e9p\u00e9tition|wiederholung deaktivieren|desactivar repetici\u00f3n|desativar repeti\u00e7\u00e3o)$/i},\n        shuffle:{selector:\'button[data-testid*=\"shuffle\" i], button[aria-label], [role=\"button\"][aria-label], [role=\"switch\"][aria-label]\', ids:/shuffle/i,\n            off:/^(enable shuffle|turn shuffle on|activate shuffle|activer (la lecture |le mode |l[\'\u2019])?al\u00e9atoire|zufallswiedergabe aktivieren|activar (el modo |la reproducci\u00f3n )?aleatori[oa]|ativar (a reprodu\u00e7\u00e3o )?aleat\u00f3ria)$/i,\n            on:/^(disable shuffle|turn shuffle off|deactivate shuffle|d\u00e9sactiver (la lecture |le mode |l[\'\u2019])?al\u00e9atoire|zufallswiedergabe deaktivieren|desactivar (el modo |la reproducci\u00f3n )?aleatori[oa]|desativar (a reprodu\u00e7\u00e3o )?aleat\u00f3ria)$/i},\n        like:{selector:\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) button, [data-testid=\"now-playing-bar\"] button, [data-testid=\"now-playing-view\"] button, [data-testid=\"now-playing-panel\"] button, :is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) [role=\"button\"], [data-testid=\"now-playing-bar\"] [role=\"button\"], [data-testid=\"now-playing-view\"] [role=\"button\"], [data-testid=\"now-playing-panel\"] [role=\"button\"], :is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) [role=\"switch\"], [data-testid=\"now-playing-bar\"] [role=\"switch\"], [data-testid=\"now-playing-view\"] [role=\"switch\"], [data-testid=\"now-playing-panel\"] [role=\"switch\"]\', ids:/^(add-button|remove-button|add-to-library-button|remove-from-library-button)$/i,\n            off:/^(save to your library|add to (your )?(liked songs|library)|ajouter (\u00e0|aux) (la biblioth\u00e8que|titres lik\u00e9s)|enregistrer dans (votre |la )?biblioth\u00e8que|in (deine |der )?bibliothek (aufnehmen|hinzuf\u00fcgen)|a\u00f1adir a (tu )?biblioteca|adicionar (\u00e0 biblioteca|aos t\u00edtulos curtidos))$/i,\n            on:/^(remove from (your )?(library|liked songs)|retirer (de la biblioth\u00e8que|des titres lik\u00e9s)|supprimer de (votre |la )?biblioth\u00e8que|aus (deiner |der )?bibliothek entfernen|quitar de (tu )?biblioteca|remover (da biblioteca|dos t\u00edtulos curtidos))$/i}\n    };\n    // Same liked-label widening as control.js, so the report matches what a tap can act on.\n    (function(){var w=/(titres lik\u00e9s|liked songs|lik\u00e9|liked|favori|biblioth\u00e8que|library|biblioteca|bibliothek)/i,o=specs.like.off,n=specs.like.on;specs.like.off={test:function(l){return o.test(l)||(w.test(l)&&/^(ajouter|add|enregistrer|save|a\u00f1adir|adicionar|hinzuf\u00fcgen|zu)\\b/i.test(l));}};specs.like.on={test:function(l){return n.test(l)||(w.test(l)&&/^(ajout\u00e9|retirer|supprimer|remove|enregistr\u00e9|saved|added|quitar|remover|entfernen)/i.test(l));}};})();\n    // Aggregate structure only: fixed testid/role and label categories, never\n    // arbitrary labels or identifiers that could contain a track or account.\n    function structure() {\n        var roots=Array.from(document.querySelectorAll(\'[data-testid=\"now-playing-bar\"], :is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]), [data-testid=\"player-controls\"], [data-testid=\"now-playing-view\"], [data-testid=\"now-playing-panel\"]\'));\n        var nodes=[];roots.forEach(function(root){Array.from(root.querySelectorAll(\'button,[role=\"button\"],[role=\"switch\"],[role=\"slider\"],input[type=\"range\"]\')).forEach(function(n){if(nodes.indexOf(n)<0)nodes.push(n);});});\n        var st={bar:0,view:0,nodes:Math.min(nodes.length,99),playpause:0,repeat:0,shuffle:0,like:0,queue:0,volume:0,lyrics:0,connect:0,other:0,button:0,switch:0,slider:0,aria_shuffle:0,aria_like:0,aria_play:0,aria_pause:0,aria_other:0,track_links:0,track_named:0,track_generic:0,npv_opener:0};\n        roots.forEach(function(r){if(/^(now-playing-view|now-playing-panel)$/.test(r.getAttribute(\'data-testid\')))st.view++;else st.bar++;});\n        nodes.forEach(function(n){\n            var id=String(n.getAttribute(\'data-testid\')||\'\').toLowerCase(), label=String(n.getAttribute(\'aria-label\')||\'\').trim(), role=String(n.getAttribute(\'role\')||\'\').toLowerCase();\n            var k=/^control-button-playpause$/.test(id)?\'playpause\':/repeat/.test(id)?\'repeat\':/shuffle/.test(id)?\'shuffle\':/^(add-button|remove-button|add-to-library-button|remove-from-library-button)$/.test(id)?\'like\':/^(queue-button|control-button-queue)$/.test(id)?\'queue\':/^(volume-bar|volume-slider)$/.test(id)?\'volume\':/^(lyrics-button|control-button-lyrics)$/.test(id)?\'lyrics\':/^(connect-button|control-button-connect|connect-device-picker|device-picker)$/.test(id)?\'connect\':\'other\';\n            st[k]=Math.min(st[k]+1,99);if(role===\'switch\')st.switch++;else if(role===\'slider\'||n.tagName===\'INPUT\')st.slider++;else st.button++;\n            if(specs.shuffle.off.test(label)||specs.shuffle.on.test(label))st.aria_shuffle++;else if(specs.like.off.test(label)||specs.like.on.test(label))st.aria_like++;else if(/^(play|resume|lire|reprendre)$/i.test(label))st.aria_play++;else if(/^(pause|mettre en pause)$/i.test(label))st.aria_pause++;else if(label)st.aria_other++;\n        });\n        var links=Array.from(document.querySelectorAll(\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) a[href], [data-testid=\"now-playing-bar\"] a[href]\'));\n        // Shapes only (no href, title or label text): where the bar points, and\n        // what the checked (like-like) buttons\' labels contain.\n        [\'href_album\',\'href_album_hl\',\'href_hl_ambiguous\',\'href_artist\',\'href_uri\',\'href_other\',\'chk_buttons\',\'chk_likeword\',\'chk_verb_add\',\'chk_verb_on\',\'chk_long\',\'chk_favori\',\'chk_library\',\'chk_liked\',\'chk_add_false\',\'chk_add_true\',\'chk_popup\'].forEach(function(k){st[k]=0;});\n        links.forEach(function(a){\n            var hh=String(a.getAttribute(\'href\')||\'\');\n            if(/^spotify:(track|episode):[a-z0-9]+$/i.test(hh))st.href_uri++;else if(/\\/album\\//i.test(hh))st[/highlight=/i.test(hh)?\'href_album_hl\':\'href_album\']++;else if(/\\/artist\\//i.test(hh))st.href_artist++;else if(!/\\/(track|episode)\\//i.test(hh))st.href_other++;\n        });\n        Array.from(document.querySelectorAll(\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) button[aria-checked], [data-testid=\"now-playing-bar\"] button[aria-checked]\')).forEach(function(b){\n            var l=String(b.getAttribute(\'aria-label\')||\'\').trim();if(/repeat|r[\u00e9e]p[\u00e9e]t|shuffle|al[\u00e9e]atoire/i.test(l)||/repeat|shuffle/i.test(String(b.getAttribute(\'data-testid\')||\'\')))return;\n            st.chk_buttons++;if(/(lik\u00e9|liked|biblioth\u00e8que|library|favori)/i.test(l))st.chk_likeword++;\n            if(/^(ajouter|add|enregistrer|save)/i.test(l))st.chk_verb_add++;if(/^(ajout\u00e9|retirer|supprimer|remove|enregistr\u00e9|saved|added)/i.test(l))st.chk_verb_on++;if(l.length>30)st.chk_long++;\n            if(/favori/i.test(l))st.chk_favori++;if(/biblioth\u00e8que|library/i.test(l))st.chk_library++;if(/lik\u00e9|liked/i.test(l))st.chk_liked++;\n            if(/^(ajouter|add|enregistrer|save)/i.test(l)) {if(b.getAttribute(\'aria-checked\')===\'false\')st.chk_add_false++;if(b.getAttribute(\'aria-checked\')===\'true\')st.chk_add_true++;}\n            if(/^(true|menu|dialog|listbox)$/i.test(String(b.getAttribute(\'aria-haspopup\')||\'\')))st.chk_popup++;\n\n        });\n        links.forEach(function(a){\n            var h=String(a.getAttribute(\'href\')||\'\');\n            if (!/^spotify:(track|episode):[a-z0-9]+$/i.test(h) && !/^(?:https:\\/\\/open\\.spotify\\.com)?\\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\\/)?(?:track|episode)\\/[a-z0-9]+\\/?(?:[?#].*)?$/i.test(h) && !/^(?:https:\\/\\/open\\.spotify\\.com)?\\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\\/)?album\\/[a-z0-9]+\\/?\\?(?:[^#]*&)?highlight=spotify(?::|%3a)track(?::|%3a)[a-z0-9]+/i.test(h)) return;\n            if (/\\/album\\//i.test(h)) {\n                try {\n                    var highlights=[];\n                    new URL(h, \'https://open.spotify.com\').searchParams.forEach(function(v,k){if(k.toLowerCase()===\'highlight\')highlights.push(v);});\n                    if(highlights.length!==1 || !/^spotify:track:[a-z0-9]+$/i.test(highlights[0])) {st.href_hl_ambiguous++;return;}\n                } catch (_) {st.href_hl_ambiguous++;return;}\n            }\n            st.track_links++;if(String(a.textContent||\'\').trim())st.track_named++;\n            if(!/^(context-item-link|nowplaying-track-link)$/i.test(String(a.getAttribute(\'data-testid\')||\'\')))st.track_generic++;\n        });\n        st.track_attr=0;\n        Array.from(document.querySelectorAll(\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) [data-testid=\"context-item-link\"], :is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) [data-testid=\"nowplaying-track-link\"], :is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) [data-testid=\"context-item-info-title\"], [data-testid=\"now-playing-bar\"] [data-testid=\"context-item-link\"], [data-testid=\"now-playing-bar\"] [data-testid=\"nowplaying-track-link\"], [data-testid=\"now-playing-bar\"] [data-testid=\"context-item-info-title\"]\')).forEach(function(n){\n            if([\'data-uri\',\'data-track-uri\',\'data-spotify-uri\'].some(function(k){return /^spotify:(track|episode):[a-z0-9]+$/i.test(String(n.getAttribute(k)||\'\'));}))st.track_attr++;\n        });\n        Array.from(document.querySelectorAll(\'button, [role=\"button\"]\')).forEach(function(b){\n            var id=String(b.getAttribute(\'data-testid\')||\'\'), l=String(b.getAttribute(\'aria-label\')||\'\').trim();\n            if(/^(control-button-npv|now-playing-view-button)$/i.test(id)||/^(now playing view|show now playing view|hide now playing view|vue \u00ab ?en cours de lecture ?\u00bb|afficher la vue en cours de lecture|masquer la vue en cours de lecture|en cours de lecture|ansicht \u201el\u00e4uft gerade\u201c|vista de reproducci\u00f3n|tela tocando agora)$/i.test(l))st.npv_opener++;\n        });\n        // Counts outside player scopes help locate candidates only. They may\n        // belong to a playlist or another track and are NEVER actionable.\n        st.outside_like_id=0;st.outside_like_label=0;st.outside_track_links=0;\n        function inPlayer(n){return !!n.closest(\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]), [data-testid=\"now-playing-bar\"], [data-testid=\"now-playing-view\"], [data-testid=\"now-playing-panel\"], [data-testid=\"NPV\"]\');}\n        Array.from(document.querySelectorAll(\'button, [role=\"button\"], [role=\"switch\"]\')).forEach(function(n){\n            if(!n.isConnected||inPlayer(n))return;\n            var id=String(n.getAttribute(\'data-testid\')||\'\'),label=String(n.getAttribute(\'aria-label\')||\'\').trim();\n            if(specs.like.ids.test(id))st.outside_like_id++;\n            if(specs.like.off.test(label)||specs.like.on.test(label))st.outside_like_label++;\n        });\n        Array.from(document.querySelectorAll(\'a[href]\')).forEach(function(a){\n            if(!a.isConnected||inPlayer(a))return;\n            if(/^(?:https:\\/\\/open\\.spotify\\.com)?\\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\\/)?(?:track|episode)\\/[a-z0-9]+\\/?(?:[?#].*)?$/i.test(String(a.getAttribute(\'href\')||\'\')))st.outside_track_links++;\n        });\n        // Capability counts only. Never invoke platform APIs or include their\n        // state, user, title, identifiers, labels, or session information.\n        st.api_player=st.api_state=st.api_library=st.api_contains=st.api_add=0;\n        try {\n            var platform=window.Melodix && window.Melodix.Platform;\n            var player=platform && platform.PlayerAPI, library=platform && platform.LibraryAPI;\n            if(player)st.api_player=1;if(player && typeof player.getState===\'function\')st.api_state=1;\n            if(library)st.api_library=1;if(library && typeof library.contains===\'function\')st.api_contains=1;\n            if(library && typeof library.add===\'function\')st.api_add=1;\n        } catch (_) {}\n        Object.keys(st).forEach(function(k){st[k]=Math.min(st[k],99);});return JSON.stringify(st);\n    }\n    var spec=specs[kind], out={kind:kind===\'shuffle\'?\'shuffle\':kind===\'like\'?\'like\':kind===\'repeat\'?\'repeat\':\'unknown\',reason:\'control\',count:0,state:\'unknown\',label:\'unknown\',command:\'unknown\',disabled:false,smart:false,structure:structure()};\n    if(!spec)return JSON.stringify(out);\n    var nodes=Array.from(document.querySelectorAll(spec.selector)).filter(function(b){\n        return b.isConnected && (spec.ids.test(String(b.getAttribute(\'data-testid\')||\'\')) || spec.off.test(String(b.getAttribute(\'aria-label\')||\'\').trim()) || spec.on.test(String(b.getAttribute(\'aria-label\')||\'\').trim()));\n    });\n    out.count=Math.min(nodes.length,2);\n    if(nodes.length!==1){out.reason=nodes.length?\'ambiguous\':document.readyState===\'loading\'?\'page\':\'absent\';return JSON.stringify(out);}\n    var b=nodes[0], label=String(b.getAttribute(\'aria-label\')||\'\').trim();\n    out.label=spec.on.test(label)?\'on-action\':spec.off.test(label)?\'off-action\':label?\'unrecognized\':\'absent\';\n    out.disabled=!!b.disabled || b.getAttribute(\'aria-disabled\')===\'true\';\n    var raw=b.getAttribute(\'aria-checked\');if(raw===null)raw=b.getAttribute(\'aria-pressed\');\n    out.state=raw===\'true\'||raw===\'false\'||(kind!==\'like\'&&raw===\'mixed\')?raw:raw===null?(out.label===\'on-action\'?\'true\':out.label===\'off-action\'?\'false\':\'unknown\'):\'unknown\';\n    out.smart=kind===\'shuffle\' && out.state===\'mixed\';\n    var id=String(b.getAttribute(\'data-testid\')||\'\').toLowerCase();\n    var conflict=kind===\'like\' && ((out.state===\'false\' && (out.label===\'on-action\'||/^(remove-button|remove-from-library-button)$/.test(id))) || (out.state===\'true\' && out.label===\'off-action\'));\n    var unverified=kind===\'like\' && out.label!==\'off-action\' && out.label!==\'on-action\';\n    if(unverified)out.state=\'unknown\';\n    var popup=String(b.getAttribute(\'aria-haspopup\')||\'\').toLowerCase();\n    if(kind===\'like\')out.command=popup===\'true\'||popup===\'menu\'||popup===\'dialog\'||popup===\'listbox\'||popup===\'tree\'||popup===\'grid\'?\'menu\':\'unspecified\';\n    else out.command=\'toggle\';\n    var description=String(b.getAttribute(\'aria-description\')||\'\').trim();\n    var restricted=kind===\'shuffle\' && out.disabled && /^(shuffle is not available (with|for) (this account|this playback)|l[\'\u2019]al\u00e9atoire n[\'\u2019]est pas disponible avec (ce compte|cette lecture))$/i.test(description);\n    out.reason=restricted?\'restriction\':out.disabled?\'disabled\':conflict?\'conflict\':unverified?\'unverified\':out.state===\'unknown\'?\'state\':\'observed\';\n    return JSON.stringify(out);\n})\n"
 
-.field private static final JOB:Ljava/lang/String; = "(function(kind, action, shownState, expectedTitle, expectedTrack) {\n    \'use strict\';\n    // One explicit tap = one job. Methods in order, state re-read after each:\n    // (a) control already in the page, (b) briefly open the now-playing view in\n    // the hidden page and close it again, (c) web-player keyboard shortcut\n    // (shuffle/repeat only: a like is never sent without a verified state).\n    // Never reads storage, cookies or tokens; never navigates; no network.\n    var W = window;\n    var jobs = W.__melodixModeJobs = W.__melodixModeJobs || {};\n    if ([\'like\', \'shuffle\', \'repeat\'].indexOf(kind) < 0) return JSON.stringify({status: \'done\', outcome: \'failed\', reason: \'kind\'});\n    if (action === \'poll\') {\n        var previous = jobs[kind] || {status: \'none\'};\n        // A result can become stale after it was recorded but before native polling.\n        if (kind === \'like\' && previous.status === \'done\' &&\n            (previous.outcome === \'confirmed\' || previous.outcome === \'read\') && !identityMatches()) {\n            previous.outcome = \'identity\'; previous.state = \'unknown\';\n            if (previous.journal && previous.journal.length < 16) previous.journal.push(\'poll:identity\');\n        }\n        return JSON.stringify(previous);\n    }\n    if (action !== \'run\') return JSON.stringify({status: \'none\'});\n    if (jobs[kind] && jobs[kind].status === \'running\' && Date.now() - jobs[kind].started < 8000) return JSON.stringify({status: \'busy\'});\n    var labels = {\n        like: {\n            off: /^(save to your library|add to (your )?(liked songs|library)|ajouter (\u00e0|aux) (la biblioth\u00e8que|titres lik\u00e9s|vos titres lik\u00e9s)|enregistrer dans (votre |la )?biblioth\u00e8que|in (deine |der )?bibliothek (aufnehmen|hinzuf\u00fcgen)|a\u00f1adir a (tu )?biblioteca|adicionar (\u00e0 biblioteca|aos t\u00edtulos curtidos))$/i,\n            on: /^(remove from (your )?(library|liked songs)|retirer (de la biblioth\u00e8que|des titres lik\u00e9s|de vos titres lik\u00e9s)|supprimer de (votre |la )?biblioth\u00e8que|aus (deiner |der )?bibliothek entfernen|quitar de (tu )?biblioteca|remover (da biblioteca|dos t\u00edtulos curtidos))$/i\n        },\n        repeat: {\n            off: /^(enable repeat|turn repeat on|activer la r\u00e9p\u00e9tition|wiederholung aktivieren|activar repetici\u00f3n|ativar repeti\u00e7\u00e3o)$/i,\n            on: /^(disable repeat|turn repeat off|enable repeat one|d\u00e9sactiver la r\u00e9p\u00e9tition|activer la r\u00e9p\u00e9tition d[\'\u2019]un titre|wiederholung deaktivieren|desactivar repetici\u00f3n|desativar repeti\u00e7\u00e3o)$/i\n        },\n        shuffle: {\n            off: /^(enable shuffle|turn shuffle on|activate shuffle|activer (la lecture |le mode |l[\'\u2019])?al\u00e9atoire|zufallswiedergabe aktivieren|activar (el modo |la reproducci\u00f3n )?aleatori[oa]|ativar (a reprodu\u00e7\u00e3o )?aleat\u00f3ria)$/i,\n            on: /^(disable shuffle|turn shuffle off|deactivate shuffle|enable smart shuffle|d\u00e9sactiver (la lecture |le mode |l[\'\u2019])?al\u00e9atoire|activer la lecture al\u00e9atoire intelligente|zufallswiedergabe deaktivieren|desactivar (el modo |la reproducci\u00f3n )?aleatori[oa]|desativar (a reprodu\u00e7\u00e3o )?aleat\u00f3ria)$/i\n        }\n    };\n    // Neutral names locate a control but never decide its state.\n    var neutral = /^(shuffle|lecture al\u00e9atoire|al\u00e9atoire|repeat|r\u00e9p\u00e9ter|r\u00e9p\u00e9tition)$/i;\n    var ids = {\n        like: /^(add-button|remove-button|add-to-library-button|remove-from-library-button)$/i,\n        repeat: /^control-button-repeat$/i,\n        shuffle: /^control-button-shuffle$|shuffle/i\n    };\n    var job = {status: \'running\', started: Date.now(), outcome: \'\', state: \'unknown\', method: \'\', journal: []};\n    jobs[kind] = job;\n    function log(code) { if (job.journal.length < 16) job.journal.push(code); }\n    function finish(outcome, state, method) { job.status = \'done\'; job.outcome = outcome; job.state = state || \'unknown\'; job.method = method || \'\'; }\n    function label(b) { return String(b.getAttribute(\'aria-label\') || \'\').trim(); }\n    function testid(b) { return String(b.getAttribute(\'data-testid\') || \'\'); }\n    // Current Spotify wording varies: a verb plus a liked-songs/library word.\n    (function() {\n        var word = /(titres lik\u00e9s|liked songs|lik\u00e9|liked|favori|biblioth\u00e8que|library|biblioteca|bibliothek)/i, off = labels.like.off, on = labels.like.on;\n        labels.like.off = {test: function(l) { return off.test(l) || (word.test(l) && /^(ajouter|add|enregistrer|save|a\u00f1adir|adicionar|hinzuf\u00fcgen|zu)\\b/i.test(l)); }};\n        labels.like.on = {test: function(l) { return on.test(l) || (word.test(l) && /^(ajout\u00e9|retirer|supprimer|remove|enregistr\u00e9|saved|added|quitar|remover|entfernen)/i.test(l)); }};\n    })();\n    // Spotify\'s \"+\" save button: generic \"Ajouter...\" label, state in aria-checked.\n    function genericAdd(l) { return /^(ajouter|add|enregistrer|save)\\b/i.test(l) && !/(titres lik\u00e9s|liked songs|biblioth\u00e8que|library|file d[\'\u2019]attente|queue)/i.test(l); }\n    function find() {\n        var list = Array.from(document.querySelectorAll(\'button, [role=\"button\"], [role=\"switch\"]\')).filter(function(b) {\n            if (!b.isConnected) return false;\n            var l = label(b);\n            return ids[kind].test(testid(b)) || labels[kind].off.test(l) || labels[kind].on.test(l) ||\n                (kind === \'like\' && b.hasAttribute(\'aria-checked\') && genericAdd(l)) ||\n                (kind !== \'like\' && neutral.test(l) && (kind === \'shuffle\' ? /al[\u00e9e]atoire|shuffle/i : /r[\u00e9e]p[\u00e9e]t|repeat/i).test(l));\n        });\n        if (kind === \'like\') {\n            var scoped = list.filter(function(b) {\n                return b.closest(\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]), [data-testid=\"now-playing-bar\"], [data-testid=\"now-playing-view\"], [data-testid=\"now-playing-panel\"], [data-testid=\"NPV\"]\');\n            });\n            list = scoped;\n        }\n        if (list.length > 1) {\n            var visible = list.filter(function(b) { var r = b.getBoundingClientRect(); return r.width > 0 && r.height > 0; });\n            if (visible.length === 1) list = visible;\n        }\n        if (!list.length) return {reason: \'absent\'};\n        if (list.length !== 1) return {reason: \'ambiguous\'};\n        var b = list[0];\n        if (b.disabled || b.getAttribute(\'aria-disabled\') === \'true\') return {reason: \'disabled\', node: b};\n        return {node: b, reason: \'\'};\n    }\n    function read(b) {\n        var checked = b.getAttribute(\'aria-checked\'), pressed = b.getAttribute(\'aria-pressed\');\n        var raw = checked === null ? pressed : checked;\n        var l = label(b), on = labels[kind].on.test(l), off = labels[kind].off.test(l);\n        if (kind === \'like\') {\n            var id = testid(b).toLowerCase();\n            var remove = /^(remove-button|remove-from-library-button)$/.test(id);\n            if (/^(true|menu|dialog|listbox|tree|grid)$/i.test(String(b.getAttribute(\'aria-haspopup\') || \'\')) ||\n                b.matches(\':disabled\') || b.closest(\'[aria-disabled=\"true\"], fieldset:disabled\') ||\n                (checked !== null && pressed !== null && checked !== pressed)) return \'unknown\';\n            if (raw !== null && raw !== \'true\' && raw !== \'false\') return \'unknown\';\n            if (raw === null) raw = on ? \'true\' : off ? \'false\' : \'unknown\';\n            // Once liked, Spotify relabels the checked button generically (phone 1022229).\n            if (raw === \'true\' && checked === \'true\' && !on && !off && genericAdd(l)) on = true;\n            if ((raw === \'false\' && (on || remove)) || (raw === \'true\' && off)) return \'unknown\';\n            // An unlabelled generic add-button may open a playlist picker.\n            if (!off && !on) return \'unknown\';\n            return raw;\n        }\n        if (raw === \'true\' || raw === \'false\' || raw === \'mixed\') return raw;\n        return on ? \'true\' : off ? \'false\' : \'unknown\';\n    }\n    // Spotify\'s bar title links to the album with the track in ?highlight=spotify:track:ID.\n    function trackHref(h) {\n        h = String(h || \'\');\n        // A Spotify URI is a complete identity, unlike an album or title.\n        var uri = /^spotify:(track|episode):([a-z0-9]+)$/i.exec(h);\n        if (uri) return uri;\n        var m = /^(?:https:\\/\\/open\\.spotify\\.com)?\\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\\/)?(track|episode)\\/([a-z0-9]+)\\/?(?:[?#].*)?$/i.exec(h);\n        if (m) return m;\n        var a = /^(?:https:\\/\\/open\\.spotify\\.com)?\\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\\/)?album\\/[a-z0-9]+\\/?\\?(?:[^#]*&)?highlight=spotify(?::|%3a)(track)(?::|%3a)([a-z0-9]+)(?:[&#].*)?$/i.exec(h);\n        if (a) {\n            // Duplicate highlight keys, including encoded/case variants,\n            // have ambiguous semantics. Never choose one arbitrarily.\n            try {\n                var query = new URL(h, \'https://open.spotify.com\').searchParams;\n                var values = [];\n                query.forEach(function(value, key) { if (key.toLowerCase() === \'highlight\') values.push(value); });\n                if (values.length !== 1 || !/^spotify:track:[a-z0-9]+$/i.test(values[0])) return null;\n                var parts = /^spotify:(track):([a-z0-9]+)$/i.exec(values[0]);\n                return [a[0], parts[1], parts[2]];\n            } catch (_) { return null; }\n        }\n        return null; // an album and title cannot uniquely identify a track\n    }\n    // Explicit track URIs on the current-player title only; never infer a\n    // track from an album, playlist, title alone, or an unrelated page row.\n    function markedTrack(n) {\n        if (!/^(context-item-link|nowplaying-track-link|context-item-info-title)$/i.test(String(n.getAttribute(\'data-testid\') || \'\'))) return \'\';\n        var result = \'\';\n        for (var name of [\'data-uri\', \'data-track-uri\', \'data-spotify-uri\']) {\n            if (!n.hasAttribute(name)) continue;\n            var m = /^spotify:(track|episode):([a-z0-9]+)$/i.exec(String(n.getAttribute(name) || \'\'));\n            if (!m) return \'!\';\n            var value = m[1].toLowerCase()+\':\'+m[2];\n            if (result && result !== value) return \'!\';\n            result = value;\n        }\n        return result;\n    }\n    // If a title link itself carries a malformed track hint, an attribute\n    // must not mask that ambiguity. Album-only links may use their explicit\n    // current-title parent marker, but never one outside the player bar.\n    function hasTrackHint(h) {\n        h=String(h||\'\');\n        if (/^spotify:(track|episode):/i.test(h) || /\\/(track|episode)\\//i.test(h)) return true;\n        try {\n            var found=false;\n            new URL(h, \'https://open.spotify.com\').searchParams.forEach(function(v,k){if(k.toLowerCase()===\'highlight\')found=true;});\n            return found;\n        } catch (_) { return true; }\n    }\n    function parentTrack(link) {\n        var n=link.closest(\'[data-testid=\"context-item-info-title\"]\');\n        if(!n || !n.closest(\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]), [data-testid=\"now-playing-bar\"]\')) return \'\';\n        return markedTrack(n);\n    }\n    function markedTitleNodes() {\n        return Array.from(document.querySelectorAll(\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) [data-testid=\"context-item-link\"], :is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) [data-testid=\"nowplaying-track-link\"], :is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) [data-testid=\"context-item-info-title\"], [data-testid=\"now-playing-bar\"] [data-testid=\"context-item-link\"], [data-testid=\"now-playing-bar\"] [data-testid=\"nowplaying-track-link\"], [data-testid=\"now-playing-bar\"] [data-testid=\"context-item-info-title\"]\')).filter(function(n) { return n.isConnected; });\n    }\n    function identityMatches() {\n        if (!expectedTitle || !expectedTrack) return false;\n        if (expectedTrack === \'title:\' + expectedTitle) {\n            // Id-less bar: no track link may exist, the native title must appear in the bar text.\n            if (document.querySelector(\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) a[href*=\"/track/\"], [data-testid=\"now-playing-bar\"] a[href*=\"/track/\"]\')) return false;\n            return Array.from(document.querySelectorAll(\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]), [data-testid=\"now-playing-bar\"]\')).some(function(r) {\n                return String(r.textContent || \'\').replace(/\\s+/g, \' \').toLowerCase().indexOf(String(expectedTitle).replace(/\\s+/g, \' \').trim().toLowerCase()) >= 0;\n            });\n        }\n        var links = Array.from(document.querySelectorAll(\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) a[href], [data-testid=\"now-playing-bar\"] a[href], a[data-testid=\"nowplaying-track-link\"][href], [data-testid=\"now-playing-view\"] a[href]\'));\n        var malformedIdentity = false;\n        var identities = links.map(function(link) {\n            var m = trackHref(String(link.getAttribute(\'href\') || \'\'));\n            if (!m && /^(context-item-link|nowplaying-track-link)$/i.test(String(link.getAttribute(\'data-testid\') || \'\')) && (hasTrackHint(link.getAttribute(\'href\')) || (!markedTrack(link) && !parentTrack(link)))) malformedIdentity = true;\n            return m ? {track:m[1].toLowerCase()+\':\'+m[2],title:String(link.textContent || \'\').replace(/\\s+/g, \' \').trim()} : null;\n        }).filter(Boolean);\n        markedTitleNodes().forEach(function(n) {\n            var value=markedTrack(n);\n            if (value === \'!\') { malformedIdentity = true; return; }\n            if (value) identities.push({track:value, title:String(n.textContent || \'\').replace(/\\s+/g, \' \').trim()});\n        });\n        return !malformedIdentity && identities.some(function(x) { return x.title === expectedTitle; }) && identities.every(function(x) {\n            return x.track === expectedTrack && (!x.title || x.title === expectedTitle);\n        });\n    }\n    function opener() {\n        var list = Array.from(document.querySelectorAll(\'button, [role=\"button\"]\')).filter(function(b) {\n            if (!b.isConnected) return false;\n            var id = testid(b), l = label(b);\n            return /^(control-button-npv|now-playing-view-button)$/i.test(id) ||\n                /^(now playing view|show now playing view|hide now playing view|vue \u00ab ?en cours de lecture ?\u00bb|afficher la vue en cours de lecture|masquer la vue en cours de lecture|en cours de lecture|ansicht \u201el\u00e4uft gerade\u201c|vista de reproducci\u00f3n|tela tocando agora)$/i.test(l);\n        });\n        return list.length === 1 ? list[0] : null;\n    }\n    function pressed(b) { return b.getAttribute(\'aria-pressed\') === \'true\' || b.getAttribute(\'aria-expanded\') === \'true\' || b.getAttribute(\'data-active\') === \'true\'; }\n    function wait(test, ms, done) {\n        var end = Date.now() + ms;\n        (function step() {\n            var v;\n            try { v = test(); } catch (_) { v = null; }\n            if (v || Date.now() >= end) { done(v || null); return; }\n            setTimeout(step, 120);\n        })();\n    }\n    function invalidateLikedRead() {\n        try { if (typeof W.__sfLikedMutationAttempted === \'function\') W.__sfLikedMutationAttempted(); } catch (_) {}\n    }\n    // Open only an explicitly announced add menu, then act only on a unique,\n    // explicitly unchecked Liked Songs item. Never select another playlist.\n    function viaLikeMenu(b, method, after) {\n        var id = testid(b).toLowerCase(), l = label(b), popup = String(b.getAttribute(\'aria-haspopup\') || \'\');\n        if (!/^(true|menu|dialog|listbox)$/i.test(popup)) return false;\n        if (!identityMatches()) { log(method + \':menu-identity\'); after(\'identity\', \'unknown\'); return true; }\n        if (!/^(add-button|add-to-library-button)$/.test(id) || labels.like.on.test(l) ||\n            shownState === \'true\' || ((b.getAttribute(\'aria-checked\') === \'true\' || b.getAttribute(\'aria-pressed\') === \'true\') && !genericAdd(l)) ||\n            b.matches(\':disabled\') || b.closest(\'[aria-disabled=\"true\"], fieldset:disabled\')) {\n            log(method + \':menu-unsafe\'); after(\'menu-state\', \'unknown\'); return true;\n        }\n        var selector = \'[role=\"menu\"], [role=\"dialog\"], [role=\"listbox\"]\';\n        function available(n) { return n && n.isConnected && !n.closest(\'[hidden], [aria-hidden=\"true\"]\'); }\n        var before = Array.from(document.querySelectorAll(selector)).filter(available);\n        var expanded = b.getAttribute(\'aria-expanded\') === \'true\', opened = false;\n        function root() {\n            var id = b.getAttribute(\'aria-controls\'), controlled = id && document.getElementById(id);\n            if (available(controlled) && controlled.matches(selector) &&\n                (expanded || before.indexOf(controlled) < 0 || b.getAttribute(\'aria-expanded\') === \'true\')) return controlled;\n            if (expanded) return null;\n            var fresh = Array.from(document.querySelectorAll(selector)).filter(function(n) { return available(n) && before.indexOf(n) < 0; });\n            return fresh.length === 1 ? fresh[0] : null;\n        }\n        function closeMenu(r) {\n            if (!opened) return;\n            try {\n                (available(r) ? r : b).dispatchEvent(new KeyboardEvent(\'keydown\', {key:\'Escape\', code:\'Escape\', bubbles:true, cancelable:true}));\n                log(available(r) && b.getAttribute(\'aria-expanded\') === \'true\' ? method + \':menu-close-unverified\' : method + \':menu-close-requested\');\n            } catch (_) { log(method + \':menu-close-error\'); }\n        }\n        if (!expanded) {\n            try { b.click(); opened = true; log(method + \':menu-open\'); }\n            catch (_) { log(method + \':menu-open-error\'); after(\'menu-absent\', \'unknown\'); return true; }\n        }\n        wait(function() {\n            if (!identityMatches()) return \'identity-changed\';\n            return root();\n        }, 1800, function(r) {\n            if (r === \'identity-changed\') { closeMenu(null); after(\'identity\', \'unknown\'); return; }\n            if (!r) { log(method + \':menu-root\'); closeMenu(null); after(\'menu-absent\', \'unknown\'); return; }\n            var likedName = /^(liked songs|your liked songs|titres lik\u00e9s|vos titres lik\u00e9s|titres que j[\'\u2019]aime|liked-titel|canciones que te gustan|m\u00fasicas curtidas)$/i;\n            function targets() {\n                if (!available(r)) return [];\n                return Array.from(r.querySelectorAll(\'[role=\"menuitemcheckbox\"], [role=\"checkbox\"], input[type=\"checkbox\"]\')).filter(function(n) {\n                    var labelNode = n.closest(\'label\');\n                    var name = String(n.getAttribute(\'aria-label\') || (labelNode && labelNode.textContent) || n.textContent || \'\').replace(/\\s+/g, \' \').trim();\n                    return available(n) && likedName.test(name);\n                });\n            }\n            var candidates = targets();\n            if (candidates.length !== 1) { log(method + (candidates.length ? \':menu-ambiguous\' : \':menu-target\')); closeMenu(r); after(candidates.length ? \'menu-ambiguous\' : \'menu-absent\', \'unknown\'); return; }\n            var target = candidates[0], raw = target.getAttribute(\'aria-checked\');\n            var checked = target.tagName === \'INPUT\' && target.type === \'checkbox\' ? (target.checked ? \'true\' : \'false\') : null;\n            if (checked !== null && raw !== null && raw !== checked) raw = \'unknown\';\n            else if (raw === null) raw = checked;\n            if (target.matches(\':disabled\') || target.closest(\'[aria-disabled=\"true\"], fieldset:disabled\') || (raw !== \'true\' && raw !== \'false\')) {\n                log(method + \':menu-state\'); closeMenu(r); after(\'menu-state\', \'unknown\'); return;\n            }\n            if (raw === \'true\') { log(method + \':menu-liked\'); closeMenu(r); after(\'read\', \'true\'); return; }\n            if (!identityMatches()) { closeMenu(r); after(\'identity\', \'unknown\'); return; }\n            invalidateLikedRead();\n            try { target.click(); log(method + \':menu-add\'); }\n            catch (_) { log(method + \':menu-add-error\'); closeMenu(r); after(\'unconfirmed\', \'unknown\'); return; }\n            wait(function() {\n                if (!identityMatches()) return \'identity-changed\';\n                var current = targets();\n                if (current.length !== 1 || current[0].matches(\':disabled\') || current[0].closest(\'[aria-disabled=\"true\"], fieldset:disabled\')) return null;\n                // React may replace the checkbox after the click; only the\n                // unique explicit Liked Songs item in the same menu is read.\n                var observed = current[0];\n                var a = observed.getAttribute(\'aria-checked\');\n                var c = observed.tagName === \'INPUT\' && observed.type === \'checkbox\' ? observed.checked : null;\n                return (a === \'true\' && c !== false) || (a === null && c === true) ? \'true\' : null;\n            }, 2200, function(state) {\n                closeMenu(r);\n                if (state === \'identity-changed\') { log(method + \':menu-identity\'); after(\'identity\', \'unknown\'); }\n                else if (state === \'true\') { log(method + \':menu-verified\'); after(\'confirmed\', \'true\'); }\n                else { log(method + \':menu-unverified\'); after(\'unconfirmed\', \'false\'); }\n            });\n        });\n        return true;\n    }\n    // Decide and click on a readable control; verify the change afterwards.\n    function act(found, method, after) {\n        var b = found.node;\n        if (kind === \'like\' && viaLikeMenu(b, method, after)) return;\n        var before = read(b);\n        log(method + \':state-\' + before);\n        if (before === \'unknown\') { after(\'state\', before); return; }\n        if (kind === \'like\') {\n            if (!identityMatches()) { log(method + \':identity\'); after(\'identity\', before); return; }\n            // A tap can only ADD a like: an existing like is never clicked,\n            // whatever the native button shows. Only a verified \'false\' is clicked.\n            if (before !== \'false\') { log(method + \':liked-read-only\'); after(\'read\', before); return; }\n            if (shownState === \'true\') { log(method + \':mismatch\'); after(\'read\', before); return; }\n        }\n        if (kind === \'like\') invalidateLikedRead();\n        try { b.click(); log(method + \':click\'); } catch (_) { log(method + \':click-error\'); after(\'command\', before); return; }\n        wait(function() {\n            if (kind === \'like\' && !identityMatches()) return \'identity-changed\';\n            var again = find();\n            if (!again.node) return null;\n            var s = read(again.node);\n            return s !== before && s !== \'unknown\' ? s : null;\n        }, 2200, function(s) {\n            if (s === \'identity-changed\') { log(method + \':identity\'); after(\'identity\', \'unknown\'); }\n            else if (s) { log(method + \':verified\'); after(\'confirmed\', s); }\n            else { log(method + \':unverified\'); after(\'unconfirmed\', before); }\n        });\n    }\n    function viaKeyboard() {\n        if (kind === \'like\') { log(\'c:like-skipped\'); finish(\'failed\', \'unknown\', \'\'); return; }\n        var spec = kind === \'shuffle\' ? {key: \'s\', code: \'KeyS\', keyCode: 83} : {key: \'r\', code: \'KeyR\', keyCode: 82};\n        // Unverifiable when no control is readable, so only ONE combination per\n        // tap (two could cancel each other). Families alternate across taps.\n        var turns = W.__melodixKeyTurns = W.__melodixKeyTurns || {};\n        var ctrl = !(turns[kind] % 2); turns[kind] = (turns[kind] || 0) + 1;\n        try {\n            var target = document.activeElement && document.activeElement !== document.body ? document.activeElement : document.body;\n            [\'keydown\', \'keyup\'].forEach(function(type) {\n                target.dispatchEvent(new KeyboardEvent(type, {key: spec.key, code: spec.code, keyCode: spec.keyCode, which: spec.keyCode, ctrlKey: ctrl, altKey: !ctrl, bubbles: true, cancelable: true}));\n            });\n            log(\'c:\' + (ctrl ? \'ctrl-\' : \'alt-\') + spec.key); log(\'c:single-unreadable\');\n            finish(\'unverified\', \'unknown\', \'keyboard\');\n        } catch (_) { log(\'c:error\'); finish(\'failed\', \'unknown\', \'\'); }\n    }\n    function result(outcome, state, method) {\n        if (outcome === \'confirmed\' || outcome === \'unconfirmed\' || outcome === \'read\') finish(outcome, state, method);\n        else if (outcome === \'identity\' || outcome === \'menu-absent\' || outcome === \'menu-ambiguous\' || outcome === \'menu-state\') finish(outcome, \'unknown\', method);\n        else finish(\'failed\', state, method);\n    }\n    try {\n        var direct = find();\n        log(\'a:\' + (direct.node ? \'found\' : direct.reason));\n        if (direct.node && !direct.reason) { act(direct, \'a\', function(o, s) { result(o, s, \'direct\'); }); return JSON.stringify({status: \'started\'}); }\n        if (direct.reason === \'disabled\') { finish(\'disabled\', \'unknown\', \'direct\'); return JSON.stringify({status: \'started\'}); }\n        var view = opener();\n        if (!view) { log(\'b:no-opener\'); viaKeyboard(); return JSON.stringify({status: \'started\'}); }\n        var wasOpen = pressed(view);\n        if (!wasOpen) { try { view.click(); log(\'b:opened\'); } catch (_) { log(\'b:open-error\'); } }\n        else log(\'b:already-open\');\n        var closeView = function() {\n            if (!wasOpen) {\n                setTimeout(function() {\n                    var again = opener();\n                    try { if (again && pressed(again)) { again.click(); log(\'b:closed\'); } } catch (_) { log(\'b:close-error\'); }\n                }, 150);\n            }\n        };\n        wait(function() { var f = find(); return f.node && !f.reason ? f : null; }, 1800, function(found) {\n            if (!found) { log(\'b:absent\'); closeView(); viaKeyboard(); return; }\n            log(\'b:found\');\n            act(found, \'b\', function(o, s) { closeView(); result(o, s, \'now-playing-view\'); });\n        });\n        return JSON.stringify({status: \'started\'});\n    } catch (_) {\n        finish(\'failed\', \'unknown\', \'\');\n        return JSON.stringify({status: \'started\'});\n    }\n})\n"
+.field private static final JOB:Ljava/lang/String; = "(function(kind, action, shownState, expectedTitle, expectedTrack) {\n    \'use strict\';\n    // One explicit tap = one job. Methods in order, state re-read after each:\n    // (a) control already in the page, (b) briefly open the now-playing view in\n    // the hidden page and close it again, (c) web-player keyboard shortcut\n    // (shuffle/repeat only: a like is never sent without a verified state).\n    // Never reads storage, cookies or tokens; never navigates; no network.\n    var W = window;\n    var jobs = W.__melodixModeJobs = W.__melodixModeJobs || {};\n    if ([\'like\', \'shuffle\', \'repeat\'].indexOf(kind) < 0) return JSON.stringify({status: \'done\', outcome: \'failed\', reason: \'kind\'});\n    if (action === \'poll\') {\n        var previous = jobs[kind] || {status: \'none\'};\n        // A result can become stale after it was recorded but before native polling.\n        if (kind === \'like\' && previous.status === \'done\' &&\n            (previous.outcome === \'confirmed\' || previous.outcome === \'read\') && !identityMatches()) {\n            previous.outcome = \'identity\'; previous.state = \'unknown\';\n            if (previous.journal && previous.journal.length < 16) previous.journal.push(\'poll:identity\');\n        }\n        return JSON.stringify(previous);\n    }\n    if (action !== \'run\') return JSON.stringify({status: \'none\'});\n    if (jobs[kind] && jobs[kind].status === \'running\' && Date.now() - jobs[kind].started < 8000) return JSON.stringify({status: \'busy\'});\n    var labels = {\n        like: {\n            off: /^(save to your library|add to (your )?(liked songs|library)|ajouter (\u00e0|aux) (la biblioth\u00e8que|titres lik\u00e9s|vos titres lik\u00e9s)|enregistrer dans (votre |la )?biblioth\u00e8que|in (deine |der )?bibliothek (aufnehmen|hinzuf\u00fcgen)|a\u00f1adir a (tu )?biblioteca|adicionar (\u00e0 biblioteca|aos t\u00edtulos curtidos))$/i,\n            on: /^(remove from (your )?(library|liked songs)|retirer (de la biblioth\u00e8que|des titres lik\u00e9s|de vos titres lik\u00e9s)|supprimer de (votre |la )?biblioth\u00e8que|aus (deiner |der )?bibliothek entfernen|quitar de (tu )?biblioteca|remover (da biblioteca|dos t\u00edtulos curtidos))$/i\n        },\n        repeat: {\n            off: /^(enable repeat|turn repeat on|activer la r\u00e9p\u00e9tition|wiederholung aktivieren|activar repetici\u00f3n|ativar repeti\u00e7\u00e3o)$/i,\n            on: /^(disable repeat|turn repeat off|enable repeat one|d\u00e9sactiver la r\u00e9p\u00e9tition|activer la r\u00e9p\u00e9tition d[\'\u2019]un titre|wiederholung deaktivieren|desactivar repetici\u00f3n|desativar repeti\u00e7\u00e3o)$/i\n        },\n        shuffle: {\n            off: /^(enable shuffle|turn shuffle on|activate shuffle|activer (la lecture |le mode |l[\'\u2019])?al\u00e9atoire|zufallswiedergabe aktivieren|activar (el modo |la reproducci\u00f3n )?aleatori[oa]|ativar (a reprodu\u00e7\u00e3o )?aleat\u00f3ria)$/i,\n            on: /^(disable shuffle|turn shuffle off|deactivate shuffle|enable smart shuffle|d\u00e9sactiver (la lecture |le mode |l[\'\u2019])?al\u00e9atoire|activer la lecture al\u00e9atoire intelligente|zufallswiedergabe deaktivieren|desactivar (el modo |la reproducci\u00f3n )?aleatori[oa]|desativar (a reprodu\u00e7\u00e3o )?aleat\u00f3ria)$/i\n        }\n    };\n    // Neutral names locate a control but never decide its state.\n    var neutral = /^(shuffle|lecture al\u00e9atoire|al\u00e9atoire|repeat|r\u00e9p\u00e9ter|r\u00e9p\u00e9tition)$/i;\n    var ids = {\n        like: /^(add-button|remove-button|add-to-library-button|remove-from-library-button)$/i,\n        repeat: /^control-button-repeat$/i,\n        shuffle: /^control-button-shuffle$|shuffle/i\n    };\n    var job = {status: \'running\', started: Date.now(), outcome: \'\', state: \'unknown\', method: \'\', journal: []};\n    jobs[kind] = job;\n    function log(code) { if (job.journal.length < 16) job.journal.push(code); }\n    function finish(outcome, state, method) { job.status = \'done\'; job.outcome = outcome; job.state = state || \'unknown\'; job.method = method || \'\'; }\n    function label(b) { return String(b.getAttribute(\'aria-label\') || \'\').trim(); }\n    function testid(b) { return String(b.getAttribute(\'data-testid\') || \'\'); }\n    // Current Spotify wording varies: a verb plus a liked-songs/library word.\n    (function() {\n        var word = /(titres lik\u00e9s|liked songs|lik\u00e9|liked|favori|biblioth\u00e8que|library|biblioteca|bibliothek)/i, off = labels.like.off, on = labels.like.on;\n        labels.like.off = {test: function(l) { return off.test(l) || (word.test(l) && /^(ajouter|add|enregistrer|save|a\u00f1adir|adicionar|hinzuf\u00fcgen|zu)\\b/i.test(l)); }};\n        labels.like.on = {test: function(l) { return on.test(l) || (word.test(l) && /^(ajout\u00e9|retirer|supprimer|remove|enregistr\u00e9|saved|added|quitar|remover|entfernen)/i.test(l)); }};\n    })();\n    // Spotify\'s \"+\" save button: generic \"Ajouter...\" label, state in aria-checked.\n    function genericAdd(l) { return /^(ajouter|add|enregistrer|save)\\b/i.test(l) && !/(titres lik\u00e9s|liked songs|biblioth\u00e8que|library|file d[\'\u2019]attente|queue)/i.test(l); }\n    function find() {\n        var list = Array.from(document.querySelectorAll(\'button, [role=\"button\"], [role=\"switch\"]\')).filter(function(b) {\n            if (!b.isConnected) return false;\n            var l = label(b);\n            return ids[kind].test(testid(b)) || labels[kind].off.test(l) || labels[kind].on.test(l) ||\n                (kind === \'like\' && b.hasAttribute(\'aria-checked\') && genericAdd(l)) ||\n                (kind !== \'like\' && neutral.test(l) && (kind === \'shuffle\' ? /al[\u00e9e]atoire|shuffle/i : /r[\u00e9e]p[\u00e9e]t|repeat/i).test(l));\n        });\n        if (kind === \'like\') {\n            var scoped = list.filter(function(b) {\n                return b.closest(\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]), [data-testid=\"now-playing-bar\"], [data-testid=\"now-playing-view\"], [data-testid=\"now-playing-panel\"], [data-testid=\"NPV\"]\');\n            });\n            list = scoped;\n        }\n        if (list.length > 1) {\n            var visible = list.filter(function(b) { var r = b.getBoundingClientRect(); return r.width > 0 && r.height > 0; });\n            if (visible.length === 1) list = visible;\n        }\n        if (!list.length) return {reason: \'absent\'};\n        if (list.length !== 1) return {reason: \'ambiguous\'};\n        var b = list[0];\n        if (b.disabled || b.getAttribute(\'aria-disabled\') === \'true\') return {reason: \'disabled\', node: b};\n        return {node: b, reason: \'\'};\n    }\n    function read(b) {\n        var checked = b.getAttribute(\'aria-checked\'), pressed = b.getAttribute(\'aria-pressed\');\n        var raw = checked === null ? pressed : checked;\n        var l = label(b), on = labels[kind].on.test(l), off = labels[kind].off.test(l);\n        if (kind === \'like\') {\n            var id = testid(b).toLowerCase();\n            var remove = /^(remove-button|remove-from-library-button)$/.test(id);\n            if (/^(true|menu|dialog|listbox|tree|grid)$/i.test(String(b.getAttribute(\'aria-haspopup\') || \'\')) ||\n                b.matches(\':disabled\') || b.closest(\'[aria-disabled=\"true\"], fieldset:disabled\') ||\n                (checked !== null && pressed !== null && checked !== pressed)) return \'unknown\';\n            if (raw !== null && raw !== \'true\' && raw !== \'false\') return \'unknown\';\n            if (raw === null) raw = on ? \'true\' : off ? \'false\' : \'unknown\';\n            // Once liked, Spotify relabels the checked button generically (phone 1022229).\n            if (raw === \'true\' && checked === \'true\' && !on && !off && genericAdd(l)) on = true;\n            if ((raw === \'false\' && (on || remove)) || (raw === \'true\' && off)) return \'unknown\';\n            // An unlabelled generic add-button may open a playlist picker.\n            if (!off && !on) return \'unknown\';\n            return raw;\n        }\n        if (raw === \'true\' || raw === \'false\' || raw === \'mixed\') return raw;\n        return on ? \'true\' : off ? \'false\' : \'unknown\';\n    }\n    // Spotify\'s bar title links to the album with the track in ?highlight=spotify:track:ID.\n    function trackHref(h) {\n        h = String(h || \'\');\n        // A Spotify URI is a complete identity, unlike an album or title.\n        var uri = /^spotify:(track|episode):([a-z0-9]+)$/i.exec(h);\n        if (uri) return uri;\n        var m = /^(?:https:\\/\\/open\\.spotify\\.com)?\\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\\/)?(track|episode)\\/([a-z0-9]+)\\/?(?:[?#].*)?$/i.exec(h);\n        if (m) return m;\n        var a = /^(?:https:\\/\\/open\\.spotify\\.com)?\\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\\/)?album\\/[a-z0-9]+\\/?\\?(?:[^#]*&)?highlight=spotify(?::|%3a)(track)(?::|%3a)([a-z0-9]+)(?:[&#].*)?$/i.exec(h);\n        if (a) {\n            // Duplicate highlight keys, including encoded/case variants,\n            // have ambiguous semantics. Never choose one arbitrarily.\n            try {\n                var query = new URL(h, \'https://open.spotify.com\').searchParams;\n                var values = [];\n                query.forEach(function(value, key) { if (key.toLowerCase() === \'highlight\') values.push(value); });\n                if (values.length !== 1 || !/^spotify:track:[a-z0-9]+$/i.test(values[0])) return null;\n                var parts = /^spotify:(track):([a-z0-9]+)$/i.exec(values[0]);\n                return [a[0], parts[1], parts[2]];\n            } catch (_) { return null; }\n        }\n        return null; // an album and title cannot uniquely identify a track\n    }\n    // Explicit track URIs on the current-player title only; never infer a\n    // track from an album, playlist, title alone, or an unrelated page row.\n    function markedTrack(n) {\n        if (!/^(context-item-link|nowplaying-track-link|context-item-info-title)$/i.test(String(n.getAttribute(\'data-testid\') || \'\'))) return \'\';\n        var result = \'\';\n        for (var name of [\'data-uri\', \'data-track-uri\', \'data-spotify-uri\']) {\n            if (!n.hasAttribute(name)) continue;\n            var m = /^spotify:(track|episode):([a-z0-9]+)$/i.exec(String(n.getAttribute(name) || \'\'));\n            if (!m) return \'!\';\n            var value = m[1].toLowerCase()+\':\'+m[2];\n            if (result && result !== value) return \'!\';\n            result = value;\n        }\n        return result;\n    }\n    // If a title link itself carries a malformed track hint, an attribute\n    // must not mask that ambiguity. Album-only links may use their explicit\n    // current-title parent marker, but never one outside the player bar.\n    function hasTrackHint(h) {\n        h=String(h||\'\');\n        if (/^spotify:(track|episode):/i.test(h) || /\\/(track|episode)\\//i.test(h)) return true;\n        try {\n            var found=false;\n            new URL(h, \'https://open.spotify.com\').searchParams.forEach(function(v,k){if(k.toLowerCase()===\'highlight\')found=true;});\n            return found;\n        } catch (_) { return true; }\n    }\n    function parentTrack(link) {\n        var n=link.closest(\'[data-testid=\"context-item-info-title\"]\');\n        if(!n || !n.closest(\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]), [data-testid=\"now-playing-bar\"]\')) return \'\';\n        return markedTrack(n);\n    }\n    function markedTitleNodes() {\n        return Array.from(document.querySelectorAll(\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) [data-testid=\"context-item-link\"], :is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) [data-testid=\"nowplaying-track-link\"], :is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) [data-testid=\"context-item-info-title\"], [data-testid=\"now-playing-bar\"] [data-testid=\"context-item-link\"], [data-testid=\"now-playing-bar\"] [data-testid=\"nowplaying-track-link\"], [data-testid=\"now-playing-bar\"] [data-testid=\"context-item-info-title\"]\')).filter(function(n) { return n.isConnected; });\n    }\n    function identityMatches() {\n        if (!expectedTitle || !expectedTrack) return false;\n        if (expectedTrack === \'title:\' + expectedTitle) {\n            // Id-less bar: no track link may exist, the native title must appear in the bar text.\n            if (document.querySelector(\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) a[href*=\"/track/\"], [data-testid=\"now-playing-bar\"] a[href*=\"/track/\"]\')) return false;\n            return Array.from(document.querySelectorAll(\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]), [data-testid=\"now-playing-bar\"]\')).some(function(r) {\n                return String(r.textContent || \'\').replace(/\\s+/g, \' \').toLowerCase().indexOf(String(expectedTitle).replace(/\\s+/g, \' \').trim().toLowerCase()) >= 0;\n            });\n        }\n        var links = Array.from(document.querySelectorAll(\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) a[href], [data-testid=\"now-playing-bar\"] a[href], a[data-testid=\"nowplaying-track-link\"][href], [data-testid=\"now-playing-view\"] a[href]\'));\n        var malformedIdentity = false;\n        var identities = links.map(function(link) {\n            var m = trackHref(String(link.getAttribute(\'href\') || \'\'));\n            if (!m && /^(context-item-link|nowplaying-track-link)$/i.test(String(link.getAttribute(\'data-testid\') || \'\')) && (hasTrackHint(link.getAttribute(\'href\')) || (!markedTrack(link) && !parentTrack(link)))) malformedIdentity = true;\n            return m ? {track:m[1].toLowerCase()+\':\'+m[2],title:String(link.textContent || \'\').replace(/\\s+/g, \' \').trim()} : null;\n        }).filter(Boolean);\n        markedTitleNodes().forEach(function(n) {\n            var value=markedTrack(n);\n            if (value === \'!\') { malformedIdentity = true; return; }\n            if (value) identities.push({track:value, title:String(n.textContent || \'\').replace(/\\s+/g, \' \').trim()});\n        });\n        return !malformedIdentity && identities.some(function(x) { return x.title === expectedTitle; }) && identities.every(function(x) {\n            return x.track === expectedTrack && (!x.title || x.title === expectedTitle);\n        });\n    }\n    function opener() {\n        var list = Array.from(document.querySelectorAll(\'button, [role=\"button\"]\')).filter(function(b) {\n            if (!b.isConnected) return false;\n            var id = testid(b), l = label(b);\n            return /^(control-button-npv|now-playing-view-button)$/i.test(id) ||\n                /^(now playing view|show now playing view|hide now playing view|vue \u00ab ?en cours de lecture ?\u00bb|afficher la vue en cours de lecture|masquer la vue en cours de lecture|en cours de lecture|ansicht \u201el\u00e4uft gerade\u201c|vista de reproducci\u00f3n|tela tocando agora)$/i.test(l);\n        });\n        return list.length === 1 ? list[0] : null;\n    }\n    function pressed(b) { return b.getAttribute(\'aria-pressed\') === \'true\' || b.getAttribute(\'aria-expanded\') === \'true\' || b.getAttribute(\'data-active\') === \'true\'; }\n    function wait(test, ms, done) {\n        var end = Date.now() + ms;\n        (function step() {\n            var v;\n            try { v = test(); } catch (_) { v = null; }\n            if (v || Date.now() >= end) { done(v || null); return; }\n            setTimeout(step, 120);\n        })();\n    }\n    function invalidateLikedRead() {\n        try { if (typeof W.__sfLikedMutationAttempted === \'function\') W.__sfLikedMutationAttempted(); } catch (_) {}\n    }\n    // Open only an explicitly announced add menu, then act only on a unique,\n    // explicitly unchecked Liked Songs item. Never select another playlist.\n    function viaLikeMenu(b, method, after) {\n        var id = testid(b).toLowerCase(), l = label(b), popup = String(b.getAttribute(\'aria-haspopup\') || \'\');\n        if (!/^(true|menu|dialog|listbox)$/i.test(popup)) return false;\n        if (!identityMatches()) { log(method + \':menu-identity\'); after(\'identity\', \'unknown\'); return true; }\n        if (!/^(add-button|add-to-library-button)$/.test(id) || labels.like.on.test(l) ||\n            shownState === \'true\' || ((b.getAttribute(\'aria-checked\') === \'true\' || b.getAttribute(\'aria-pressed\') === \'true\') && !genericAdd(l)) ||\n            b.matches(\':disabled\') || b.closest(\'[aria-disabled=\"true\"], fieldset:disabled\')) {\n            log(method + \':menu-unsafe\'); after(\'menu-state\', \'unknown\'); return true;\n        }\n        var selector = \'[role=\"menu\"], [role=\"dialog\"], [role=\"listbox\"]\';\n        function available(n) { return n && n.isConnected && !n.closest(\'[hidden], [aria-hidden=\"true\"]\'); }\n        var before = Array.from(document.querySelectorAll(selector)).filter(available);\n        var expanded = b.getAttribute(\'aria-expanded\') === \'true\', opened = false;\n        function root() {\n            var id = b.getAttribute(\'aria-controls\'), controlled = id && document.getElementById(id);\n            if (available(controlled) && controlled.matches(selector) &&\n                (expanded || before.indexOf(controlled) < 0 || b.getAttribute(\'aria-expanded\') === \'true\')) return controlled;\n            if (expanded) return null;\n            var fresh = Array.from(document.querySelectorAll(selector)).filter(function(n) { return available(n) && before.indexOf(n) < 0; });\n            return fresh.length === 1 ? fresh[0] : null;\n        }\n        function closeMenu(r) {\n            if (!opened) return;\n            try {\n                (available(r) ? r : b).dispatchEvent(new KeyboardEvent(\'keydown\', {key:\'Escape\', code:\'Escape\', bubbles:true, cancelable:true}));\n                log(available(r) && b.getAttribute(\'aria-expanded\') === \'true\' ? method + \':menu-close-unverified\' : method + \':menu-close-requested\');\n            } catch (_) { log(method + \':menu-close-error\'); }\n        }\n        if (!expanded) {\n            try { b.click(); opened = true; log(method + \':menu-open\'); }\n            catch (_) { log(method + \':menu-open-error\'); after(\'menu-absent\', \'unknown\'); return true; }\n        }\n        wait(function() {\n            if (!identityMatches()) return \'identity-changed\';\n            return root();\n        }, 1800, function(r) {\n            if (r === \'identity-changed\') { closeMenu(null); after(\'identity\', \'unknown\'); return; }\n            if (!r) { log(method + \':menu-root\'); closeMenu(null); after(\'menu-absent\', \'unknown\'); return; }\n            var likedName = /^(liked songs|your liked songs|titres lik\u00e9s|vos titres lik\u00e9s|titres que j[\'\u2019]aime|liked-titel|canciones que te gustan|m\u00fasicas curtidas)$/i;\n            function targets() {\n                if (!available(r)) return [];\n                return Array.from(r.querySelectorAll(\'[role=\"menuitemcheckbox\"], [role=\"checkbox\"], input[type=\"checkbox\"]\')).filter(function(n) {\n                    var labelNode = n.closest(\'label\');\n                    var name = String(n.getAttribute(\'aria-label\') || (labelNode && labelNode.textContent) || n.textContent || \'\').replace(/\\s+/g, \' \').trim();\n                    return available(n) && likedName.test(name);\n                });\n            }\n            var candidates = targets();\n            if (candidates.length !== 1) { log(method + (candidates.length ? \':menu-ambiguous\' : \':menu-target\')); closeMenu(r); after(candidates.length ? \'menu-ambiguous\' : \'menu-absent\', \'unknown\'); return; }\n            var target = candidates[0], raw = target.getAttribute(\'aria-checked\');\n            var checked = target.tagName === \'INPUT\' && target.type === \'checkbox\' ? (target.checked ? \'true\' : \'false\') : null;\n            if (checked !== null && raw !== null && raw !== checked) raw = \'unknown\';\n            else if (raw === null) raw = checked;\n            if (target.matches(\':disabled\') || target.closest(\'[aria-disabled=\"true\"], fieldset:disabled\') || (raw !== \'true\' && raw !== \'false\')) {\n                log(method + \':menu-state\'); closeMenu(r); after(\'menu-state\', \'unknown\'); return;\n            }\n            if (raw === \'true\') { log(method + \':menu-liked\'); closeMenu(r); after(\'read\', \'true\'); return; }\n            if (!identityMatches()) { closeMenu(r); after(\'identity\', \'unknown\'); return; }\n            invalidateLikedRead();\n            try { target.click(); log(method + \':menu-add\'); }\n            catch (_) { log(method + \':menu-add-error\'); closeMenu(r); after(\'unconfirmed\', \'unknown\'); return; }\n            wait(function() {\n                if (!identityMatches()) return \'identity-changed\';\n                var current = targets();\n                if (current.length !== 1 || current[0].matches(\':disabled\') || current[0].closest(\'[aria-disabled=\"true\"], fieldset:disabled\')) return null;\n                // React may replace the checkbox after the click; only the\n                // unique explicit Liked Songs item in the same menu is read.\n                var observed = current[0];\n                var a = observed.getAttribute(\'aria-checked\');\n                var c = observed.tagName === \'INPUT\' && observed.type === \'checkbox\' ? observed.checked : null;\n                return (a === \'true\' && c !== false) || (a === null && c === true) ? \'true\' : null;\n            }, 2200, function(state) {\n                closeMenu(r);\n                if (state === \'identity-changed\') { log(method + \':menu-identity\'); after(\'identity\', \'unknown\'); }\n                else if (state === \'true\') { log(method + \':menu-verified\'); after(\'confirmed\', \'true\'); }\n                else { log(method + \':menu-unverified\'); after(\'unconfirmed\', \'false\'); }\n            });\n        });\n        return true;\n    }\n    // Spotify removes a like either directly or through its playlist picker,\n    // where only the unique checked Liked Songs item is unchecked, then Done.\n    function unlike(b, method, after) {\n        var selector = \'[role=\"menu\"], [role=\"dialog\"], [role=\"listbox\"]\';\n        var likedName = /^(liked songs|your liked songs|titres lik\u00e9s|vos titres lik\u00e9s|titres que j[\'\u2019]aime|liked-titel|canciones que te gustan|m\u00fasicas curtidas)$/i;\n        function available(n) { return n && n.isConnected && !n.closest(\'[hidden], [aria-hidden=\"true\"]\'); }\n        var before = Array.from(document.querySelectorAll(selector)).filter(available);\n        function fresh() { var f = Array.from(document.querySelectorAll(selector)).filter(function(n) { return available(n) && before.indexOf(n) < 0; }); return f.length === 1 ? f[0] : null; }\n        function barState() { var a = find(); return a.node ? read(a.node) : \'unknown\'; }\n        function targets(r) {\n            return Array.from(r.querySelectorAll(\'[role=\"menuitemcheckbox\"], [role=\"checkbox\"], input[type=\"checkbox\"], button[aria-checked]\')).filter(function(n) {\n                var ln = n.closest(\'label\');\n                var name = String(n.getAttribute(\'aria-label\') || (ln && ln.textContent) || n.textContent || \'\').replace(/\\s+/g, \' \').trim();\n                if (!likedName.test(name) && n.closest(\'li, [role=\"row\"], [role=\"option\"]\')) name = String(n.closest(\'li, [role=\"row\"], [role=\"option\"]\').textContent || \'\').replace(/\\s+/g, \' \').trim();\n                return available(n) && likedName.test(name);\n            });\n        }\n        function close(r) { try { (available(r) ? r : b).dispatchEvent(new KeyboardEvent(\'keydown\', {key:\'Escape\', code:\'Escape\', bubbles:true, cancelable:true})); } catch (_) {} }\n        invalidateLikedRead();\n        try { b.click(); log(method + \':unlike-open\'); } catch (_) { after(\'command\', \'true\'); return; }\n        wait(function() {\n            if (!identityMatches()) return \'identity-changed\';\n            if (barState() === \'false\') return \'direct\';\n            return fresh();\n        }, 2200, function(r) {\n            if (r === \'identity-changed\') { after(\'identity\', \'unknown\'); return; }\n            if (r === \'direct\') { log(method + \':unlike-verified\'); after(\'confirmed\', \'false\'); return; }\n            if (!r) { log(method + \':unlike-no-picker\'); after(\'menu-absent\', \'true\'); return; }\n            var t = targets(r);\n            if (t.length !== 1) { log(method + (t.length ? \':unlike-ambiguous\' : \':unlike-target\')); close(r); after(t.length ? \'menu-ambiguous\' : \'menu-absent\', \'true\'); return; }\n            var on = t[0].getAttribute(\'aria-checked\') === \'true\' || t[0].checked === true;\n            if (!on) { log(method + \':unlike-not-checked\'); close(r); after(\'menu-state\', \'true\'); return; }\n            try { t[0].click(); log(method + \':unlike-uncheck\'); } catch (_) { close(r); after(\'unconfirmed\', \'true\'); return; }\n            var done = Array.from(r.querySelectorAll(\'button\')).filter(function(n) { return available(n) && /^(termin\u00e9|terminer|done|ok|valider|enregistrer|save)$/i.test(String(n.getAttribute(\'aria-label\') || n.textContent || \'\').replace(/\\s+/g, \' \').trim()); });\n            if (done.length === 1) { try { done[0].click(); log(method + \':unlike-done\'); } catch (_) {} }\n            wait(function() {\n                if (!identityMatches()) return \'identity-changed\';\n                return barState() === \'false\' ? \'false\' : null;\n            }, 2600, function(st) {\n                if (available(r)) close(r);\n                if (st === \'identity-changed\') after(\'identity\', \'unknown\');\n                else if (st === \'false\') { log(method + \':unlike-verified\'); after(\'confirmed\', \'false\'); }\n                else { log(method + \':unlike-unverified\'); after(\'unconfirmed\', \'true\'); }\n            });\n        });\n    }\n    // Decide and click on a readable control; verify the change afterwards.\n    function act(found, method, after) {\n        var b = found.node;\n        if (kind === \'like\' && viaLikeMenu(b, method, after)) return;\n        var before = read(b);\n        log(method + \':state-\' + before);\n        if (before === \'unknown\') { after(\'state\', before); return; }\n        if (kind === \'like\') {\n            if (!identityMatches()) { log(method + \':identity\'); after(\'identity\', before); return; }\n            // Remove only when the user tapped a button shown as liked and the page agrees.\n            if (before === \'true\' && shownState === \'true\') { unlike(b, method, after); return; }\n            if (before !== \'false\') { log(method + \':liked-read-only\'); after(\'read\', before); return; }\n            if (shownState === \'true\') { log(method + \':mismatch\'); after(\'read\', before); return; }\n        }\n        if (kind === \'like\') invalidateLikedRead();\n        try { b.click(); log(method + \':click\'); } catch (_) { log(method + \':click-error\'); after(\'command\', before); return; }\n        wait(function() {\n            if (kind === \'like\' && !identityMatches()) return \'identity-changed\';\n            var again = find();\n            if (!again.node) return null;\n            var s = read(again.node);\n            return s !== before && s !== \'unknown\' ? s : null;\n        }, 2200, function(s) {\n            if (s === \'identity-changed\') { log(method + \':identity\'); after(\'identity\', \'unknown\'); }\n            else if (s) { log(method + \':verified\'); after(\'confirmed\', s); }\n            else { log(method + \':unverified\'); after(\'unconfirmed\', before); }\n        });\n    }\n    function viaKeyboard() {\n        if (kind === \'like\') { log(\'c:like-skipped\'); finish(\'failed\', \'unknown\', \'\'); return; }\n        var spec = kind === \'shuffle\' ? {key: \'s\', code: \'KeyS\', keyCode: 83} : {key: \'r\', code: \'KeyR\', keyCode: 82};\n        // Unverifiable when no control is readable, so only ONE combination per\n        // tap (two could cancel each other). Families alternate across taps.\n        var turns = W.__melodixKeyTurns = W.__melodixKeyTurns || {};\n        var ctrl = !(turns[kind] % 2); turns[kind] = (turns[kind] || 0) + 1;\n        try {\n            var target = document.activeElement && document.activeElement !== document.body ? document.activeElement : document.body;\n            [\'keydown\', \'keyup\'].forEach(function(type) {\n                target.dispatchEvent(new KeyboardEvent(type, {key: spec.key, code: spec.code, keyCode: spec.keyCode, which: spec.keyCode, ctrlKey: ctrl, altKey: !ctrl, bubbles: true, cancelable: true}));\n            });\n            log(\'c:\' + (ctrl ? \'ctrl-\' : \'alt-\') + spec.key); log(\'c:single-unreadable\');\n            finish(\'unverified\', \'unknown\', \'keyboard\');\n        } catch (_) { log(\'c:error\'); finish(\'failed\', \'unknown\', \'\'); }\n    }\n    function result(outcome, state, method) {\n        if (outcome === \'confirmed\' || outcome === \'unconfirmed\' || outcome === \'read\') finish(outcome, state, method);\n        else if (outcome === \'identity\' || outcome === \'menu-absent\' || outcome === \'menu-ambiguous\' || outcome === \'menu-state\') finish(outcome, \'unknown\', method);\n        else finish(\'failed\', state, method);\n    }\n    try {\n        var direct = find();\n        log(\'a:\' + (direct.node ? \'found\' : direct.reason));\n        if (direct.node && !direct.reason) { act(direct, \'a\', function(o, s) { result(o, s, \'direct\'); }); return JSON.stringify({status: \'started\'}); }\n        if (direct.reason === \'disabled\') { finish(\'disabled\', \'unknown\', \'direct\'); return JSON.stringify({status: \'started\'}); }\n        var view = opener();\n        if (!view) { log(\'b:no-opener\'); viaKeyboard(); return JSON.stringify({status: \'started\'}); }\n        var wasOpen = pressed(view);\n        if (!wasOpen) { try { view.click(); log(\'b:opened\'); } catch (_) { log(\'b:open-error\'); } }\n        else log(\'b:already-open\');\n        var closeView = function() {\n            if (!wasOpen) {\n                setTimeout(function() {\n                    var again = opener();\n                    try { if (again && pressed(again)) { again.click(); log(\'b:closed\'); } } catch (_) { log(\'b:close-error\'); }\n                }, 150);\n            }\n        };\n        wait(function() { var f = find(); return f.node && !f.reason ? f : null; }, 1800, function(found) {\n            if (!found) { log(\'b:absent\'); closeView(); viaKeyboard(); return; }\n            log(\'b:found\');\n            act(found, \'b\', function(o, s) { closeView(); result(o, s, \'now-playing-view\'); });\n        });\n        return JSON.stringify({status: \'started\'});\n    } catch (_) {\n        finish(\'failed\', \'unknown\', \'\');\n        return JSON.stringify({status: \'started\'});\n    }\n})\n"
 
 .field private static final SCRIPT:Ljava/lang/String; = "(function(kind, action, expectedState, expectedTrack, expectedTitle) {\n    \'use strict\';\n    // Passive inspection of controls already in the page. A tap can only click\n    // a uniquely identified real control, after state/identity revalidation.\n    var labels = {\n        like: {\n            off: /^(save to your library|add to (your )?(liked songs|library)|ajouter (\u00e0|aux) (la biblioth\u00e8que|titres lik\u00e9s)|enregistrer dans (votre |la )?biblioth\u00e8que|in (deine |der )?bibliothek (aufnehmen|hinzuf\u00fcgen)|a\u00f1adir a (tu )?biblioteca|adicionar (\u00e0 biblioteca|aos t\u00edtulos curtidos))$/i,\n            on: /^(remove from (your )?(library|liked songs)|retirer (de la biblioth\u00e8que|des titres lik\u00e9s)|supprimer de (votre |la )?biblioth\u00e8que|aus (deiner |der )?bibliothek entfernen|quitar de (tu )?biblioteca|remover (da biblioteca|dos t\u00edtulos curtidos))$/i\n        },\n        repeat: {\n            // A label can safely distinguish off from enabled, but not list\n            // from one-track unless the page supplies an explicit mixed state.\n            off: /^(enable repeat|turn repeat on|activer la r\u00e9p\u00e9tition|wiederholung aktivieren|activar repetici\u00f3n|ativar repeti\u00e7\u00e3o)$/i,\n            on: /^(disable repeat|turn repeat off|d\u00e9sactiver la r\u00e9p\u00e9tition|wiederholung deaktivieren|desactivar repetici\u00f3n|desativar repeti\u00e7\u00e3o)$/i\n        },\n        shuffle: {\n            off: /^(enable shuffle|turn shuffle on|activate shuffle|activer (la lecture |le mode |l[\'\u2019])?al\u00e9atoire|zufallswiedergabe aktivieren|activar (el modo |la reproducci\u00f3n )?aleatori[oa]|ativar (a reprodu\u00e7\u00e3o )?aleat\u00f3ria)$/i,\n            on: /^(disable shuffle|turn shuffle off|deactivate shuffle|d\u00e9sactiver (la lecture |le mode |l[\'\u2019])?al\u00e9atoire|zufallswiedergabe deaktivieren|desactivar (el modo |la reproducci\u00f3n )?aleatori[oa]|desativar (a reprodu\u00e7\u00e3o )?aleat\u00f3ria)$/i\n        }\n    };\n    if ([\'like\',\'shuffle\',\'repeat\'].indexOf(kind) < 0) return JSON.stringify({state:\'unknown\',reason:\'control\'});\n    (function() {\n        var word = /(titres lik\u00e9s|liked songs|lik\u00e9|liked|favori|biblioth\u00e8que|library|biblioteca|bibliothek)/i, off = labels.like.off, on = labels.like.on;\n        labels.like.off = {test: function(l) { return off.test(l) || (word.test(l) && /^(ajouter|add|enregistrer|save|a\u00f1adir|adicionar|hinzuf\u00fcgen|zu)\\b/i.test(l)); }};\n        labels.like.on = {test: function(l) { return on.test(l) || (word.test(l) && /^(ajout\u00e9|retirer|supprimer|remove|enregistr\u00e9|saved|added|quitar|remover|entfernen)/i.test(l)); }};\n    })();\n    // Spotify\'s \"+\" save button: generic \"Ajouter...\" label, state in aria-checked.\n    function genericAdd(l) { return /^(ajouter|add|enregistrer|save)\\b/i.test(l) && !/(titres lik\u00e9s|liked songs|biblioth\u00e8que|library|file d[\'\u2019]attente|queue)/i.test(l); }\n    var selector = kind === \'like\' ?\n        \':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) button, [data-testid=\"now-playing-bar\"] button, [data-testid=\"now-playing-view\"] button, [data-testid=\"now-playing-panel\"] button, :is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) [role=\"button\"], [data-testid=\"now-playing-bar\"] [role=\"button\"], [data-testid=\"now-playing-view\"] [role=\"button\"], [data-testid=\"now-playing-panel\"] [role=\"button\"], :is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) [role=\"switch\"], [data-testid=\"now-playing-bar\"] [role=\"switch\"], [data-testid=\"now-playing-view\"] [role=\"switch\"], [data-testid=\"now-playing-panel\"] [role=\"switch\"]\' :\n        kind === \'shuffle\' ? \'button[data-testid*=\"shuffle\" i], button[aria-label], [role=\"button\"][aria-label], [role=\"switch\"][aria-label]\' :\n        \'button[data-testid=\"control-button-repeat\"], [role=\"button\"][data-testid=\"control-button-repeat\"], button[aria-label], [role=\"button\"][aria-label]\';\n    var nodes = Array.from(document.querySelectorAll(selector)).filter(function(b) {\n        if (!b.isConnected) return false;\n        var id=String(b.getAttribute(\'data-testid\')||\'\').toLowerCase();\n        var label=String(b.getAttribute(\'aria-label\')||\'\').trim();\n        if (kind === \'like\') return /^(add-button|remove-button|add-to-library-button|remove-from-library-button)$/.test(id) || labels.like.off.test(label) || labels.like.on.test(label) || (b.hasAttribute(\'aria-checked\') && genericAdd(label));\n        if (kind === \'repeat\') return id===\'control-button-repeat\' || labels.repeat.off.test(label) || labels.repeat.on.test(label);\n        return /shuffle/.test(id) || labels.shuffle.off.test(label) || labels.shuffle.on.test(label);\n    });\n    var result={state:\'unknown\',track:\'\',title:\'\',reason:\'control\',sent:false};\n    // Current player links only, including Spotify\'s unmarked track links.\n    // Every track href must agree; a non-empty title must also agree. Never\n    // take an identity from a playlist, search result or unrelated page node.\n    // Spotify\'s bar title links to the album with the track in ?highlight=spotify:track:ID.\n    function trackHref(h) {\n        h = String(h || \'\');\n        // A Spotify URI is a complete identity, unlike an album or title.\n        var uri = /^spotify:(track|episode):([a-z0-9]+)$/i.exec(h);\n        if (uri) return uri;\n        var m = /^(?:https:\\/\\/open\\.spotify\\.com)?\\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\\/)?(track|episode)\\/([a-z0-9]+)\\/?(?:[?#].*)?$/i.exec(h);\n        if (m) return m;\n        var a = /^(?:https:\\/\\/open\\.spotify\\.com)?\\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\\/)?album\\/[a-z0-9]+\\/?\\?(?:[^#]*&)?highlight=spotify(?::|%3a)(track)(?::|%3a)([a-z0-9]+)(?:[&#].*)?$/i.exec(h);\n        if (a) {\n            // Duplicate highlight keys, including encoded/case variants,\n            // have ambiguous semantics. Never choose one arbitrarily.\n            try {\n                var query = new URL(h, \'https://open.spotify.com\').searchParams;\n                var values = [];\n                query.forEach(function(value, key) { if (key.toLowerCase() === \'highlight\') values.push(value); });\n                if (values.length !== 1 || !/^spotify:track:[a-z0-9]+$/i.test(values[0])) return null;\n                var parts = /^spotify:(track):([a-z0-9]+)$/i.exec(values[0]);\n                return [a[0], parts[1], parts[2]];\n            } catch (_) { return null; }\n        }\n        return null; // album + title does not uniquely identify a track\n    }\n    // Explicit track URIs on the current-player title only; never infer a\n    // track from an album, playlist, title alone, or an unrelated page row.\n    function markedTrack(n) {\n        if (!/^(context-item-link|nowplaying-track-link|context-item-info-title)$/i.test(String(n.getAttribute(\'data-testid\') || \'\'))) return \'\';\n        var result = \'\';\n        for (var name of [\'data-uri\', \'data-track-uri\', \'data-spotify-uri\']) {\n            if (!n.hasAttribute(name)) continue;\n            var m = /^spotify:(track|episode):([a-z0-9]+)$/i.exec(String(n.getAttribute(name) || \'\'));\n            if (!m) return \'!\';\n            var value = m[1].toLowerCase()+\':\'+m[2];\n            if (result && result !== value) return \'!\';\n            result = value;\n        }\n        return result;\n    }\n    // If a title link itself carries a malformed track hint, an attribute\n    // must not mask that ambiguity. Album-only links may use their explicit\n    // current-title parent marker, but never one outside the player bar.\n    function hasTrackHint(h) {\n        h=String(h||\'\');\n        if (/^spotify:(track|episode):/i.test(h) || /\\/(track|episode)\\//i.test(h)) return true;\n        try {\n            var found=false;\n            new URL(h, \'https://open.spotify.com\').searchParams.forEach(function(v,k){if(k.toLowerCase()===\'highlight\')found=true;});\n            return found;\n        } catch (_) { return true; }\n    }\n    function parentTrack(link) {\n        var n=link.closest(\'[data-testid=\"context-item-info-title\"]\');\n        if(!n || !n.closest(\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]), [data-testid=\"now-playing-bar\"]\')) return \'\';\n        return markedTrack(n);\n    }\n    function markedTitleNodes() {\n        return Array.from(document.querySelectorAll(\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) [data-testid=\"context-item-link\"], :is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) [data-testid=\"nowplaying-track-link\"], :is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) [data-testid=\"context-item-info-title\"], [data-testid=\"now-playing-bar\"] [data-testid=\"context-item-link\"], [data-testid=\"now-playing-bar\"] [data-testid=\"nowplaying-track-link\"], [data-testid=\"now-playing-bar\"] [data-testid=\"context-item-info-title\"]\')).filter(function(n) { return n.isConnected; });\n    }\n    if (kind === \'like\') {\n        var anchors = Array.from(document.querySelectorAll(\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) a[href], [data-testid=\"now-playing-bar\"] a[href]\'));\n        var malformedIdentity = false, conflictIdentity = false;\n        var identities = anchors.map(function(link) {\n            var match = trackHref(String(link.getAttribute(\'href\') || \'\'));\n            if (!match && /^(context-item-link|nowplaying-track-link)$/i.test(String(link.getAttribute(\'data-testid\') || \'\')) && (hasTrackHint(link.getAttribute(\'href\')) || (!markedTrack(link) && !parentTrack(link)))) malformedIdentity = true;\n            return match ? {track:match[1].toLowerCase()+\':\'+match[2],title:String(link.textContent || \'\').replace(/\\s+/g, \' \').trim()} : null;\n        }).filter(Boolean);\n        markedTitleNodes().forEach(function(n) {\n            var value=markedTrack(n);\n            if (value === \'!\') { malformedIdentity = conflictIdentity = true; return; }\n            if (value) identities.push({track:value, title:String(n.textContent || \'\').replace(/\\s+/g, \' \').trim()});\n        });\n        var named = identities.filter(function(x) { return !!x.title; });\n        if (!malformedIdentity && named.length && identities.every(function(x) { return x.track === named[0].track && (!x.title || x.title === named[0].title); })) {\n            result.track=named[0].track; result.title=named[0].title;\n        }\n        // Spotify\'s newer bar carries no track id. The exact native title shown\n        // as a leaf in the bar identifies the current track (add-only like).\n        if (!result.track && !conflictIdentity && !identities.length && expectedTitle && !anchors.some(function(l) { return hasTrackHint(l.getAttribute(\'href\')); }) && Array.from(document.querySelectorAll(\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]), [data-testid=\"now-playing-bar\"]\')).some(function(r) {\n            return String(r.textContent || \'\').replace(/\\s+/g, \' \').toLowerCase().indexOf(String(expectedTitle).replace(/\\s+/g, \' \').trim().toLowerCase()) >= 0;\n        })) { result.track=\'title:\'+expectedTitle; result.title=expectedTitle; }\n    }\n\n    if (!nodes.length) {\n        var hasBar = !!document.querySelector(\'[data-testid=\"now-playing-bar\"], :is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]), [data-testid=\"player-controls\"]\');\n        // With the player bar present and no such control anywhere in the page,\n        // say so (\'absent\'); without the bar the control may simply not be shown yet.\n        result.reason = document.readyState === \'loading\' ? \'page\' : (kind === \'shuffle\' && !hasBar ? \'bar\' : hasBar ? \'absent\' : \'control\');\n        return JSON.stringify(result);\n    }\n    if (nodes.length !== 1) {result.reason=\'ambiguous\';return JSON.stringify(result);}\n    var button=nodes[0];\n    if (button.disabled || button.matches(\':disabled\') || button.closest(\'[aria-disabled=\"true\"]\')) {\n        var description=String(button.getAttribute(\'aria-description\')||\'\').trim();\n        result.reason=kind===\'shuffle\' && /^(shuffle is not available (with|for) (this account|this playback)|l[\'\u2019]al\u00e9atoire n[\'\u2019]est pas disponible avec (ce compte|cette lecture))$/i.test(description)?\'restriction\':\'disabled\';\n        return JSON.stringify(result);\n    }\n    if (kind === \'like\' && /^(true|menu|dialog|listbox|tree|grid)$/i.test(String(button.getAttribute(\'aria-haspopup\')||\'\'))) {result.reason=\'menu\';return JSON.stringify(result);}\n    var raw=button.getAttribute(\'aria-checked\');\n    var pressed=button.getAttribute(\'aria-pressed\');\n    if (kind === \'like\' && raw !== null && pressed !== null && raw !== pressed) {result.reason=\'conflict\';return JSON.stringify(result);}\n    if (raw === null) raw=pressed;\n    var label=String(button.getAttribute(\'aria-label\')||\'\').trim();\n    if (raw === null) {\n        raw=labels[kind].on.test(label) ? \'true\' :\n            labels[kind].off.test(label) ? \'false\' : \'unknown\';\n    } else if (raw !== \'true\' && raw !== \'false\' && !(kind !== \'like\' && raw === \'mixed\')) raw=\'unknown\';\n    if (kind === \'like\') {\n        // A false ARIA value must never override a removal action. An\n        // unlabeled generic add-button can be a playlist menu, not a like.\n        var testId=String(button.getAttribute(\'data-testid\')||\'\').toLowerCase();\n        var removeId=/^(remove-button|remove-from-library-button)$/.test(testId);\n        var offLabel=labels.like.off.test(label), onLabel=labels.like.on.test(label);\n        // Once liked, Spotify relabels the checked button to a generic \"Ajouter \u00e0 une playlist\" (phone 1022229).\n        if (!offLabel && !onLabel && raw===\'true\' && button.getAttribute(\'aria-checked\')===\'true\' && genericAdd(label)) onLabel=true;\n        if ((raw===\'false\' && (onLabel||removeId)) || (raw===\'true\' && offLabel)) {\n            result.reason=\'conflict\';return JSON.stringify(result);\n        }\n        if (!offLabel && !onLabel) {result.reason=\'unverified\';return JSON.stringify(result);}\n        // Display-only reads need no identity; a click (invoke) still does.\n        if ((!result.track || !result.title) && action !== \'query\') {result.reason=\'identity\';return JSON.stringify(result);}\n    }\n    if (raw === \'unknown\') {result.reason=\'state\';return JSON.stringify(result);}\n    if (typeof button.click !== \'function\') {result.reason=\'command\';return JSON.stringify(result);}\n    result.state=raw;result.reason=\'\';\n    if (action === \'query\') return JSON.stringify(result);\n    if (action !== \'invoke\' || raw !== expectedState ||\n        (kind === \'like\' && (raw !== \'false\' || result.track !== expectedTrack || result.title !== expectedTitle))) return JSON.stringify({sent:false});\n    try {\n        // Use the exact revalidated button; never call a legacy helper that\n        // schedules playback-related work. Never click an already-liked item.\n        button.click();\n        return JSON.stringify({sent:true});\n    } catch (_) { return JSON.stringify({sent:false}); }\n})\n"
 
@@ -1448,14 +1448,14 @@
 
     move-result v5
 
-    if-eqz v5, :cond_9
+    if-eqz v5, :cond_a
 
     :cond_4
     invoke-virtual {v1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v5
 
-    if-nez v5, :cond_9
+    if-nez v5, :cond_a
 
     .line 213
     iput-object v1, p0, Lcom/melodix/music/PreviewPlayerMode;->state:Ljava/lang/String;
@@ -1490,13 +1490,21 @@
 
     move-result v2
 
-    if-eqz v2, :cond_8
+    if-eqz v2, :cond_9
 
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerMode;->getContext()Landroid/content/Context;
 
     move-result-object v2
 
     invoke-virtual {v0, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    const-string v3, "true"
+
+    if-eqz v0, :cond_7
+
+    invoke-virtual {v1, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v0
 
@@ -1507,19 +1515,22 @@
     goto :goto_0
 
     :cond_6
-    const-string v0, "true"
+    const-string v0, "Retir\u00e9 des titres lik\u00e9s"
 
-    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    goto :goto_0
+
+    :cond_7
+    invoke-virtual {v1, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v0
 
-    if-eqz v0, :cond_7
+    if-eqz v0, :cond_8
 
     const-string v0, "D\u00e9j\u00e0 dans vos titres lik\u00e9s"
 
     goto :goto_0
 
-    :cond_7
+    :cond_8
     const-string v0, "Pas encore dans vos titres lik\u00e9s"
 
     :goto_0
@@ -1530,11 +1541,11 @@
     invoke-virtual {p1}, Landroid/widget/Toast;->show()V
 
     .line 215
-    :cond_8
+    :cond_9
     return-void
 
     .line 217
-    :cond_9
+    :cond_a
     iput-object v2, p0, Lcom/melodix/music/PreviewPlayerMode;->state:Ljava/lang/String;
 
     .line 218
@@ -1544,7 +1555,7 @@
 
     move-result v2
 
-    if-eqz v2, :cond_a
+    if-eqz v2, :cond_b
 
     iput-object v1, p0, Lcom/melodix/music/PreviewPlayerMode;->reason:Ljava/lang/String;
 
@@ -1565,12 +1576,12 @@
     return-void
 
     .line 219
-    :cond_a
+    :cond_b
     invoke-virtual {v0, v8}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v1
 
-    if-eqz v1, :cond_b
+    if-eqz v1, :cond_c
 
     iput-object v8, p0, Lcom/melodix/music/PreviewPlayerMode;->reason:Ljava/lang/String;
 
@@ -1591,14 +1602,14 @@
     return-void
 
     .line 220
-    :cond_b
+    :cond_c
     const-string v1, "menu-"
 
     invoke-virtual {v0, v1}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
 
     move-result v1
 
-    if-eqz v1, :cond_e
+    if-eqz v1, :cond_f
 
     const-string p1, "menu"
 
@@ -1616,26 +1627,26 @@
 
     move-result v1
 
-    if-eqz v1, :cond_c
+    if-eqz v1, :cond_d
 
-    const-string v0, "Plusieurs choix Like possibles, aucun ajout"
+    const-string v0, "Plusieurs choix Like possibles, aucune modification"
 
     goto :goto_1
 
-    :cond_c
+    :cond_d
     const-string v1, "menu-state"
 
     invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v0
 
-    if-eqz v0, :cond_d
+    if-eqz v0, :cond_e
 
-    const-string v0, "\u00c9tat Like non v\u00e9rifiable, aucun ajout"
+    const-string v0, "\u00c9tat Like non v\u00e9rifiable, aucune modification"
 
     goto :goto_1
 
-    :cond_d
+    :cond_e
     const-string v0, "Titres lik\u00e9s introuvables dans le menu"
 
     :goto_1
@@ -1650,14 +1661,14 @@
     return-void
 
     .line 221
-    :cond_e
+    :cond_f
     const-string v1, "disabled"
 
     invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v2
 
-    if-eqz v2, :cond_f
+    if-eqz v2, :cond_10
 
     iput-object v1, p0, Lcom/melodix/music/PreviewPlayerMode;->reason:Ljava/lang/String;
 
@@ -1680,14 +1691,14 @@
     return-void
 
     .line 222
-    :cond_f
+    :cond_10
     const-string v1, "unconfirmed"
 
     invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v0
 
-    if-eqz v0, :cond_10
+    if-eqz v0, :cond_11
 
     const-string v0, "confirmation"
 
@@ -1710,7 +1721,7 @@
     return-void
 
     .line 223
-    :cond_10
+    :cond_11
     const-string v0, "control"
 
     iput-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->reason:Ljava/lang/String;
@@ -1730,26 +1741,26 @@
 
     move-result v1
 
-    if-eqz v1, :cond_11
+    if-eqz v1, :cond_12
 
     const-string v1, "Al\u00e9atoire indisponible, R\u00e9essayer"
 
     goto :goto_2
 
-    :cond_11
+    :cond_12
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerMode;->kind:Ljava/lang/String;
 
     invoke-virtual {v1, v7}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v1
 
-    if-eqz v1, :cond_12
+    if-eqz v1, :cond_13
 
     const-string v1, "Like indisponible, R\u00e9essayer"
 
     goto :goto_2
 
-    :cond_12
+    :cond_13
     const-string v1, "R\u00e9p\u00e9tition indisponible, R\u00e9essayer"
 
     :goto_2
@@ -1774,23 +1785,23 @@
     .line 164
     iget-boolean v2, p0, Lcom/melodix/music/PreviewPlayerMode;->running:Z
 
-    if-eqz v2, :cond_d
+    if-eqz v2, :cond_c
 
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerMode;->isShown()Z
 
     move-result v2
 
-    if-eqz v2, :cond_d
+    if-eqz v2, :cond_c
 
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerMode;->getWindowVisibility()I
 
     move-result v2
 
-    if-nez v2, :cond_d
+    if-nez v2, :cond_c
 
     iget-boolean v2, p0, Lcom/melodix/music/PreviewPlayerMode;->pending:Z
 
-    if-nez v2, :cond_d
+    if-nez v2, :cond_c
 
     iget-wide v2, p0, Lcom/melodix/music/PreviewPlayerMode;->lastTap:J
 
@@ -1964,7 +1975,7 @@
 
     move-result-object v0
 
-    const-string v1, "Titre non identifi\u00e9, aucun ajout. R\u00e9essayer"
+    const-string v1, "Titre non identifi\u00e9, aucune modification. R\u00e9essayer"
 
     invoke-static {v0, v1, v7}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
 
@@ -2019,27 +2030,6 @@
 
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->beginDiagnostic()V
 
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->kind:Ljava/lang/String;
-
-    invoke-virtual {v0, v6}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-
-    move-result v0
-
-    if-eqz v0, :cond_9
-
-    invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerMode;->getContext()Landroid/content/Context;
-
-    move-result-object v0
-
-    const-string v1, "V\u00e9rification des titres lik\u00e9s\u2026"
-
-    invoke-static {v0, v1, v5}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
-
-    move-result-object v0
-
-    invoke-virtual {v0}, Landroid/widget/Toast;->show()V
-
-    :cond_9
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode;->state:Ljava/lang/String;
 
     iput-boolean v7, p0, Lcom/melodix/music/PreviewPlayerMode;->pending:Z
@@ -2057,7 +2047,7 @@
 
     const-string v3, ""
 
-    if-eqz v1, :cond_b
+    if-eqz v1, :cond_a
 
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerMode;->title:Ljava/lang/String;
 
@@ -2065,16 +2055,16 @@
 
     move-result v1
 
-    if-eqz v1, :cond_a
+    if-eqz v1, :cond_9
 
     goto :goto_1
 
-    :cond_a
+    :cond_9
     move-object v1, v3
 
     goto :goto_2
 
-    :cond_b
+    :cond_a
     :goto_1
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerMode;->track:Ljava/lang/String;
 
@@ -2087,7 +2077,7 @@
 
     move-result v1
 
-    if-eqz v1, :cond_c
+    if-eqz v1, :cond_b
 
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerMode;->title:Ljava/lang/String;
 
@@ -2095,11 +2085,11 @@
 
     move-result v1
 
-    if-eqz v1, :cond_c
+    if-eqz v1, :cond_b
 
     iget-object v3, p0, Lcom/melodix/music/PreviewPlayerMode;->title:Ljava/lang/String;
 
-    :cond_c
+    :cond_b
     iput-object v3, p0, Lcom/melodix/music/PreviewPlayerMode;->pendingTitle:Ljava/lang/String;
 
     iget-wide v6, p0, Lcom/melodix/music/PreviewPlayerMode;->generation:J
@@ -2162,7 +2152,7 @@
     return-void
 
     .line 164
-    :cond_d
+    :cond_c
     :goto_4
     return-void
 .end method
@@ -2175,7 +2165,7 @@
 
     invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
 
-    const-string v1, "((function(kind, action, shownState, expectedTitle, expectedTrack) {\n    \'use strict\';\n    // One explicit tap = one job. Methods in order, state re-read after each:\n    // (a) control already in the page, (b) briefly open the now-playing view in\n    // the hidden page and close it again, (c) web-player keyboard shortcut\n    // (shuffle/repeat only: a like is never sent without a verified state).\n    // Never reads storage, cookies or tokens; never navigates; no network.\n    var W = window;\n    var jobs = W.__melodixModeJobs = W.__melodixModeJobs || {};\n    if ([\'like\', \'shuffle\', \'repeat\'].indexOf(kind) < 0) return JSON.stringify({status: \'done\', outcome: \'failed\', reason: \'kind\'});\n    if (action === \'poll\') {\n        var previous = jobs[kind] || {status: \'none\'};\n        // A result can become stale after it was recorded but before native polling.\n        if (kind === \'like\' && previous.status === \'done\' &&\n            (previous.outcome === \'confirmed\' || previous.outcome === \'read\') && !identityMatches()) {\n            previous.outcome = \'identity\'; previous.state = \'unknown\';\n            if (previous.journal && previous.journal.length < 16) previous.journal.push(\'poll:identity\');\n        }\n        return JSON.stringify(previous);\n    }\n    if (action !== \'run\') return JSON.stringify({status: \'none\'});\n    if (jobs[kind] && jobs[kind].status === \'running\' && Date.now() - jobs[kind].started < 8000) return JSON.stringify({status: \'busy\'});\n    var labels = {\n        like: {\n            off: /^(save to your library|add to (your )?(liked songs|library)|ajouter (\u00e0|aux) (la biblioth\u00e8que|titres lik\u00e9s|vos titres lik\u00e9s)|enregistrer dans (votre |la )?biblioth\u00e8que|in (deine |der )?bibliothek (aufnehmen|hinzuf\u00fcgen)|a\u00f1adir a (tu )?biblioteca|adicionar (\u00e0 biblioteca|aos t\u00edtulos curtidos))$/i,\n            on: /^(remove from (your )?(library|liked songs)|retirer (de la biblioth\u00e8que|des titres lik\u00e9s|de vos titres lik\u00e9s)|supprimer de (votre |la )?biblioth\u00e8que|aus (deiner |der )?bibliothek entfernen|quitar de (tu )?biblioteca|remover (da biblioteca|dos t\u00edtulos curtidos))$/i\n        },\n        repeat: {\n            off: /^(enable repeat|turn repeat on|activer la r\u00e9p\u00e9tition|wiederholung aktivieren|activar repetici\u00f3n|ativar repeti\u00e7\u00e3o)$/i,\n            on: /^(disable repeat|turn repeat off|enable repeat one|d\u00e9sactiver la r\u00e9p\u00e9tition|activer la r\u00e9p\u00e9tition d[\'\u2019]un titre|wiederholung deaktivieren|desactivar repetici\u00f3n|desativar repeti\u00e7\u00e3o)$/i\n        },\n        shuffle: {\n            off: /^(enable shuffle|turn shuffle on|activate shuffle|activer (la lecture |le mode |l[\'\u2019])?al\u00e9atoire|zufallswiedergabe aktivieren|activar (el modo |la reproducci\u00f3n )?aleatori[oa]|ativar (a reprodu\u00e7\u00e3o )?aleat\u00f3ria)$/i,\n            on: /^(disable shuffle|turn shuffle off|deactivate shuffle|enable smart shuffle|d\u00e9sactiver (la lecture |le mode |l[\'\u2019])?al\u00e9atoire|activer la lecture al\u00e9atoire intelligente|zufallswiedergabe deaktivieren|desactivar (el modo |la reproducci\u00f3n )?aleatori[oa]|desativar (a reprodu\u00e7\u00e3o )?aleat\u00f3ria)$/i\n        }\n    };\n    // Neutral names locate a control but never decide its state.\n    var neutral = /^(shuffle|lecture al\u00e9atoire|al\u00e9atoire|repeat|r\u00e9p\u00e9ter|r\u00e9p\u00e9tition)$/i;\n    var ids = {\n        like: /^(add-button|remove-button|add-to-library-button|remove-from-library-button)$/i,\n        repeat: /^control-button-repeat$/i,\n        shuffle: /^control-button-shuffle$|shuffle/i\n    };\n    var job = {status: \'running\', started: Date.now(), outcome: \'\', state: \'unknown\', method: \'\', journal: []};\n    jobs[kind] = job;\n    function log(code) { if (job.journal.length < 16) job.journal.push(code); }\n    function finish(outcome, state, method) { job.status = \'done\'; job.outcome = outcome; job.state = state || \'unknown\'; job.method = method || \'\'; }\n    function label(b) { return String(b.getAttribute(\'aria-label\') || \'\').trim(); }\n    function testid(b) { return String(b.getAttribute(\'data-testid\') || \'\'); }\n    // Current Spotify wording varies: a verb plus a liked-songs/library word.\n    (function() {\n        var word = /(titres lik\u00e9s|liked songs|lik\u00e9|liked|favori|biblioth\u00e8que|library|biblioteca|bibliothek)/i, off = labels.like.off, on = labels.like.on;\n        labels.like.off = {test: function(l) { return off.test(l) || (word.test(l) && /^(ajouter|add|enregistrer|save|a\u00f1adir|adicionar|hinzuf\u00fcgen|zu)\\b/i.test(l)); }};\n        labels.like.on = {test: function(l) { return on.test(l) || (word.test(l) && /^(ajout\u00e9|retirer|supprimer|remove|enregistr\u00e9|saved|added|quitar|remover|entfernen)/i.test(l)); }};\n    })();\n    // Spotify\'s \"+\" save button: generic \"Ajouter...\" label, state in aria-checked.\n    function genericAdd(l) { return /^(ajouter|add|enregistrer|save)\\b/i.test(l) && !/(titres lik\u00e9s|liked songs|biblioth\u00e8que|library|file d[\'\u2019]attente|queue)/i.test(l); }\n    function find() {\n        var list = Array.from(document.querySelectorAll(\'button, [role=\"button\"], [role=\"switch\"]\')).filter(function(b) {\n            if (!b.isConnected) return false;\n            var l = label(b);\n            return ids[kind].test(testid(b)) || labels[kind].off.test(l) || labels[kind].on.test(l) ||\n                (kind === \'like\' && b.hasAttribute(\'aria-checked\') && genericAdd(l)) ||\n                (kind !== \'like\' && neutral.test(l) && (kind === \'shuffle\' ? /al[\u00e9e]atoire|shuffle/i : /r[\u00e9e]p[\u00e9e]t|repeat/i).test(l));\n        });\n        if (kind === \'like\') {\n            var scoped = list.filter(function(b) {\n                return b.closest(\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]), [data-testid=\"now-playing-bar\"], [data-testid=\"now-playing-view\"], [data-testid=\"now-playing-panel\"], [data-testid=\"NPV\"]\');\n            });\n            list = scoped;\n        }\n        if (list.length > 1) {\n            var visible = list.filter(function(b) { var r = b.getBoundingClientRect(); return r.width > 0 && r.height > 0; });\n            if (visible.length === 1) list = visible;\n        }\n        if (!list.length) return {reason: \'absent\'};\n        if (list.length !== 1) return {reason: \'ambiguous\'};\n        var b = list[0];\n        if (b.disabled || b.getAttribute(\'aria-disabled\') === \'true\') return {reason: \'disabled\', node: b};\n        return {node: b, reason: \'\'};\n    }\n    function read(b) {\n        var checked = b.getAttribute(\'aria-checked\'), pressed = b.getAttribute(\'aria-pressed\');\n        var raw = checked === null ? pressed : checked;\n        var l = label(b), on = labels[kind].on.test(l), off = labels[kind].off.test(l);\n        if (kind === \'like\') {\n            var id = testid(b).toLowerCase();\n            var remove = /^(remove-button|remove-from-library-button)$/.test(id);\n            if (/^(true|menu|dialog|listbox|tree|grid)$/i.test(String(b.getAttribute(\'aria-haspopup\') || \'\')) ||\n                b.matches(\':disabled\') || b.closest(\'[aria-disabled=\"true\"], fieldset:disabled\') ||\n                (checked !== null && pressed !== null && checked !== pressed)) return \'unknown\';\n            if (raw !== null && raw !== \'true\' && raw !== \'false\') return \'unknown\';\n            if (raw === null) raw = on ? \'true\' : off ? \'false\' : \'unknown\';\n            // Once liked, Spotify relabels the checked button generically (phone 1022229).\n            if (raw === \'true\' && checked === \'true\' && !on && !off && genericAdd(l)) on = true;\n            if ((raw === \'false\' && (on || remove)) || (raw === \'true\' && off)) return \'unknown\';\n            // An unlabelled generic add-button may open a playlist picker.\n            if (!off && !on) return \'unknown\';\n            return raw;\n        }\n        if (raw === \'true\' || raw === \'false\' || raw === \'mixed\') return raw;\n        return on ? \'true\' : off ? \'false\' : \'unknown\';\n    }\n    // Spotify\'s bar title links to the album with the track in ?highlight=spotify:track:ID.\n    function trackHref(h) {\n        h = String(h || \'\');\n        // A Spotify URI is a complete identity, unlike an album or title.\n        var uri = /^spotify:(track|episode):([a-z0-9]+)$/i.exec(h);\n        if (uri) return uri;\n        var m = /^(?:https:\\/\\/open\\.spotify\\.com)?\\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\\/)?(track|episode)\\/([a-z0-9]+)\\/?(?:[?#].*)?$/i.exec(h);\n        if (m) return m;\n        var a = /^(?:https:\\/\\/open\\.spotify\\.com)?\\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\\/)?album\\/[a-z0-9]+\\/?\\?(?:[^#]*&)?highlight=spotify(?::|%3a)(track)(?::|%3a)([a-z0-9]+)(?:[&#].*)?$/i.exec(h);\n        if (a) {\n            // Duplicate highlight keys, including encoded/case variants,\n            // have ambiguous semantics. Never choose one arbitrarily.\n            try {\n                var query = new URL(h, \'https://open.spotify.com\').searchParams;\n                var values = [];\n                query.forEach(function(value, key) { if (key.toLowerCase() === \'highlight\') values.push(value); });\n                if (values.length !== 1 || !/^spotify:track:[a-z0-9]+$/i.test(values[0])) return null;\n                var parts = /^spotify:(track):([a-z0-9]+)$/i.exec(values[0]);\n                return [a[0], parts[1], parts[2]];\n            } catch (_) { return null; }\n        }\n        return null; // an album and title cannot uniquely identify a track\n    }\n    // Explicit track URIs on the current-player title only; never infer a\n    // track from an album, playlist, title alone, or an unrelated page row.\n    function markedTrack(n) {\n        if (!/^(context-item-link|nowplaying-track-link|context-item-info-title)$/i.test(String(n.getAttribute(\'data-testid\') || \'\'))) return \'\';\n        var result = \'\';\n        for (var name of [\'data-uri\', \'data-track-uri\', \'data-spotify-uri\']) {\n            if (!n.hasAttribute(name)) continue;\n            var m = /^spotify:(track|episode):([a-z0-9]+)$/i.exec(String(n.getAttribute(name) || \'\'));\n            if (!m) return \'!\';\n            var value = m[1].toLowerCase()+\':\'+m[2];\n            if (result && result !== value) return \'!\';\n            result = value;\n        }\n        return result;\n    }\n    // If a title link itself carries a malformed track hint, an attribute\n    // must not mask that ambiguity. Album-only links may use their explicit\n    // current-title parent marker, but never one outside the player bar.\n    function hasTrackHint(h) {\n        h=String(h||\'\');\n        if (/^spotify:(track|episode):/i.test(h) || /\\/(track|episode)\\//i.test(h)) return true;\n        try {\n            var found=false;\n            new URL(h, \'https://open.spotify.com\').searchParams.forEach(function(v,k){if(k.toLowerCase()===\'highlight\')found=true;});\n            return found;\n        } catch (_) { return true; }\n    }\n    function parentTrack(link) {\n        var n=link.closest(\'[data-testid=\"context-item-info-title\"]\');\n        if(!n || !n.closest(\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]), [data-testid=\"now-playing-bar\"]\')) return \'\';\n        return markedTrack(n);\n    }\n    function markedTitleNodes() {\n        return Array.from(document.querySelectorAll(\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) [data-testid=\"context-item-link\"], :is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) [data-testid=\"nowplaying-track-link\"], :is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) [data-testid=\"context-item-info-title\"], [data-testid=\"now-playing-bar\"] [data-testid=\"context-item-link\"], [data-testid=\"now-playing-bar\"] [data-testid=\"nowplaying-track-link\"], [data-testid=\"now-playing-bar\"] [data-testid=\"context-item-info-title\"]\')).filter(function(n) { return n.isConnected; });\n    }\n    function identityMatches() {\n        if (!expectedTitle || !expectedTrack) return false;\n        if (expectedTrack === \'title:\' + expectedTitle) {\n            // Id-less bar: no track link may exist, the native title must appear in the bar text.\n            if (document.querySelector(\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) a[href*=\"/track/\"], [data-testid=\"now-playing-bar\"] a[href*=\"/track/\"]\')) return false;\n            return Array.from(document.querySelectorAll(\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]), [data-testid=\"now-playing-bar\"]\')).some(function(r) {\n                return String(r.textContent || \'\').replace(/\\s+/g, \' \').toLowerCase().indexOf(String(expectedTitle).replace(/\\s+/g, \' \').trim().toLowerCase()) >= 0;\n            });\n        }\n        var links = Array.from(document.querySelectorAll(\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) a[href], [data-testid=\"now-playing-bar\"] a[href], a[data-testid=\"nowplaying-track-link\"][href], [data-testid=\"now-playing-view\"] a[href]\'));\n        var malformedIdentity = false;\n        var identities = links.map(function(link) {\n            var m = trackHref(String(link.getAttribute(\'href\') || \'\'));\n            if (!m && /^(context-item-link|nowplaying-track-link)$/i.test(String(link.getAttribute(\'data-testid\') || \'\')) && (hasTrackHint(link.getAttribute(\'href\')) || (!markedTrack(link) && !parentTrack(link)))) malformedIdentity = true;\n            return m ? {track:m[1].toLowerCase()+\':\'+m[2],title:String(link.textContent || \'\').replace(/\\s+/g, \' \').trim()} : null;\n        }).filter(Boolean);\n        markedTitleNodes().forEach(function(n) {\n            var value=markedTrack(n);\n            if (value === \'!\') { malformedIdentity = true; return; }\n            if (value) identities.push({track:value, title:String(n.textContent || \'\').replace(/\\s+/g, \' \').trim()});\n        });\n        return !malformedIdentity && identities.some(function(x) { return x.title === expectedTitle; }) && identities.every(function(x) {\n            return x.track === expectedTrack && (!x.title || x.title === expectedTitle);\n        });\n    }\n    function opener() {\n        var list = Array.from(document.querySelectorAll(\'button, [role=\"button\"]\')).filter(function(b) {\n            if (!b.isConnected) return false;\n            var id = testid(b), l = label(b);\n            return /^(control-button-npv|now-playing-view-button)$/i.test(id) ||\n                /^(now playing view|show now playing view|hide now playing view|vue \u00ab ?en cours de lecture ?\u00bb|afficher la vue en cours de lecture|masquer la vue en cours de lecture|en cours de lecture|ansicht \u201el\u00e4uft gerade\u201c|vista de reproducci\u00f3n|tela tocando agora)$/i.test(l);\n        });\n        return list.length === 1 ? list[0] : null;\n    }\n    function pressed(b) { return b.getAttribute(\'aria-pressed\') === \'true\' || b.getAttribute(\'aria-expanded\') === \'true\' || b.getAttribute(\'data-active\') === \'true\'; }\n    function wait(test, ms, done) {\n        var end = Date.now() + ms;\n        (function step() {\n            var v;\n            try { v = test(); } catch (_) { v = null; }\n            if (v || Date.now() >= end) { done(v || null); return; }\n            setTimeout(step, 120);\n        })();\n    }\n    function invalidateLikedRead() {\n        try { if (typeof W.__sfLikedMutationAttempted === \'function\') W.__sfLikedMutationAttempted(); } catch (_) {}\n    }\n    // Open only an explicitly announced add menu, then act only on a unique,\n    // explicitly unchecked Liked Songs item. Never select another playlist.\n    function viaLikeMenu(b, method, after) {\n        var id = testid(b).toLowerCase(), l = label(b), popup = String(b.getAttribute(\'aria-haspopup\') || \'\');\n        if (!/^(true|menu|dialog|listbox)$/i.test(popup)) return false;\n        if (!identityMatches()) { log(method + \':menu-identity\'); after(\'identity\', \'unknown\'); return true; }\n        if (!/^(add-button|add-to-library-button)$/.test(id) || labels.like.on.test(l) ||\n            shownState === \'true\' || ((b.getAttribute(\'aria-checked\') === \'true\' || b.getAttribute(\'aria-pressed\') === \'true\') && !genericAdd(l)) ||\n            b.matches(\':disabled\') || b.closest(\'[aria-disabled=\"true\"], fieldset:disabled\')) {\n            log(method + \':menu-unsafe\'); after(\'menu-state\', \'unknown\'); return true;\n        }\n        var selector = \'[role=\"menu\"], [role=\"dialog\"], [role=\"listbox\"]\';\n        function available(n) { return n && n.isConnected && !n.closest(\'[hidden], [aria-hidden=\"true\"]\'); }\n        var before = Array.from(document.querySelectorAll(selector)).filter(available);\n        var expanded = b.getAttribute(\'aria-expanded\') === \'true\', opened = false;\n        function root() {\n            var id = b.getAttribute(\'aria-controls\'), controlled = id && document.getElementById(id);\n            if (available(controlled) && controlled.matches(selector) &&\n                (expanded || before.indexOf(controlled) < 0 || b.getAttribute(\'aria-expanded\') === \'true\')) return controlled;\n            if (expanded) return null;\n            var fresh = Array.from(document.querySelectorAll(selector)).filter(function(n) { return available(n) && before.indexOf(n) < 0; });\n            return fresh.length === 1 ? fresh[0] : null;\n        }\n        function closeMenu(r) {\n            if (!opened) return;\n            try {\n                (available(r) ? r : b).dispatchEvent(new KeyboardEvent(\'keydown\', {key:\'Escape\', code:\'Escape\', bubbles:true, cancelable:true}));\n                log(available(r) && b.getAttribute(\'aria-expanded\') === \'true\' ? method + \':menu-close-unverified\' : method + \':menu-close-requested\');\n            } catch (_) { log(method + \':menu-close-error\'); }\n        }\n        if (!expanded) {\n            try { b.click(); opened = true; log(method + \':menu-open\'); }\n            catch (_) { log(method + \':menu-open-error\'); after(\'menu-absent\', \'unknown\'); return true; }\n        }\n        wait(function() {\n            if (!identityMatches()) return \'identity-changed\';\n            return root();\n        }, 1800, function(r) {\n            if (r === \'identity-changed\') { closeMenu(null); after(\'identity\', \'unknown\'); return; }\n            if (!r) { log(method + \':menu-root\'); closeMenu(null); after(\'menu-absent\', \'unknown\'); return; }\n            var likedName = /^(liked songs|your liked songs|titres lik\u00e9s|vos titres lik\u00e9s|titres que j[\'\u2019]aime|liked-titel|canciones que te gustan|m\u00fasicas curtidas)$/i;\n            function targets() {\n                if (!available(r)) return [];\n                return Array.from(r.querySelectorAll(\'[role=\"menuitemcheckbox\"], [role=\"checkbox\"], input[type=\"checkbox\"]\')).filter(function(n) {\n                    var labelNode = n.closest(\'label\');\n                    var name = String(n.getAttribute(\'aria-label\') || (labelNode && labelNode.textContent) || n.textContent || \'\').replace(/\\s+/g, \' \').trim();\n                    return available(n) && likedName.test(name);\n                });\n            }\n            var candidates = targets();\n            if (candidates.length !== 1) { log(method + (candidates.length ? \':menu-ambiguous\' : \':menu-target\')); closeMenu(r); after(candidates.length ? \'menu-ambiguous\' : \'menu-absent\', \'unknown\'); return; }\n            var target = candidates[0], raw = target.getAttribute(\'aria-checked\');\n            var checked = target.tagName === \'INPUT\' && target.type === \'checkbox\' ? (target.checked ? \'true\' : \'false\') : null;\n            if (checked !== null && raw !== null && raw !== checked) raw = \'unknown\';\n            else if (raw === null) raw = checked;\n            if (target.matches(\':disabled\') || target.closest(\'[aria-disabled=\"true\"], fieldset:disabled\') || (raw !== \'true\' && raw !== \'false\')) {\n                log(method + \':menu-state\'); closeMenu(r); after(\'menu-state\', \'unknown\'); return;\n            }\n            if (raw === \'true\') { log(method + \':menu-liked\'); closeMenu(r); after(\'read\', \'true\'); return; }\n            if (!identityMatches()) { closeMenu(r); after(\'identity\', \'unknown\'); return; }\n            invalidateLikedRead();\n            try { target.click(); log(method + \':menu-add\'); }\n            catch (_) { log(method + \':menu-add-error\'); closeMenu(r); after(\'unconfirmed\', \'unknown\'); return; }\n            wait(function() {\n                if (!identityMatches()) return \'identity-changed\';\n                var current = targets();\n                if (current.length !== 1 || current[0].matches(\':disabled\') || current[0].closest(\'[aria-disabled=\"true\"], fieldset:disabled\')) return null;\n                // React may replace the checkbox after the click; only the\n                // unique explicit Liked Songs item in the same menu is read.\n                var observed = current[0];\n                var a = observed.getAttribute(\'aria-checked\');\n                var c = observed.tagName === \'INPUT\' && observed.type === \'checkbox\' ? observed.checked : null;\n                return (a === \'true\' && c !== false) || (a === null && c === true) ? \'true\' : null;\n            }, 2200, function(state) {\n                closeMenu(r);\n                if (state === \'identity-changed\') { log(method + \':menu-identity\'); after(\'identity\', \'unknown\'); }\n                else if (state === \'true\') { log(method + \':menu-verified\'); after(\'confirmed\', \'true\'); }\n                else { log(method + \':menu-unverified\'); after(\'unconfirmed\', \'false\'); }\n            });\n        });\n        return true;\n    }\n    // Decide and click on a readable control; verify the change afterwards.\n    function act(found, method, after) {\n        var b = found.node;\n        if (kind === \'like\' && viaLikeMenu(b, method, after)) return;\n        var before = read(b);\n        log(method + \':state-\' + before);\n        if (before === \'unknown\') { after(\'state\', before); return; }\n        if (kind === \'like\') {\n            if (!identityMatches()) { log(method + \':identity\'); after(\'identity\', before); return; }\n            // A tap can only ADD a like: an existing like is never clicked,\n            // whatever the native button shows. Only a verified \'false\' is clicked.\n            if (before !== \'false\') { log(method + \':liked-read-only\'); after(\'read\', before); return; }\n            if (shownState === \'true\') { log(method + \':mismatch\'); after(\'read\', before); return; }\n        }\n        if (kind === \'like\') invalidateLikedRead();\n        try { b.click(); log(method + \':click\'); } catch (_) { log(method + \':click-error\'); after(\'command\', before); return; }\n        wait(function() {\n            if (kind === \'like\' && !identityMatches()) return \'identity-changed\';\n            var again = find();\n            if (!again.node) return null;\n            var s = read(again.node);\n            return s !== before && s !== \'unknown\' ? s : null;\n        }, 2200, function(s) {\n            if (s === \'identity-changed\') { log(method + \':identity\'); after(\'identity\', \'unknown\'); }\n            else if (s) { log(method + \':verified\'); after(\'confirmed\', s); }\n            else { log(method + \':unverified\'); after(\'unconfirmed\', before); }\n        });\n    }\n    function viaKeyboard() {\n        if (kind === \'like\') { log(\'c:like-skipped\'); finish(\'failed\', \'unknown\', \'\'); return; }\n        var spec = kind === \'shuffle\' ? {key: \'s\', code: \'KeyS\', keyCode: 83} : {key: \'r\', code: \'KeyR\', keyCode: 82};\n        // Unverifiable when no control is readable, so only ONE combination per\n        // tap (two could cancel each other). Families alternate across taps.\n        var turns = W.__melodixKeyTurns = W.__melodixKeyTurns || {};\n        var ctrl = !(turns[kind] % 2); turns[kind] = (turns[kind] || 0) + 1;\n        try {\n            var target = document.activeElement && document.activeElement !== document.body ? document.activeElement : document.body;\n            [\'keydown\', \'keyup\'].forEach(function(type) {\n                target.dispatchEvent(new KeyboardEvent(type, {key: spec.key, code: spec.code, keyCode: spec.keyCode, which: spec.keyCode, ctrlKey: ctrl, altKey: !ctrl, bubbles: true, cancelable: true}));\n            });\n            log(\'c:\' + (ctrl ? \'ctrl-\' : \'alt-\') + spec.key); log(\'c:single-unreadable\');\n            finish(\'unverified\', \'unknown\', \'keyboard\');\n        } catch (_) { log(\'c:error\'); finish(\'failed\', \'unknown\', \'\'); }\n    }\n    function result(outcome, state, method) {\n        if (outcome === \'confirmed\' || outcome === \'unconfirmed\' || outcome === \'read\') finish(outcome, state, method);\n        else if (outcome === \'identity\' || outcome === \'menu-absent\' || outcome === \'menu-ambiguous\' || outcome === \'menu-state\') finish(outcome, \'unknown\', method);\n        else finish(\'failed\', state, method);\n    }\n    try {\n        var direct = find();\n        log(\'a:\' + (direct.node ? \'found\' : direct.reason));\n        if (direct.node && !direct.reason) { act(direct, \'a\', function(o, s) { result(o, s, \'direct\'); }); return JSON.stringify({status: \'started\'}); }\n        if (direct.reason === \'disabled\') { finish(\'disabled\', \'unknown\', \'direct\'); return JSON.stringify({status: \'started\'}); }\n        var view = opener();\n        if (!view) { log(\'b:no-opener\'); viaKeyboard(); return JSON.stringify({status: \'started\'}); }\n        var wasOpen = pressed(view);\n        if (!wasOpen) { try { view.click(); log(\'b:opened\'); } catch (_) { log(\'b:open-error\'); } }\n        else log(\'b:already-open\');\n        var closeView = function() {\n            if (!wasOpen) {\n                setTimeout(function() {\n                    var again = opener();\n                    try { if (again && pressed(again)) { again.click(); log(\'b:closed\'); } } catch (_) { log(\'b:close-error\'); }\n                }, 150);\n            }\n        };\n        wait(function() { var f = find(); return f.node && !f.reason ? f : null; }, 1800, function(found) {\n            if (!found) { log(\'b:absent\'); closeView(); viaKeyboard(); return; }\n            log(\'b:found\');\n            act(found, \'b\', function(o, s) { closeView(); result(o, s, \'now-playing-view\'); });\n        });\n        return JSON.stringify({status: \'started\'});\n    } catch (_) {\n        finish(\'failed\', \'unknown\', \'\');\n        return JSON.stringify({status: \'started\'});\n    }\n})\n)("
+    const-string v1, "((function(kind, action, shownState, expectedTitle, expectedTrack) {\n    \'use strict\';\n    // One explicit tap = one job. Methods in order, state re-read after each:\n    // (a) control already in the page, (b) briefly open the now-playing view in\n    // the hidden page and close it again, (c) web-player keyboard shortcut\n    // (shuffle/repeat only: a like is never sent without a verified state).\n    // Never reads storage, cookies or tokens; never navigates; no network.\n    var W = window;\n    var jobs = W.__melodixModeJobs = W.__melodixModeJobs || {};\n    if ([\'like\', \'shuffle\', \'repeat\'].indexOf(kind) < 0) return JSON.stringify({status: \'done\', outcome: \'failed\', reason: \'kind\'});\n    if (action === \'poll\') {\n        var previous = jobs[kind] || {status: \'none\'};\n        // A result can become stale after it was recorded but before native polling.\n        if (kind === \'like\' && previous.status === \'done\' &&\n            (previous.outcome === \'confirmed\' || previous.outcome === \'read\') && !identityMatches()) {\n            previous.outcome = \'identity\'; previous.state = \'unknown\';\n            if (previous.journal && previous.journal.length < 16) previous.journal.push(\'poll:identity\');\n        }\n        return JSON.stringify(previous);\n    }\n    if (action !== \'run\') return JSON.stringify({status: \'none\'});\n    if (jobs[kind] && jobs[kind].status === \'running\' && Date.now() - jobs[kind].started < 8000) return JSON.stringify({status: \'busy\'});\n    var labels = {\n        like: {\n            off: /^(save to your library|add to (your )?(liked songs|library)|ajouter (\u00e0|aux) (la biblioth\u00e8que|titres lik\u00e9s|vos titres lik\u00e9s)|enregistrer dans (votre |la )?biblioth\u00e8que|in (deine |der )?bibliothek (aufnehmen|hinzuf\u00fcgen)|a\u00f1adir a (tu )?biblioteca|adicionar (\u00e0 biblioteca|aos t\u00edtulos curtidos))$/i,\n            on: /^(remove from (your )?(library|liked songs)|retirer (de la biblioth\u00e8que|des titres lik\u00e9s|de vos titres lik\u00e9s)|supprimer de (votre |la )?biblioth\u00e8que|aus (deiner |der )?bibliothek entfernen|quitar de (tu )?biblioteca|remover (da biblioteca|dos t\u00edtulos curtidos))$/i\n        },\n        repeat: {\n            off: /^(enable repeat|turn repeat on|activer la r\u00e9p\u00e9tition|wiederholung aktivieren|activar repetici\u00f3n|ativar repeti\u00e7\u00e3o)$/i,\n            on: /^(disable repeat|turn repeat off|enable repeat one|d\u00e9sactiver la r\u00e9p\u00e9tition|activer la r\u00e9p\u00e9tition d[\'\u2019]un titre|wiederholung deaktivieren|desactivar repetici\u00f3n|desativar repeti\u00e7\u00e3o)$/i\n        },\n        shuffle: {\n            off: /^(enable shuffle|turn shuffle on|activate shuffle|activer (la lecture |le mode |l[\'\u2019])?al\u00e9atoire|zufallswiedergabe aktivieren|activar (el modo |la reproducci\u00f3n )?aleatori[oa]|ativar (a reprodu\u00e7\u00e3o )?aleat\u00f3ria)$/i,\n            on: /^(disable shuffle|turn shuffle off|deactivate shuffle|enable smart shuffle|d\u00e9sactiver (la lecture |le mode |l[\'\u2019])?al\u00e9atoire|activer la lecture al\u00e9atoire intelligente|zufallswiedergabe deaktivieren|desactivar (el modo |la reproducci\u00f3n )?aleatori[oa]|desativar (a reprodu\u00e7\u00e3o )?aleat\u00f3ria)$/i\n        }\n    };\n    // Neutral names locate a control but never decide its state.\n    var neutral = /^(shuffle|lecture al\u00e9atoire|al\u00e9atoire|repeat|r\u00e9p\u00e9ter|r\u00e9p\u00e9tition)$/i;\n    var ids = {\n        like: /^(add-button|remove-button|add-to-library-button|remove-from-library-button)$/i,\n        repeat: /^control-button-repeat$/i,\n        shuffle: /^control-button-shuffle$|shuffle/i\n    };\n    var job = {status: \'running\', started: Date.now(), outcome: \'\', state: \'unknown\', method: \'\', journal: []};\n    jobs[kind] = job;\n    function log(code) { if (job.journal.length < 16) job.journal.push(code); }\n    function finish(outcome, state, method) { job.status = \'done\'; job.outcome = outcome; job.state = state || \'unknown\'; job.method = method || \'\'; }\n    function label(b) { return String(b.getAttribute(\'aria-label\') || \'\').trim(); }\n    function testid(b) { return String(b.getAttribute(\'data-testid\') || \'\'); }\n    // Current Spotify wording varies: a verb plus a liked-songs/library word.\n    (function() {\n        var word = /(titres lik\u00e9s|liked songs|lik\u00e9|liked|favori|biblioth\u00e8que|library|biblioteca|bibliothek)/i, off = labels.like.off, on = labels.like.on;\n        labels.like.off = {test: function(l) { return off.test(l) || (word.test(l) && /^(ajouter|add|enregistrer|save|a\u00f1adir|adicionar|hinzuf\u00fcgen|zu)\\b/i.test(l)); }};\n        labels.like.on = {test: function(l) { return on.test(l) || (word.test(l) && /^(ajout\u00e9|retirer|supprimer|remove|enregistr\u00e9|saved|added|quitar|remover|entfernen)/i.test(l)); }};\n    })();\n    // Spotify\'s \"+\" save button: generic \"Ajouter...\" label, state in aria-checked.\n    function genericAdd(l) { return /^(ajouter|add|enregistrer|save)\\b/i.test(l) && !/(titres lik\u00e9s|liked songs|biblioth\u00e8que|library|file d[\'\u2019]attente|queue)/i.test(l); }\n    function find() {\n        var list = Array.from(document.querySelectorAll(\'button, [role=\"button\"], [role=\"switch\"]\')).filter(function(b) {\n            if (!b.isConnected) return false;\n            var l = label(b);\n            return ids[kind].test(testid(b)) || labels[kind].off.test(l) || labels[kind].on.test(l) ||\n                (kind === \'like\' && b.hasAttribute(\'aria-checked\') && genericAdd(l)) ||\n                (kind !== \'like\' && neutral.test(l) && (kind === \'shuffle\' ? /al[\u00e9e]atoire|shuffle/i : /r[\u00e9e]p[\u00e9e]t|repeat/i).test(l));\n        });\n        if (kind === \'like\') {\n            var scoped = list.filter(function(b) {\n                return b.closest(\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]), [data-testid=\"now-playing-bar\"], [data-testid=\"now-playing-view\"], [data-testid=\"now-playing-panel\"], [data-testid=\"NPV\"]\');\n            });\n            list = scoped;\n        }\n        if (list.length > 1) {\n            var visible = list.filter(function(b) { var r = b.getBoundingClientRect(); return r.width > 0 && r.height > 0; });\n            if (visible.length === 1) list = visible;\n        }\n        if (!list.length) return {reason: \'absent\'};\n        if (list.length !== 1) return {reason: \'ambiguous\'};\n        var b = list[0];\n        if (b.disabled || b.getAttribute(\'aria-disabled\') === \'true\') return {reason: \'disabled\', node: b};\n        return {node: b, reason: \'\'};\n    }\n    function read(b) {\n        var checked = b.getAttribute(\'aria-checked\'), pressed = b.getAttribute(\'aria-pressed\');\n        var raw = checked === null ? pressed : checked;\n        var l = label(b), on = labels[kind].on.test(l), off = labels[kind].off.test(l);\n        if (kind === \'like\') {\n            var id = testid(b).toLowerCase();\n            var remove = /^(remove-button|remove-from-library-button)$/.test(id);\n            if (/^(true|menu|dialog|listbox|tree|grid)$/i.test(String(b.getAttribute(\'aria-haspopup\') || \'\')) ||\n                b.matches(\':disabled\') || b.closest(\'[aria-disabled=\"true\"], fieldset:disabled\') ||\n                (checked !== null && pressed !== null && checked !== pressed)) return \'unknown\';\n            if (raw !== null && raw !== \'true\' && raw !== \'false\') return \'unknown\';\n            if (raw === null) raw = on ? \'true\' : off ? \'false\' : \'unknown\';\n            // Once liked, Spotify relabels the checked button generically (phone 1022229).\n            if (raw === \'true\' && checked === \'true\' && !on && !off && genericAdd(l)) on = true;\n            if ((raw === \'false\' && (on || remove)) || (raw === \'true\' && off)) return \'unknown\';\n            // An unlabelled generic add-button may open a playlist picker.\n            if (!off && !on) return \'unknown\';\n            return raw;\n        }\n        if (raw === \'true\' || raw === \'false\' || raw === \'mixed\') return raw;\n        return on ? \'true\' : off ? \'false\' : \'unknown\';\n    }\n    // Spotify\'s bar title links to the album with the track in ?highlight=spotify:track:ID.\n    function trackHref(h) {\n        h = String(h || \'\');\n        // A Spotify URI is a complete identity, unlike an album or title.\n        var uri = /^spotify:(track|episode):([a-z0-9]+)$/i.exec(h);\n        if (uri) return uri;\n        var m = /^(?:https:\\/\\/open\\.spotify\\.com)?\\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\\/)?(track|episode)\\/([a-z0-9]+)\\/?(?:[?#].*)?$/i.exec(h);\n        if (m) return m;\n        var a = /^(?:https:\\/\\/open\\.spotify\\.com)?\\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\\/)?album\\/[a-z0-9]+\\/?\\?(?:[^#]*&)?highlight=spotify(?::|%3a)(track)(?::|%3a)([a-z0-9]+)(?:[&#].*)?$/i.exec(h);\n        if (a) {\n            // Duplicate highlight keys, including encoded/case variants,\n            // have ambiguous semantics. Never choose one arbitrarily.\n            try {\n                var query = new URL(h, \'https://open.spotify.com\').searchParams;\n                var values = [];\n                query.forEach(function(value, key) { if (key.toLowerCase() === \'highlight\') values.push(value); });\n                if (values.length !== 1 || !/^spotify:track:[a-z0-9]+$/i.test(values[0])) return null;\n                var parts = /^spotify:(track):([a-z0-9]+)$/i.exec(values[0]);\n                return [a[0], parts[1], parts[2]];\n            } catch (_) { return null; }\n        }\n        return null; // an album and title cannot uniquely identify a track\n    }\n    // Explicit track URIs on the current-player title only; never infer a\n    // track from an album, playlist, title alone, or an unrelated page row.\n    function markedTrack(n) {\n        if (!/^(context-item-link|nowplaying-track-link|context-item-info-title)$/i.test(String(n.getAttribute(\'data-testid\') || \'\'))) return \'\';\n        var result = \'\';\n        for (var name of [\'data-uri\', \'data-track-uri\', \'data-spotify-uri\']) {\n            if (!n.hasAttribute(name)) continue;\n            var m = /^spotify:(track|episode):([a-z0-9]+)$/i.exec(String(n.getAttribute(name) || \'\'));\n            if (!m) return \'!\';\n            var value = m[1].toLowerCase()+\':\'+m[2];\n            if (result && result !== value) return \'!\';\n            result = value;\n        }\n        return result;\n    }\n    // If a title link itself carries a malformed track hint, an attribute\n    // must not mask that ambiguity. Album-only links may use their explicit\n    // current-title parent marker, but never one outside the player bar.\n    function hasTrackHint(h) {\n        h=String(h||\'\');\n        if (/^spotify:(track|episode):/i.test(h) || /\\/(track|episode)\\//i.test(h)) return true;\n        try {\n            var found=false;\n            new URL(h, \'https://open.spotify.com\').searchParams.forEach(function(v,k){if(k.toLowerCase()===\'highlight\')found=true;});\n            return found;\n        } catch (_) { return true; }\n    }\n    function parentTrack(link) {\n        var n=link.closest(\'[data-testid=\"context-item-info-title\"]\');\n        if(!n || !n.closest(\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]), [data-testid=\"now-playing-bar\"]\')) return \'\';\n        return markedTrack(n);\n    }\n    function markedTitleNodes() {\n        return Array.from(document.querySelectorAll(\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) [data-testid=\"context-item-link\"], :is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) [data-testid=\"nowplaying-track-link\"], :is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) [data-testid=\"context-item-info-title\"], [data-testid=\"now-playing-bar\"] [data-testid=\"context-item-link\"], [data-testid=\"now-playing-bar\"] [data-testid=\"nowplaying-track-link\"], [data-testid=\"now-playing-bar\"] [data-testid=\"context-item-info-title\"]\')).filter(function(n) { return n.isConnected; });\n    }\n    function identityMatches() {\n        if (!expectedTitle || !expectedTrack) return false;\n        if (expectedTrack === \'title:\' + expectedTitle) {\n            // Id-less bar: no track link may exist, the native title must appear in the bar text.\n            if (document.querySelector(\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) a[href*=\"/track/\"], [data-testid=\"now-playing-bar\"] a[href*=\"/track/\"]\')) return false;\n            return Array.from(document.querySelectorAll(\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]), [data-testid=\"now-playing-bar\"]\')).some(function(r) {\n                return String(r.textContent || \'\').replace(/\\s+/g, \' \').toLowerCase().indexOf(String(expectedTitle).replace(/\\s+/g, \' \').trim().toLowerCase()) >= 0;\n            });\n        }\n        var links = Array.from(document.querySelectorAll(\':is([data-testid=\"now-playing-widget\"], [data-testid=\"now-playing-widget-v2\"]) a[href], [data-testid=\"now-playing-bar\"] a[href], a[data-testid=\"nowplaying-track-link\"][href], [data-testid=\"now-playing-view\"] a[href]\'));\n        var malformedIdentity = false;\n        var identities = links.map(function(link) {\n            var m = trackHref(String(link.getAttribute(\'href\') || \'\'));\n            if (!m && /^(context-item-link|nowplaying-track-link)$/i.test(String(link.getAttribute(\'data-testid\') || \'\')) && (hasTrackHint(link.getAttribute(\'href\')) || (!markedTrack(link) && !parentTrack(link)))) malformedIdentity = true;\n            return m ? {track:m[1].toLowerCase()+\':\'+m[2],title:String(link.textContent || \'\').replace(/\\s+/g, \' \').trim()} : null;\n        }).filter(Boolean);\n        markedTitleNodes().forEach(function(n) {\n            var value=markedTrack(n);\n            if (value === \'!\') { malformedIdentity = true; return; }\n            if (value) identities.push({track:value, title:String(n.textContent || \'\').replace(/\\s+/g, \' \').trim()});\n        });\n        return !malformedIdentity && identities.some(function(x) { return x.title === expectedTitle; }) && identities.every(function(x) {\n            return x.track === expectedTrack && (!x.title || x.title === expectedTitle);\n        });\n    }\n    function opener() {\n        var list = Array.from(document.querySelectorAll(\'button, [role=\"button\"]\')).filter(function(b) {\n            if (!b.isConnected) return false;\n            var id = testid(b), l = label(b);\n            return /^(control-button-npv|now-playing-view-button)$/i.test(id) ||\n                /^(now playing view|show now playing view|hide now playing view|vue \u00ab ?en cours de lecture ?\u00bb|afficher la vue en cours de lecture|masquer la vue en cours de lecture|en cours de lecture|ansicht \u201el\u00e4uft gerade\u201c|vista de reproducci\u00f3n|tela tocando agora)$/i.test(l);\n        });\n        return list.length === 1 ? list[0] : null;\n    }\n    function pressed(b) { return b.getAttribute(\'aria-pressed\') === \'true\' || b.getAttribute(\'aria-expanded\') === \'true\' || b.getAttribute(\'data-active\') === \'true\'; }\n    function wait(test, ms, done) {\n        var end = Date.now() + ms;\n        (function step() {\n            var v;\n            try { v = test(); } catch (_) { v = null; }\n            if (v || Date.now() >= end) { done(v || null); return; }\n            setTimeout(step, 120);\n        })();\n    }\n    function invalidateLikedRead() {\n        try { if (typeof W.__sfLikedMutationAttempted === \'function\') W.__sfLikedMutationAttempted(); } catch (_) {}\n    }\n    // Open only an explicitly announced add menu, then act only on a unique,\n    // explicitly unchecked Liked Songs item. Never select another playlist.\n    function viaLikeMenu(b, method, after) {\n        var id = testid(b).toLowerCase(), l = label(b), popup = String(b.getAttribute(\'aria-haspopup\') || \'\');\n        if (!/^(true|menu|dialog|listbox)$/i.test(popup)) return false;\n        if (!identityMatches()) { log(method + \':menu-identity\'); after(\'identity\', \'unknown\'); return true; }\n        if (!/^(add-button|add-to-library-button)$/.test(id) || labels.like.on.test(l) ||\n            shownState === \'true\' || ((b.getAttribute(\'aria-checked\') === \'true\' || b.getAttribute(\'aria-pressed\') === \'true\') && !genericAdd(l)) ||\n            b.matches(\':disabled\') || b.closest(\'[aria-disabled=\"true\"], fieldset:disabled\')) {\n            log(method + \':menu-unsafe\'); after(\'menu-state\', \'unknown\'); return true;\n        }\n        var selector = \'[role=\"menu\"], [role=\"dialog\"], [role=\"listbox\"]\';\n        function available(n) { return n && n.isConnected && !n.closest(\'[hidden], [aria-hidden=\"true\"]\'); }\n        var before = Array.from(document.querySelectorAll(selector)).filter(available);\n        var expanded = b.getAttribute(\'aria-expanded\') === \'true\', opened = false;\n        function root() {\n            var id = b.getAttribute(\'aria-controls\'), controlled = id && document.getElementById(id);\n            if (available(controlled) && controlled.matches(selector) &&\n                (expanded || before.indexOf(controlled) < 0 || b.getAttribute(\'aria-expanded\') === \'true\')) return controlled;\n            if (expanded) return null;\n            var fresh = Array.from(document.querySelectorAll(selector)).filter(function(n) { return available(n) && before.indexOf(n) < 0; });\n            return fresh.length === 1 ? fresh[0] : null;\n        }\n        function closeMenu(r) {\n            if (!opened) return;\n            try {\n                (available(r) ? r : b).dispatchEvent(new KeyboardEvent(\'keydown\', {key:\'Escape\', code:\'Escape\', bubbles:true, cancelable:true}));\n                log(available(r) && b.getAttribute(\'aria-expanded\') === \'true\' ? method + \':menu-close-unverified\' : method + \':menu-close-requested\');\n            } catch (_) { log(method + \':menu-close-error\'); }\n        }\n        if (!expanded) {\n            try { b.click(); opened = true; log(method + \':menu-open\'); }\n            catch (_) { log(method + \':menu-open-error\'); after(\'menu-absent\', \'unknown\'); return true; }\n        }\n        wait(function() {\n            if (!identityMatches()) return \'identity-changed\';\n            return root();\n        }, 1800, function(r) {\n            if (r === \'identity-changed\') { closeMenu(null); after(\'identity\', \'unknown\'); return; }\n            if (!r) { log(method + \':menu-root\'); closeMenu(null); after(\'menu-absent\', \'unknown\'); return; }\n            var likedName = /^(liked songs|your liked songs|titres lik\u00e9s|vos titres lik\u00e9s|titres que j[\'\u2019]aime|liked-titel|canciones que te gustan|m\u00fasicas curtidas)$/i;\n            function targets() {\n                if (!available(r)) return [];\n                return Array.from(r.querySelectorAll(\'[role=\"menuitemcheckbox\"], [role=\"checkbox\"], input[type=\"checkbox\"]\')).filter(function(n) {\n                    var labelNode = n.closest(\'label\');\n                    var name = String(n.getAttribute(\'aria-label\') || (labelNode && labelNode.textContent) || n.textContent || \'\').replace(/\\s+/g, \' \').trim();\n                    return available(n) && likedName.test(name);\n                });\n            }\n            var candidates = targets();\n            if (candidates.length !== 1) { log(method + (candidates.length ? \':menu-ambiguous\' : \':menu-target\')); closeMenu(r); after(candidates.length ? \'menu-ambiguous\' : \'menu-absent\', \'unknown\'); return; }\n            var target = candidates[0], raw = target.getAttribute(\'aria-checked\');\n            var checked = target.tagName === \'INPUT\' && target.type === \'checkbox\' ? (target.checked ? \'true\' : \'false\') : null;\n            if (checked !== null && raw !== null && raw !== checked) raw = \'unknown\';\n            else if (raw === null) raw = checked;\n            if (target.matches(\':disabled\') || target.closest(\'[aria-disabled=\"true\"], fieldset:disabled\') || (raw !== \'true\' && raw !== \'false\')) {\n                log(method + \':menu-state\'); closeMenu(r); after(\'menu-state\', \'unknown\'); return;\n            }\n            if (raw === \'true\') { log(method + \':menu-liked\'); closeMenu(r); after(\'read\', \'true\'); return; }\n            if (!identityMatches()) { closeMenu(r); after(\'identity\', \'unknown\'); return; }\n            invalidateLikedRead();\n            try { target.click(); log(method + \':menu-add\'); }\n            catch (_) { log(method + \':menu-add-error\'); closeMenu(r); after(\'unconfirmed\', \'unknown\'); return; }\n            wait(function() {\n                if (!identityMatches()) return \'identity-changed\';\n                var current = targets();\n                if (current.length !== 1 || current[0].matches(\':disabled\') || current[0].closest(\'[aria-disabled=\"true\"], fieldset:disabled\')) return null;\n                // React may replace the checkbox after the click; only the\n                // unique explicit Liked Songs item in the same menu is read.\n                var observed = current[0];\n                var a = observed.getAttribute(\'aria-checked\');\n                var c = observed.tagName === \'INPUT\' && observed.type === \'checkbox\' ? observed.checked : null;\n                return (a === \'true\' && c !== false) || (a === null && c === true) ? \'true\' : null;\n            }, 2200, function(state) {\n                closeMenu(r);\n                if (state === \'identity-changed\') { log(method + \':menu-identity\'); after(\'identity\', \'unknown\'); }\n                else if (state === \'true\') { log(method + \':menu-verified\'); after(\'confirmed\', \'true\'); }\n                else { log(method + \':menu-unverified\'); after(\'unconfirmed\', \'false\'); }\n            });\n        });\n        return true;\n    }\n    // Spotify removes a like either directly or through its playlist picker,\n    // where only the unique checked Liked Songs item is unchecked, then Done.\n    function unlike(b, method, after) {\n        var selector = \'[role=\"menu\"], [role=\"dialog\"], [role=\"listbox\"]\';\n        var likedName = /^(liked songs|your liked songs|titres lik\u00e9s|vos titres lik\u00e9s|titres que j[\'\u2019]aime|liked-titel|canciones que te gustan|m\u00fasicas curtidas)$/i;\n        function available(n) { return n && n.isConnected && !n.closest(\'[hidden], [aria-hidden=\"true\"]\'); }\n        var before = Array.from(document.querySelectorAll(selector)).filter(available);\n        function fresh() { var f = Array.from(document.querySelectorAll(selector)).filter(function(n) { return available(n) && before.indexOf(n) < 0; }); return f.length === 1 ? f[0] : null; }\n        function barState() { var a = find(); return a.node ? read(a.node) : \'unknown\'; }\n        function targets(r) {\n            return Array.from(r.querySelectorAll(\'[role=\"menuitemcheckbox\"], [role=\"checkbox\"], input[type=\"checkbox\"], button[aria-checked]\')).filter(function(n) {\n                var ln = n.closest(\'label\');\n                var name = String(n.getAttribute(\'aria-label\') || (ln && ln.textContent) || n.textContent || \'\').replace(/\\s+/g, \' \').trim();\n                if (!likedName.test(name) && n.closest(\'li, [role=\"row\"], [role=\"option\"]\')) name = String(n.closest(\'li, [role=\"row\"], [role=\"option\"]\').textContent || \'\').replace(/\\s+/g, \' \').trim();\n                return available(n) && likedName.test(name);\n            });\n        }\n        function close(r) { try { (available(r) ? r : b).dispatchEvent(new KeyboardEvent(\'keydown\', {key:\'Escape\', code:\'Escape\', bubbles:true, cancelable:true})); } catch (_) {} }\n        invalidateLikedRead();\n        try { b.click(); log(method + \':unlike-open\'); } catch (_) { after(\'command\', \'true\'); return; }\n        wait(function() {\n            if (!identityMatches()) return \'identity-changed\';\n            if (barState() === \'false\') return \'direct\';\n            return fresh();\n        }, 2200, function(r) {\n            if (r === \'identity-changed\') { after(\'identity\', \'unknown\'); return; }\n            if (r === \'direct\') { log(method + \':unlike-verified\'); after(\'confirmed\', \'false\'); return; }\n            if (!r) { log(method + \':unlike-no-picker\'); after(\'menu-absent\', \'true\'); return; }\n            var t = targets(r);\n            if (t.length !== 1) { log(method + (t.length ? \':unlike-ambiguous\' : \':unlike-target\')); close(r); after(t.length ? \'menu-ambiguous\' : \'menu-absent\', \'true\'); return; }\n            var on = t[0].getAttribute(\'aria-checked\') === \'true\' || t[0].checked === true;\n            if (!on) { log(method + \':unlike-not-checked\'); close(r); after(\'menu-state\', \'true\'); return; }\n            try { t[0].click(); log(method + \':unlike-uncheck\'); } catch (_) { close(r); after(\'unconfirmed\', \'true\'); return; }\n            var done = Array.from(r.querySelectorAll(\'button\')).filter(function(n) { return available(n) && /^(termin\u00e9|terminer|done|ok|valider|enregistrer|save)$/i.test(String(n.getAttribute(\'aria-label\') || n.textContent || \'\').replace(/\\s+/g, \' \').trim()); });\n            if (done.length === 1) { try { done[0].click(); log(method + \':unlike-done\'); } catch (_) {} }\n            wait(function() {\n                if (!identityMatches()) return \'identity-changed\';\n                return barState() === \'false\' ? \'false\' : null;\n            }, 2600, function(st) {\n                if (available(r)) close(r);\n                if (st === \'identity-changed\') after(\'identity\', \'unknown\');\n                else if (st === \'false\') { log(method + \':unlike-verified\'); after(\'confirmed\', \'false\'); }\n                else { log(method + \':unlike-unverified\'); after(\'unconfirmed\', \'true\'); }\n            });\n        });\n    }\n    // Decide and click on a readable control; verify the change afterwards.\n    function act(found, method, after) {\n        var b = found.node;\n        if (kind === \'like\' && viaLikeMenu(b, method, after)) return;\n        var before = read(b);\n        log(method + \':state-\' + before);\n        if (before === \'unknown\') { after(\'state\', before); return; }\n        if (kind === \'like\') {\n            if (!identityMatches()) { log(method + \':identity\'); after(\'identity\', before); return; }\n            // Remove only when the user tapped a button shown as liked and the page agrees.\n            if (before === \'true\' && shownState === \'true\') { unlike(b, method, after); return; }\n            if (before !== \'false\') { log(method + \':liked-read-only\'); after(\'read\', before); return; }\n            if (shownState === \'true\') { log(method + \':mismatch\'); after(\'read\', before); return; }\n        }\n        if (kind === \'like\') invalidateLikedRead();\n        try { b.click(); log(method + \':click\'); } catch (_) { log(method + \':click-error\'); after(\'command\', before); return; }\n        wait(function() {\n            if (kind === \'like\' && !identityMatches()) return \'identity-changed\';\n            var again = find();\n            if (!again.node) return null;\n            var s = read(again.node);\n            return s !== before && s !== \'unknown\' ? s : null;\n        }, 2200, function(s) {\n            if (s === \'identity-changed\') { log(method + \':identity\'); after(\'identity\', \'unknown\'); }\n            else if (s) { log(method + \':verified\'); after(\'confirmed\', s); }\n            else { log(method + \':unverified\'); after(\'unconfirmed\', before); }\n        });\n    }\n    function viaKeyboard() {\n        if (kind === \'like\') { log(\'c:like-skipped\'); finish(\'failed\', \'unknown\', \'\'); return; }\n        var spec = kind === \'shuffle\' ? {key: \'s\', code: \'KeyS\', keyCode: 83} : {key: \'r\', code: \'KeyR\', keyCode: 82};\n        // Unverifiable when no control is readable, so only ONE combination per\n        // tap (two could cancel each other). Families alternate across taps.\n        var turns = W.__melodixKeyTurns = W.__melodixKeyTurns || {};\n        var ctrl = !(turns[kind] % 2); turns[kind] = (turns[kind] || 0) + 1;\n        try {\n            var target = document.activeElement && document.activeElement !== document.body ? document.activeElement : document.body;\n            [\'keydown\', \'keyup\'].forEach(function(type) {\n                target.dispatchEvent(new KeyboardEvent(type, {key: spec.key, code: spec.code, keyCode: spec.keyCode, which: spec.keyCode, ctrlKey: ctrl, altKey: !ctrl, bubbles: true, cancelable: true}));\n            });\n            log(\'c:\' + (ctrl ? \'ctrl-\' : \'alt-\') + spec.key); log(\'c:single-unreadable\');\n            finish(\'unverified\', \'unknown\', \'keyboard\');\n        } catch (_) { log(\'c:error\'); finish(\'failed\', \'unknown\', \'\'); }\n    }\n    function result(outcome, state, method) {\n        if (outcome === \'confirmed\' || outcome === \'unconfirmed\' || outcome === \'read\') finish(outcome, state, method);\n        else if (outcome === \'identity\' || outcome === \'menu-absent\' || outcome === \'menu-ambiguous\' || outcome === \'menu-state\') finish(outcome, \'unknown\', method);\n        else finish(\'failed\', state, method);\n    }\n    try {\n        var direct = find();\n        log(\'a:\' + (direct.node ? \'found\' : direct.reason));\n        if (direct.node && !direct.reason) { act(direct, \'a\', function(o, s) { result(o, s, \'direct\'); }); return JSON.stringify({status: \'started\'}); }\n        if (direct.reason === \'disabled\') { finish(\'disabled\', \'unknown\', \'direct\'); return JSON.stringify({status: \'started\'}); }\n        var view = opener();\n        if (!view) { log(\'b:no-opener\'); viaKeyboard(); return JSON.stringify({status: \'started\'}); }\n        var wasOpen = pressed(view);\n        if (!wasOpen) { try { view.click(); log(\'b:opened\'); } catch (_) { log(\'b:open-error\'); } }\n        else log(\'b:already-open\');\n        var closeView = function() {\n            if (!wasOpen) {\n                setTimeout(function() {\n                    var again = opener();\n                    try { if (again && pressed(again)) { again.click(); log(\'b:closed\'); } } catch (_) { log(\'b:close-error\'); }\n                }, 150);\n            }\n        };\n        wait(function() { var f = find(); return f.node && !f.reason ? f : null; }, 1800, function(found) {\n            if (!found) { log(\'b:absent\'); closeView(); viaKeyboard(); return; }\n            log(\'b:found\');\n            act(found, \'b\', function(o, s) { closeView(); result(o, s, \'now-playing-view\'); });\n        });\n        return JSON.stringify({status: \'started\'});\n    } catch (_) {\n        finish(\'failed\', \'unknown\', \'\');\n        return JSON.stringify({status: \'started\'});\n    }\n})\n)("
 
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
@@ -2493,7 +2483,7 @@
 
     if-eqz v1, :cond_4
 
-    const-string v1, "Impossible d\u2019ajouter aux titres lik\u00e9s, R\u00e9essayer"
+    const-string v1, "Like non confirm\u00e9, R\u00e9essayer"
 
     goto :goto_1
 
@@ -2653,11 +2643,22 @@
 
     const-string v6, "true"
 
-    if-eqz v4, :cond_2
+    const-string v7, "like"
 
+    if-nez v4, :cond_0
+
+    iget-object v4, p0, Lcom/melodix/music/PreviewPlayerMode;->kind:Ljava/lang/String;
+
+    invoke-virtual {v4, v7}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v4
+
+    if-eqz v4, :cond_3
+
+    :cond_0
     iget-boolean v4, p0, Lcom/melodix/music/PreviewPlayerMode;->pending:Z
 
-    if-eqz v4, :cond_2
+    if-eqz v4, :cond_3
 
     iget-object v3, p0, Lcom/melodix/music/PreviewPlayerMode;->pendingState:Ljava/lang/String;
 
@@ -2667,30 +2668,30 @@
 
     move-result v3
 
-    if-eqz v3, :cond_0
+    if-eqz v3, :cond_1
 
     move-object v3, v6
 
     goto :goto_0
 
-    :cond_0
+    :cond_1
     iget-object v3, p0, Lcom/melodix/music/PreviewPlayerMode;->pendingState:Ljava/lang/String;
 
     invoke-virtual {v3, v6}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v3
 
-    if-eqz v3, :cond_1
+    if-eqz v3, :cond_2
 
     move-object v3, v4
 
     goto :goto_0
 
-    :cond_1
+    :cond_2
     move-object v3, v1
 
     .line 250
-    :cond_2
+    :cond_3
     :goto_0
     invoke-virtual {v3, v6}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
@@ -2698,96 +2699,94 @@
 
     const/4 v6, 0x0
 
-    const-string v7, "mixed"
+    const-string v8, "mixed"
 
-    if-nez v4, :cond_4
+    if-nez v4, :cond_5
 
-    invoke-virtual {v3, v7}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    invoke-virtual {v3, v8}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v4
 
-    if-eqz v4, :cond_3
+    if-eqz v4, :cond_4
 
     goto :goto_1
 
-    :cond_3
+    :cond_4
     move v4, v6
 
     goto :goto_2
 
-    :cond_4
+    :cond_5
     :goto_1
     move v4, v2
 
     .line 252
     :goto_2
-    iget-object v8, p0, Lcom/melodix/music/PreviewPlayerMode;->kind:Ljava/lang/String;
+    iget-object v9, p0, Lcom/melodix/music/PreviewPlayerMode;->kind:Ljava/lang/String;
 
-    const-string v9, "like"
+    invoke-virtual {v9, v7}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
-    invoke-virtual {v8, v9}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v9
 
-    move-result v8
+    if-eqz v9, :cond_9
 
-    if-eqz v8, :cond_8
-
-    if-eqz v4, :cond_5
+    if-eqz v4, :cond_6
 
     const-string v1, "favon"
 
     goto :goto_3
 
-    :cond_5
+    :cond_6
     const-string v1, "favoff"
 
     :goto_3
-    if-nez v0, :cond_6
+    if-nez v0, :cond_7
 
     const-string v3, "Like indisponible"
 
     goto/16 :goto_8
 
-    :cond_6
-    if-eqz v4, :cond_7
+    :cond_7
+    if-eqz v4, :cond_8
 
     const-string v3, "Titre aim\u00e9"
 
     goto :goto_8
 
-    :cond_7
+    :cond_8
     const-string v3, "Ajouter aux titres lik\u00e9s"
 
     goto :goto_8
 
     .line 253
-    :cond_8
-    iget-object v8, p0, Lcom/melodix/music/PreviewPlayerMode;->kind:Ljava/lang/String;
+    :cond_9
+    iget-object v9, p0, Lcom/melodix/music/PreviewPlayerMode;->kind:Ljava/lang/String;
 
-    invoke-virtual {v8, v5}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    invoke-virtual {v9, v5}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v9
+
+    if-eqz v9, :cond_d
+
+    invoke-virtual {v3, v8}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v8
 
-    if-eqz v8, :cond_c
+    if-eqz v8, :cond_a
 
-    invoke-virtual {v3, v7}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-
-    move-result v7
-
-    if-eqz v7, :cond_9
-
-    const-string v7, "smart_shuffle"
+    const-string v8, "smart_shuffle"
 
     goto :goto_4
 
-    :cond_9
-    move-object v7, v5
+    :cond_a
+    move-object v8, v5
 
     :goto_4
     invoke-virtual {v3, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v1
 
-    if-eqz v1, :cond_a
+    if-eqz v1, :cond_b
 
     const-string v1, "Al\u00e9atoire : \u00e9tat inconnu"
 
@@ -2796,180 +2795,180 @@
 
     goto :goto_6
 
-    :cond_a
-    if-eqz v4, :cond_b
+    :cond_b
+    if-eqz v4, :cond_c
 
     const-string v1, "Lecture al\u00e9atoire activ\u00e9e"
 
     goto :goto_5
 
-    :cond_b
+    :cond_c
     const-string v1, "Lecture al\u00e9atoire d\u00e9sactiv\u00e9e"
 
     goto :goto_5
 
     :goto_6
-    move-object v1, v7
+    move-object v1, v8
 
     goto :goto_8
 
     .line 254
-    :cond_c
+    :cond_d
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerMode;->state:Ljava/lang/String;
 
-    invoke-virtual {v1, v7}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    invoke-virtual {v1, v8}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v1
 
-    if-eqz v1, :cond_d
+    if-eqz v1, :cond_e
 
     const-string v1, "repone"
 
     goto :goto_7
 
-    :cond_d
-    if-eqz v4, :cond_e
+    :cond_e
+    if-eqz v4, :cond_f
 
     const-string v1, "repon"
 
     goto :goto_7
 
-    :cond_e
+    :cond_f
     const-string v1, "repoff"
 
     :goto_7
-    if-nez v0, :cond_f
+    if-nez v0, :cond_10
 
     const-string v3, "R\u00e9p\u00e9tition indisponible"
 
     goto :goto_8
 
-    :cond_f
+    :cond_10
     iget-object v3, p0, Lcom/melodix/music/PreviewPlayerMode;->state:Ljava/lang/String;
 
-    invoke-virtual {v3, v7}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    invoke-virtual {v3, v8}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v3
 
-    if-eqz v3, :cond_10
+    if-eqz v3, :cond_11
 
     const-string v3, "R\u00e9p\u00e9ter le titre"
 
     goto :goto_8
 
-    :cond_10
-    if-eqz v4, :cond_11
+    :cond_11
+    if-eqz v4, :cond_12
 
     const-string v3, "R\u00e9p\u00e9ter la liste"
 
     goto :goto_8
 
-    :cond_11
+    :cond_12
     const-string v3, "R\u00e9p\u00e9tition d\u00e9sactiv\u00e9e"
 
     .line 255
     :goto_8
-    iget-boolean v7, p0, Lcom/melodix/music/PreviewPlayerMode;->running:Z
+    iget-boolean v8, p0, Lcom/melodix/music/PreviewPlayerMode;->running:Z
 
-    if-eqz v7, :cond_12
+    if-eqz v8, :cond_13
 
-    if-nez v0, :cond_12
+    if-nez v0, :cond_13
 
     invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
 
-    move-result-wide v7
+    move-result-wide v8
 
     iget-wide v10, p0, Lcom/melodix/music/PreviewPlayerMode;->visibleSince:J
 
-    sub-long/2addr v7, v10
+    sub-long/2addr v8, v10
 
     const-wide/16 v10, 0x960
 
-    cmp-long v7, v7, v10
+    cmp-long v8, v8, v10
 
-    if-gez v7, :cond_12
+    if-gez v8, :cond_13
 
-    move v7, v2
+    move v8, v2
 
     goto :goto_9
 
-    :cond_12
-    move v7, v6
+    :cond_13
+    move v8, v6
 
     .line 256
     :goto_9
-    if-eqz v7, :cond_13
+    if-eqz v8, :cond_14
 
     const v1, 0x108005f
 
     goto :goto_a
 
-    :cond_13
+    :cond_14
     invoke-direct {p0, v1}, Lcom/melodix/music/PreviewPlayerMode;->drawable(Ljava/lang/String;)I
 
     move-result v1
 
     :goto_a
-    if-eqz v1, :cond_14
+    if-eqz v1, :cond_15
 
     invoke-virtual {p0, v1}, Lcom/melodix/music/PreviewPlayerMode;->setImageResource(I)V
 
     .line 257
-    :cond_14
+    :cond_15
     iget-boolean v1, p0, Lcom/melodix/music/PreviewPlayerMode;->running:Z
 
-    if-eqz v1, :cond_15
+    if-eqz v1, :cond_16
 
-    if-nez v0, :cond_15
+    if-nez v0, :cond_16
 
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->tappable()Z
 
     move-result v1
 
-    if-eqz v1, :cond_15
+    if-eqz v1, :cond_16
 
-    if-nez v7, :cond_15
+    if-nez v8, :cond_16
 
     move v1, v2
 
     goto :goto_b
 
-    :cond_15
+    :cond_16
     move v1, v6
 
     .line 258
     :goto_b
-    if-nez v0, :cond_16
+    if-nez v0, :cond_17
 
-    if-eqz v1, :cond_16
+    if-eqz v1, :cond_17
 
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->shuffleMissing()Z
 
-    move-result v8
+    move-result v9
 
-    if-eqz v8, :cond_16
+    if-eqz v9, :cond_17
 
     const-string v3, "Al\u00e9atoire : bouton absent de la page Spotify ; touchez pour envoyer le raccourci clavier (effet non v\u00e9rifiable)"
 
     goto/16 :goto_10
 
     .line 259
-    :cond_16
-    if-nez v0, :cond_17
+    :cond_17
+    if-nez v0, :cond_18
 
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->likeMissing()Z
 
-    move-result v8
+    move-result v9
 
-    if-eqz v8, :cond_17
+    if-eqz v9, :cond_18
 
     const-string v3, "Like indisponible : bouton absent de la page Spotify"
 
     goto/16 :goto_10
 
     .line 260
-    :cond_17
-    const-string v8, ")"
+    :cond_18
+    const-string v9, ")"
 
     const-string v10, "Al\u00e9atoire"
 
@@ -2977,9 +2976,9 @@
 
     const-string v12, "Like"
 
-    if-nez v0, :cond_1a
+    if-nez v0, :cond_1b
 
-    if-eqz v1, :cond_1a
+    if-eqz v1, :cond_1b
 
     new-instance v3, Ljava/lang/StringBuilder;
 
@@ -2993,28 +2992,28 @@
 
     iget-object v13, p0, Lcom/melodix/music/PreviewPlayerMode;->kind:Ljava/lang/String;
 
-    invoke-virtual {v13, v9}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    invoke-virtual {v13, v7}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v13
 
-    if-eqz v13, :cond_18
+    if-eqz v13, :cond_19
 
     move-object v10, v12
 
     goto :goto_c
 
-    :cond_18
+    :cond_19
     iget-object v12, p0, Lcom/melodix/music/PreviewPlayerMode;->kind:Ljava/lang/String;
 
     invoke-virtual {v12, v5}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v5
 
-    if-eqz v5, :cond_19
+    if-eqz v5, :cond_1a
 
     goto :goto_c
 
-    :cond_19
+    :cond_1a
     move-object v10, v11
 
     :goto_c
@@ -3022,7 +3021,7 @@
 
     move-result-object v3
 
-    invoke-virtual {v3, v8}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v3, v9}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v3
 
@@ -3033,20 +3032,20 @@
     goto :goto_10
 
     .line 261
-    :cond_1a
-    if-nez v0, :cond_1f
+    :cond_1b
+    if-nez v0, :cond_20
 
     new-instance v3, Ljava/lang/StringBuilder;
 
     invoke-direct {v3}, Ljava/lang/StringBuilder;-><init>()V
 
-    if-eqz v7, :cond_1b
+    if-eqz v8, :cond_1c
 
     const-string v13, "Chargement : "
 
     goto :goto_d
 
-    :cond_1b
+    :cond_1c
     const-string v13, "Indisponible : "
 
     :goto_d
@@ -3070,28 +3069,28 @@
 
     iget-object v13, p0, Lcom/melodix/music/PreviewPlayerMode;->kind:Ljava/lang/String;
 
-    invoke-virtual {v13, v9}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    invoke-virtual {v13, v7}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v13
 
-    if-eqz v13, :cond_1c
+    if-eqz v13, :cond_1d
 
     move-object v10, v12
 
     goto :goto_e
 
-    :cond_1c
+    :cond_1d
     iget-object v12, p0, Lcom/melodix/music/PreviewPlayerMode;->kind:Ljava/lang/String;
 
     invoke-virtual {v12, v5}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v12
 
-    if-eqz v12, :cond_1d
+    if-eqz v12, :cond_1e
 
     goto :goto_e
 
-    :cond_1d
+    :cond_1e
     move-object v10, v11
 
     :goto_e
@@ -3099,23 +3098,23 @@
 
     move-result-object v3
 
-    invoke-virtual {v3, v8}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v3, v9}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v3
 
-    iget-object v8, p0, Lcom/melodix/music/PreviewPlayerMode;->kind:Ljava/lang/String;
+    iget-object v9, p0, Lcom/melodix/music/PreviewPlayerMode;->kind:Ljava/lang/String;
 
-    invoke-virtual {v8, v5}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    invoke-virtual {v9, v5}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v5
 
-    if-eqz v5, :cond_1e
+    if-eqz v5, :cond_1f
 
     const-string v5, " ; n\u00e9cessite un contr\u00f4le et un \u00e9tat Spotify reconnus"
 
     goto :goto_f
 
-    :cond_1e
+    :cond_1f
     const-string v5, ""
 
     :goto_f
@@ -3128,15 +3127,15 @@
     move-result-object v3
 
     .line 262
-    :cond_1f
+    :cond_20
     :goto_10
-    if-eqz v4, :cond_20
+    if-eqz v4, :cond_21
 
     const v4, -0x1fb762
 
     goto :goto_11
 
-    :cond_20
+    :cond_21
     const v4, -0x363f16
 
     :goto_11
@@ -3144,7 +3143,7 @@
 
     iget-boolean v4, p0, Lcom/melodix/music/PreviewPlayerMode;->pending:Z
 
-    if-eqz v4, :cond_21
+    if-eqz v4, :cond_22
 
     new-instance v4, Ljava/lang/StringBuilder;
 
@@ -3164,60 +3163,60 @@
 
     move-result-object v3
 
-    :cond_21
+    :cond_22
     invoke-virtual {p0, v3}, Lcom/melodix/music/PreviewPlayerMode;->setContentDescription(Ljava/lang/CharSequence;)V
 
     .line 263
-    if-nez v0, :cond_22
+    if-nez v0, :cond_23
 
-    if-nez v1, :cond_22
+    if-nez v1, :cond_23
 
     iget-object v3, p0, Lcom/melodix/music/PreviewPlayerMode;->kind:Ljava/lang/String;
 
-    invoke-virtual {v3, v9}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    invoke-virtual {v3, v7}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v3
 
-    if-eqz v3, :cond_23
+    if-eqz v3, :cond_24
 
     iget-boolean v3, p0, Lcom/melodix/music/PreviewPlayerMode;->running:Z
 
-    if-eqz v3, :cond_23
+    if-eqz v3, :cond_24
 
-    :cond_22
+    :cond_23
     iget-boolean v3, p0, Lcom/melodix/music/PreviewPlayerMode;->pending:Z
 
-    if-nez v3, :cond_23
+    if-nez v3, :cond_24
 
     goto :goto_12
 
-    :cond_23
+    :cond_24
     move v2, v6
 
     :goto_12
     invoke-virtual {p0, v2}, Lcom/melodix/music/PreviewPlayerMode;->setEnabled(Z)V
 
-    if-eqz v1, :cond_25
+    if-eqz v1, :cond_26
 
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerMode;->shuffleMissing()Z
 
     move-result v0
 
-    if-eqz v0, :cond_24
+    if-eqz v0, :cond_25
 
     const/high16 v0, 0x3f000000    # 0.5f
 
     goto :goto_15
 
-    :cond_24
+    :cond_25
     const v0, 0x3f4ccccd    # 0.8f
 
     goto :goto_15
 
-    :cond_25
+    :cond_26
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerMode;->kind:Ljava/lang/String;
 
-    invoke-virtual {v1, v9}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    invoke-virtual {v1, v7}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v1
 
@@ -3227,42 +3226,42 @@
 
     const v4, 0x3f266666    # 0.65f
 
-    if-eqz v1, :cond_27
+    if-eqz v1, :cond_28
 
     iget-boolean v1, p0, Lcom/melodix/music/PreviewPlayerMode;->pending:Z
 
-    if-eqz v1, :cond_26
+    if-eqz v1, :cond_27
 
     :goto_13
     move v0, v4
 
     goto :goto_15
 
-    :cond_26
-    if-eqz v0, :cond_28
+    :cond_27
+    if-eqz v0, :cond_29
 
     goto :goto_14
 
-    :cond_27
-    if-nez v0, :cond_29
+    :cond_28
+    if-nez v0, :cond_2a
 
-    if-eqz v7, :cond_28
+    if-eqz v8, :cond_29
 
     goto :goto_13
 
-    :cond_28
+    :cond_29
     move v0, v2
 
     goto :goto_15
 
-    :cond_29
+    :cond_2a
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerMode;->pending:Z
 
-    if-eqz v0, :cond_2a
+    if-eqz v0, :cond_2b
 
     goto :goto_13
 
-    :cond_2a
+    :cond_2b
     :goto_14
     move v0, v3
 
