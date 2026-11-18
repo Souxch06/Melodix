@@ -62,30 +62,6 @@ permissions:
   contents: read
 
 jobs:
-  export-signed-preview:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag == 'export-signed-preview' }}
-    permissions:
-      actions: read
-      contents: write
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: Melodix-Preview-lot1
-          run-id: 44318267043
-          github-token: ${{ github.token }}
-          path: signed-preview
-      - name: Export verified artifact to a temporary content-addressed blob
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          cd signed-preview
-          sha256sum -c Melodix-Preview-historique-glass.apk.sha256
-          python3 -c 'import base64,json,pathlib; p=pathlib.Path("Melodix-Preview-historique-glass.apk"); pathlib.Path("blob.json").write_text(json.dumps({"content":base64.b64encode(p.read_bytes()).decode("ascii"),"encoding":"base64"}))'
-          sha="$(gh api -X POST "repos/$GITHUB_REPOSITORY/git/blobs" --input blob.json --jq .sha)"
-          [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
-          echo "::notice title=Signed Preview blob::$sha"
   read-only-guard-log:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag == 'diagnose-preview-guard' }}
     permissions:
@@ -164,7 +140,7 @@ jobs:
           fi
           python3 "$audit/diagnose_signed_9016.py" "$RUNNER_TEMP/reference-9016.zip" "$RUNNER_TEMP/candidate.apk" "$RUNNER_TEMP/ref-error" "$RUNNER_TEMP/ref-meta"
   build-and-release-preview:
-    if: ${{ inputs.release_tag != 'diagnose-preview-guard' && inputs.release_tag != 'diagnose-reference-9016' && inputs.release_tag != 'export-signed-preview' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && !(github.event_name == 'workflow_dispatch' && (inputs.release_tag == 'v1.2.2-test.9003-preview' || inputs.release_tag == 'v1.2.2-test.9004-preview' || inputs.release_tag == 'v1.2.2-test.9005-preview' || inputs.release_tag == 'v1.2.2-test.9006-preview' || inputs.release_tag == 'v1.2.2-test.9007-preview' || inputs.release_tag == 'v1.2.2-test.9008-preview' || inputs.release_tag == 'v1.2.2-test.9009-preview' || inputs.release_tag == 'v1.2.2-test.9010-preview' || inputs.release_tag == 'v1.2.2-test.9011-preview' || inputs.release_tag == 'v1.2.2-test.9012-preview' || inputs.release_tag == 'v1.2.2-test.9013-preview' || inputs.release_tag == 'v1.2.2-test.9014-preview' || inputs.release_tag == 'v1.2.2-test.9015-preview' || inputs.release_tag == 'v1.2.2-test.9016-preview' || (inputs.release_tag == 'v1.2.2-test.9017-preview' || (inputs.release_tag == 'v1.2.2-test.9018-preview' || (inputs.release_tag == 'v1.2.2-test.9020-preview' || (inputs.release_tag == 'v1.2.2-test.9021-preview' || (inputs.release_tag == 'v1.2.2-test.9022-preview' || (inputs.release_tag == 'v1.2.2-test.9023-preview' || (inputs.release_tag == 'v1.2.2-test.9024-preview' || inputs.release_tag == 'v1.2.2-test.9026-preview' || inputs.release_tag == 'v1.2.2-test.9027-preview')))))) || inputs.release_tag == 'v1.2.2-test.9019-preview'))) }}
+    if: ${{ inputs.release_tag != 'diagnose-preview-guard' && inputs.release_tag != 'diagnose-reference-9016' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && !(github.event_name == 'workflow_dispatch' && (inputs.release_tag == 'v1.2.2-test.9003-preview' || inputs.release_tag == 'v1.2.2-test.9004-preview' || inputs.release_tag == 'v1.2.2-test.9005-preview' || inputs.release_tag == 'v1.2.2-test.9006-preview' || inputs.release_tag == 'v1.2.2-test.9007-preview' || inputs.release_tag == 'v1.2.2-test.9008-preview' || inputs.release_tag == 'v1.2.2-test.9009-preview' || inputs.release_tag == 'v1.2.2-test.9010-preview' || inputs.release_tag == 'v1.2.2-test.9011-preview' || inputs.release_tag == 'v1.2.2-test.9012-preview' || inputs.release_tag == 'v1.2.2-test.9013-preview' || inputs.release_tag == 'v1.2.2-test.9014-preview' || inputs.release_tag == 'v1.2.2-test.9015-preview' || inputs.release_tag == 'v1.2.2-test.9016-preview' || (inputs.release_tag == 'v1.2.2-test.9017-preview' || (inputs.release_tag == 'v1.2.2-test.9018-preview' || (inputs.release_tag == 'v1.2.2-test.9020-preview' || (inputs.release_tag == 'v1.2.2-test.9021-preview' || (inputs.release_tag == 'v1.2.2-test.9022-preview' || (inputs.release_tag == 'v1.2.2-test.9023-preview' || (inputs.release_tag == 'v1.2.2-test.9024-preview' || inputs.release_tag == 'v1.2.2-test.9026-preview' || inputs.release_tag == 'v1.2.2-test.9027-preview')))))) || inputs.release_tag == 'v1.2.2-test.9019-preview'))) }}
     name: Build separate Preview APK artifact
     runs-on: ubuntu-latest
     outputs:
