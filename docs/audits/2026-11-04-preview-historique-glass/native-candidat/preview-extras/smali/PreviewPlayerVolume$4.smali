@@ -38,7 +38,7 @@
     .locals 0
 
     .prologue
-    .line 67
+    .line 70
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerVolume$4;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
     iput-wide p2, p0, Lcom/melodix/music/PreviewPlayerVolume$4;->val$id:J
@@ -70,12 +70,12 @@
 
     const/4 v1, -0x1
 
-    .line 68
+    .line 71
     iget-wide v2, p0, Lcom/melodix/music/PreviewPlayerVolume$4;->val$id:J
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume$4;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$6(Lcom/melodix/music/PreviewPlayerVolume;)J
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$10(Lcom/melodix/music/PreviewPlayerVolume;)J
 
     move-result-wide v4
 
@@ -99,24 +99,24 @@
 
     if-nez v0, :cond_1
 
-    .line 73
+    .line 76
     :cond_0
     :goto_0
     return-void
 
-    .line 68
+    .line 71
     :cond_1
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume$4;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
-    invoke-static {v0, v6}, Lcom/melodix/music/PreviewPlayerVolume;->access$7(Lcom/melodix/music/PreviewPlayerVolume;Z)V
+    invoke-static {v0, v6}, Lcom/melodix/music/PreviewPlayerVolume;->access$11(Lcom/melodix/music/PreviewPlayerVolume;Z)V
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume$4;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
-    invoke-static {v0, p1}, Lcom/melodix/music/PreviewPlayerVolume;->access$8(Lcom/melodix/music/PreviewPlayerVolume;Ljava/lang/String;)Lorg/json/JSONObject;
+    invoke-static {v0, p1}, Lcom/melodix/music/PreviewPlayerVolume;->access$12(Lcom/melodix/music/PreviewPlayerVolume;Ljava/lang/String;)Lorg/json/JSONObject;
 
     move-result-object v2
 
-    .line 69
+    .line 72
     if-nez v2, :cond_3
 
     move v0, v1
@@ -141,12 +141,12 @@
     if-gt v0, v4, :cond_4
 
     :goto_2
-    invoke-static {v3, v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$9(Lcom/melodix/music/PreviewPlayerVolume;I)V
+    invoke-static {v3, v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$13(Lcom/melodix/music/PreviewPlayerVolume;I)V
 
-    .line 70
+    .line 73
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume$4;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$10(Lcom/melodix/music/PreviewPlayerVolume;)I
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$14(Lcom/melodix/music/PreviewPlayerVolume;)I
 
     move-result v0
 
@@ -159,30 +159,30 @@
     const-string v0, "web"
 
     :goto_3
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$11(Ljava/lang/String;)Ljava/lang/String;
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$15(Ljava/lang/String;)Ljava/lang/String;
 
     move-result-object v0
 
-    invoke-static {v1, v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$12(Lcom/melodix/music/PreviewPlayerVolume;Ljava/lang/String;)V
+    invoke-static {v1, v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$16(Lcom/melodix/music/PreviewPlayerVolume;Ljava/lang/String;)V
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume$4;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$13(Lcom/melodix/music/PreviewPlayerVolume;)Ljava/lang/String;
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$17(Lcom/melodix/music/PreviewPlayerVolume;)Ljava/lang/String;
 
     move-result-object v0
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$14(Ljava/lang/String;)V
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$18(Ljava/lang/String;)V
 
-    .line 72
+    .line 75
     :cond_2
     :goto_4
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume$4;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$17(Lcom/melodix/music/PreviewPlayerVolume;)V
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$21(Lcom/melodix/music/PreviewPlayerVolume;)V
 
     goto :goto_0
 
-    .line 69
+    .line 72
     :cond_3
     const-string v0, "percent"
 
@@ -197,7 +197,7 @@
 
     goto :goto_2
 
-    .line 70
+    .line 73
     :cond_5
     const-string v0, "reason"
 
@@ -209,13 +209,13 @@
 
     goto :goto_3
 
-    .line 71
+    .line 74
     :cond_6
     new-instance v0, Ljava/lang/StringBuilder;
 
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerVolume$4;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
-    invoke-static {v1}, Lcom/melodix/music/PreviewPlayerVolume;->access$10(Lcom/melodix/music/PreviewPlayerVolume;)I
+    invoke-static {v1}, Lcom/melodix/music/PreviewPlayerVolume;->access$14(Lcom/melodix/music/PreviewPlayerVolume;)I
 
     move-result v1
 
@@ -239,7 +239,7 @@
 
     move-result-object v1
 
-    invoke-static {v1}, Lcom/melodix/music/PreviewPlayerVolume;->access$15(Ljava/lang/String;)Ljava/lang/String;
+    invoke-static {v1}, Lcom/melodix/music/PreviewPlayerVolume;->access$19(Ljava/lang/String;)Ljava/lang/String;
 
     move-result-object v1
 
@@ -251,11 +251,11 @@
 
     move-result-object v0
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$14(Ljava/lang/String;)V
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$18(Ljava/lang/String;)V
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume$4;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$10(Lcom/melodix/music/PreviewPlayerVolume;)I
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerVolume;->access$14(Lcom/melodix/music/PreviewPlayerVolume;)I
 
     move-result v0
 
@@ -265,11 +265,11 @@
 
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerVolume$4;->this$0:Lcom/melodix/music/PreviewPlayerVolume;
 
-    invoke-static {v1}, Lcom/melodix/music/PreviewPlayerVolume;->access$10(Lcom/melodix/music/PreviewPlayerVolume;)I
+    invoke-static {v1}, Lcom/melodix/music/PreviewPlayerVolume;->access$14(Lcom/melodix/music/PreviewPlayerVolume;)I
 
     move-result v1
 
-    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerVolume;->access$16(Lcom/melodix/music/PreviewPlayerVolume;I)V
+    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerVolume;->access$20(Lcom/melodix/music/PreviewPlayerVolume;I)V
 
     goto :goto_4
 .end method

@@ -1,5 +1,7 @@
 # Campagne de réponses tardives — APK 1022250
 
+**Archive historique du candidat 1022250 / commit c93b99c.** Les scénarios ci-dessous ont depuis été corrigés dans les sources de la branche ; consulter `CORRECTIF_REPONSES_TARDIVES.md` pour l’état actuel et les nouvelles limites. Cet historique ne décrit pas un APK ultérieur.
+
 Code applicatif testé : `a5cde753a8a72e257e29015bfe1cf460677437e8`. Simulation JVM/JSDOM avec callbacks WebView contrôlés, vues Android factices et parseur `org.json` libcore (miroir GrapheneOS `2804897a14425d5e045ff8bc13a14ba7bef5b9bb`) ; également exécutée avec JSON-java `2cd0a8c2112a3bc17d33ba8546c54ecb613613f1`. Ni téléphone Android, ni Spotify authentifié, ni audio. L'ordonnancement des callbacks dans ces tests est provoqué volontairement et n'est pas établi sur appareil.
 
 ## File, Paroles, Appareils
@@ -20,11 +22,11 @@ Des contrôles supplémentaires vérifient qu'une ancienne réponse de commande 
 
 ## Exécution et interprétation
 
-Voir `CAMPAGNE_PONT_JSON.md` pour installer les dépendances et lancer `test_bridge_integration.py`. Sans option supplémentaire, la campagne **passe en caractérisant les limites connues** — ce passage ne signifie pas qu'elles sont corrigées. Pour reproduire séparément les deux tests rouges sur le candidat actuel, ajouter l'une de ces variables à la commande :
+Sur le test tel qu'il existait au commit `c93b99c`, voir `CAMPAGNE_PONT_JSON.md` pour installer les dépendances. Sans option supplémentaire, la campagne historique **passait en caractérisant les limites connues**. Sur cette version historique seulement, ces variables reproduisaient les deux tests rouges :
 
 ```sh
 BRIDGE_REQUIRE_SET_ACK=1       # échec attendu : réponse tardive de commande envoyée ignorée
 BRIDGE_REQUIRE_FAILURE_ACK=1   # échec attendu : réponse tardive d'échec ignorée
 ```
 
-Les deux vérifications strictes échouent avec le parseur libcore. Aucun correctif applicatif, reconstruction ou nouvel APK dans cette campagne. Les limites antérieures (fraîcheur des panneaux non vides, transfert incertain et Like) demeurent ouvertes.
+Les deux vérifications strictes échouaient avec le parseur libcore au commit `c93b99c`. Aucun correctif applicatif, reconstruction ou nouvel APK dans cette campagne historique. Les limites antérieures (fraîcheur des panneaux non vides, transfert incertain et Like) demeurent ouvertes.

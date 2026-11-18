@@ -37,7 +37,7 @@
 
 # virtual methods
 .method public run()V
-    .locals 4
+    .locals 3
 
     .prologue
     .line 55
@@ -65,9 +65,9 @@
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$1;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-    const-wide/16 v2, 0x7d0
+    const-wide/16 v1, 0x7d0
 
-    invoke-virtual {v0, p0, v2, v3}, Lcom/melodix/music/PreviewPlayerTiles;->postDelayed(Ljava/lang/Runnable;J)Z
+    invoke-virtual {v0, p0, v1, v2}, Lcom/melodix/music/PreviewPlayerTiles;->postDelayed(Ljava/lang/Runnable;J)Z
 
     goto :goto_0
 .end method

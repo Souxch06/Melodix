@@ -49,7 +49,7 @@
 
 # virtual methods
 .method public run()V
-    .locals 6
+    .locals 5
 
     .prologue
     .line 118
@@ -79,13 +79,13 @@
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$8(Lcom/melodix/music/PreviewPlayerTiles;)J
 
-    move-result-wide v2
+    move-result-wide v1
 
-    const-wide/16 v4, 0x1
+    const-wide/16 v3, 0x1
 
-    add-long/2addr v2, v4
+    add-long/2addr v1, v3
 
-    invoke-static {v0, v2, v3}, Lcom/melodix/music/PreviewPlayerTiles;->access$10(Lcom/melodix/music/PreviewPlayerTiles;J)V
+    invoke-static {v0, v1, v2}, Lcom/melodix/music/PreviewPlayerTiles;->access$10(Lcom/melodix/music/PreviewPlayerTiles;J)V
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$5;->val$body:Landroid/widget/TextView;
 

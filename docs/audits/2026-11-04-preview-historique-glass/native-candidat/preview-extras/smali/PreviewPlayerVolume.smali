@@ -12,6 +12,12 @@
 
 
 # instance fields
+.field private commandAt:J
+
+.field private commandPending:Z
+
+.field private commandSerial:J
+
 .field private dialog:Lcom/melodix/music/PreviewPlayerSheet;
 
 .field private dragging:Z
@@ -56,7 +62,7 @@
     .locals 1
 
     .prologue
-    .line 33
+    .line 35
     const-string v0, "non observ\u00e9e"
 
     sput-object v0, Lcom/melodix/music/PreviewPlayerVolume;->lastPage:Ljava/lang/String;
@@ -74,7 +80,7 @@
     .prologue
     const/4 v2, -0x1
 
-    .line 48
+    .line 51
     invoke-direct {p0, p1}, Landroid/widget/Button;-><init>(Landroid/content/Context;)V
 
     .line 28
@@ -88,38 +94,38 @@
 
     iput-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->handler:Landroid/os/Handler;
 
-    .line 30
+    .line 32
     const-wide/16 v0, -0x3e8
 
     iput-wide v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->lastSent:J
 
-    .line 31
+    .line 33
     iput v2, p0, Lcom/melodix/music/PreviewPlayerVolume;->percent:I
 
     iput v2, p0, Lcom/melodix/music/PreviewPlayerVolume;->queued:I
 
     iput v2, p0, Lcom/melodix/music/PreviewPlayerVolume;->lastNonZero:I
 
-    .line 32
+    .line 34
     const-string v0, "page non accessible"
 
     iput-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->reason:Ljava/lang/String;
 
-    .line 46
+    .line 49
     new-instance v0, Lcom/melodix/music/PreviewPlayerVolume$1;
 
     invoke-direct {v0, p0}, Lcom/melodix/music/PreviewPlayerVolume$1;-><init>(Lcom/melodix/music/PreviewPlayerVolume;)V
 
     iput-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->tick:Ljava/lang/Runnable;
 
-    .line 47
+    .line 50
     new-instance v0, Lcom/melodix/music/PreviewPlayerVolume$2;
 
     invoke-direct {v0, p0}, Lcom/melodix/music/PreviewPlayerVolume$2;-><init>(Lcom/melodix/music/PreviewPlayerVolume;)V
 
     iput-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->sendTask:Ljava/lang/Runnable;
 
-    .line 48
+    .line 51
     const/4 v0, 0x0
 
     invoke-virtual {p0, v0}, Lcom/melodix/music/PreviewPlayerVolume;->setEnabled(Z)V
@@ -143,283 +149,27 @@
     return v0
 .end method
 
-.method static synthetic access$1(Lcom/melodix/music/PreviewPlayerVolume;)V
-    .locals 0
-
-    .prologue
-    .line 63
-    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerVolume;->read()V
-
-    return-void
-.end method
-
-.method static synthetic access$10(Lcom/melodix/music/PreviewPlayerVolume;)I
+.method static synthetic access$1(Lcom/melodix/music/PreviewPlayerVolume;)Z
     .locals 1
 
     .prologue
-    .line 31
-    iget v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->percent:I
+    .line 29
+    iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->commandPending:Z
 
     return v0
 .end method
 
-.method static synthetic access$11(Ljava/lang/String;)Ljava/lang/String;
-    .locals 1
-
-    .prologue
-    .line 37
-    invoke-static {p0}, Lcom/melodix/music/PreviewPlayerVolume;->reasonText(Ljava/lang/String;)Ljava/lang/String;
-
-    move-result-object v0
-
-    return-object v0
-.end method
-
-.method static synthetic access$12(Lcom/melodix/music/PreviewPlayerVolume;Ljava/lang/String;)V
-    .locals 0
-
-    .prologue
-    .line 32
-    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerVolume;->reason:Ljava/lang/String;
-
-    return-void
-.end method
-
-.method static synthetic access$13(Lcom/melodix/music/PreviewPlayerVolume;)Ljava/lang/String;
-    .locals 1
-
-    .prologue
-    .line 32
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->reason:Ljava/lang/String;
-
-    return-object v0
-.end method
-
-.method static synthetic access$14(Ljava/lang/String;)V
-    .locals 0
-
-    .prologue
-    .line 33
-    sput-object p0, Lcom/melodix/music/PreviewPlayerVolume;->lastPage:Ljava/lang/String;
-
-    return-void
-.end method
-
-.method static synthetic access$15(Ljava/lang/String;)Ljava/lang/String;
-    .locals 1
-
-    .prologue
-    .line 35
-    invoke-static {p0}, Lcom/melodix/music/PreviewPlayerVolume;->method(Ljava/lang/String;)Ljava/lang/String;
-
-    move-result-object v0
-
-    return-object v0
-.end method
-
-.method static synthetic access$16(Lcom/melodix/music/PreviewPlayerVolume;I)V
-    .locals 0
-
-    .prologue
-    .line 31
-    iput p1, p0, Lcom/melodix/music/PreviewPlayerVolume;->lastNonZero:I
-
-    return-void
-.end method
-
-.method static synthetic access$17(Lcom/melodix/music/PreviewPlayerVolume;)V
-    .locals 0
-
-    .prologue
-    .line 53
-    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerVolume;->paint()V
-
-    return-void
-.end method
-
-.method static synthetic access$18(Ljava/lang/String;)Ljava/lang/String;
-    .locals 1
-
-    .prologue
-    .line 36
-    invoke-static {p0}, Lcom/melodix/music/PreviewPlayerVolume;->clean(Ljava/lang/String;)Ljava/lang/String;
-
-    move-result-object v0
-
-    return-object v0
-.end method
-
-.method static synthetic access$19(Ljava/lang/String;)V
-    .locals 0
-
-    .prologue
-    .line 33
-    sput-object p0, Lcom/melodix/music/PreviewPlayerVolume;->lastAction:Ljava/lang/String;
-
-    return-void
-.end method
-
-.method static synthetic access$2(Lcom/melodix/music/PreviewPlayerVolume;)Landroid/os/Handler;
-    .locals 1
-
-    .prologue
-    .line 28
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->handler:Landroid/os/Handler;
-
-    return-object v0
-.end method
-
-.method static synthetic access$20(Lcom/melodix/music/PreviewPlayerVolume;)Landroid/widget/SeekBar;
-    .locals 1
-
-    .prologue
-    .line 45
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->slider:Landroid/widget/SeekBar;
-
-    return-object v0
-.end method
-
-.method static synthetic access$21(Lcom/melodix/music/PreviewPlayerVolume;)I
-    .locals 1
-
-    .prologue
-    .line 31
-    iget v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->lastNonZero:I
-
-    return v0
-.end method
-
-.method static synthetic access$22(Lcom/melodix/music/PreviewPlayerVolume;I)V
-    .locals 0
-
-    .prologue
-    .line 75
-    invoke-direct {p0, p1}, Lcom/melodix/music/PreviewPlayerVolume;->showValue(I)V
-
-    return-void
-.end method
-
-.method static synthetic access$23(Lcom/melodix/music/PreviewPlayerVolume;I)V
-    .locals 0
-
-    .prologue
-    .line 82
-    invoke-direct {p0, p1}, Lcom/melodix/music/PreviewPlayerVolume;->enqueue(I)V
-
-    return-void
-.end method
-
-.method static synthetic access$24(Lcom/melodix/music/PreviewPlayerVolume;Z)V
-    .locals 0
-
-    .prologue
-    .line 29
-    iput-boolean p1, p0, Lcom/melodix/music/PreviewPlayerVolume;->dragging:Z
-
-    return-void
-.end method
-
-.method static synthetic access$25(Lcom/melodix/music/PreviewPlayerVolume;Lcom/melodix/music/PreviewPlayerSheet;)V
-    .locals 0
-
-    .prologue
-    .line 45
-    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerVolume;->dialog:Lcom/melodix/music/PreviewPlayerSheet;
-
-    return-void
-.end method
-
-.method static synthetic access$26(Lcom/melodix/music/PreviewPlayerVolume;Landroid/widget/SeekBar;)V
-    .locals 0
-
-    .prologue
-    .line 45
-    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerVolume;->slider:Landroid/widget/SeekBar;
-
-    return-void
-.end method
-
-.method static synthetic access$27(Lcom/melodix/music/PreviewPlayerVolume;Landroid/widget/TextView;)V
-    .locals 0
-
-    .prologue
-    .line 45
-    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerVolume;->valueLabel:Landroid/widget/TextView;
-
-    return-void
-.end method
-
-.method static synthetic access$28(Lcom/melodix/music/PreviewPlayerVolume;Landroid/widget/TextView;)V
-    .locals 0
-
-    .prologue
-    .line 45
-    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerVolume;->statusLabel:Landroid/widget/TextView;
-
-    return-void
-.end method
-
-.method static synthetic access$29(Lcom/melodix/music/PreviewPlayerVolume;Landroid/widget/Button;)V
-    .locals 0
-
-    .prologue
-    .line 45
-    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerVolume;->mute:Landroid/widget/Button;
-
-    return-void
-.end method
-
-.method static synthetic access$3(Lcom/melodix/music/PreviewPlayerVolume;Z)V
-    .locals 0
-
-    .prologue
-    .line 29
-    iput-boolean p1, p0, Lcom/melodix/music/PreviewPlayerVolume;->sendScheduled:Z
-
-    return-void
-.end method
-
-.method static synthetic access$30(Lcom/melodix/music/PreviewPlayerVolume;)V
-    .locals 0
-
-    .prologue
-    .line 138
-    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerVolume;->sync()V
-
-    return-void
-.end method
-
-.method static synthetic access$4(Lcom/melodix/music/PreviewPlayerVolume;)V
-    .locals 0
-
-    .prologue
-    .line 83
-    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerVolume;->send()V
-
-    return-void
-.end method
-
-.method static synthetic access$5(Lcom/melodix/music/PreviewPlayerVolume;)V
-    .locals 0
-
-    .prologue
-    .line 99
-    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerVolume;->open()V
-
-    return-void
-.end method
-
-.method static synthetic access$6(Lcom/melodix/music/PreviewPlayerVolume;)J
+.method static synthetic access$10(Lcom/melodix/music/PreviewPlayerVolume;)J
     .locals 2
 
     .prologue
-    .line 30
+    .line 32
     iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->serial:J
 
     return-wide v0
 .end method
 
-.method static synthetic access$7(Lcom/melodix/music/PreviewPlayerVolume;Z)V
+.method static synthetic access$11(Lcom/melodix/music/PreviewPlayerVolume;Z)V
     .locals 0
 
     .prologue
@@ -429,11 +179,11 @@
     return-void
 .end method
 
-.method static synthetic access$8(Lcom/melodix/music/PreviewPlayerVolume;Ljava/lang/String;)Lorg/json/JSONObject;
+.method static synthetic access$12(Lcom/melodix/music/PreviewPlayerVolume;Ljava/lang/String;)Lorg/json/JSONObject;
     .locals 1
 
     .prologue
-    .line 52
+    .line 55
     invoke-direct {p0, p1}, Lcom/melodix/music/PreviewPlayerVolume;->parse(Ljava/lang/String;)Lorg/json/JSONObject;
 
     move-result-object v0
@@ -441,12 +191,308 @@
     return-object v0
 .end method
 
-.method static synthetic access$9(Lcom/melodix/music/PreviewPlayerVolume;I)V
+.method static synthetic access$13(Lcom/melodix/music/PreviewPlayerVolume;I)V
     .locals 0
 
     .prologue
-    .line 31
+    .line 33
     iput p1, p0, Lcom/melodix/music/PreviewPlayerVolume;->percent:I
+
+    return-void
+.end method
+
+.method static synthetic access$14(Lcom/melodix/music/PreviewPlayerVolume;)I
+    .locals 1
+
+    .prologue
+    .line 33
+    iget v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->percent:I
+
+    return v0
+.end method
+
+.method static synthetic access$15(Ljava/lang/String;)Ljava/lang/String;
+    .locals 1
+
+    .prologue
+    .line 39
+    invoke-static {p0}, Lcom/melodix/music/PreviewPlayerVolume;->reasonText(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v0
+
+    return-object v0
+.end method
+
+.method static synthetic access$16(Lcom/melodix/music/PreviewPlayerVolume;Ljava/lang/String;)V
+    .locals 0
+
+    .prologue
+    .line 34
+    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerVolume;->reason:Ljava/lang/String;
+
+    return-void
+.end method
+
+.method static synthetic access$17(Lcom/melodix/music/PreviewPlayerVolume;)Ljava/lang/String;
+    .locals 1
+
+    .prologue
+    .line 34
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->reason:Ljava/lang/String;
+
+    return-object v0
+.end method
+
+.method static synthetic access$18(Ljava/lang/String;)V
+    .locals 0
+
+    .prologue
+    .line 35
+    sput-object p0, Lcom/melodix/music/PreviewPlayerVolume;->lastPage:Ljava/lang/String;
+
+    return-void
+.end method
+
+.method static synthetic access$19(Ljava/lang/String;)Ljava/lang/String;
+    .locals 1
+
+    .prologue
+    .line 37
+    invoke-static {p0}, Lcom/melodix/music/PreviewPlayerVolume;->method(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v0
+
+    return-object v0
+.end method
+
+.method static synthetic access$2(Lcom/melodix/music/PreviewPlayerVolume;)J
+    .locals 2
+
+    .prologue
+    .line 32
+    iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->commandAt:J
+
+    return-wide v0
+.end method
+
+.method static synthetic access$20(Lcom/melodix/music/PreviewPlayerVolume;I)V
+    .locals 0
+
+    .prologue
+    .line 33
+    iput p1, p0, Lcom/melodix/music/PreviewPlayerVolume;->lastNonZero:I
+
+    return-void
+.end method
+
+.method static synthetic access$21(Lcom/melodix/music/PreviewPlayerVolume;)V
+    .locals 0
+
+    .prologue
+    .line 56
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerVolume;->paint()V
+
+    return-void
+.end method
+
+.method static synthetic access$22(Lcom/melodix/music/PreviewPlayerVolume;)J
+    .locals 2
+
+    .prologue
+    .line 32
+    iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->commandSerial:J
+
+    return-wide v0
+.end method
+
+.method static synthetic access$23(Ljava/lang/String;)Ljava/lang/String;
+    .locals 1
+
+    .prologue
+    .line 38
+    invoke-static {p0}, Lcom/melodix/music/PreviewPlayerVolume;->clean(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v0
+
+    return-object v0
+.end method
+
+.method static synthetic access$24(Lcom/melodix/music/PreviewPlayerVolume;)Landroid/widget/SeekBar;
+    .locals 1
+
+    .prologue
+    .line 47
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->slider:Landroid/widget/SeekBar;
+
+    return-object v0
+.end method
+
+.method static synthetic access$25(Lcom/melodix/music/PreviewPlayerVolume;)I
+    .locals 1
+
+    .prologue
+    .line 33
+    iget v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->lastNonZero:I
+
+    return v0
+.end method
+
+.method static synthetic access$26(Lcom/melodix/music/PreviewPlayerVolume;I)V
+    .locals 0
+
+    .prologue
+    .line 78
+    invoke-direct {p0, p1}, Lcom/melodix/music/PreviewPlayerVolume;->showValue(I)V
+
+    return-void
+.end method
+
+.method static synthetic access$27(Lcom/melodix/music/PreviewPlayerVolume;I)V
+    .locals 0
+
+    .prologue
+    .line 85
+    invoke-direct {p0, p1}, Lcom/melodix/music/PreviewPlayerVolume;->enqueue(I)V
+
+    return-void
+.end method
+
+.method static synthetic access$28(Lcom/melodix/music/PreviewPlayerVolume;Z)V
+    .locals 0
+
+    .prologue
+    .line 29
+    iput-boolean p1, p0, Lcom/melodix/music/PreviewPlayerVolume;->dragging:Z
+
+    return-void
+.end method
+
+.method static synthetic access$29(Lcom/melodix/music/PreviewPlayerVolume;Lcom/melodix/music/PreviewPlayerSheet;)V
+    .locals 0
+
+    .prologue
+    .line 47
+    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerVolume;->dialog:Lcom/melodix/music/PreviewPlayerSheet;
+
+    return-void
+.end method
+
+.method static synthetic access$3(Lcom/melodix/music/PreviewPlayerVolume;Z)V
+    .locals 0
+
+    .prologue
+    .line 29
+    iput-boolean p1, p0, Lcom/melodix/music/PreviewPlayerVolume;->commandPending:Z
+
+    return-void
+.end method
+
+.method static synthetic access$30(Lcom/melodix/music/PreviewPlayerVolume;Landroid/widget/SeekBar;)V
+    .locals 0
+
+    .prologue
+    .line 47
+    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerVolume;->slider:Landroid/widget/SeekBar;
+
+    return-void
+.end method
+
+.method static synthetic access$31(Lcom/melodix/music/PreviewPlayerVolume;Landroid/widget/TextView;)V
+    .locals 0
+
+    .prologue
+    .line 47
+    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerVolume;->valueLabel:Landroid/widget/TextView;
+
+    return-void
+.end method
+
+.method static synthetic access$32(Lcom/melodix/music/PreviewPlayerVolume;Landroid/widget/TextView;)V
+    .locals 0
+
+    .prologue
+    .line 47
+    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerVolume;->statusLabel:Landroid/widget/TextView;
+
+    return-void
+.end method
+
+.method static synthetic access$33(Lcom/melodix/music/PreviewPlayerVolume;Landroid/widget/Button;)V
+    .locals 0
+
+    .prologue
+    .line 47
+    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerVolume;->mute:Landroid/widget/Button;
+
+    return-void
+.end method
+
+.method static synthetic access$34(Lcom/melodix/music/PreviewPlayerVolume;)V
+    .locals 0
+
+    .prologue
+    .line 142
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerVolume;->sync()V
+
+    return-void
+.end method
+
+.method static synthetic access$4(Ljava/lang/String;)V
+    .locals 0
+
+    .prologue
+    .line 35
+    sput-object p0, Lcom/melodix/music/PreviewPlayerVolume;->lastAction:Ljava/lang/String;
+
+    return-void
+.end method
+
+.method static synthetic access$5(Lcom/melodix/music/PreviewPlayerVolume;)V
+    .locals 0
+
+    .prologue
+    .line 66
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerVolume;->read()V
+
+    return-void
+.end method
+
+.method static synthetic access$6(Lcom/melodix/music/PreviewPlayerVolume;)Landroid/os/Handler;
+    .locals 1
+
+    .prologue
+    .line 28
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->handler:Landroid/os/Handler;
+
+    return-object v0
+.end method
+
+.method static synthetic access$7(Lcom/melodix/music/PreviewPlayerVolume;Z)V
+    .locals 0
+
+    .prologue
+    .line 29
+    iput-boolean p1, p0, Lcom/melodix/music/PreviewPlayerVolume;->sendScheduled:Z
+
+    return-void
+.end method
+
+.method static synthetic access$8(Lcom/melodix/music/PreviewPlayerVolume;)V
+    .locals 0
+
+    .prologue
+    .line 86
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerVolume;->send()V
+
+    return-void
+.end method
+
+.method static synthetic access$9(Lcom/melodix/music/PreviewPlayerVolume;)V
+    .locals 0
+
+    .prologue
+    .line 102
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerVolume;->open()V
 
     return-void
 .end method
@@ -455,7 +501,7 @@
     .locals 2
 
     .prologue
-    .line 96
+    .line 99
     new-instance v0, Landroid/widget/Button;
 
     invoke-direct {v0, p1}, Landroid/widget/Button;-><init>(Landroid/content/Context;)V
@@ -486,7 +532,7 @@
 
     invoke-virtual {v0, v1}, Landroid/widget/Button;->setMinHeight(I)V
 
-    .line 97
+    .line 100
     const/4 v1, 0x0
 
     invoke-virtual {v0, v1}, Landroid/widget/Button;->setBackgroundTintList(Landroid/content/res/ColorStateList;)V
@@ -505,17 +551,19 @@
 .end method
 
 .method private activity()Landroid/app/Activity;
-    .locals 4
+    .locals 3
 
     .prologue
-    .line 50
+    .line 53
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerVolume;->getContext()Landroid/content/Context;
 
-    move-result-object v0
+    move-result-object v1
 
-    const/4 v1, 0x0
+    const/4 v0, 0x0
 
-    move v2, v1
+    move v2, v0
+
+    move-object v0, v1
 
     :goto_0
     const/16 v1, 0x8
@@ -552,15 +600,15 @@
 
     invoke-virtual {v1}, Landroid/content/ContextWrapper;->getBaseContext()Landroid/content/Context;
 
-    move-result-object v3
+    move-result-object v1
 
-    if-eq v3, v0, :cond_0
+    if-eq v1, v0, :cond_0
 
-    add-int/lit8 v1, v2, 0x1
+    add-int/lit8 v0, v2, 0x1
 
-    move v2, v1
+    move v2, v0
 
-    move-object v0, v3
+    move-object v0, v1
 
     goto :goto_0
 
@@ -574,7 +622,7 @@
     .locals 6
 
     .prologue
-    .line 36
+    .line 38
     new-instance v1, Ljava/lang/StringBuilder;
 
     invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
@@ -654,7 +702,7 @@
     .locals 2
 
     .prologue
-    .line 34
+    .line 36
     new-instance v0, Ljava/lang/StringBuilder;
 
     const-string v1, "\nVolume lecteur \u2014 page : "
@@ -696,7 +744,7 @@
     .locals 2
 
     .prologue
-    .line 49
+    .line 52
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerVolume;->getResources()Landroid/content/res/Resources;
 
     move-result-object v0
@@ -722,16 +770,26 @@
     .locals 8
 
     .prologue
-    .line 82
-    const/4 v0, 0x0
+    const/4 v4, 0x0
 
-    const/16 v1, 0x64
+    .line 85
+    iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->commandSerial:J
 
-    invoke-static {v1, p1}, Ljava/lang/Math;->min(II)I
+    const-wide/16 v2, 0x1
 
-    move-result v1
+    add-long/2addr v0, v2
 
-    invoke-static {v0, v1}, Ljava/lang/Math;->max(II)I
+    iput-wide v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->commandSerial:J
+
+    iput-boolean v4, p0, Lcom/melodix/music/PreviewPlayerVolume;->commandPending:Z
+
+    const/16 v0, 0x64
+
+    invoke-static {v0, p1}, Ljava/lang/Math;->min(II)I
+
+    move-result v0
+
+    invoke-static {v4, v0}, Ljava/lang/Math;->max(II)I
 
     move-result v0
 
@@ -773,11 +831,44 @@
     return-void
 .end method
 
+.method private interruptCommand()V
+    .locals 1
+
+    .prologue
+    .line 141
+    iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->commandPending:Z
+
+    if-eqz v0, :cond_1
+
+    const-string v0, "non confirm\u00e9e : interruption"
+
+    sput-object v0, Lcom/melodix/music/PreviewPlayerVolume;->lastAction:Ljava/lang/String;
+
+    :cond_0
+    :goto_0
+    const/4 v0, 0x0
+
+    iput-boolean v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->commandPending:Z
+
+    return-void
+
+    :cond_1
+    iget v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->queued:I
+
+    if-ltz v0, :cond_0
+
+    const-string v0, "non envoy\u00e9e : interruption"
+
+    sput-object v0, Lcom/melodix/music/PreviewPlayerVolume;->lastAction:Ljava/lang/String;
+
+    goto :goto_0
+.end method
+
 .method private static method(Ljava/lang/String;)Ljava/lang/String;
     .locals 1
 
     .prologue
-    .line 35
+    .line 37
     const-string v0, "range"
 
     invoke-virtual {p0, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
@@ -842,7 +933,7 @@
     .prologue
     const/4 v10, 0x0
 
-    .line 100
+    .line 103
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerVolume;->activity()Landroid/app/Activity;
 
     move-result-object v0
@@ -865,12 +956,12 @@
 
     if-eqz v1, :cond_1
 
-    .line 137
+    .line 140
     :cond_0
     :goto_0
     return-void
 
-    .line 102
+    .line 105
     :cond_1
     :try_start_0
     new-instance v1, Lcom/melodix/music/PreviewPlayerSheet;
@@ -879,7 +970,7 @@
 
     iput-object v1, p0, Lcom/melodix/music/PreviewPlayerVolume;->dialog:Lcom/melodix/music/PreviewPlayerSheet;
 
-    .line 103
+    .line 106
     new-instance v2, Landroid/widget/LinearLayout;
 
     invoke-direct {v2, v0}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
@@ -888,14 +979,14 @@
 
     invoke-virtual {v2, v3}, Landroid/widget/LinearLayout;->setOrientation(I)V
 
-    .line 104
+    .line 107
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerSheet;->background(Landroid/content/Context;)Landroid/graphics/drawable/GradientDrawable;
 
     move-result-object v3
 
     invoke-virtual {v2, v3}, Landroid/widget/LinearLayout;->setBackground(Landroid/graphics/drawable/Drawable;)V
 
-    .line 105
+    .line 108
     const/high16 v3, 0x41b00000    # 22.0f
 
     invoke-direct {p0, v3}, Lcom/melodix/music/PreviewPlayerVolume;->dp(F)I
@@ -918,7 +1009,7 @@
 
     invoke-virtual {v2, v3, v4, v5, v6}, Landroid/widget/LinearLayout;->setPadding(IIII)V
 
-    .line 107
+    .line 110
     new-instance v3, Landroid/widget/LinearLayout;
 
     invoke-direct {v3, v0}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
@@ -931,7 +1022,7 @@
 
     invoke-virtual {v3, v4}, Landroid/widget/LinearLayout;->setContentDescription(Ljava/lang/CharSequence;)V
 
-    .line 108
+    .line 111
     new-instance v4, Landroid/view/View;
 
     invoke-direct {v4, v0}, Landroid/view/View;-><init>(Landroid/content/Context;)V
@@ -966,7 +1057,7 @@
 
     invoke-virtual {v3, v4, v5}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 109
+    .line 112
     invoke-virtual {v1}, Lcom/melodix/music/PreviewPlayerSheet;->dragListener()Landroid/view/View$OnTouchListener;
 
     move-result-object v4
@@ -987,7 +1078,7 @@
 
     invoke-virtual {v2, v3, v4}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 110
+    .line 113
     new-instance v3, Landroid/widget/LinearLayout;
 
     invoke-direct {v3, v0}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
@@ -1000,7 +1091,7 @@
 
     invoke-virtual {v3, v4}, Landroid/widget/LinearLayout;->setOrientation(I)V
 
-    .line 111
+    .line 114
     new-instance v4, Landroid/widget/LinearLayout;
 
     invoke-direct {v4, v0}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
@@ -1009,7 +1100,7 @@
 
     invoke-virtual {v4, v5}, Landroid/widget/LinearLayout;->setOrientation(I)V
 
-    .line 112
+    .line 115
     new-instance v5, Landroid/widget/TextView;
 
     invoke-direct {v5, v0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
@@ -1040,7 +1131,7 @@
 
     invoke-virtual {v4, v5, v6}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 113
+    .line 116
     new-instance v5, Landroid/widget/TextView;
 
     invoke-direct {v5, v0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
@@ -1075,7 +1166,7 @@
 
     invoke-virtual {v4, v5, v6}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 114
+    .line 117
     new-instance v5, Landroid/widget/LinearLayout$LayoutParams;
 
     const/4 v6, 0x0
@@ -1088,7 +1179,7 @@
 
     invoke-virtual {v3, v4, v5}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 115
+    .line 118
     new-instance v4, Landroid/widget/TextView;
 
     invoke-direct {v4, v0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
@@ -1119,7 +1210,7 @@
 
     invoke-virtual {v4, v5}, Landroid/widget/TextView;->setGravity(I)V
 
-    .line 116
+    .line 119
     iget-object v4, p0, Lcom/melodix/music/PreviewPlayerVolume;->valueLabel:Landroid/widget/TextView;
 
     new-instance v5, Landroid/widget/LinearLayout$LayoutParams;
@@ -1140,7 +1231,7 @@
 
     invoke-virtual {v3, v4, v5}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 117
+    .line 120
     const-string v4, ""
 
     const/4 v5, 0x0
@@ -1183,7 +1274,7 @@
 
     invoke-virtual {v4, v5}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
 
-    .line 118
+    .line 121
     new-instance v5, Landroid/widget/LinearLayout$LayoutParams;
 
     const/high16 v6, 0x42200000    # 40.0f
@@ -1212,7 +1303,7 @@
 
     invoke-virtual {v2, v3, v4}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 119
+    .line 122
     new-instance v3, Landroid/widget/TextView;
 
     invoke-direct {v3, v0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
@@ -1253,7 +1344,7 @@
 
     invoke-virtual {v2, v3, v4}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 120
+    .line 123
     new-instance v3, Landroid/widget/LinearLayout;
 
     invoke-direct {v3, v0}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
@@ -1300,7 +1391,7 @@
 
     invoke-virtual {v3, v4}, Landroid/widget/LinearLayout;->setBackground(Landroid/graphics/drawable/Drawable;)V
 
-    .line 121
+    .line 124
     new-instance v4, Landroid/widget/SeekBar;
 
     invoke-direct {v4, v0}, Landroid/widget/SeekBar;-><init>(Landroid/content/Context;)V
@@ -1331,7 +1422,7 @@
 
     invoke-virtual {v4, v5}, Landroid/widget/SeekBar;->setContentDescription(Ljava/lang/CharSequence;)V
 
-    .line 122
+    .line 125
     iget-object v4, p0, Lcom/melodix/music/PreviewPlayerVolume;->slider:Landroid/widget/SeekBar;
 
     const v5, -0x466a13
@@ -1378,7 +1469,7 @@
 
     invoke-virtual {v3, v4, v5}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 123
+    .line 126
     new-instance v4, Landroid/widget/LinearLayout;
 
     invoke-direct {v4, v0}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
@@ -1387,7 +1478,7 @@
 
     invoke-virtual {v4, v5}, Landroid/widget/LinearLayout;->setOrientation(I)V
 
-    .line 124
+    .line 127
     new-instance v5, Landroid/widget/TextView;
 
     invoke-direct {v5, v0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
@@ -1428,7 +1519,7 @@
 
     invoke-virtual {v4, v5, v6}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 125
+    .line 128
     new-instance v5, Landroid/widget/TextView;
 
     invoke-direct {v5, v0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
@@ -1487,7 +1578,7 @@
 
     invoke-virtual {v3, v4, v5}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 126
+    .line 129
     new-instance v4, Landroid/widget/LinearLayout$LayoutParams;
 
     const/4 v5, -0x1
@@ -1498,7 +1589,7 @@
 
     invoke-virtual {v2, v3, v4}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 127
+    .line 130
     new-instance v3, Landroid/widget/LinearLayout;
 
     invoke-direct {v3, v0}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
@@ -1521,7 +1612,7 @@
 
     invoke-virtual {v3, v4, v5, v6, v7}, Landroid/widget/LinearLayout;->setPadding(IIII)V
 
-    .line 128
+    .line 131
     const-string v4, "Silence"
 
     const/4 v5, 0x1
@@ -1550,7 +1641,7 @@
 
     invoke-virtual {v3, v4, v5}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 129
+    .line 132
     const-string v4, "Actualiser"
 
     const/4 v5, 0x0
@@ -1609,7 +1700,7 @@
 
     invoke-virtual {v2, v3, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 130
+    .line 133
     const/4 v0, 0x0
 
     iget v3, p0, Lcom/melodix/music/PreviewPlayerVolume;->percent:I
@@ -1620,7 +1711,7 @@
 
     invoke-direct {p0, v0}, Lcom/melodix/music/PreviewPlayerVolume;->showValue(I)V
 
-    .line 131
+    .line 134
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->mute:Landroid/widget/Button;
 
     new-instance v3, Lcom/melodix/music/PreviewPlayerVolume$8;
@@ -1629,7 +1720,7 @@
 
     invoke-virtual {v0, v3}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
 
-    .line 132
+    .line 135
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->slider:Landroid/widget/SeekBar;
 
     new-instance v3, Lcom/melodix/music/PreviewPlayerVolume$9;
@@ -1638,14 +1729,14 @@
 
     invoke-virtual {v0, v3}, Landroid/widget/SeekBar;->setOnSeekBarChangeListener(Landroid/widget/SeekBar$OnSeekBarChangeListener;)V
 
-    .line 133
+    .line 136
     new-instance v0, Lcom/melodix/music/PreviewPlayerVolume$10;
 
     invoke-direct {v0, p0}, Lcom/melodix/music/PreviewPlayerVolume$10;-><init>(Lcom/melodix/music/PreviewPlayerVolume;)V
 
     invoke-virtual {v4, v0}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
 
-    .line 134
+    .line 137
     const/4 v0, 0x1
 
     invoke-virtual {v1, v0}, Lcom/melodix/music/PreviewPlayerSheet;->setCanceledOnTouchOutside(Z)V
@@ -1656,7 +1747,7 @@
 
     invoke-virtual {v1, v0}, Lcom/melodix/music/PreviewPlayerSheet;->setOnDismissListener(Landroid/content/DialogInterface$OnDismissListener;)V
 
-    .line 135
+    .line 138
     invoke-virtual {v1, v2}, Lcom/melodix/music/PreviewPlayerSheet;->showSheet(Landroid/view/View;)V
 
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerVolume;->paint()V
@@ -1671,7 +1762,7 @@
 
     goto/16 :goto_0
 
-    .line 136
+    .line 139
     :catch_0
     move-exception v0
 
@@ -1711,7 +1802,7 @@
 
     const/4 v2, 0x0
 
-    .line 55
+    .line 58
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerVolume;->getContext()Landroid/content/Context;
 
     move-result-object v4
@@ -1761,7 +1852,7 @@
     :goto_2
     invoke-virtual {p0, v0}, Lcom/melodix/music/PreviewPlayerVolume;->setContentDescription(Ljava/lang/CharSequence;)V
 
-    .line 56
+    .line 59
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->running:Z
 
     invoke-virtual {p0, v0}, Lcom/melodix/music/PreviewPlayerVolume;->setEnabled(Z)V
@@ -1775,7 +1866,7 @@
     :goto_3
     invoke-virtual {p0, v0}, Lcom/melodix/music/PreviewPlayerVolume;->setAlpha(F)V
 
-    .line 57
+    .line 60
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->dialog:Lcom/melodix/music/PreviewPlayerSheet;
 
     if-eqz v0, :cond_0
@@ -1792,7 +1883,7 @@
 
     if-eqz v0, :cond_0
 
-    .line 58
+    .line 61
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerVolume;->slider:Landroid/widget/SeekBar;
 
     iget v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->percent:I
@@ -1813,7 +1904,7 @@
     :goto_5
     invoke-virtual {v0, v3}, Landroid/widget/Button;->setEnabled(Z)V
 
-    .line 59
+    .line 62
     iget v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->percent:I
 
     if-gez v0, :cond_7
@@ -1848,12 +1939,12 @@
 
     invoke-virtual {v0, v1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
 
-    .line 62
+    .line 65
     :cond_0
     :goto_6
     return-void
 
-    .line 55
+    .line 58
     :cond_1
     new-instance v0, Ljava/lang/StringBuilder;
 
@@ -1907,7 +1998,7 @@
 
     goto/16 :goto_2
 
-    .line 56
+    .line 59
     :cond_4
     const/high16 v0, 0x3f800000    # 1.0f
 
@@ -1916,7 +2007,7 @@
     :cond_5
     move v0, v2
 
-    .line 58
+    .line 61
     goto :goto_4
 
     :cond_6
@@ -1924,7 +2015,7 @@
 
     goto :goto_5
 
-    .line 60
+    .line 63
     :cond_7
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->dragging:Z
 
@@ -1964,7 +2055,7 @@
     .prologue
     const/4 v2, 0x0
 
-    .line 52
+    .line 55
     :try_start_0
     new-instance v0, Lorg/json/JSONTokener;
 
@@ -2005,19 +2096,19 @@
 .end method
 
 .method private read()V
-    .locals 9
+    .locals 8
 
     .prologue
-    const/4 v8, -0x1
+    const/4 v7, -0x1
 
-    .line 64
+    .line 67
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerVolume;->web()Landroid/webkit/WebView;
 
     move-result-object v0
 
     if-nez v0, :cond_1
 
-    iput v8, p0, Lcom/melodix/music/PreviewPlayerVolume;->percent:I
+    iput v7, p0, Lcom/melodix/music/PreviewPlayerVolume;->percent:I
 
     const-string v0, "web"
 
@@ -2033,70 +2124,70 @@
 
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerVolume;->paint()V
 
-    .line 74
+    .line 77
     :cond_0
     :goto_0
     return-void
 
-    .line 65
+    .line 68
     :cond_1
     invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
 
-    move-result-wide v2
+    move-result-wide v1
 
-    iget-boolean v1, p0, Lcom/melodix/music/PreviewPlayerVolume;->dragging:Z
+    iget-boolean v3, p0, Lcom/melodix/music/PreviewPlayerVolume;->dragging:Z
 
-    if-nez v1, :cond_0
+    if-nez v3, :cond_0
 
-    iget v1, p0, Lcom/melodix/music/PreviewPlayerVolume;->queued:I
+    iget v3, p0, Lcom/melodix/music/PreviewPlayerVolume;->queued:I
 
-    if-gez v1, :cond_0
+    if-gez v3, :cond_0
 
-    iget-boolean v1, p0, Lcom/melodix/music/PreviewPlayerVolume;->readBusy:Z
+    iget-boolean v3, p0, Lcom/melodix/music/PreviewPlayerVolume;->readBusy:Z
 
-    if-eqz v1, :cond_2
+    if-eqz v3, :cond_2
 
-    iget-wide v4, p0, Lcom/melodix/music/PreviewPlayerVolume;->readAt:J
+    iget-wide v3, p0, Lcom/melodix/music/PreviewPlayerVolume;->readAt:J
 
-    sub-long v4, v2, v4
+    sub-long v3, v1, v3
 
-    const-wide/16 v6, 0x960
+    const-wide/16 v5, 0x960
 
-    cmp-long v1, v4, v6
+    cmp-long v3, v3, v5
 
-    if-ltz v1, :cond_0
+    if-ltz v3, :cond_0
 
-    .line 66
+    .line 69
     :cond_2
-    const/4 v1, 0x1
+    const/4 v3, 0x1
 
-    iput-boolean v1, p0, Lcom/melodix/music/PreviewPlayerVolume;->readBusy:Z
+    iput-boolean v3, p0, Lcom/melodix/music/PreviewPlayerVolume;->readBusy:Z
 
-    iput-wide v2, p0, Lcom/melodix/music/PreviewPlayerVolume;->readAt:J
+    iput-wide v1, p0, Lcom/melodix/music/PreviewPlayerVolume;->readAt:J
 
-    iget-wide v2, p0, Lcom/melodix/music/PreviewPlayerVolume;->serial:J
+    iget-wide v1, p0, Lcom/melodix/music/PreviewPlayerVolume;->serial:J
 
-    const-wide/16 v4, 0x1
+    const-wide/16 v3, 0x1
 
-    add-long/2addr v2, v4
+    add-long/2addr v1, v3
 
-    iput-wide v2, p0, Lcom/melodix/music/PreviewPlayerVolume;->serial:J
+    iput-wide v1, p0, Lcom/melodix/music/PreviewPlayerVolume;->serial:J
 
-    .line 67
+    .line 70
     :try_start_0
-    const-string v1, "(function(action, requested) {\n    \'use strict\';\n    // Spotify player volume only; never Android audio, session data or network.\n    // Methods in order, each re-reading a DOM value where possible. This does\n    // not verify the player backend or audible output:\n    // (a) native range setter + input/change, (b) pointer on the volume track,\n    // (c) volume of the page\'s own media element.\n    var journal = [];\n    function ranges() {\n        return Array.from(document.querySelectorAll(\'[data-testid=\"volume-bar\"] input[type=\"range\"], input[data-testid=\"volume-bar\"][type=\"range\"]\')).filter(function(n) { return n.isConnected; });\n    }\n    function readRange(input) {\n        if (!input) return null;\n        var min = input.hasAttribute(\'min\') ? Number(input.min) : 0, max = input.hasAttribute(\'max\') ? Number(input.max) : 100, current = Number(input.value);\n        if (!isFinite(min) || !isFinite(max) || max <= min || !isFinite(current) || current < min || current > max) return null;\n        return {percent: Math.round(100 * (current - min) / (max - min)), min: min, max: max};\n    }\n    function media() {\n        return Array.from(document.querySelectorAll(\'audio, video\')).filter(function(m) { return typeof m.volume === \'number\' && isFinite(m.volume); });\n    }\n    function hidden(n) {\n        for (var el = n; el && el !== document.body; el = el.parentElement) {\n            var cs = window.getComputedStyle(el);\n            if (el.hasAttribute(\'hidden\') || el.getAttribute(\'aria-hidden\') === \'true\' || cs.display === \'none\' || cs.visibility === \'hidden\') return true;\n        }\n        return false;\n    }\n    var list = ranges(), input = list.length === 1 ? list[0] : null;\n    var bars = Array.from(document.querySelectorAll(\'[data-testid=\"volume-bar\"]\')).filter(function(n) { return n.isConnected; });\n    var bar0 = bars.length === 1 ? bars[0] : null;\n    var disabled = !!(input && (input.disabled || input.matches(\':disabled\') || input.closest(\'[aria-disabled=\"true\"]\') || hidden(input))) || !!(bar0 && (bar0.getAttribute(\'aria-disabled\') === \'true\' || bar0.closest(\'[aria-disabled=\"true\"], fieldset:disabled\') || hidden(bar0)));\n    var current = disabled ? null : readRange(input);\n    if (action === \'query\') {\n        if (list.length > 1 || bars.length > 1) return JSON.stringify({ok: false, reason: \'ambiguous\'});\n        if (disabled) return JSON.stringify({ok: false, reason: \'disabled\'});\n        if (input && !current) return JSON.stringify({ok: false, reason: \'range\'});\n        if (current) return JSON.stringify({ok: true, percent: current.percent, method: \'range\'});\n        var players = media();\n        if (players.length === 1) return JSON.stringify({ok: true, percent: Math.round(players[0].volume * 100), method: \'media\'});\n        return JSON.stringify({ok: false, reason: players.length > 1 ? \'ambiguous\' : \'absent\'});\n    }\n    var target = Number(requested);\n    if (action !== \'set\' || !isFinite(target) || target < 0 || target > 100) return JSON.stringify({ok: false, reason: \'request\'});\n    // Never act on a disabled, duplicated or out-of-range Spotify control.\n    if (disabled) return JSON.stringify({ok: false, reason: \'disabled\'});\n    if (list.length > 1 || bars.length > 1) return JSON.stringify({ok: false, reason: \'ambiguous\'});\n    if (input && !current) return JSON.stringify({ok: false, reason: \'range\'});\n    function near(p) { return p !== null && Math.abs(p - target) <= 2; }\n    function done(method) { return JSON.stringify({ok: true, sent: true, unverified: true, method: method, journal: journal.join(\'>\')}); }\n    // (a) native setter on the unique range.\n    if (current) {\n        try {\n            var value = current.min + (current.max - current.min) * target / 100;\n            var setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, \'value\').set;\n            setter.call(input, String(value));\n            input.dispatchEvent(new Event(\'input\', {bubbles: true}));\n            input.dispatchEvent(new Event(\'change\', {bubbles: true}));\n            var after = readRange(input);\n            if (near(after ? after.percent : null)) { journal.push(\'a:ok\'); return done(\'range\'); }\n            journal.push(\'a:unchanged\');\n        } catch (_) { journal.push(\'a:error\'); }\n    } else journal.push(disabled ? \'a:disabled\' : \'a:absent\');\n    // (b) pointer press at the target position on the visible track.\n    try {\n        var bar = bar0;\n        var track = bar && (bar.querySelector(\'[data-testid=\"progress-bar\"]\') || bar.querySelector(\'[role=\"slider\"]\') || bar);\n        var box = track ? track.getBoundingClientRect() : null;\n        if (box && box.width > 4) {\n            var x = box.left + box.width * target / 100, y = box.top + box.height / 2;\n            var base = {bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0, buttons: 1, pointerId: 1, pointerType: \'mouse\', isPrimary: true};\n            var Pointer = typeof PointerEvent === \'function\' ? PointerEvent : MouseEvent;\n            track.dispatchEvent(new Pointer(\'pointerdown\', base));\n            track.dispatchEvent(new MouseEvent(\'mousedown\', base));\n            document.dispatchEvent(new Pointer(\'pointerup\', base));\n            document.dispatchEvent(new MouseEvent(\'mouseup\', base));\n            var again = readRange(input || (ranges()[0] || null));\n            if (near(again ? again.percent : null)) { journal.push(\'b:ok\'); return done(\'pointer\'); }\n            journal.push(\'b:unchanged\');\n        } else journal.push(\'b:no-track\');\n    } catch (_) { journal.push(\'b:error\'); }\n    // (c) the page\'s own media element(s).\n    try {\n        var players = media();\n        if (players.length > 1) return JSON.stringify({ok: false, reason: \'ambiguous\', journal: journal.join(\'>\')});\n        if (players.length === 1) {\n            players.forEach(function(m) { m.volume = target / 100; });\n            if (players.every(function(m) { return Math.abs(m.volume * 100 - target) <= 1; })) { journal.push(\'c:ok\'); return done(\'media\'); }\n            journal.push(\'c:unchanged\');\n        } else journal.push(\'c:absent\');\n    } catch (_) { journal.push(\'c:error\'); }\n    // (d) web-player keyboard volume (Ctrl+Up/Down, mute Ctrl+Shift+Down):\n    // unverifiable, so reported as sent only, never as a confirmed value.\n    try {\n        var from = Number(arguments[2]);\n        var target2 = document.body;\n        var send = function(code, shift) {\n            [\'keydown\', \'keyup\'].forEach(function(type) {\n                target2.dispatchEvent(new KeyboardEvent(type, {key: code, code: code, ctrlKey: true, shiftKey: !!shift, bubbles: true, cancelable: true}));\n            });\n        };\n        if (target === 0) { send(\'ArrowDown\', true); journal.push(\'d:ctrl-shift-down\'); return JSON.stringify({ok: true, sent: true, unverified: true, method: \'keyboard\', journal: journal.join(\'>\')}); }\n        if (isFinite(from) && from >= 0) {\n            var steps = Math.min(10, Math.round(Math.abs(target - from) / 10));\n            for (var k = 0; k < steps; k++) send(target > from ? \'ArrowUp\' : \'ArrowDown\', false);\n            journal.push(\'d:ctrl-\' + (target > from ? \'up\' : \'down\') + \'x\' + steps);\n            if (steps) return JSON.stringify({ok: true, sent: true, unverified: true, method: \'keyboard\', journal: journal.join(\'>\')});\n        } else journal.push(\'d:no-start\');\n    } catch (_) { journal.push(\'d:error\'); }\n    return JSON.stringify({ok: false, reason: \'command\', journal: journal.join(\'>\')});\n})\n(\"query\",0);"
+    const-string v3, "(function(action, requested) {\n    \'use strict\';\n    // Spotify player volume only; never Android audio, session data or network.\n    // Methods in order, each re-reading a DOM value where possible. This does\n    // not verify the player backend or audible output:\n    // (a) native range setter + input/change, (b) pointer on the volume track,\n    // (c) volume of the page\'s own media element.\n    var journal = [];\n    function ranges() {\n        return Array.from(document.querySelectorAll(\'[data-testid=\"volume-bar\"] input[type=\"range\"], input[data-testid=\"volume-bar\"][type=\"range\"]\')).filter(function(n) { return n.isConnected; });\n    }\n    function readRange(input) {\n        if (!input) return null;\n        var min = input.hasAttribute(\'min\') ? Number(input.min) : 0, max = input.hasAttribute(\'max\') ? Number(input.max) : 100, current = Number(input.value);\n        if (!isFinite(min) || !isFinite(max) || max <= min || !isFinite(current) || current < min || current > max) return null;\n        return {percent: Math.round(100 * (current - min) / (max - min)), min: min, max: max};\n    }\n    function media() {\n        return Array.from(document.querySelectorAll(\'audio, video\')).filter(function(m) { return typeof m.volume === \'number\' && isFinite(m.volume); });\n    }\n    function hidden(n) {\n        for (var el = n; el && el !== document.body; el = el.parentElement) {\n            var cs = window.getComputedStyle(el);\n            if (el.hasAttribute(\'hidden\') || el.getAttribute(\'aria-hidden\') === \'true\' || cs.display === \'none\' || cs.visibility === \'hidden\') return true;\n        }\n        return false;\n    }\n    var list = ranges(), input = list.length === 1 ? list[0] : null;\n    var bars = Array.from(document.querySelectorAll(\'[data-testid=\"volume-bar\"]\')).filter(function(n) { return n.isConnected; });\n    var bar0 = bars.length === 1 ? bars[0] : null;\n    var disabled = !!(input && (input.disabled || input.matches(\':disabled\') || input.closest(\'[aria-disabled=\"true\"]\') || hidden(input))) || !!(bar0 && (bar0.getAttribute(\'aria-disabled\') === \'true\' || bar0.closest(\'[aria-disabled=\"true\"], fieldset:disabled\') || hidden(bar0)));\n    var current = disabled ? null : readRange(input);\n    if (action === \'query\') {\n        if (list.length > 1 || bars.length > 1) return JSON.stringify({ok: false, reason: \'ambiguous\'});\n        if (disabled) return JSON.stringify({ok: false, reason: \'disabled\'});\n        if (input && !current) return JSON.stringify({ok: false, reason: \'range\'});\n        if (current) return JSON.stringify({ok: true, percent: current.percent, method: \'range\'});\n        var players = media();\n        if (players.length === 1) return JSON.stringify({ok: true, percent: Math.round(players[0].volume * 100), method: \'media\'});\n        return JSON.stringify({ok: false, reason: players.length > 1 ? \'ambiguous\' : \'absent\'});\n    }\n    var target = Number(requested);\n    if (action !== \'set\' || !isFinite(target) || target < 0 || target > 100) return JSON.stringify({ok: false, reason: \'request\'});\n    // Never act on a disabled, duplicated or out-of-range Spotify control.\n    if (disabled) return JSON.stringify({ok: false, reason: \'disabled\'});\n    if (list.length > 1 || bars.length > 1) return JSON.stringify({ok: false, reason: \'ambiguous\'});\n    if (input && !current) return JSON.stringify({ok: false, reason: \'range\'});\n    function near(p) { return p !== null && Math.abs(p - target) <= 2; }\n    function done(method) { return JSON.stringify({ok: true, sent: true, unverified: true, method: method, journal: journal.join(\'>\')}); }\n    // (a) native setter on the unique range.\n    if (current) {\n        try {\n            var value = current.min + (current.max - current.min) * target / 100;\n            var setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, \'value\').set;\n            setter.call(input, String(value));\n            input.dispatchEvent(new Event(\'input\', {bubbles: true}));\n            input.dispatchEvent(new Event(\'change\', {bubbles: true}));\n            var after = readRange(input);\n            if (near(after ? after.percent : null)) { journal.push(\'a:ok\'); return done(\'range\'); }\n            journal.push(\'a:unchanged\');\n        } catch (_) { journal.push(\'a:error\'); }\n    } else journal.push(disabled ? \'a:disabled\' : \'a:absent\');\n    // (b) pointer press at the target position on the visible track.\n    try {\n        var bar = bar0;\n        var track = bar && (bar.querySelector(\'[data-testid=\"progress-bar\"]\') || bar.querySelector(\'[role=\"slider\"]\') || bar);\n        var box = track ? track.getBoundingClientRect() : null;\n        if (box && box.width > 4) {\n            var x = box.left + box.width * target / 100, y = box.top + box.height / 2;\n            var base = {bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0, buttons: 1, pointerId: 1, pointerType: \'mouse\', isPrimary: true};\n            var Pointer = typeof PointerEvent === \'function\' ? PointerEvent : MouseEvent;\n            track.dispatchEvent(new Pointer(\'pointerdown\', base));\n            track.dispatchEvent(new MouseEvent(\'mousedown\', base));\n            document.dispatchEvent(new Pointer(\'pointerup\', base));\n            document.dispatchEvent(new MouseEvent(\'mouseup\', base));\n            var again = readRange(input || (ranges()[0] || null));\n            if (near(again ? again.percent : null)) { journal.push(\'b:ok\'); return done(\'pointer\'); }\n            journal.push(\'b:unchanged\');\n        } else journal.push(\'b:no-track\');\n    } catch (_) { journal.push(\'b:error\'); }\n    // (c) the page\'s own media element(s).\n    try {\n        var players = media();\n        if (players.length > 1) return JSON.stringify({ok: false, reason: \'ambiguous\', journal: journal.join(\'>\')});\n        if (players.length === 1) {\n            players.forEach(function(m) { m.volume = target / 100; });\n            if (players.every(function(m) { return Math.abs(m.volume * 100 - target) <= 1; })) { journal.push(\'c:ok\'); return done(\'media\'); }\n            journal.push(\'c:unchanged\');\n        } else journal.push(\'c:absent\');\n    } catch (_) { journal.push(\'c:error\'); }\n    // (d) web-player keyboard volume (Ctrl+Up/Down, mute Ctrl+Shift+Down):\n    // unverifiable, so reported as sent only, never as a confirmed value.\n    try {\n        var from = Number(arguments[2]);\n        var target2 = document.body;\n        var send = function(code, shift) {\n            [\'keydown\', \'keyup\'].forEach(function(type) {\n                target2.dispatchEvent(new KeyboardEvent(type, {key: code, code: code, ctrlKey: true, shiftKey: !!shift, bubbles: true, cancelable: true}));\n            });\n        };\n        if (target === 0) { send(\'ArrowDown\', true); journal.push(\'d:ctrl-shift-down\'); return JSON.stringify({ok: true, sent: true, unverified: true, method: \'keyboard\', journal: journal.join(\'>\')}); }\n        if (isFinite(from) && from >= 0) {\n            var steps = Math.min(10, Math.round(Math.abs(target - from) / 10));\n            for (var k = 0; k < steps; k++) send(target > from ? \'ArrowUp\' : \'ArrowDown\', false);\n            journal.push(\'d:ctrl-\' + (target > from ? \'up\' : \'down\') + \'x\' + steps);\n            if (steps) return JSON.stringify({ok: true, sent: true, unverified: true, method: \'keyboard\', journal: journal.join(\'>\')});\n        } else journal.push(\'d:no-start\');\n    } catch (_) { journal.push(\'d:error\'); }\n    return JSON.stringify({ok: false, reason: \'command\', journal: journal.join(\'>\')});\n})\n(\"query\",0);"
 
     new-instance v4, Lcom/melodix/music/PreviewPlayerVolume$4;
 
-    invoke-direct {v4, p0, v2, v3}, Lcom/melodix/music/PreviewPlayerVolume$4;-><init>(Lcom/melodix/music/PreviewPlayerVolume;J)V
+    invoke-direct {v4, p0, v1, v2}, Lcom/melodix/music/PreviewPlayerVolume$4;-><init>(Lcom/melodix/music/PreviewPlayerVolume;J)V
 
-    invoke-virtual {v0, v1, v4}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
+    invoke-virtual {v0, v3, v4}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
     :try_end_0
     .catch Ljava/lang/RuntimeException; {:try_start_0 .. :try_end_0} :catch_0
 
     goto :goto_0
 
-    .line 73
+    .line 76
     :catch_0
     move-exception v0
 
@@ -2104,7 +2195,7 @@
 
     iput-boolean v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->readBusy:Z
 
-    iput v8, p0, Lcom/melodix/music/PreviewPlayerVolume;->percent:I
+    iput v7, p0, Lcom/melodix/music/PreviewPlayerVolume;->percent:I
 
     const-string v0, "web"
 
@@ -2127,7 +2218,7 @@
     .locals 1
 
     .prologue
-    .line 38
+    .line 40
     const-string v0, "absent"
 
     invoke-virtual {p0, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
@@ -2138,11 +2229,11 @@
 
     const-string v0, "curseur Spotify absent"
 
-    .line 43
+    .line 45
     :goto_0
     return-object v0
 
-    .line 39
+    .line 41
     :cond_0
     const-string v0, "ambiguous"
 
@@ -2156,7 +2247,7 @@
 
     goto :goto_0
 
-    .line 40
+    .line 42
     :cond_1
     const-string v0, "disabled"
 
@@ -2170,7 +2261,7 @@
 
     goto :goto_0
 
-    .line 41
+    .line 43
     :cond_2
     const-string v0, "range"
 
@@ -2184,7 +2275,7 @@
 
     goto :goto_0
 
-    .line 42
+    .line 44
     :cond_3
     const-string v0, "command"
 
@@ -2198,7 +2289,7 @@
 
     goto :goto_0
 
-    .line 43
+    .line 45
     :cond_4
     const-string v0, "page ou r\u00e9ponse inaccessible"
 
@@ -2206,12 +2297,14 @@
 .end method
 
 .method private send()V
-    .locals 7
+    .locals 11
 
     .prologue
-    const/4 v6, -0x1
+    const/4 v10, 0x0
 
-    .line 84
+    const/4 v9, -0x1
+
+    .line 87
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->running:Z
 
     if-eqz v0, :cond_0
@@ -2220,43 +2313,43 @@
 
     if-gez v0, :cond_1
 
-    .line 94
+    .line 97
     :cond_0
     :goto_0
     return-void
 
-    .line 84
+    .line 87
     :cond_1
     iget v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->queued:I
 
-    iput v6, p0, Lcom/melodix/music/PreviewPlayerVolume;->queued:I
+    iput v9, p0, Lcom/melodix/music/PreviewPlayerVolume;->queued:I
 
     invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
 
-    move-result-wide v2
+    move-result-wide v1
 
-    iput-wide v2, p0, Lcom/melodix/music/PreviewPlayerVolume;->lastSent:J
+    iput-wide v1, p0, Lcom/melodix/music/PreviewPlayerVolume;->lastSent:J
 
-    iget-wide v2, p0, Lcom/melodix/music/PreviewPlayerVolume;->serial:J
+    iget-wide v1, p0, Lcom/melodix/music/PreviewPlayerVolume;->serial:J
 
-    const-wide/16 v4, 0x1
+    const-wide/16 v3, 0x1
 
-    add-long/2addr v2, v4
+    add-long v4, v1, v3
 
-    iput-wide v2, p0, Lcom/melodix/music/PreviewPlayerVolume;->serial:J
+    iput-wide v4, p0, Lcom/melodix/music/PreviewPlayerVolume;->serial:J
 
-    const/4 v1, 0x0
+    iget-wide v2, p0, Lcom/melodix/music/PreviewPlayerVolume;->commandSerial:J
 
-    iput-boolean v1, p0, Lcom/melodix/music/PreviewPlayerVolume;->readBusy:Z
+    iput-boolean v10, p0, Lcom/melodix/music/PreviewPlayerVolume;->readBusy:Z
 
-    .line 85
+    .line 88
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerVolume;->web()Landroid/webkit/WebView;
 
-    move-result-object v1
+    move-result-object v6
 
-    if-nez v1, :cond_2
+    if-nez v6, :cond_2
 
-    iput v6, p0, Lcom/melodix/music/PreviewPlayerVolume;->percent:I
+    iput v9, p0, Lcom/melodix/music/PreviewPlayerVolume;->percent:I
 
     const-string v0, "web"
 
@@ -2274,55 +2367,67 @@
 
     goto :goto_0
 
-    .line 86
+    .line 89
     :cond_2
-    const-string v4, "en attente"
+    const-string v1, "en attente"
 
-    sput-object v4, Lcom/melodix/music/PreviewPlayerVolume;->lastAction:Ljava/lang/String;
+    sput-object v1, Lcom/melodix/music/PreviewPlayerVolume;->lastAction:Ljava/lang/String;
 
-    .line 87
+    const/4 v1, 0x1
+
+    iput-boolean v1, p0, Lcom/melodix/music/PreviewPlayerVolume;->commandPending:Z
+
+    invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
+
+    move-result-wide v7
+
+    iput-wide v7, p0, Lcom/melodix/music/PreviewPlayerVolume;->commandAt:J
+
+    .line 90
     :try_start_0
-    new-instance v4, Ljava/lang/StringBuilder;
+    new-instance v1, Ljava/lang/StringBuilder;
 
-    const-string v5, "(function(action, requested) {\n    \'use strict\';\n    // Spotify player volume only; never Android audio, session data or network.\n    // Methods in order, each re-reading a DOM value where possible. This does\n    // not verify the player backend or audible output:\n    // (a) native range setter + input/change, (b) pointer on the volume track,\n    // (c) volume of the page\'s own media element.\n    var journal = [];\n    function ranges() {\n        return Array.from(document.querySelectorAll(\'[data-testid=\"volume-bar\"] input[type=\"range\"], input[data-testid=\"volume-bar\"][type=\"range\"]\')).filter(function(n) { return n.isConnected; });\n    }\n    function readRange(input) {\n        if (!input) return null;\n        var min = input.hasAttribute(\'min\') ? Number(input.min) : 0, max = input.hasAttribute(\'max\') ? Number(input.max) : 100, current = Number(input.value);\n        if (!isFinite(min) || !isFinite(max) || max <= min || !isFinite(current) || current < min || current > max) return null;\n        return {percent: Math.round(100 * (current - min) / (max - min)), min: min, max: max};\n    }\n    function media() {\n        return Array.from(document.querySelectorAll(\'audio, video\')).filter(function(m) { return typeof m.volume === \'number\' && isFinite(m.volume); });\n    }\n    function hidden(n) {\n        for (var el = n; el && el !== document.body; el = el.parentElement) {\n            var cs = window.getComputedStyle(el);\n            if (el.hasAttribute(\'hidden\') || el.getAttribute(\'aria-hidden\') === \'true\' || cs.display === \'none\' || cs.visibility === \'hidden\') return true;\n        }\n        return false;\n    }\n    var list = ranges(), input = list.length === 1 ? list[0] : null;\n    var bars = Array.from(document.querySelectorAll(\'[data-testid=\"volume-bar\"]\')).filter(function(n) { return n.isConnected; });\n    var bar0 = bars.length === 1 ? bars[0] : null;\n    var disabled = !!(input && (input.disabled || input.matches(\':disabled\') || input.closest(\'[aria-disabled=\"true\"]\') || hidden(input))) || !!(bar0 && (bar0.getAttribute(\'aria-disabled\') === \'true\' || bar0.closest(\'[aria-disabled=\"true\"], fieldset:disabled\') || hidden(bar0)));\n    var current = disabled ? null : readRange(input);\n    if (action === \'query\') {\n        if (list.length > 1 || bars.length > 1) return JSON.stringify({ok: false, reason: \'ambiguous\'});\n        if (disabled) return JSON.stringify({ok: false, reason: \'disabled\'});\n        if (input && !current) return JSON.stringify({ok: false, reason: \'range\'});\n        if (current) return JSON.stringify({ok: true, percent: current.percent, method: \'range\'});\n        var players = media();\n        if (players.length === 1) return JSON.stringify({ok: true, percent: Math.round(players[0].volume * 100), method: \'media\'});\n        return JSON.stringify({ok: false, reason: players.length > 1 ? \'ambiguous\' : \'absent\'});\n    }\n    var target = Number(requested);\n    if (action !== \'set\' || !isFinite(target) || target < 0 || target > 100) return JSON.stringify({ok: false, reason: \'request\'});\n    // Never act on a disabled, duplicated or out-of-range Spotify control.\n    if (disabled) return JSON.stringify({ok: false, reason: \'disabled\'});\n    if (list.length > 1 || bars.length > 1) return JSON.stringify({ok: false, reason: \'ambiguous\'});\n    if (input && !current) return JSON.stringify({ok: false, reason: \'range\'});\n    function near(p) { return p !== null && Math.abs(p - target) <= 2; }\n    function done(method) { return JSON.stringify({ok: true, sent: true, unverified: true, method: method, journal: journal.join(\'>\')}); }\n    // (a) native setter on the unique range.\n    if (current) {\n        try {\n            var value = current.min + (current.max - current.min) * target / 100;\n            var setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, \'value\').set;\n            setter.call(input, String(value));\n            input.dispatchEvent(new Event(\'input\', {bubbles: true}));\n            input.dispatchEvent(new Event(\'change\', {bubbles: true}));\n            var after = readRange(input);\n            if (near(after ? after.percent : null)) { journal.push(\'a:ok\'); return done(\'range\'); }\n            journal.push(\'a:unchanged\');\n        } catch (_) { journal.push(\'a:error\'); }\n    } else journal.push(disabled ? \'a:disabled\' : \'a:absent\');\n    // (b) pointer press at the target position on the visible track.\n    try {\n        var bar = bar0;\n        var track = bar && (bar.querySelector(\'[data-testid=\"progress-bar\"]\') || bar.querySelector(\'[role=\"slider\"]\') || bar);\n        var box = track ? track.getBoundingClientRect() : null;\n        if (box && box.width > 4) {\n            var x = box.left + box.width * target / 100, y = box.top + box.height / 2;\n            var base = {bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0, buttons: 1, pointerId: 1, pointerType: \'mouse\', isPrimary: true};\n            var Pointer = typeof PointerEvent === \'function\' ? PointerEvent : MouseEvent;\n            track.dispatchEvent(new Pointer(\'pointerdown\', base));\n            track.dispatchEvent(new MouseEvent(\'mousedown\', base));\n            document.dispatchEvent(new Pointer(\'pointerup\', base));\n            document.dispatchEvent(new MouseEvent(\'mouseup\', base));\n            var again = readRange(input || (ranges()[0] || null));\n            if (near(again ? again.percent : null)) { journal.push(\'b:ok\'); return done(\'pointer\'); }\n            journal.push(\'b:unchanged\');\n        } else journal.push(\'b:no-track\');\n    } catch (_) { journal.push(\'b:error\'); }\n    // (c) the page\'s own media element(s).\n    try {\n        var players = media();\n        if (players.length > 1) return JSON.stringify({ok: false, reason: \'ambiguous\', journal: journal.join(\'>\')});\n        if (players.length === 1) {\n            players.forEach(function(m) { m.volume = target / 100; });\n            if (players.every(function(m) { return Math.abs(m.volume * 100 - target) <= 1; })) { journal.push(\'c:ok\'); return done(\'media\'); }\n            journal.push(\'c:unchanged\');\n        } else journal.push(\'c:absent\');\n    } catch (_) { journal.push(\'c:error\'); }\n    // (d) web-player keyboard volume (Ctrl+Up/Down, mute Ctrl+Shift+Down):\n    // unverifiable, so reported as sent only, never as a confirmed value.\n    try {\n        var from = Number(arguments[2]);\n        var target2 = document.body;\n        var send = function(code, shift) {\n            [\'keydown\', \'keyup\'].forEach(function(type) {\n                target2.dispatchEvent(new KeyboardEvent(type, {key: code, code: code, ctrlKey: true, shiftKey: !!shift, bubbles: true, cancelable: true}));\n            });\n        };\n        if (target === 0) { send(\'ArrowDown\', true); journal.push(\'d:ctrl-shift-down\'); return JSON.stringify({ok: true, sent: true, unverified: true, method: \'keyboard\', journal: journal.join(\'>\')}); }\n        if (isFinite(from) && from >= 0) {\n            var steps = Math.min(10, Math.round(Math.abs(target - from) / 10));\n            for (var k = 0; k < steps; k++) send(target > from ? \'ArrowUp\' : \'ArrowDown\', false);\n            journal.push(\'d:ctrl-\' + (target > from ? \'up\' : \'down\') + \'x\' + steps);\n            if (steps) return JSON.stringify({ok: true, sent: true, unverified: true, method: \'keyboard\', journal: journal.join(\'>\')});\n        } else journal.push(\'d:no-start\');\n    } catch (_) { journal.push(\'d:error\'); }\n    return JSON.stringify({ok: false, reason: \'command\', journal: journal.join(\'>\')});\n})\n(\"set\","
+    const-string v7, "(function(action, requested) {\n    \'use strict\';\n    // Spotify player volume only; never Android audio, session data or network.\n    // Methods in order, each re-reading a DOM value where possible. This does\n    // not verify the player backend or audible output:\n    // (a) native range setter + input/change, (b) pointer on the volume track,\n    // (c) volume of the page\'s own media element.\n    var journal = [];\n    function ranges() {\n        return Array.from(document.querySelectorAll(\'[data-testid=\"volume-bar\"] input[type=\"range\"], input[data-testid=\"volume-bar\"][type=\"range\"]\')).filter(function(n) { return n.isConnected; });\n    }\n    function readRange(input) {\n        if (!input) return null;\n        var min = input.hasAttribute(\'min\') ? Number(input.min) : 0, max = input.hasAttribute(\'max\') ? Number(input.max) : 100, current = Number(input.value);\n        if (!isFinite(min) || !isFinite(max) || max <= min || !isFinite(current) || current < min || current > max) return null;\n        return {percent: Math.round(100 * (current - min) / (max - min)), min: min, max: max};\n    }\n    function media() {\n        return Array.from(document.querySelectorAll(\'audio, video\')).filter(function(m) { return typeof m.volume === \'number\' && isFinite(m.volume); });\n    }\n    function hidden(n) {\n        for (var el = n; el && el !== document.body; el = el.parentElement) {\n            var cs = window.getComputedStyle(el);\n            if (el.hasAttribute(\'hidden\') || el.getAttribute(\'aria-hidden\') === \'true\' || cs.display === \'none\' || cs.visibility === \'hidden\') return true;\n        }\n        return false;\n    }\n    var list = ranges(), input = list.length === 1 ? list[0] : null;\n    var bars = Array.from(document.querySelectorAll(\'[data-testid=\"volume-bar\"]\')).filter(function(n) { return n.isConnected; });\n    var bar0 = bars.length === 1 ? bars[0] : null;\n    var disabled = !!(input && (input.disabled || input.matches(\':disabled\') || input.closest(\'[aria-disabled=\"true\"]\') || hidden(input))) || !!(bar0 && (bar0.getAttribute(\'aria-disabled\') === \'true\' || bar0.closest(\'[aria-disabled=\"true\"], fieldset:disabled\') || hidden(bar0)));\n    var current = disabled ? null : readRange(input);\n    if (action === \'query\') {\n        if (list.length > 1 || bars.length > 1) return JSON.stringify({ok: false, reason: \'ambiguous\'});\n        if (disabled) return JSON.stringify({ok: false, reason: \'disabled\'});\n        if (input && !current) return JSON.stringify({ok: false, reason: \'range\'});\n        if (current) return JSON.stringify({ok: true, percent: current.percent, method: \'range\'});\n        var players = media();\n        if (players.length === 1) return JSON.stringify({ok: true, percent: Math.round(players[0].volume * 100), method: \'media\'});\n        return JSON.stringify({ok: false, reason: players.length > 1 ? \'ambiguous\' : \'absent\'});\n    }\n    var target = Number(requested);\n    if (action !== \'set\' || !isFinite(target) || target < 0 || target > 100) return JSON.stringify({ok: false, reason: \'request\'});\n    // Never act on a disabled, duplicated or out-of-range Spotify control.\n    if (disabled) return JSON.stringify({ok: false, reason: \'disabled\'});\n    if (list.length > 1 || bars.length > 1) return JSON.stringify({ok: false, reason: \'ambiguous\'});\n    if (input && !current) return JSON.stringify({ok: false, reason: \'range\'});\n    function near(p) { return p !== null && Math.abs(p - target) <= 2; }\n    function done(method) { return JSON.stringify({ok: true, sent: true, unverified: true, method: method, journal: journal.join(\'>\')}); }\n    // (a) native setter on the unique range.\n    if (current) {\n        try {\n            var value = current.min + (current.max - current.min) * target / 100;\n            var setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, \'value\').set;\n            setter.call(input, String(value));\n            input.dispatchEvent(new Event(\'input\', {bubbles: true}));\n            input.dispatchEvent(new Event(\'change\', {bubbles: true}));\n            var after = readRange(input);\n            if (near(after ? after.percent : null)) { journal.push(\'a:ok\'); return done(\'range\'); }\n            journal.push(\'a:unchanged\');\n        } catch (_) { journal.push(\'a:error\'); }\n    } else journal.push(disabled ? \'a:disabled\' : \'a:absent\');\n    // (b) pointer press at the target position on the visible track.\n    try {\n        var bar = bar0;\n        var track = bar && (bar.querySelector(\'[data-testid=\"progress-bar\"]\') || bar.querySelector(\'[role=\"slider\"]\') || bar);\n        var box = track ? track.getBoundingClientRect() : null;\n        if (box && box.width > 4) {\n            var x = box.left + box.width * target / 100, y = box.top + box.height / 2;\n            var base = {bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0, buttons: 1, pointerId: 1, pointerType: \'mouse\', isPrimary: true};\n            var Pointer = typeof PointerEvent === \'function\' ? PointerEvent : MouseEvent;\n            track.dispatchEvent(new Pointer(\'pointerdown\', base));\n            track.dispatchEvent(new MouseEvent(\'mousedown\', base));\n            document.dispatchEvent(new Pointer(\'pointerup\', base));\n            document.dispatchEvent(new MouseEvent(\'mouseup\', base));\n            var again = readRange(input || (ranges()[0] || null));\n            if (near(again ? again.percent : null)) { journal.push(\'b:ok\'); return done(\'pointer\'); }\n            journal.push(\'b:unchanged\');\n        } else journal.push(\'b:no-track\');\n    } catch (_) { journal.push(\'b:error\'); }\n    // (c) the page\'s own media element(s).\n    try {\n        var players = media();\n        if (players.length > 1) return JSON.stringify({ok: false, reason: \'ambiguous\', journal: journal.join(\'>\')});\n        if (players.length === 1) {\n            players.forEach(function(m) { m.volume = target / 100; });\n            if (players.every(function(m) { return Math.abs(m.volume * 100 - target) <= 1; })) { journal.push(\'c:ok\'); return done(\'media\'); }\n            journal.push(\'c:unchanged\');\n        } else journal.push(\'c:absent\');\n    } catch (_) { journal.push(\'c:error\'); }\n    // (d) web-player keyboard volume (Ctrl+Up/Down, mute Ctrl+Shift+Down):\n    // unverifiable, so reported as sent only, never as a confirmed value.\n    try {\n        var from = Number(arguments[2]);\n        var target2 = document.body;\n        var send = function(code, shift) {\n            [\'keydown\', \'keyup\'].forEach(function(type) {\n                target2.dispatchEvent(new KeyboardEvent(type, {key: code, code: code, ctrlKey: true, shiftKey: !!shift, bubbles: true, cancelable: true}));\n            });\n        };\n        if (target === 0) { send(\'ArrowDown\', true); journal.push(\'d:ctrl-shift-down\'); return JSON.stringify({ok: true, sent: true, unverified: true, method: \'keyboard\', journal: journal.join(\'>\')}); }\n        if (isFinite(from) && from >= 0) {\n            var steps = Math.min(10, Math.round(Math.abs(target - from) / 10));\n            for (var k = 0; k < steps; k++) send(target > from ? \'ArrowUp\' : \'ArrowDown\', false);\n            journal.push(\'d:ctrl-\' + (target > from ? \'up\' : \'down\') + \'x\' + steps);\n            if (steps) return JSON.stringify({ok: true, sent: true, unverified: true, method: \'keyboard\', journal: journal.join(\'>\')});\n        } else journal.push(\'d:no-start\');\n    } catch (_) { journal.push(\'d:error\'); }\n    return JSON.stringify({ok: false, reason: \'command\', journal: journal.join(\'>\')});\n})\n(\"set\","
 
-    invoke-direct {v4, v5}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+    invoke-direct {v1, v7}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
 
-    invoke-virtual {v4, v0}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    const-string v4, ","
-
-    invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
 
     move-result-object v0
 
-    iget v4, p0, Lcom/melodix/music/PreviewPlayerVolume;->percent:I
+    const-string v1, ","
 
-    invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v0
 
-    const-string v4, ");"
+    iget v1, p0, Lcom/melodix/music/PreviewPlayerVolume;->percent:I
 
-    invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    const-string v1, ");"
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v0
 
     invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
-    move-result-object v0
+    move-result-object v7
 
-    new-instance v4, Lcom/melodix/music/PreviewPlayerVolume$5;
+    new-instance v0, Lcom/melodix/music/PreviewPlayerVolume$5;
 
-    invoke-direct {v4, p0, v2, v3}, Lcom/melodix/music/PreviewPlayerVolume$5;-><init>(Lcom/melodix/music/PreviewPlayerVolume;J)V
+    move-object v1, p0
 
-    invoke-virtual {v1, v0, v4}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
+    invoke-direct/range {v0 .. v5}, Lcom/melodix/music/PreviewPlayerVolume$5;-><init>(Lcom/melodix/music/PreviewPlayerVolume;JJ)V
+
+    invoke-virtual {v6, v7, v0}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
     :try_end_0
     .catch Ljava/lang/RuntimeException; {:try_start_0 .. :try_end_0} :catch_0
 
-    .line 93
+    .line 96
     :goto_1
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->dragging:Z
 
@@ -2340,11 +2445,13 @@
 
     goto :goto_0
 
-    .line 92
+    .line 95
     :catch_0
     move-exception v0
 
-    iput v6, p0, Lcom/melodix/music/PreviewPlayerVolume;->percent:I
+    iput-boolean v10, p0, Lcom/melodix/music/PreviewPlayerVolume;->commandPending:Z
+
+    iput v9, p0, Lcom/melodix/music/PreviewPlayerVolume;->percent:I
 
     const-string v0, "command"
 
@@ -2381,7 +2488,7 @@
     .locals 5
 
     .prologue
-    .line 76
+    .line 79
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->valueLabel:Landroid/widget/TextView;
 
     if-eqz v0, :cond_0
@@ -2408,13 +2515,13 @@
 
     invoke-virtual {v0, v1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
 
-    .line 77
+    .line 80
     :cond_0
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->mute:Landroid/widget/Button;
 
     if-eqz v0, :cond_1
 
-    .line 78
+    .line 81
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerVolume;->mute:Landroid/widget/Button;
 
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerVolume;->getContext()Landroid/content/Context;
@@ -2441,7 +2548,7 @@
 
     invoke-virtual {v2, v0}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
 
-    .line 79
+    .line 82
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerVolume;->mute:Landroid/widget/Button;
 
     if-nez p1, :cond_4
@@ -2451,11 +2558,11 @@
     :goto_2
     invoke-virtual {v1, v0}, Landroid/widget/Button;->setContentDescription(Ljava/lang/CharSequence;)V
 
-    .line 81
+    .line 84
     :cond_1
     return-void
 
-    .line 78
+    .line 81
     :cond_2
     const-string v0, "Silence"
 
@@ -2468,7 +2575,7 @@
 
     goto :goto_1
 
-    .line 79
+    .line 82
     :cond_4
     const-string v0, "Mettre le lecteur en silence"
 
@@ -2479,13 +2586,15 @@
     .locals 7
 
     .prologue
+    const-wide/16 v5, 0x1
+
     const/4 v1, 0x1
 
-    const/4 v6, -0x1
+    const/4 v4, -0x1
 
     const/4 v2, 0x0
 
-    .line 138
+    .line 142
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerVolume;->isAttachedToWindow()Z
 
     move-result v0
@@ -2543,15 +2652,21 @@
 
     iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->serial:J
 
-    const-wide/16 v4, 0x1
-
-    add-long/2addr v0, v4
+    add-long/2addr v0, v5
 
     iput-wide v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->serial:J
 
+    iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->commandSerial:J
+
+    add-long/2addr v0, v5
+
+    iput-wide v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->commandSerial:J
+
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerVolume;->interruptCommand()V
+
     iput-boolean v2, p0, Lcom/melodix/music/PreviewPlayerVolume;->readBusy:Z
 
-    iput v6, p0, Lcom/melodix/music/PreviewPlayerVolume;->queued:I
+    iput v4, p0, Lcom/melodix/music/PreviewPlayerVolume;->queued:I
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->handler:Landroid/os/Handler;
 
@@ -2567,7 +2682,7 @@
 
     iput-boolean v2, p0, Lcom/melodix/music/PreviewPlayerVolume;->sendScheduled:Z
 
-    iput v6, p0, Lcom/melodix/music/PreviewPlayerVolume;->percent:I
+    iput v4, p0, Lcom/melodix/music/PreviewPlayerVolume;->percent:I
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->dialog:Lcom/melodix/music/PreviewPlayerSheet;
 
@@ -2589,7 +2704,7 @@
     .prologue
     const/4 v1, 0x0
 
-    .line 51
+    .line 54
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerVolume;->activity()Landroid/app/Activity;
 
     move-result-object v0
@@ -2645,7 +2760,7 @@
     .locals 0
 
     .prologue
-    .line 139
+    .line 143
     invoke-super {p0}, Landroid/widget/Button;->onAttachedToWindow()V
 
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerVolume;->sync()V
@@ -2657,18 +2772,26 @@
     .locals 5
 
     .prologue
-    const/4 v4, 0x0
+    const-wide/16 v3, 0x1
 
-    .line 140
-    iput-boolean v4, p0, Lcom/melodix/music/PreviewPlayerVolume;->running:Z
+    const/4 v2, 0x0
+
+    .line 144
+    iput-boolean v2, p0, Lcom/melodix/music/PreviewPlayerVolume;->running:Z
 
     iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->serial:J
 
-    const-wide/16 v2, 0x1
-
-    add-long/2addr v0, v2
+    add-long/2addr v0, v3
 
     iput-wide v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->serial:J
+
+    iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->commandSerial:J
+
+    add-long/2addr v0, v3
+
+    iput-wide v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->commandSerial:J
+
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerVolume;->interruptCommand()V
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->handler:Landroid/os/Handler;
 
@@ -2686,7 +2809,7 @@
 
     iput v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->queued:I
 
-    iput-boolean v4, p0, Lcom/melodix/music/PreviewPlayerVolume;->sendScheduled:Z
+    iput-boolean v2, p0, Lcom/melodix/music/PreviewPlayerVolume;->sendScheduled:Z
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->dialog:Lcom/melodix/music/PreviewPlayerSheet;
 
@@ -2706,7 +2829,7 @@
     .locals 1
 
     .prologue
-    .line 141
+    .line 145
     invoke-super {p0, p1, p2}, Landroid/widget/Button;->onVisibilityChanged(Landroid/view/View;I)V
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->handler:Landroid/os/Handler;
@@ -2727,7 +2850,7 @@
     .locals 1
 
     .prologue
-    .line 142
+    .line 146
     invoke-super {p0, p1}, Landroid/widget/Button;->onWindowVisibilityChanged(I)V
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerVolume;->handler:Landroid/os/Handler;

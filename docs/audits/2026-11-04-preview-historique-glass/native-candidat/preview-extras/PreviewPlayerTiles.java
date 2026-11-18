@@ -175,6 +175,8 @@ public final class PreviewPlayerTiles extends LinearLayout {
         retry.setEnabled(true);riseAll(list);
     }
     private void riseAll(LinearLayout list){for(int k=0;k<list.getChildCount()&&k<14;k++)PreviewUiRestyle.rise(list.getChildAt(k),k);}
+    // Once a request has settled (including a timeout), its late callbacks must
+    // not render content or launch further page actions. New retries get a new serial.
     private long queueSerial, settledSerial=-1;
     private JSONObject parseObject(String value){try{Object d=new JSONTokener(value).nextValue();return d instanceof String?new JSONObject((String)d):null;}catch(Exception ignored){return null;}}
     private void loadQueue(final Activity a,final Dialog dialog,final LinearLayout list,final Button retry){
@@ -182,7 +184,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
         postDelayed(new Runnable(){public void run(){if(serial==queueSerial&&webDialog==dialog&&settledSerial!=serial){queueJournal="delai";queueFailed(a,list,retry);}}},8000);
         WebView w=web(a);if(w==null){queueJournal="page:inaccessible";queueFailed(a,list,retry);return;}
         try{w.evaluateJavascript("("+QUEUE_JOB+")(\"run\");",new ValueCallback<String>(){public void onReceiveValue(String value){
-            if(serial!=queueSerial||webDialog!=dialog)return;JSONObject o=parseObject(value);String st=o==null?"":o.optString("status","");
+            if(serial!=queueSerial||webDialog!=dialog||settledSerial==serial)return;JSONObject o=parseObject(value);String st=o==null?"":o.optString("status","");
             String id=o==null?"":o.optString("id","");
             if(st.equals("started")&&validJobId(id)){queueJobId=id;queueJobPending=true;queueStep="demarre";pollQueue(a,dialog,list,retry,serial,0);}
             else{queueReason=st.equals("busy")?"busy":st.equals("blocked")?"close-unverified":"";queueJournal=st.equals("busy")?"demarrage:occupe":st.equals("blocked")?"demarrage:fermeture-non-confirmee":"demarrage:refuse";queueFailed(a,list,retry);}
@@ -192,9 +194,9 @@ public final class PreviewPlayerTiles extends LinearLayout {
         queueStep="demarre:lectures="+n;
         if(n>30){if(serial==queueSerial&&webDialog==dialog){queueJournal="delai";queueFailed(a,list,retry);}return;}
         postDelayed(new Runnable(){public void run(){
-            if(serial!=queueSerial||webDialog!=dialog)return;WebView w=web(a);if(w==null){queueFailed(a,list,retry);return;}
+            if(serial!=queueSerial||webDialog!=dialog||settledSerial==serial)return;WebView w=web(a);if(w==null){queueFailed(a,list,retry);return;}
             try{w.evaluateJavascript("("+QUEUE_JOB+")(\"poll\");",new ValueCallback<String>(){public void onReceiveValue(String value){
-                if(serial!=queueSerial||webDialog!=dialog)return;JSONObject o=parseObject(value);
+                if(serial!=queueSerial||webDialog!=dialog||settledSerial==serial)return;JSONObject o=parseObject(value);
                 if(o==null){pollQueue(a,dialog,list,retry,serial,n+1);return;}
                 if(!queueJobId.equals(o.optString("id",""))){queueJobPending=false;queueJournal="lecture=non-confirmee:travail-remplace";queueFailed(a,list,retry);return;}
                 if(!o.optString("status","").equals("done")){pollQueue(a,dialog,list,retry,serial,n+1);return;}
@@ -263,10 +265,10 @@ public final class PreviewPlayerTiles extends LinearLayout {
     }
     private void loadPanel(final int i,final Activity a,final Dialog dialog,final LinearLayout list,final Button retry,final String action,final String target){
         final long serial=++panelSerial;panelJobId="";panelJobPending=false;skeleton(a,list);retry.setEnabled(false);final String kind=i==1?"lyrics":"devices";
-        postDelayed(new Runnable(){public void run(){if(serial==panelSerial&&webDialog==dialog&&panelSettled!=serial){panelJournals[i-1]="delai";panelFailed(i,a,list,retry);}}},action.equals("transfer")?11000:8000);
+        postDelayed(new Runnable(){public void run(){if(serial==panelSerial&&webDialog==dialog&&panelSettled!=serial){panelJournals[i-1]="delai";if(action.equals("transfer"))panelMessage(a,list,retry,"Transfert non vérifié","Résultat incertain. Vérifiez l’appareil actif avant toute nouvelle tentative.");else panelFailed(i,a,list,retry);}}},action.equals("transfer")?11000:8000);
         WebView w=web(a);if(w==null){panelJournals[i-1]="page:inaccessible";panelFailed(i,a,list,retry);return;}
         try{w.evaluateJavascript("("+PANEL_JOB+")("+JSONObject.quote(kind)+","+JSONObject.quote(action)+","+JSONObject.quote(target)+");",new ValueCallback<String>(){public void onReceiveValue(String value){
-            if(serial!=panelSerial||webDialog!=dialog)return;JSONObject o=parseObject(value);String st=o==null?"":o.optString("status","");
+            if(serial!=panelSerial||webDialog!=dialog||panelSettled==serial)return;JSONObject o=parseObject(value);String st=o==null?"":o.optString("status","");
             String id=o==null?"":o.optString("id","");
             if(st.equals("started")&&validJobId(id)){panelJobId=id;panelJobPending=true;panelStep="demarre";pollPanel(i,a,dialog,list,retry,serial,0,action,kind);}
             else{panelReason=st.equals("busy")?"busy":st.equals("blocked")?"close-unverified":"";panelJournals[i-1]=st.equals("busy")?"demarrage:occupe":st.equals("blocked")?"demarrage:fermeture-non-confirmee":"demarrage:refuse";panelFailed(i,a,list,retry);}
@@ -275,9 +277,9 @@ public final class PreviewPlayerTiles extends LinearLayout {
     private void pollPanel(final int i,final Activity a,final Dialog dialog,final LinearLayout list,final Button retry,final long serial,final int n,final String action,final String kind){
         panelStep="demarre:lectures="+n;if(n>44)return;
         postDelayed(new Runnable(){public void run(){
-            if(serial!=panelSerial||webDialog!=dialog)return;WebView w=web(a);if(w==null){panelFailed(i,a,list,retry);return;}
+            if(serial!=panelSerial||webDialog!=dialog||panelSettled==serial)return;WebView w=web(a);if(w==null){panelFailed(i,a,list,retry);return;}
             try{w.evaluateJavascript("("+PANEL_JOB+")("+JSONObject.quote(kind)+",\"poll\",\"\");",new ValueCallback<String>(){public void onReceiveValue(String value){
-                if(serial!=panelSerial||webDialog!=dialog)return;JSONObject o=parseObject(value);
+                if(serial!=panelSerial||webDialog!=dialog||panelSettled==serial)return;JSONObject o=parseObject(value);
                 if(o==null){pollPanel(i,a,dialog,list,retry,serial,n+1,action,kind);return;}
                 if(!panelJobId.equals(o.optString("id",""))){panelJobPending=false;panelJournals[i-1]="lecture=non-confirmee:travail-remplace";panelFailed(i,a,list,retry);return;}
                 if(!o.optString("status","").equals("done")){pollPanel(i,a,dialog,list,retry,serial,n+1,action,kind);return;}

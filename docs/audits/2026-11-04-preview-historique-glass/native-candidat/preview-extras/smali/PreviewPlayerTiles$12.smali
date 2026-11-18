@@ -22,6 +22,8 @@
 
 .field private final synthetic val$a:Landroid/app/Activity;
 
+.field private final synthetic val$action:Ljava/lang/String;
+
 .field private final synthetic val$dialog:Landroid/app/Dialog;
 
 .field private final synthetic val$i:I
@@ -34,11 +36,11 @@
 
 
 # direct methods
-.method constructor <init>(Lcom/melodix/music/PreviewPlayerTiles;JLandroid/app/Dialog;ILandroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
+.method constructor <init>(Lcom/melodix/music/PreviewPlayerTiles;JLandroid/app/Dialog;ILjava/lang/String;Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
     .locals 0
 
     .prologue
-    .line 266
+    .line 268
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iput-wide p2, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$serial:J
@@ -47,11 +49,13 @@
 
     iput p5, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$i:I
 
-    iput-object p6, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$a:Landroid/app/Activity;
+    iput-object p6, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$action:Ljava/lang/String;
 
-    iput-object p7, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$list:Landroid/widget/LinearLayout;
+    iput-object p7, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$a:Landroid/app/Activity;
 
-    iput-object p8, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$retry:Landroid/widget/Button;
+    iput-object p8, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$list:Landroid/widget/LinearLayout;
+
+    iput-object p9, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$retry:Landroid/widget/Button;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
@@ -61,10 +65,10 @@
 
 # virtual methods
 .method public run()V
-    .locals 5
+    .locals 6
 
     .prologue
-    .line 266
+    .line 268
     iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$serial:J
 
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
@@ -111,6 +115,35 @@
 
     aput-object v2, v0, v1
 
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$action:Ljava/lang/String;
+
+    const-string v1, "transfer"
+
+    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-eqz v0, :cond_1
+
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
+
+    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$a:Landroid/app/Activity;
+
+    iget-object v2, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$list:Landroid/widget/LinearLayout;
+
+    iget-object v3, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$retry:Landroid/widget/Button;
+
+    const-string v4, "Transfert non v\u00e9rifi\u00e9"
+
+    const-string v5, "R\u00e9sultat incertain. V\u00e9rifiez l\u2019appareil actif avant toute nouvelle tentative."
+
+    invoke-static/range {v0 .. v5}, Lcom/melodix/music/PreviewPlayerTiles;->access$30(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
+
+    :cond_0
+    :goto_0
+    return-void
+
+    :cond_1
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iget v1, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$i:I
@@ -121,8 +154,7 @@
 
     iget-object v4, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$retry:Landroid/widget/Button;
 
-    invoke-static {v0, v1, v2, v3, v4}, Lcom/melodix/music/PreviewPlayerTiles;->access$30(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
+    invoke-static {v0, v1, v2, v3, v4}, Lcom/melodix/music/PreviewPlayerTiles;->access$31(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
 
-    :cond_0
-    return-void
+    goto :goto_0
 .end method

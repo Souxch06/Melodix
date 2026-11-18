@@ -28,7 +28,7 @@
     .locals 0
 
     .prologue
-    .line 367
+    .line 369
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$21;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iput p2, p0, Lcom/melodix/music/PreviewPlayerTiles$21;->val$n:I
@@ -44,12 +44,12 @@
     .locals 2
 
     .prologue
-    .line 367
+    .line 369
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$21;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iget v1, p0, Lcom/melodix/music/PreviewPlayerTiles$21;->val$n:I
 
-    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->access$51(Lcom/melodix/music/PreviewPlayerTiles;I)V
+    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->access$52(Lcom/melodix/music/PreviewPlayerTiles;I)V
 
     return-void
 .end method
