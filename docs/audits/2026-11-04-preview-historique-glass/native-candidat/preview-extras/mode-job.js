@@ -49,7 +49,7 @@
     function testid(b) { return String(b.getAttribute('data-testid') || ''); }
     // Current Spotify wording varies: a verb plus a liked-songs/library word.
     (function() {
-        var word = /(titres likés|liked songs|bibliothèque|library|biblioteca|bibliothek)/i, off = labels.like.off, on = labels.like.on;
+        var word = /(titres likés|liked songs|liké|liked|favori|bibliothèque|library|biblioteca|bibliothek)/i, off = labels.like.off, on = labels.like.on;
         labels.like.off = {test: function(l) { return off.test(l) || (word.test(l) && /^(ajouter|add|enregistrer|save|añadir|adicionar|hinzufügen|zu)\b/i.test(l)); }};
         labels.like.on = {test: function(l) { return on.test(l) || (word.test(l) && /^(ajouté|retirer|supprimer|remove|enregistré|saved|added|quitar|remover|entfernen)/i.test(l)); }};
     })();

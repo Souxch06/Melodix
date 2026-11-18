@@ -174,3 +174,5 @@ test('id-less bar: exact native title identifies the track for a display read an
  assert.equal(JSON.parse(x.fn('like','invoke','false','title:Titre','Titre')).sent,true);assert.equal(clicks,1);
  assert.equal(JSON.parse(x.fn('like','invoke','false','title:Titre','Autre')).sent,false);assert.equal(clicks,1);
  }finally{x.close()}});
+
+test('long unrecognised "liked" label on a checked bar button is read as like state',()=>{const x=boot();try{const b=x.w.document.querySelector('div>div>button');b.removeAttribute('data-testid');b.setAttribute('aria-label','Ajouter aux coups de cœur likés ou à une playlist');assert.equal(q(x,'like').state,'false');b.setAttribute('aria-checked','true');b.setAttribute('aria-label','Retirer des likés');assert.equal(q(x,'like').state,'true');}finally{x.close()}});
