@@ -210,7 +210,12 @@
     // explicitly unchecked Liked Songs item. Never select another playlist.
     function viaLikeMenu(b, method, after) {
         var id = testid(b).toLowerCase(), l = label(b), popup = String(b.getAttribute('aria-haspopup') || '');
-        if (!/^(true|menu|dialog|listbox)$/i.test(popup)) return false;
+        // Some Spotify player bars omit aria-haspopup on the generic, unchecked
+        // add-to-playlist trigger. Permit only the known add control in the
+        // already identity-checked player scope; we still act solely on a
+        // fresh, unique, explicitly named Liked Songs checkbox below.
+        var implicitPicker = /^(add-button|add-to-library-button)$/.test(id) && genericAdd(l) && b.getAttribute('aria-checked') === 'false';
+        if (!/^(true|menu|dialog|listbox)$/i.test(popup) && !implicitPicker) return false;
         if (!identityMatches()) { log(method + ':menu-identity'); after('identity', 'unknown'); return true; }
         if (!/^(add-button|add-to-library-button)$/.test(id) || labels.like.on.test(l) ||
             shownState === 'true' || ((b.getAttribute('aria-checked') === 'true' || b.getAttribute('aria-pressed') === 'true') && !genericAdd(l)) ||
@@ -334,15 +339,51 @@
             if (!on) { log(method + ':unlike-not-checked'); close(r); after('menu-state', 'true'); return; }
             try { t[0].click(); log(method + ':unlike-uncheck'); } catch (_) { close(r); after('unconfirmed', 'true'); return; }
             var done = Array.from(r.querySelectorAll('button')).filter(function(n) { return available(n) && /^(terminé|terminer|done|ok|valider|enregistrer|save)$/i.test(String(n.getAttribute('aria-label') || n.textContent || '').replace(/\s+/g, ' ').trim()); });
-            if (done.length === 1) { try { done[0].click(); log(method + ':unlike-done'); } catch (_) {} }
+            if (done.length === 1) {
+                try { done[0].click(); log(method + ':unlike-done'); } catch (_) {}
+                wait(function() {
+                    if (!identityMatches()) return 'identity-changed';
+                    return barState() === 'false' ? 'false' : null;
+                }, 2600, function(st) {
+                    if (available(r)) close(r);
+                    if (st === 'identity-changed') after('identity', 'unknown');
+                    else if (st === 'false') { log(method + ':unlike-verified'); after('confirmed', 'false'); }
+                    else { log(method + ':unlike-unverified'); after('unconfirmed', 'true'); }
+                });
+                return;
+            }
+            // Some current Spotify menus have no Done button and do not update
+            // the generic player toggle. Confirm only if the exact Liked Songs
+            // checkbox becomes unchecked, survives closing, and remains false
+            // in a freshly reopened menu. Otherwise stay unconfirmed.
             wait(function() {
                 if (!identityMatches()) return 'identity-changed';
-                return barState() === 'false' ? 'false' : null;
-            }, 2600, function(st) {
-                if (available(r)) close(r);
-                if (st === 'identity-changed') after('identity', 'unknown');
-                else if (st === 'false') { log(method + ':unlike-verified'); after('confirmed', 'false'); }
-                else { log(method + ':unlike-unverified'); after('unconfirmed', 'true'); }
+                var current = targets(r);
+                return current.length === 1 && current[0].getAttribute('aria-checked') === 'false' ? 'unchecked' : null;
+            }, 1200, function(changed) {
+                if (changed !== 'unchecked') { if (available(r)) close(r); after(changed === 'identity-changed' ? 'identity' : 'unconfirmed', 'true'); return; }
+                close(r);
+                wait(function() { return !available(r) ? 'closed' : null; }, 1000, function(closed) {
+                    if (closed !== 'closed') { after('unconfirmed', 'true'); return; }
+                    var beforeReopen = Array.from(document.querySelectorAll(selector)).filter(available);
+                    try { b.click(); log(method + ':unlike-recheck-open'); }
+                    catch (_) { after('unconfirmed', 'true'); return; }
+                    wait(function() {
+                        if (!identityMatches()) return 'identity-changed';
+                        var freshMenus = Array.from(document.querySelectorAll(selector)).filter(function(n) { return available(n) && beforeReopen.indexOf(n) < 0; });
+                        var matches = freshMenus.filter(function(n) { return targets(n).length > 0; });
+                        if (matches.length !== 1) return null;
+                        var current = targets(matches[0]);
+                        if (current.length !== 1) return null;
+                        return current[0].getAttribute('aria-checked') === 'false' ? 'false' : current[0].getAttribute('aria-checked') === 'true' ? 'true' : null;
+                    }, 1800, function(state) {
+                        var reopened = Array.from(document.querySelectorAll(selector)).filter(function(n) { return available(n) && beforeReopen.indexOf(n) < 0; });
+                        if (reopened.length === 1) close(reopened[0]);
+                        if (state === 'identity-changed') after('identity', 'unknown');
+                        else if (state === 'false') { log(method + ':unlike-verified'); after('confirmed', 'false'); }
+                        else { log(method + ':unlike-unverified'); after('unconfirmed', 'true'); }
+                    });
+                });
             });
         });
     }

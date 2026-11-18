@@ -332,6 +332,13 @@ function pickerPage(items) {
   return {dom,d,b,counts};
 }
 
+test('picker: generic unchecked player add button without aria-haspopup still adds only Liked Songs',async()=>{
+  const x=pickerPage('<div role="menuitemcheckbox" aria-checked="false">Titres likés</div><div role="menuitemcheckbox" aria-checked="false">Ma playlist</div>');
+  x.b.removeAttribute('aria-haspopup');x.b.removeAttribute('aria-expanded');x.b.removeAttribute('aria-controls');x.b.setAttribute('aria-label','Ajouter à la playlist');x.b.setAttribute('aria-checked','false');
+  run(x.dom,mode,'like','run','unknown','Titre','track:x');await settle(60);
+  assert.deepEqual(x.counts,{open:1,selected:1,other:0,closed:1});assert.equal(run(x.dom,mode,'like','poll','unknown','Titre','track:x').outcome,'confirmed');x.dom.window.close();
+});
+
 test('picker: adds only the explicitly unchecked Liked Songs item once and confirms',async()=>{
   const x=pickerPage('<div role="menuitemcheckbox" aria-checked="false">Titres likés</div><div role="menuitemcheckbox" aria-checked="false">Ma playlist</div>');
   run(x.dom,mode,'like','run','unknown','Titre','track:x');await settle(40);
@@ -401,12 +408,12 @@ test('like: bar title linking to the album with ?highlight=spotify:track:ID give
   assert.equal(clicks, 2);
 });
 
-test('like: generic playlist and album-only identity cannot be used to add (checked generic = liked, read only)', async () => {
+test('like: album-only identity is refused; generic playlist opens only for a verified track and is otherwise read-only', async () => {
   const dom=page('<aside data-testid="now-playing-bar"><a href="/album/al9">Titre</a><button data-testid="add-button" aria-label="Ajouter à la playlist" aria-checked="false">+</button></aside>');
   const b=dom.window.document.querySelector('button');let clicks=0;b.onclick=()=>clicks++;
   run(dom,mode,'like','run','false','Titre','album:al9');await settle(300);assert.equal(clicks,0);
-  dom.window.document.querySelector('a').href='/track/x';run(dom,mode,'like','run','unknown','Titre','track:x');await settle(300);assert.equal(clicks,0);
-  b.setAttribute('aria-checked','true');run(dom,mode,'like','run','unknown','Titre','track:x');await settle(300);const out=run(dom,mode,'like','poll','unknown','Titre','track:x');assert.equal(clicks,0);assert.deepEqual([out.outcome,out.state,out.journal.at(-1)],['read','true','a:liked-read-only']);dom.window.close();
+  dom.window.document.querySelector('a').href='/track/x';run(dom,mode,'like','run','unknown','Titre','track:x');await settle(1900);assert.equal(clicks,1);assert.equal(run(dom,mode,'like','poll','unknown','Titre','track:x').outcome,'menu-absent');
+  b.setAttribute('aria-checked','true');run(dom,mode,'like','run','unknown','Titre','track:x');await settle(300);const out=run(dom,mode,'like','poll','unknown','Titre','track:x');assert.equal(clicks,1);assert.deepEqual([out.outcome,out.state,out.journal.at(-1)],['read','true','a:liked-read-only']);dom.window.close();
 });
 
 test('picker: a generic checked playlist opener may inspect only explicit unchecked liked songs',async()=>{
@@ -640,6 +647,14 @@ test('like: id-less bar is identified by the exact native title only, still add-
     run(dom, mode, 'like', 'run', 'false', expectedTitle, expectedTrack); await settle(60);
     assert.equal(clicks, clicksWanted, html + expectedTrack); dom.window.close();
   }
+});
+
+test('like removal without Done reopens the fresh picker and verifies Liked Songs stayed unchecked',async()=>{
+ const dom=page('<aside data-testid="now-playing-bar"><a data-testid="context-item-link" href="/track/x">Titre</a><button data-testid="add-button" aria-label="Ajouter à la playlist" aria-checked="true">+</button></aside><div id="slot"></div>');
+ const d=dom.window.document,b=d.querySelector('button'),slot=d.querySelector('#slot');let saved=true,opens=0,unchecks=0;
+ function open(){opens++;slot.innerHTML=`<div role="menu"><div role="menuitemcheckbox" aria-checked="${saved}">Titres likés</div></div>`;const menu=slot.firstChild,item=menu.firstChild;item.onclick=()=>{saved=!saved;item.setAttribute('aria-checked',String(saved));unchecks++};menu.addEventListener('keydown',e=>{if(e.key==='Escape')menu.remove()})}
+ b.onclick=open;run(dom,mode,'like','run','true','Titre','track:x');await settle(5200);const out=run(dom,mode,'like','poll','unknown','Titre','track:x');
+ assert.deepEqual([opens,unchecks,saved],[2,1,false]);assert.equal(out.outcome,'confirmed');assert.equal(out.state,'false');dom.window.close();
 });
 
 test('like removal via Spotify picker: uncheck only Liked Songs, then Done (phone 1022230 shape)', async () => {
