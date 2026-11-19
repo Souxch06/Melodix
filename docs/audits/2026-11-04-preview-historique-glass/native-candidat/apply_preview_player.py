@@ -11,7 +11,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 SOURCE = HERE / 'preview-player' / 'PreviewPlayerController.java'
 STORE_SOURCE = HERE / 'preview-player' / 'PreviewLastTrackStore.java'
-STORE_SOURCE_SHA = '194662c8da926900bfe3aa4695121b19248f431f31e4a7ff343be374fa99a082'
+STORE_SOURCE_SHA = 'fb3c7b3aaa51d99ca1c35004a8a984f809e17f1fbca6451d407fa6239eb429ca'
 EXPECTED = {
     'assets/native_ui_shell.js': '7b171ed4773c34571cd5bc4974f764d303edb300f49f13bbdf5f6f3940d84004',
     'smali/com/melodix/music/MainActivity.smali': 'dd14f96c2e3143b1e015e58a4c881911147e8312df1938a59e7ba3fa1b9a6f53',
@@ -27,10 +27,10 @@ HELPER_SHA = {
     'PreviewPlayerController$1.smali': '04b724419c430be5f4ebacc3a1d443d30f480de152d809128c94ac4f13f4296c',
     'PreviewPlayerController$2.smali': 'ff9f8f02b423a2b9de58a5fb8ed5244f555f3bf9478776834d9e5bcb3616d39e',
     'PreviewPlayerController$3.smali': '8a3f8330bebf5c3b0e1a9ac09e9a8dbe793428e49857096cb72ec7700129840e',
-    'PreviewPlayerController$4.smali': '9423a0a8b40b537fef30f2751e9a321a5c292b0954021154992ad3e810e4288e',
-    'PreviewPlayerController$5.smali': 'cb93a168eb42d0a566ac1a94941bb783115d31457923d09d5343c2c46146295f',
-    'PreviewPlayerController$6.smali': 'a529ae8e2605ca2e703c2a718b42e4cbcc0c95e1d582b200a1db62c9c5e0cd92',
-    'PreviewPlayerController.smali': '381cc49fb5d052eda0ec8275468e55cb3adfba16c6a4832a97b22a6b2df48a07',
+    'PreviewPlayerController$4.smali': 'db86f7898545d9070c0fe0c84728f8625ebbec5a140832deaec531f0b3d6b369',
+    'PreviewPlayerController$5.smali': '4bec0781aeb2daf129a4d00568fb5d9a8f972d1462f25f2df9b70f7fb1669f7c',
+    'PreviewPlayerController$6.smali': '5628739fb53f266afd0a86ea70ab52709481b10ca6124f655997c59a980edce3',
+    'PreviewPlayerController.smali': '5a7bf04b993f29e04a4eddb86f58afc311c0855544d965b8bfea52133507a84a',
     'PreviewLastTrackStore$1$1.smali': '945ee7420a49b41550b889369932b30e3f0f43943fdb46700d0dbfaf550792dc',
     'PreviewLastTrackStore$1.smali': '8f54f12ff47b7a995072f2255a1c28ffa996e311e8865cd8550330758557ace2',
     'PreviewLastTrackStore$2.smali': '1e3ffc3af8858e6b6f609c18bdf689f5d00d0aaf1c592a201844e24fb91c5aaa',

@@ -789,14 +789,17 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         }
     }
     public int tapPlayPause() {
-        // Never fall through to a blind toggle when the state is unknown,
-        // interrupted, or another command is awaiting an observation.
-        if (!haveReal || interrupted || pending || playbackState.equals("unknown") ||
-            lastConfirmedStateAt < 0 || now() - lastConfirmedStateAt > MAX_OBSERVATION_AGE_MS) return -1;
+        // User-approved (1022280): taps right after returning to the app (state still
+        // interrupted/unknown/stale for ~5 s) were dropped silently, so play needed several
+        // taps. The page command decides from Spotify's own live state, so let it through
+        // while in the foreground; still one command at a time.
+        // A remembered last track with no live observation yet stays read-only.
+        if (!haveReal || pending || !foreground || lastConfirmedStateAt < 0) return -1;
         begin(1);
         long t = now();
         if (valid && shownPlaying) { base = position(t); anchor = t; moving = false; correction = 0; renderProgress(); }
-        pendingTarget = !shownPlaying; pending = true;
+        // Unknown/interrupted states show the play icon: a tap there means play.
+        pendingTarget = interrupted || playbackState.equals("unknown") ? true : !shownPlaying; pending = true;
         final long id = ++serial;
         renderButtons(); syncGlow(); optimisticAt = now();
         handler.postDelayed(new Runnable() { public void run() {

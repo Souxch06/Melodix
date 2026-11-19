@@ -206,12 +206,12 @@ public class ControllerTest {
   visual.snapshot(sample("Visual","Artist",1000,229000,"playing",""));eq(b2.image,0x7f080121);eq(visual.tapPlayPause(),0);eq(b2.image,0x7f080121);yes(b2.description.contains("en attente"));eq(visual.tapPlayPause(),-1);
   visual.snapshot(sample("Visual","Artist",1000,229000,"paused","").replaceAll("previewObservedAtMs=[0-9]+", "previewObservedAtMs="+(System.currentTimeMillis()-4000)));eq(visual.tapPlayPause(),-1);eq(b2.image,0x7f080121);
   visual.snapshot(sample("Visual","Artist",1000,229000,"paused",""));eq(b2.image,0x7f080122);eq(visual.tapPlayPause(),1);
-  SystemClock.time+=8000;Handler.flush();eq(b2.image,0x7f080122);eq(visual.tapPlayPause(),-1);
+  SystemClock.time+=8000;Handler.flush();eq(b2.image,0x7f080122);eq(visual.tapPlayPause(),1);SystemClock.time+=8000;Handler.flush();// stale but in the foreground: the page command decides (user-approved 1022280)
   visual.snapshot(sample("Visual","Artist",1000,229000,"paused",""));eq(visual.tapPlayPause(),1);
-  visual.activityPaused();eq(visual.tapPlayPause(),-1);
+  visual.activityPaused();eq(visual.tapPlayPause(),-1);visual.activityResumed();eq(visual.tapPlayPause(),1);eq(visual.tapPlayPause(),-1);// phone 1022280: first tap after return plays; repeat taps wait
   saved.setBoolean(null,false);PreviewPlayerController unknown=new PreviewPlayerController(a);unknown.activityResumed();
   unknown.snapshot(sample("Unknown","Artist",1000,229000,"playing",""));eq(b2.image,0x7f080121);
-  unknown.snapshot(sample("Unknown","Artist",1000,229000,"unknown",""));eq(b2.image,0x7f080122);yes(b2.description.contains("inconnu"));eq(unknown.tapPlayPause(),-1);
+  unknown.snapshot(sample("Unknown","Artist",1000,229000,"unknown",""));eq(b2.image,0x7f080122);yes(b2.description.contains("inconnu"));eq(unknown.tapPlayPause(),1);// unknown: the play icon is shown, so a tap asks to play
   { // Display only: a brief gap after a pause keeps the last time and bar; a long gap or a new track blanks them.
    Activity h=new Activity(); ProgressBar hm=new ProgressBar(); SeekBar hf=new SeekBar(); TextView he=new TextView(),hd=new TextView(); View hr=new View();
    h.views.put(0x7f09024d,hm);h.views.put(0x7f09023d,hf);h.views.put(0x7f09024a,he);h.views.put(0x7f09024b,hd);h.views.put(0x7f090238,new ImageView());h.views.put(0x7f09023e,new ImageView());h.views.put(0x7f09023a,hr);
