@@ -66,3 +66,7 @@ if __name__ == '__main__':
     if len(sys.argv) != 2:
         raise SystemExit('usage: apply_preview_sharp_cover.py <work-dir>')
     apply(sys.argv[1])
+    # Last pass for 9027: neutral (Liner-like) glass, no violet/pink tint.
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import apply_neutral_palette
+    apply_neutral_palette.main(sys.argv[1])
