@@ -78,6 +78,20 @@ public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnG
                 @Override public int getOpacity() { return android.graphics.PixelFormat.TRANSLUCENT; }
             }}));
     }
+    /** Liner volume: thick rounded white bar with a small white knob. */
+    static void volumeBar(android.widget.SeekBar slider) {
+        float d = slider.getResources().getDisplayMetrics().density;
+        GradientDrawable track = new GradientDrawable(); track.setColor(0x26ffffff); track.setCornerRadius(7 * d);
+        GradientDrawable fill = new GradientDrawable(); fill.setColor(0xffffffff); fill.setCornerRadius(7 * d);
+        android.graphics.drawable.LayerDrawable bar = new android.graphics.drawable.LayerDrawable(new Drawable[]{track,
+            new android.graphics.drawable.ClipDrawable(fill, android.view.Gravity.LEFT, android.graphics.drawable.ClipDrawable.HORIZONTAL)});
+        bar.setId(0, android.R.id.background); bar.setId(1, android.R.id.progress);
+        slider.setProgressTintList(null); slider.setProgressBackgroundTintList(null); slider.setThumbTintList(null);
+        slider.setProgressDrawable(bar);
+        if (Build.VERSION.SDK_INT >= 29) { slider.setMinHeight(Math.round(14 * d)); slider.setMaxHeight(Math.round(14 * d)); }
+        GradientDrawable knob = new GradientDrawable(); knob.setShape(GradientDrawable.OVAL); knob.setColor(0xffffffff); knob.setSize(Math.round(22 * d), Math.round(22 * d));
+        slider.setThumb(knob); slider.setSplitTrack(false);
+    }
     /** Liner list row: no card, only a soft press highlight. */
     static Drawable flat(float radius) {
         GradientDrawable mask = new GradientDrawable(); mask.setCornerRadius(radius); mask.setColor(0xffffffff);

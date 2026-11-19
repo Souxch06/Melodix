@@ -34,7 +34,7 @@
         }
     .end annotation
 
-    .line 93
+    .line 107
     iput-object p1, p0, Lcom/melodix/music/PreviewUiRestyle$3;->this$0:Lcom/melodix/music/PreviewUiRestyle;
 
     iput p2, p0, Lcom/melodix/music/PreviewUiRestyle$3;->val$radius:F
@@ -49,7 +49,7 @@
 .method public getOutline(Landroid/view/View;Landroid/graphics/Outline;)V
     .locals 6
 
-    .line 94
+    .line 108
     invoke-virtual {p1}, Landroid/view/View;->getWidth()I
 
     move-result v3

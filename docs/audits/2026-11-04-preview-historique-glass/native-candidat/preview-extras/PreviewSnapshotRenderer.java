@@ -2,6 +2,7 @@ package com.melodix.music;
 
 import android.app.Activity;
 import android.graphics.Canvas;
+import android.graphics.Outline;
 import android.graphics.Path;
 import android.graphics.Rect;
 import android.graphics.drawable.GradientDrawable;
@@ -16,11 +17,17 @@ final class PreviewSnapshotRenderer {
     private static void collect(View v, ArrayList<View> out, int depth, int[] visited) {
         if (v == null || depth > 32 || visited[0]++ >= 2500 || out.size() >= 128 || !v.isShown()) return;
         if (v instanceof ImageView && v.getAlpha() == 1f && v.getWidth() > 0 && v.getHeight() > 0 &&
-            v.getClipToOutline() && v.getBackground() instanceof GradientDrawable && !out.contains(v)) out.add(v);
+            v.getClipToOutline() && (v.getBackground() instanceof GradientDrawable || outlineRadius(v) > 0) && !out.contains(v)) out.add(v);
         if (v instanceof ViewGroup) {
             ViewGroup group=(ViewGroup)v;
             for (int i=0;i<group.getChildCount() && visited[0]<2500 && out.size()<128;i++) collect(group.getChildAt(i),out,depth+1,visited);
         }
+    }
+    /** Covers rounded by an outline provider (Liner restyle), not by their background. */
+    private static float outlineRadius(View v) {
+        if (Build.VERSION.SDK_INT < 24 || v.getOutlineProvider() == null || v.getBackground() instanceof GradientDrawable) return 0f;
+        try { Outline o = new Outline(); v.getOutlineProvider().getOutline(v, o); return Math.max(0f, o.getRadius()); }
+        catch (RuntimeException e) { return 0f; }
     }
     static void draw(Activity activity, View root, Canvas canvas) {
         ArrayList<View> images=new ArrayList<View>();
@@ -42,7 +49,8 @@ final class PreviewSnapshotRenderer {
             float radius;
             if(v==avatar)radius=Math.min(v.getWidth(),v.getHeight())/2f;
             else if(v==mini)radius=Math.min(10f*activity.getResources().getDisplayMetrics().density,Math.min(v.getWidth(),v.getHeight())/2f);
-            else if(Build.VERSION.SDK_INT>=24)radius=((GradientDrawable)v.getBackground()).getCornerRadius();
+            else if(outlineRadius(v)>0)radius=outlineRadius(v);
+            else if(Build.VERSION.SDK_INT>=24 && v.getBackground() instanceof GradientDrawable)radius=((GradientDrawable)v.getBackground()).getCornerRadius();
             else radius=12f*activity.getResources().getDisplayMetrics().density;
             int saved=canvas.save();
             canvas.clipRect(visible.left-rootAt[0],visible.top-rootAt[1],visible.right-rootAt[0],visible.bottom-rootAt[1]);

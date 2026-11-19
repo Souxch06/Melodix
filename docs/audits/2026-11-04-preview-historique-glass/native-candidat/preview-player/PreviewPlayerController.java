@@ -428,6 +428,10 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         long seconds = Math.max(0, ms / 1000), s = seconds % 60, m = (seconds / 60) % 60, h = seconds / 3600;
         return h > 0 ? String.format(Locale.ROOT, "%d:%02d:%02d", h, m, s) : String.format(Locale.ROOT, "%d:%02d", m, s);
     }
+    private static void keepText(Activity a, int id, String value) {
+        View v = a.findViewById(id);
+        if (v instanceof TextView && realMetadata(value) && ((TextView) v).getText().toString().trim().isEmpty()) ((TextView) v).setText(value);
+    }
     private void text(Activity a, int id, String value) {
         View v = a.findViewById(id);
         if (v instanceof TextView && !value.contentEquals(((TextView) v).getText())) ((TextView) v).setText(value);
@@ -444,6 +448,9 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     }
     private void renderProgress() {
         Activity a = activity.get(); if (a == null) return;
+        // User report (1022298): a like briefly blanks the page's artist, and the legacy
+        // callback copied that blank into the player. Keep the known identity visible.
+        if (tupleIdentity) { keepText(a, 0x7f090236, identityTitle); keepText(a, 0x7f09023b, identityTitle); keepText(a, 0x7f090237, identityArtist); keepText(a, 0x7f09023c, identityArtist); }
         double pos = position(now());
         if (Double.isNaN(pos) && lastShownAt >= 0 && now() - lastShownAt < HOLD_DISPLAY_MS) return;
         if (Double.isNaN(pos)) {
