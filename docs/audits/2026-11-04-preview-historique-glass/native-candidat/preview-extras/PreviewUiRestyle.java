@@ -192,9 +192,10 @@ public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnG
         View title = a.findViewById(0x7f090230);
         if (title instanceof TextView && !done.containsKey(title)) {
             done.put(title, Boolean.TRUE); TextView t = (TextView) title;
-            t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 30); t.setTypeface(Typeface.create("sans-serif", Typeface.BOLD)); t.setTextColor(WHITE);
-            if (Build.VERSION.SDK_INT >= 21) t.setLetterSpacing(-0.02f);
-            t.setShadowLayer(dp(14), 0, dp(2), 0x80000000);
+            // Liner header: compact semibold title on one line (long playlist names no longer wrap).
+            t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22); t.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL)); t.setTextColor(WHITE);
+            if (Build.VERSION.SDK_INT >= 21) t.setLetterSpacing(-0.01f);
+            t.setSingleLine(true); t.setEllipsize(android.text.TextUtils.TruncateAt.END); t.setShadowLayer(0, 0, 0, 0);
         }
         View mini = a.findViewById(0x7f09024c);
         if (mini != null && !done.containsKey(mini) && Build.VERSION.SDK_INT >= 28) {

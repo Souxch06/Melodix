@@ -82,6 +82,12 @@ def liner_liked(root):
     assert m and int(m.group(2)) >= 1, 'NativeImageLoader.load changed'
     f.write_text(t[:m.end()] + LIKED_GUARD.split('\n', 1)[1] + t[m.end():], encoding='utf-8')
 
+FLAT = """<?xml version="1.0" encoding="utf-8"?>
+<ripple xmlns:android="http://schemas.android.com/apk/res/android" android:color="#1affffff">
+    <item><shape><solid android:color="#00000000" /><corners android:radius="%ddp" /></shape></item>
+    <item android:id="@android:id/mask"><shape><solid android:color="#ffffffff" /><corners android:radius="%ddp" /></shape></item>
+</ripple>
+"""
 def liner_res(root):
     """Liner look: white play disc with dark icon, flat track rows (no card per row)."""
     import pathlib
@@ -103,12 +109,9 @@ def liner_res(root):
     t = re.sub(r'<[^<>!?/][^<>]*>', tint, t)
     assert n >= 1, 'no play disc found'
     m.write_text(t, encoding='utf-8')
-    g = r / 'drawable/native_playlist_row_glass.xml'
-    if g.exists():
-        t = g.read_text(encoding='utf-8')
-        t = re.sub(r'<solid android:color="#[0-9a-f]{8}" />\s*<corners android:radius="18.0dip" />\s*<stroke [^>]*/>', '<solid android:color="#00000000" /><corners android:radius="10.0dip" />', t)
-        t = re.sub(r'<gradient [^>]*/>', '<solid android:color="#00000000" />', t).replace('#47929292', '#1affffff')
-        g.write_text(t, encoding='utf-8')
+    for name, radius in (('native_playlist_row_glass', 10), ('native_quick_tile', 12)):  # Liner: no card frames
+        g = r / 'drawable' / (name + '.xml')
+        if g.exists(): g.write_text(FLAT % (radius, radius), encoding='utf-8')
 
 assert grey(0xff8b5cf6) & 0xff == grey(0xff8b5cf6) >> 8 & 0xff and grey(0x148b5cf6) >> 24 == 0x14
 assert xml('#407C3AED x #ff000000') == '#40%s x #ff000000' % ('%06x' % (grey(0x407c3aed) & 0xffffff))
