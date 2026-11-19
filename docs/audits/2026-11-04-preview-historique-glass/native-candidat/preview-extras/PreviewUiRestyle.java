@@ -134,7 +134,7 @@ public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnG
                        v.getWidth() >= dp(120) && v.getHeight() >= dp(48) && v.getHeight() <= dp(140) && !insideGlass(v)) {
                 int l = v.getPaddingLeft(), t = v.getPaddingTop(), r = v.getPaddingRight(), b = v.getPaddingBottom();
                 v.setBackground(flat(dp(10))); v.setPadding(Math.max(l, dp(14)), t, Math.max(r, dp(14)), b);
-                glassRows.put(v, Boolean.TRUE); press(v); enter(v);
+                glassRows.put(v, Boolean.TRUE); press(v);
             }
         }
         if (v instanceof ViewGroup) { ViewGroup g = (ViewGroup) v; for (int i = 0; i < g.getChildCount(); i++) visit(g.getChildAt(i), depth + 1); }
@@ -146,7 +146,6 @@ public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnG
         e.setTextColor(WHITE); e.setHintTextColor(0x73ffffff);
     }
     private int entered;
-    private void enter(View v) { if (entered < 18) rise(v, entered++); }
     /** Press feedback on any clickable surface: shrink while held, spring back. Leaves click handling untouched. */
     static void press(View v) {
         if (motionOff() || v.getStateListAnimator() != null) return;
@@ -182,17 +181,6 @@ public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnG
         v.setAlpha(0f); v.setTranslationY(320 * d);
         v.animate().alpha(1f).translationY(0f).setDuration(340).setInterpolator(new android.view.animation.DecelerateInterpolator(2f)).start();
     }
-    /** Liner-like entrance: the new screen comes into focus (blur 8dp to sharp). */
-    private void blurIn(final View v) {
-        android.animation.ValueAnimator a = android.animation.ValueAnimator.ofFloat(dp(8), 0f).setDuration(320);
-        a.addUpdateListener(new android.animation.ValueAnimator.AnimatorUpdateListener() {
-            public void onAnimationUpdate(android.animation.ValueAnimator x) {
-                float r = (Float) x.getAnimatedValue();
-                v.setRenderEffect(r < 0.5f ? null : android.graphics.RenderEffect.createBlurEffect(r, r, android.graphics.Shader.TileMode.CLAMP));
-            }
-        });
-        a.start();
-    }
     private View lastScreen;
     private final WeakHashMap<View, Boolean> glassRows = new WeakHashMap<View, Boolean>();
     private boolean insideGlass(View v) {
@@ -219,11 +207,8 @@ public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnG
             View screen = ((ViewGroup) content).getChildAt(0);
             if (screen != lastScreen) {
                 lastScreen = screen; entered = 0;
-                if (!motionOff()) {
-                    screen.setAlpha(0f); screen.setTranslationY(dp(18));
-                    screen.animate().alpha(1f).translationY(0f).setDuration(320).setInterpolator(new android.view.animation.DecelerateInterpolator(2f)).start();
-                    if (Build.VERSION.SDK_INT >= 31) blurIn(screen);
-                }
+                // No entrance replay: the native shell rebuilds this view on every refresh
+                // (taps, row repaints), so animating it here made the UI look like it restarted.
             }
         }
         if (content != null) visit(content, 0);
