@@ -40,7 +40,7 @@ stubs={
   // Known state: one tap starts one page job with the shown state and native title; second tap blocked.
   a.G.reply(data("false"));ok(m.enabled);int n=a.G.calls;m.performClick();ok(a.G.calls==n+1);ok(a.G.js.contains("\\"run\\"")&&a.G.js.contains("\\"false\\"")&&a.G.js.contains("\\"Titre\\""));ok(!m.enabled);m.performClick();ok(a.G.calls==n+1);
   a.G.reply("status=started");Handler.advance(250);ok(a.G.js.contains("\\"poll\\""));a.G.reply("status=running");Handler.advance(250);
-  a.G.reply("status=done;outcome=confirmed;state=true;method=now-playing-view;journal=a:absent>b:found>b:click>b:verified");ok(m.enabled);if(kind.equals("like"))ok(Toast.message.contains("Ajouté"));
+  a.G.reply("status=done;outcome=confirmed;state=true;method=now-playing-view;journal=a:absent>b:found>b:click>b:verified");ok(m.enabled);if(kind.equals("like"))ok(Toast.message==null||!Toast.message.contains("Ajouté"));
   ok(PreviewPlayerMode.diagnosticReport().contains("méthode=now-playing-view"));ok(!PreviewPlayerMode.diagnosticReport().contains("Titre"));
   // A hidden Like must not reuse an old state based on title alone.
   java.lang.reflect.Method observe=PreviewPlayerMode.class.getDeclaredMethod("observe");observe.setAccessible(true);observe.invoke(m);a.G.reply(data("unknown")+";reason=control");ok(m.enabled);ok(kind.equals("like")?m.description.startsWith("État inconnu"):!m.description.startsWith("État inconnu"));
@@ -60,7 +60,7 @@ stubs={
  // Restricted shuffle stays disabled with its reason.
  t=page();sh=boot(t,"shuffle");Handler.step();t.G.reply("state=unknown;reason=restriction");Handler.advance(2500);ok(!sh.enabled);ok(sh.description.contains("pas disponible"));sh.onDetachedFromWindow();
  // Like read-only outcome updates the state without claiming an action.
- t=page();PreviewPlayerMode like=boot(t,"like");Handler.step();t.G.reply(data("unknown")+";reason=control");Handler.advance(2500);like.performClick();ok(t.G.js.contains("\\"unknown\\""));t.G.reply("status=started");Handler.advance(250);t.G.reply("status=done;outcome=read;state=true;method=now-playing-view");ok(like.description.startsWith("Titre aimé"));ok(Toast.message.contains("Déjà"));like.onDetachedFromWindow();
+ t=page();PreviewPlayerMode like=boot(t,"like");Handler.step();t.G.reply(data("unknown")+";reason=control");Handler.advance(2500);like.performClick();ok(t.G.js.contains("\\"unknown\\""));t.G.reply("status=started");Handler.advance(250);t.G.reply("status=done;outcome=read;state=true;method=now-playing-view");ok(like.description.startsWith("Titre aimé"));ok(Toast.message==null||!Toast.message.contains("Déjà"));like.onDetachedFromWindow();
  // No such control anywhere in the page (reason=absent): never a fake state.
  // Like stays tappable to explain why nothing was sent; shuffle remains unchanged.
  t=page();like=boot(t,"like");Handler.step();t.G.reply("state=unknown;reason=absent");Handler.advance(2500);before=t.G.calls;ok(like.enabled);ok(like.description.startsWith("Like indisponible : bouton absent"));like.performClick();ok(t.G.calls==before);ok(Toast.count>0);like.onDetachedFromWindow();
