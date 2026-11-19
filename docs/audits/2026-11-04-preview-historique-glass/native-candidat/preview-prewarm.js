@@ -14,6 +14,7 @@
         if (!previewPrewarm.active) return;
         previewPrewarm.active = false; window.__sfPrewarmActive = false;
         if (previewPrewarm.timer) window.clearTimeout(previewPrewarm.timer);
+        if (previewPrewarm.watch) window.clearTimeout(previewPrewarm.watch);
         if (!keepPlaying) {
             try { if (typeof window.actPlayPause === 'function') window.actPlayPause(false); } catch (_) {}
             if (previewPrewarm.position >= 0 && typeof window.actSeek === 'function') try { window.actSeek(previewPrewarm.position); } catch (_) {}
@@ -30,7 +31,7 @@
         if (!pb || typeof window.actPlayPause !== 'function' || previewPlaybackState() !== 'paused' || !previewRealText(info.title)) return;
         previewPrewarm.done = true;
         if (previewPrewarmRemote() || window.__sfUserRequestedPause === true && window.__sfLastPlayRequestAt > Date.now() - 10000) return;
-        previewPrewarm.position = previewSeekObservation();
+        previewPrewarm.position = previewSeekObservation(); previewPrewarm.title = previewRealText(info.title);
         previewPrewarm.active = true; window.__sfPrewarmActive = true;
         document.addEventListener('play', previewPrewarmMute, true);
         previewPrewarmMedia().forEach(function(m) { try { m.muted = true; } catch (_) {} });
@@ -42,5 +43,16 @@
         }
         try { window.actPlayPause(true); } catch (_) { previewPrewarmFinish(false); return; }
         previewPrewarm.timer = window.setTimeout(function() { previewPrewarmFinish(false); }, 3000);
+        // 1022294: on a free account the muted start can be an ad (no title / another title);
+        // Spotify stalls a muted ad, which froze the page for ~70 s. Stop at once, sound back on.
+        (function watch() {
+            previewPrewarm.watch = window.setTimeout(function() {
+                if (!previewPrewarm.active) return;
+                var now = '';
+                try { now = previewRealText((readNowPlaying() || {}).title); } catch (_) {}
+                if (now !== previewPrewarm.title) { previewPrewarmFinish(false); return; }
+                watch();
+            }, 250);
+        })();
     }
     window.setTimeout(function check() { previewPrewarmStart(); if (!previewPrewarm.done) window.setTimeout(check, 1000); }, 1500);

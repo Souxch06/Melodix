@@ -8,7 +8,7 @@ function setup(opts={}){
  const w={setTimeout:(f,ms)=>{timers.push({f,ms});return timers.length},clearTimeout(){},
   actPlayPause:t=>{calls.push(t?'play':'pause');playing=!!t},actSeek:p=>calls.push('seek:'+p),
   __sfTogglePlayback:()=>{calls.push('toggle');return true}};
- const env={playPauseButton:()=>({}),readNowPlaying:()=>({title:'T'}),previewPlaybackState:()=>w.__sfPrewarmActive?'paused':(playing?'playing':'paused'),
+ const env={playPauseButton:()=>({}),readNowPlaying:()=>({title:opts.title?opts.title():'T'}),previewPlaybackState:()=>w.__sfPrewarmActive?'paused':(playing?'playing':'paused'),
   previewRealText:s=>s||'',previewSeekObservation:()=>42000,publishPlayerState:()=>calls.push('publish')};
  new Function('window','document',...Object.keys(env),src)(w,doc,...Object.values(env));
  const run=()=>{const t=timers.shift();t.f();};
@@ -28,4 +28,10 @@ test('a play tap during the warm-up keeps playing and unmutes at once',()=>{
 });
 test('playback on another device: no warm-up',()=>{
  const x=setup({remote:true});x.run();assert.deepEqual(x.calls,[]);assert.ok(x.media.every(m=>!m.muted));
+});
+test('an ad (title gone) during the warm-up stops it at once and restores sound',()=>{
+ let title='T';const x=setup({title:()=>title});x.run();assert.deepEqual(x.calls,['play']);
+ title='';x.timers.find(t=>t.ms===250).f();
+ assert.deepEqual(x.calls,['play','pause','seek:42000']);assert.equal(x.w.__sfPrewarmActive,false);
+ x.timers.find(t=>t.ms===400).f();assert.ok(x.media.every(m=>!m.muted));
 });
