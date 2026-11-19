@@ -557,6 +557,20 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             pulse.start();
         }
     }
+    // Waiting for Spotify to start (seconds after a return): the button pulses until the
+    // page confirms, so the icon switch lands with the sound, not with the tap.
+    private final Runnable pulse = new Runnable() {
+        private boolean dim;
+        public void run() {
+            Activity a = activity.get(); if (a == null) return;
+            dim = pending && !dim;
+            float alpha = dim ? 0.5f : 1f;
+            View mini = a.findViewById(MINI_BUTTON), full = a.findViewById(FULL_BUTTON);
+            if (mini != null) mini.setAlpha(alpha);
+            if (full != null) full.setAlpha(alpha);
+            if (pending) handler.postDelayed(this, 420);
+        }
+    };
     private void renderButtons() {
         Activity a = activity.get(); if (a == null || !haveReal) return;
         // Pending is an intent, not evidence that Spotify changed state.
@@ -802,6 +816,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         pendingTarget = interrupted || playbackState.equals("unknown") ? true : !shownPlaying; pending = true;
         final long id = ++serial;
         renderButtons(); syncGlow(); optimisticAt = now();
+        handler.removeCallbacks(pulse); handler.post(pulse);
         handler.postDelayed(new Runnable() { public void run() {
             if (pending && serial == id) {
                 pending = false; shownPlaying = realPlaying; renderButtons(); syncGlow();
