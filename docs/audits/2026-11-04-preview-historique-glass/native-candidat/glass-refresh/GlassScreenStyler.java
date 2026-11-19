@@ -81,6 +81,7 @@ public final class GlassScreenStyler {
         if(old!=null && old.getParent()==rows)rows.removeView(old);
         boolean isLiked=liked(uri);
         LinearLayout hero=vertical(a); hero.setTag("glass-playlist-hero"); hero.setPadding(dp(a,12),dp(a,12),dp(a,12),dp(a,14));
+        // Liner album header: cover on the left, eyebrow and title beside it.
         LinearLayout artLine=new LinearLayout(a);artLine.setGravity(Gravity.CENTER);
         ImageView image=new ImageView(a);image.setScaleType(ImageView.ScaleType.CENTER_CROP);
         image.setBackground(glass(a,0xff6e3c9d,0xff24193d,14,0x45ffffff));
@@ -101,12 +102,13 @@ public final class GlassScreenStyler {
                 hint.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);artBox.addView(hint);
             }
         }
-        artLine.addView(artBox,new LinearLayout.LayoutParams(dp(a,164),dp(a,164)));hero.addView(artLine);
+        artLine.addView(artBox,new LinearLayout.LayoutParams(dp(a,128),dp(a,128)));hero.addView(artLine);
+        LinearLayout side=vertical(a);side.setPadding(dp(a,16),0,0,0);artLine.addView(side,new LinearLayout.LayoutParams(-1,-2));
         TextView eyebrow=text(a,isLiked?"VOTRE BIBLIOTHÈQUE":"PLAYLIST",10,LILAC,true);eyebrow.setLetterSpacing(.16f);
-        LinearLayout.LayoutParams ep=new LinearLayout.LayoutParams(-1,-2);ep.topMargin=dp(a,18);hero.addView(eyebrow,ep);
-        TextView name=text(a,title==null||title.trim().isEmpty()?(isLiked?"Titres likés":"Playlist"):title,26,WHITE,true);
+        side.addView(eyebrow,new LinearLayout.LayoutParams(-1,-2));
+        TextView name=text(a,title==null||title.trim().isEmpty()?(isLiked?"Titres likés":"Playlist"):title,22,WHITE,true);
         name.setMaxLines(3);name.setEllipsize(TextUtils.TruncateAt.END);
-        LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-1,-2);np.topMargin=dp(a,4);hero.addView(name,np);
+        LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-1,-2);np.topMargin=dp(a,4);side.addView(name,np);
         TextView heading=text(a,"Titres",14,WHITE,true);heading.setLetterSpacing(.02f);
         LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(-1,-2);hp.topMargin=dp(a,20);hero.addView(heading,hp);
         rows.addView(hero,0,new LinearLayout.LayoutParams(-1,-2));
