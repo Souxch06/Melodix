@@ -94,9 +94,10 @@ def liner_liked(root):
     (r / 'res/drawable/native_liked_cover.xml').write_text(COVER, encoding='utf-8')
     f = next(r.glob('smali*/com/melodix/music/NativeImageLoader.smali'))
     t = f.read_text(encoding='utf-8')
-    head = '.method public static load(Landroid/widget/ImageView;Ljava/lang/String;I)V\n    .locals 5\n\n    if-eqz p0, :cond_2\n'
-    assert t.count(head) == 1, 'NativeImageLoader.load changed'
-    f.write_text(t.replace(head, head.replace('    if-eqz p0, :cond_2\n', LIKED_GUARD)), encoding='utf-8')
+    # Insert right after the method's first null check of the ImageView, whatever its label or .locals.
+    m = re.search(r'(\.method public static load\(Landroid/widget/ImageView;Ljava/lang/String;I\)V\n\s*\.(?:locals|registers) (\d+)\n(?:(?!\.end method)[^\n]*\n){0,6}?\s*if-eqz p0, :[\w]+\n)', t)
+    assert m and int(m.group(2)) >= 1, 'NativeImageLoader.load changed'
+    f.write_text(t[:m.end()] + LIKED_GUARD.split('\n', 1)[1] + t[m.end():], encoding='utf-8')
 
 def liner_res(root):
     """Liner look: white play disc with dark icon, flat track rows (no card per row)."""
