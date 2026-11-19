@@ -52,6 +52,7 @@ def main(root):
             if t != s: open(p, 'w', encoding='utf-8').write(t); changed += 1
     liner_res(root)
     liner_liked(root)
+    liner_tabs(root)
     print('neutral palette: %d files' % changed)
     if not changed: sys.exit('no violet literal found: patch order changed?')
 
@@ -71,6 +72,16 @@ LIKED_GUARD = """    if-eqz p0, :cond_2
 
     :liner_not_liked
 """
+
+def liner_tabs(root):
+    """Liner: inactive bottom tabs dimmed (text and icon), active stays white."""
+    import pathlib
+    for f in pathlib.Path(root).glob('smali*/com/melodix/music/MainActivity.smali'):
+        t = f.read_text(encoding='utf-8')
+        m = re.search(r'\.method public final styleNativeTab\(Ljava/lang/String;Ljava/lang/String;I\)V.*?\.end method', t, re.S)
+        if not m: continue
+        body = m.group(0).replace('const v2, -0x131314', 'const v2, -0x73000001').replace('const v4, -0x131314', 'const v4, -0x73000001')
+        if body != m.group(0): f.write_text(t[:m.start()] + body + t[m.end():], encoding='utf-8')
 
 def liner_liked(root):
     import pathlib
@@ -117,6 +128,11 @@ def liner_res(root):
         return tag.replace('@drawable/native_button_dark', '@drawable/native_card_ripple')
     t = re.sub(r'<[^<>!?/][^<>]*>', bare, t)
     m.write_text(t, encoding='utf-8')
+    # Liner tabs: the selected tab (native_button_green, also the search button) is a soft translucent pill.
+    d = r / 'drawable/native_button_green.xml'
+    if d.exists():
+        t2 = re.sub(r'<gradient [^>]*/>', '<solid android:color="#24ffffff" />', d.read_text(encoding='utf-8'))
+        d.write_text(re.sub(r'(<ripple [^>]*android:color=")#[0-9a-fA-F]{8}', r'\g<1>#1affffff', t2), encoding='utf-8')
     # Liner controls: rounded squares instead of circles (back, settings, shuffle, repeat, like).
     d = r / 'drawable/native_button_dark.xml'
     if d.exists(): d.write_text(re.sub(r'android:radius="999[^"]*"', 'android:radius="14dp"', d.read_text(encoding='utf-8')), encoding='utf-8')
