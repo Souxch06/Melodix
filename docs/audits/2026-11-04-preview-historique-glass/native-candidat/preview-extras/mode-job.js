@@ -63,6 +63,13 @@
                 (kind === 'like' && b.hasAttribute('aria-checked') && genericAdd(l)) ||
                 (kind !== 'like' && neutral.test(l) && (kind === 'shuffle' ? /al[ée]atoire|shuffle/i : /r[ée]p[ée]t|repeat/i).test(l));
         });
+        if (kind !== 'like') {
+            // User report (1022300): a disabled shuffle toggle elsewhere in the page (e.g. a
+            // playlist header) was taken for the player's and reported as "blocked by Spotify".
+            list = list.filter(function(b) {
+                return !b.closest('main, [role="main"], [data-testid="action-bar-row"], [data-testid="playlist-page"], [data-testid="album-page"]');
+            });
+        }
         if (kind === 'like') {
             var scoped = list.filter(function(b) {
                 return b.closest(':is([data-testid="now-playing-widget"], [data-testid="now-playing-widget-v2"]), [data-testid="now-playing-bar"], [data-testid="now-playing-view"], [data-testid="now-playing-panel"], [data-testid="NPV"]');
@@ -456,6 +463,7 @@
     }
     try {
         var direct = find();
+        try { log('vw:' + Math.round((W.innerWidth || 0) / 100) * 100); } catch (_) {}
         log('a:' + (direct.node ? 'found' : direct.reason));
         if (direct.node && !direct.reason) { act(direct, 'a', function(o, s) { result(o, s, 'direct'); }); return JSON.stringify({status: 'started'}); }
         if (direct.reason === 'disabled') { finish('disabled', 'unknown', 'direct'); return JSON.stringify({status: 'started'}); }

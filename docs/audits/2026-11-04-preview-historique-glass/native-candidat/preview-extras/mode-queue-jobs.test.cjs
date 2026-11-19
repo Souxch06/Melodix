@@ -742,3 +742,11 @@ test('like removal waits for a picker that renders empty first (phone 1022237)',
   const out = run(dom, mode, 'like', 'poll', 'true', 'Titre', 'title:Titre');
   assert.deepEqual([out.outcome, out.state], ['confirmed', 'false']); dom.window.close();
 });
+
+test('shuffle: a disabled toggle in the page content is not the player control (user report 1022300)', async () => {
+  const dom = page(`<main><div data-testid="action-bar-row"><button data-testid="shuffle-button" aria-label="Lecture aléatoire" disabled>s</button></div></main>`);
+  const seen = []; dom.window.document.addEventListener('keydown', (e) => seen.push((e.altKey ? 'alt-' : '') + e.key));
+  run(dom, mode, 'shuffle', 'run', 'unknown', ''); await settle(40);
+  const out = run(dom, mode, 'shuffle', 'poll');
+  assert.notEqual(out.outcome, 'disabled'); assert.deepEqual(seen, ['alt-s']);
+});
