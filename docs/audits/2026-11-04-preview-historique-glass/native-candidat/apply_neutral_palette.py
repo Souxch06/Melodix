@@ -42,7 +42,9 @@ def main(root):
             p = os.path.join(d, f)
             fn = xml if f.endswith('.xml') and os.sep + 'res' + os.sep in p else smali if f.endswith('.smali') and '/com/melodix/' in p else None
             if not fn: continue
-            s = open(p, encoding='utf-8').read(); t = fn(s)
+            try: s = open(p, encoding='utf-8').read()
+            except UnicodeDecodeError: continue  # binary XML (not decoded by apktool): no literal to change
+            t = fn(s)
             if t != s: open(p, 'w', encoding='utf-8').write(t); changed += 1
     print('neutral palette: %d files' % changed)
     if not changed: sys.exit('no violet literal found: patch order changed?')
