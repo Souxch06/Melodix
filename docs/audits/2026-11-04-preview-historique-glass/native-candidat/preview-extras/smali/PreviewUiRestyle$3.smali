@@ -1,14 +1,11 @@
 .class Lcom/melodix/music/PreviewUiRestyle$3;
-.super Ljava/lang/Object;
+.super Landroid/view/ViewOutlineProvider;
 .source "PreviewUiRestyle.java"
-
-# interfaces
-.implements Landroid/view/View$OnAttachStateChangeListener;
 
 
 # annotations
 .annotation system Ldalvik/annotation/EnclosingMethod;
-    value = Lcom/melodix/music/PreviewUiRestyle;->rise(Landroid/view/View;I)V
+    value = Lcom/melodix/music/PreviewUiRestyle;->round(Landroid/view/View;F)V
 .end annotation
 
 .annotation system Ldalvik/annotation/InnerClass;
@@ -17,42 +14,59 @@
 .end annotation
 
 
-# direct methods
-.method constructor <init>()V
-    .locals 0
+# instance fields
+.field final synthetic this$0:Lcom/melodix/music/PreviewUiRestyle;
 
-    .line 152
-    invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+.field final synthetic val$radius:F
+
+
+# direct methods
+.method constructor <init>(Lcom/melodix/music/PreviewUiRestyle;F)V
+    .locals 0
+    .annotation system Ldalvik/annotation/MethodParameters;
+        accessFlags = {
+            0x8010,
+            0x1010
+        }
+        names = {
+            null,
+            null
+        }
+    .end annotation
+
+    .line 93
+    iput-object p1, p0, Lcom/melodix/music/PreviewUiRestyle$3;->this$0:Lcom/melodix/music/PreviewUiRestyle;
+
+    iput p2, p0, Lcom/melodix/music/PreviewUiRestyle$3;->val$radius:F
+
+    invoke-direct {p0}, Landroid/view/ViewOutlineProvider;-><init>()V
 
     return-void
 .end method
 
 
 # virtual methods
-.method public onViewAttachedToWindow(Landroid/view/View;)V
-    .locals 0
+.method public getOutline(Landroid/view/View;Landroid/graphics/Outline;)V
+    .locals 6
 
-    .line 153
-    return-void
-.end method
+    .line 94
+    invoke-virtual {p1}, Landroid/view/View;->getWidth()I
 
-.method public onViewDetachedFromWindow(Landroid/view/View;)V
-    .locals 1
+    move-result v3
 
-    .line 154
-    invoke-virtual {p1}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
+    invoke-virtual {p1}, Landroid/view/View;->getHeight()I
 
-    move-result-object v0
+    move-result v4
 
-    invoke-virtual {v0}, Landroid/view/ViewPropertyAnimator;->cancel()V
+    iget v5, p0, Lcom/melodix/music/PreviewUiRestyle$3;->val$radius:F
 
-    const/high16 v0, 0x3f800000    # 1.0f
+    const/4 v1, 0x0
 
-    invoke-virtual {p1, v0}, Landroid/view/View;->setAlpha(F)V
+    const/4 v2, 0x0
 
-    const/4 v0, 0x0
+    move-object v0, p2
 
-    invoke-virtual {p1, v0}, Landroid/view/View;->setTranslationY(F)V
+    invoke-virtual/range {v0 .. v5}, Landroid/graphics/Outline;->setRoundRect(IIIIF)V
 
     return-void
 .end method

@@ -55,17 +55,6 @@ def main(root):
     print('neutral palette: %d files' % changed)
     if not changed: sys.exit('no violet literal found: patch order changed?')
 
-HEART = """<?xml version="1.0" encoding="utf-8"?>
-<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
-    <path android:fillColor="#fff5f5f7" android:pathData="M12,21.35l-1.45,-1.32C5.4,15.36 2,12.28 2,8.5 2,5.42 4.42,3 7.5,3c1.74,0 3.41,0.81 4.5,2.09C13.09,3.81 14.76,3 16.5,3 19.58,3 22,5.42 22,8.5c0,3.78 -3.4,6.86 -8.55,11.54L12,21.35z"/>
-</vector>
-"""
-COVER = """<?xml version="1.0" encoding="utf-8"?>
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item><shape><gradient android:angle="270" android:startColor="#ff2a2a2e" android:endColor="#ff141416"/></shape></item>
-    <item android:drawable="@drawable/native_liked_heart" android:left="30dp" android:top="30dp" android:right="30dp" android:bottom="30dp"/>
-</layer-list>
-"""
 LIKED_GUARD = """    if-eqz p0, :cond_2
 
     if-eqz p1, :liner_not_liked
@@ -77,11 +66,7 @@ LIKED_GUARD = """    if-eqz p0, :cond_2
     invoke-static {}, Lcom/squareup/picasso/Picasso;->get()Lcom/squareup/picasso/Picasso;
     move-result-object v0
     invoke-virtual {v0, p0}, Lcom/squareup/picasso/Picasso;->cancelRequest(Landroid/widget/ImageView;)V
-    const-string v0, "native_liked_cover"
-    invoke-static {p0, v0}, Lcom/melodix/music/NativeImageLoader;->drawableId(Landroid/widget/ImageView;Ljava/lang/String;)I
-    move-result v0
-    if-eqz v0, :liner_not_liked
-    invoke-virtual {p0, v0}, Landroid/widget/ImageView;->setImageResource(I)V
+    invoke-static {p0}, Lcom/melodix/music/PreviewUiRestyle;->likedTile(Landroid/widget/ImageView;)V
     return-void
 
     :liner_not_liked
@@ -90,8 +75,6 @@ LIKED_GUARD = """    if-eqz p0, :cond_2
 def liner_liked(root):
     import pathlib
     r = pathlib.Path(root)
-    (r / 'res/drawable/native_liked_heart.xml').write_text(HEART, encoding='utf-8')
-    (r / 'res/drawable/native_liked_cover.xml').write_text(COVER, encoding='utf-8')
     f = next(r.glob('smali*/com/melodix/music/NativeImageLoader.smali'))
     t = f.read_text(encoding='utf-8')
     # Insert right after the method's first null check of the ImageView, whatever its label or .locals.

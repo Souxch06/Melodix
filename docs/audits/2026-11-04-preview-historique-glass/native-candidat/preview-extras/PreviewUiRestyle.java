@@ -60,6 +60,24 @@ public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnG
         layers.setLayerInset(1, density, density, density, 0);
         return new RippleDrawable(ColorStateList.valueOf(0x1fffffff), layers, mask);
     }
+    /** Liner liked tile, drawn in code (no new resource ids): dark gradient, white heart. */
+    public static void likedTile(ImageView v) {
+        v.setImageDrawable(new android.graphics.drawable.LayerDrawable(new Drawable[]{
+            new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{0xff2a2a2e, 0xff141416}),
+            new Drawable() {
+                private final android.graphics.Paint p = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+                @Override public void draw(android.graphics.Canvas c) {
+                    android.graphics.Rect b = getBounds(); float s = Math.min(b.width(), b.height()) * 0.4f / 24f;
+                    c.save(); c.translate(b.exactCenterX() - 12 * s, b.exactCenterY() - 12 * s); c.scale(s, s);
+                    android.graphics.Path h = new android.graphics.Path(); h.moveTo(12, 21); h.cubicTo(10.5f, 19.7f, 3, 14.7f, 3, 9.4f);
+                    h.cubicTo(3, 4.5f, 8.6f, 2.7f, 12, 7); h.cubicTo(15.4f, 2.7f, 21, 4.5f, 21, 9.4f); h.cubicTo(21, 14.7f, 13.5f, 19.7f, 12, 21); h.close();
+                    p.setColor(0xfff5f5f7); c.drawPath(h, p); c.restore();
+                }
+                @Override public void setAlpha(int a) { }
+                @Override public void setColorFilter(android.graphics.ColorFilter f) { }
+                @Override public int getOpacity() { return android.graphics.PixelFormat.TRANSLUCENT; }
+            }}));
+    }
     /** Liner list row: no card, only a soft press highlight. */
     static Drawable flat(float radius) {
         GradientDrawable mask = new GradientDrawable(); mask.setCornerRadius(radius); mask.setColor(0xffffffff);
