@@ -108,6 +108,12 @@ def liner_res(root):
     t2 = re.sub(r'<gradient [^>]*/>', '<solid android:color="#fff5f5f7" />', t).replace('android:color="#24ffffff"', 'android:color="#1f000000"')
     assert t2 != t, 'play disc drawable changed shape'
     w.write_text(t2, encoding='utf-8')
+    # Liner mini player: one dark capsule with a hairline, no tinted gradient or sheen.
+    mp = r / 'drawable/native_mini_player_bg.xml'
+    if mp.exists():
+        mp.write_text('<?xml version="1.0" encoding="utf-8"?>\n<shape xmlns:android="http://schemas.android.com/apk/res/android">\n'
+                      '    <solid android:color="#f2161618" />\n    <corners android:radius="24.0dip" />\n'
+                      '    <stroke android:width="0.5dip" android:color="#24ffffff" />\n</shape>\n', encoding='utf-8')
     m = r / 'layout/activity_main.xml'
     t = m.read_text(encoding='utf-8'); n = 0
     def tint(x):
