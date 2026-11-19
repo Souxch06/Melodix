@@ -43,4 +43,11 @@ if root:
     expand = activity.split('.method public final onNativePlayerExpandClick',1)[1].split('.end method',1)[0]
     assert expand.index('captureBeforeExpand') < expand.index('setNativeScreen')
 
+# Every synthetic accessor an inner class calls must exist in its outer class.
+# Mixing javac and ECJ output (access$000 vs access$0) crashed 1022254 at launch.
+for path in sorted(smali.glob('Preview*.smali')):
+    for owner, name in re.findall(r'Lcom/melodix/music/(Preview[A-Za-z0-9]*);->(access\$[0-9]+)\(', path.read_text(encoding='utf-8')):
+        outer = smali / (owner + '.smali')
+        assert outer.exists() and re.search(r'^\.method[^\n]* ' + re.escape(name) + r'\(', outer.read_text(encoding='utf-8'), re.M), path.name + ' calls missing ' + owner + '.' + name
+
 print('Player tile glyphs and French text verified in compiled Smali')
