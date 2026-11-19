@@ -110,7 +110,12 @@ public final class PreviewPlayerTiles extends LinearLayout {
                         Object decoded=new JSONTokener(value).nextValue();
                         if(!(decoded instanceof String)){body.setText("Indisponible dans cette version");return;}
                         JSONObject data=new JSONObject((String)decoded);
-                        String text=data.optBoolean("ok",false)?data.optString("body",""):"";
+                        boolean ok=data.optBoolean("ok",false);
+                        String text=ok?data.optString("body",""):"";
+                        if(i==1 && (!ok || text.isEmpty())){
+                            body.setText("Spotify n’affiche aucune parole lisible pour ce titre. Vérifie que les paroles sont disponibles dans Spotify.");
+                            return;
+                        }
                         body.setText(text.isEmpty()?"Indisponible dans cette version":text.substring(0,Math.min(8000,text.length())));
                     }catch(Exception ignored){body.setText("Indisponible dans cette version");}
                 }
@@ -214,7 +219,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
     private void panelFailed(int i,Activity a,LinearLayout list,Button retry){
         String why=panelReason;panelReason="";
         if(why.equals("absent")){panelMessage(a,list,retry,i==1?"Paroles non disponibles sur cette page Spotify":"Appareils non disponibles sur cette page Spotify","Le bouton correspondant est absent de la page.");return;}
-        if(why.equals("disabled")){panelMessage(a,list,retry,i==1?"Bouton Paroles désactivé":"Appareils indisponibles pour le moment","Le bouton Spotify est désactivé ; réessayez plus tard.");return;}
+        if(why.equals("disabled")){panelMessage(a,list,retry,i==1?"Spotify ne propose pas de paroles pour ce titre":"Appareils indisponibles pour le moment",i==1?"Le contrôle des paroles Spotify est désactivé ; aucune ligne n’est disponible.":"Le bouton Spotify est désactivé ; réessayez plus tard.");return;}
         if(why.equals("busy")){panelMessage(a,list,retry,"Un panneau est déjà en cours","Attendez sa fermeture avant de réessayer.");return;}
         if(why.equals("close-unverified")){panelMessage(a,list,retry,"Fermeture du panneau non confirmée","Le contenu n’a pas été présenté comme confirmé ; voir le diagnostic.");return;}
         if(why.equals("ambiguous")){panelMessage(a,list,retry,"Lecture refusée","Plusieurs contrôles ou panneaux possibles ; aucun choix arbitraire.");return;}

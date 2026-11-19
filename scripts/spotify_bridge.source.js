@@ -1727,17 +1727,76 @@
         }
     };
 
+    function favoriteControlState(button) {
+        if (!button || button.disabled || button.getAttribute('aria-disabled') === 'true') return null;
+        for (const attr of ['aria-checked', 'aria-pressed', 'data-checked']) {
+            const value = button.getAttribute(attr);
+            if (value === 'true') return true;
+            if (value === 'false') return false;
+        }
+        const label = String(button.getAttribute('aria-label') || button.title || '').replace(/\s+/g, ' ').trim();
+        if (/^(remove|unlike|retirer|supprimer|ne plus aimer)\b/i.test(label) && /liked songs|titres lik[eé]s|morceaux lik[eé]s|biblioth[eè]que/i.test(label)) return true;
+        if (/^(add|like|ajouter|aimer)\b/i.test(label) && /liked songs|titres lik[eé]s|morceaux lik[eé]s|biblioth[eè]que/i.test(label)) return false;
+        return null;
+    }
+
+    function currentFavoriteControl() {
+        const widgetHeart = document.querySelector('div[data-testid="now-playing-widget"] > div:last-child > button');
+        if (favoriteControlState(widgetHeart) !== null) return widgetHeart;
+        const roots = [
+            document.querySelector('[data-testid="now-playing-widget"]'),
+            document.querySelector('[data-testid="now-playing-bar"]'),
+            document.querySelector('aside[data-testid="now-playing-bar"]')
+        ].filter(Boolean);
+        const candidates = [];
+        roots.forEach((root) => {
+            root.querySelectorAll('button, [role="button"]').forEach((button) => {
+                const label = String(button.getAttribute('aria-label') || button.title || '').trim();
+                const knownId = /^(add-button|control-button-add|now-playing-widget-add-button)$/i.test(String(button.getAttribute('data-testid') || '')) || button.id === 'add-to-library-button';
+                const knownLabel = /(?:liked songs|titres lik[eé]s|morceaux lik[eé]s|biblioth[eè]que)/i.test(label);
+                if ((knownId || knownLabel) && favoriteControlState(button) !== null && !candidates.includes(button)) candidates.push(button);
+            });
+        });
+        return candidates.length === 1 ? candidates[0] : null;
+    }
+
     window.actAddToFav = function(e) {
         if (e) {
             e.preventDefault();
             e.stopPropagation();
         }
-        let fb = document.querySelector('div[data-testid=now-playing-widget]>div:last-child>button');
-        if (fb) {
-            fb.click();
-            setTimeout(() => addAndAuto(true), 100);
-            setTimeout(() => addAndAuto(true), 500);
+        if (window.__sfFavoriteActionStatus === 'pending') return;
+        const button = currentFavoriteControl();
+        const before = favoriteControlState(button);
+        if (!button || before === null) {
+            window.__sfFavoriteActionStatus = 'unconfirmed';
+            return;
         }
+        const expected = !before;
+        window.__sfFavoriteActionStatus = 'pending';
+        try { button.click(); } catch (_) {
+            window.__sfFavoriteActionStatus = 'unconfirmed';
+            return;
+        }
+        let attempts = 0;
+        const verify = () => {
+            const current = currentFavoriteControl();
+            const state = favoriteControlState(current);
+            if (state === expected) {
+                window.isfav = state;
+                window.__sfFavoriteActionStatus = 'confirmed';
+                if (typeof updateFullscreenUI === 'function') updateFullscreenUI();
+                if (typeof updMedia === 'function') updMedia(true);
+                return;
+            }
+            attempts += 1;
+            if (attempts < 10) {
+                setTimeout(verify, 200);
+            } else {
+                window.__sfFavoriteActionStatus = 'unconfirmed';
+            }
+        };
+        setTimeout(verify, 150);
     };
 
     window.actSeek = function(pos) {
@@ -2095,12 +2154,9 @@
 
             window.syncShuffleState();
 
-            let fb = document.querySelector('div[data-testid=now-playing-widget]>div:last-child>button');
-            if (fb && fb.getAttribute('aria-checked') === 'true') {
-                window.isfav = true;
-            } else {
-                window.isfav = false;
-            }
+            const favoriteButton = currentFavoriteControl();
+            const favoriteState = favoriteControlState(favoriteButton);
+            if (favoriteState !== null) window.isfav = favoriteState;
 
             let rg = document.querySelector('div[data-testid=playback-progressbar] input[type=range]');
             if (rg) {
