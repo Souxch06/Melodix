@@ -47,6 +47,6 @@
                 else { deliver(); [2500, 6000, 12000, 25000, 45000, 90000, 150000].forEach(function(ms) { window.setTimeout(deliver, ms); }); }
             }).catch(function() {}).then(function() { if (deadline) window.clearTimeout(deadline); });
         }
-        // Let the bridge's own first page land first; ours then extends it.
-        window.setTimeout(page, 1200);
+        // Start at once: late bridge replies are re-covered by the repeated resends above.
+        window.setTimeout(page, 0);
     }

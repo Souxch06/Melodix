@@ -211,7 +211,7 @@ public final class PreviewPlayerMode extends ImageButton {
         pending=false;generation++;querySerial++;queryInFlight=false;
         if((result.equals("confirmed")||result.equals("read")) && !next.equals("unknown")) {
             state=next;reason="observed";remembered=next;rememberedTitle=kind.equals("like")?nativeTitle():"";paint();
-            if(kind.equals("like"))Toast.makeText(getContext(),result.equals("confirmed")?(next.equals("true")?"Ajouté aux titres likés":"Retiré des titres likés"):next.equals("true")?"Déjà dans vos titres likés":"Pas encore dans vos titres likés",Toast.LENGTH_SHORT).show();
+            // User request (1022278): no toast on success, the heart icon shows the result.
             return;
         }
         state="unknown";
