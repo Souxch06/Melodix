@@ -159,15 +159,15 @@ public final class PreviewPlayerMode extends ImageButton {
     }
     private boolean tappable() {
         if(likeMissing())return false;
+        if(kind.equals("shuffle")&&reason.equals("disabled"))return true; // retried: Spotify may have unlocked it
         return reason.equals("control")||reason.equals("absent")||reason.equals("ambiguous")||reason.equals("state")||reason.equals("confirmation")||
             reason.equals("unverified")||reason.equals("identity")||reason.equals("remembered")||reason.equals("observed")||reason.equals("conflict")||reason.equals("menu");
     }
     private void invoke() {
         long t=SystemClock.elapsedRealtime();
         if(!running || !isShown() || getWindowVisibility()!=View.VISIBLE || pending || t-lastTap<TAP_GUARD_MS)return;
-        if(kind.equals("shuffle") && shuffleLocked && state.equals("unknown")) {
-            lastTap=t;performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);Toast.makeText(getContext(),"Aléatoire imposé par Spotify",Toast.LENGTH_SHORT).show();return;
-        }
+        // Every tap is tried again: the forced state may have ended (user report 1022295).
+        if(kind.equals("shuffle"))shuffleLocked=false;
         if(state.equals("unknown") && !tappable()) {
             beginDiagnostic();int i=diagnosticIndex();if(i>=0)outcome[i]="non envoyé : "+reason;
             lastTap=t;performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);shake();
