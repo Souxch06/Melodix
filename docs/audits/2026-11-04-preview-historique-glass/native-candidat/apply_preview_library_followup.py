@@ -7,6 +7,7 @@ EXPECTED='ed18ae0b137951fc9b9f1d9fbc65a3f596fad94f38d6f31c8b22c7fa74462984'
 HELPER_SHA='8e50e4ef814b37decbf9f0f410fe622797f76b4ddf4df4f450881dab66caff34'
 LIKED_SHA='5355232ea283e1081f5051533a73c803a749c0678360fad7d3c88f37fc67fc0a'
 PAGING_SHA='96f572221a1eacb997584140960b3110f68a4d66a4671e36f30aaa4861414b98'
+PREWARM_SHA='73c279b826490547492126cb5b842b6ca045bcebe29d7cac2be4a198de51bbd9'
 PREFETCH_SHA='272a7608bd2e2b0c539a63bd778895aa87f1d2fdc7a3a86c2e13076e63c0fd6d'
 
 def one(text, old, new):
@@ -165,10 +166,12 @@ def apply(root):
             previewLastMovementAt >= 0 && at >= previewLastMovementAt && at - previewLastMovementAt <= 2000)));
         previewLastTrack = valid ? info.previewTrackUri : '';""")
     tuple_bytes=(HERE/'preview-player-tuple.js').read_bytes()
-    if hashlib.sha256(tuple_bytes).hexdigest() != '41a1e6a11a3cb732d61acd0250f386d9873d74b9233749e6f5188532e7904bd0': raise ValueError('unexpected tuple helper')
+    if hashlib.sha256(tuple_bytes).hexdigest() != '14e333d10a2e8d92b3cd8f73d665d5ed4664a89a34235cffcba4eac7cdd69795': raise ValueError('unexpected tuple helper')
+    prewarm_bytes=(HERE/'preview-prewarm.js').read_bytes()
+    if hashlib.sha256(prewarm_bytes).hexdigest() != PREWARM_SHA: raise ValueError('unexpected prewarm helper')
     start=s.index('    // Preview-only progress samples.')
     end=s.index('    function publishPlayerState(force)', start)
-    s=s[:start]+tuple_bytes.decode('utf8')+'\n'+s[end:]
+    s=s[:start]+tuple_bytes.decode('utf8')+'\n'+prewarm_bytes.decode('utf8')+'\n'+s[end:]
     s=one(s, "            payload.playing ? '1' : '0',\n            payload.duration,", "            payload.playing ? '1' : '0',\n            payload.previewPlaybackState,\n            payload.previewConfirmPositionMs,\n            payload.duration,")
     # Artwork can arrive after metadata; include its URL in the update signature.
     # It is passed only to the native player, never included in diagnostics.
