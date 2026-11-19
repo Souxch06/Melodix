@@ -300,6 +300,9 @@
         var likedName = /^(liked songs|your liked songs|titres likés|vos titres likés|titres que j['’]aime|liked-titel|canciones que te gustan|músicas curtidas)$/i;
         function available(n) { return n && n.isConnected && !n.closest('[hidden], [aria-hidden="true"]'); }
         var before = Array.from(document.querySelectorAll(selector)).filter(available);
+        var doneRe = /^(terminé|terminer|done|ok|valider|enregistrer|save)$/i;
+        function doneButtons() { return Array.from(document.querySelectorAll('button')).filter(function(n) { return available(n) && doneRe.test(String(n.getAttribute('aria-label') || n.textContent || '').replace(/\s+/g, ' ').trim()); }); }
+        var doneBefore = doneButtons();
         // The picker can render empty first and fill later: wait for the fresh root that holds the target.
         function fresh() { var f = Array.from(document.querySelectorAll(selector)).filter(function(n) { return available(n) && before.indexOf(n) < 0; }); var withTarget = f.filter(function(n) { return targets(n).length; }); return withTarget.length === 1 ? withTarget[0] : null; }
         function anyFresh() { return Array.from(document.querySelectorAll(selector)).filter(function(n) { return available(n) && before.indexOf(n) < 0; })[0] || null; }
@@ -338,7 +341,11 @@
             var on = t[0].getAttribute('aria-checked') === 'true' || t[0].checked === true;
             if (!on) { log(method + ':unlike-not-checked'); close(r); after('menu-state', 'true'); return; }
             try { t[0].click(); log(method + ':unlike-uncheck'); } catch (_) { close(r); after('unconfirmed', 'true'); return; }
-            var done = Array.from(r.querySelectorAll('button')).filter(function(n) { return available(n) && /^(terminé|terminer|done|ok|valider|enregistrer|save)$/i.test(String(n.getAttribute('aria-label') || n.textContent || '').replace(/\s+/g, ' ').trim()); });
+            // Spotify's picker keeps its Done button in a footer outside the list root, and
+            // closing without it (Escape) discards the change: look for a Done button that
+            // appeared with the picker, inside it first, then anywhere on the page.
+            var done = Array.from(r.querySelectorAll('button')).filter(function(n) { return available(n) && doneRe.test(String(n.getAttribute('aria-label') || n.textContent || '').replace(/\s+/g, ' ').trim()); });
+            if (!done.length) done = doneButtons().filter(function(n) { return doneBefore.indexOf(n) < 0; });
             if (done.length === 1) {
                 try { done[0].click(); log(method + ':unlike-done'); } catch (_) {}
                 wait(function() {

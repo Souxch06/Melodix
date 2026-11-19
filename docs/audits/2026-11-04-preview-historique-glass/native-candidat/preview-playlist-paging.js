@@ -1,5 +1,5 @@
     // User-approved (after Preview 1022239): the protected bridge reads only the
-    // first 100 tracks of a playlist. Read every page the same way and hand the
+    // first 100 tracks of a playlist (sometimes fewer). Read every page the same way and hand the
     // full list to the bridge's own native callback. Token used as a header only.
     var previewPages = {gen: 0};
     function previewPlaylistPages(uri) {
@@ -10,7 +10,7 @@
         if (!/^[a-f0-9]{64}$/i.test(String(hash || ''))) hash = '346811f856fb0b7e4f6c59f8ebea78dd081c6e2fb01b77c954b26259d5fc6763';
         function live() { return gen === previewPages.gen && window.__sfNativeCollectionUri === uri; }
         function deliver() {
-            try { if (all.length > limit && live() && window.AndBridge && typeof window.AndBridge.onMediaItemsLoaded === 'function') window.AndBridge.onMediaItemsLoaded(uri, JSON.stringify(all)); } catch (_) {}
+            try { if (all.length && live() && window.AndBridge && typeof window.AndBridge.onMediaItemsLoaded === 'function') window.AndBridge.onMediaItemsLoaded(uri, JSON.stringify(all)); } catch (_) {}
         }
         function page() {
             var token = window.spotAuthToken;
@@ -40,10 +40,10 @@
                         artists: Array.isArray(artists) ? artists.map(function(a) { return a && (a.profile && a.profile.name || a.name) || ''; }).filter(Boolean) : []});
                 });
                 offset += items.length;
-                if (offset > limit) deliver();
-                if (items.length === limit && (typeof total !== 'number' || offset < total)) page();
-                // A late bridge reply would cut the list back to 100: send the full list once more.
-                else if (offset > limit) window.setTimeout(deliver, 2500);
+                if (items.length === limit && (typeof total !== 'number' || offset < total)) { if (offset > limit) deliver(); page(); }
+                // Complete list (any size: the bridge can also stop short of 100, e.g. 26 of 60).
+                // A late bridge reply could cut it back: send it once more.
+                else { deliver(); window.setTimeout(deliver, 2500); }
             }).catch(function() {}).then(function() { if (deadline) window.clearTimeout(deadline); });
         }
         // Let the bridge's own first page land first; ours then extends it.

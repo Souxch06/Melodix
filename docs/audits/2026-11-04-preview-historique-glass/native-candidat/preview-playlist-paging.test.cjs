@@ -18,9 +18,13 @@ test('237-track playlist: three pages, full list delivered to the bridge callbac
  assert.deepEqual(x.calls.map(c=>c.offset),[0,100,200]);
  assert.equal(x.sent.length,2);x.timers.pop()();assert.equal(x.sent.length,3);const last=x.sent.at(-1);assert.equal(last[0],'spotify:playlist:P1');assert.equal(last[1].length,237);assert.equal(last[1][236].id,'spotify:track:t236');
 });
-test('playlist of 100 or fewer: nothing delivered (bridge already has it)',async()=>{
- const x=setup(80);x.api('spotify:playlist:P1');x.timers.shift()();for(let i=0;i<5;i++)await settle();
- assert.equal(x.calls.length,1);assert.equal(x.sent.length,0);
+test('playlist of 100 or fewer: one page, full list delivered (the bridge can stop short, phone 1022271: 26 shown)',async()=>{
+ const x=setup(60);x.api('spotify:playlist:P1');x.timers.shift()();for(let i=0;i<5;i++)await settle();
+ assert.equal(x.calls.length,1);assert.equal(x.sent.length,1);assert.equal(x.sent[0][1].length,60);
+});
+test('empty or failed page: nothing delivered',async()=>{
+ const x=setup(0);x.api('spotify:playlist:P1');x.timers.shift()();for(let i=0;i<5;i++)await settle();
+ assert.equal(x.sent.length,0);
 });
 test('leaving the playlist stops paging',async()=>{
  const x=setup(500);x.api('spotify:playlist:P1');x.w.__sfNativeCollectionUri=null;x.timers.shift()();for(let i=0;i<5;i++)await settle();

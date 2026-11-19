@@ -689,6 +689,23 @@ test('like removal via picker where the Liked Songs name sits beside its checkbo
   assert.deepEqual([out.outcome, out.state, other], ['confirmed', 'false', 0]); dom.window.close();
 });
 
+test('like removal clicks a Done button outside the picker list; Escape would discard (phone 1022271)', async () => {
+  const dom = page('<aside data-testid="now-playing-bar"><a href="/album/al">Titre</a><button aria-label="Ajouter à une playlist" aria-checked="true">+</button></aside>');
+  const d = dom.window.document, b = d.querySelector('button'); let saved = true;
+  b.addEventListener('click', () => {
+    const wrap = d.createElement('div');
+    wrap.innerHTML = `<div role="menu"><div role="menuitemcheckbox" aria-checked="${saved}">Titres likés</div></div><footer><button>Terminé</button></footer>`;
+    d.body.appendChild(wrap);
+    const item = wrap.querySelector('[role="menuitemcheckbox"]');
+    item.addEventListener('click', () => item.setAttribute('aria-checked', String(item.getAttribute('aria-checked') !== 'true')));
+    wrap.querySelector('[role="menu"]').addEventListener('keydown', e => { if (e.key === 'Escape') wrap.remove(); });
+    wrap.querySelector('footer button').addEventListener('click', () => { saved = item.getAttribute('aria-checked') === 'true'; if (!saved) { b.setAttribute('aria-checked', 'false'); b.setAttribute('aria-label', 'Ajouter aux titres likés'); } wrap.remove(); });
+  });
+  run(dom, mode, 'like', 'run', 'true', 'Titre', 'title:Titre'); await settle(1500);
+  const out = run(dom, mode, 'like', 'poll', 'true', 'Titre', 'title:Titre');
+  assert.deepEqual([saved, out.outcome, out.state], [false, 'confirmed', 'false']); dom.window.close();
+});
+
 test('like removal waits for a picker that renders empty first (phone 1022237)', async () => {
   const dom = page('<aside data-testid="now-playing-bar"><a href="/album/al">Titre</a><button aria-label="Ajouter à une playlist" aria-checked="true">+</button></aside>');
   const d = dom.window.document, b = d.querySelector('button');
