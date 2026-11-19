@@ -269,7 +269,7 @@ public final class PreviewPlayerMode extends ImageButton {
         else if(!known && likeMissing())desc="Like indisponible : bouton absent de la page Spotify";
         else if(!known && tap)desc="État inconnu : touchez pour essayer ("+(kind.equals("like")?"Like":kind.equals("shuffle")?"Aléatoire":"Répétition")+")";
         else if(!known)desc=(loading?"Chargement : ":"Indisponible : ")+reasonText()+" ("+(kind.equals("like")?"Like":kind.equals("shuffle")?"Aléatoire":"Répétition")+")"+(kind.equals("shuffle")?" ; nécessite un contrôle et un état Spotify reconnus":"");
-        setColorFilter(active?0xffe0489e:0xffc9c0ea);setContentDescription(pending?desc+", en attente":desc);
+        setColorFilter(active?0xffffffff:0xffa1a1aa);setContentDescription(pending?desc+", en attente":desc);
         setEnabled((known||tap||(kind.equals("like")&&running))&&!pending); setAlpha(tap?(shuffleMissing()?0.5f:0.8f):kind.equals("like")?(pending?0.65f:known?1f:0.35f):!known?(loading?0.65f:0.35f):pending?0.65f:1.0f);invalidate();
     }
     private void sync() {

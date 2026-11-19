@@ -3146,12 +3146,12 @@
     :goto_10
     if-eqz v4, :cond_23
 
-    const v4, -0x1fb762
+    const/4 v4, -0x1
 
     goto :goto_11
 
     :cond_23
-    const v4, -0x363f16
+    const v4, -0x5e5e56
 
     :goto_11
     invoke-virtual {p0, v4}, Lcom/melodix/music/PreviewPlayerMode;->setColorFilter(I)V
