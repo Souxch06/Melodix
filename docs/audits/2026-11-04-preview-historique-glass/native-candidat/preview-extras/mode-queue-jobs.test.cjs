@@ -143,12 +143,13 @@ test('like: an unconfirmed add is never retried (no second click)', async () => 
   assert.equal(run(dom, mode, 'like', 'poll', 'unknown', 'Titre', 'track:x').outcome, 'unconfirmed'); assert.equal(clicks, 1);
 });
 
-test('keyboard: one combination per tap, always Alt (Spotify web shortcut)', async () => {
+test('keyboard: one combination per tap, always Alt (Spotify web shortcut); never blind for repeat', async () => {
   const dom = page('<div></div>'); const seen = [];
   dom.window.document.addEventListener('keydown', (e) => seen.push((e.ctrlKey ? 'ctrl-' : '') + (e.altKey ? 'alt-' : '') + e.key));
+  run(dom, mode, 'shuffle', 'run', 'unknown', ''); await settle(40);
+  run(dom, mode, 'shuffle', 'run', 'unknown', ''); await settle(40);
   run(dom, mode, 'repeat', 'run', 'unknown', ''); await settle(40);
-  run(dom, mode, 'repeat', 'run', 'unknown', ''); await settle(40);
-  assert.deepEqual(seen, ['alt-r', 'alt-r']);
+  assert.deepEqual(seen, ['alt-s', 'alt-s']);
 });
 
 const panel = fs.readFileSync(path.join(__dirname, 'panel-job.js'), 'utf8');

@@ -434,6 +434,8 @@
     }
     function viaKeyboard() {
         if (kind === 'like') { log('c:like-skipped'); finish('failed', 'unknown', ''); return; }
+        // Blind Alt+R could switch on repeat-one unseen and block skipping (user report 1022295).
+        if (kind === 'repeat') { log('c:repeat-skipped'); finish('failed', 'unknown', ''); return; }
         var spec = kind === 'shuffle' ? {key: 's', code: 'KeyS', keyCode: 83} : {key: 'r', code: 'KeyR', keyCode: 82};
         // Unverifiable when no control is readable, so only ONE combination per
         // tap (two could cancel each other). Spotify's web player uses Alt+S / Alt+R.
