@@ -67,7 +67,7 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
             CharSequence label=shuffleControl.getContentDescription();
             boolean active=label!=null && label.toString().startsWith("Lecture aléatoire activée");
             if(shuffleControl instanceof ImageView){
-                ImageView icon=(ImageView)shuffleControl;icon.setColorFilter(active?0xffe0489e:0xffc9c0ea);icon.setImageAlpha(active?255:179);
+                ImageView icon=(ImageView)shuffleControl;icon.setColorFilter(active?0xffffffff:0xffa1a1aa);icon.setImageAlpha(active?255:179);
             }
             shuffleDot.setBounds(0,0,shuffleControl.getWidth(),shuffleControl.getHeight()); shuffleDot.invalidateSelf();
         }
@@ -509,10 +509,11 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
     private void stylePlay(Activity a){
         if(playStyled)return;
         View button=a.findViewById(0x7f09023e); if(button==null)return;
-        GradientDrawable shape=new GradientDrawable(GradientDrawable.Orientation.BR_TL,new int[]{0xff7b3fe4,0xffe0489e});
+        // Liner: solid white disc (dark icon tint comes from the layout), neutral shadow.
+        GradientDrawable shape=new GradientDrawable();shape.setColor(0xfff5f5f7);
         shape.setShape(GradientDrawable.OVAL);
-        button.setBackground(new RippleDrawable(ColorStateList.valueOf(0x44ffffff),shape,null));
-        if(Build.VERSION.SDK_INT>=28){button.setOutlineSpotShadowColor(0xffe0489e);button.setOutlineAmbientShadowColor(0xff7b3fe4);}
+        button.setBackground(new RippleDrawable(ColorStateList.valueOf(0x1f000000),shape,null));
+        if(Build.VERSION.SDK_INT>=28){button.setOutlineSpotShadowColor(0xff000000);button.setOutlineAmbientShadowColor(0xff000000);}
         playStyled=true;
     }
     private void sizeArtwork(Activity a){

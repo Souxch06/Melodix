@@ -109,7 +109,7 @@ def liner_res(root):
     t = re.sub(r'<[^<>!?/][^<>]*>', tint, t)
     assert n >= 1, 'no play disc found'
     m.write_text(t, encoding='utf-8')
-    for name, radius in (('native_playlist_row_glass', 10), ('native_quick_tile', 12)):  # Liner: no card frames
+    for name, radius in (('native_playlist_row_glass', 10), ('native_quick_tile', 12), ('native_row_ripple', 12)):  # Liner: no card frames
         g = r / 'drawable' / (name + '.xml')
         if g.exists(): g.write_text(FLAT % (radius, radius), encoding='utf-8')
 

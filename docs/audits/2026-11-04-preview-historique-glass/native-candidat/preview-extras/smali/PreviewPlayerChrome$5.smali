@@ -20,15 +20,30 @@
 # instance fields
 .field final synthetic this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
-.field private final synthetic val$p:Landroid/view/View;
+.field final synthetic val$p:Landroid/view/View;
 
 
 # direct methods
 .method constructor <init>(Lcom/melodix/music/PreviewPlayerChrome;Landroid/view/View;)V
     .locals 0
+    .annotation system Ldalvik/annotation/MethodParameters;
+        accessFlags = {
+            0x8010,
+            0x1010
+        }
+        names = {
+            null,
+            null
+        }
+    .end annotation
 
-    .prologue
-    .line 576
+    .annotation system Ldalvik/annotation/Signature;
+        value = {
+            "()V"
+        }
+    .end annotation
+
+    .line 558
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerChrome$5;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerChrome$5;->val$p:Landroid/view/View;
@@ -43,8 +58,7 @@
 .method public run()V
     .locals 2
 
-    .prologue
-    .line 576
+    .line 558
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$5;->val$p:Landroid/view/View;
 
     invoke-virtual {v0}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;

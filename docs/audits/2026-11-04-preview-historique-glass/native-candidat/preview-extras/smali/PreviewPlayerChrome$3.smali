@@ -20,15 +20,30 @@
 # instance fields
 .field final synthetic this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
-.field private final synthetic val$p:Landroid/view/View;
+.field final synthetic val$p:Landroid/view/View;
 
 
 # direct methods
 .method constructor <init>(Lcom/melodix/music/PreviewPlayerChrome;Landroid/view/View;)V
     .locals 0
+    .annotation system Ldalvik/annotation/MethodParameters;
+        accessFlags = {
+            0x8010,
+            0x1010
+        }
+        names = {
+            null,
+            null
+        }
+    .end annotation
 
-    .prologue
-    .line 211
+    .annotation system Ldalvik/annotation/Signature;
+        value = {
+            "()V"
+        }
+    .end annotation
+
+    .line 192
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerChrome$3;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerChrome$3;->val$p:Landroid/view/View;
@@ -41,19 +56,18 @@
 
 # virtual methods
 .method public onAnimationUpdate(Landroid/animation/ValueAnimator;)V
-    .locals 2
+    .locals 1
 
-    .prologue
-    .line 211
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$3;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
+    .line 192
+    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerChrome$3;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
-    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerChrome$3;->val$p:Landroid/view/View;
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$3;->val$p:Landroid/view/View;
 
-    invoke-virtual {v1}, Landroid/view/View;->getTranslationY()F
+    invoke-virtual {v0}, Landroid/view/View;->getTranslationY()F
 
-    move-result v1
+    move-result v0
 
-    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerChrome;->access$13(Lcom/melodix/music/PreviewPlayerChrome;F)V
+    invoke-static {p1, v0}, Lcom/melodix/music/PreviewPlayerChrome;->access$1200(Lcom/melodix/music/PreviewPlayerChrome;F)V
 
     return-void
 .end method
