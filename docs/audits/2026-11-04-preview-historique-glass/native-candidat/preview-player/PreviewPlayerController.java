@@ -44,9 +44,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     private final Handler handler = new Handler(Looper.getMainLooper());
     private boolean valid, moving, frameScheduled, haveReal, realPlaying, shownPlaying, pending;
     private boolean pendingTarget;
-    private long lastConfirmedStateAt = -1;
-    // A live page update arrived (the remembered last track alone does not count).
-    private boolean liveSeen;
+    private long lastConfirmedStateAt = -1, foregroundSince = -1;
     private WeakReference<WebView> seekWeb = new WeakReference<WebView>(null);
     private boolean dragging, seekPending;
     private long seekTarget, seekAt, seekSerial, seekFallbackAt, seekFallbackPosition;
@@ -245,7 +243,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 haveReal = realPlaying = shownPlaying = false; playbackState = "unknown";
                 identityTitle = r.title; identityArtist = r.artist; identityDuration = duration = r.duration;
                 base = r.position; anchor = now(); correction = 0; track = "";
-                measurementAt = measurementPosition = -1; lastConfirmedStateAt = -1; liveSeen = false;
+                measurementAt = measurementPosition = -1; lastConfirmedStateAt = -1;
                 text(current, 0x7f090236, r.title); text(current, 0x7f09023b, r.title);
                 View panel = current.findViewById(0x7f09023a);
                 View header = panel == null ? null : panel.findViewWithTag("previewPlayerDragHandle");
@@ -497,7 +495,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         long t = now();
         absenceDuration = absenceAt < 0 ? -1 : Math.max(0, t - absenceAt);
         returnAt = t; returnSecondCount = 0;
-        foreground = true; renderProgress(); renderButtons(); syncGlow(); scheduleFrame(); scheduleTrace();
+        foreground = true; foregroundSince = now(); renderProgress(); renderButtons(); syncGlow(); scheduleFrame(); scheduleTrace();
         recordReturn("onResume ; absence=" + (absenceDuration < 0 ? "inconnue" : absenceDuration + " ms"));
     }
     private void scheduleTrace() {
@@ -784,7 +782,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 moving = real && !freezePendingPause && !interrupted;
             } else { valid = false; moving = false; }
             if (!interrupted && (snapshotValid || state.equals("unknown"))) playbackState = state;
-            haveReal = true; liveSeen = true;
+            haveReal = true;
             if (!interrupted && snapshotValid && !state.equals("unknown")) {
                 lastConfirmedStateAt = t;
                 realPlaying = real;
@@ -812,9 +810,11 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         // taps. The page command decides from Spotify's own live state, so let it through
         // while in the foreground; still one command at a time.
         // A remembered last track with no live observation yet stays read-only.
-        // 1022292: a free-account ad (no track identity) kept the state unknown and every tap
-        // was dropped; any live page update is enough, Spotify's page decides the toggle.
-        if (!haveReal || pending || !foreground || !liveSeen) return -1;
+        // 1022293: a stuck/slow page (no track, no live update) dropped every tap silently.
+        // shortcut: the remembered track stays read-only only for the first 5 s in the
+        // foreground; after that the tap is sent and Spotify's page decides (user-approved).
+        if (!haveReal || pending || !foreground) return -1;
+        if (lastConfirmedStateAt < 0 && (foregroundSince < 0 || now() - foregroundSince < 5000)) return -1;
         begin(1);
         long t = now();
         if (valid && shownPlaying) { base = position(t); anchor = t; moving = false; correction = 0; renderProgress(); }

@@ -241,6 +241,7 @@ public class ControllerTest {
    report=(String)reportMethod.invoke(local);yes(report.contains("lecture : valide"));yes(report.contains("écran de chargement masqué"));
    yes(!local.acceptPlayerPayload("track=No Track;artist=No Artist"));yes(title.text.equals("Local"));
    yes(local.acceptPlayerPayload(sample("Different","Artist",5000,120000,"paused","")));local.snapshot(sample("Different","Artist",5000,120000,"paused",""));yes(PreviewLastTrackStore.stored.title.equals("Different"));
+   PreviewPlayerController stuck=new PreviewPlayerController(h);stuck.layoutReady();stuck.activityResumed();PreviewLastTrackStore.deliver();eq(stuck.tapPlayPause(),-1);SystemClock.time+=5001;eq(stuck.tapPlayPause(),1);// stuck page: remembered track, after 5 s in the foreground the tap is sent (user-approved 1022293)
    local.clearLastTrack();yes(PreviewLastTrackStore.stored==null);
    splash.setVisibility(View.VISIBLE);
    saved.setBoolean(null,false);PreviewPlayerController empty=new PreviewPlayerController(h);empty.layoutReady();empty.activityResumed();PreviewLastTrackStore.deliver();eq(splash.getVisibility(),View.VISIBLE);

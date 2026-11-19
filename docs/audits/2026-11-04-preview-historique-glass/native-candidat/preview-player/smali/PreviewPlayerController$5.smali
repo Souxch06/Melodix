@@ -61,7 +61,7 @@
     .line 827
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$5;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$4100(Lcom/melodix/music/PreviewPlayerController;)Z
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$4000(Lcom/melodix/music/PreviewPlayerController;)Z
 
     move-result v0
 
@@ -69,7 +69,7 @@
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$5;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$4300(Lcom/melodix/music/PreviewPlayerController;)J
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$4200(Lcom/melodix/music/PreviewPlayerController;)J
 
     move-result-wide v0
 
@@ -84,7 +84,7 @@
 
     const/4 v1, 0x0
 
-    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerController;->access$4102(Lcom/melodix/music/PreviewPlayerController;Z)Z
+    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerController;->access$4002(Lcom/melodix/music/PreviewPlayerController;Z)Z
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$5;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
@@ -98,11 +98,11 @@
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$5;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$3900(Lcom/melodix/music/PreviewPlayerController;)V
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$3800(Lcom/melodix/music/PreviewPlayerController;)V
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$5;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$4000(Lcom/melodix/music/PreviewPlayerController;)V
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$3900(Lcom/melodix/music/PreviewPlayerController;)V
 
     .line 829
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$5;->this$0:Lcom/melodix/music/PreviewPlayerController;
