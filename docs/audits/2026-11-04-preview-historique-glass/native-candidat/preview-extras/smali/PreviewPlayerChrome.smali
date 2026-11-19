@@ -3887,7 +3887,7 @@
 
     if-lt v2, v11, :cond_7
 
-    const v2, -0x1fb762
+    const/high16 v2, -0x1000000
 
     invoke-virtual {v9, v2}, Landroid/view/View;->setOutlineSpotShadowColor(I)V
 
@@ -3896,8 +3896,6 @@
     .line 480
     :cond_7
     instance-of v2, v4, Landroid/widget/ImageView;
-
-    const/4 v9, 0x1
 
     if-eqz v2, :cond_8
 
@@ -3909,36 +3907,44 @@
 
     invoke-direct {v2}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
 
-    invoke-virtual {v2, v9}, Landroid/graphics/drawable/GradientDrawable;->setShape(I)V
+    const/high16 v9, 0x41600000    # 14.0f
 
-    const v11, 0x17ffffff
+    invoke-direct {v0, v9}, Lcom/melodix/music/PreviewPlayerChrome;->dp(F)I
 
-    invoke-virtual {v2, v11}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
+    move-result v9
 
-    const/high16 v11, 0x3f800000    # 1.0f
+    int-to-float v9, v9
 
-    invoke-direct {v0, v11}, Lcom/melodix/music/PreviewPlayerChrome;->dp(F)I
+    invoke-virtual {v2, v9}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
 
-    move-result v11
+    const v9, 0x17ffffff
 
-    const v13, 0x24ffffff
+    invoke-virtual {v2, v9}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
 
-    invoke-virtual {v2, v11, v13}, Landroid/graphics/drawable/GradientDrawable;->setStroke(II)V
+    const/high16 v9, 0x3f800000    # 1.0f
+
+    invoke-direct {v0, v9}, Lcom/melodix/music/PreviewPlayerChrome;->dp(F)I
+
+    move-result v9
+
+    const v11, 0x24ffffff
+
+    invoke-virtual {v2, v9, v11}, Landroid/graphics/drawable/GradientDrawable;->setStroke(II)V
 
     .line 483
     invoke-virtual {v4, v12}, Landroid/view/View;->setBackgroundTintList(Landroid/content/res/ColorStateList;)V
 
-    new-instance v11, Landroid/graphics/drawable/RippleDrawable;
+    new-instance v9, Landroid/graphics/drawable/RippleDrawable;
 
-    const v13, 0x44ffffff    # 2047.9999f
+    const v11, 0x44ffffff    # 2047.9999f
 
-    invoke-static {v13}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
+    invoke-static {v11}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
 
-    move-result-object v13
+    move-result-object v11
 
-    invoke-direct {v11, v13, v2, v12}, Landroid/graphics/drawable/RippleDrawable;-><init>(Landroid/content/res/ColorStateList;Landroid/graphics/drawable/Drawable;Landroid/graphics/drawable/Drawable;)V
+    invoke-direct {v9, v11, v2, v12}, Landroid/graphics/drawable/RippleDrawable;-><init>(Landroid/content/res/ColorStateList;Landroid/graphics/drawable/Drawable;Landroid/graphics/drawable/Drawable;)V
 
-    invoke-virtual {v4, v11}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
+    invoke-virtual {v4, v9}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
 
     .line 484
     move-object v2, v4
@@ -3957,9 +3963,9 @@
 
     move-result-object v2
 
-    iget-object v11, v0, Lcom/melodix/music/PreviewPlayerChrome;->likeArt:Lcom/melodix/music/PreviewPlayerLikeArt;
+    iget-object v9, v0, Lcom/melodix/music/PreviewPlayerChrome;->likeArt:Lcom/melodix/music/PreviewPlayerLikeArt;
 
-    invoke-virtual {v2, v11}, Landroid/view/ViewOverlay;->add(Landroid/graphics/drawable/Drawable;)V
+    invoke-virtual {v2, v9}, Landroid/view/ViewOverlay;->add(Landroid/graphics/drawable/Drawable;)V
 
     .line 486
     :cond_8
@@ -3972,9 +3978,11 @@
     .line 487
     new-instance v2, Lcom/melodix/music/PreviewPlayerDecoration;
 
-    iget-object v11, v0, Lcom/melodix/music/PreviewPlayerChrome;->repeatControl:Landroid/view/View;
+    iget-object v9, v0, Lcom/melodix/music/PreviewPlayerChrome;->repeatControl:Landroid/view/View;
 
-    invoke-direct {v2, v11, v9}, Lcom/melodix/music/PreviewPlayerDecoration;-><init>(Landroid/view/View;Z)V
+    const/4 v11, 0x1
+
+    invoke-direct {v2, v9, v11}, Lcom/melodix/music/PreviewPlayerDecoration;-><init>(Landroid/view/View;Z)V
 
     iput-object v2, v0, Lcom/melodix/music/PreviewPlayerChrome;->repeatArt:Lcom/melodix/music/PreviewPlayerDecoration;
 
@@ -3984,16 +3992,16 @@
 
     move-result-object v2
 
-    iget-object v11, v0, Lcom/melodix/music/PreviewPlayerChrome;->repeatArt:Lcom/melodix/music/PreviewPlayerDecoration;
+    iget-object v9, v0, Lcom/melodix/music/PreviewPlayerChrome;->repeatArt:Lcom/melodix/music/PreviewPlayerDecoration;
 
-    invoke-virtual {v2, v11}, Landroid/view/ViewOverlay;->add(Landroid/graphics/drawable/Drawable;)V
+    invoke-virtual {v2, v9}, Landroid/view/ViewOverlay;->add(Landroid/graphics/drawable/Drawable;)V
 
     .line 488
     new-instance v2, Lcom/melodix/music/PreviewPlayerDecoration;
 
-    iget-object v11, v0, Lcom/melodix/music/PreviewPlayerChrome;->shuffleControl:Landroid/view/View;
+    iget-object v9, v0, Lcom/melodix/music/PreviewPlayerChrome;->shuffleControl:Landroid/view/View;
 
-    invoke-direct {v2, v11, v10}, Lcom/melodix/music/PreviewPlayerDecoration;-><init>(Landroid/view/View;Z)V
+    invoke-direct {v2, v9, v10}, Lcom/melodix/music/PreviewPlayerDecoration;-><init>(Landroid/view/View;Z)V
 
     iput-object v2, v0, Lcom/melodix/music/PreviewPlayerChrome;->shuffleDot:Lcom/melodix/music/PreviewPlayerDecoration;
 
@@ -4003,37 +4011,37 @@
 
     move-result-object v2
 
-    iget-object v11, v0, Lcom/melodix/music/PreviewPlayerChrome;->shuffleDot:Lcom/melodix/music/PreviewPlayerDecoration;
+    iget-object v9, v0, Lcom/melodix/music/PreviewPlayerChrome;->shuffleDot:Lcom/melodix/music/PreviewPlayerDecoration;
 
-    invoke-virtual {v2, v11}, Landroid/view/ViewOverlay;->add(Landroid/graphics/drawable/Drawable;)V
+    invoke-virtual {v2, v9}, Landroid/view/ViewOverlay;->add(Landroid/graphics/drawable/Drawable;)V
 
     .line 489
     const/4 v2, 0x4
 
-    new-array v11, v2, [Landroid/view/View;
+    new-array v9, v2, [Landroid/view/View;
 
-    aput-object v3, v11, v10
+    aput-object v3, v9, v10
 
-    aput-object v6, v11, v9
+    aput-object v6, v9, v11
 
     const/4 v3, 0x2
 
-    aput-object v7, v11, v3
+    aput-object v7, v9, v3
 
     const/4 v6, 0x3
 
-    aput-object v8, v11, v6
+    aput-object v8, v9, v6
 
     move v7, v10
 
     :goto_0
     if-ge v7, v2, :cond_9
 
-    aget-object v8, v11, v7
+    aget-object v8, v9, v7
 
     new-instance v13, Lcom/melodix/music/PreviewPlayerChrome$PressEffect;
 
-    invoke-direct {v13, v9}, Lcom/melodix/music/PreviewPlayerChrome$PressEffect;-><init>(Z)V
+    invoke-direct {v13, v11}, Lcom/melodix/music/PreviewPlayerChrome$PressEffect;-><init>(Z)V
 
     invoke-virtual {v8, v13}, Landroid/view/View;->setOnTouchListener(Landroid/view/View$OnTouchListener;)V
 
@@ -4051,7 +4059,7 @@
 
     aput-object v2, v8, v10
 
-    aput-object v7, v8, v9
+    aput-object v7, v8, v11
 
     aput-object v4, v8, v3
 
@@ -4124,9 +4132,9 @@
 
     invoke-direct {v2}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
 
-    invoke-virtual {v2, v9}, Landroid/graphics/drawable/GradientDrawable;->setShape(I)V
+    invoke-virtual {v2, v11}, Landroid/graphics/drawable/GradientDrawable;->setShape(I)V
 
-    const v4, 0x447b3fe4
+    const v4, 0x33ffffff
 
     invoke-virtual {v2, v4}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
 
@@ -4147,7 +4155,7 @@
 
     invoke-direct {v4}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
 
-    invoke-virtual {v4, v9}, Landroid/graphics/drawable/GradientDrawable;->setShape(I)V
+    invoke-virtual {v4, v11}, Landroid/graphics/drawable/GradientDrawable;->setShape(I)V
 
     const/4 v5, -0x1
 
@@ -4172,7 +4180,7 @@
 
     aput-object v2, v3, v10
 
-    aput-object v4, v3, v9
+    aput-object v4, v3, v11
 
     invoke-direct {v5, v3}, Landroid/graphics/drawable/LayerDrawable;-><init>([Landroid/graphics/drawable/Drawable;)V
 
@@ -4269,7 +4277,7 @@
 
     .line 507
     :cond_c
-    iput-boolean v9, v0, Lcom/melodix/music/PreviewPlayerChrome;->setupDone:Z
+    iput-boolean v11, v0, Lcom/melodix/music/PreviewPlayerChrome;->setupDone:Z
 
     .line 508
     return-void

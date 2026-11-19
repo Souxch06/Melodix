@@ -33,7 +33,7 @@ class FinalPlayer(unittest.TestCase):
    self.assertIn(s,tile)
   for s in ('glass.setColor(0x17ffffff)','glass.setStroke(dp(1),0x24ffffff)','((ImageView)like).setImageAlpha(0)','new PreviewPlayerLikeArt(like)'):
    self.assertIn(s,chrome)
-  for s in ('getContentDescription()','Retirer des titres likés','0xffe0489e','0xd9ffffff','canvas.drawPath(heart,paint)'):
+  for s in ('getContentDescription()','Retirer des titres likés','0xfff5f5f7','0xd9ffffff','canvas.drawPath(heart,paint)'):
    self.assertIn(s,like)
   self.assertIn('id != lastIcon',play);self.assertIn('id == 0x7f080122 ? 0.92f : 1f',play)
   for code in (chrome,like,play):

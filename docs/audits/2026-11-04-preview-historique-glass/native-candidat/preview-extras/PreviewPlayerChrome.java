@@ -476,10 +476,10 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         if(handle!=null)handle.setOnTouchListener(new DismissGesture());
         if(art!=null)art.setOnTouchListener(new DismissGesture());
         if(frame instanceof ViewGroup){((ViewGroup)frame).setClipChildren(false);((ViewGroup)frame).setClipToPadding(false);}
-        if(art!=null && Build.VERSION.SDK_INT>=28){art.setOutlineSpotShadowColor(0xffe0489e);art.setOutlineAmbientShadowColor(0xffe0489e);}
+        if(art!=null && Build.VERSION.SDK_INT>=28){art.setOutlineSpotShadowColor(0xff000000);art.setOutlineAmbientShadowColor(0xff000000);}
         if(like instanceof ImageView){
             likeControl=like;
-            GradientDrawable glass=new GradientDrawable();glass.setShape(GradientDrawable.OVAL);glass.setColor(0x17ffffff);glass.setStroke(dp(1),0x24ffffff);
+            GradientDrawable glass=new GradientDrawable();glass.setCornerRadius(dp(14));glass.setColor(0x17ffffff);glass.setStroke(dp(1),0x24ffffff);
             like.setBackgroundTintList(null);like.setBackground(new RippleDrawable(ColorStateList.valueOf(0x44ffffff),glass,null));
             ((ImageView)like).setImageAlpha(0);likeArt=new PreviewPlayerLikeArt(like);like.getOverlay().add(likeArt);
         }
@@ -492,7 +492,7 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         View seek=a.findViewById(0x7f09023d);
         if(seek instanceof SeekBar){
             SeekBar bar=(SeekBar)seek;
-            GradientDrawable halo=new GradientDrawable();halo.setShape(GradientDrawable.OVAL);halo.setColor(0x447b3fe4);halo.setSize(dp(24),dp(24));
+            GradientDrawable halo=new GradientDrawable();halo.setShape(GradientDrawable.OVAL);halo.setColor(0x33ffffff);halo.setSize(dp(24),dp(24));
             GradientDrawable center=new GradientDrawable();center.setShape(GradientDrawable.OVAL);center.setColor(0xffffffff);center.setSize(dp(16),dp(16));
             LayerDrawable thumb=new LayerDrawable(new Drawable[]{halo,center});thumb.setLayerInset(1,dp(4),dp(4),dp(4),dp(4));
             bar.setThumbTintList(null);bar.setThumb(thumb);bar.setThumbOffset(dp(12));
