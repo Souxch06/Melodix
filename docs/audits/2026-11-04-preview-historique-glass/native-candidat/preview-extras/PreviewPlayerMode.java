@@ -60,6 +60,9 @@ public final class PreviewPlayerMode extends ImageButton {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private String kind="", state="unknown", track="", title="", pendingState="", pendingTrack="", pendingTitle="", reason="web";
     private boolean pending, running, queryInFlight, observedPending;
+    // Spotify greyed its shuffle control (forced shuffle, e.g. free account): shown as on, never toggled.
+    private static boolean shuffleLocked;
+    private static final String LOCKED = "Lecture aléatoire activée (imposée par Spotify)";
     private long generation, querySerial, lastTap = -1000, visibleSince, queryStarted;
     private static final long TAP_GUARD_MS = 400, CONFIRM_MS = 7000;
     private String remembered="", rememberedTitle="";
@@ -162,6 +165,9 @@ public final class PreviewPlayerMode extends ImageButton {
     private void invoke() {
         long t=SystemClock.elapsedRealtime();
         if(!running || !isShown() || getWindowVisibility()!=View.VISIBLE || pending || t-lastTap<TAP_GUARD_MS)return;
+        if(kind.equals("shuffle") && shuffleLocked && state.equals("unknown")) {
+            lastTap=t;performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);Toast.makeText(getContext(),"Aléatoire imposé par Spotify",Toast.LENGTH_SHORT).show();return;
+        }
         if(state.equals("unknown") && !tappable()) {
             beginDiagnostic();int i=diagnosticIndex();if(i>=0)outcome[i]="non envoyé : "+reason;
             lastTap=t;performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);shake();
@@ -218,6 +224,7 @@ public final class PreviewPlayerMode extends ImageButton {
         if(result.equals("unverified")){reason="unverified";paint();Toast.makeText(getContext(),"Commande envoyée, état non vérifiable",Toast.LENGTH_SHORT).show();return;}
         if(result.equals("identity")){reason="identity";paint();Toast.makeText(getContext(),"Titre en cours différent, Réessayer",Toast.LENGTH_SHORT).show();return;}
         if(result.startsWith("menu-")){reason="menu";paint();Toast.makeText(getContext(),result.equals("menu-ambiguous")?"Plusieurs choix Like possibles, aucune modification":result.equals("menu-state")?"État Like non vérifiable, aucune modification":"Titres likés introuvables dans le menu",Toast.LENGTH_LONG).show();return;}
+        if(result.equals("disabled") && kind.equals("shuffle")){shuffleLocked=true;reason="disabled";paint();Toast.makeText(getContext(),"Aléatoire imposé par Spotify",Toast.LENGTH_SHORT).show();return;}
         if(result.equals("disabled")){reason="disabled";paint();Toast.makeText(getContext(),reasonText(),Toast.LENGTH_SHORT).show();return;}
         if(result.equals("unconfirmed")){reason="confirmation";paint();Toast.makeText(getContext(),"Action non confirmée. Réessayer",Toast.LENGTH_SHORT).show();return;}
         reason="control";paint();
@@ -269,7 +276,11 @@ public final class PreviewPlayerMode extends ImageButton {
         else if(!known && likeMissing())desc="Like indisponible : bouton absent de la page Spotify";
         else if(!known && tap)desc="État inconnu : touchez pour essayer ("+(kind.equals("like")?"Like":kind.equals("shuffle")?"Aléatoire":"Répétition")+")";
         else if(!known)desc=(loading?"Chargement : ":"Indisponible : ")+reasonText()+" ("+(kind.equals("like")?"Like":kind.equals("shuffle")?"Aléatoire":"Répétition")+")"+(kind.equals("shuffle")?" ; nécessite un contrôle et un état Spotify reconnus":"");
+        if(kind.equals("shuffle") && known)shuffleLocked=false;
+        boolean locked=kind.equals("shuffle") && shuffleLocked && !known && !pending;
+        if(locked){active=true;desc=LOCKED;if(drawable("shuffle")!=0)setImageResource(drawable("shuffle"));}
         setColorFilter(active?0xffffffff:0xffa1a1aa);setContentDescription(pending?desc+", en attente":desc);
+        if(locked){setEnabled(true);setAlpha(1f);invalidate();return;}
         setEnabled((known||tap||(kind.equals("like")&&running))&&!pending); setAlpha(tap?(shuffleMissing()?0.5f:0.8f):kind.equals("like")?(pending?0.65f:known?1f:0.35f):!known?(loading?0.65f:0.35f):pending?0.65f:1.0f);invalidate();
     }
     private void sync() {

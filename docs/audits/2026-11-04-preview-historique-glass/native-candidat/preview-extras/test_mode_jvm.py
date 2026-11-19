@@ -65,6 +65,10 @@ stubs={
  // Like stays tappable to explain why nothing was sent; shuffle remains unchanged.
  t=page();like=boot(t,"like");Handler.step();t.G.reply("state=unknown;reason=absent");Handler.advance(2500);before=t.G.calls;ok(like.enabled);ok(like.description.startsWith("Like indisponible : bouton absent"));like.performClick();ok(t.G.calls==before);ok(Toast.count>0);like.onDetachedFromWindow();
  t=page();sh=boot(t,"shuffle");Handler.step();t.G.reply(data("unknown")+";reason=absent");Handler.advance(2500);ok(sh.enabled);ok(sh.description.startsWith("Aléatoire : bouton absent")&&sh.description.contains("non vérifiable"));sh.onDetachedFromWindow();
+ // Spotify greys its shuffle (forced shuffle): shown as on, later taps only explain, nothing sent.
+ t=page();sh=boot(t,"shuffle");Handler.step();t.G.reply(data("unknown")+";reason=absent");Handler.advance(2500);SystemClock.t+=401;sh.performClick();t.G.reply("status=started");Handler.advance(250);t.G.reply("status=done;outcome=disabled;state=unknown;method=direct");
+ ok(sh.description.startsWith("Lecture aléatoire activée"));ok(sh.enabled);before=t.G.calls;SystemClock.t+=401;sh.performClick();ok(t.G.calls==before);ok(Toast.message.contains("imposé"));
+ java.lang.reflect.Field lockedF=PreviewPlayerMode.class.getDeclaredField("shuffleLocked");lockedF.setAccessible(true);lockedF.setBoolean(null,false);sh.onDetachedFromWindow();
  // An identified menu may be inspected; without identity, an explicit tap only explains the block.
  t=page();like=boot(t,"like");Handler.step();t.G.reply("state=unknown;reason=menu");Handler.advance(2500);before=t.G.calls;like.performClick();ok(t.G.calls==before);ok(Toast.message.contains("aucune modification"));like.onDetachedFromWindow();
  // A hidden Like with a uniquely observed current track may try the known now-playing view.
