@@ -117,6 +117,16 @@ def liner_res(root):
         return tag.replace('@drawable/native_button_dark', '@drawable/native_card_ripple')
     t = re.sub(r'<[^<>!?/][^<>]*>', bare, t)
     m.write_text(t, encoding='utf-8')
+    # Liner controls: rounded squares instead of circles (back, settings, shuffle, repeat, like).
+    d = r / 'drawable/native_button_dark.xml'
+    if d.exists(): d.write_text(re.sub(r'android:radius="999[^"]*"', 'android:radius="14dp"', d.read_text(encoding='utf-8')), encoding='utf-8')
+    d = r / 'drawable/native_button_icon.xml'
+    if d.exists():
+        t2 = d.read_text(encoding='utf-8')
+        if 'android:shape="oval"' in t2:
+            t2 = t2.replace('android:shape="oval"', 'android:shape="rectangle"')
+            t2 = re.sub(r'(<solid [^>]*/>)', r'\1<corners android:radius="14dp" />', t2, count=1)
+            d.write_text(t2, encoding='utf-8')
     for name, radius in (('native_playlist_row_glass', 10), ('native_quick_tile', 12), ('native_row_ripple', 12)):  # Liner: no card frames
         g = r / 'drawable' / (name + '.xml')
         if g.exists(): g.write_text(FLAT % (radius, radius), encoding='utf-8')
