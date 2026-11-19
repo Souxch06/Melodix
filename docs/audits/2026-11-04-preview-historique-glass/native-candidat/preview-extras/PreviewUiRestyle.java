@@ -28,7 +28,7 @@ import java.util.WeakHashMap;
  * content, click handler or WebView access. Each view is styled once.
  */
 public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnGlobalLayoutListener {
-    private static final int WHITE = 0xfffbf8ff, LILAC = 0xffc4b5fd, SECONDARY = 0xffb9aed6, VIOLET = 0xff8b5cf6;
+    private static final int WHITE = 0xfffafafa, LILAC = 0xffd4d4d8, SECONDARY = 0xffa1a1aa, SHADOW = 0xff000000;
     private final WeakHashMap<View, Boolean> done = new WeakHashMap<View, Boolean>();
     private ViewTreeObserver observer;
     private boolean scheduled;
@@ -49,16 +49,16 @@ public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnG
         int r = Color.red(c), g = Color.green(c), b = Color.blue(c);
         return Math.max(r, Math.max(g, b)) - Math.min(r, Math.min(g, b)) < 28 && Math.max(r, Math.max(g, b)) < 0xe0;
     }
-    /** Glass surface: translucent fill, hairline border, top highlight, violet ripple. */
+    /** Glass surface: translucent fill, hairline border, top highlight, neutral ripple (Liner tokens). */
     static Drawable glass(float radius, int density) {
-        // Frosted look: lighter top, violet-tinted bottom, bright hairline and a top sheen.
-        GradientDrawable fill = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{0x26ffffff, 0x12ffffff, 0x148b5cf6});
-        fill.setCornerRadius(radius); fill.setStroke(Math.max(1, density), 0x38ffffff);
-        GradientDrawable shine = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{0x30ffffff, 0x06ffffff, 0x00ffffff}); shine.setCornerRadius(radius);
+        // Liner dark glass: white 10%->6% fill, 12% hairline, faint top sheen.
+        GradientDrawable fill = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{0x1affffff, 0x0fffffff});
+        fill.setCornerRadius(radius); fill.setStroke(Math.max(1, density), 0x1fffffff);
+        GradientDrawable shine = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{0x14ffffff, 0x00ffffff, 0x00ffffff}); shine.setCornerRadius(radius);
         GradientDrawable mask = new GradientDrawable(); mask.setCornerRadius(radius); mask.setColor(0xffffffff);
         LayerDrawable layers = new LayerDrawable(new Drawable[]{fill, shine});
         layers.setLayerInset(1, density, density, density, 0);
-        return new RippleDrawable(ColorStateList.valueOf(0x448b5cf6), layers, mask);
+        return new RippleDrawable(ColorStateList.valueOf(0x1fffffff), layers, mask);
     }
     private static boolean plainBackground(View v) {
         Drawable d = v.getBackground();
@@ -79,7 +79,7 @@ public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnG
         if (sp >= 19) {
             t.setTypeface(Typeface.create("sans-serif", Typeface.BOLD)); t.setTextColor(WHITE);
             if (Build.VERSION.SDK_INT >= 21) t.setLetterSpacing(-0.015f);
-            t.setShadowLayer(dp(10), 0, dp(1), 0x668b5cf6);
+            t.setShadowLayer(dp(10), 0, dp(1), 0x66000000);
         } else if (bold && sp <= 14.5f && grey(color)) {
             t.setTextColor(LILAC); if (Build.VERSION.SDK_INT >= 21) t.setLetterSpacing(0.04f);
         } else if (!bold && grey(color)) {
@@ -93,15 +93,15 @@ public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnG
             if (v instanceof android.widget.EditText) field((android.widget.EditText) v);
             else if (v instanceof TextView && !(v instanceof android.widget.Button)) styleText((TextView) v);
             else if (!(v instanceof ViewGroup) && !(v instanceof ImageView) && v.getHeight() <= dp(2) && v.getWidth() >= dp(48) &&
-                     v.getBackground() instanceof android.graphics.drawable.ColorDrawable) v.setBackgroundColor(0x2a8b5cf6);
+                     v.getBackground() instanceof android.graphics.drawable.ColorDrawable) v.setBackgroundColor(0x14ffffff);
             else if (v instanceof ImageView && v.getWidth() >= dp(40) && v.getHeight() >= dp(40)) {
                 float r = Math.min(dp(18), Math.min(v.getWidth(), v.getHeight()) * 0.14f); round(v, r);
-                if (v.getWidth() >= dp(96) && Build.VERSION.SDK_INT >= 28) { v.setElevation(dp(10)); v.setOutlineSpotShadowColor(VIOLET); v.setOutlineAmbientShadowColor(VIOLET); }
+                if (v.getWidth() >= dp(96) && Build.VERSION.SDK_INT >= 28) { v.setElevation(dp(10)); v.setOutlineSpotShadowColor(SHADOW); v.setOutlineAmbientShadowColor(SHADOW); }
                 if (v.isClickable()) press(v);
             } else if (v instanceof ViewGroup && v.isClickable() && plainBackground(v) &&
                        v.getWidth() >= dp(120) && v.getHeight() >= dp(48) && v.getHeight() <= dp(140) && !insideGlass(v)) {
                 int l = v.getPaddingLeft(), t = v.getPaddingTop(), r = v.getPaddingRight(), b = v.getPaddingBottom();
-                v.setBackground(glass(dp(20), dp(1))); v.setPadding(Math.max(l, dp(14)), t, Math.max(r, dp(14)), b);
+                v.setBackground(glass(dp(12), dp(1))); v.setPadding(Math.max(l, dp(14)), t, Math.max(r, dp(14)), b);
                 glassRows.put(v, Boolean.TRUE); press(v); enter(v);
             }
         }
@@ -174,12 +174,12 @@ public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnG
             done.put(title, Boolean.TRUE); TextView t = (TextView) title;
             t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 30); t.setTypeface(Typeface.create("sans-serif", Typeface.BOLD)); t.setTextColor(WHITE);
             if (Build.VERSION.SDK_INT >= 21) t.setLetterSpacing(-0.02f);
-            t.setShadowLayer(dp(14), 0, dp(2), 0x808b5cf6);
+            t.setShadowLayer(dp(14), 0, dp(2), 0x80000000);
         }
         View mini = a.findViewById(0x7f09024c);
         if (mini != null && !done.containsKey(mini) && Build.VERSION.SDK_INT >= 28) {
-            done.put(mini, Boolean.TRUE); mini.setElevation(dp(14)); mini.setOutlineSpotShadowColor(VIOLET); mini.setOutlineAmbientShadowColor(0xffe0489e);
-            if (plainBackground(mini)) mini.setBackground(glass(dp(22), dp(1)));
+            done.put(mini, Boolean.TRUE); mini.setElevation(dp(14)); mini.setOutlineSpotShadowColor(SHADOW); mini.setOutlineAmbientShadowColor(0xff000000);
+            if (plainBackground(mini)) mini.setBackground(glass(dp(14), dp(1)));
             press(mini);
         }
         View content = a.findViewById(0x7f090235);

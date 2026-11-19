@@ -12,7 +12,9 @@ ff29213e ff3a1f38 ff6e3c9d ff24193d ff8056e5 ff362d94 ff764fa7 ffe6dcf1 e85b3680
 ffd9cce5 55c9a8ff ffe3d2ff aa8057aa 88634382 ffa86df2 ffd751a5 ff57417c 45bca2ed ffb995ed
 ffba86fc ffcf6679 287c3aed 13db2777 30a78bfa 407c3aed ff7c3aed ffdb2777
 ff6200ee ff120a26 cc6d32e0 006d32e0 99d93f97 00d93f97 ff170b33 737b3fe4 007b3fe4 59e0489e
-00e0489e ff8b4bf0 387b3fe4 1fe0489e 40b79cff 3a7b3fe4 26e0489e""".split()
+00e0489e ff8b4bf0 387b3fe4 1fe0489e 40b79cff 3a7b3fe4 26e0489e
+ffb7aacd ff120d1e fff15e6c ff272038 d6211a30 ff20172f ff110e19 400a0614 b30a0614 f20a0614
+ee171421 ff090613 ffeee9ff c8382c49 d51b1726""".split()
 
 def grey(argb):
     a = argb >> 24; r, g, b = [(argb >> s & 255) / 255 for s in (16, 8, 0)]
@@ -33,7 +35,9 @@ def smali(text):
         if v not in MAP: return m.group(0)
         n = MAP[v]; n = n - (1 << 32) if n >= 1 << 31 else n
         return m.group(1) + ('-0x%x' % -n if n < 0 else '0x%x' % n)
-    return re.sub(r'(const [vp]\d+, )(-?0x[0-9a-f]+)\b', sub, text)
+    text = re.sub(r'(const [vp]\d+, )(-?0x[0-9a-f]+)\b', sub, text)
+    # Gradient int[] literals compile to array-data, not const.
+    return re.sub(r'\.array-data 4\n.*?\.end array-data', lambda b: re.sub(r'(\n\s+)(-?0x[0-9a-f]+)(?=\n)', sub, b.group(0)), text, flags=re.S)
 
 def main(root):
     changed = 0
@@ -51,4 +55,5 @@ def main(root):
 
 assert grey(0xff8b5cf6) & 0xff == grey(0xff8b5cf6) >> 8 & 0xff and grey(0x148b5cf6) >> 24 == 0x14
 assert xml('#407C3AED x #ff000000') == '#40%s x #ff000000' % ('%06x' % (grey(0x407c3aed) & 0xffffff))
+assert smali('    .array-data 4\n        -0x84c01c\n    .end array-data') != '    .array-data 4\n        -0x84c01c\n    .end array-data'
 if __name__ == '__main__': main(sys.argv[1])

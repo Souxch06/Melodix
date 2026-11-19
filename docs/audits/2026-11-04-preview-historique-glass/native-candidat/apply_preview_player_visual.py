@@ -78,7 +78,7 @@ EXTRAS = {
     'smali/PreviewUiRestyle$2.smali': 'e657b0f58e230facd02c557d118b963ff0b1fbe20f7117926bb767c1aecec29b',
     'smali/PreviewUiRestyle$3.smali': '3d9f21bced9b0f974000bb40cb30ccfedb71174f18251ce93b9e8f3095ff4c16',
     'smali/PreviewUiRestyle$4.smali': '259f92944318292de63f20fc7cc0bd8c86ae8f28b17caf550feecab2eb89e084',
-    'smali/PreviewUiRestyle.smali': 'b6b5a99a47c8a934ae9f92ec05938f72eda468db68b0d9d7831209bbcbdd7368',
+    'smali/PreviewUiRestyle.smali': '900fbaad1569c7c7eb47e9c6c6d907e9f17430e7a2fcb97a1f54369ff17b723e',
     'PreviewSnapshotRenderer.java': '799e2bf909b31eaa28d427efccb3f3f49f33814fab504fe5c934432021772c95',
     'smali/PreviewSnapshotRenderer.smali': '7df3a5e66ca2f15a629867268976103a8dcbb13adfb336642d093ac853aaec3b',
     'PreviewPlayerPlayButton.java': '7b080ee533f8e3c2be8d2bba9457d0bf51c32fa44606d4e7fd4604af5189e36a',
