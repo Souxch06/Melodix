@@ -104,6 +104,9 @@ public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnG
             t.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL)); t.setTextColor(WHITE);
             if (Build.VERSION.SDK_INT >= 21) t.setLetterSpacing(-0.01f);
             t.setShadowLayer(0, 0, 0, 0);
+        } else if (bold && sp > 14.5f) {
+            // Liner list titles: medium weight, not heavy bold.
+            t.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         } else if (bold && sp <= 14.5f && grey(color)) {
             t.setTextColor(LILAC); if (Build.VERSION.SDK_INT >= 21) t.setLetterSpacing(0.04f);
         } else if (!bold && grey(color)) {
