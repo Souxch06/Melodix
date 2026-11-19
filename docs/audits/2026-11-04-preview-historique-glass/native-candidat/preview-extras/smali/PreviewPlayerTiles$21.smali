@@ -20,15 +20,30 @@
 # instance fields
 .field final synthetic this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-.field private final synthetic val$n:I
+.field final synthetic val$n:I
 
 
 # direct methods
 .method constructor <init>(Lcom/melodix/music/PreviewPlayerTiles;I)V
     .locals 0
+    .annotation system Ldalvik/annotation/MethodParameters;
+        accessFlags = {
+            0x8010,
+            0x1010
+        }
+        names = {
+            null,
+            null
+        }
+    .end annotation
 
-    .prologue
-    .line 369
+    .annotation system Ldalvik/annotation/Signature;
+        value = {
+            "()V"
+        }
+    .end annotation
+
+    .line 374
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$21;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iput p2, p0, Lcom/melodix/music/PreviewPlayerTiles$21;->val$n:I
@@ -41,15 +56,14 @@
 
 # virtual methods
 .method public onClick(Landroid/view/View;)V
-    .locals 2
+    .locals 1
 
-    .prologue
-    .line 369
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$21;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
+    .line 374
+    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$21;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-    iget v1, p0, Lcom/melodix/music/PreviewPlayerTiles$21;->val$n:I
+    iget v0, p0, Lcom/melodix/music/PreviewPlayerTiles$21;->val$n:I
 
-    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->access$52(Lcom/melodix/music/PreviewPlayerTiles;I)V
+    invoke-static {p1, v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$4100(Lcom/melodix/music/PreviewPlayerTiles;I)V
 
     return-void
 .end method

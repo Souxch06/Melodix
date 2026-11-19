@@ -20,25 +20,50 @@
 # instance fields
 .field final synthetic this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-.field private final synthetic val$a:Landroid/app/Activity;
+.field final synthetic val$a:Landroid/app/Activity;
 
-.field private final synthetic val$dialog:Landroid/app/Dialog;
+.field final synthetic val$dialog:Landroid/app/Dialog;
 
-.field private final synthetic val$i:I
+.field final synthetic val$i:I
 
-.field private final synthetic val$list:Landroid/widget/LinearLayout;
+.field final synthetic val$list:Landroid/widget/LinearLayout;
 
-.field private final synthetic val$name:Ljava/lang/String;
+.field final synthetic val$name:Ljava/lang/String;
 
-.field private final synthetic val$retry:Landroid/widget/Button;
+.field final synthetic val$retry:Landroid/widget/Button;
 
 
 # direct methods
 .method constructor <init>(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;)V
     .locals 0
+    .annotation system Ldalvik/annotation/MethodParameters;
+        accessFlags = {
+            0x8010,
+            0x1010,
+            0x1010,
+            0x1010,
+            0x1010,
+            0x1010,
+            0x1010
+        }
+        names = {
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+        }
+    .end annotation
 
-    .prologue
-    .line 252
+    .annotation system Ldalvik/annotation/Signature;
+        value = {
+            "()V"
+        }
+    .end annotation
+
+    .line 257
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$9;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iput p2, p0, Lcom/melodix/music/PreviewPlayerTiles$9;->val$i:I
@@ -63,8 +88,7 @@
 .method public onClick(Landroid/view/View;)V
     .locals 7
 
-    .prologue
-    .line 252
+    .line 257
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$9;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iget v1, p0, Lcom/melodix/music/PreviewPlayerTiles$9;->val$i:I
@@ -79,7 +103,7 @@
 
     iget-object v6, p0, Lcom/melodix/music/PreviewPlayerTiles$9;->val$name:Ljava/lang/String;
 
-    invoke-static/range {v0 .. v6}, Lcom/melodix/music/PreviewPlayerTiles;->access$25(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;)V
+    invoke-static/range {v0 .. v6}, Lcom/melodix/music/PreviewPlayerTiles;->access$2200(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;)V
 
     return-void
 .end method

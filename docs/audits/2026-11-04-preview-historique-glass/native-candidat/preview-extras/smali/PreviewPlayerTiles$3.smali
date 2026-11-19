@@ -19,8 +19,7 @@
 .annotation system Ldalvik/annotation/Signature;
     value = {
         "Ljava/lang/Object;",
-        "Landroid/webkit/ValueCallback",
-        "<",
+        "Landroid/webkit/ValueCallback<",
         "Ljava/lang/String;",
         ">;"
     }
@@ -30,16 +29,33 @@
 # instance fields
 .field final synthetic this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-.field private final synthetic val$i:I
+.field final synthetic val$i:I
 
-.field private final synthetic val$serial:J
+.field final synthetic val$serial:J
 
 
 # direct methods
 .method constructor <init>(Lcom/melodix/music/PreviewPlayerTiles;JI)V
     .locals 0
+    .annotation system Ldalvik/annotation/MethodParameters;
+        accessFlags = {
+            0x8010,
+            0x1010,
+            0x1010
+        }
+        names = {
+            null,
+            null,
+            null
+        }
+    .end annotation
 
-    .prologue
+    .annotation system Ldalvik/annotation/Signature;
+        value = {
+            "()V"
+        }
+    .end annotation
+
     .line 83
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$3;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
@@ -56,9 +72,16 @@
 # virtual methods
 .method public bridge synthetic onReceiveValue(Ljava/lang/Object;)V
     .locals 0
+    .annotation system Ldalvik/annotation/MethodParameters;
+        accessFlags = {
+            0x1000
+        }
+        names = {
+            null
+        }
+    .end annotation
 
-    .prologue
-    .line 1
+    .line 83
     check-cast p1, Ljava/lang/String;
 
     invoke-virtual {p0, p1}, Lcom/melodix/music/PreviewPlayerTiles$3;->onReceiveValue(Ljava/lang/String;)V
@@ -67,123 +90,108 @@
 .end method
 
 .method public onReceiveValue(Ljava/lang/String;)V
-    .locals 6
+    .locals 7
 
-    .prologue
     .line 85
-    iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles$3;->val$serial:J
+    const-string v0, "unknown"
 
-    invoke-static {}, Lcom/melodix/music/PreviewPlayerTiles;->access$5()[J
+    const-string v1, "r\u00e9ponse illisible"
 
-    move-result-object v2
+    iget-wide v2, p0, Lcom/melodix/music/PreviewPlayerTiles$3;->val$serial:J
 
-    iget v3, p0, Lcom/melodix/music/PreviewPlayerTiles$3;->val$i:I
+    invoke-static {}, Lcom/melodix/music/PreviewPlayerTiles;->access$400()[J
 
-    aget-wide v2, v2, v3
+    move-result-object v4
 
-    cmp-long v0, v0, v2
+    iget v5, p0, Lcom/melodix/music/PreviewPlayerTiles$3;->val$i:I
 
-    if-eqz v0, :cond_0
+    aget-wide v5, v4, v5
 
-    .line 94
-    :goto_0
+    cmp-long v2, v2, v5
+
+    if-eqz v2, :cond_0
+
     return-void
 
     .line 87
     :cond_0
     :try_start_0
-    new-instance v0, Lorg/json/JSONTokener;
+    new-instance v2, Lorg/json/JSONTokener;
 
-    invoke-direct {v0, p1}, Lorg/json/JSONTokener;-><init>(Ljava/lang/String;)V
+    invoke-direct {v2, p1}, Lorg/json/JSONTokener;-><init>(Ljava/lang/String;)V
 
-    invoke-virtual {v0}, Lorg/json/JSONTokener;->nextValue()Ljava/lang/Object;
+    invoke-virtual {v2}, Lorg/json/JSONTokener;->nextValue()Ljava/lang/Object;
 
-    move-result-object v0
+    move-result-object p1
 
     .line 88
-    instance-of v1, v0, Ljava/lang/String;
+    instance-of v2, p1, Ljava/lang/String;
 
-    if-nez v1, :cond_1
+    if-nez v2, :cond_1
 
-    invoke-static {}, Lcom/melodix/music/PreviewPlayerTiles;->access$6()[Ljava/lang/String;
+    invoke-static {}, Lcom/melodix/music/PreviewPlayerTiles;->access$500()[Ljava/lang/String;
 
-    move-result-object v0
+    move-result-object p1
 
-    iget v1, p0, Lcom/melodix/music/PreviewPlayerTiles$3;->val$i:I
+    iget v0, p0, Lcom/melodix/music/PreviewPlayerTiles$3;->val$i:I
 
-    const-string v2, "r\u00e9ponse illisible"
+    aput-object v1, p1, v0
 
-    aput-object v2, v0, v1
-    :try_end_0
-    .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
-
-    goto :goto_0
-
-    .line 93
-    :catch_0
-    move-exception v0
-
-    invoke-static {}, Lcom/melodix/music/PreviewPlayerTiles;->access$6()[Ljava/lang/String;
-
-    move-result-object v0
-
-    iget v1, p0, Lcom/melodix/music/PreviewPlayerTiles$3;->val$i:I
-
-    const-string v2, "r\u00e9ponse illisible"
-
-    aput-object v2, v0, v1
-
-    goto :goto_0
+    return-void
 
     .line 89
     :cond_1
-    :try_start_1
-    new-instance v1, Lorg/json/JSONObject;
+    new-instance v2, Lorg/json/JSONObject;
 
-    check-cast v0, Ljava/lang/String;
+    check-cast p1, Ljava/lang/String;
 
-    invoke-direct {v1, v0}, Lorg/json/JSONObject;-><init>(Ljava/lang/String;)V
+    invoke-direct {v2, p1}, Lorg/json/JSONObject;-><init>(Ljava/lang/String;)V
 
-    const-string v0, "reason"
+    const-string p1, "reason"
 
-    const-string v2, "unknown"
+    invoke-virtual {v2, p1, v0}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
 
-    invoke-virtual {v1, v0, v2}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
-
-    move-result-object v0
+    move-result-object p1
 
     .line 90
-    const-string v2, "observed"
+    const-string v3, "observed"
 
-    invoke-virtual {v0, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    invoke-virtual {p1, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
-    move-result v2
+    move-result v3
 
-    if-nez v2, :cond_2
+    if-nez v3, :cond_2
 
-    const-string v2, "absent"
+    const-string v3, "absent"
 
-    invoke-virtual {v0, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    invoke-virtual {p1, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
-    move-result v2
+    move-result v3
 
-    if-nez v2, :cond_2
+    if-nez v3, :cond_2
 
-    const-string v0, "unknown"
+    goto :goto_0
 
     .line 91
     :cond_2
-    invoke-static {}, Lcom/melodix/music/PreviewPlayerTiles;->access$6()[Ljava/lang/String;
+    move-object v0, p1
 
-    move-result-object v2
+    :goto_0
+    invoke-static {}, Lcom/melodix/music/PreviewPlayerTiles;->access$500()[Ljava/lang/String;
+
+    move-result-object p1
 
     iget v3, p0, Lcom/melodix/music/PreviewPlayerTiles$3;->val$i:I
 
     new-instance v4, Ljava/lang/StringBuilder;
 
+    invoke-direct {v4}, Ljava/lang/StringBuilder;-><init>()V
+
     const-string v5, "motif="
 
-    invoke-direct {v4, v5}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+    invoke-virtual {v4, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v4
 
     invoke-virtual {v4, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
@@ -197,7 +205,7 @@
 
     const-string v4, "roots"
 
-    invoke-static {v1, v4}, Lcom/melodix/music/PreviewPlayerTiles;->access$7(Lorg/json/JSONObject;Ljava/lang/String;)I
+    invoke-static {v2, v4}, Lcom/melodix/music/PreviewPlayerTiles;->access$600(Lorg/json/JSONObject;Ljava/lang/String;)I
 
     move-result v4
 
@@ -213,7 +221,7 @@
 
     const-string v4, "rows"
 
-    invoke-static {v1, v4}, Lcom/melodix/music/PreviewPlayerTiles;->access$7(Lorg/json/JSONObject;Ljava/lang/String;)I
+    invoke-static {v2, v4}, Lcom/melodix/music/PreviewPlayerTiles;->access$600(Lorg/json/JSONObject;Ljava/lang/String;)I
 
     move-result v4
 
@@ -221,7 +229,6 @@
 
     move-result-object v0
 
-    .line 92
     const-string v4, ", commandes="
 
     invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -230,7 +237,8 @@
 
     const-string v4, "controls"
 
-    invoke-static {v1, v4}, Lcom/melodix/music/PreviewPlayerTiles;->access$7(Lorg/json/JSONObject;Ljava/lang/String;)I
+    .line 92
+    invoke-static {v2, v4}, Lcom/melodix/music/PreviewPlayerTiles;->access$600(Lorg/json/JSONObject;Ljava/lang/String;)I
 
     move-result v4
 
@@ -246,7 +254,7 @@
 
     const-string v4, "buttons"
 
-    invoke-static {v1, v4}, Lcom/melodix/music/PreviewPlayerTiles;->access$7(Lorg/json/JSONObject;Ljava/lang/String;)I
+    invoke-static {v2, v4}, Lcom/melodix/music/PreviewPlayerTiles;->access$600(Lorg/json/JSONObject;Ljava/lang/String;)I
 
     move-result v4
 
@@ -262,7 +270,7 @@
 
     const-string v4, "roles"
 
-    invoke-static {v1, v4}, Lcom/melodix/music/PreviewPlayerTiles;->access$7(Lorg/json/JSONObject;Ljava/lang/String;)I
+    invoke-static {v2, v4}, Lcom/melodix/music/PreviewPlayerTiles;->access$600(Lorg/json/JSONObject;Ljava/lang/String;)I
 
     move-result v4
 
@@ -278,11 +286,11 @@
 
     const-string v4, "testids"
 
-    invoke-static {v1, v4}, Lcom/melodix/music/PreviewPlayerTiles;->access$7(Lorg/json/JSONObject;Ljava/lang/String;)I
+    invoke-static {v2, v4}, Lcom/melodix/music/PreviewPlayerTiles;->access$600(Lorg/json/JSONObject;Ljava/lang/String;)I
 
-    move-result v1
+    move-result v2
 
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
 
     move-result-object v0
 
@@ -290,10 +298,25 @@
 
     move-result-object v0
 
-    .line 91
-    aput-object v0, v2, v3
-    :try_end_1
-    .catch Ljava/lang/Exception; {:try_start_1 .. :try_end_1} :catch_0
+    aput-object v0, p1, v3
+    :try_end_0
+    .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
 
-    goto/16 :goto_0
+    .line 93
+    goto :goto_1
+
+    :catch_0
+    move-exception p1
+
+    invoke-static {}, Lcom/melodix/music/PreviewPlayerTiles;->access$500()[Ljava/lang/String;
+
+    move-result-object p1
+
+    iget v0, p0, Lcom/melodix/music/PreviewPlayerTiles$3;->val$i:I
+
+    aput-object v1, p1, v0
+
+    .line 94
+    :goto_1
+    return-void
 .end method
