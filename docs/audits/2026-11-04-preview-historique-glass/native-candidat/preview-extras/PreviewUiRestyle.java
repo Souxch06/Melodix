@@ -28,7 +28,7 @@ import java.util.WeakHashMap;
  * content, click handler or WebView access. Each view is styled once.
  */
 public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnGlobalLayoutListener {
-    private static final int WHITE = 0xfffafafa, LILAC = 0xffd4d4d8, SECONDARY = 0xffa1a1aa, SHADOW = 0xff000000;
+    private static final int WHITE = 0xfffafafa, LILAC = 0x73ffffff, SECONDARY = 0xa6ffffff, SHADOW = 0xff000000;
     private final WeakHashMap<View, Boolean> done = new WeakHashMap<View, Boolean>();
     private ViewTreeObserver observer;
     private boolean scheduled;
@@ -77,9 +77,10 @@ public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnG
         int color = t.getCurrentTextColor();
         boolean bold = t.getTypeface() != null && t.getTypeface().isBold();
         if (sp >= 19) {
-            t.setTypeface(Typeface.create("sans-serif", Typeface.BOLD)); t.setTextColor(WHITE);
-            if (Build.VERSION.SDK_INT >= 21) t.setLetterSpacing(-0.015f);
-            t.setShadowLayer(dp(10), 0, dp(1), 0x66000000);
+            // Liner headings: semibold, tight tracking, no glow.
+            t.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL)); t.setTextColor(WHITE);
+            if (Build.VERSION.SDK_INT >= 21) t.setLetterSpacing(-0.01f);
+            t.setShadowLayer(0, 0, 0, 0);
         } else if (bold && sp <= 14.5f && grey(color)) {
             t.setTextColor(LILAC); if (Build.VERSION.SDK_INT >= 21) t.setLetterSpacing(0.04f);
         } else if (!bold && grey(color)) {
@@ -95,7 +96,7 @@ public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnG
             else if (!(v instanceof ViewGroup) && !(v instanceof ImageView) && v.getHeight() <= dp(2) && v.getWidth() >= dp(48) &&
                      v.getBackground() instanceof android.graphics.drawable.ColorDrawable) v.setBackgroundColor(0x14ffffff);
             else if (v instanceof ImageView && v.getWidth() >= dp(40) && v.getHeight() >= dp(40)) {
-                float r = Math.min(dp(18), Math.min(v.getWidth(), v.getHeight()) * 0.14f); round(v, r);
+                float r = Math.min(dp(10), Math.min(v.getWidth(), v.getHeight()) * 0.1f); round(v, r);
                 if (v.getWidth() >= dp(96) && Build.VERSION.SDK_INT >= 28) { v.setElevation(dp(10)); v.setOutlineSpotShadowColor(SHADOW); v.setOutlineAmbientShadowColor(SHADOW); }
                 if (v.isClickable()) press(v);
             } else if (v instanceof ViewGroup && v.isClickable() && plainBackground(v) &&
