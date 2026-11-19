@@ -214,7 +214,7 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         int left=root.getPaddingLeft(),top=root.getPaddingTop(),right=root.getPaddingRight(),bottom=root.getPaddingBottom();
         tintLayer=new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,new int[]{0,0});
         // Layers: violet base, blurred cover colours, dark scrim for contrast, light tint.
-        scrim=new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,new int[]{0x59000000,0x66000000,0xb3000000});
+        scrim=new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,new int[]{0x1f000000,0x40000000,0x99000000});
         appliedBackground=new LayerDrawable(new Drawable[]{appliedBackground,new ColorDrawable(0),scrim,tintLayer});
         // Keep a still of the preceding native screen behind the moving player.
         // The player background must move with the panel, not stay on the root.
@@ -272,8 +272,9 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         tintLayer.setColors(new int[]{0,0});
         // Blurred backdrop: the cover reduced to a few pixels and smoothly scaled up.
         Drawable blob=new ColorDrawable(0);
-        Bitmap tiny=shrink(d,5);
-        if(tiny!=null){BitmapDrawable soft=new BitmapDrawable(getResources(),tiny);soft.setFilterBitmap(true);soft.setAlpha(255);blob=soft;}
+        // Liner-like soft glow: the cover's main colour, a little more vivid, fading to black (no blocky pixels).
+        if(c!=0){float[] h=new float[3];Color.colorToHSV(c,h);h[1]=Math.min(1f,h[1]*1.3f);h[2]=Math.min(0.55f,Math.max(0.3f,h[2]));int top=Color.HSVToColor(h);
+            h[2]*=0.45f;blob=new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,new int[]{top,Color.HSVToColor(h),0xff050505});}
         if(appliedBackground instanceof LayerDrawable&&((LayerDrawable)appliedBackground).getNumberOfLayers()==4)((LayerDrawable)appliedBackground).setDrawable(1,blob);
         refreshSystemBarColors();
         View art=a.findViewById(0x7f09023a);art=art==null?null:art.findViewWithTag("previewPlayerArtCard");
@@ -502,6 +503,7 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
                 LayerDrawable layers=(LayerDrawable)progress.mutate();
                 Drawable track=layers.findDrawableByLayerId(android.R.id.background);
                 if(track instanceof GradientDrawable)((GradientDrawable)track).setColor(0x33ffffff);
+                Drawable done=layers.findDrawableByLayerId(android.R.id.progress);if(done!=null)done.setTint(0xffffffff);
             }
         }
         setupDone=true;
@@ -511,7 +513,7 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         View button=a.findViewById(0x7f09023e); if(button==null)return;
         // Liner: solid white disc (dark icon tint comes from the layout), neutral shadow.
         button.setBackgroundTintList(null);button.setBackground(new RippleDrawable(ColorStateList.valueOf(0x33ffffff),null,null));button.setElevation(0f);
-        if(button instanceof ImageView){((ImageView)button).setImageTintList(ColorStateList.valueOf(0xffffffff));button.setPadding(dp(14),dp(14),dp(14),dp(14));}
+        if(button instanceof ImageView){((ImageView)button).setImageTintList(ColorStateList.valueOf(0xffffffff));button.setPadding(dp(10),dp(10),dp(10),dp(10));}
         playStyled=true;
     }
     private void sizeArtwork(Activity a){
