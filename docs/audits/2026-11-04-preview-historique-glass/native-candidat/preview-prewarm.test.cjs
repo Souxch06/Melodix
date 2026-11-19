@@ -18,8 +18,8 @@ test('warm-up: muted play, pause after 3 s, position restored, then unmuted',()=
  const x=setup();x.run();
  assert.deepEqual(x.calls,['play']);assert.ok(x.media.every(m=>m.muted));assert.equal(x.w.__sfPrewarmActive,true);
  x.timers.find(t=>t.ms===3000).f();
- assert.deepEqual(x.calls,['play','pause','seek:42000']);assert.equal(x.w.__sfPrewarmActive,false);assert.ok(x.media.every(m=>m.muted));
- x.timers.find(t=>t.ms===400).f();assert.ok(x.media.every(m=>!m.muted));
+ assert.deepEqual(x.calls,['play','pause','seek:42000']);assert.equal(x.w.__sfPrewarmActive,true,'still paused until the pause lands');assert.ok(x.media.every(m=>m.muted));
+ x.timers.find(t=>t.ms===400).f();assert.equal(x.w.__sfPrewarmActive,false);assert.ok(x.media.every(m=>!m.muted));
 });
 test('a play tap during the warm-up keeps playing and unmutes at once',()=>{
  const x=setup();x.run();assert.equal(x.w.__sfTogglePlayback(true),true);
@@ -32,6 +32,6 @@ test('playback on another device: no warm-up',()=>{
 test('an ad (title gone) during the warm-up stops it at once and restores sound',()=>{
  let title='T';const x=setup({title:()=>title});x.run();assert.deepEqual(x.calls,['play']);
  title='';x.timers.find(t=>t.ms===250).f();
- assert.deepEqual(x.calls,['play','pause','seek:42000']);assert.equal(x.w.__sfPrewarmActive,false);
- x.timers.find(t=>t.ms===400).f();assert.ok(x.media.every(m=>!m.muted));
+ assert.deepEqual(x.calls,['play','pause','seek:42000']);
+ x.timers.find(t=>t.ms===400).f();assert.equal(x.w.__sfPrewarmActive,false);assert.ok(x.media.every(m=>!m.muted));
 });

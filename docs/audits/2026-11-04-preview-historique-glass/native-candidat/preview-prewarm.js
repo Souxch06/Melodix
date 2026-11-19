@@ -12,7 +12,8 @@
     }
     function previewPrewarmFinish(keepPlaying) {
         if (!previewPrewarm.active) return;
-        previewPrewarm.active = false; window.__sfPrewarmActive = false;
+        // Keep reporting 'paused' until the pause has landed, or a tap in that window becomes a pause.
+        previewPrewarm.active = false; if (keepPlaying) window.__sfPrewarmActive = false;
         if (previewPrewarm.timer) window.clearTimeout(previewPrewarm.timer);
         if (previewPrewarm.watch) window.clearTimeout(previewPrewarm.watch);
         if (!keepPlaying) {
@@ -20,7 +21,7 @@
             if (previewPrewarm.position >= 0 && typeof window.actSeek === 'function') try { window.actSeek(previewPrewarm.position); } catch (_) {}
         }
         // Unmute only once the pause has landed (or at once if the user takes over).
-        window.setTimeout(function() { previewPrewarmMedia().forEach(function(m) { try { m.muted = false; } catch (_) {} }); document.removeEventListener('play', previewPrewarmMute, true); }, keepPlaying ? 0 : 400);
+        window.setTimeout(function() { window.__sfPrewarmActive = false; previewPrewarmMedia().forEach(function(m) { try { m.muted = false; } catch (_) {} }); document.removeEventListener('play', previewPrewarmMute, true); }, keepPlaying ? 0 : 400);
     }
     function previewPrewarmMute(e) { try { if (previewPrewarm.active && e && e.target) e.target.muted = true; } catch (_) {} }
     function previewPrewarmStart() {
