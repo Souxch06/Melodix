@@ -108,6 +108,14 @@ def liner_res(root):
         return tag.replace(' android:src=', ' android:tint="#ff111113" android:src=', 1)
     t = re.sub(r'<[^<>!?/][^<>]*>', tint, t)
     assert n >= 1, 'no play disc found'
+    k = 0
+    def bare(x):
+        nonlocal k
+        tag = x.group(0)
+        if 'native_button_dark' not in tag or not re.search(r'src="@drawable/(previous|next)"', tag): return tag
+        k += 1  # Liner mini player: bare previous/next icons, ripple only
+        return tag.replace('@drawable/native_button_dark', '@drawable/native_card_ripple')
+    t = re.sub(r'<[^<>!?/][^<>]*>', bare, t)
     m.write_text(t, encoding='utf-8')
     for name, radius in (('native_playlist_row_glass', 10), ('native_quick_tile', 12), ('native_row_ripple', 12)):  # Liner: no card frames
         g = r / 'drawable' / (name + '.xml')
