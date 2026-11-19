@@ -439,6 +439,22 @@
             else { log(method + ':unverified'); after('unconfirmed', before); }
         });
     }
+    // App-side repeat-one when Spotify's repeat is greyed: just before the end, seek back to 0.
+    function clockMs(sel) {
+        var e = document.querySelector(sel); var t = e ? String(e.textContent || '').trim() : '';
+        if (!/^\d+(:\d{2}){1,2}$/.test(t)) return -1;
+        return t.split(':').reduce(function(a, x) { return a * 60 + Number(x); }, 0) * 1000;
+    }
+    function appLoop() {
+        var on = !W.__melodixLoop; W.__melodixLoop = on;
+        if (W.__melodixLoopTimer) { W.clearInterval(W.__melodixLoopTimer); W.__melodixLoopTimer = 0; }
+        if (on) W.__melodixLoopTimer = W.setInterval(function() {
+            var pos = clockMs('[data-testid="playback-position"]'), dur = clockMs('[data-testid="playback-duration"]');
+            if (pos < 0 || dur < 10000 || pos < dur - 2000) return;
+            try { if (typeof W.actSeek === 'function') W.actSeek(0); } catch (_) {}
+        }, 500);
+        log('c:app-loop-' + (on ? 'on' : 'off')); finish('confirmed', on ? 'true' : 'false', 'app-loop');
+    }
     function viaKeyboard() {
         if (kind === 'like') { log('c:like-skipped'); finish('failed', 'unknown', ''); return; }
         // Blind Alt+R could switch on repeat-one unseen and block skipping (user report 1022295).
@@ -466,7 +482,12 @@
         try { log('vw:' + Math.round((W.innerWidth || 0) / 100) * 100); } catch (_) {}
         log('a:' + (direct.node ? 'found' : direct.reason));
         if (direct.node && !direct.reason) { act(direct, 'a', function(o, s) { result(o, s, 'direct'); }); return JSON.stringify({status: 'started'}); }
-        if (direct.reason === 'disabled') { finish('disabled', 'unknown', 'direct'); return JSON.stringify({status: 'started'}); }
+        if (direct.reason === 'disabled') {
+            // User request (1022301): Spotify greys these on this account; try another way.
+            if (kind === 'shuffle') { log('a:disabled'); viaKeyboard(); return JSON.stringify({status: 'started'}); }
+            if (kind === 'repeat') { log('a:disabled'); appLoop(); return JSON.stringify({status: 'started'}); }
+            finish('disabled', 'unknown', 'direct'); return JSON.stringify({status: 'started'});
+        }
         var view = opener();
         if (!view) { log('b:no-opener'); viaKeyboard(); return JSON.stringify({status: 'started'}); }
         var wasOpen = pressed(view);

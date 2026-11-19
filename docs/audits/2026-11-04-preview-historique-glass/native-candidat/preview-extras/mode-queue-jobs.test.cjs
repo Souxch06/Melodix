@@ -750,3 +750,15 @@ test('shuffle: a disabled toggle in the page content is not the player control (
   const out = run(dom, mode, 'shuffle', 'poll');
   assert.notEqual(out.outcome, 'disabled'); assert.deepEqual(seen, ['alt-s']);
 });
+
+test('repeat greyed by Spotify: app loop seeks back to 0 near the end, second tap stops it (user request 1022301)', async () => {
+  const dom = page(`<footer><button data-testid="control-button-repeat" aria-label="Activer la répétition" aria-checked="false" disabled>r</button>
+    <div data-testid="playback-position">3:19</div><div data-testid="playback-duration">3:20</div></footer>`);
+  const seeks = []; dom.window.actSeek = (p) => seeks.push(p);
+  run(dom, mode, 'repeat', 'run', 'false', ''); await settle(40);
+  const out = run(dom, mode, 'repeat', 'poll');
+  assert.equal(out.outcome, 'confirmed'); assert.equal(out.state, 'true'); assert.equal(out.method, 'app-loop');
+  await settle(600); assert.ok(seeks.length >= 1 && seeks[0] === 0);
+  run(dom, mode, 'repeat', 'run', 'true', ''); await settle(40);
+  assert.equal(run(dom, mode, 'repeat', 'poll').state, 'false'); const n = seeks.length; await settle(600); assert.equal(seeks.length, n);
+});

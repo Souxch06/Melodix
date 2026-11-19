@@ -33,7 +33,7 @@
         }
     .end annotation
 
-    .line 75
+    .line 77
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerMode$1;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -46,7 +46,7 @@
 .method public run()V
     .locals 3
 
-    .line 76
+    .line 78
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode$1;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$000(Lcom/melodix/music/PreviewPlayerMode;)Z
@@ -73,7 +73,7 @@
 
     goto :goto_0
 
-    .line 77
+    .line 79
     :cond_0
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode$1;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
@@ -93,10 +93,10 @@
 
     invoke-virtual {v0, p0, v1, v2}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
 
-    .line 78
+    .line 80
     return-void
 
-    .line 76
+    .line 78
     :cond_1
     :goto_0
     return-void
