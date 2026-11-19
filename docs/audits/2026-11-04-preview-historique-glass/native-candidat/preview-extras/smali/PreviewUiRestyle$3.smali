@@ -21,7 +21,7 @@
 .method constructor <init>()V
     .locals 0
 
-    .line 139
+    .line 147
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
     return-void
@@ -32,14 +32,14 @@
 .method public onViewAttachedToWindow(Landroid/view/View;)V
     .locals 0
 
-    .line 140
+    .line 148
     return-void
 .end method
 
 .method public onViewDetachedFromWindow(Landroid/view/View;)V
     .locals 1
 
-    .line 141
+    .line 149
     invoke-virtual {p1}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
 
     move-result-object v0

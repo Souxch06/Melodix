@@ -92,7 +92,15 @@ public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnG
         if (!done.containsKey(v) && v.getWidth() > 0 && v.getHeight() > 0) {
             done.put(v, Boolean.TRUE);
             if (v instanceof android.widget.EditText) field((android.widget.EditText) v);
-            else if (v instanceof TextView && !(v instanceof android.widget.Button)) styleText((TextView) v);
+            else if (v instanceof TextView && !(v instanceof android.widget.Button)) {
+                styleText((TextView) v);
+                // Liner pill tabs: small clickable labels (filters, chips) become glass pills.
+                if (v.isClickable() && plainBackground(v) && v.getHeight() >= dp(28) && v.getHeight() <= dp(44) && v.getWidth() <= dp(180) && !insideGlass(v)) {
+                    v.setBackground(glass(v.getHeight() / 2f, dp(1)));
+                    v.setPadding(Math.max(v.getPaddingLeft(), dp(14)), v.getPaddingTop(), Math.max(v.getPaddingRight(), dp(14)), v.getPaddingBottom());
+                    press(v);
+                }
+            }
             else if (!(v instanceof ViewGroup) && !(v instanceof ImageView) && v.getHeight() <= dp(2) && v.getWidth() >= dp(48) &&
                      v.getBackground() instanceof android.graphics.drawable.ColorDrawable) v.setBackgroundColor(0x14ffffff);
             else if (v instanceof ImageView && v.getWidth() >= dp(40) && v.getHeight() >= dp(40)) {
@@ -108,11 +116,11 @@ public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnG
         }
         if (v instanceof ViewGroup) { ViewGroup g = (ViewGroup) v; for (int i = 0; i < g.getChildCount(); i++) visit(g.getChildAt(i), depth + 1); }
     }
-    /** Text fields: glass pill, lilac hint, white text. Keeps input type, text and listeners. */
+    /** Text fields: glass pill, soft white hint, white text. Keeps input type, text and listeners. */
     private void field(android.widget.EditText e) {
         e.setBackground(glass(dp(24), dp(1)));
         e.setPadding(Math.max(e.getPaddingLeft(), dp(16)), e.getPaddingTop(), Math.max(e.getPaddingRight(), dp(16)), e.getPaddingBottom());
-        e.setTextColor(WHITE); e.setHintTextColor(0x99c4b5fd);
+        e.setTextColor(WHITE); e.setHintTextColor(0x73ffffff);
     }
     private int entered;
     private void enter(View v) { if (entered < 18) rise(v, entered++); }
