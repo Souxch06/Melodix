@@ -45,6 +45,8 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     private boolean valid, moving, frameScheduled, haveReal, realPlaying, shownPlaying, pending;
     private boolean pendingTarget;
     private long lastConfirmedStateAt = -1;
+    // A live page update arrived (the remembered last track alone does not count).
+    private boolean liveSeen;
     private WeakReference<WebView> seekWeb = new WeakReference<WebView>(null);
     private boolean dragging, seekPending;
     private long seekTarget, seekAt, seekSerial, seekFallbackAt, seekFallbackPosition;
@@ -243,7 +245,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 haveReal = realPlaying = shownPlaying = false; playbackState = "unknown";
                 identityTitle = r.title; identityArtist = r.artist; identityDuration = duration = r.duration;
                 base = r.position; anchor = now(); correction = 0; track = "";
-                measurementAt = measurementPosition = -1; lastConfirmedStateAt = -1;
+                measurementAt = measurementPosition = -1; lastConfirmedStateAt = -1; liveSeen = false;
                 text(current, 0x7f090236, r.title); text(current, 0x7f09023b, r.title);
                 View panel = current.findViewById(0x7f09023a);
                 View header = panel == null ? null : panel.findViewWithTag("previewPlayerDragHandle");
@@ -782,7 +784,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 moving = real && !freezePendingPause && !interrupted;
             } else { valid = false; moving = false; }
             if (!interrupted && (snapshotValid || state.equals("unknown"))) playbackState = state;
-            haveReal = true;
+            haveReal = true; liveSeen = true;
             if (!interrupted && snapshotValid && !state.equals("unknown")) {
                 lastConfirmedStateAt = t;
                 realPlaying = real;
@@ -810,7 +812,9 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         // taps. The page command decides from Spotify's own live state, so let it through
         // while in the foreground; still one command at a time.
         // A remembered last track with no live observation yet stays read-only.
-        if (!haveReal || pending || !foreground || lastConfirmedStateAt < 0) return -1;
+        // 1022292: a free-account ad (no track identity) kept the state unknown and every tap
+        // was dropped; any live page update is enough, Spotify's page decides the toggle.
+        if (!haveReal || pending || !foreground || !liveSeen) return -1;
         begin(1);
         long t = now();
         if (valid && shownPlaying) { base = position(t); anchor = t; moving = false; correction = 0; renderProgress(); }
