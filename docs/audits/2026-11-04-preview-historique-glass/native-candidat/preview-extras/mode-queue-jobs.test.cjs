@@ -706,6 +706,26 @@ test('like removal clicks a Done button outside the picker list; Escape would di
   assert.deepEqual([saved, out.outcome, out.state], [false, 'confirmed', 'false']); dom.window.close();
 });
 
+test('like removal waits for a Done button that appears only after the uncheck (phone 1022277)', async () => {
+  const dom = page('<aside data-testid="now-playing-bar"><a href="/album/al">Titre</a><button aria-label="Ajouter à une playlist" aria-checked="true">+</button></aside>');
+  const d = dom.window.document, b = d.querySelector('button'); let saved = true;
+  b.addEventListener('click', () => {
+    const wrap = d.createElement('div');
+    wrap.innerHTML = `<div role="menu"><div role="menuitemcheckbox" aria-checked="${saved}">Titres likés</div></div>`;
+    d.body.appendChild(wrap);
+    const item = wrap.querySelector('[role="menuitemcheckbox"]');
+    wrap.querySelector('[role="menu"]').addEventListener('keydown', e => { if (e.key === 'Escape') wrap.remove(); });
+    item.addEventListener('click', () => {
+      item.setAttribute('aria-checked', 'false');
+      setTimeout(() => { const f = d.createElement('footer'); f.innerHTML = '<button>Terminé</button>'; wrap.appendChild(f);
+        f.firstChild.addEventListener('click', () => { saved = false; b.setAttribute('aria-checked', 'false'); b.setAttribute('aria-label', 'Ajouter aux titres likés'); wrap.remove(); }); }, 300);
+    });
+  });
+  run(dom, mode, 'like', 'run', 'true', 'Titre', 'title:Titre'); await settle(2500);
+  const out = run(dom, mode, 'like', 'poll', 'true', 'Titre', 'title:Titre');
+  assert.deepEqual([saved, out.outcome, out.state], [false, 'confirmed', 'false']); dom.window.close();
+});
+
 test('like removal waits for a picker that renders empty first (phone 1022237)', async () => {
   const dom = page('<aside data-testid="now-playing-bar"><a href="/album/al">Titre</a><button aria-label="Ajouter à une playlist" aria-checked="true">+</button></aside>');
   const d = dom.window.document, b = d.querySelector('button');

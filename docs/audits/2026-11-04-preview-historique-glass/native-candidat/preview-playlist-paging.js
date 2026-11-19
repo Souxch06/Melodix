@@ -42,8 +42,9 @@
                 offset += items.length;
                 if (items.length === limit && (typeof total !== 'number' || offset < total)) { if (offset > limit) deliver(); page(); }
                 // Complete list (any size: the bridge can also stop short of 100, e.g. 26 of 60).
-                // A late bridge reply could cut it back: send it once more.
-                else { deliver(); window.setTimeout(deliver, 2500); }
+                // Late bridge replies cut it back (phone 1022277: 48 shown, then 26, reply ~90 s late):
+                // keep re-sending the full list while this playlist stays open.
+                else { deliver(); [2500, 6000, 12000, 25000, 45000, 90000, 150000].forEach(function(ms) { window.setTimeout(deliver, ms); }); }
             }).catch(function() {}).then(function() { if (deadline) window.clearTimeout(deadline); });
         }
         // Let the bridge's own first page land first; ours then extends it.

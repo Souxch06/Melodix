@@ -301,7 +301,7 @@
         function available(n) { return n && n.isConnected && !n.closest('[hidden], [aria-hidden="true"]'); }
         var before = Array.from(document.querySelectorAll(selector)).filter(available);
         var doneRe = /^(terminé|terminer|done|ok|valider|enregistrer|save)$/i;
-        function doneButtons() { return Array.from(document.querySelectorAll('button')).filter(function(n) { return available(n) && doneRe.test(String(n.getAttribute('aria-label') || n.textContent || '').replace(/\s+/g, ' ').trim()); }); }
+        function doneButtons() { return Array.from(document.querySelectorAll('button, [role="button"]')).filter(function(n) { return available(n) && doneRe.test(String(n.getAttribute('aria-label') || n.textContent || '').replace(/\s+/g, ' ').trim()); }); }
         var doneBefore = doneButtons();
         // The picker can render empty first and fill later: wait for the fresh root that holds the target.
         function fresh() { var f = Array.from(document.querySelectorAll(selector)).filter(function(n) { return available(n) && before.indexOf(n) < 0; }); var withTarget = f.filter(function(n) { return targets(n).length; }); return withTarget.length === 1 ? withTarget[0] : null; }
@@ -344,8 +344,17 @@
             // Spotify's picker keeps its Done button in a footer outside the list root, and
             // closing without it (Escape) discards the change: look for a Done button that
             // appeared with the picker, inside it first, then anywhere on the page.
-            var done = Array.from(r.querySelectorAll('button')).filter(function(n) { return available(n) && doneRe.test(String(n.getAttribute('aria-label') || n.textContent || '').replace(/\s+/g, ' ').trim()); });
-            if (!done.length) done = doneButtons().filter(function(n) { return doneBefore.indexOf(n) < 0; });
+            // Phone 1022277: no Done existed before the uncheck, so it can appear only after it.
+            function findDone() {
+                var d = Array.from(r.querySelectorAll('button, [role="button"]')).filter(function(n) { return available(n) && doneRe.test(String(n.getAttribute('aria-label') || n.textContent || '').replace(/\s+/g, ' ').trim()); });
+                return d.length ? d : doneButtons().filter(function(n) { return doneBefore.indexOf(n) < 0; });
+            }
+            wait(function() {
+                if (!identityMatches()) return 'identity-changed';
+                var d = findDone(); return d.length === 1 ? d : null;
+            }, 1500, function(found) {
+            if (found === 'identity-changed') { if (available(r)) close(r); after('identity', 'unknown'); return; }
+            var done = Array.isArray(found) ? found : [];
             if (done.length === 1) {
                 try { done[0].click(); log(method + ':unlike-done'); } catch (_) {}
                 wait(function() {
@@ -391,6 +400,7 @@
                         else { log(method + ':unlike-unverified'); after('unconfirmed', 'true'); }
                     });
                 });
+            });
             });
         });
     }
