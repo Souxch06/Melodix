@@ -3,6 +3,7 @@ package com.melodix.music;
 import android.app.Activity;
 import android.content.Context;
 import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
@@ -21,7 +22,7 @@ import java.util.WeakHashMap;
 import java.util.Locale;
 
 /** Presentation only. Never starts playback or fabricates Spotify metadata. */
-public final class GlassScreenStyler {
+public final class GlassScreenStyler implements Runnable {
     private static final int WHITE=0xfff8f5ff, MUTED=0xffbdb4ca, LILAC=0xffcdb6ff;
     private static final WeakHashMap<Activity, Map<String,String>> artwork = new WeakHashMap<Activity, Map<String,String>>();
     private static int dp(Context c,float n) { return Math.round(n*c.getResources().getDisplayMetrics().density); }
@@ -80,38 +81,66 @@ public final class GlassScreenStyler {
         View old=rows.findViewWithTag("glass-old-playlist-heading");
         if(old!=null && old.getParent()==rows)rows.removeView(old);
         boolean isLiked=liked(uri);
-        LinearLayout hero=vertical(a); hero.setTag("glass-playlist-hero"); hero.setPadding(dp(a,12),dp(a,12),dp(a,12),dp(a,14));
+        final LinearLayout hero=vertical(a); hero.setTag("glass-playlist-hero"); hero.setPadding(dp(a,14),dp(a,16),dp(a,14),dp(a,18));
+        // Liner: soft glow of the cover colour behind the header, fading out.
+        hero.setBackground(glow(a,0));
         // Liner album header: cover on the left, eyebrow and title beside it.
         LinearLayout artLine=new LinearLayout(a);artLine.setGravity(Gravity.CENTER);
-        ImageView image=new ImageView(a);image.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        image.setBackground(glass(a,0xff6e3c9d,0xff24193d,14,0x45ffffff));
+        final ImageView image=new ImageView(a);image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        image.setBackground(glass(a,0x1fffffff,0x0fffffff,10,0));
         image.setClipToOutline(true); image.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         String imageUrl=selectedArtwork(a,uri);
         LinearLayout artBox=vertical(a);artBox.setGravity(Gravity.CENTER);
-        artBox.setBackground(isLiked ? glass(a,0xff8056e5,0xff362d94,14,0x35ffffff) : glass(a,0xff764fa7,0xff272038,14,0x4affffff));
+        artBox.setBackground(isLiked ? glass(a,0xff2a2a2e,0xff111113,10,0x1fffffff) : glass(a,0x1fffffff,0x0fffffff,10,0x1fffffff));artBox.setClipToOutline(true);artBox.setElevation(dp(a,10));
         if(imageUrl!=null && !imageUrl.isEmpty()) {
             artBox.addView(image,new LinearLayout.LayoutParams(-1,-1));
-            NativeImageLoader.load(image,imageUrl,dp(a,200));
+            NativeImageLoader.load(image,imageUrl,dp(a,240));tint(hero,image,0);
         } else {
             // Force text presentation: the heart must not turn into a coloured
             // system emoji. The cover is decorative, not track artwork.
             TextView glyph=text(a,isLiked?"♥︎":"♫",isLiked?72:58,0xfff8f5ff,!isLiked);glyph.setGravity(Gravity.CENTER);
             glyph.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);artBox.addView(glyph);
             if(!isLiked) {
-                TextView hint=text(a,"PLAYLIST",10,0xffe6dcf1,true);hint.setLetterSpacing(.16f);hint.setGravity(Gravity.CENTER);
+                TextView hint=text(a,"PLAYLIST",10,0x99ffffff,true);hint.setLetterSpacing(.16f);hint.setGravity(Gravity.CENTER);
                 hint.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);artBox.addView(hint);
             }
         }
-        artLine.addView(artBox,new LinearLayout.LayoutParams(dp(a,128),dp(a,128)));hero.addView(artLine);
+        artLine.addView(artBox,new LinearLayout.LayoutParams(dp(a,140),dp(a,140)));hero.addView(artLine);
         LinearLayout side=vertical(a);side.setPadding(dp(a,16),0,0,0);artLine.addView(side,new LinearLayout.LayoutParams(-1,-2));
-        TextView eyebrow=text(a,isLiked?"VOTRE BIBLIOTHÈQUE":"PLAYLIST",10,LILAC,true);eyebrow.setLetterSpacing(.16f);
+        TextView eyebrow=text(a,isLiked?"VOTRE BIBLIOTHÈQUE":"PLAYLIST",11,0x99ffffff,false);eyebrow.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL),Typeface.NORMAL);eyebrow.setLetterSpacing(.12f);
         side.addView(eyebrow,new LinearLayout.LayoutParams(-1,-2));
-        TextView name=text(a,title==null||title.trim().isEmpty()?(isLiked?"Titres likés":"Playlist"):title,22,WHITE,true);
+        TextView name=text(a,title==null||title.trim().isEmpty()?(isLiked?"Titres likés":"Playlist"):title,26,0xfffafafa,false);
+        name.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL),Typeface.NORMAL);name.setLetterSpacing(-.01f);name.setLineSpacing(0,1.05f);
         name.setMaxLines(3);name.setEllipsize(TextUtils.TruncateAt.END);
-        LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-1,-2);np.topMargin=dp(a,4);side.addView(name,np);
-        TextView heading=text(a,"Titres",14,WHITE,true);heading.setLetterSpacing(.02f);
-        LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(-1,-2);hp.topMargin=dp(a,20);hero.addView(heading,hp);
+        LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-1,-2);np.topMargin=dp(a,6);side.addView(name,np);
+        // Liner: no section title, a hairline separates the header from the tracks.
+        View line=new View(a);line.setBackgroundColor(0x14ffffff);
+        LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(-1,Math.max(1,dp(a,.5f)));hp.topMargin=dp(a,20);hero.addView(line,hp);
         rows.addView(hero,0,new LinearLayout.LayoutParams(-1,-2));
+    }
+    // One pending cover-colour check (single helper file: no inner classes).
+    private final LinearLayout waitHero;private final ImageView waitImage;private final int waitTries;
+    private GlassScreenStyler(LinearLayout h,ImageView i,int t){waitHero=h;waitImage=i;waitTries=t;}
+    @Override public void run(){if(waitImage.isAttachedToWindow()||waitTries<4)tint(waitHero,waitImage,waitTries);}
+    private static GradientDrawable glow(Context c,int color) {
+        int base=color==0?0xffffff:color&0xffffff;
+        GradientDrawable g=new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,new int[]{(color==0?0x12:0x66)<<24|base,(color==0?0x05:0x1f)<<24|base,0});
+        g.setCornerRadius(dp(c,20));return g;
+    }
+    /** Waits (bounded) for the cover already being loaded, then tints the header glow with its average colour. */
+    private static void tint(final LinearLayout hero,final ImageView image,final int tries) {
+        if(tries>30)return;
+        android.graphics.drawable.Drawable d=image.getDrawable();
+        if(!(d instanceof android.graphics.drawable.BitmapDrawable)||((android.graphics.drawable.BitmapDrawable)d).getBitmap()==null){
+            image.postDelayed(new GlassScreenStyler(hero,image,tries+1),150);return;
+        }
+        android.graphics.Bitmap b=((android.graphics.drawable.BitmapDrawable)d).getBitmap();
+        try{
+            android.graphics.Bitmap s=android.graphics.Bitmap.createScaledBitmap(b,8,8,true);long r=0,g=0,bl=0,n=0;
+            for(int y=0;y<8;y++)for(int x=0;x<8;x++){int c=s.getPixel(x,y);int w=1+(Math.max(Color.red(c),Math.max(Color.green(c),Color.blue(c)))-Math.min(Color.red(c),Math.min(Color.green(c),Color.blue(c))))/24;r+=Color.red(c)*w;g+=Color.green(c)*w;bl+=Color.blue(c)*w;n+=w;}
+            float[] h=new float[3];Color.colorToHSV(Color.rgb((int)(r/n),(int)(g/n),(int)(bl/n)),h);h[1]=Math.min(1f,h[1]*1.3f);h[2]=Math.min(.8f,Math.max(.35f,h[2]));
+            hero.setBackground(glow(hero.getContext(),Color.HSVToColor(h)));
+        }catch(RuntimeException ignored){}
     }
     private static String glyph(String label) {
         String s=label.toLowerCase(Locale.ROOT);
