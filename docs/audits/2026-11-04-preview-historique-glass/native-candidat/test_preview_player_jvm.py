@@ -202,9 +202,9 @@ public class ControllerTest {
   saved.setBoolean(null,false);PreviewPlayerController middle=new PreviewPlayerController(a);middle.activityResumed();middle.snapshot(sample("Mid","Artist",50000,100000,"playing","")+";previewProgressSource=clock");middle.snapshot(sample("Mid","Artist",1000,100000,"playing","")+";previewProgressSource=clock");yes(elapsed.text.equals("0:50"));
   // Pending intent must not change the confirmed icon or dispatch another toggle.
   saved.setBoolean(null,false);SystemClock.time+=10000;PreviewPlayerController visual=new PreviewPlayerController(a);visual.activityResumed();
-  visual.snapshot(sample("Visual","Artist",1000,229000,"paused",""));eq(b2.image,0x7f080122);eq(visual.tapPlayPause(),1);eq(b2.image,0x7f080122);yes(b2.description.contains("en attente"));eq(visual.tapPlayPause(),-1);
-  visual.snapshot(sample("Visual","Artist",1000,229000,"playing",""));eq(b2.image,0x7f080121);eq(visual.tapPlayPause(),0);eq(b2.image,0x7f080121);yes(b2.description.contains("en attente"));eq(visual.tapPlayPause(),-1);
-  visual.snapshot(sample("Visual","Artist",1000,229000,"paused","").replaceAll("previewObservedAtMs=[0-9]+", "previewObservedAtMs="+(System.currentTimeMillis()-4000)));eq(visual.tapPlayPause(),-1);eq(b2.image,0x7f080121);
+  visual.snapshot(sample("Visual","Artist",1000,229000,"paused",""));eq(b2.image,0x7f080122);eq(visual.tapPlayPause(),1);eq(b2.image,0x7f080121);yes(b2.description.contains("en attente"));// icon flips at the tap (user request 1022283)eq(visual.tapPlayPause(),-1);
+  visual.snapshot(sample("Visual","Artist",1000,229000,"playing",""));eq(b2.image,0x7f080121);eq(visual.tapPlayPause(),0);eq(b2.image,0x7f080122);yes(b2.description.contains("en attente"));eq(visual.tapPlayPause(),-1);
+  visual.snapshot(sample("Visual","Artist",1000,229000,"paused","").replaceAll("previewObservedAtMs=[0-9]+", "previewObservedAtMs="+(System.currentTimeMillis()-4000)));eq(visual.tapPlayPause(),-1);eq(b2.image,0x7f080122);
   visual.snapshot(sample("Visual","Artist",1000,229000,"paused",""));eq(b2.image,0x7f080122);eq(visual.tapPlayPause(),1);
   SystemClock.time+=8000;Handler.flush();eq(b2.image,0x7f080122);eq(visual.tapPlayPause(),1);SystemClock.time+=8000;Handler.flush();// stale but in the foreground: the page command decides (user-approved 1022280)
   visual.snapshot(sample("Visual","Artist",1000,229000,"paused",""));eq(visual.tapPlayPause(),1);

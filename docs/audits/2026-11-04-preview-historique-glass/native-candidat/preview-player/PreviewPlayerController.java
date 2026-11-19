@@ -573,8 +573,10 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     };
     private void renderButtons() {
         Activity a = activity.get(); if (a == null || !haveReal) return;
-        // Pending is an intent, not evidence that Spotify changed state.
-        int icon = shownPlaying && realPlaying && !interrupted && !playbackState.equals("unknown") ? PAUSE_ICON : PLAY_ICON;
+        // User request (1022283): the icon flips at the tap; it pulses until Spotify confirms
+        // and reverts if no confirmation arrives (RECONCILE_MS).
+        int icon = pending ? (pendingTarget ? PAUSE_ICON : PLAY_ICON) :
+            shownPlaying && realPlaying && !interrupted && !playbackState.equals("unknown") ? PAUSE_ICON : PLAY_ICON;
         String description = pending ? (pendingTarget ? "Lecture demandée, en attente" : "Pause demandée, en attente") :
             (interrupted || playbackState.equals("unknown") ? "État de lecture inconnu" :
              (icon == PAUSE_ICON ? "Mettre en pause" : "Lire"));
