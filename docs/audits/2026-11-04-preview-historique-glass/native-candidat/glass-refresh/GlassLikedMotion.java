@@ -31,7 +31,9 @@ public final class GlassLikedMotion implements ViewTreeObserver.OnScrollChangedL
     private final HashMap<View,Integer> visible = new HashMap<View,Integer>();
     private final Set<Integer> preserve = new HashSet<Integer>();
     private final HashMap<View,Integer> heroVisible = new HashMap<View,Integer>();
-    private boolean scheduled, enabled;
+    private boolean scheduled, enabled, quiet;
+    // Collection whose rows were torn down by a re-render (not by navigation): its next bind must not replay the entrance.
+    private static String rerendered;
     private int lastY;
     private final Rect bounds = new Rect();
 
@@ -45,9 +47,11 @@ public final class GlassLikedMotion implements ViewTreeObserver.OnScrollChangedL
         ScrollView s=(ScrollView)v;
         WeakReference<GlassLikedMotion> ref=INSTANCES.get(s);
         GlassLikedMotion m=ref==null?null:ref.get();
-        if(!"detail".equals(screen) || !(GlassScreenStyler.liked(uri) || GlassScreenStyler.playlist(uri)) || content==null ||
-           content.getChildCount()!=1 || !(content.getChildAt(0) instanceof ViewGroup)) {
-            if(m!=null)m.dispose();return;
+        boolean scope="detail".equals(screen) && (GlassScreenStyler.liked(uri) || GlassScreenStyler.playlist(uri));
+        if(!scope || content==null || content.getChildCount()!=1 || !(content.getChildAt(0) instanceof ViewGroup)) {
+            String keep=scope && m!=null && m.collection.equals(uri) ? uri : null;
+            if(m!=null)m.dispose();
+            rerendered=keep;return;
         }
         if(m==null){m=new GlassLikedMotion(s);INSTANCES.put(s,new WeakReference<GlassLikedMotion>(m));}
         m.setRows(content,(ViewGroup)content.getChildAt(0),uri);
@@ -69,6 +73,7 @@ public final class GlassLikedMotion implements ViewTreeObserver.OnScrollChangedL
         if(rows!=next || !collection.equals(uri)){
             preserve.clear();
             if(enabled && content==parent && collection.equals(uri)){preserve.addAll(visible.values());preserve.addAll(heroVisible.values());}
+            quiet=uri.equals(rerendered) || (enabled && collection.equals(uri));rerendered=null;
             resetAll();content=parent;rows=next;collection=uri;lastY=scroll.getScrollY();
         }
         enabled=true;listen();schedule();
@@ -128,10 +133,11 @@ public final class GlassLikedMotion implements ViewTreeObserver.OnScrollChangedL
     @Override public void run() {
         scheduled=false;
         if(!enabled || rows==null || content==null)return;
-        if(rows.getParent()!=content || !scroll.isAttachedToWindow()){dispose();return;}
+        if(rows.getParent()!=content || !scroll.isAttachedToWindow()){String keep=scroll.isAttachedToWindow()?collection:null;dispose();rerendered=keep;return;}
         if(motionOff()){resetAll();preserve.clear();return;}
         if(!rows.getLocalVisibleRect(bounds) || bounds.height()<=0){resetAll();preserve.clear();return;}
         int y=scroll.getScrollY(), direction=y<lastY?-1:1;lastY=y;
+        if(quiet){quiet=false;markVisible();return;}
         hero(direction);
         int n=rows.getChildCount(),lo=0,hi=n;
         // Children are laid out vertically in order: logarithmic seek plus the
@@ -145,6 +151,14 @@ public final class GlassLikedMotion implements ViewTreeObserver.OnScrollChangedL
         }
         for(View row:visible.keySet())if(!next.containsKey(row))resetRow(row);
         visible.clear();visible.putAll(next);preserve.clear();
+    }
+    /** Same list repainted: take the visible rows as already shown. */
+    private void markVisible() {
+        visible.clear();heroVisible.clear();preserve.clear();
+        if(rows.getChildCount()>0 && "glass-playlist-hero".equals(rows.getChildAt(0).getTag()) && rows.getChildAt(0) instanceof ViewGroup){
+            ViewGroup hero=(ViewGroup)rows.getChildAt(0);for(int i=0;i<hero.getChildCount() && i<4;i++)heroVisible.put(hero.getChildAt(i),-1-i);
+        }
+        for(int i=0;i<rows.getChildCount();i++){View r=rows.getChildAt(i);if(r.getTop()>=bounds.bottom)break;if(r.getBottom()>bounds.top && parts(r))visible.put(r,i);}
     }
     private void dispose() {
         enabled=false;scroll.removeCallbacks(this);scheduled=false;resetAll();preserve.clear();unlisten();

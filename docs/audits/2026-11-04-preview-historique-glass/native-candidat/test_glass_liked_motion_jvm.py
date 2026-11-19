@@ -55,6 +55,12 @@ public class MotionTest {
   GlassLikedMotion.bind(a,content,"detail","spotify:album:NotAPlaylist");yes(s.obs.sc==0,"album is not in playlist animation scope");
   GlassLikedMotion.bind(a,content,"detail","spotify:playlist:Other");s.flush();m=(GlassLikedMotion)s.listener;
   m.onViewDetachedFromWindow(s);yes(s.obs.sc==0&&s.obs.gl==0&&s.attachListeners==0&&s.pending==null,"detach cleanup");
+  // Liked Songs repaints (copy, bridge, pages) briefly change the content shape: no entrance replay after that.
+  LinearLayout again=new LinearLayout(a);again.addView(row(a,0));content.removeView(replacement);content.addView(again);s.attached=true;
+  GlassLikedMotion.bind(a,content,"detail","spotify:collection:tracks");s.flush();int first=image(again,0).starts;
+  content.addView(new TextView(a));GlassLikedMotion.bind(a,content,"detail","spotify:collection:tracks");content.removeViewAt(1);
+  LinearLayout repaint=new LinearLayout(a);repaint.addView(row(a,0));content.removeView(again);content.addView(repaint);
+  GlassLikedMotion.bind(a,content,"detail","spotify:collection:tracks");s.flush();yes(first==1&&image(repaint,0).starts==0,"same list repaint keeps rows still");
   System.out.println("Glass liked motion JVM simulation passed (10,000 rows)");
  }
 }'''
