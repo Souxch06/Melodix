@@ -436,9 +436,8 @@
         if (kind === 'like') { log('c:like-skipped'); finish('failed', 'unknown', ''); return; }
         var spec = kind === 'shuffle' ? {key: 's', code: 'KeyS', keyCode: 83} : {key: 'r', code: 'KeyR', keyCode: 82};
         // Unverifiable when no control is readable, so only ONE combination per
-        // tap (two could cancel each other). Families alternate across taps.
-        var turns = W.__melodixKeyTurns = W.__melodixKeyTurns || {};
-        var ctrl = !(turns[kind] % 2); turns[kind] = (turns[kind] || 0) + 1;
+        // tap (two could cancel each other). Spotify's web player uses Alt+S / Alt+R.
+        var ctrl = false;
         try {
             var target = document.activeElement && document.activeElement !== document.body ? document.activeElement : document.body;
             ['keydown', 'keyup'].forEach(function(type) {
