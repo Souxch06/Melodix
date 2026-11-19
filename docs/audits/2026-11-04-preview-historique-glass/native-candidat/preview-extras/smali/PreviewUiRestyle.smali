@@ -4,6 +4,7 @@
 
 # interfaces
 .implements Landroid/view/ViewTreeObserver$OnGlobalLayoutListener;
+.implements Landroid/view/ViewTreeObserver$OnPreDrawListener;
 
 
 # static fields
@@ -1800,7 +1801,7 @@
 .method protected onAttachedToWindow()V
     .locals 1
 
-    .line 217
+    .line 219
     invoke-super {p0}, Landroid/view/View;->onAttachedToWindow()V
 
     invoke-virtual {p0}, Lcom/melodix/music/PreviewUiRestyle;->getViewTreeObserver()Landroid/view/ViewTreeObserver;
@@ -1813,6 +1814,10 @@
 
     invoke-virtual {v0, p0}, Landroid/view/ViewTreeObserver;->addOnGlobalLayoutListener(Landroid/view/ViewTreeObserver$OnGlobalLayoutListener;)V
 
+    iget-object v0, p0, Lcom/melodix/music/PreviewUiRestyle;->observer:Landroid/view/ViewTreeObserver;
+
+    invoke-virtual {v0, p0}, Landroid/view/ViewTreeObserver;->addOnPreDrawListener(Landroid/view/ViewTreeObserver$OnPreDrawListener;)V
+
     iget-object v0, p0, Lcom/melodix/music/PreviewUiRestyle;->pass:Ljava/lang/Runnable;
 
     invoke-virtual {p0, v0}, Lcom/melodix/music/PreviewUiRestyle;->post(Ljava/lang/Runnable;)Z
@@ -1823,7 +1828,7 @@
 .method protected onDetachedFromWindow()V
     .locals 1
 
-    .line 219
+    .line 221
     iget-object v0, p0, Lcom/melodix/music/PreviewUiRestyle;->observer:Landroid/view/ViewTreeObserver;
 
     if-eqz v0, :cond_0
@@ -1840,7 +1845,11 @@
 
     invoke-virtual {v0, p0}, Landroid/view/ViewTreeObserver;->removeOnGlobalLayoutListener(Landroid/view/ViewTreeObserver$OnGlobalLayoutListener;)V
 
-    .line 220
+    iget-object v0, p0, Lcom/melodix/music/PreviewUiRestyle;->observer:Landroid/view/ViewTreeObserver;
+
+    invoke-virtual {v0, p0}, Landroid/view/ViewTreeObserver;->removeOnPreDrawListener(Landroid/view/ViewTreeObserver$OnPreDrawListener;)V
+
+    .line 222
     :cond_0
     const/4 v0, 0x0
 
@@ -1856,28 +1865,35 @@
 
     invoke-super {p0}, Landroid/view/View;->onDetachedFromWindow()V
 
-    .line 221
+    .line 223
     return-void
 .end method
 
 .method public onGlobalLayout()V
-    .locals 3
+    .locals 1
 
-    .line 216
-    iget-boolean v0, p0, Lcom/melodix/music/PreviewUiRestyle;->scheduled:Z
-
-    if-nez v0, :cond_0
-
+    .line 217
     const/4 v0, 0x1
 
     iput-boolean v0, p0, Lcom/melodix/music/PreviewUiRestyle;->scheduled:Z
 
+    return-void
+.end method
+
+.method public onPreDraw()Z
+    .locals 1
+
+    .line 218
+    iget-boolean v0, p0, Lcom/melodix/music/PreviewUiRestyle;->scheduled:Z
+
+    if-eqz v0, :cond_0
+
     iget-object v0, p0, Lcom/melodix/music/PreviewUiRestyle;->pass:Ljava/lang/Runnable;
 
-    const-wide/16 v1, 0x78
-
-    invoke-virtual {p0, v0, v1, v2}, Lcom/melodix/music/PreviewUiRestyle;->postDelayed(Ljava/lang/Runnable;J)Z
+    invoke-interface {v0}, Ljava/lang/Runnable;->run()V
 
     :cond_0
-    return-void
+    const/4 v0, 0x1
+
+    return v0
 .end method

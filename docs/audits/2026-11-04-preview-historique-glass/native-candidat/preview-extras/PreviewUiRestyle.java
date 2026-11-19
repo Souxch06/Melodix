@@ -27,7 +27,7 @@ import java.util.WeakHashMap;
  * playlists, mini player, titles). Presentation only: no command, data, text
  * content, click handler or WebView access. Each view is styled once.
  */
-public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnGlobalLayoutListener {
+public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnGlobalLayoutListener, ViewTreeObserver.OnPreDrawListener {
     private static final int WHITE = 0xfffafafa, LILAC = 0x73ffffff, SECONDARY = 0xa6ffffff, SHADOW = 0xff000000;
     private final WeakHashMap<View, Boolean> done = new WeakHashMap<View, Boolean>();
     private ViewTreeObserver observer;
@@ -213,10 +213,12 @@ public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnG
         }
         if (content != null) visit(content, 0);
     }
-    @Override public void onGlobalLayout() { if (!scheduled) { scheduled = true; postDelayed(pass, 120); } }
-    @Override protected void onAttachedToWindow() { super.onAttachedToWindow(); observer = getViewTreeObserver(); observer.addOnGlobalLayoutListener(this); post(pass); }
+    // Style new views before their first frame: a delayed pass showed each new screen unstyled, then restyled (flash).
+    @Override public void onGlobalLayout() { scheduled = true; }
+    @Override public boolean onPreDraw() { if (scheduled) pass.run(); return true; }
+    @Override protected void onAttachedToWindow() { super.onAttachedToWindow(); observer = getViewTreeObserver(); observer.addOnGlobalLayoutListener(this); observer.addOnPreDrawListener(this); post(pass); }
     @Override protected void onDetachedFromWindow() {
-        if (observer != null && observer.isAlive()) observer.removeOnGlobalLayoutListener(this);
+        if (observer != null && observer.isAlive()) { observer.removeOnGlobalLayoutListener(this); observer.removeOnPreDrawListener(this); }
         observer = null; removeCallbacks(pass); scheduled = false; super.onDetachedFromWindow();
     }
 }
