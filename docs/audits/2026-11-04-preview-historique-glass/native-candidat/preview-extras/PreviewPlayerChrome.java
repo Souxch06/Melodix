@@ -489,14 +489,14 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         shuffleDot=new PreviewPlayerDecoration(shuffleControl,false);shuffleControl.getOverlay().add(shuffleDot);
         for(View v:new View[]{collapse,prev,next,play})v.setOnTouchListener(new PressEffect(true));
         for(View v:new View[]{repeatControl,shuffleControl,like})v.setOnTouchListener(new PressEffect(false));
-        if(tiles instanceof ViewGroup){ViewGroup group=(ViewGroup)tiles;for(int i=0;i<group.getChildCount();i++)group.getChildAt(i).setOnTouchListener(new PressEffect(false));}
+        if(tiles instanceof ViewGroup){ViewGroup group=(ViewGroup)tiles;for(int i=0;i<group.getChildCount();i++){View tile=group.getChildAt(i);tile.setOnTouchListener(new PressEffect(false));tile.setBackgroundTintList(null);tile.setBackground(new RippleDrawable(ColorStateList.valueOf(0x24ffffff),null,null));tile.setElevation(0f);}}
         View seek=a.findViewById(0x7f09023d);
         if(seek instanceof SeekBar){
             SeekBar bar=(SeekBar)seek;
             GradientDrawable halo=new GradientDrawable();halo.setShape(GradientDrawable.OVAL);halo.setColor(0);halo.setSize(dp(24),dp(24));
             GradientDrawable center=new GradientDrawable();center.setShape(GradientDrawable.OVAL);center.setColor(0xffffffff);center.setSize(dp(12),dp(12));
             LayerDrawable thumb=new LayerDrawable(new Drawable[]{halo,center});thumb.setLayerInset(1,dp(6),dp(6),dp(6),dp(6));
-            bar.setThumbTintList(null);bar.setThumb(thumb);bar.setThumbOffset(dp(12));
+            bar.setThumbTintList(null);bar.setSplitTrack(false);bar.setThumb(thumb);bar.setThumbOffset(dp(12));
             bar.setPadding(dp(12),bar.getPaddingTop(),dp(12),bar.getPaddingBottom());
             Drawable progress=bar.getProgressDrawable();
             if(progress instanceof LayerDrawable){
