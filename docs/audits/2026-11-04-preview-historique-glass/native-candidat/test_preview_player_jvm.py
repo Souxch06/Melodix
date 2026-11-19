@@ -242,6 +242,8 @@ public class ControllerTest {
    yes(!local.acceptPlayerPayload("track=No Track;artist=No Artist"));yes(title.text.equals("Local"));
    yes(local.acceptPlayerPayload(sample("Different","Artist",5000,120000,"paused","")));local.snapshot(sample("Different","Artist",5000,120000,"paused",""));yes(PreviewLastTrackStore.stored.title.equals("Different"));
    PreviewPlayerController stuck=new PreviewPlayerController(h);stuck.layoutReady();stuck.activityResumed();PreviewLastTrackStore.deliver();eq(stuck.tapPlayPause(),-1);SystemClock.time+=5001;eq(stuck.tapPlayPause(),1);// stuck page: remembered track, after 5 s in the foreground the tap is sent (user-approved 1022293)
+   stuck.snapshot(sample("Local","Artist",50000,120000,"playing",""));stuck.begin(3);yes(title.viewAlpha==0.45f);// skip: instant fade (user request 1022298)
+   stuck.snapshot(sample("Local","Artist",51000,120000,"playing",""));yes(title.viewAlpha==0.45f);stuck.snapshot(sample("Next","Artist",0,150000,"playing",""));yes(title.viewAlpha==1f);
    local.clearLastTrack();yes(PreviewLastTrackStore.stored==null);
    splash.setVisibility(View.VISIBLE);
    saved.setBoolean(null,false);PreviewPlayerController empty=new PreviewPlayerController(h);empty.layoutReady();empty.activityResumed();PreviewLastTrackStore.deliver();eq(splash.getVisibility(),View.VISIBLE);

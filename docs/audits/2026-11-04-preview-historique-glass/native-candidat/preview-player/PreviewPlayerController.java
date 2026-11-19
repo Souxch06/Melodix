@@ -644,6 +644,11 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             boolean identified = realMetadata(title) && realMetadata(artist) && dur > 0;
             boolean changed = identified && (!tupleIdentity || !identityTitle.equals(title) ||
                 !identityArtist.equals(artist) || identityDuration != dur);
+            if (skipUntil > t) {
+                // Until the new track shows up, the old one must not pull the bar back.
+                if (changed) { skipUntil = -1; handler.removeCallbacks(undim); dimTrack(1f); }
+                else if (identified) return;
+            }
             double previous = positionUnderlying(t);
             boolean backward = !changed && snapshotValid && measurementPosition >= 0 && pos < measurementPosition - 2000;
             boolean changedMeasure = snapshotValid && (changed || backward || measurementPosition < 0 || pos != measurementPosition);
@@ -835,7 +840,22 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     public void begin(int kind) {
         tapAt = now(); commandAt = stateAt = optimisticAt = uiAt = -1;
         operation = kind; trackBefore = track;
+        // User request (1022298): the skip must feel instant. Display only: the bar jumps to
+        // 0:00 and the current track fades until Spotify reports the new one (4 s at most).
+        if ((kind == 2 || kind == 3) && haveReal && foreground) {
+            skipUntil = tapAt + SKIP_HOLD_MS; base = 0; anchor = tapAt; correction = 0; moving = false;
+            renderProgress(); dimTrack(0.45f); optimisticAt = now();
+            handler.removeCallbacks(undim); handler.postDelayed(undim, SKIP_HOLD_MS);
+        }
     }
+    static final long SKIP_HOLD_MS = 4000;
+    private long skipUntil = -1;
+    private static final int[] TRACK_VIEWS = {0x7f090236, 0x7f09023b, 0x7f090237, 0x7f09023c, 0x7f090244, 0x7f090245};
+    private void dimTrack(float alpha) {
+        Activity a = activity.get(); if (a == null) return;
+        for (int id : TRACK_VIEWS) { View v = a.findViewById(id); if (v != null) v.setAlpha(alpha); }
+    }
+    private final Runnable undim = new Runnable() { public void run() { skipUntil = -1; dimTrack(1f); renderProgress(); } };
     public void command() { if (tapAt >= 0 && commandAt < 0) commandAt = now(); }
     public void attachAbout(View view) {
         view.setOnLongClickListener(new View.OnLongClickListener() {
