@@ -51,10 +51,14 @@ public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnG
     }
     /** Glass surface: translucent fill, hairline border, top highlight, violet ripple. */
     static Drawable glass(float radius, int density) {
-        GradientDrawable fill = new GradientDrawable(); fill.setCornerRadius(radius); fill.setColor(0x16ffffff); fill.setStroke(Math.max(1, density), 0x26ffffff);
-        GradientDrawable shine = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{0x24ffffff, 0x00ffffff, 0x00ffffff}); shine.setCornerRadius(radius);
+        // Frosted look: lighter top, violet-tinted bottom, bright hairline and a top sheen.
+        GradientDrawable fill = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{0x26ffffff, 0x12ffffff, 0x148b5cf6});
+        fill.setCornerRadius(radius); fill.setStroke(Math.max(1, density), 0x38ffffff);
+        GradientDrawable shine = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{0x30ffffff, 0x06ffffff, 0x00ffffff}); shine.setCornerRadius(radius);
         GradientDrawable mask = new GradientDrawable(); mask.setCornerRadius(radius); mask.setColor(0xffffffff);
-        return new RippleDrawable(ColorStateList.valueOf(0x558b5cf6), new LayerDrawable(new Drawable[]{fill, shine}), mask);
+        LayerDrawable layers = new LayerDrawable(new Drawable[]{fill, shine});
+        layers.setLayerInset(1, density, density, density, 0);
+        return new RippleDrawable(ColorStateList.valueOf(0x448b5cf6), layers, mask);
     }
     private static boolean plainBackground(View v) {
         Drawable d = v.getBackground();
@@ -92,12 +96,13 @@ public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnG
                      v.getBackground() instanceof android.graphics.drawable.ColorDrawable) v.setBackgroundColor(0x2a8b5cf6);
             else if (v instanceof ImageView && v.getWidth() >= dp(40) && v.getHeight() >= dp(40)) {
                 float r = Math.min(dp(18), Math.min(v.getWidth(), v.getHeight()) * 0.14f); round(v, r);
-                if (v.getWidth() >= dp(96) && Build.VERSION.SDK_INT >= 28) { v.setElevation(dp(8)); v.setOutlineSpotShadowColor(VIOLET); v.setOutlineAmbientShadowColor(VIOLET); }
+                if (v.getWidth() >= dp(96) && Build.VERSION.SDK_INT >= 28) { v.setElevation(dp(10)); v.setOutlineSpotShadowColor(VIOLET); v.setOutlineAmbientShadowColor(VIOLET); }
+                if (v.isClickable()) press(v);
             } else if (v instanceof ViewGroup && v.isClickable() && plainBackground(v) &&
                        v.getWidth() >= dp(120) && v.getHeight() >= dp(48) && v.getHeight() <= dp(140) && !insideGlass(v)) {
                 int l = v.getPaddingLeft(), t = v.getPaddingTop(), r = v.getPaddingRight(), b = v.getPaddingBottom();
-                v.setBackground(glass(dp(18), dp(1))); v.setPadding(Math.max(l, dp(12)), t, Math.max(r, dp(12)), b);
-                glassRows.put(v, Boolean.TRUE); enter(v);
+                v.setBackground(glass(dp(20), dp(1))); v.setPadding(Math.max(l, dp(14)), t, Math.max(r, dp(14)), b);
+                glassRows.put(v, Boolean.TRUE); press(v); enter(v);
             }
         }
         if (v instanceof ViewGroup) { ViewGroup g = (ViewGroup) v; for (int i = 0; i < g.getChildCount(); i++) visit(g.getChildAt(i), depth + 1); }
@@ -109,7 +114,20 @@ public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnG
         e.setTextColor(WHITE); e.setHintTextColor(0x99c4b5fd);
     }
     private int entered;
-    private void enter(View v) { if (entered < 14) rise(v, entered++); }
+    private void enter(View v) { if (entered < 18) rise(v, entered++); }
+    /** Press feedback on any clickable surface: shrink while held, spring back. Leaves click handling untouched. */
+    static void press(View v) {
+        if (motionOff() || v.getStateListAnimator() != null) return;
+        android.animation.StateListAnimator s = new android.animation.StateListAnimator();
+        s.addState(new int[]{android.R.attr.state_pressed}, scale(v, 0.965f, 90, null));
+        s.addState(new int[]{}, scale(v, 1f, 220, new android.view.animation.OvershootInterpolator(2.2f)));
+        v.setStateListAnimator(s);
+    }
+    private static android.animation.Animator scale(View v, float to, long ms, android.animation.TimeInterpolator i) {
+        android.animation.AnimatorSet set = new android.animation.AnimatorSet();
+        set.playTogether(android.animation.ObjectAnimator.ofFloat(v, "scaleX", to), android.animation.ObjectAnimator.ofFloat(v, "scaleY", to));
+        set.setDuration(ms); if (i != null) set.setInterpolator(i); return set;
+    }
     private static boolean motionOff() {
         return Build.VERSION.SDK_INT < 21 || (Build.VERSION.SDK_INT >= 26 && !android.animation.ValueAnimator.areAnimatorsEnabled());
     }
@@ -122,7 +140,7 @@ public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnG
             @Override public void onViewDetachedFromWindow(View x) { x.animate().cancel(); x.setAlpha(1f); x.setTranslationY(0f); }
         });
         v.setAlpha(0f); v.setTranslationY(14 * d);
-        v.animate().alpha(1f).translationY(0f).setStartDelay(Math.min(index, 14) * 40L).setDuration(280)
+        v.animate().alpha(1f).translationY(0f).setStartDelay(Math.min(index, 18) * 32L).setDuration(300)
             .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
     }
     /** Bottom sheet entrance: slides up from below with a fade. */
@@ -132,6 +150,7 @@ public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnG
         v.setAlpha(0f); v.setTranslationY(320 * d);
         v.animate().alpha(1f).translationY(0f).setDuration(340).setInterpolator(new android.view.animation.DecelerateInterpolator(2f)).start();
     }
+    private View lastScreen;
     private final WeakHashMap<View, Boolean> glassRows = new WeakHashMap<View, Boolean>();
     private boolean insideGlass(View v) {
         for (android.view.ViewParent p = v.getParent(); p instanceof View; p = p.getParent()) if (glassRows.containsKey(p)) return true;
@@ -149,8 +168,20 @@ public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnG
         View mini = a.findViewById(0x7f09024c);
         if (mini != null && !done.containsKey(mini) && Build.VERSION.SDK_INT >= 28) {
             done.put(mini, Boolean.TRUE); mini.setElevation(dp(14)); mini.setOutlineSpotShadowColor(VIOLET); mini.setOutlineAmbientShadowColor(0xffe0489e);
+            if (plainBackground(mini)) mini.setBackground(glass(dp(22), dp(1)));
+            press(mini);
         }
         View content = a.findViewById(0x7f090235);
+        if (content instanceof ViewGroup && ((ViewGroup) content).getChildCount() > 0) {
+            View screen = ((ViewGroup) content).getChildAt(0);
+            if (screen != lastScreen) {
+                lastScreen = screen; entered = 0;
+                if (!motionOff()) {
+                    screen.setAlpha(0f); screen.setTranslationY(dp(18));
+                    screen.animate().alpha(1f).translationY(0f).setDuration(320).setInterpolator(new android.view.animation.DecelerateInterpolator(2f)).start();
+                }
+            }
+        }
         if (content != null) visit(content, 0);
     }
     @Override public void onGlobalLayout() { if (!scheduled) { scheduled = true; postDelayed(pass, 120); } }
