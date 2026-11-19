@@ -43,7 +43,7 @@
         }
     .end annotation
 
-    .line 165
+    .line 170
     iput-object p1, p0, Lcom/melodix/music/PreviewUiRestyle$4;->this$0:Lcom/melodix/music/PreviewUiRestyle;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewUiRestyle$4;->val$v:Landroid/view/View;
@@ -58,7 +58,7 @@
 .method public onAnimationUpdate(Landroid/animation/ValueAnimator;)V
     .locals 2
 
-    .line 167
+    .line 172
     invoke-virtual {p1}, Landroid/animation/ValueAnimator;->getAnimatedValue()Ljava/lang/Object;
 
     move-result-object p1
@@ -69,7 +69,7 @@
 
     move-result p1
 
-    .line 168
+    .line 173
     iget-object v0, p0, Lcom/melodix/music/PreviewUiRestyle$4;->val$v:Landroid/view/View;
 
     const/high16 v1, 0x3f000000    # 0.5f
@@ -92,6 +92,6 @@
     :goto_0
     invoke-virtual {v0, p1}, Landroid/view/View;->setRenderEffect(Landroid/graphics/RenderEffect;)V
 
-    .line 169
+    .line 174
     return-void
 .end method

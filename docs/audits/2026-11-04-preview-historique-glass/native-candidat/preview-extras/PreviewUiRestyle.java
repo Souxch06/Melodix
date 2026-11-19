@@ -60,6 +60,11 @@ public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnG
         layers.setLayerInset(1, density, density, density, 0);
         return new RippleDrawable(ColorStateList.valueOf(0x1fffffff), layers, mask);
     }
+    /** Liner list row: no card, only a soft press highlight. */
+    static Drawable flat(float radius) {
+        GradientDrawable mask = new GradientDrawable(); mask.setCornerRadius(radius); mask.setColor(0xffffffff);
+        return new RippleDrawable(ColorStateList.valueOf(0x1affffff), null, mask);
+    }
     private static boolean plainBackground(View v) {
         Drawable d = v.getBackground();
         if (d == null) return true;
@@ -110,7 +115,7 @@ public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnG
             } else if (v instanceof ViewGroup && v.isClickable() && plainBackground(v) &&
                        v.getWidth() >= dp(120) && v.getHeight() >= dp(48) && v.getHeight() <= dp(140) && !insideGlass(v)) {
                 int l = v.getPaddingLeft(), t = v.getPaddingTop(), r = v.getPaddingRight(), b = v.getPaddingBottom();
-                v.setBackground(glass(dp(12), dp(1))); v.setPadding(Math.max(l, dp(14)), t, Math.max(r, dp(14)), b);
+                v.setBackground(flat(dp(10))); v.setPadding(Math.max(l, dp(14)), t, Math.max(r, dp(14)), b);
                 glassRows.put(v, Boolean.TRUE); press(v); enter(v);
             }
         }

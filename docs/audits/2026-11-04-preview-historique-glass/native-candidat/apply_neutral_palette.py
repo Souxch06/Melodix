@@ -50,8 +50,33 @@ def main(root):
             except UnicodeDecodeError: continue  # binary XML (not decoded by apktool): no literal to change
             t = fn(s)
             if t != s: open(p, 'w', encoding='utf-8').write(t); changed += 1
+    liner_res(root)
     print('neutral palette: %d files' % changed)
     if not changed: sys.exit('no violet literal found: patch order changed?')
+
+def liner_res(root):
+    """Liner look: white play disc with dark icon, flat track rows (no card per row)."""
+    import pathlib
+    r = pathlib.Path(root) / 'res'
+    w = r / 'drawable/native_button_white.xml'
+    t = w.read_text(encoding='utf-8')
+    t2 = re.sub(r'<gradient [^>]*/>', '<solid android:color="#fff5f5f7" />', t).replace('android:color="#24ffffff"', 'android:color="#1f000000"')
+    assert t2 != t, 'play disc drawable changed shape'
+    w.write_text(t2, encoding='utf-8')
+    m = r / 'layout/activity_main.xml'
+    t = m.read_text(encoding='utf-8'); n = 0
+    def tint(x):
+        nonlocal n; n += 1
+        return x.group(0).replace('android:tint="#ffffffff"', 'android:tint="#ff111113"')
+    t = re.sub(r'<[^<>]*android:background="@drawable/native_button_white"[^<>]*android:src="@drawable/play"[^<>]*>', tint, t)
+    assert n == 2, 'expected 2 play discs, found %d' % n
+    m.write_text(t, encoding='utf-8')
+    g = r / 'drawable/native_playlist_row_glass.xml'
+    if g.exists():
+        t = g.read_text(encoding='utf-8')
+        t = re.sub(r'<solid android:color="#[0-9a-f]{8}" />\s*<corners android:radius="18.0dip" />\s*<stroke [^>]*/>', '<solid android:color="#00000000" /><corners android:radius="10.0dip" />', t)
+        t = re.sub(r'<gradient [^>]*/>', '<solid android:color="#00000000" />', t).replace('#47929292', '#1affffff')
+        g.write_text(t, encoding='utf-8')
 
 assert grey(0xff8b5cf6) & 0xff == grey(0xff8b5cf6) >> 8 & 0xff and grey(0x148b5cf6) >> 24 == 0x14
 assert xml('#407C3AED x #ff000000') == '#40%s x #ff000000' % ('%06x' % (grey(0x407c3aed) & 0xffffff))
