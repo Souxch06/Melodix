@@ -1,37 +1,41 @@
 'use strict';
-// Simulated page: checks the silent warm-up flow. Not a Spotify benchmark.
-const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const src=fs.readFileSync(path.join(__dirname,'preview-prewarm.js'),'utf8');
-function setup(opts={}){
- const timers=[],media=[{muted:false},{muted:false}],calls=[];let playing=false;
- const doc={querySelectorAll:()=>media,querySelector:s=>opts.remote&&/connect-bar/.test(s)?{}:null,addEventListener(){},removeEventListener(){}};
- const w={setTimeout:(f,ms)=>{timers.push({f,ms});return timers.length},clearTimeout(){},
-  actPlayPause:t=>{calls.push(t?'play':'pause');playing=!!t},actSeek:p=>calls.push('seek:'+p),
-  __sfTogglePlayback:()=>{calls.push('toggle');return true}};
- const env={playPauseButton:()=>({}),readNowPlaying:()=>({title:opts.title?opts.title():'T'}),previewPlaybackState:()=>w.__sfPrewarmActive?'paused':(playing?'playing':'paused'),
-  previewRealText:s=>s||'',previewSeekObservation:()=>42000,publishPlayerState:()=>calls.push('publish')};
- new Function('window','document',...Object.keys(env),src)(w,doc,...Object.values(env));
- const run=()=>{const t=timers.shift();t.f();};
- return {w,media,calls,timers,run};
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const src = fs.readFileSync(path.join(__dirname, 'preview-prewarm.js'), 'utf8');
+
+function runStartup({ playing = false } = {}) {
+    const calls = [];
+    const media = [{ muted: false }, { muted: false }];
+    const window = {
+        __sfPrewarmActive: true,
+        setTimeout: () => { calls.push('timer'); },
+        actPlayPause: (value) => calls.push(value ? 'play' : 'pause'),
+        actSeek: (value) => calls.push(`seek:${value}`),
+        __sfTogglePlayback: () => { calls.push('toggle'); },
+        querySelectorAll: () => media
+    };
+    new Function('window', 'document', src)(window, { querySelectorAll: () => media });
+    return { calls, media, window, playing };
 }
-test('warm-up: muted play, pause after 3 s, position restored, then unmuted',()=>{
- const x=setup();x.run();
- assert.deepEqual(x.calls,['play']);assert.ok(x.media.every(m=>m.muted));assert.equal(x.w.__sfPrewarmActive,true);
- x.timers.find(t=>t.ms===3000).f();
- assert.deepEqual(x.calls,['play','pause','seek:42000']);assert.equal(x.w.__sfPrewarmActive,true,'still paused until the pause lands');assert.ok(x.media.every(m=>m.muted));
- x.timers.find(t=>t.ms===400).f();assert.equal(x.w.__sfPrewarmActive,false);assert.ok(x.media.every(m=>!m.muted));
+
+test('startup does not issue play, pause, seek, timer or mute operations', () => {
+    const result = runStartup();
+    assert.deepEqual(result.calls, []);
+    assert.ok(result.media.every((media) => media.muted === false));
+    assert.equal(result.window.__sfPrewarmActive, false);
+    assert.equal(result.window.__sfPrewarmDisabledReason, 'startup-autoplay-disabled');
 });
-test('a play tap during the warm-up keeps playing and unmutes at once',()=>{
- const x=setup();x.run();assert.equal(x.w.__sfTogglePlayback(true),true);
- assert.deepEqual(x.calls,['play','publish']);x.timers.find(t=>t.ms===0).f();assert.ok(x.media.every(m=>!m.muted));
- x.timers.filter(t=>t.ms===3000).forEach(t=>t.f());assert.deepEqual(x.calls,['play','publish'],'no late pause');
+
+test('a live playback state is not altered at startup', () => {
+    const result = runStartup({ playing: true });
+    assert.deepEqual(result.calls, []);
+    assert.ok(result.media.every((media) => media.muted === false));
 });
-test('playback on another device: no warm-up',()=>{
- const x=setup({remote:true});x.run();assert.deepEqual(x.calls,[]);assert.ok(x.media.every(m=>!m.muted));
-});
-test('an ad (title gone) during the warm-up stops it at once and restores sound',()=>{
- let title='T';const x=setup({title:()=>title});x.run();assert.deepEqual(x.calls,['play']);
- title='';x.timers.find(t=>t.ms===250).f();
- assert.deepEqual(x.calls,['play','pause','seek:42000']);
- x.timers.find(t=>t.ms===400).f();assert.equal(x.w.__sfPrewarmActive,false);assert.ok(x.media.every(m=>!m.muted));
+
+test('ordinary user playback toggle remains untouched', () => {
+    const result = runStartup();
+    result.window.__sfTogglePlayback();
+    assert.deepEqual(result.calls, ['toggle']);
 });
