@@ -12,7 +12,9 @@ import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
+import android.view.animation.AccelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
+import android.view.animation.OvershootInterpolator;
 
 /** Bottom sheets use the same vertical motion as the native player. */
 public final class PreviewPlayerSheet extends Dialog {
@@ -46,7 +48,8 @@ public final class PreviewPlayerSheet extends Dialog {
         if(!motionOff())content.post(new Runnable(){public void run(){
             if(closing || !isShowing() || panel!=content)return;
             content.setTranslationY(content.getHeight()>0?travel():Math.max(dp(300),activity.getResources().getDisplayMetrics().heightPixels));
-            content.animate().translationY(0f).setDuration(340).setInterpolator(new DecelerateInterpolator(1.6f)).start();
+            content.setAlpha(0.4f);
+            content.animate().translationY(0f).alpha(1f).setDuration(380).setInterpolator(new OvershootInterpolator(0.7f)).start();
         }});
         else content.setTranslationY(0f);
     }
@@ -56,7 +59,7 @@ public final class PreviewPlayerSheet extends Dialog {
             dismissImmediately();return;
         }
         closing=true;panel.animate().cancel();
-        panel.animate().translationY(travel()).setDuration(280).setInterpolator(new DecelerateInterpolator(1.3f)).withEndAction(new Runnable(){public void run(){
+        panel.animate().translationY(travel()).alpha(0.5f).setDuration(240).setInterpolator(new AccelerateInterpolator(1.4f)).withEndAction(new Runnable(){public void run(){
             if(closing)dismissImmediately();
         }}).start();
     }
@@ -68,23 +71,29 @@ public final class PreviewPlayerSheet extends Dialog {
     }
     /** Restrict the drag to a handle or title; sliders and lists remain usable. */
     public View.OnTouchListener dragListener(){
-        return new View.OnTouchListener(){float x,y;boolean vertical,rejected;
+        return new View.OnTouchListener(){float x,y,lastDy;long lastAt;float speed;int moves;boolean vertical,rejected;
             public boolean onTouch(View v,MotionEvent e){
                 if(closing || panel==null)return true;
                 int action=e.getActionMasked();
-                if(action==MotionEvent.ACTION_DOWN){x=e.getRawX();y=e.getRawY();vertical=false;rejected=false;panel.animate().cancel();return true;}
+                if(action==MotionEvent.ACTION_DOWN){x=e.getRawX();y=e.getRawY();vertical=false;rejected=false;lastDy=0;speed=0;moves=0;lastAt=System.nanoTime();panel.animate().cancel();return true;}
                 if(action==MotionEvent.ACTION_POINTER_DOWN){rejected=true;vertical=false;panel.setTranslationY(0f);return true;}
                 float dx=e.getRawX()-x,dy=e.getRawY()-y;
                 if(action==MotionEvent.ACTION_MOVE){
                     if(!vertical && !rejected && (Math.abs(dx)>dp(12)||Math.abs(dy)>dp(12))){
                         if(dy>0 && dy>Math.abs(dx)*1.3f)vertical=true;else rejected=true;
                     }
-                    if(vertical)panel.setTranslationY(Math.max(0f,dy));return true;
+                    if(vertical){
+                        long now=System.nanoTime();float ms=Math.max(1f,(now-lastAt)/1e6f);speed=(dy-lastDy)/ms;lastDy=dy;lastAt=now;moves++;
+                        panel.setTranslationY(Math.max(0f,dy));
+                        float h=Math.max(1,panel.getHeight());panel.setAlpha(1f-Math.min(.35f,Math.max(0f,dy)/h*.5f));
+                    }
+                    return true;
                 }
                 if(action==MotionEvent.ACTION_UP || action==MotionEvent.ACTION_CANCEL){
-                    if(action==MotionEvent.ACTION_UP && vertical && dy>Math.max(dp(90),panel.getHeight()*.16f))dismiss();
-                    else if(motionOff())panel.setTranslationY(0f);
-                    else panel.animate().translationY(0f).setDuration(200).setInterpolator(new DecelerateInterpolator()).start();
+                    // A quick downward flick closes too, not only a long drag.
+                    if(action==MotionEvent.ACTION_UP && vertical && (dy>Math.max(dp(90),panel.getHeight()*.16f) || (moves>=3 && dy>dp(24) && speed>dp(1))))dismiss();
+                    else if(motionOff()){panel.setTranslationY(0f);panel.setAlpha(1f);}
+                    else panel.animate().translationY(0f).alpha(1f).setDuration(260).setInterpolator(new OvershootInterpolator(1.1f)).start();
                     vertical=false;return true;
                 }
                 return true;

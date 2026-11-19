@@ -113,6 +113,10 @@ public final class GlassScreenStyler implements Runnable {
         name.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL),Typeface.NORMAL);name.setLetterSpacing(-.01f);name.setLineSpacing(0,1.05f);
         name.setMaxLines(3);name.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-1,-2);np.topMargin=dp(a,6);side.addView(name,np);
+        // Liner hero meta: how many tracks are already shown (grows as the list completes).
+        int tracks=0;for(int i=0;i<rows.getChildCount();i++){View c=rows.getChildAt(i);if(c!=hero&&c.isClickable())tracks++;}
+        if(tracks>0){TextView meta=text(a,tracks+(tracks>1?" titres":" titre"),13,0x99ffffff,false);meta.setTag("glass-playlist-count");
+            LinearLayout.LayoutParams mp=new LinearLayout.LayoutParams(-1,-2);mp.topMargin=dp(a,8);side.addView(meta,mp);}
         // Liner: no section title, a hairline separates the header from the tracks.
         View line=new View(a);line.setBackgroundColor(0x14ffffff);
         LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(-1,Math.max(1,dp(a,.5f)));hp.topMargin=dp(a,20);hero.addView(line,hp);

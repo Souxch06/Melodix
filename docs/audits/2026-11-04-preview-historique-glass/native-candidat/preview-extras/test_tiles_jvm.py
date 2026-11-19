@@ -12,7 +12,9 @@ stubs.update({
 'android/os/Build.java':'package android.os;public class Build {public static class VERSION {public static int SDK_INT=35;}}',
 'android/animation/ValueAnimator.java':'package android.animation;public class ValueAnimator {public static boolean enabled=true;public static boolean areAnimatorsEnabled(){return enabled;}}',
 'android/view/animation/DecelerateInterpolator.java':'package android.view.animation;public class DecelerateInterpolator {public DecelerateInterpolator(){}public DecelerateInterpolator(float x){}}',
-'android/view/ViewPropertyAnimator.java':'''package android.view;public class ViewPropertyAnimator {public static boolean defer;public View v;public long duration;public float target,start;public Runnable end;public ViewPropertyAnimator(View v){this.v=v;}public void cancel(){end=null;}public ViewPropertyAnimator translationY(float y){target=y;return this;}public ViewPropertyAnimator setDuration(long d){duration=d;return this;}public ViewPropertyAnimator setInterpolator(Object o){return this;}public ViewPropertyAnimator withEndAction(Runnable r){end=r;return this;}public void start(){start=v.y;if(!defer)finish();}public void finish(){v.y=target;Runnable r=end;end=null;if(r!=null)r.run();}}''',
+'android/view/animation/AccelerateInterpolator.java':'package android.view.animation;public class AccelerateInterpolator {public AccelerateInterpolator(float x){}}',
+'android/view/animation/OvershootInterpolator.java':'package android.view.animation;public class OvershootInterpolator {public OvershootInterpolator(float x){}}',
+'android/view/ViewPropertyAnimator.java':'''package android.view;public class ViewPropertyAnimator {public static boolean defer;public View v;public long duration;public float target,start;public Runnable end;public ViewPropertyAnimator(View v){this.v=v;}public void cancel(){end=null;}public ViewPropertyAnimator translationY(float y){target=y;return this;}public ViewPropertyAnimator setDuration(long d){duration=d;return this;}public ViewPropertyAnimator alpha(float a){return this;}public ViewPropertyAnimator setInterpolator(Object o){return this;}public ViewPropertyAnimator withEndAction(Runnable r){end=r;return this;}public void start(){start=v.y;if(!defer)finish();}public void finish(){v.y=target;Runnable r=end;end=null;if(r!=null)r.run();}}''',
 'android/R.java':'package android;public class R {public static class drawable {public static int ic_lock_silent_mode_off=1,ic_lock_silent_mode=2,ic_popup_sync=3;}}',
 'android/content/ContextWrapper.java':'package android.content;public class ContextWrapper extends Context {public Context getBaseContext(){return this;}}',
 'android/content/DialogInterface.java':'package android.content;public interface DialogInterface {public interface OnDismissListener {void onDismiss(DialogInterface d);}}',
@@ -125,13 +127,15 @@ stubs.update({
   // handle drag/snap and immediate lifecycle cleanup. Animations are simulated.
   android.view.ViewPropertyAnimator.defer=true;
   final int[] dismissed={0};PreviewPlayerSheet animated=new PreviewPlayerSheet(c);View p=new View(c);animated.setOnDismissListener(x->{dismissed[0]++;});animated.showSheet(p);
-  ok(animated.shown&&p.y==600&&p.anim.duration==340&&p.anim.target==0);p.anim.finish();ok(p.y==0);
-  animated.cancel();ok(animated.shown&&p.anim.duration==280&&p.anim.target==600);animated.dismiss();ok(dismissed[0]==0);p.anim.finish();ok(!animated.shown&&dismissed[0]==1);
+  ok(animated.shown&&p.y==600&&p.anim.duration==380&&p.anim.target==0);p.anim.finish();ok(p.y==0);
+  animated.cancel();ok(animated.shown&&p.anim.duration==240&&p.anim.target==600);animated.dismiss();ok(dismissed[0]==0);p.anim.finish();ok(!animated.shown&&dismissed[0]==1);
   PreviewPlayerSheet dragSheet=new PreviewPlayerSheet(c);View dp=new View(c);dragSheet.showSheet(dp);dp.anim.finish();View.OnTouchListener drag=dragSheet.dragListener();
-  drag.onTouch(dp,new MotionEvent(0,100));drag.onTouch(dp,new MotionEvent(2,160));ok(dp.y==60);drag.onTouch(dp,new MotionEvent(1,160));ok(dragSheet.shown&&dp.anim.duration==200);dp.anim.finish();ok(dp.y==0);
+  drag.onTouch(dp,new MotionEvent(0,100));drag.onTouch(dp,new MotionEvent(2,160));ok(dp.y==60);drag.onTouch(dp,new MotionEvent(1,160));ok(dragSheet.shown&&dp.anim.duration==260);dp.anim.finish();ok(dp.y==0);
   drag.onTouch(dp,new MotionEvent(0,100));drag.onTouch(dp,new MotionEvent(2,250));ok(dp.y==150);drag.onTouch(dp,new MotionEvent(3,250));dp.anim.finish();ok(dragSheet.shown&&dp.y==0);
+  // A quick flick (several fast moves, short distance) closes the panel (user request 1022298).
+  PreviewPlayerSheet flick=new PreviewPlayerSheet(c);View fp=new View(c);flick.showSheet(fp);fp.anim.finish();View.OnTouchListener fd=flick.dragListener();fd.onTouch(fp,new MotionEvent(0,100));for(int k=1;k<=4;k++)fd.onTouch(fp,new MotionEvent(2,100+15*k));fd.onTouch(fp,new MotionEvent(1,160));fp.anim.finish();ok(!flick.shown);
   drag.onTouch(dp,new MotionEvent(0,100));drag.onTouch(dp,new MotionEvent(2,250));drag.onTouch(dp,new MotionEvent(5,250));ok(dp.y==0);drag.onTouch(dp,new MotionEvent(1,250));dp.anim.finish();ok(dragSheet.shown&&dp.y==0);
-  drag.onTouch(dp,new MotionEvent(0,100));drag.onTouch(dp,new MotionEvent(2,250));ok(dp.y==150);drag.onTouch(dp,new MotionEvent(1,250));ok(dragSheet.shown&&dp.anim.duration==280);dp.anim.finish();ok(!dragSheet.shown);
+  drag.onTouch(dp,new MotionEvent(0,100));drag.onTouch(dp,new MotionEvent(2,250));ok(dp.y==150);drag.onTouch(dp,new MotionEvent(1,250));ok(dragSheet.shown&&dp.anim.duration==240);dp.anim.finish();ok(!dragSheet.shown);
   PreviewPlayerSheet lifecycle=new PreviewPlayerSheet(c);View lp=new View(c);lifecycle.showSheet(lp);lifecycle.dismissImmediately();ok(!lifecycle.shown);lp.anim.finish();ok(!lifecycle.shown);
   android.animation.ValueAnimator.enabled=false;PreviewPlayerSheet noMotion=new PreviewPlayerSheet(c);View np=new View(c);noMotion.showSheet(np);ok(np.y==0&&noMotion.shown);noMotion.dismiss();ok(!noMotion.shown);android.animation.ValueAnimator.enabled=true;android.view.ViewPropertyAnimator.defer=false;
   // Collection-open counters: numbers and fixed phase codes only; anything else is discarded.
