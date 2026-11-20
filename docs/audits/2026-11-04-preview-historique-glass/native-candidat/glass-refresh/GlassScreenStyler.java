@@ -145,7 +145,24 @@ public final class GlassScreenStyler implements Runnable {
         // Liner rows: rounded press highlight (row motion stays in GlassLikedMotion).
         for(int i=1;i<rows.getChildCount();i++){View c=rows.getChildAt(i);if(!c.isClickable())continue;
             GradientDrawable mask=glass(a,0xffffffff,0xffffffff,10,0);
-            c.setForeground(new android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x1fffffff),null,mask));}
+            c.setForeground(new android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x1fffffff),null,mask));
+            track(a,c);}
+    }
+    /** Spotify-like track row: medium title, softer artist, length moved to the right edge. */
+    private static void track(Context a,View row){
+        if(!(row instanceof LinearLayout))return;LinearLayout g=(LinearLayout)row;
+        if(g.getChildCount()<2||!(g.getChildAt(0) instanceof ImageView)||!(g.getChildAt(1) instanceof android.view.ViewGroup))return;
+        android.view.ViewGroup labels=(android.view.ViewGroup)g.getChildAt(1);
+        if(labels.getChildCount()<2||!(labels.getChildAt(0) instanceof TextView)||!(labels.getChildAt(1) instanceof TextView))return;
+        TextView title=(TextView)labels.getChildAt(0),sub=(TextView)labels.getChildAt(1);
+        title.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL),Typeface.NORMAL);sub.setTextColor(0x99ffffff);
+        if(g.findViewWithTag("glass-row-duration")!=null)return;
+        java.util.regex.Matcher m=java.util.regex.Pattern.compile("^(.*?)\\s*•\\s*(\\d+(?::\\d{2}){1,2})$").matcher(String.valueOf(sub.getText()));
+        if(!m.find())return;
+        sub.setText(m.group(1));
+        TextView d=text(a,m.group(2),13,0x80ffffff,false);d.setTag("glass-row-duration");d.setPadding(dp(a,12),0,dp(a,4),0);
+        d.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        d.setGravity(Gravity.CENTER);g.addView(d,new LinearLayout.LayoutParams(-2,-1));
     }
     private static TextView chip(Context c,String s){
         TextView t=text(c,s,12,0xe6ffffff,false);t.setPadding(dp(c,12),dp(c,6),dp(c,12),dp(c,6));t.setBackground(glass(c,0x1affffff,0x0dffffff,14,0x1fffffff));

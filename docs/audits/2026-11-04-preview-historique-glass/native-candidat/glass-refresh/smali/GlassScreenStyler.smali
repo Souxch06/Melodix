@@ -52,7 +52,7 @@
 .method private constructor <init>(Landroid/widget/LinearLayout;Landroid/widget/ImageView;I)V
     .locals 0
 
-    .line 160
+    .line 177
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
     iput-object p1, p0, Lcom/melodix/music/GlassScreenStyler;->waitHero:Landroid/widget/LinearLayout;
@@ -67,7 +67,7 @@
 .method private static chip(Landroid/content/Context;Ljava/lang/String;)Landroid/widget/TextView;
     .locals 4
 
-    .line 151
+    .line 168
     const v0, -0x19000001
 
     const/4 v1, 0x0
@@ -114,7 +114,7 @@
 
     invoke-virtual {p1, v0}, Landroid/widget/TextView;->setBackground(Landroid/graphics/drawable/Drawable;)V
 
-    .line 152
+    .line 169
     new-instance v0, Landroid/widget/LinearLayout$LayoutParams;
 
     const/4 v1, -0x2
@@ -199,7 +199,7 @@
 .method private static glow(Landroid/content/Context;I)Landroid/graphics/drawable/GradientDrawable;
     .locals 4
 
-    .line 163
+    .line 180
     const v0, 0xffffff
 
     if-nez p1, :cond_0
@@ -209,7 +209,7 @@
     :cond_0
     and-int/2addr v0, p1
 
-    .line 164
+    .line 181
     :goto_0
     new-instance v1, Landroid/graphics/drawable/GradientDrawable;
 
@@ -251,7 +251,7 @@
 
     invoke-direct {v1, v2, p1}, Landroid/graphics/drawable/GradientDrawable;-><init>(Landroid/graphics/drawable/GradientDrawable$Orientation;[I)V
 
-    .line 165
+    .line 182
     const/high16 p1, 0x41a00000    # 20.0f
 
     invoke-static {p0, p1}, Lcom/melodix/music/GlassScreenStyler;->dp(Landroid/content/Context;F)I
@@ -268,14 +268,14 @@
 .method private static glyph(Ljava/lang/String;)Ljava/lang/String;
     .locals 1
 
-    .line 183
+    .line 200
     sget-object v0, Ljava/util/Locale;->ROOT:Ljava/util/Locale;
 
     invoke-virtual {p0, v0}, Ljava/lang/String;->toLowerCase(Ljava/util/Locale;)Ljava/lang/String;
 
     move-result-object p0
 
-    .line 184
+    .line 201
     const-string v0, "compte"
 
     invoke-virtual {p0, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
@@ -294,7 +294,7 @@
 
     goto/16 :goto_3
 
-    .line 185
+    .line 202
     :cond_0
     const-string v0, "qualit\u00e9"
 
@@ -322,7 +322,7 @@
 
     goto :goto_2
 
-    .line 186
+    .line 203
     :cond_1
     const-string v0, "lecture"
 
@@ -358,7 +358,7 @@
 
     goto :goto_1
 
-    .line 187
+    .line 204
     :cond_2
     const-string v0, "cache"
 
@@ -386,7 +386,7 @@
 
     goto :goto_0
 
-    .line 188
+    .line 205
     :cond_3
     const-string v0, "d\u00e9connexion"
 
@@ -400,7 +400,7 @@
 
     return-object p0
 
-    .line 189
+    .line 206
     :cond_4
     const-string v0, "melodix"
 
@@ -414,34 +414,34 @@
 
     return-object p0
 
-    .line 190
+    .line 207
     :cond_5
     const-string p0, "\u2726"
 
     return-object p0
 
-    .line 187
+    .line 204
     :cond_6
     :goto_0
     const-string p0, "\u25a6"
 
     return-object p0
 
-    .line 186
+    .line 203
     :cond_7
     :goto_1
     const-string p0, "\u25b6"
 
     return-object p0
 
-    .line 185
+    .line 202
     :cond_8
     :goto_2
     const-string p0, "\u266b"
 
     return-object p0
 
-    .line 184
+    .line 201
     :cond_9
     :goto_3
     const-string p0, "\u25c9"
@@ -1906,13 +1906,16 @@
 
     invoke-virtual {v2, v8}, Landroid/view/View;->setForeground(Landroid/graphics/drawable/Drawable;)V
 
+    .line 149
+    invoke-static {v0, v2}, Lcom/melodix/music/GlassScreenStyler;->track(Landroid/content/Context;Landroid/view/View;)V
+
     .line 146
     :goto_15
     add-int/lit8 v12, v12, 0x1
 
     goto :goto_14
 
-    .line 149
+    .line 150
     :cond_28
     return-void
 .end method
@@ -2239,12 +2242,12 @@
 .method private static settings(Landroid/app/Activity;Landroid/widget/LinearLayout;)V
     .locals 8
 
-    .line 193
+    .line 210
     invoke-static {p1}, Lcom/melodix/music/GlassScreenStyler;->rowContainer(Landroid/widget/LinearLayout;)Landroid/widget/LinearLayout;
 
     move-result-object p1
 
-    .line 194
+    .line 211
     const/4 v0, 0x0
 
     move v1, v0
@@ -2258,17 +2261,17 @@
 
     if-ge v1, v2, :cond_2
 
-    .line 195
+    .line 212
     invoke-virtual {p1, v1}, Landroid/widget/LinearLayout;->getChildAt(I)Landroid/view/View;
 
     move-result-object v2
 
-    .line 196
+    .line 213
     instance-of v4, v2, Landroid/widget/TextView;
 
     if-eqz v4, :cond_0
 
-    .line 197
+    .line 214
     check-cast v2, Landroid/widget/TextView;
 
     const/high16 v4, 0x41600000    # 14.0f
@@ -2283,7 +2286,7 @@
 
     invoke-virtual {v2, v4, v3}, Landroid/widget/TextView;->setTypeface(Landroid/graphics/Typeface;I)V
 
-    .line 198
+    .line 215
     const/high16 v3, 0x40800000    # 4.0f
 
     invoke-static {p0, v3}, Lcom/melodix/music/GlassScreenStyler;->dp(Landroid/content/Context;F)I
@@ -2308,7 +2311,7 @@
 
     invoke-virtual {v2, v4, v5, v3, v6}, Landroid/widget/TextView;->setPadding(IIII)V
 
-    .line 199
+    .line 216
     goto :goto_1
 
     :cond_0
@@ -2320,20 +2323,20 @@
 
     invoke-static {p0, v2}, Lcom/melodix/music/GlassScreenStyler;->styleSettingRow(Landroid/app/Activity;Landroid/widget/LinearLayout;)V
 
-    .line 194
+    .line 211
     :cond_1
     :goto_1
     add-int/lit8 v1, v1, 0x1
 
     goto :goto_0
 
-    .line 201
+    .line 218
     :cond_2
     invoke-static {p0}, Lcom/melodix/music/GlassScreenStyler;->vertical(Landroid/content/Context;)Landroid/widget/LinearLayout;
 
     move-result-object v1
 
-    .line 202
+    .line 219
     const/high16 v2, 0x41900000    # 18.0f
 
     invoke-static {p0, v2}, Lcom/melodix/music/GlassScreenStyler;->dp(Landroid/content/Context;F)I
@@ -2354,7 +2357,7 @@
 
     invoke-virtual {v1, v4, v5, v6, v2}, Landroid/widget/LinearLayout;->setPadding(IIII)V
 
-    .line 203
+    .line 220
     const v2, -0x29dee5d0
 
     const v4, 0x50ffffff
@@ -2369,7 +2372,7 @@
 
     invoke-virtual {v1, v2}, Landroid/widget/LinearLayout;->setBackground(Landroid/graphics/drawable/Drawable;)V
 
-    .line 204
+    .line 221
     const/16 v2, 0xa
 
     const v4, -0x1a2a01
@@ -2386,7 +2389,7 @@
 
     invoke-virtual {v1, v2}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
 
-    .line 205
+    .line 222
     const-string v2, "Votre musique,\n\u00e0 votre fa\u00e7on."
 
     const v4, -0x70a01
@@ -2395,7 +2398,7 @@
 
     move-result-object v2
 
-    .line 206
+    .line 223
     new-instance v3, Landroid/widget/LinearLayout$LayoutParams;
 
     const/4 v4, -0x1
@@ -2414,7 +2417,7 @@
 
     invoke-virtual {v1, v2, v3}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 207
+    .line 224
     const/16 v2, 0xc
 
     const v3, -0x26331b
@@ -2425,7 +2428,7 @@
 
     move-result-object v2
 
-    .line 208
+    .line 225
     new-instance v3, Landroid/widget/LinearLayout$LayoutParams;
 
     invoke-direct {v3, v4, v5}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
@@ -2440,7 +2443,7 @@
 
     invoke-virtual {v1, v2, v3}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 209
+    .line 226
     new-instance v2, Landroid/widget/LinearLayout$LayoutParams;
 
     invoke-direct {v2, v4, v5}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
@@ -2451,10 +2454,10 @@
 
     iput p0, v2, Landroid/widget/LinearLayout$LayoutParams;->bottomMargin:I
 
-    .line 210
+    .line 227
     invoke-virtual {p1, v1, v0, v2}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;ILandroid/view/ViewGroup$LayoutParams;)V
 
-    .line 211
+    .line 228
     return-void
 .end method
 
@@ -2535,10 +2538,10 @@
 .method private static styleSettingRow(Landroid/app/Activity;Landroid/widget/LinearLayout;)V
     .locals 13
 
-    .line 213
+    .line 230
     nop
 
-    .line 214
+    .line 231
     const/4 v0, 0x0
 
     const/4 v1, 0x0
@@ -2560,12 +2563,12 @@
 
     if-ge v2, v6, :cond_3
 
-    .line 215
+    .line 232
     invoke-virtual {p1, v2}, Landroid/widget/LinearLayout;->getChildAt(I)Landroid/view/View;
 
     move-result-object v6
 
-    .line 216
+    .line 233
     instance-of v8, v6, Landroid/widget/ImageView;
 
     if-eqz v8, :cond_0
@@ -2574,7 +2577,7 @@
 
     goto :goto_1
 
-    .line 217
+    .line 234
     :cond_0
     instance-of v7, v6, Landroid/widget/LinearLayout;
 
@@ -2586,7 +2589,7 @@
 
     goto :goto_1
 
-    .line 218
+    .line 235
     :cond_1
     instance-of v7, v6, Landroid/widget/TextView;
 
@@ -2596,14 +2599,14 @@
 
     check-cast v5, Landroid/widget/TextView;
 
-    .line 214
+    .line 231
     :cond_2
     :goto_1
     add-int/lit8 v2, v2, 0x1
 
     goto :goto_0
 
-    .line 220
+    .line 237
     :cond_3
     if-eqz v3, :cond_10
 
@@ -2623,7 +2626,7 @@
 
     goto/16 :goto_5
 
-    .line 221
+    .line 238
     :cond_4
     invoke-virtual {v3, v1}, Landroid/widget/LinearLayout;->getChildAt(I)Landroid/view/View;
 
@@ -2643,7 +2646,7 @@
 
     invoke-virtual {v2, v8}, Landroid/widget/TextView;->setMaxLines(I)V
 
-    .line 222
+    .line 239
     move v9, v7
 
     :goto_2
@@ -2663,7 +2666,7 @@
 
     if-eqz v10, :cond_5
 
-    .line 223
+    .line 240
     invoke-virtual {v3, v9}, Landroid/widget/LinearLayout;->getChildAt(I)Landroid/view/View;
 
     move-result-object v10
@@ -2680,13 +2683,13 @@
 
     invoke-virtual {v10, v11}, Landroid/widget/TextView;->setMaxLines(I)V
 
-    .line 222
+    .line 239
     :cond_5
     add-int/lit8 v9, v9, 0x1
 
     goto :goto_2
 
-    .line 225
+    .line 242
     :cond_6
     invoke-static {p0, v11}, Lcom/melodix/music/GlassScreenStyler;->dp(Landroid/content/Context;F)I
 
@@ -2716,7 +2719,7 @@
 
     invoke-virtual {p1, v3}, Landroid/widget/LinearLayout;->setMinimumHeight(I)V
 
-    .line 226
+    .line 243
     const v3, -0x2ae4e8da
 
     const/16 v9, 0x14
@@ -2729,7 +2732,7 @@
 
     move-result-object v3
 
-    .line 227
+    .line 244
     invoke-virtual {p1}, Landroid/widget/LinearLayout;->isClickable()Z
 
     move-result v9
@@ -2751,10 +2754,10 @@
     :cond_7
     invoke-virtual {p1, v3}, Landroid/widget/LinearLayout;->setBackground(Landroid/graphics/drawable/Drawable;)V
 
-    .line 228
+    .line 245
     if-nez v4, :cond_8
 
-    .line 229
+    .line 246
     invoke-virtual {v2}, Landroid/widget/TextView;->getText()Ljava/lang/CharSequence;
 
     move-result-object v0
@@ -2779,7 +2782,7 @@
 
     invoke-virtual {v0, v2}, Landroid/widget/TextView;->setGravity(I)V
 
-    .line 230
+    .line 247
     const v2, -0x779cbc7e
 
     const/16 v3, 0xc
@@ -2792,10 +2795,10 @@
 
     invoke-virtual {v0, v2}, Landroid/widget/TextView;->setBackground(Landroid/graphics/drawable/Drawable;)V
 
-    .line 231
+    .line 248
     invoke-virtual {v0, v8}, Landroid/widget/TextView;->setImportantForAccessibility(I)V
 
-    .line 232
+    .line 249
     new-instance v2, Landroid/widget/LinearLayout$LayoutParams;
 
     const/high16 v3, 0x42200000    # 40.0f
@@ -2818,11 +2821,11 @@
 
     invoke-virtual {p1, v0, v1, v2}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;ILandroid/view/ViewGroup$LayoutParams;)V
 
-    .line 234
+    .line 251
     :cond_8
     if-eqz v5, :cond_e
 
-    .line 235
+    .line 252
     invoke-virtual {v5}, Landroid/widget/TextView;->getText()Ljava/lang/CharSequence;
 
     move-result-object v0
@@ -2837,14 +2840,14 @@
 
     move-result v1
 
-    .line 236
+    .line 253
     const-string v2, "Indisponible"
 
     invoke-virtual {v2, v0}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
 
     move-result v0
 
-    .line 237
+    .line 254
     if-eqz v1, :cond_9
 
     const v2, -0x57920e
@@ -2861,7 +2864,7 @@
     :cond_a
     const v2, -0x7792a284
 
-    .line 238
+    .line 255
     :goto_3
     if-eqz v1, :cond_b
 
@@ -2879,7 +2882,7 @@
     :cond_c
     const v1, -0x779fb08e
 
-    .line 239
+    .line 256
     :goto_4
     const/16 v3, 0x10
 
@@ -2898,7 +2901,7 @@
     :cond_d
     invoke-virtual {v5, v6}, Landroid/widget/TextView;->setTextColor(I)V
 
-    .line 240
+    .line 257
     const/high16 v0, 0x41300000    # 11.0f
 
     invoke-virtual {v5, v0}, Landroid/widget/TextView;->setTextSize(F)V
@@ -2925,7 +2928,7 @@
 
     invoke-virtual {v5, v1, v3, v0, v2}, Landroid/widget/TextView;->setPadding(IIII)V
 
-    .line 241
+    .line 258
     const/high16 v0, 0x42e00000    # 112.0f
 
     invoke-static {p0, v0}, Lcom/melodix/music/GlassScreenStyler;->dp(Landroid/content/Context;F)I
@@ -2940,13 +2943,13 @@
 
     invoke-virtual {v5, v0}, Landroid/widget/TextView;->setEllipsize(Landroid/text/TextUtils$TruncateAt;)V
 
-    .line 243
+    .line 260
     :cond_e
     invoke-virtual {p1}, Landroid/widget/LinearLayout;->getLayoutParams()Landroid/view/ViewGroup$LayoutParams;
 
     move-result-object v0
 
-    .line 244
+    .line 261
     instance-of v1, v0, Landroid/view/ViewGroup$MarginLayoutParams;
 
     if-eqz v1, :cond_f
@@ -2963,11 +2966,11 @@
 
     invoke-virtual {p1, v0}, Landroid/widget/LinearLayout;->setLayoutParams(Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 245
+    .line 262
     :cond_f
     return-void
 
-    .line 220
+    .line 237
     :cond_10
     :goto_5
     return-void
@@ -3014,7 +3017,7 @@
         }
     .end annotation
 
-    .line 155
+    .line 172
     instance-of v0, p0, Landroid/widget/TextView;
 
     if-eqz v0, :cond_0
@@ -3049,7 +3052,7 @@
 
     goto :goto_1
 
-    .line 156
+    .line 173
     :cond_0
     instance-of v0, p0, Landroid/view/ViewGroup;
 
@@ -3076,7 +3079,7 @@
 
     goto :goto_0
 
-    .line 157
+    .line 174
     :cond_1
     :goto_1
     return-void
@@ -3085,7 +3088,7 @@
 .method private static tint(Landroid/widget/LinearLayout;Landroid/widget/ImageView;I)V
     .locals 17
 
-    .line 169
+    .line 186
     move-object/from16 v0, p0
 
     move-object/from16 v1, p1
@@ -3098,13 +3101,13 @@
 
     return-void
 
-    .line 170
+    .line 187
     :cond_0
     invoke-virtual/range {p1 .. p1}, Landroid/widget/ImageView;->getDrawable()Landroid/graphics/drawable/Drawable;
 
     move-result-object v3
 
-    .line 171
+    .line 188
     instance-of v4, v3, Landroid/graphics/drawable/BitmapDrawable;
 
     const/4 v5, 0x1
@@ -3123,13 +3126,13 @@
 
     goto/16 :goto_3
 
-    .line 174
+    .line 191
     :cond_1
     invoke-virtual {v3}, Landroid/graphics/drawable/BitmapDrawable;->getBitmap()Landroid/graphics/Bitmap;
 
     move-result-object v1
 
-    .line 176
+    .line 193
     const/16 v2, 0x8
 
     :try_start_0
@@ -3137,7 +3140,7 @@
 
     move-result-object v1
 
-    .line 177
+    .line 194
     const-wide/16 v6, 0x0
 
     move-wide v8, v6
@@ -3269,7 +3272,7 @@
 
     goto :goto_0
 
-    .line 178
+    .line 195
     :cond_3
     const/4 v0, 0x3
 
@@ -3327,7 +3330,7 @@
 
     aput v2, v0, v1
 
-    .line 179
+    .line 196
     invoke-virtual/range {p0 .. p0}, Landroid/widget/LinearLayout;->getContext()Landroid/content/Context;
 
     move-result-object v1
@@ -3348,21 +3351,21 @@
 
     goto :goto_2
 
-    .line 180
+    .line 197
     :catch_0
     move-exception v0
 
     :goto_2
     nop
 
-    .line 181
+    .line 198
     return-void
 
-    .line 171
+    .line 188
     :cond_4
     move-object v3, v0
 
-    .line 172
+    .line 189
     :goto_3
     new-instance v0, Lcom/melodix/music/GlassScreenStyler;
 
@@ -3376,6 +3379,219 @@
 
     invoke-virtual {v1, v0, v2, v3}, Landroid/widget/ImageView;->postDelayed(Ljava/lang/Runnable;J)Z
 
+    return-void
+.end method
+
+.method private static track(Landroid/content/Context;Landroid/view/View;)V
+    .locals 7
+
+    .line 153
+    instance-of v0, p1, Landroid/widget/LinearLayout;
+
+    if-nez v0, :cond_0
+
+    return-void
+
+    :cond_0
+    check-cast p1, Landroid/widget/LinearLayout;
+
+    .line 154
+    invoke-virtual {p1}, Landroid/widget/LinearLayout;->getChildCount()I
+
+    move-result v0
+
+    const/4 v1, 0x2
+
+    if-lt v0, v1, :cond_6
+
+    const/4 v0, 0x0
+
+    invoke-virtual {p1, v0}, Landroid/widget/LinearLayout;->getChildAt(I)Landroid/view/View;
+
+    move-result-object v2
+
+    instance-of v2, v2, Landroid/widget/ImageView;
+
+    if-eqz v2, :cond_6
+
+    const/4 v2, 0x1
+
+    invoke-virtual {p1, v2}, Landroid/widget/LinearLayout;->getChildAt(I)Landroid/view/View;
+
+    move-result-object v3
+
+    instance-of v3, v3, Landroid/view/ViewGroup;
+
+    if-nez v3, :cond_1
+
+    goto/16 :goto_1
+
+    .line 155
+    :cond_1
+    invoke-virtual {p1, v2}, Landroid/widget/LinearLayout;->getChildAt(I)Landroid/view/View;
+
+    move-result-object v3
+
+    check-cast v3, Landroid/view/ViewGroup;
+
+    .line 156
+    invoke-virtual {v3}, Landroid/view/ViewGroup;->getChildCount()I
+
+    move-result v4
+
+    if-lt v4, v1, :cond_5
+
+    invoke-virtual {v3, v0}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
+
+    move-result-object v4
+
+    instance-of v4, v4, Landroid/widget/TextView;
+
+    if-eqz v4, :cond_5
+
+    invoke-virtual {v3, v2}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
+
+    move-result-object v4
+
+    instance-of v4, v4, Landroid/widget/TextView;
+
+    if-nez v4, :cond_2
+
+    goto :goto_0
+
+    .line 157
+    :cond_2
+    invoke-virtual {v3, v0}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
+
+    move-result-object v4
+
+    check-cast v4, Landroid/widget/TextView;
+
+    invoke-virtual {v3, v2}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
+
+    move-result-object v3
+
+    check-cast v3, Landroid/widget/TextView;
+
+    .line 158
+    const-string v5, "sans-serif-medium"
+
+    invoke-static {v5, v0}, Landroid/graphics/Typeface;->create(Ljava/lang/String;I)Landroid/graphics/Typeface;
+
+    move-result-object v5
+
+    invoke-virtual {v4, v5, v0}, Landroid/widget/TextView;->setTypeface(Landroid/graphics/Typeface;I)V
+
+    const v4, -0x66000001
+
+    invoke-virtual {v3, v4}, Landroid/widget/TextView;->setTextColor(I)V
+
+    .line 159
+    const-string v4, "glass-row-duration"
+
+    invoke-virtual {p1, v4}, Landroid/widget/LinearLayout;->findViewWithTag(Ljava/lang/Object;)Landroid/view/View;
+
+    move-result-object v5
+
+    if-eqz v5, :cond_3
+
+    return-void
+
+    .line 160
+    :cond_3
+    const-string v5, "^(.*?)\\s*\u2022\\s*(\\d+(?::\\d{2}){1,2})$"
+
+    invoke-static {v5}, Ljava/util/regex/Pattern;->compile(Ljava/lang/String;)Ljava/util/regex/Pattern;
+
+    move-result-object v5
+
+    invoke-virtual {v3}, Landroid/widget/TextView;->getText()Ljava/lang/CharSequence;
+
+    move-result-object v6
+
+    invoke-static {v6}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
+
+    move-result-object v6
+
+    invoke-virtual {v5, v6}, Ljava/util/regex/Pattern;->matcher(Ljava/lang/CharSequence;)Ljava/util/regex/Matcher;
+
+    move-result-object v5
+
+    .line 161
+    invoke-virtual {v5}, Ljava/util/regex/Matcher;->find()Z
+
+    move-result v6
+
+    if-nez v6, :cond_4
+
+    return-void
+
+    .line 162
+    :cond_4
+    invoke-virtual {v5, v2}, Ljava/util/regex/Matcher;->group(I)Ljava/lang/String;
+
+    move-result-object v2
+
+    invoke-virtual {v3, v2}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+
+    .line 163
+    invoke-virtual {v5, v1}, Ljava/util/regex/Matcher;->group(I)Ljava/lang/String;
+
+    move-result-object v2
+
+    const/16 v3, 0xd
+
+    const v5, -0x7f000001
+
+    invoke-static {p0, v2, v3, v5, v0}, Lcom/melodix/music/GlassScreenStyler;->text(Landroid/content/Context;Ljava/lang/String;IIZ)Landroid/widget/TextView;
+
+    move-result-object v2
+
+    invoke-virtual {v2, v4}, Landroid/widget/TextView;->setTag(Ljava/lang/Object;)V
+
+    const/high16 v3, 0x41400000    # 12.0f
+
+    invoke-static {p0, v3}, Lcom/melodix/music/GlassScreenStyler;->dp(Landroid/content/Context;F)I
+
+    move-result v3
+
+    const/high16 v4, 0x40800000    # 4.0f
+
+    invoke-static {p0, v4}, Lcom/melodix/music/GlassScreenStyler;->dp(Landroid/content/Context;F)I
+
+    move-result p0
+
+    invoke-virtual {v2, v3, v0, p0, v0}, Landroid/widget/TextView;->setPadding(IIII)V
+
+    .line 164
+    invoke-virtual {v2, v1}, Landroid/widget/TextView;->setImportantForAccessibility(I)V
+
+    .line 165
+    const/16 p0, 0x11
+
+    invoke-virtual {v2, p0}, Landroid/widget/TextView;->setGravity(I)V
+
+    new-instance p0, Landroid/widget/LinearLayout$LayoutParams;
+
+    const/4 v0, -0x2
+
+    const/4 v1, -0x1
+
+    invoke-direct {p0, v0, v1}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+
+    invoke-virtual {p1, v2, p0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    .line 166
+    return-void
+
+    .line 156
+    :cond_5
+    :goto_0
+    return-void
+
+    .line 154
+    :cond_6
+    :goto_1
     return-void
 .end method
 
@@ -3399,7 +3615,7 @@
 .method public run()V
     .locals 3
 
-    .line 161
+    .line 178
     iget-object v0, p0, Lcom/melodix/music/GlassScreenStyler;->waitImage:Landroid/widget/ImageView;
 
     invoke-virtual {v0}, Landroid/widget/ImageView;->isAttachedToWindow()Z
