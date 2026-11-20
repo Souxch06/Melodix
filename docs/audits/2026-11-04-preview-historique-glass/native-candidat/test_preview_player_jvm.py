@@ -143,13 +143,23 @@ public class ControllerTest {
   a=new Activity();mini=new ProgressBar();full=new SeekBar();elapsed=new TextView();duration=new TextView();remain=new TextView();b1=new ImageView();b2=new ImageView();root=new View();root.tags.put("nativePlayerRemaining",remain);
   a.views.put(0x7f09024d,mini);a.views.put(0x7f09023d,full);a.views.put(0x7f09024a,elapsed);a.views.put(0x7f09024b,duration);a.views.put(0x7f090238,b1);a.views.put(0x7f09023e,b2);a.views.put(0x7f09023a,root);
   java.lang.reflect.Field saved=PreviewPlayerController.class.getDeclaredField("savedValid");saved.setAccessible(true);saved.setBoolean(null,false);
+  // User report 1022317: the same track seen playing in the background just before return shows Pause at once, at the right position.
+  {saved.setBoolean(null,false);SystemClock.time+=1000000;PreviewPlayerController back=new PreviewPlayerController(a);back.activityStarted();back.activityResumed();
+   back.snapshot(sample("Back","Artist",100000,1000000,"playing","")+";previewProgressSource=range");back.activityPaused();back.activityStopped();
+   SystemClock.time+=6000;back.snapshot(sample("Back","Artist",106000,1000000,"playing",""));SystemClock.time+=500;back.activityStarted();back.activityResumed();
+   yes(elapsed.text.equals("1:46"));yes(b2.image!=0x7f080122);}
+  // Paused in the background: still Play after return.
+  {saved.setBoolean(null,false);SystemClock.time+=1000000;PreviewPlayerController back=new PreviewPlayerController(a);back.activityStarted();back.activityResumed();
+   back.snapshot(sample("Back2","Artist",100000,1000000,"playing","")+";previewProgressSource=range");back.activityPaused();back.activityStopped();
+   SystemClock.time+=6000;back.snapshot(sample("Back2","Artist",100000,1000000,"paused",""));SystemClock.time+=500;back.activityStarted();back.activityResumed();eq(b2.image,0x7f080122);}
   for (long gap : new long[]{10000,60000,600000}) {
    saved.setBoolean(null,false);SystemClock.time+=1000000;PreviewPlayerController life=new PreviewPlayerController(a);life.activityStarted();life.activityResumed();
    life.snapshot(sample("Return","Artist",100000,1000000,"playing","")+";previewProgressSource=range");yes(elapsed.text.equals("1:40"));
    life.activityPaused();life.activityStopped();int frozen=mini.progress;
    SystemClock.time+=gap;life.snapshot(sample("Return","Artist",100000+gap,1000000,"playing",""));eq(mini.progress,frozen);
-   life.activityStarted();life.activityResumed();yes(elapsed.text.equals("1:40"));eq(mini.progress,frozen);eq(b2.image,0x7f080122);
-   report=(String)reportMethod.invoke(life);yes(report.contains("avant=playing ; après=interrupted"));yes(report.contains("absence="+gap+" ms"));yes(report.contains("signal audio natif=non lu"));
+   // That background reading is over 2.5 s old at return: it cannot restart the display.
+   SystemClock.time+=3000;life.activityStarted();life.activityResumed();yes(elapsed.text.equals("1:40"));eq(mini.progress,frozen);eq(b2.image,0x7f080122);
+   report=(String)reportMethod.invoke(life);yes(report.contains("avant=playing ; après=interrupted"));yes(report.contains("absence="+(gap+3000)+" ms"));yes(report.contains("signal audio natif=non lu"));
    // Incoherent player state cannot restart the clock or show pause.
    life.snapshot(sample("Return","Artist",200000,1000000,"playing",""));SystemClock.time+=1000;life.doFrame(0);eq(mini.progress,frozen);eq(b2.image,0x7f080122);
    // An old observation cannot confirm playback even if numerically coherent.
