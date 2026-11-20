@@ -170,7 +170,7 @@ def apply(root):
             previewLastMovementAt >= 0 && at >= previewLastMovementAt && at - previewLastMovementAt <= 2000)));
         previewLastTrack = valid ? info.previewTrackUri : '';""")
     tuple_bytes=(HERE/'preview-player-tuple.js').read_bytes()
-    if hashlib.sha256(tuple_bytes).hexdigest() != 'f49bb4b0093c4fd3bd587683fe0d5bf833edfd3095e7500c07598549d96f80c8': raise ValueError('unexpected tuple helper')
+    if hashlib.sha256(tuple_bytes).hexdigest() != 'de502cc1a0626f1ddb0854c080d5a52eb12ec41e46589aff0371b9660d375935': raise ValueError('unexpected tuple helper')
     prewarm_bytes=(HERE/'preview-prewarm.js').read_bytes()
     if hashlib.sha256(prewarm_bytes).hexdigest() != PREWARM_SHA: raise ValueError('unexpected prewarm helper')
     start=s.index('    // Preview-only progress samples.')

@@ -34,11 +34,13 @@
         else if (title && !artist && bridgeTitle === title && bridgeArtist) artist = bridgeArtist;
         // Same track, the page lists every artist ("A, B") where the widget read only "A" (user report 1022325).
         else if (title && artist && bridgeTitle === title && bridgeArtist && bridgeArtist.indexOf(artist + ',') === 0) artist = bridgeArtist;
+        // User report (1022331): the silent warm-up moved the bar then jumped back. Show the kept position.
+        if (window.__sfPrewarmActive === true && previewPrewarm.position >= 0) { info.previewPositionMs = previewPrewarm.position; info.position = Math.round(previewPrewarm.position / 1000); }
         var state = previewPlaybackState();
         var valid = info.previewDurationMs > 0 && info.previewPositionMs >= 0 && info.previewPositionMs <= info.previewDurationMs;
         var identity = !!(title && artist && info.previewDurationMs > 0);
         return {
-            track: title || 'Aucune lecture en cours', artist: artist || '', cover: info.cover || '',
+            track: title || 'Aucune lecture en cours', artist: artist || '', cover: info.cover || (title && bridgeTitle === title && window.cover) || '',
             playing: state === 'playing', previewPlaybackState: state,
             position: info.position, duration: info.duration,
             previewTrackUri: info.previewTrackUri, previewProgressSource: info.previewProgressSource,
