@@ -20,10 +20,28 @@
             try { if (typeof window.actPlayPause === 'function') window.actPlayPause(false); } catch (_) {}
             if (previewPrewarm.position >= 0 && typeof window.actSeek === 'function') try { window.actSeek(previewPrewarm.position); } catch (_) {}
         }
-        // Unmute only once the pause has landed (or at once if the user takes over).
-        window.setTimeout(function() { window.__sfPrewarmActive = false; previewPrewarmMedia().forEach(function(m) { try { m.muted = false; } catch (_) {} }); document.removeEventListener('play', previewPrewarmMute, true); }, keepPlaying ? 0 : 400);
+        if (keepPlaying) { window.setTimeout(previewPrewarmRelease, 0); return; }
+        // User report (1022302): sound came back while the pause had not landed, so the track
+        // started audibly at launch. Unmute only once every page media is really paused.
+        previewPrewarm.holding = true; previewPrewarm.tries = 0;
+        (function settle() {
+            window.setTimeout(function() {
+                if (!previewPrewarm.holding) return;
+                var playing = previewPrewarmMedia().some(function(m) { return m.paused === false; });
+                if (!playing) { previewPrewarmRelease(); return; }
+                previewPrewarm.tries++;
+                if (previewPrewarm.tries <= 3) try { if (typeof window.actPlayPause === 'function') window.actPlayPause(false); } catch (_) {}
+                // Still playing after ~3 s: stay muted; the user's next Play/Pause tap unmutes.
+                if (previewPrewarm.tries < 12) settle();
+            }, previewPrewarm.tries === undefined || previewPrewarm.tries === 0 ? 400 : 250);
+        })();
     }
-    function previewPrewarmMute(e) { try { if (previewPrewarm.active && e && e.target) e.target.muted = true; } catch (_) {} }
+    function previewPrewarmRelease() {
+        previewPrewarm.holding = false; window.__sfPrewarmActive = false;
+        previewPrewarmMedia().forEach(function(m) { try { m.muted = false; } catch (_) {} });
+        document.removeEventListener('play', previewPrewarmMute, true);
+    }
+    function previewPrewarmMute(e) { try { if ((previewPrewarm.active || previewPrewarm.holding) && e && e.target) e.target.muted = true; } catch (_) {} }
     function previewPrewarmStart() {
         if (previewPrewarm.done) return;
         if (typeof playPauseButton !== 'function' || typeof readNowPlaying !== 'function' || typeof previewPlaybackState !== 'function' ||
@@ -39,7 +57,7 @@
         // A user tap during the warm-up keeps the (now buffered) playback and unmutes it.
         var toggle = window.__sfTogglePlayback;
         if (typeof toggle === 'function' && !toggle.__sfPrewarmWrapped) {
-            window.__sfTogglePlayback = function() { if (previewPrewarm.active) { previewPrewarmFinish(true); try { if (typeof publishPlayerState === 'function') publishPlayerState(true); } catch (_) {} return true; } return toggle.apply(this, arguments); };
+            window.__sfTogglePlayback = function() { if (previewPrewarm.holding) previewPrewarmRelease(); if (previewPrewarm.active) { previewPrewarmFinish(true); try { if (typeof publishPlayerState === 'function') publishPlayerState(true); } catch (_) {} return true; } return toggle.apply(this, arguments); };
             window.__sfTogglePlayback.__sfPrewarmWrapped = true;
         }
         try { window.actPlayPause(true); } catch (_) { previewPrewarmFinish(false); return; }

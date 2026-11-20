@@ -35,3 +35,16 @@ test('an ad (title gone) during the warm-up stops it at once and restores sound'
  assert.deepEqual(x.calls,['play','pause','seek:42000']);
  x.timers.find(t=>t.ms===400).f();assert.equal(x.w.__sfPrewarmActive,false);assert.ok(x.media.every(m=>!m.muted));
 });
+test('sound comes back only once the page media is really paused (user report 1022302)',()=>{
+ const x=setup();x.run();x.media.forEach(m=>{m.paused=false;});
+ x.timers.find(t=>t.ms===3000).f();x.timers.find(t=>t.ms===400).f();
+ assert.ok(x.media.every(m=>m.muted),'still playing: stays muted');assert.deepEqual(x.calls.filter(c=>c==='pause').length,2,'pause asked again');
+ x.media.forEach(m=>{m.paused=true;});x.timers.filter(t=>t.ms===250).pop().f();
+ assert.ok(x.media.every(m=>!m.muted));assert.equal(x.w.__sfPrewarmActive,false);
+});
+test('page refuses to pause: stays muted until the user taps Play/Pause',()=>{
+ const x=setup();x.run();x.media.forEach(m=>{m.paused=false;});
+ x.timers.find(t=>t.ms===3000).f();x.timers.find(t=>t.ms===400).f();
+ for(let k=0;k<12;k++){const t=x.timers.filter(t=>t.ms===250).pop();if(t)t.f();}
+ assert.ok(x.media.every(m=>m.muted));x.w.__sfTogglePlayback(false);assert.ok(x.media.every(m=>!m.muted));
+});
