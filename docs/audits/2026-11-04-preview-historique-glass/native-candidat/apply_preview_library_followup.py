@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Pin and patch non-protected native shell after the 1022134 feedback fixes."""
+import re
 import hashlib,sys
 from pathlib import Path
 HERE=Path(__file__).resolve().parent
@@ -325,6 +326,9 @@ def apply(root):
     move-result-object v2
     :preview_playlist_loading_done
     if-eqz p2, :native_collection_default_title""")
+    # Native rows guard: a cut or empty reply right after opening never replaces the kept rows.
+    a,n=re.subn(r'(\.method public final renderNativeRows\(Ljava/lang/String;Ljava/lang/String;\)V\n    \.locals (?:[4-9]|\d\d)\n)', r'\1\n    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->previewPlayer()Lcom/melodix/music/PreviewPlayerController;\n    move-result-object v0\n    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;\n    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;\n    invoke-virtual {v0, v1, v2, p2}, Lcom/melodix/music/PreviewPlayerController;->keepRows(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;\n    move-result-object p2\n', a)
+    if n!=1: raise ValueError('renderNativeRows anchor changed')
     activity.write_text(a,encoding='utf8')
     rows=root/'smali/com/melodix/music/NativeUiRowFactory.smali'
     r=rows.read_text(encoding='utf8')

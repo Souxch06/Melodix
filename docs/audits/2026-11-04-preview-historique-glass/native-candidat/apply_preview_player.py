@@ -468,18 +468,6 @@ def prepare(root):
     iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;
     invoke-virtual {v0, v1, v2, p2}, Lcom/melodix/music/PreviewPlayerController;->rowsPainted(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
     return-void''')
-    s = replace(s, '''.method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    .locals 10
-''', '''.method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    .locals 10
-
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->previewPlayer()Lcom/melodix/music/PreviewPlayerController;
-    move-result-object v0
-    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;
-    invoke-virtual {v0, v1, v2, p2}, Lcom/melodix/music/PreviewPlayerController;->keepRows(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
-    move-result-object p2
-''')
     s = replace(s, '.field private nativeBackStack:Ljava/util/ArrayDeque;\n', '.field private nativePreviewPlayer:Lcom/melodix/music/PreviewPlayerController;\n.field private nativeBackStack:Ljava/util/ArrayDeque;\n')
     s = replace(s, '''.method public final applyNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
     .locals 10
