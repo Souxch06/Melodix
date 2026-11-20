@@ -683,8 +683,9 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             boolean real = state.equals("playing");
             boolean snapshotValid = o.optBoolean("previewProgressValid", false) && dur > 0 && pos >= 0 && pos <= dur;
             boolean identified = realMetadata(title) && realMetadata(artist) && dur > 0;
+            // "A" and "A, B" are the same track: one feed may list only the first artist (1022325).
             boolean changed = identified && (!tupleIdentity || !identityTitle.equals(title) ||
-                !identityArtist.equals(artist) || identityDuration != dur);
+                !sameArtists(identityArtist, artist) || identityDuration != dur);
             if (skipUntil > t) {
                 // Until the new track shows up, the old one must not pull the bar back.
                 if (changed) { skipUntil = -1; handler.removeCallbacks(undim); dimTrack(1f); }
@@ -757,8 +758,9 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 valid = false; moving = false; previous = Double.NaN; resyncing = false;
                 resetDivergence(); measurementAt = measurementPosition = -1;
                 // Same title and artist (only the reported duration moved): keep the display hold.
-                if (!identityTitle.equals(title) || !identityArtist.equals(artist)) { lastShownAt = -1; fullArtist = ""; }
+                if (!identityTitle.equals(title) || !sameArtists(identityArtist, artist)) { lastShownAt = -1; fullArtist = ""; }
             }
+            if (identified && artist.length() > fullArtist.length() && sameArtists(identityArtist, artist)) fullArtist = artist;
             if (identified) { identityTitle = title; identityArtist = artist; identityDuration = dur; tupleIdentity = true; }
             if (!uri.isEmpty() || changed) track = uri;
             // Do not use previewPositionMs: actSeek itself writes its range property.

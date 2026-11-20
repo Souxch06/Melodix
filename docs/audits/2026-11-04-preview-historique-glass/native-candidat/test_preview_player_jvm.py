@@ -247,6 +247,9 @@ public class ControllerTest {
    SystemClock.time+=7000;g.snapshot("track=Song;artist=Main, Guest;playing=false");Choreographer.frame();yes(he.text.equals(shown));yes(hm.progress>0);
    // 1022324: the tuple feed ("Main") must not wipe the second artist again.
    ma.text="Main";fa.text="Main";g.snapshot(sample("Song","Main",61000,180000,"paused",""));Choreographer.frame();yes(ma.text.equals("Main, Guest"));yes(fa.text.equals("Main, Guest"));
+   // 1022325: the tuple feed itself alternating "Main, Guest" / "Main" is the same track, no reset.
+   g.snapshot(sample("Song","Main, Guest",62000,180000,"paused",""));Choreographer.frame();yes(!he.text.equals("-:--"));
+   ma.text="Main";g.snapshot(sample("Song","Main",63000,180000,"paused",""));Choreographer.frame();yes(!he.text.equals("-:--"));yes(ma.text.equals("Main, Guest"));
    g.snapshot("track=Other;artist=Main, Guest;playing=false");Choreographer.frame();yes(he.text.equals("-:--"));
    yes(PreviewPlayerController.sameArtists("A","A, B"));yes(!PreviewPlayerController.sameArtists("A","AB"));yes(!PreviewPlayerController.sameArtists("A","C, A"));
   }

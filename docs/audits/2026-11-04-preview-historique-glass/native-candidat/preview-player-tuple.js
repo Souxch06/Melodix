@@ -32,6 +32,8 @@
         // Never combine an artist from an unrelated visible track with a title.
         if ((!title && !artist) && bridgeTitle && bridgeArtist) { title = bridgeTitle; artist = bridgeArtist; }
         else if (title && !artist && bridgeTitle === title && bridgeArtist) artist = bridgeArtist;
+        // Same track, the page lists every artist ("A, B") where the widget read only "A" (user report 1022325).
+        else if (title && artist && bridgeTitle === title && bridgeArtist && bridgeArtist.indexOf(artist + ',') === 0) artist = bridgeArtist;
         var state = previewPlaybackState();
         var valid = info.previewDurationMs > 0 && info.previewPositionMs >= 0 && info.previewPositionMs <= info.previewDurationMs;
         var identity = !!(title && artist && info.previewDurationMs > 0);
