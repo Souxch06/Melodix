@@ -44,7 +44,9 @@
                 // Complete list (any size: the bridge can also stop short of 100, e.g. 26 of 60).
                 // Late bridge replies cut it back (phone 1022277: 48 shown, then 26, reply ~90 s late):
                 // keep re-sending the full list while this playlist stays open.
-                else { deliver(); [2500, 6000, 12000, 25000, 45000, 90000, 150000].forEach(function(ms) { window.setTimeout(deliver, ms); }); }
+                // User report (1022308): cut back to 26 after the last fixed resend; resend every 15 s while open.
+                else { deliver(); [2500, 6000, 12000].forEach(function(ms) { window.setTimeout(deliver, ms); });
+                    (function keep() { window.setTimeout(function() { if (!live()) return; deliver(); keep(); }, 15000); })(); }
             }).catch(function() {}).then(function() { if (deadline) window.clearTimeout(deadline); });
         }
         // Start at once: late bridge replies are re-covered by the repeated resends above.
