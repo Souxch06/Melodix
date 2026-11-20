@@ -121,6 +121,10 @@ public final class GlassScreenStyler implements Runnable {
         View line=new View(a);line.setBackgroundColor(0x14ffffff);
         LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(-1,Math.max(1,dp(a,.5f)));hp.topMargin=dp(a,20);hero.addView(line,hp);
         rows.addView(hero,0,new LinearLayout.LayoutParams(-1,-2));
+        // Liner rows: rounded press highlight (row motion stays in GlassLikedMotion).
+        for(int i=1;i<rows.getChildCount();i++){View c=rows.getChildAt(i);if(!c.isClickable())continue;
+            GradientDrawable mask=glass(a,0xffffffff,0xffffffff,10,0);
+            c.setForeground(new android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x1fffffff),null,mask));}
     }
     // One pending cover-colour check (single helper file: no inner classes).
     private final LinearLayout waitHero;private final ImageView waitImage;private final int waitTries;
