@@ -384,6 +384,24 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         }
         return keep;
     }
+    // User reports (1022336-1022342: 48 then 26, or an empty list): right after opening a playlist, a shorter
+    // reply that is the start of the shown list, or one with no track, never replaces the rows already kept.
+    // shortcut: limited to 2 min after opening, so tracks removed elsewhere show on the next visit.
+    public String keepRows(String screen, String context, String rows) {
+        try {
+            Activity a = activity.get(); String k = playlistKey(context);
+            if (a == null || !"detail".equals(screen) || k.isEmpty() || !k.equals(pendingPlaylist) || playlistStart < 0 || now() - playlistStart > 120000) return rows;
+            String s = a.getSharedPreferences(PLAYLIST_STORE, Context.MODE_PRIVATE).getString(k, null);
+            if (s == null) return rows;
+            JSONArray kept = new JSONArray(s), in = storableRows(new JSONArray(rows));
+            if (in.length() >= kept.length()) return rows;
+            for (int i = 0; i < in.length(); i++) {
+                JSONObject x = in.optJSONObject(i), y = kept.optJSONObject(i);
+                if (x == null || y == null || !x.optString("uri", x.optString("id", "")).equals(y.optString("uri", y.optString("id", "")))) return rows;
+            }
+            return kept.toString();
+        } catch (Exception e) { return rows; }
+    }
     private void storeRows(String context, JSONArray data) {
         Activity a = activity.get(); String k = playlistKey(context);
         if (a == null || k.isEmpty() || !context.equals(k)) return;

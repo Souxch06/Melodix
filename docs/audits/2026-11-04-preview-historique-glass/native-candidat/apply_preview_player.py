@@ -22,17 +22,17 @@ EXPECTED = {
     'res/layout-w600dp/activity_main.xml': '4d110f1df062fdf7676b9aa5e70146dd7ec148da3c0c614a553b5586ad5af8fe',
     'res/drawable/widget_progress_drawable.xml': '3a5f8f51ea984c7a8226d5acd69bf6b20383ca9622843d617b055c9fe18d772f',
 }
-SOURCE_SHA = 'c578e9575a2c6c95d8f0bc216b106905f565fc9c52ded0d357526227beeead51'
+SOURCE_SHA = '219a442d7d749d0d48c07311ba532812e42d57b5a16676add68bad4f7d21168c'
 HELPER_SHA = {
     'PreviewPlayerController$1.smali': '04b724419c430be5f4ebacc3a1d443d30f480de152d809128c94ac4f13f4296c',
     'PreviewPlayerController$2.smali': 'ff9f8f02b423a2b9de58a5fb8ed5244f555f3bf9478776834d9e5bcb3616d39e',
     'PreviewPlayerController$3.smali': '917640d627d78caa19ed88d50d215da65c2950c55f9a371334477026d9496db3',
-    'PreviewPlayerController$4.smali': '211c4f9ef7a95bbb076b64318aab2905f5c9bbf79d738a382257cf60a75369fc',
-    'PreviewPlayerController$5.smali': '7ab4f128b0a904f9ff976e319033d9ff7dc25e127ba78c80c510321c05463f25',
-    'PreviewPlayerController$6.smali': '1b861a2280d71040e8fae4175af8154d60b6d2159b83a5e1dad98598178de0fc',
-    'PreviewPlayerController$7.smali': '6dcc89d9cefa397ffe056ecf9ca57cd98ff658886d61627dbfc0289db3f9c9aa',
-    'PreviewPlayerController$8.smali': '274fe79b1ea51b3f5fcc31a9b695f56879e9b0108467f9d3f4b450f1c9345789',
-    'PreviewPlayerController.smali': 'b10462742b8dcd9149fcf60906a613b51136d36c964d0032f39afed5fb852349',
+    'PreviewPlayerController$4.smali': '79b39961adf57b935f3a6666b03c44bf7b355a83403cd148f87b1486f61d1980',
+    'PreviewPlayerController$5.smali': '08750a4d65fcbd324798297b1870af2ad5bac6148ebe5131c8574746ed0e989b',
+    'PreviewPlayerController$6.smali': 'f36189b7f77d41ff4deca6feacb9be992eedad2b00427b84ddc6b2c5b62bae73',
+    'PreviewPlayerController$7.smali': 'd240a7421f016a6e60190c25ac59db2c8468d4e2a48ec08c22d457be3d93a20f',
+    'PreviewPlayerController$8.smali': '87e263af030e88528c8829827d4eaf0e750d8d67f1b758b6e1c0e7a27ee88113',
+    'PreviewPlayerController.smali': 'dd07e247551c111b2101f5ab7edd1d5c09cfce350ca2e3123aefbea07ffb4801',
     'PreviewLastTrackStore$1$1.smali': '945ee7420a49b41550b889369932b30e3f0f43943fdb46700d0dbfaf550792dc',
     'PreviewLastTrackStore$1.smali': '8f54f12ff47b7a995072f2255a1c28ffa996e311e8865cd8550330758557ace2',
     'PreviewLastTrackStore$2.smali': '1e3ffc3af8858e6b6f609c18bdf689f5d00d0aaf1c592a201844e24fb91c5aaa',
@@ -468,6 +468,18 @@ def prepare(root):
     iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;
     invoke-virtual {v0, v1, v2, p2}, Lcom/melodix/music/PreviewPlayerController;->rowsPainted(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
     return-void''')
+    s = replace(s, '''.method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    .locals 10
+''', '''.method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    .locals 10
+
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->previewPlayer()Lcom/melodix/music/PreviewPlayerController;
+    move-result-object v0
+    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;
+    invoke-virtual {v0, v1, v2, p2}, Lcom/melodix/music/PreviewPlayerController;->keepRows(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object p2
+''')
     s = replace(s, '.field private nativeBackStack:Ljava/util/ArrayDeque;\n', '.field private nativePreviewPlayer:Lcom/melodix/music/PreviewPlayerController;\n.field private nativeBackStack:Ljava/util/ArrayDeque;\n')
     s = replace(s, '''.method public final applyNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
     .locals 10
