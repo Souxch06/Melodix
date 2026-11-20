@@ -58,6 +58,16 @@ class TestRefresh(unittest.TestCase):
  def test_no_change_to_protected_and_input(self):
   if not INPUT:self.skipTest('input only')
   orig=(ROOT/refresh.ACTIVITY).read_text();new=self.get(refresh.ACTIVITY)
-  for name in ('onNativeLibraryClick','onNativePlayPauseClick','onNativeBackClick','setNativeScreen','applyNativeUiData'):
+  for name in ('onNativeLibraryClick','onNativePlayPauseClick','onNativeBackClick','setNativeScreen'):
    self.assertEqual(body(orig,name),body(new,name))
+  # applyNativeUiData: only the identical-Home early exit (1022321) may be added; nothing else changes.
+  skip='''    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeJson:Ljava/lang/String;
+    invoke-virtual {p2, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v2
+    if-eqz v2, :glass_home_changed
+    return-void
+    :glass_home_changed
+'''
+  data=body(new,'applyNativeUiData');self.assertEqual(data.count(skip),1)
+  self.assertEqual(body(orig,'applyNativeUiData'),data.replace(skip,''))
 if __name__=='__main__':unittest.main(verbosity=2)
