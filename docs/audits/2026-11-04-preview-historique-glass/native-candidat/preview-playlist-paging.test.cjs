@@ -38,5 +38,8 @@ test('a late shorter bridge reply is replaced by the full list (user report 1022
  assert.equal(x.sent.length,before+1);assert.equal(x.sent.at(-1)[1].length,48,'never back to 26');
  x.w.AndBridge.onMediaItemsLoaded('spotify:playlist:P1',JSON.stringify(Array.from({length:48},(_,i)=>({id:'spotify:track:t'+i,artists:['A']}))));
  assert.deepEqual(x.sent.at(-1)[1][0].artists,['A • 3:24'],'same count still gets the full list (every artist, 1022324)');
+ x.w.AndBridge.onMediaItemsLoaded('spotify:playlist:P1','not json');assert.equal(x.sent.at(-1)[1].length,48,'odd reply never blanks rows (1022326)');
+ x.w.AndBridge.onMediaItemsLoaded('spotify:playlist:P1',JSON.stringify(Array.from({length:60},(_,i)=>({id:'x'+i}))));assert.equal(x.sent.at(-1)[1].length,48,'longer reply never swaps rows');
+ const n=x.sent.length;x.timers.forEach(f=>f());assert.equal(x.sent.length,n,'resend of the list already shown does not redraw');
  x.w.AndBridge.onMediaItemsLoaded('spotify:playlist:Other',JSON.stringify([{id:'a'}]));assert.equal(x.sent.at(-1)[1].length,1,'other playlists untouched');
 });

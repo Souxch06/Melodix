@@ -1,7 +1,7 @@
     // User-approved (after Preview 1022239): the protected bridge reads only the
     // first 100 tracks of a playlist (sometimes fewer). Read every page the same way and hand the
     // full list to the bridge's own native callback. Token used as a header only.
-    var previewPages = {gen: 0, full: {}};
+    var previewPages = {gen: 0, full: {}, last: {}};
     // User report (1022315): a late, shorter bridge reply still cut the list to 26 for up to 15 s.
     // Guard the native callback: for a playlist whose full list is known, a shorter reply is
     // replaced by the full list at once. The bridge object itself is untouched (proxy around it).
@@ -11,11 +11,9 @@
         try {
             var guarded = function(uri, json) {
                 var full = previewPages.full[uri];
-                if (full && full.length) {
-                    var n = -1; try { var a = JSON.parse(json); n = Array.isArray(a) ? a.length : -1; } catch (_) {}
-                    // Same count too: DOM rows keep only the first artist, the full list has all of them (1022324).
-                    if (n >= 0 && n <= full.length) json = JSON.stringify(full);
-                }
+                // Known full list: every reply for this playlist shows it, so rows never jump (1022324/1022326).
+                if (full && full.length) json = JSON.stringify(full);
+                previewPages.last[uri] = json;
                 return real.onMediaItemsLoaded(uri, json);
             };
             window.AndBridge = new window.Proxy(real, {get: function(t, k) {
@@ -34,6 +32,8 @@
         function live() { return gen === previewPages.gen && window.__sfNativeCollectionUri === uri; }
         function deliver() {
             if (all.length && live()) previewPages.full[uri] = all;
+            // Already showing this exact list: a resend would only redraw it (blink).
+            if (previewPages.last[uri] === JSON.stringify(all)) return;
             try { if (all.length && live() && window.AndBridge && typeof window.AndBridge.onMediaItemsLoaded === 'function') window.AndBridge.onMediaItemsLoaded(uri, JSON.stringify(all)); } catch (_) {}
         }
         function page() {
