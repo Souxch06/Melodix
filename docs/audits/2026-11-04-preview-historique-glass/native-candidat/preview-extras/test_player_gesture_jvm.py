@@ -56,6 +56,7 @@ public class GestureHarness {
 import java.util.ArrayList;
 public class PreviewPlayerChrome extends PreviewPlayerChromeView {
  Bitmap previousScreen;
+ void realPixels(Activity a,View r,int w,int h,Bitmap b){} // real-pixel copy runs on device only (PixelCopy)
  static class Build {static class VERSION {static int SDK_INT=30;}}
  static class ValueAnimator {static boolean enabled=true;static boolean areAnimatorsEnabled(){return enabled;}}
  static class Bitmap {static class Config {static int ARGB_8888;} int w,h;static Bitmap createBitmap(int w,int h,int c){Bitmap b=new Bitmap();b.w=w;b.h=h;return b;}}

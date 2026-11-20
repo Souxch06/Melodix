@@ -119,14 +119,7 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
             float scale=Math.min(1f,(float)Math.sqrt(1200000.0/((double)width*height)));
             Bitmap bmp=Bitmap.createBitmap(Math.max(1,(int)(width*scale)),Math.max(1,(int)(height*scale)),Bitmap.Config.ARGB_8888);
             Canvas c=new Canvas(bmp);c.scale(scale,scale);drawNativeSnapshot(a,r,c);chrome.previousScreen=bmp;
-            // User report (1022333): the drawn copy lost rounded and cropped images. Replace it with the real screen pixels.
-            if(Build.VERSION.SDK_INT>=26){
-                int[] at=new int[2];r.getLocationInWindow(at);
-                final Bitmap real=Bitmap.createBitmap(bmp.getWidth(),bmp.getHeight(),Bitmap.Config.ARGB_8888);final PreviewPlayerChrome target=chrome;
-                android.view.PixelCopy.request(a.getWindow(),new Rect(at[0],at[1],at[0]+width,at[1]+height),real,new android.view.PixelCopy.OnPixelCopyFinishedListener(){
-                    public void onPixelCopyFinished(int result){if(result==android.view.PixelCopy.SUCCESS && target.previousScreen!=null)target.useScreen(real);else real.recycle();}
-                },new android.os.Handler(android.os.Looper.getMainLooper()));
-            }
+            chrome.realPixels(a,r,width,height,bmp);
         }catch(RuntimeException ignored){chrome.previousScreen=null;}catch(OutOfMemoryError ignored){chrome.previousScreen=null;}
     }
     /** Sample only the native drawable already shown, never the WebView. */
@@ -232,6 +225,18 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         chromeApplied=true;
     }
     // The real pixels arrive a frame later; swap them in if the copy is already shown behind the player.
+    // User report (1022333): the drawn copy lost rounded and cropped images. Replace it with the real screen pixels.
+    private void realPixels(Activity a,View r,int width,int height,Bitmap bmp){
+        if(Build.VERSION.SDK_INT<26)return;
+        try{
+                int[] at=new int[2];r.getLocationInWindow(at);
+                final Bitmap real=Bitmap.createBitmap(bmp.getWidth(),bmp.getHeight(),Bitmap.Config.ARGB_8888);final PreviewPlayerChrome target=this;
+                android.view.PixelCopy.request(a.getWindow(),new Rect(at[0],at[1],at[0]+width,at[1]+height),real,new android.view.PixelCopy.OnPixelCopyFinishedListener(){
+                    public void onPixelCopyFinished(int result){if(result==android.view.PixelCopy.SUCCESS && target.previousScreen!=null)target.useScreen(real);else real.recycle();}
+                },new android.os.Handler(android.os.Looper.getMainLooper()));
+            
+        }catch(RuntimeException ignored){}catch(OutOfMemoryError ignored){}
+    }
     private void useScreen(Bitmap real){
         boolean shown=chromeApplied && root!=null && backdrop!=null && root.getBackground()==backdrop;
         previousScreen=real;
