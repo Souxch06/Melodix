@@ -36,5 +36,7 @@ test('a late shorter bridge reply is replaced by the full list (user report 1022
  const before=x.sent.length;assert.equal(x.sent.at(-1)[1].length,48);
  x.w.AndBridge.onMediaItemsLoaded('spotify:playlist:P1',JSON.stringify(Array.from({length:26},(_,i)=>({id:'spotify:track:t'+i}))));
  assert.equal(x.sent.length,before+1);assert.equal(x.sent.at(-1)[1].length,48,'never back to 26');
+ x.w.AndBridge.onMediaItemsLoaded('spotify:playlist:P1',JSON.stringify(Array.from({length:48},(_,i)=>({id:'spotify:track:t'+i,artists:['A']}))));
+ assert.deepEqual(x.sent.at(-1)[1][0].artists,['A • 3:24'],'same count still gets the full list (every artist, 1022324)');
  x.w.AndBridge.onMediaItemsLoaded('spotify:playlist:Other',JSON.stringify([{id:'a'}]));assert.equal(x.sent.at(-1)[1].length,1,'other playlists untouched');
 });

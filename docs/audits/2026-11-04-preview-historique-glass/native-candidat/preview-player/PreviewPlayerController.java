@@ -145,6 +145,8 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     // when the legacy player feed reports a different visible title.
     private boolean tupleIdentity, traceScheduled;
     private String identityTitle = "", identityArtist = "", playbackState = "unknown";
+    // User report (1022324): the legacy feed lists every artist ("A, B"), the tuple only "A"; show the full list.
+    private String fullArtist = "";
     private long identityDuration = -1, measurementAt = -1, measurementPosition = -1;
     private final String[] trace = new String[120];
     private int traceCount, traceIndex;
@@ -443,6 +445,10 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         long seconds = Math.max(0, ms / 1000), s = seconds % 60, m = (seconds / 60) % 60, h = seconds / 3600;
         return h > 0 ? String.format(Locale.ROOT, "%d:%02d:%02d", h, m, s) : String.format(Locale.ROOT, "%d:%02d", m, s);
     }
+    private static void setIfDifferent(Activity a, int id, String value) {
+        View v = a.findViewById(id);
+        if (v instanceof TextView && !((TextView) v).getText().toString().equals(value)) ((TextView) v).setText(value);
+    }
     private static void keepText(Activity a, int id, String value) {
         View v = a.findViewById(id);
         if (v instanceof TextView && realMetadata(value) && ((TextView) v).getText().toString().trim().isEmpty()) ((TextView) v).setText(value);
@@ -465,7 +471,8 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         Activity a = activity.get(); if (a == null) return;
         // User report (1022298): a like briefly blanks the page's artist, and the legacy
         // callback copied that blank into the player. Keep the known identity visible.
-        if (tupleIdentity) { keepText(a, 0x7f090236, identityTitle); keepText(a, 0x7f09023b, identityTitle); keepText(a, 0x7f090237, identityArtist); keepText(a, 0x7f09023c, identityArtist); }
+        if (tupleIdentity) { keepText(a, 0x7f090236, identityTitle); keepText(a, 0x7f09023b, identityTitle); keepText(a, 0x7f090237, identityArtist); keepText(a, 0x7f09023c, identityArtist);
+            if (fullArtist.length() > identityArtist.length() && sameArtists(identityArtist, fullArtist)) { setIfDifferent(a, 0x7f090237, fullArtist); setIfDifferent(a, 0x7f09023c, fullArtist); } }
         double pos = position(now());
         if (Double.isNaN(pos) && lastShownAt >= 0 && now() - lastShownAt < HOLD_DISPLAY_MS) return;
         if (Double.isNaN(pos)) {
@@ -660,8 +667,8 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 // the first one ("A"): that is the same track, not a change.
                 if (tupleIdentity && realMetadata(title) && realMetadata(artist) && (!identityTitle.equals(title) || !sameArtists(identityArtist, artist))) {
                     cancelSeek(); valid = false; moving = false; tupleIdentity = false; glowSampleValid = false;
-                    measurementAt = measurementPosition = -1; lastShownAt = -1;
-                }
+                    measurementAt = measurementPosition = -1; lastShownAt = -1; fullArtist = "";
+                } else if (tupleIdentity && identityTitle.equals(title) && sameArtists(identityArtist, artist)) fullArtist = artist;
                 renderProgress(); renderButtons(); syncGlow();
                 return;
             }
@@ -750,7 +757,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 valid = false; moving = false; previous = Double.NaN; resyncing = false;
                 resetDivergence(); measurementAt = measurementPosition = -1;
                 // Same title and artist (only the reported duration moved): keep the display hold.
-                if (!identityTitle.equals(title) || !identityArtist.equals(artist)) lastShownAt = -1;
+                if (!identityTitle.equals(title) || !identityArtist.equals(artist)) { lastShownAt = -1; fullArtist = ""; }
             }
             if (identified) { identityTitle = title; identityArtist = artist; identityDuration = dur; tupleIdentity = true; }
             if (!uri.isEmpty() || changed) track = uri;

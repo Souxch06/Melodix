@@ -241,10 +241,12 @@ public class ControllerTest {
   }
   { // Pause bug: the legacy callback lists all artists; same track, the time must stay.
    Activity h=new Activity(); ProgressBar hm=new ProgressBar(); SeekBar hf=new SeekBar(); TextView he=new TextView(),hd=new TextView();
-   h.views.put(0x7f09024d,hm);h.views.put(0x7f09023d,hf);h.views.put(0x7f09024a,he);h.views.put(0x7f09024b,hd);h.views.put(0x7f090238,new ImageView());h.views.put(0x7f09023e,new ImageView());h.views.put(0x7f09023a,new View());
+   h.views.put(0x7f09024d,hm);h.views.put(0x7f09023d,hf);h.views.put(0x7f09024a,he);h.views.put(0x7f09024b,hd);h.views.put(0x7f090238,new ImageView());h.views.put(0x7f09023e,new ImageView());h.views.put(0x7f09023a,new View());TextView ma=new TextView(),fa=new TextView();h.views.put(0x7f090237,ma);h.views.put(0x7f09023c,fa);
    PreviewPlayerController g=new PreviewPlayerController(h);g.activityResumed();
    g.snapshot(sample("Song","Main",60000,180000,"paused",""));Choreographer.frame();String shown=he.text;yes(!shown.equals("-:--"));
    SystemClock.time+=7000;g.snapshot("track=Song;artist=Main, Guest;playing=false");Choreographer.frame();yes(he.text.equals(shown));yes(hm.progress>0);
+   // 1022324: the tuple feed ("Main") must not wipe the second artist again.
+   ma.text="Main";fa.text="Main";g.snapshot(sample("Song","Main",61000,180000,"paused",""));Choreographer.frame();yes(ma.text.equals("Main, Guest"));yes(fa.text.equals("Main, Guest"));
    g.snapshot("track=Other;artist=Main, Guest;playing=false");Choreographer.frame();yes(he.text.equals("-:--"));
    yes(PreviewPlayerController.sameArtists("A","A, B"));yes(!PreviewPlayerController.sameArtists("A","AB"));yes(!PreviewPlayerController.sameArtists("A","C, A"));
   }

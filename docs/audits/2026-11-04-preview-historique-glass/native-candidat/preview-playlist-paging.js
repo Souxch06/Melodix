@@ -13,7 +13,8 @@
                 var full = previewPages.full[uri];
                 if (full && full.length) {
                     var n = -1; try { var a = JSON.parse(json); n = Array.isArray(a) ? a.length : -1; } catch (_) {}
-                    if (n >= 0 && n < full.length) json = JSON.stringify(full);
+                    // Same count too: DOM rows keep only the first artist, the full list has all of them (1022324).
+                    if (n >= 0 && n <= full.length) json = JSON.stringify(full);
                 }
                 return real.onMediaItemsLoaded(uri, json);
             };
