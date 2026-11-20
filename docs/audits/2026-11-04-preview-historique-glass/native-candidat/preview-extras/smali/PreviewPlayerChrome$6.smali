@@ -43,7 +43,7 @@
         }
     .end annotation
 
-    .line 607
+    .line 620
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerChrome$6;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerChrome$6;->val$p:Landroid/view/View;
@@ -58,7 +58,7 @@
 .method public run()V
     .locals 2
 
-    .line 607
+    .line 620
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$6;->val$p:Landroid/view/View;
 
     invoke-virtual {v0}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;

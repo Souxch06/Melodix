@@ -532,6 +532,9 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
     private boolean shellStyled;
     private void styleShell(Activity a){
         if(shellStyled)return;shellStyled=true;
+        // UI UX Pro Max: touch targets >= 48dp. The icon keeps its size (extra padding), only the hit area grows.
+        View miniCard=a.findViewById(0x7f09024c);if(miniCard instanceof ViewGroup)grow((ViewGroup)miniCard,0);
+        for(String n:new String[]{"nativePlayerShuffleButton","nativePlayerRepeatButton","btnSettings"}){int id=a.getResources().getIdentifier(n,"id",a.getPackageName());View v=id==0?null:a.findViewById(id);if(v instanceof ImageView)grow48(v);}
         // User request (1022336): prettier mini bar, never touching the card edges.
         View mini=a.findViewById(0x7f09024d);
         if(mini instanceof android.widget.ProgressBar){
@@ -555,6 +558,16 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
             for(int k=0;k<nav.getChildCount();k++){ViewGroup.LayoutParams tp=nav.getChildAt(k).getLayoutParams();
                 if(tp instanceof ViewGroup.MarginLayoutParams){((ViewGroup.MarginLayoutParams)tp).leftMargin=((ViewGroup.MarginLayoutParams)tp).rightMargin=dp(3);nav.getChildAt(k).setLayoutParams(tp);}}
         }
+    }
+    private void grow(ViewGroup g,int depth){
+        for(int i=0;i<g.getChildCount()&&depth<4;i++){View c=g.getChildAt(i);
+            if(c instanceof ImageView&&c.isClickable())grow48(c);else if(c instanceof ViewGroup)grow((ViewGroup)c,depth+1);}
+    }
+    private void grow48(View v){
+        ViewGroup.LayoutParams p=v.getLayoutParams();if(p==null||p.width<=0||p.height<=0||p.width>=dp(48)||p.height>=dp(48))return;
+        int dx=(dp(48)-p.width)/2,dy=(dp(48)-p.height)/2;
+        v.setPadding(v.getPaddingLeft()+dx,v.getPaddingTop()+dy,v.getPaddingRight()+dx,v.getPaddingBottom()+dy);
+        p.width=dp(48);p.height=dp(48);v.setLayoutParams(p);
     }
     private void stylePlay(Activity a){
         if(playStyled)return;
