@@ -526,19 +526,35 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
                 Drawable done=layers.findDrawableByLayerId(android.R.id.progress);if(done!=null)done.setTint(0xffffffff);
             }
         }
-        // User report (1022332): the mini player bar looked odd. Thin rounded track, inset from the card edges.
+        setupDone=true;
+    }
+    // Mini bar and bottom bar: styled once at launch, not only when the full player opens.
+    private boolean shellStyled;
+    private void styleShell(Activity a){
+        if(shellStyled)return;shellStyled=true;
+        // User request (1022336): prettier mini bar, never touching the card edges.
         View mini=a.findViewById(0x7f09024d);
         if(mini instanceof android.widget.ProgressBar){
             android.widget.ProgressBar mp=(android.widget.ProgressBar)mini;
-            GradientDrawable mBack=new GradientDrawable();mBack.setColor(0x26ffffff);mBack.setCornerRadius(dp(2));
-            GradientDrawable mFill=new GradientDrawable();mFill.setColor(0xfff5f5f7);mFill.setCornerRadius(dp(2));
+            GradientDrawable mBack=new GradientDrawable();mBack.setColor(0x1fffffff);mBack.setCornerRadius(dp(3));
+            GradientDrawable mFill=new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,new int[]{0xb3ffffff,0xffffffff});mFill.setCornerRadius(dp(3));
             LayerDrawable mBar=new LayerDrawable(new Drawable[]{mBack,new android.graphics.drawable.ClipDrawable(mFill,android.view.Gravity.START,android.graphics.drawable.ClipDrawable.HORIZONTAL)});
             mBar.setId(0,android.R.id.background);mBar.setId(1,android.R.id.progress);
             mp.setProgressTintList(null);mp.setProgressBackgroundTintList(null);mp.setProgressDrawable(mBar);
             ViewGroup.LayoutParams mlp=mp.getLayoutParams();
-            if(mlp!=null){mlp.height=dp(3);if(mlp instanceof ViewGroup.MarginLayoutParams){ViewGroup.MarginLayoutParams mm=(ViewGroup.MarginLayoutParams)mlp;mm.leftMargin=mm.rightMargin=dp(22);}mp.setLayoutParams(mlp);}
+            if(mlp!=null){mlp.height=dp(4);if(mlp instanceof ViewGroup.MarginLayoutParams){ViewGroup.MarginLayoutParams mm=(ViewGroup.MarginLayoutParams)mlp;mm.leftMargin=mm.rightMargin=dp(20);mm.bottomMargin=dp(8);}mp.setLayoutParams(mlp);}
         }
-        setupDone=true;
+        // User request (1022336): glass bottom bar, darker behind the tabs; the active bubble touches no edge.
+        int homeTab=a.getResources().getIdentifier("nativeHomeTab","id",a.getPackageName());
+        View tab=homeTab==0?null:a.findViewById(homeTab);
+        if(tab!=null && tab.getParent() instanceof ViewGroup){
+            ViewGroup nav=(ViewGroup)tab.getParent();
+            GradientDrawable navGlass=new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,new int[]{0xf21c1c20,0xf20c0c0e});
+            navGlass.setCornerRadius(dp(40));navGlass.setStroke(Math.max(1,dp(1)/2),0x33ffffff);
+            nav.setBackground(navGlass);nav.setPadding(dp(7),dp(7),dp(7),dp(7));
+            for(int k=0;k<nav.getChildCount();k++){ViewGroup.LayoutParams tp=nav.getChildAt(k).getLayoutParams();
+                if(tp instanceof ViewGroup.MarginLayoutParams){((ViewGroup.MarginLayoutParams)tp).leftMargin=((ViewGroup.MarginLayoutParams)tp).rightMargin=dp(3);nav.getChildAt(k).setLayoutParams(tp);}}
+        }
     }
     private void stylePlay(Activity a){
         if(playStyled)return;
@@ -573,6 +589,7 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         if(c.width!=side || c.height!=side){c.width=side;c.height=side;card.setLayoutParams(c);}
     }
     private void sync(){
+        if(!shellStyled){Activity sa=activity();if(sa!=null)try{styleShell(sa);}catch(RuntimeException ignored){}}
         if(!playerVisible()){state="non affiché";
             if(closing){closing=false;View p=activity()==null?null:activity().findViewById(0x7f09023a);if(p!=null){p.animate().cancel();p.setTranslationY(0f);p.setAlpha(1f);}}
             if(wasVisible && getParent() instanceof View){View content=(View)getParent();content.animate().cancel();content.setAlpha(1f);content.setTranslationY(0f);}

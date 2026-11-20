@@ -13,6 +13,8 @@
                 var full = previewPages.full[uri];
                 // Known full list: every reply for this playlist shows it, so rows never jump (1022324/1022326).
                 if (full && full.length) json = JSON.stringify(full);
+                // User report (1022336): the list went empty. An empty reply never replaces shown rows.
+                else if (/^\s*\[\s*\]\s*$/.test(String(json)) && previewPages.last[uri] && previewPages.last[uri].length > 2) return;
                 previewPages.last[uri] = json;
                 return real.onMediaItemsLoaded(uri, json);
             };
