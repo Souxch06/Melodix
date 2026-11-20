@@ -11,7 +11,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 SOURCE = HERE / 'preview-player' / 'PreviewPlayerController.java'
 STORE_SOURCE = HERE / 'preview-player' / 'PreviewLastTrackStore.java'
-STORE_SOURCE_SHA = '980e3fbdbb731d2157f04d4f3ff279545075c23aeb4f8c6d2c085736294a4f58'
+STORE_SOURCE_SHA = '194662c8da926900bfe3aa4695121b19248f431f31e4a7ff343be374fa99a082'
 EXPECTED = {
     'assets/native_ui_shell.js': '7b171ed4773c34571cd5bc4974f764d303edb300f49f13bbdf5f6f3940d84004',
     'smali/com/melodix/music/MainActivity.smali': 'dd14f96c2e3143b1e015e58a4c881911147e8312df1938a59e7ba3fa1b9a6f53',
