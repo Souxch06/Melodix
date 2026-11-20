@@ -47,7 +47,7 @@
         }
     .end annotation
 
-    .line 994
+    .line 1000
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerController$8;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerController$8;->val$a:Landroid/app/Activity;
@@ -64,7 +64,7 @@
 .method public onClick(Landroid/content/DialogInterface;I)V
     .locals 1
 
-    .line 996
+    .line 1002
     iget-object p1, p0, Lcom/melodix/music/PreviewPlayerController$8;->val$a:Landroid/app/Activity;
 
     const-string p2, "clipboard"
@@ -73,7 +73,7 @@
 
     move-result-object p1
 
-    .line 997
+    .line 1003
     instance-of p2, p1, Landroid/content/ClipboardManager;
 
     if-eqz p2, :cond_0
@@ -90,7 +90,7 @@
 
     invoke-virtual {p1, p2}, Landroid/content/ClipboardManager;->setPrimaryClip(Landroid/content/ClipData;)V
 
-    .line 998
+    .line 1004
     :cond_0
     return-void
 .end method

@@ -153,7 +153,8 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     private int returnEventIndex, returnEventCount, returnSecondCount;
     private long absenceAt = -1, absenceDuration = -1, returnAt = -1;
     private boolean interrupted, resyncing;
-    private long bgPos = -1, bgAt = -1; private boolean bgPlaying;
+    // Static: an activity recreated while in the background still gets the last reading.
+    private static long bgPos = -1, bgAt = -1; private static boolean bgPlaying; private static String bgJson;
     private double frozenPosition;
     private long divergentSince = -1, divergentLastAt = -1;
     private int divergentCount, divergentSign;
@@ -503,14 +504,18 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         long t = now();
         absenceDuration = absenceAt < 0 ? -1 : Math.max(0, t - absenceAt);
         returnAt = t; returnSecondCount = 0;
-        // Same track seen playing in the background less than 2.5 s ago: show it playing at once.
-        if (interrupted && bgPlaying && bgAt >= 0 && t - bgAt < 2500 && tupleIdentity) {
+        boolean fresh = bgAt >= 0 && t - bgAt < 2500;
+        // Replay that reading first: a track changed in the background is shown before the first frame.
+        if (fresh && bgJson != null) { String j = bgJson; bgJson = null; foreground = true; snapshot(j); }
+        // Seen playing in the background less than 2.5 s ago: show it playing at once.
+        if (interrupted && bgPlaying && fresh && tupleIdentity) {
             interrupted = false; resyncing = false; resetDivergence();
             base = frozenPosition = bgPos + (t - bgAt); anchor = t; correction = 0;
             playbackState = "playing"; realPlaying = shownPlaying = true; moving = true; haveReal = true;
+            valid = true; duration = identityDuration;
             recordReturn("retour : lecture observée en arrière-plan il y a " + (t - bgAt) + " ms ; affichée à l'instant");
         }
-        bgAt = -1;
+        bgAt = -1; bgJson = null;
         foreground = true; foregroundSince = now(); renderProgress(); renderButtons(); syncGlow(); scheduleFrame(); scheduleTrace();
         recordReturn("onResume ; absence=" + (absenceDuration < 0 ? "inconnue" : absenceDuration + " ms"));
     }
@@ -679,9 +684,10 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             if (!foreground) {
                 // Remember the last fresh background reading of the same track (user report 1022317:
                 // the button stayed on Play ~2 s after coming back while the sound kept going).
-                if (snapshotValid && identified && !changed && age >= 0 && age < MAX_OBSERVATION_AGE_MS) {
-                    bgPos = pos; bgAt = t; bgPlaying = real;
-                } else bgAt = -1;
+                // Also keep it when the track changed meanwhile (user report 1022318: the old title showed for a frame).
+                if (snapshotValid && identified && age >= 0 && age < MAX_OBSERVATION_AGE_MS) {
+                    bgPos = pos; bgAt = t; bgPlaying = real; bgJson = json;
+                } else { bgAt = -1; bgJson = null; }
                 recordReturn("mesure=" + pos + " ms ; âge observation=" + (age < 0 ? "inconnu" : age + " ms") +
                     " ; source=" + progressSource + " ; état page=" + pageState + " ; rejetée : arrière-plan ; signal audio natif=non lu");
                 return;

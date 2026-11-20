@@ -35,7 +35,7 @@
         }
     .end annotation
 
-    .line 578
+    .line 583
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerController$4;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -48,7 +48,7 @@
 .method public run()V
     .locals 4
 
-    .line 581
+    .line 586
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$4;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$1800(Lcom/melodix/music/PreviewPlayerController;)Ljava/lang/ref/WeakReference;
@@ -65,7 +65,7 @@
 
     return-void
 
-    .line 582
+    .line 587
     :cond_0
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$4;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
@@ -89,7 +89,7 @@
     :goto_0
     iput-boolean v1, p0, Lcom/melodix/music/PreviewPlayerController$4;->dim:Z
 
-    .line 583
+    .line 588
     iget-boolean v1, p0, Lcom/melodix/music/PreviewPlayerController$4;->dim:Z
 
     if-eqz v1, :cond_2
@@ -101,7 +101,7 @@
     :cond_2
     const/high16 v1, 0x3f800000    # 1.0f
 
-    .line 584
+    .line 589
     :goto_1
     const v2, 0x7f090238
 
@@ -115,18 +115,18 @@
 
     move-result-object v0
 
-    .line 585
+    .line 590
     if-eqz v2, :cond_3
 
     invoke-virtual {v2, v1}, Landroid/view/View;->setAlpha(F)V
 
-    .line 586
+    .line 591
     :cond_3
     if-eqz v0, :cond_4
 
     invoke-virtual {v0, v1}, Landroid/view/View;->setAlpha(F)V
 
-    .line 587
+    .line 592
     :cond_4
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$4;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
@@ -146,7 +146,7 @@
 
     invoke-virtual {v0, p0, v1, v2}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
 
-    .line 588
+    .line 593
     :cond_5
     return-void
 .end method

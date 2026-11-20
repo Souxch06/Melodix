@@ -148,6 +148,11 @@ public class ControllerTest {
    back.snapshot(sample("Back","Artist",100000,1000000,"playing","")+";previewProgressSource=range");back.activityPaused();back.activityStopped();
    SystemClock.time+=6000;back.snapshot(sample("Back","Artist",106000,1000000,"playing",""));SystemClock.time+=500;back.activityStarted();back.activityResumed();
    yes(elapsed.text.equals("1:46"));yes(b2.image!=0x7f080122);}
+  // User report 1022318: the track changed in the background; on return the new one is shown at once (no old-title frame).
+  {saved.setBoolean(null,false);SystemClock.time+=1000000;PreviewPlayerController back=new PreviewPlayerController(a);back.activityStarted();back.activityResumed();
+   back.snapshot(sample("Old","Artist",100000,1000000,"playing","")+";previewProgressSource=range");back.activityPaused();back.activityStopped();
+   SystemClock.time+=6000;back.snapshot(sample("New","Artist",5000,200000,"playing",""));SystemClock.time+=500;back.activityStarted();back.activityResumed();
+   yes(elapsed.text.equals("0:05"));yes(b2.image!=0x7f080122);}
   // Paused in the background: still Play after return.
   {saved.setBoolean(null,false);SystemClock.time+=1000000;PreviewPlayerController back=new PreviewPlayerController(a);back.activityStarted();back.activityResumed();
    back.snapshot(sample("Back2","Artist",100000,1000000,"playing","")+";previewProgressSource=range");back.activityPaused();back.activityStopped();
