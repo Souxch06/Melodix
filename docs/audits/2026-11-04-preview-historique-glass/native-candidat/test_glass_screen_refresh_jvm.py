@@ -4,7 +4,7 @@ import os,subprocess,tempfile
 from pathlib import Path
 HERE=Path(__file__).resolve().parent
 STUBS={
-'android/content/Context.java':'''package android.content; public class Context { public android.content.res.Resources getResources(){return new android.content.res.Resources();} }''',
+'android/content/Context.java':'''package android.content; public class Context { public static java.io.File files; public android.content.res.Resources getResources(){return new android.content.res.Resources();} public java.io.File getFilesDir(){if(files==null)try{files=java.nio.file.Files.createTempDirectory("home").toFile();}catch(Exception e){throw new RuntimeException(e);}return files;} }''',
 'android/app/Activity.java':'''package android.app; public class Activity extends android.content.Context {}''',
 'android/util/DisplayMetrics.java':'''package android.util; public class DisplayMetrics {public float density=1;}''',
 'android/content/res/Resources.java':'''package android.content.res; public class Resources {public android.util.DisplayMetrics getDisplayMetrics(){return new android.util.DisplayMetrics();}}''',
@@ -34,6 +34,7 @@ public class RefreshTest{
  static void yes(boolean b){if(!b)throw new AssertionError();}
  static boolean hasText(View v,String s){if(v instanceof TextView&&((TextView)v).getText().toString().equals(s))return true;if(v instanceof ViewGroup){ViewGroup g=(ViewGroup)v;for(int i=0;i<g.getChildCount();i++)if(hasText(g.getChildAt(i),s))return true;}return false;}
  static LinearLayout group(Activity a){return new LinearLayout(a);}
+ static class HomeAct extends Activity{private String nativeHomeJson;String applied;public void applyNativeUiData(String k,String j){if("home".equals(k)){applied=j;nativeHomeJson=j;}}}
  public static void main(String[] args){
   Activity a=new Activity(); LinearLayout root=group(a), rows=group(a), setting=group(a),label=group(a);root.addView(rows);rows.addView(setting);
   TextView title=new TextView(a);title.setText("Vider le cache");label.addView(title);TextView sub=new TextView(a);sub.setText("Effacer le cache");label.addView(sub);setting.addView(label);TextView value=new TextView(a);value.setText("Vider");setting.addView(value);setting.setClickable(true);
@@ -84,6 +85,11 @@ public class RefreshTest{
   LinearLayout sroot=group(a),srows=group(a);sroot.addView(srows);TextView sth=new TextView(a);sth.setText("Titres");srows.addView(sth);LinearLayout srow=group(a);srow.setClickable(true);srow.addView(new ImageView(a));LinearLayout scol=group(a);TextView s1=new TextView(a);s1.setText("Love Sosa");scol.addView(s1);TextView s2=new TextView(a);s2.setText("Chief Keef • 4:06");scol.addView(s2);srow.addView(scol);srows.addView(srow);
   GlassScreenStyler.style(a,sroot,"search","","Rechercher");yes(hasText(srow,"4:06"));yes(hasText(srow,"Chief Keef"));yes(srow.isClickable());
   yes(GlassScreenStyler.genreQuery("Pop").equals("genre:\"pop\""));yes(GlassScreenStyler.genreQuery("Latino").equals("genre:\"latin\""));yes(GlassScreenStyler.genreQuery("Détente").equals("Détente"));
+  // Home local copy: saved from the live Home, shown at the next launch, forgotten on logout.
+  HomeAct live=new HomeAct();live.nativeHomeJson="[{\"title\":\"Flex\"}]";LinearLayout hc=group(a);hc.addView(group(a));GlassScreenStyler.style(live,hc,"home","","Accueil");
+  HomeAct next=new HomeAct();GlassScreenStyler.restoreHome(next);yes("[{\"title\":\"Flex\"}]".equals(next.applied));
+  HomeAct ready=new HomeAct();ready.nativeHomeJson="[]";GlassScreenStyler.restoreHome(ready);yes(ready.applied==null);
+  GlassScreenStyler.forgetHome(next);HomeAct after=new HomeAct();GlassScreenStyler.restoreHome(after);yes(after.applied==null);
   System.out.println("Glass screen JVM simulation passed");
  }
 }'''

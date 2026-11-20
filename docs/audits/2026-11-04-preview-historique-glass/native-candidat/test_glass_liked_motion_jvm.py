@@ -8,7 +8,7 @@ S=dict(STUBS)
 S.pop('com/melodix/music/RefreshTest.java'); S.pop('com/melodix/music/GlassLikedMotion.java')
 S.update({
 'android/app/Activity.java':'''package android.app; public class Activity extends android.content.Context {public android.view.View scroll; public android.view.View findViewById(int id){return scroll;}}''',
-'android/content/Context.java':'''package android.content; public class Context { public android.content.res.Resources getResources(){return new android.content.res.Resources();}public ContentResolver getContentResolver(){return new ContentResolver();} }''',
+'android/content/Context.java':'''package android.content; public class Context { public android.content.res.Resources getResources(){return new android.content.res.Resources();}public ContentResolver getContentResolver(){return new ContentResolver();}public java.io.File getFilesDir(){return new java.io.File(System.getProperty("java.io.tmpdir"));} }''',
 'android/content/ContentResolver.java':'''package android.content; public class ContentResolver {}''',
 'android/provider/Settings.java':'''package android.provider;public class Settings {public static class Global{public static float scale=1; public static float getFloat(android.content.ContentResolver r,String key,float d){return scale;}}}''',
 'android/animation/ValueAnimator.java':'''package android.animation; public class ValueAnimator {public static boolean enabled=true;public static boolean areAnimatorsEnabled(){return enabled;}}''',

@@ -224,12 +224,20 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             } catch (LinkageError ignored) { } catch (RuntimeException ignored) { }
         }
     }
+    /** Reflection: GlassScreenStyler is added by a later patch; absent, nothing happens. */
+    private void callStyler(String name) {
+        Activity a = activity.get(); if (a == null) return;
+        try { Class.forName("com.melodix.music.GlassScreenStyler").getMethod(name, Activity.class).invoke(null, a); }
+        catch (Throwable ignored) { }
+    }
     private boolean cacheLoading, restored, liveObserved, lastCachedHadArtwork;
     private long cacheStart = -1, cacheReadMs = -1, lastCacheWrite = -1;
     private String lastCachedIdentity = "", lastCachedState = "";
     private String cacheOutcome = "non chargé";
     // Invoked once, immediately after the real native layout has been inflated.
     public void layoutReady() {
+        // Home from the local copy at once (user request after 1022320); live Spotify data replaces it.
+        callStyler("restoreHome");
         final Activity a = activity.get(); if (a == null) return;
         cacheLoading = true; cacheStart = now();
         PreviewLastTrackStore.load(a, new PreviewLastTrackStore.Callback() {
@@ -317,6 +325,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     }
     public void clearLastTrack() {
         Activity a = activity.get(); if (a != null) PreviewLastTrackStore.clear(a);
+        callStyler("forgetHome");
         restored = cacheLoading = false; liveObserved = true;
         savedValid = savedIdentity = false; valid = tupleIdentity = false; moving = false;
         haveReal = false; playbackState = "unknown";

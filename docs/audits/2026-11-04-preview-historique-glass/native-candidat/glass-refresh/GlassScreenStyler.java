@@ -235,9 +235,32 @@ public final class GlassScreenStyler implements Runnable {
         rows.addView(head,0,new LinearLayout.LayoutParams(-1,-2));
     }
 
+    // ---- Home local copy: shown at launch before Spotify answers (private app file, display data only) ----
+    private static final String HOME_FILE="preview_home_cache.json";private static String savedHome;
+    private static String homeJson(Activity a){
+        try{java.lang.reflect.Field f=a.getClass().getDeclaredField("nativeHomeJson");f.setAccessible(true);Object v=f.get(a);return v instanceof String?(String)v:null;}
+        catch(Throwable e){return null;}
+    }
+    /** Called from home(): keeps the last live Home rows. shortcut: synchronous small write on the UI thread, move to a worker if Home grows past ~100 KB. */
+    private static void saveHome(Activity a){
+        String json=homeJson(a);if(json==null||json.length()<8||!json.startsWith("[")||json.equals(savedHome))return;
+        try{java.io.FileOutputStream o=new java.io.FileOutputStream(new java.io.File(a.getFilesDir(),HOME_FILE));try{o.write(json.getBytes("UTF-8"));}finally{o.close();}savedHome=json;}
+        catch(Throwable ignored){}
+    }
+    public static void restoreHome(Activity a){
+        if(a==null||homeJson(a)!=null)return;
+        try{java.io.File f=new java.io.File(a.getFilesDir(),HOME_FILE);if(!f.isFile()||f.length()>2000000)return;
+            byte[] b=new byte[(int)f.length()];java.io.FileInputStream in=new java.io.FileInputStream(f);try{int n=0;while(n<b.length){int r=in.read(b,n,b.length-n);if(r<0)break;n+=r;}}finally{in.close();}
+            String json=new String(b,"UTF-8");new JSONArray(json);savedHome=json;
+            a.getClass().getMethod("applyNativeUiData",String.class,String.class).invoke(a,"home",json);}
+        catch(Throwable ignored){}
+    }
+    public static void forgetHome(Activity a){savedHome=null;try{new java.io.File(a.getFilesDir(),HOME_FILE).delete();}catch(Throwable ignored){}}
+
     // ---- Home (Spotify-style): greeting, quick-access grid of the real library cards ----
     private static final String LIB="Votre bibliothèque",DISCOVER="À découvrir sur Spotify";
     private static void home(Activity a,LinearLayout content){
+        saveHome(a);
         LinearLayout feed=content.getChildCount()==1&&content.getChildAt(0) instanceof LinearLayout?(LinearLayout)content.getChildAt(0):content;
         if(feed.findViewWithTag("glass-home-head")!=null)return;
         java.util.List<View> libShelf=new java.util.ArrayList<View>();LinearLayout libCards=null;String group="";
