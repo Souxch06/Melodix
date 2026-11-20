@@ -114,9 +114,20 @@ public final class GlassScreenStyler implements Runnable {
         name.setMaxLines(3);name.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-1,-2);np.topMargin=dp(a,6);side.addView(name,np);
         // Liner hero meta: how many tracks are already shown (grows as the list completes).
-        int tracks=0;for(int i=0;i<rows.getChildCount();i++){View c=rows.getChildAt(i);if(c!=hero&&c.isClickable())tracks++;}
-        if(tracks>0){TextView meta=text(a,tracks+(tracks>1?" titres":" titre"),13,0x99ffffff,false);meta.setTag("glass-playlist-count");
-            LinearLayout.LayoutParams mp=new LinearLayout.LayoutParams(-1,-2);mp.topMargin=dp(a,8);side.addView(meta,mp);}
+        int tracks=0,secs=0;java.util.LinkedHashSet<String> artists=new java.util.LinkedHashSet<String>();
+        for(int i=0;i<rows.getChildCount();i++){View c=rows.getChildAt(i);if(c==hero||!c.isClickable())continue;tracks++;
+            java.util.List<String> t=new java.util.ArrayList<String>();texts(c,t);
+            for(String x:t){java.util.regex.Matcher m=java.util.regex.Pattern.compile("^(?:(\\d+):)?(\\d{1,2}):(\\d{2})$").matcher(x.trim());
+                if(m.find())secs+=(m.group(1)==null?0:Integer.parseInt(m.group(1))*3600)+Integer.parseInt(m.group(2))*60+Integer.parseInt(m.group(3));}
+            // Second text of a row is the artist line (first is the title).
+            if(t.size()>1&&artists.size()<3)for(String n:t.get(1).split(",")){n=n.trim();if(!n.isEmpty()&&!n.matches(".*\\d:\\d\\d.*")&&artists.size()<3)artists.add(n);}}
+        if(tracks>0){String info=tracks+(tracks>1?" titres":" titre");
+            if(secs>=60)info+=" · "+(secs>=3600?secs/3600+" h "+(secs%3600)/60+" min":secs/60+" min");
+            TextView meta=text(a,info,13,0x99ffffff,false);meta.setTag("glass-playlist-count");
+            LinearLayout.LayoutParams mp=new LinearLayout.LayoutParams(-1,-2);mp.topMargin=dp(a,8);side.addView(meta,mp);
+            if(!artists.isEmpty()){StringBuilder b=new StringBuilder("Avec ");int j=0;for(String n:artists){if(j++>0)b.append(", ");b.append(n);}
+                TextView with=text(a,b+(tracks>artists.size()?" et d'autres":""),12,0x73ffffff,false);with.setMaxLines(2);with.setEllipsize(TextUtils.TruncateAt.END);
+                LinearLayout.LayoutParams wp=new LinearLayout.LayoutParams(-1,-2);wp.topMargin=dp(a,4);side.addView(with,wp);}}
         // Liner: no section title, a hairline separates the header from the tracks.
         View line=new View(a);line.setBackgroundColor(0x14ffffff);
         LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(-1,Math.max(1,dp(a,.5f)));hp.topMargin=dp(a,20);hero.addView(line,hp);
@@ -125,6 +136,10 @@ public final class GlassScreenStyler implements Runnable {
         for(int i=1;i<rows.getChildCount();i++){View c=rows.getChildAt(i);if(!c.isClickable())continue;
             GradientDrawable mask=glass(a,0xffffffff,0xffffffff,10,0);
             c.setForeground(new android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x1fffffff),null,mask));}
+    }
+    private static void texts(View v,java.util.List<String> out){
+        if(v instanceof TextView){CharSequence c=((TextView)v).getText();if(c!=null&&c.toString().trim().length()>0)out.add(c.toString());}
+        else if(v instanceof android.view.ViewGroup){android.view.ViewGroup g=(android.view.ViewGroup)v;for(int i=0;i<g.getChildCount();i++)texts(g.getChildAt(i),out);}
     }
     // One pending cover-colour check (single helper file: no inner classes).
     private final LinearLayout waitHero;private final ImageView waitImage;private final int waitTries;

@@ -3,7 +3,28 @@
     // this device, start the current track with the page's own media muted, let it buffer,
     // pause it again and put the position back. The account volume is never touched.
     var previewPrewarm = {done: false, active: false, timer: 0};
-    function previewPrewarmMedia() { return Array.prototype.slice.call(document.querySelectorAll('video, audio')); }
+    // User report (1022305): Spotify's audio element is not always in the DOM (new Audio()),
+    // so querySelectorAll missed it: nothing was muted and the track played aloud at launch.
+    // Every element play() is called on during the warm-up is remembered and muted first.
+    previewPrewarm.seen = [];
+    function previewPrewarmMedia() {
+        var all = Array.prototype.slice.call(document.querySelectorAll('video, audio'));
+        previewPrewarm.seen.forEach(function(m) { if (all.indexOf(m) < 0) all.push(m); });
+        return all;
+    }
+    (function hookPlay() {
+        var P = window.HTMLMediaElement && window.HTMLMediaElement.prototype;
+        if (!P || P.play.__sfPrewarmHooked) return;
+        var play = P.play;
+        P.play = function() {
+            if (previewPrewarm.active || previewPrewarm.holding) {
+                try { this.muted = true; } catch (_) {}
+                if (previewPrewarm.seen.indexOf(this) < 0) previewPrewarm.seen.push(this);
+            }
+            return play.apply(this, arguments);
+        };
+        P.play.__sfPrewarmHooked = true;
+    })();
     function previewPrewarmRemote() {
         // Playback on another device: never take it over.
         if (document.querySelector('[data-testid="connect-bar"], [data-testid="connect-device-bar"], [aria-label*="Écoute sur"], [aria-label*="Listening on"]')) return true;
