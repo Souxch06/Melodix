@@ -22,7 +22,7 @@ import java.util.WeakHashMap;
 import java.util.Locale;
 
 /** Presentation only. Never starts playback or fabricates Spotify metadata. */
-public final class GlassScreenStyler implements Runnable {
+public final class GlassScreenStyler implements Runnable, android.view.ViewTreeObserver.OnGlobalLayoutListener {
     private static final WeakHashMap<Activity, Map<String,String>> artwork = new WeakHashMap<Activity, Map<String,String>>();
     private static int dp(Context c,float n) { return Math.round(n*c.getResources().getDisplayMetrics().density); }
     private static GradientDrawable glass(Context c, int start,int end,int radius,int stroke) {
@@ -179,16 +179,25 @@ public final class GlassScreenStyler implements Runnable {
     private final LinearLayout waitHero;private final ImageView waitImage;private final int waitTries;
     private GlassScreenStyler(LinearLayout h,ImageView i,int t){waitHero=h;waitImage=i;waitTries=t;scroller=null;scrollTo=0;}
     @Override public void run(){
-        if(scroller!=null){scroller.scrollTo(0,scrollTo);return;}
+        if(scroller!=null){if(scrollTo>=0)scroller.scrollTo(0,scrollTo);return;}
         if(waitImage.isAttachedToWindow()||waitTries<4)tint(waitHero,waitImage,waitTries);}
 
+    // Layout watcher (scrollTo == -1): the screen changed without a restyle, e.g. Home shown again unchanged.
+    @Override public void onGlobalLayout(){
+        if(scroller==null||scrollTo!=-1)return;String now=null;android.content.Context c=scroller.getContext();
+        try{java.lang.reflect.Field f=c.getClass().getDeclaredField("nativeCurrentScreen");f.setAccessible(true);now=(String)f.get(c);}catch(Throwable ignored){}
+        if(now!=null&&!now.equals("detail")&&!now.equals(lastScreen))keepScroll(scroller,now);
+    }
     // ---- Scroll position per screen (user report 1022315: back from a playlist landed at the bottom of Home) ----
     private final android.widget.ScrollView scroller;private final int scrollTo;
     private GlassScreenStyler(android.widget.ScrollView s,int y){waitHero=null;waitImage=null;waitTries=0;scroller=s;scrollTo=y;}
-    private static String lastScreen;private static final Map<String,Integer> scrolls=new LinkedHashMap<String,Integer>();
+    private static final java.util.WeakHashMap<View,Boolean> watched=new java.util.WeakHashMap<View,Boolean>();private static String lastScreen;private static final Map<String,Integer> scrolls=new LinkedHashMap<String,Integer>();
     private static void keepScroll(View content,String key){
         View v=content;while(v!=null&&!(v instanceof android.widget.ScrollView))v=v.getParent() instanceof View?(View)v.getParent():null;
         if(v==null||key.equals(lastScreen))return;android.widget.ScrollView sv=(android.widget.ScrollView)v;
+        // User report (1022333): back to Home from Settings kept the Settings scroll. Home may come back
+        // without being restyled, so also watch the current screen on every layout.
+        if(watched.put(sv,Boolean.TRUE)==null)sv.getViewTreeObserver().addOnGlobalLayoutListener(new GlassScreenStyler(sv,-1));
         if(lastScreen!=null){if(scrolls.size()>=32&&!scrolls.containsKey(lastScreen))scrolls.remove(scrolls.keySet().iterator().next());scrolls.put(lastScreen,sv.getScrollY());}
         lastScreen=key;
         // A playlist always opens at its top; Home / Library come back where they were left.
