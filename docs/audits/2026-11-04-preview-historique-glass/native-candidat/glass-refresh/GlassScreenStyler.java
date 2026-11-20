@@ -121,7 +121,9 @@ public final class GlassScreenStyler implements Runnable {
                 if(m.find())secs+=(m.group(1)==null?0:Integer.parseInt(m.group(1))*3600)+Integer.parseInt(m.group(2))*60+Integer.parseInt(m.group(3));}
             // Second text of a row is the artist line (first is the title).
             if(t.size()>1&&artists.size()<3)for(String n:t.get(1).split(",")){n=n.trim();if(!n.isEmpty()&&!n.matches(".*\\d:\\d\\d.*")&&artists.size()<3)artists.add(n);}}
-        if(tracks>0){String info=tracks+(tracks>1?" titres":" titre");
+        // The bridge appends an "Aperçu Spotify" row while the list may be incomplete: say "N+".
+        boolean partial=false;for(int i=0;i<rows.getChildCount();i++){java.util.List<String> t=new java.util.ArrayList<String>();texts(rows.getChildAt(i),t);if(t.contains("Aperçu Spotify")){partial=true;if(rows.getChildAt(i).isClickable())tracks--;}}
+        if(tracks>0){String info=tracks+(partial?"+":"")+(tracks>1?" titres":" titre");
             if(secs>=60)info+=" · "+(secs>=3600?secs/3600+" h "+(secs%3600)/60+" min":secs/60+" min");
             TextView meta=text(a,info,13,0x99ffffff,false);meta.setTag("glass-playlist-count");
             LinearLayout.LayoutParams mp=new LinearLayout.LayoutParams(-1,-2);mp.topMargin=dp(a,8);side.addView(meta,mp);

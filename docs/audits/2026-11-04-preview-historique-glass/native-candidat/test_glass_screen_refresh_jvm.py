@@ -47,6 +47,8 @@ public class RefreshTest{
   LinearLayout counted=new LinearLayout(a);for(int i=0;i<3;i++){LinearLayout row=new LinearLayout(a);row.setClickable(true);counted.addView(row);}GlassScreenStyler.style(a,counted,"detail","spotify:playlist:C","Compte");yes(hasText(counted,"3 titres"));
   LinearLayout rich=new LinearLayout(a);String[][] d={{"A","Nek, Zed","3:30"},{"B","Ola","4:00"},{"C","Nek","1:02:30"}};for(String[] r:d){LinearLayout row=new LinearLayout(a);row.setClickable(true);for(String x:r){TextView t=new TextView(a);t.setText(x);row.addView(t);}rich.addView(row);}
   GlassScreenStyler.style(a,rich,"detail","spotify:playlist:D","Riche");yes(hasText(rich,"3 titres · 1 h 10 min"));yes(hasText(rich,"Avec Nek, Zed, Ola"));
+  LinearLayout part=new LinearLayout(a);for(String x:new String[]{"A","B","Aperçu Spotify"}){LinearLayout row=new LinearLayout(a);row.setClickable(true);TextView t=new TextView(a);t.setText(x);row.addView(t);part.addView(row);}
+  GlassScreenStyler.style(a,part,"detail","spotify:playlist:E","Partielle");yes(hasText(part,"2+ titres"));
   LinearLayout restored=group(a),content=group(a);restored.addView(content);TextView old=new TextView(a);old.setTag("glass-old-playlist-heading");content.addView(old);TextView existing=new TextView(a);existing.setText("Titre réel");content.addView(existing);
   GlassScreenStyler.style(a,restored,"detail","spotify:playlist:A","Ma playlist");yes(old.getParent()==null);yes(hasText(restored,"Titre réel"));yes(NativeImageLoader.calls==2);
   LinearLayout liked=group(a);TextView loading=new TextView(a);loading.setText("Chargement en attente");liked.addView(loading);
