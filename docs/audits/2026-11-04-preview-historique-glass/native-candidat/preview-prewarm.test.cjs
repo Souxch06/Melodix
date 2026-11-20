@@ -15,12 +15,14 @@ function setup(opts={}){
  const run=()=>{const t=timers.shift();t.f();};
  return {w,media,calls,timers,run};
 }
+// Runs the pending settle checks: sound returns only after 4 paused readings in a row.
+function calm(x,n=4){for(let k=0;k<n;k++){const t=x.timers.filter(t=>t.ms===400||t.ms===250).pop();x.timers.splice(x.timers.indexOf(t),1);t.f();}}
 test('warm-up: muted play, pause after 3 s, position restored, then unmuted',()=>{
  const x=setup();x.run();
  assert.deepEqual(x.calls,['play']);assert.ok(x.media.every(m=>m.muted));assert.equal(x.w.__sfPrewarmActive,true);
  x.timers.find(t=>t.ms===3000).f();
  assert.deepEqual(x.calls,['play','pause','seek:42000']);assert.equal(x.w.__sfPrewarmActive,true,'still paused until the pause lands');assert.ok(x.media.every(m=>m.muted));
- x.timers.find(t=>t.ms===400).f();assert.equal(x.w.__sfPrewarmActive,false);assert.ok(x.media.every(m=>!m.muted));
+ calm(x,1);assert.ok(x.media.every(m=>m.muted),'one paused reading is not enough');calm(x,3);assert.equal(x.w.__sfPrewarmActive,false);assert.ok(x.media.every(m=>!m.muted));
 });
 test('a play tap during the warm-up keeps playing and unmutes at once',()=>{
  const x=setup();x.run();assert.equal(x.w.__sfTogglePlayback(true),true);
@@ -34,13 +36,13 @@ test('an ad (title gone) during the warm-up stops it at once and restores sound'
  let title='T';const x=setup({title:()=>title});x.run();assert.deepEqual(x.calls,['play']);
  title='';x.timers.find(t=>t.ms===250).f();
  assert.deepEqual(x.calls,['play','pause','seek:42000']);
- x.timers.find(t=>t.ms===400).f();assert.equal(x.w.__sfPrewarmActive,false);assert.ok(x.media.every(m=>!m.muted));
+ calm(x,1);assert.ok(x.media.every(m=>m.muted),'one paused reading is not enough');calm(x,3);assert.equal(x.w.__sfPrewarmActive,false);assert.ok(x.media.every(m=>!m.muted));
 });
 test('sound comes back only once the page media is really paused (user report 1022302)',()=>{
  const x=setup();x.run();x.media.forEach(m=>{m.paused=false;});
  x.timers.find(t=>t.ms===3000).f();x.timers.find(t=>t.ms===400).f();
  assert.ok(x.media.every(m=>m.muted),'still playing: stays muted');assert.deepEqual(x.calls.filter(c=>c==='pause').length,2,'pause asked again');
- x.media.forEach(m=>{m.paused=true;});x.timers.filter(t=>t.ms===250).pop().f();
+ x.media.forEach(m=>{m.paused=true;});calm(x);
  assert.ok(x.media.every(m=>!m.muted));assert.equal(x.w.__sfPrewarmActive,false);
 });
 test('page refuses to pause: stays muted until the user taps Play/Pause',()=>{
@@ -52,6 +54,6 @@ test('page refuses to pause: stays muted until the user taps Play/Pause',()=>{
 test('audio element outside the DOM is muted too (user report 1022305)',()=>{
  const x=setup({detached:true});x.run();
  assert.equal(x.w.detached.muted,true,'detached element muted before it plays');
- x.timers.find(t=>t.ms===3000).f();x.timers.find(t=>t.ms===400).f();
+ x.timers.find(t=>t.ms===3000).f();calm(x);
  assert.equal(x.w.__sfPrewarmActive,false);assert.equal(x.w.detached.muted,false,'sound back after the pause');
 });

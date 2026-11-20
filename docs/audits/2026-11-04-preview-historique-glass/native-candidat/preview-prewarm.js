@@ -49,7 +49,10 @@
             window.setTimeout(function() {
                 if (!previewPrewarm.holding) return;
                 var playing = previewPrewarmMedia().some(function(m) { return m.paused === false; });
-                if (!playing) { previewPrewarmRelease(); return; }
+                // User report (1022307): a sound blip at launch; Spotify briefly resumed right
+                // after the first paused reading. Unmute only after 4 paused readings in a row (~1 s).
+                if (!playing) { previewPrewarm.calm = (previewPrewarm.calm || 0) + 1; if (previewPrewarm.calm >= 4) { previewPrewarmRelease(); return; } settle(); return; }
+                previewPrewarm.calm = 0;
                 previewPrewarm.tries++;
                 if (previewPrewarm.tries <= 3) try { if (typeof window.actPlayPause === 'function') window.actPlayPause(false); } catch (_) {}
                 // Still playing after ~3 s: stay muted; the user's next Play/Pause tap unmutes.
