@@ -242,6 +242,10 @@ def apply(root):
     invoke-virtual {v0, v1, v2}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
     move-result-object v2
 
+    # User report (1022332): an empty cover replaced the cached launch artwork with a placeholder.
+    invoke-virtual {v2}, Ljava/lang/String;->isEmpty()Z
+    move-result v3
+    if-nez v3, :native_player_progress
     invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
     move-result-wide v4
     iget-object v3, p0, Lcom/melodix/music/MainActivity;->nativePreviewArtworkUrl:Ljava/lang/String;
@@ -260,6 +264,9 @@ def apply(root):
     iput-object v2, p0, Lcom/melodix/music/MainActivity;->nativePreviewArtworkUrl:Ljava/lang/String;
     iput-wide v4, p0, Lcom/melodix/music/MainActivity;->nativePreviewArtworkAt:J
     const v8, 0x7f090244""")
+    # Keep the image on screen until the new one is loaded: no grey placeholder flash at launch.
+    if method.count("invoke-static {v9, v2, v8}, Lcom/melodix/music/NativeImageLoader;->load(") != 2: raise ValueError('player cover calls changed')
+    method=method.replace("invoke-static {v9, v2, v8}, Lcom/melodix/music/NativeImageLoader;->load(", "invoke-static {v9, v2, v8}, Lcom/melodix/music/PreviewPlayerController;->cover(")
     method=one(method, """    move-result-object v3
 
     const v1, 0x7f090236""", """    move-result-object v3

@@ -280,6 +280,13 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         // Home from the local copy at once (user request after 1022320); live Spotify data replaces it.
         callStyler("restoreHome");
     }
+    // Player cover (user report 1022332): keep the image shown, cached one included, until the new one loads.
+    public static void cover(ImageView v, String url, int size) {
+        if (v == null || url == null || url.isEmpty()) return;
+        if (v.getDrawable() == null || url.contains("/liked-songs/") || !url.startsWith("https://")) { NativeImageLoader.load(v, url, size); return; }
+        try { com.squareup.picasso.Picasso.get().load(url).noPlaceholder().resize(size, size).centerCrop().into(v); }
+        catch (RuntimeException e) { NativeImageLoader.load(v, url, size); }
+    }
     // Incomplete, legacy and unknown snapshots must not erase a restored record.
     public boolean acceptPlayerPayload(String json) {
         if (!cacheLoading && !restored) return true;
