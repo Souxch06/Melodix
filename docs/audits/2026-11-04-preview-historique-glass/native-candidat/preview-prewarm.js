@@ -38,8 +38,8 @@
         if (previewPrewarm.timer) window.clearTimeout(previewPrewarm.timer);
         if (previewPrewarm.watch) window.clearTimeout(previewPrewarm.watch);
         if (!keepPlaying) {
-            try { if (typeof window.actPlayPause === 'function') window.actPlayPause(false); } catch (_) {}
-            if (previewPrewarm.position >= 0 && typeof window.actSeek === 'function') try { window.actSeek(previewPrewarm.position); } catch (_) {}
+            previewPrewarmOwn(function() { window.actPlayPause(false); });
+            if (previewPrewarm.position >= 0 && typeof window.actSeek === 'function') previewPrewarmOwn(function() { window.actSeek(previewPrewarm.position); });
         }
         if (keepPlaying) { window.setTimeout(previewPrewarmRelease, 0); return; }
         // User report (1022302): sound came back while the pause had not landed, so the track
@@ -51,14 +51,29 @@
                 var playing = previewPrewarmMedia().some(function(m) { return m.paused === false; });
                 // User report (1022307): a sound blip at launch; Spotify briefly resumed right
                 // after the first paused reading. Unmute only after 4 paused readings in a row (~1 s).
-                if (!playing) { previewPrewarm.calm = (previewPrewarm.calm || 0) + 1; if (previewPrewarm.calm >= 4) { previewPrewarmRelease(); return; } settle(); return; }
+                // User report (1022321): sound still restarted at launch after that. The pause is reported once
+                // it held ~1 s, but the page stays muted until the user's own playback action.
+                if (!playing) { previewPrewarm.calm = (previewPrewarm.calm || 0) + 1; if (previewPrewarm.calm >= 4) { if (previewPrewarm.ad) previewPrewarmRelease(); else window.__sfPrewarmActive = false; return; } settle(); return; }
                 previewPrewarm.calm = 0;
                 previewPrewarm.tries++;
-                if (previewPrewarm.tries <= 3) try { if (typeof window.actPlayPause === 'function') window.actPlayPause(false); } catch (_) {}
+                if (previewPrewarm.tries <= 3) previewPrewarmOwn(function() { window.actPlayPause(false); });
                 // Still playing after ~3 s: stay muted; the user's next Play/Pause tap unmutes.
                 if (previewPrewarm.tries < 12) settle();
             }, previewPrewarm.tries === undefined || previewPrewarm.tries === 0 ? 400 : 250);
         })();
+    }
+    function previewPrewarmOwn(f) {
+        if (typeof window.actPlayPause !== 'function') return;
+        previewPrewarm.own = true; try { f(); } catch (_) {} previewPrewarm.own = false;
+    }
+    // Any playback action by the user (not by the warm-up itself) brings the sound back.
+    function previewPrewarmWrapIntent() {
+        ['__sfMarkUserPlaybackIntent', 'playFromUri', 'actSkipForward', 'actSkipBack'].forEach(function(name) {
+            var f = window[name];
+            if (typeof f !== 'function' || f.__sfPrewarmWrapped) return;
+            var w = function() { if (previewPrewarm.holding && !previewPrewarm.own) previewPrewarmRelease(); return f.apply(this, arguments); };
+            w.__sfPrewarmWrapped = true; window[name] = w;
+        });
     }
     function previewPrewarmRelease() {
         previewPrewarm.holding = false; window.__sfPrewarmActive = false;
@@ -84,7 +99,10 @@
             window.__sfTogglePlayback = function() { if (previewPrewarm.holding) previewPrewarmRelease(); if (previewPrewarm.active) { previewPrewarmFinish(true); try { if (typeof publishPlayerState === 'function') publishPlayerState(true); } catch (_) {} return true; } return toggle.apply(this, arguments); };
             window.__sfTogglePlayback.__sfPrewarmWrapped = true;
         }
-        try { window.actPlayPause(true); } catch (_) { previewPrewarmFinish(false); return; }
+        previewPrewarmWrapIntent();
+        previewPrewarm.own = true;
+        try { window.actPlayPause(true); } catch (_) { previewPrewarm.own = false; previewPrewarmFinish(false); return; }
+        previewPrewarm.own = false;
         previewPrewarm.timer = window.setTimeout(function() { previewPrewarmFinish(false); }, 3000);
         // 1022294: on a free account the muted start can be an ad (no title / another title);
         // Spotify stalls a muted ad, which froze the page for ~70 s. Stop at once, sound back on.
@@ -93,7 +111,7 @@
                 if (!previewPrewarm.active) return;
                 var now = '';
                 try { now = previewRealText((readNowPlaying() || {}).title); } catch (_) {}
-                if (now !== previewPrewarm.title) { previewPrewarmFinish(false); return; }
+                if (now !== previewPrewarm.title) { previewPrewarm.ad = true; previewPrewarmFinish(false); return; }
                 watch();
             }, 250);
         })();

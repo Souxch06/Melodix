@@ -66,6 +66,16 @@ def prepare(root):
     move-result-object v1
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->performNativeLiveSearch(Ljava/lang/String;)V''')
     s=s[:a]+new+s[b:]
+    # User report (1022321): the Home copy shown at launch blinked when identical live rows arrived.
+    a,b,old=method(s,'applyNativeUiData')
+    new=replace(old,'''    iput-object p2, p0, Lcom/melodix/music/MainActivity;->nativeHomeJson:Ljava/lang/String;''','''    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeJson:Ljava/lang/String;
+    invoke-virtual {p2, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v2
+    if-eqz v2, :glass_home_changed
+    return-void
+    :glass_home_changed
+    iput-object p2, p0, Lcom/melodix/music/MainActivity;->nativeHomeJson:Ljava/lang/String;''')
+    s=s[:a]+new+s[b:]
     # v3/v4 are a wide delay. With .locals 4, p0 aliases v4 and ART
     # rejects run(): p0 is overwritten by the high half of the delay.
     retry=(root/RETRY).read_text(encoding='utf-8')
