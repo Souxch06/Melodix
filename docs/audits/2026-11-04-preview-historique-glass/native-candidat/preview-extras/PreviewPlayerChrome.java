@@ -506,6 +506,18 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
                 Drawable done=layers.findDrawableByLayerId(android.R.id.progress);if(done!=null)done.setTint(0xffffffff);
             }
         }
+        // User report (1022332): the mini player bar looked odd. Thin rounded track, inset from the card edges.
+        View mini=a.findViewById(0x7f09024d);
+        if(mini instanceof android.widget.ProgressBar){
+            android.widget.ProgressBar mp=(android.widget.ProgressBar)mini;
+            GradientDrawable mBack=new GradientDrawable();mBack.setColor(0x26ffffff);mBack.setCornerRadius(dp(2));
+            GradientDrawable mFill=new GradientDrawable();mFill.setColor(0xfff5f5f7);mFill.setCornerRadius(dp(2));
+            LayerDrawable mBar=new LayerDrawable(new Drawable[]{mBack,new android.graphics.drawable.ClipDrawable(mFill,android.view.Gravity.START,android.graphics.drawable.ClipDrawable.HORIZONTAL)});
+            mBar.setId(0,android.R.id.background);mBar.setId(1,android.R.id.progress);
+            mp.setProgressTintList(null);mp.setProgressBackgroundTintList(null);mp.setProgressDrawable(mBar);
+            ViewGroup.LayoutParams mlp=mp.getLayoutParams();
+            if(mlp!=null){mlp.height=dp(3);if(mlp instanceof ViewGroup.MarginLayoutParams){ViewGroup.MarginLayoutParams mm=(ViewGroup.MarginLayoutParams)mlp;mm.leftMargin=mm.rightMargin=dp(22);}mp.setLayoutParams(mlp);}
+        }
         setupDone=true;
     }
     private void stylePlay(Activity a){

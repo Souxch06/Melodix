@@ -82,7 +82,7 @@ function interpret(name,params,source=activity){
    else if(target.includes('String;->format')){
     let i=0;result=values[1].replace(/%0?(\d*)d/g,(_,w)=>String(values[2][i++]).padStart(Number(w||0),'0'));
    }
-   else if(target.includes('NativeImageLoader;->load')){params.p0.loads=(params.p0.loads||0)+1;}
+   else if(target.includes('NativeImageLoader;->load')||target.includes('PreviewPlayerController;->cover(')){params.p0.loads=(params.p0.loads||0)+1;}
    else if(target.includes(';->setText'))values[0].text=values[1];
    else if(target.includes(';->setProgress'))values[0].progress=values[1];
    else if(target.includes(';->setMax'))values[0].max=values[1];
@@ -160,5 +160,5 @@ test('artwork requests are reused, retried after 15 seconds and changed URLs rel
  a.now=16000;update('https://i.scdn.co/image/A');assert.equal(a.loads,4);
  a.now=16001;update('https://i.scdn.co/image/B');assert.equal(a.loads,6);
  a.now=100;update('https://i.scdn.co/image/B');assert.equal(a.loads,8);
- a.now=101;update('');assert.equal(a.loads,10);
+ a.now=101;update('');assert.equal(a.loads,8,'empty cover keeps the shown image (user report 1022332)');
 });

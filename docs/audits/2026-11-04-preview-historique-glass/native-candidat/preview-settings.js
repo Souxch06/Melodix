@@ -40,34 +40,17 @@
         var left = msSleep.until - Date.now();
         return left > 0 ? Math.ceil(left / 60000) + ' min' : 'OFF';
     }
-    // User request (after 1022328): a clean screen, grouped like Spotify's own settings.
+    // Keep Melodix's own rows (about row opens the diagnostic), add the sleep timer and Spotify's real settings.
     function msRows() {
-        var base = buildSpotifySettingsRows(), by = {};
-        base.forEach(function(r) { by[r.uri && r.uri.indexOf('melodix:action:retry') !== 0 ? r.uri : r.title] = r; });
-        function row(section, r) { return r ? {section: section, title: r.title, subtitle: '', image: '', uri: r.uri, settingValue: r.settingValue} : null; }
-        var account = base[1], logout = by['spotify:settings:logout'] || by['melodix:action:open-login'];
-        var rows = [
-            row('Compte', account),
-            row('Compte', logout),
-            row('Compte', by['melodix:action:open-account']),
-            row('Lecture', by['melodix:setting:autoplay']),
-            row('Lecture', by['Lecture aléatoire']),
-            row('Lecture', by['Répétition']),
-            {section: 'Lecture', title: 'Minuteur de veille', subtitle: '', image: '', uri: 'melodix:setting:sleep', settingValue: msSleepTxt()},
-            row('Lecture', by['melodix:setting:bg_audio']),
-            row('Affichage', by['melodix:setting:canvas']),
-            row('Bibliothèque', by['Actualiser la bibliothèque']),
-            row('Bibliothèque', by['melodix:action:open-search']),
-            row('Notifications', by['melodix:action:open-notifications'])
-        ].filter(function(r) { return r && r.title && r.settingValue !== 'Indisponible'; });
+        var base = buildSpotifySettingsRows().filter(function(r) { return r.settingValue !== 'Indisponible'; });
+        var sleep = {section: 'Lecture', title: 'Minuteur de veille', subtitle: '', image: '', uri: 'melodix:setting:sleep', settingValue: msSleepTxt()};
         var mine = (msSet.list && msSet.list.length ? msSet.list :
-            [{title: msSet.failed ? 'Réglages Spotify indisponibles pour le moment' : 'Chargement des réglages Spotify…', section: 'Réglages Spotify', value: '', locked: true}]).map(function(s, i) {
+            [{title: msSet.failed ? 'Réglages Spotify indisponibles' : 'Chargement des réglages Spotify…', section: 'Réglages Spotify', value: '', locked: true}]).map(function(s, i) {
             return {section: s.section || 'Réglages Spotify', title: s.title, image: '', settingValue: s.value,
-                subtitle: s.locked ? (s.value ? 'À changer dans Spotify' : '') : s.kind === 'select' ? 'Appuie pour changer' : 'Réglage de ton compte Spotify',
-                uri: s.locked ? '' : 'spotify:settings:sp' + i};
+                subtitle: s.locked ? (s.value ? 'À changer dans Spotify' : '') : '', uri: s.locked ? '' : 'spotify:settings:sp' + i};
         });
-        var about = {section: 'À propos', title: 'Melodix', subtitle: '', image: '', uri: '', settingValue: ''};
-        return rows.concat(mine, [about]);
+        var end = base.length - 1;
+        return base.slice(0, end).concat([sleep], mine, base.slice(end));
     }
     function msSend(list) {
         if (list) { msSet.list = list; try { window.localStorage.setItem('melodix_spotify_prefs_v1', JSON.stringify(list)); } catch (_) {} }
@@ -91,12 +74,13 @@
         })();
     }
     window.setTimeout(function() {
-        var origToggle = window.__sfToggleSpotifySetting;
+        var origToggle = window.__sfToggleSpotifySetting, origOpen = window.__sfNativeSettingsRequest;
+        window.__sfNativeSettingsRequest = function() { msSet.want = true; return origOpen.apply(this, arguments); };
         window.__sfRequestSpotifySettings = function() {
             var sent = msSend();
-            // Refreshes call this often: read Spotify's page at most once a minute.
-            if (Date.now() - (msSet.at || 0) > 60000) {
-                msSet.at = Date.now();
+            // Only when the Settings screen opens: a refresh elsewhere must never move the page (playlist rows vanished).
+            if (msSet.want) {
+                msSet.want = false;
                 msVisit(function(ok, done) { if (ok) msSend(msRead()); else { msSet.failed = true; msSend(); } done(); });
             }
             return sent;

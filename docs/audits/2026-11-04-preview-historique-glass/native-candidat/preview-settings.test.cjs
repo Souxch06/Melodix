@@ -22,19 +22,19 @@ function setup(){
  Object.defineProperty(w.HTMLSelectElement.prototype,'value',{set(v){this.selectedIndex=this.options.findIndex(o=>o.value===v);},configurable:true});
  const document={querySelector:(s)=>s==='main'?main:s.startsWith('label')?labels[/"(.*)"/.exec(s)[1]]||null:null,getElementById:()=>null,body:main};
  const toggled=[];
- const base=[{title:'État de la connexion Spotify',uri:''},{title:'Mon compte',uri:''},{title:'Se déconnecter',uri:'spotify:settings:logout'},{title:'Autres réglages Spotify',settingValue:'Non implémenté',uri:''},{title:'Lecture aléatoire',settingValue:'Indisponible',uri:''}];
+ const base=[{title:'Mon compte',uri:'spotify:settings:account_info'},{title:'Se déconnecter',uri:'spotify:settings:logout'},{title:'Gapless',settingValue:'Indisponible',uri:''},{title:'Melodix • Client Spotify Natif',uri:'spotify:settings:about'}];
  const src=fs.readFileSync(path.join(__dirname,'preview-settings.js'),'utf8');
- w.__sfToggleSpotifySetting=(u)=>toggled.push(u);
+ w.__sfToggleSpotifySetting=(u)=>toggled.push(u);w.__sfNativeSettingsRequest=()=>w.__sfRequestSpotifySettings();
  new Function('window','document','sendNativeUiData','buildSpotifySettingsRows',src)(w,document,(k,rows)=>sent.push([k,rows]),()=>base.map(r=>Object.assign({},r)));
  const run=()=>{for(let i=0;i<200&&timers.length;i++)timers.shift()();};
  run();// installs the wrappers
  return {w,sent,run,cross,norm,q,lang,locked,toggled,storage,path:()=>path_};
 }
 test('settings: real Spotify preferences are read, listed by section, and the WebView goes back',()=>{
- const x=setup();x.w.__sfRequestSpotifySettings();
+ const x=setup();x.w.__sfNativeSettingsRequest(1);
  assert.equal(x.sent[0][1].find(r=>/Chargement/.test(r.title)).uri,'','loading row first, not tappable');
  x.run();const rows=x.sent.at(-1)[1];
- assert.deepEqual(rows.map(r=>r.title),['Mon compte','Se déconnecter','Minuteur de veille','Fondu enchaîné','Normaliser le volume','Qualité du streaming','Langue','Contenu explicite','Melodix']);
+ assert.deepEqual(rows.map(r=>r.title),['Mon compte','Se déconnecter','Minuteur de veille','Fondu enchaîné','Normaliser le volume','Qualité du streaming','Langue','Contenu explicite','Melodix • Client Spotify Natif']);
  assert.equal(rows[3].section,'Lecture');assert.equal(rows[5].section,'Qualité audio');
  assert.equal(rows[3].settingValue,'OFF');assert.equal(rows[4].settingValue,'ON');assert.equal(rows[5].settingValue,'Automatique');
  assert.equal(rows[6].uri,'','language list is not changed from Melodix (would reload Spotify)');assert.equal(rows[7].uri,'','disabled setting is not tappable');
@@ -42,7 +42,7 @@ test('settings: real Spotify preferences are read, listed by section, and the We
  assert.equal(x.path(),'/playlist/P1','back where it was');
 });
 test('settings: a tap changes exactly that setting and nothing on its own',()=>{
- const x=setup();x.w.__sfRequestSpotifySettings();x.run();
+ const x=setup();x.w.__sfNativeSettingsRequest(1);x.run();
  assert.equal(x.cross.clicks,0,'reading never changes anything');
  const uri=x.sent.at(-1)[1].find(r=>r.title==='Fondu enchaîné').uri;x.w.__sfToggleSpotifySetting(uri);x.run();
  assert.equal(x.cross.checked,true);assert.equal(x.norm.attrs['aria-checked'],'true','other switch untouched');
@@ -52,6 +52,10 @@ test('settings: a tap changes exactly that setting and nothing on its own',()=>{
  x.w.__sfToggleSpotifySetting('spotify:settings:logout');assert.deepEqual(x.toggled,['spotify:settings:logout'],'Melodix rows keep their own action');
  x.w.__sfToggleSpotifySetting('spotify:settings:sp6');x.run();assert.equal(x.locked.checked,true,'locked setting never clicked');
  assert.equal(x.path(),'/playlist/P1');
+});
+test('settings: a refresh elsewhere never moves the hidden page',()=>{
+ const x=setup();x.w.__sfRequestSpotifySettings();x.run();assert.equal(x.path(),'/playlist/P1');assert.equal(x.cross.clicks,0);
+ assert.ok(x.sent.at(-1)[1].some(r=>/Chargement/.test(r.title)),'no read without opening Settings');
 });
 test('settings: sleep timer cycles and pauses when it ends',()=>{
  const x=setup();let paused=0;x.w.actPlayPause=(p)=>{if(p===false)paused++;};

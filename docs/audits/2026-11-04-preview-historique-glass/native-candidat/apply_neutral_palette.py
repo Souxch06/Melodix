@@ -81,6 +81,11 @@ def liner_tabs(root):
         m = re.search(r'\.method public final styleNativeTab\(Ljava/lang/String;Ljava/lang/String;I\)V.*?\.end method', t, re.S)
         if not m: continue
         body = m.group(0).replace('const v2, -0x131314', 'const v2, -0x73000001').replace('const v4, -0x131314', 'const v4, -0x73000001')
+        # User request (after 1022332): nicer bottom bar. Active tab = white pill, dark icon and label.
+        if 'const-string v7, "native_button_green"' in body:
+            body = body.replace('const-string v7, "native_button_green"', 'const-string v7, "native_tab_selected"').replace(
+                'const v2, -0x1\n', 'const v2, -0xeeeeed\n').replace('const v4, -0x1\n', 'const v4, -0xeeeeed\n')
+            assert 'native_tab_selected' in body and '-0xeeeeed' in body, 'tab style changed'
         if body != m.group(0): f.write_text(t[:m.start()] + body + t[m.end():], encoding='utf-8')
 
 def liner_liked(root):
@@ -139,6 +144,13 @@ def liner_res(root):
     if d.exists():
         t2 = re.sub(r'<gradient [^>]*/>', '<solid android:color="#24ffffff" />', d.read_text(encoding='utf-8'))
         d.write_text(re.sub(r'(<ripple [^>]*android:color=")#[0-9a-fA-F]{8}', r'\g<1>#1affffff', t2), encoding='utf-8')
+    (r / 'drawable/native_tab_selected.xml').write_text('<?xml version="1.0" encoding="utf-8"?>\n<ripple xmlns:android="http://schemas.android.com/apk/res/android" android:color="#1f000000">\n'
+        '    <item><shape><solid android:color="#fff5f5f7" /><corners android:radius="999dp" /></shape></item>\n</ripple>\n', encoding='utf-8')
+    nav = r / 'drawable/native_nav_item.xml'
+    if nav.exists():
+        nav.write_text('<?xml version="1.0" encoding="utf-8"?>\n<shape xmlns:android="http://schemas.android.com/apk/res/android">\n'
+                       '    <solid android:color="#f0141416" />\n    <corners android:radius="999dp" />\n'
+                       '    <stroke android:width="0.5dip" android:color="#2effffff" />\n</shape>\n', encoding='utf-8')
     # Liner controls: rounded squares instead of circles (back, settings, shuffle, repeat, like).
     d = r / 'drawable/native_button_dark.xml'
     if d.exists(): d.write_text(re.sub(r'android:radius="999[^"]*"', 'android:radius="14dp"', d.read_text(encoding='utf-8')), encoding='utf-8')
