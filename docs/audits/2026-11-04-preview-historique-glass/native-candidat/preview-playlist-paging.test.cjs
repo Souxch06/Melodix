@@ -43,3 +43,12 @@ test('a late shorter bridge reply is replaced by the full list (user report 1022
  const n=x.sent.length;x.timers.forEach(f=>f());assert.equal(x.sent.length,n,'resend of the list already shown does not redraw');
  x.w.AndBridge.onMediaItemsLoaded('spotify:playlist:Other',JSON.stringify([{id:'a'}]));assert.equal(x.sent.at(-1)[1].length,1,'other playlists untouched');
 });
+test('a shorter late bridge reply never replaces a longer shown list, even after a page reload (1022337: 48 then 26)',()=>{
+ const store={},sent=[];const mk=()=>{const w={localStorage:{getItem:k=>store[k]??null,setItem:(k,v)=>{store[k]=v}},Proxy,setTimeout(){},
+  AndBridge:{onMediaItemsLoaded:(u,j)=>sent.push(JSON.parse(j).length)}};new Function('window',src)(w);return w;};
+ const rows=n=>JSON.stringify(Array.from({length:n},(_,i)=>({id:'spotify:track:t'+i})));
+ let w=mk();w.AndBridge.onMediaItemsLoaded('spotify:playlist:P1',rows(48));w.AndBridge.onMediaItemsLoaded('spotify:playlist:P1',rows(26));
+ w=mk();w.AndBridge.onMediaItemsLoaded('spotify:playlist:P1',rows(26));w.AndBridge.onMediaItemsLoaded('spotify:playlist:P1','[]');
+ w.AndBridge.onMediaItemsLoaded('spotify:playlist:P1',rows(50));
+ assert.deepEqual(sent,[48,50]);
+});

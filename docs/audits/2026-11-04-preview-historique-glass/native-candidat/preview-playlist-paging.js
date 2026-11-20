@@ -13,9 +13,10 @@
                 var full = previewPages.full[uri];
                 // Known full list: every reply for this playlist shows it, so rows never jump (1022324/1022326).
                 if (full && full.length) json = JSON.stringify(full);
-                // User report (1022336): the list went empty. An empty reply never replaces shown rows.
-                else if (/^\s*\[\s*\]\s*$/.test(String(json)) && previewPages.last[uri] && previewPages.last[uri].length > 2) return;
-                previewPages.last[uri] = json;
+                // User reports (1022336, 1022337: 48 then 26): while this playlist is open, a shorter (or empty) reply never replaces shown rows.
+                // shortcut: the longest list seen is kept (also across page reloads); tracks removed elsewhere show after the full read.
+                else { var was = previewPages.last[uri]; try { was = was || window.localStorage.getItem('melodix_pl_' + uri); if (JSON.parse(json).length < JSON.parse(was).length) return; } catch (_) {} }
+                previewPages.last[uri] = json; try { window.localStorage.setItem('melodix_pl_' + uri, json); } catch (_) {}
                 return real.onMediaItemsLoaded(uri, json);
             };
             window.AndBridge = new window.Proxy(real, {get: function(t, k) {
