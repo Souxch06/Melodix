@@ -65,6 +65,7 @@ public final class GlassScreenStyler implements Runnable {
         if(a==null||content==null)return;
         if("settings".equals(screen))settings(a,content);
         else if("home".equals(screen))home(a,content);
+        else if("library".equals(screen))library(a,content);
         else if("detail".equals(screen)&&playlist(uri))playlist(a,content,uri,title);
         else if("detail".equals(screen)&&liked(uri))playlist(a,content,uri,title);
         GlassLikedMotion.bind(a,content,screen,uri);
@@ -177,6 +178,30 @@ public final class GlassScreenStyler implements Runnable {
     private final LinearLayout waitHero;private final ImageView waitImage;private final int waitTries;
     private GlassScreenStyler(LinearLayout h,ImageView i,int t){waitHero=h;waitImage=i;waitTries=t;}
     @Override public void run(){if(waitImage.isAttachedToWindow()||waitTries<4)tint(waitHero,waitImage,waitTries);}
+
+    // ---- Library (Spotify-style): big title, what it holds, list rows with rounded covers ----
+    private static void library(Activity a,LinearLayout content){
+        LinearLayout rows=rowContainer(content);
+        if(rows.findViewWithTag("glass-library-head")!=null)return;
+        int items=0;java.util.LinkedHashMap<String,Integer> kinds=new java.util.LinkedHashMap<String,Integer>();
+        for(int i=0;i<rows.getChildCount();i++){View c=rows.getChildAt(i);
+            if(c instanceof TextView){heading((TextView)c);((TextView)c).setTextSize(18);continue;}
+            if(!c.isClickable())continue;items++;
+            GradientDrawable mask=glass(a,0xffffffff,0xffffffff,10,0);
+            c.setForeground(new RippleDrawable(ColorStateList.valueOf(0x1fffffff),null,mask));
+            ImageView cover=c instanceof ViewGroup&&((ViewGroup)c).getChildCount()>0&&((ViewGroup)c).getChildAt(0) instanceof ImageView?(ImageView)((ViewGroup)c).getChildAt(0):null;
+            if(cover!=null){if(cover.getBackground()==null)cover.setBackground(glass(a,0xff2a2a2e,0xff18181b,6,0));cover.setClipToOutline(true);}
+            track(a,c);
+            // Kind = first word of the subtitle ("Playlist • Moi", "Album • Artiste").
+            java.util.List<String> t=new java.util.ArrayList<String>();texts(c,t);
+            if(t.size()>1){String k=t.get(1).split("[•·]")[0].trim();if(k.matches("(?i)playlists?|albums?|artistes?|podcasts?|titres?"))kinds.put(k,kinds.containsKey(k)?kinds.get(k)+1:1);}}
+        LinearLayout head=vertical(a);head.setTag("glass-library-head");head.setPadding(dp(a,16),dp(a,8),dp(a,16),dp(a,12));
+        head.addView(text(a,"Ta bibliothèque",28,0xfffafafa,true));
+        StringBuilder b=new StringBuilder(items+(items>1?" éléments":" élément"));
+        for(java.util.Map.Entry<String,Integer> e:kinds.entrySet()){String k=e.getKey().toLowerCase(Locale.FRENCH).replaceAll("s$","");b.append(" · ").append(e.getValue()).append(' ').append(k).append(e.getValue()>1?"s":"");}
+        if(items>0){TextView meta=text(a,b.toString(),13,0x99ffffff,false);LinearLayout.LayoutParams mp=new LinearLayout.LayoutParams(-1,-2);mp.topMargin=dp(a,4);head.addView(meta,mp);}
+        rows.addView(head,0,new LinearLayout.LayoutParams(-1,-2));
+    }
 
     // ---- Home (Spotify-style): greeting, quick-access grid of the real library cards ----
     private static final String LIB="Votre bibliothèque",DISCOVER="À découvrir sur Spotify";
