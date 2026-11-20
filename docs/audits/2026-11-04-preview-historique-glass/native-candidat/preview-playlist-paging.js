@@ -17,10 +17,22 @@
                 // shortcut: the longest list seen is kept (also across page reloads); tracks removed elsewhere show after the full read.
                 else { var was = previewPages.last[uri]; try { was = was || window.localStorage.getItem('melodix_pl_' + uri); if (JSON.parse(json).length < JSON.parse(was).length) return; } catch (_) {} }
                 previewPages.last[uri] = json; try { window.localStorage.setItem('melodix_pl_' + uri, json); } catch (_) {}
-                return real.onMediaItemsLoaded(uri, json);
+                return real.onMediaItemsLoaded(uri, heart('', json, 1));
+            };
+            // User request (1022338): a heart on liked tracks. Liked ids are remembered when "Titres likés" loads.
+            // shortcut: a like made elsewhere shows after the next "Titres likés" visit.
+            var heart = function(screen, payload, media) {
+                try {
+                    var rows = JSON.parse(payload), all = window.__sfNativeCollectionUri === 'spotify:collection:tracks', ids = JSON.parse(window.localStorage.getItem('melodix_liked') || '{}');
+                    rows.forEach(function(r) { var u = r.uri || r.id, a = media ? r.artists : [r.subtitle];
+                        if (all) ids[u] = 1; if (ids[u] && a && a[0] && a[0][0] !== '♥') { a[0] = '♥ ' + a[0]; if (!media) r.subtitle = a[0]; } });
+                    if (all) window.localStorage.setItem('melodix_liked', JSON.stringify(ids));
+                    return JSON.stringify(rows);
+                } catch (_) { return payload; }
             };
             window.AndBridge = new window.Proxy(real, {get: function(t, k) {
                 if (k === '__sfPagingGuard') return true;
+                if (k === 'onNativeUiData') return function(screen, p) { return real.onNativeUiData(screen, screen === 'detail' ? heart(screen, p) : p); };
                 if (k === 'onMediaItemsLoaded') return guarded;
                 var v = t[k]; return typeof v === 'function' ? v.bind(t) : v;
             }});

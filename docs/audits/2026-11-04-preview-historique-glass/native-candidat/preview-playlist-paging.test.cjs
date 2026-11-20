@@ -52,3 +52,12 @@ test('a shorter late bridge reply never replaces a longer shown list, even after
  w.AndBridge.onMediaItemsLoaded('spotify:playlist:P1',rows(50));
  assert.deepEqual(sent,[48,50]);
 });
+test('liked tracks get a heart in other playlists, remembered from "Titres likés" (user request 1022338)',()=>{
+ const store={},ui=[],media=[];const w={localStorage:{getItem:k=>store[k]??null,setItem:(k,v)=>{store[k]=v}},Proxy,setTimeout(){},
+  AndBridge:{onNativeUiData:(s,j)=>ui.push([s,JSON.parse(j)]),onMediaItemsLoaded:(u,j)=>media.push(JSON.parse(j))}};new Function('window',src)(w);
+ w.__sfNativeCollectionUri='spotify:collection:tracks';w.AndBridge.onNativeUiData('detail',JSON.stringify([{title:'A',subtitle:'X',uri:'spotify:track:a'}]));
+ assert.equal(ui[0][1][0].subtitle,'♥ X');
+ w.__sfNativeCollectionUri='spotify:playlist:P';w.AndBridge.onMediaItemsLoaded('spotify:playlist:P',JSON.stringify([{id:'spotify:track:a',artists:['X • 3:00']},{id:'spotify:track:b',artists:['Y']}]));
+ assert.deepEqual(media[0].map(r=>r.artists[0]),['♥ X • 3:00','Y']);
+ w.AndBridge.onNativeUiData('home','[{"subtitle":"s"}]');assert.equal(ui[1][1][0].subtitle,'s','other screens untouched');
+});

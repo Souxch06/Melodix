@@ -146,21 +146,32 @@ public final class GlassScreenStyler implements Runnable, android.view.ViewTreeO
         LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(-1,Math.max(1,dp(a,.5f)));hp.topMargin=dp(a,20);hero.addView(line,hp);
         rows.addView(hero,0,new LinearLayout.LayoutParams(-1,-2));
         // Liner rows: rounded press highlight (row motion stays in GlassLikedMotion).
-        for(int i=1;i<rows.getChildCount();i++){View c=rows.getChildAt(i);if(!c.isClickable())continue;
+        int n=0;for(int i=1;i<rows.getChildCount();i++){View c=rows.getChildAt(i);if(!c.isClickable())continue;
             GradientDrawable mask=glass(a,0xffffffff,0xffffffff,10,0);
             c.setForeground(new android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x1fffffff),null,mask));
-            track(a,c);}
+            track(a,c,++n);}
     }
     /** Spotify-like track row: medium title, softer artist, length moved to the right edge. */
-    private static void track(Context a,View row){
+    private static void track(Context a,View row){track(a,row,0);}
+    private static void track(Context a,View row,int number){
         if(!(row instanceof LinearLayout))return;LinearLayout g=(LinearLayout)row;
-        if(g.getChildCount()<2||!(g.getChildAt(0) instanceof ImageView)||!(g.getChildAt(1) instanceof android.view.ViewGroup))return;
-        android.view.ViewGroup labels=(android.view.ViewGroup)g.getChildAt(1);
+        // User request (1022338): track number before the cover, like Spotify.
+        View num=g.findViewWithTag("glass-row-number");
+        if(number>0&&num instanceof TextView)((TextView)num).setText(String.valueOf(number));
+        else if(number>0&&g.getChildCount()>=2&&g.getChildAt(0) instanceof ImageView){TextView t=text(a,String.valueOf(number),14,0x99ffffff,false);t.setTag("glass-row-number");
+            t.setGravity(Gravity.CENTER);t.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);g.addView(t,0,new LinearLayout.LayoutParams(dp(a,32),-1));}
+        int base=g.findViewWithTag("glass-row-number")!=null?1:0;
+        if(g.getChildCount()<base+2||!(g.getChildAt(base) instanceof ImageView)||!(g.getChildAt(base+1) instanceof android.view.ViewGroup))return;
+        android.view.ViewGroup labels=(android.view.ViewGroup)g.getChildAt(base+1);
         if(labels.getChildCount()<2||!(labels.getChildAt(0) instanceof TextView)||!(labels.getChildAt(1) instanceof TextView))return;
         TextView title=(TextView)labels.getChildAt(0),sub=(TextView)labels.getChildAt(1);
         title.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL),Typeface.NORMAL);sub.setTextColor(0x99ffffff);
+        // Liked mark from the page ("♥ " before the artists): a heart before the length, not in the text.
+        String st=String.valueOf(sub.getText());boolean liked=st.startsWith("♥ ");if(liked){st=st.substring(2);sub.setText(st);}
+        if(liked&&g.findViewWithTag("glass-row-heart")==null){TextView h=text(a,"♥︎",15,0xe6ffffff,false);h.setTag("glass-row-heart");h.setContentDescription("Titre liké");
+            h.setGravity(Gravity.CENTER);h.setPadding(dp(a,8),0,0,0);g.addView(h,g.findViewWithTag("glass-row-duration")==null?g.getChildCount():g.getChildCount()-1,new LinearLayout.LayoutParams(-2,-1));}
         if(g.findViewWithTag("glass-row-duration")!=null)return;
-        java.util.regex.Matcher m=java.util.regex.Pattern.compile("^(.*?)\\s*•\\s*(\\d+(?::\\d{2}){1,2})$").matcher(String.valueOf(sub.getText()));
+        java.util.regex.Matcher m=java.util.regex.Pattern.compile("^(.*?)\\s*•\\s*(\\d+(?::\\d{2}){1,2})$").matcher(st);
         if(!m.find())return;
         sub.setText(m.group(1));
         TextView d=text(a,m.group(2),13,0x99ffffff,false);d.setTag("glass-row-duration");d.setPadding(dp(a,12),0,dp(a,4),0);

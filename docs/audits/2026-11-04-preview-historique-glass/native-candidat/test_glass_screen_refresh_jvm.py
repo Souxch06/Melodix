@@ -52,12 +52,14 @@ public class RefreshTest{
   LinearLayout rich=new LinearLayout(a);String[][] d={{"A","Nek, Zed","3:30"},{"B","Ola • 4:00"},{"C","Nek","1:02:30"}};for(String[] r:d){LinearLayout row=new LinearLayout(a);row.setClickable(true);for(String x:r){TextView t=new TextView(a);t.setText(x);row.addView(t);}rich.addView(row);}
   GlassScreenStyler.style(a,rich,"detail","spotify:playlist:D","Riche");yes(hasText(rich,"3 titres · 1 h 10 min"));yes(hasText(rich,"Avec Nek, Zed, Ola"));yes(hasText(rich,"3 artistes"));yes(hasText(rich,"moy. 23:20"));yes(hasText(rich,"★  Le plus présent : Nek · 2 titres"));
   LinearLayout tr=new LinearLayout(a),trow=new LinearLayout(a),lab=new LinearLayout(a);trow.setClickable(true);trow.addView(new ImageView(a));TextView tt=new TextView(a);tt.setText("Love Sosa");TextView ts=new TextView(a);ts.setText("Chief Keef • 4:06");lab.addView(tt);lab.addView(ts);trow.addView(lab);tr.addView(trow);tr.addView(new TextView(a));
-  GlassScreenStyler.style(a,tr,"detail","spotify:playlist:F","Lignes");yes(hasText(trow,"Chief Keef"));yes(hasText(trow,"4:06"));yes(trow.getChildCount()==3);
-  GlassScreenStyler.style(a,tr,"detail","spotify:playlist:F","Lignes");yes(trow.getChildCount()==3);
+  GlassScreenStyler.style(a,tr,"detail","spotify:playlist:F","Lignes");yes(hasText(trow,"Chief Keef"));yes(hasText(trow,"4:06"));yes(trow.getChildCount()==4);yes(hasText(trow,"1"));// number column (1022338)
+  GlassScreenStyler.style(a,tr,"detail","spotify:playlist:F","Lignes");yes(trow.getChildCount()==4);
   LinearLayout part=new LinearLayout(a);for(String x:new String[]{"A","B","Aperçu Spotify"}){LinearLayout row=new LinearLayout(a);row.setClickable(true);TextView t=new TextView(a);t.setText(x);row.addView(t);part.addView(row);}
   GlassScreenStyler.style(a,part,"detail","spotify:playlist:E","Partielle");yes(hasText(part,"2+ titres"));
   LinearLayout restored=group(a),content=group(a);restored.addView(content);TextView old=new TextView(a);old.setTag("glass-old-playlist-heading");content.addView(old);TextView existing=new TextView(a);existing.setText("Titre réel");content.addView(existing);
   GlassScreenStyler.style(a,restored,"detail","spotify:playlist:A","Ma playlist");yes(old.getParent()==null);yes(hasText(restored,"Titre réel"));yes(NativeImageLoader.calls==2);
+  {LinearLayout hl=new LinearLayout(a),hrow=new LinearLayout(a),hlab=new LinearLayout(a);hrow.setClickable(true);hrow.addView(new ImageView(a));TextView h1=new TextView(a);h1.setText("Song");TextView h2=new TextView(a);h2.setText("♥ Artist • 3:00");hlab.addView(h1);hlab.addView(h2);hrow.addView(hlab);hl.addView(hrow);hl.addView(new TextView(a));
+   GlassScreenStyler.style(a,hl,"detail","spotify:playlist:H","Coeurs");yes("Artist".equals(String.valueOf(h2.getText())));yes(hasText(hrow,"♥︎"));yes(hasText(hrow,"3:00"));}// liked heart (1022338)
   LinearLayout liked=group(a);TextView loading=new TextView(a);loading.setText("Chargement en attente");liked.addView(loading);
   GlassScreenStyler.style(a,liked,"detail","spotify:collection:tracks","Titres likés");
   yes(hasText(liked,"Titres likés"));yes(hasText(liked,"♥︎"));yes(hasText(liked,"Chargement en attente"));yes(NativeImageLoader.calls==2);
