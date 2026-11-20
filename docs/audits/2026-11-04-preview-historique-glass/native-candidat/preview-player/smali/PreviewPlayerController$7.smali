@@ -33,7 +33,7 @@
         }
     .end annotation
 
-    .line 920
+    .line 918
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerController$7;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -46,7 +46,7 @@
 .method public onLongClick(Landroid/view/View;)Z
     .locals 0
 
-    .line 921
+    .line 919
     iget-object p1, p0, Lcom/melodix/music/PreviewPlayerController$7;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     invoke-virtual {p1}, Lcom/melodix/music/PreviewPlayerController;->showDiagnostics()V

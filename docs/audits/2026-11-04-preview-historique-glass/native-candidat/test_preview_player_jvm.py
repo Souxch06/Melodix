@@ -259,7 +259,7 @@ public class ControllerTest {
    h.views.put(0x7f090236,title);h.views.put(0x7f090237,artist);h.views.put(0x7f09024d,new ProgressBar());h.views.put(0x7f09023d,new SeekBar());h.views.put(0x7f09024a,new TextView());h.views.put(0x7f09024b,new TextView());h.views.put(0x7f090238,new ImageView());h.views.put(0x7f09023e,new ImageView());
    PreviewLastTrackStore.Record r=new PreviewLastTrackStore.Record();r.title="Local";r.artist="Artist";r.position=30000;r.duration=120000;r.state="playing";r.observed=System.currentTimeMillis();PreviewLastTrackStore.stored=r;
    PreviewPlayerController local=new PreviewPlayerController(h);local.layoutReady();local.activityResumed();PreviewLastTrackStore.deliver();
-   yes(title.text.equals("Local"));yes(artist.text.contains("Dernière position connue"));eq(splash.getVisibility(),View.GONE);eq(local.tapPlayPause(),-1);
+   yes(title.text.equals("Local"));yes(artist.text.equals("Artist"));eq(splash.getVisibility(),View.GONE);eq(local.tapPlayPause(),-1);
    report=(String)reportMethod.invoke(local);yes(report.contains("lecture : valide"));yes(report.contains("écran de chargement masqué"));
    yes(!local.acceptPlayerPayload("track=No Track;artist=No Artist"));yes(title.text.equals("Local"));
    yes(!local.acceptPlayerPayload(sample("Different","Artist",5000,120000,"paused","")));yes(title.text.equals("Local"));SystemClock.time+=1500;// stale launch title waits 1.5 s (1022328)

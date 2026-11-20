@@ -257,10 +257,8 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 base = r.position; anchor = now(); correction = 0; track = "";
                 measurementAt = measurementPosition = -1; lastConfirmedStateAt = -1;
                 text(current, 0x7f090236, r.title); text(current, 0x7f09023b, r.title);
-                View panel = current.findViewById(0x7f09023a);
-                View header = panel == null ? null : panel.findViewWithTag("previewPlayerDragHandle");
-                if (header instanceof TextView) ((TextView) header).setText("DERNIÈRE LECTURE CONNUE");
-                String label = r.artist + " · Dernière position connue";
+                // User report (1022328): the "last known" label flickered off at launch; show the track as is.
+                String label = r.artist;
                 text(current, 0x7f090237, label); text(current, 0x7f09023c, label);
                 if (image != null) {
                     View mini = current.findViewById(0x7f090244), full = current.findViewById(0x7f090245);
