@@ -22,10 +22,10 @@
 .method constructor <init>()V
     .locals 2
 
-    .line 67
+    .line 68
     invoke-direct {p0}, Landroid/graphics/drawable/Drawable;-><init>()V
 
-    .line 68
+    .line 69
     new-instance v0, Landroid/graphics/Paint;
 
     const/4 v1, 0x1
@@ -42,7 +42,7 @@
 .method public draw(Landroid/graphics/Canvas;)V
     .locals 11
 
-    .line 70
+    .line 71
     invoke-virtual {p0}, Lcom/melodix/music/PreviewUiRestyle$2;->getBounds()Landroid/graphics/Rect;
 
     move-result-object v0
@@ -69,7 +69,7 @@
 
     div-float/2addr v1, v2
 
-    .line 71
+    .line 72
     invoke-virtual {p1}, Landroid/graphics/Canvas;->save()I
 
     invoke-virtual {v0}, Landroid/graphics/Rect;->exactCenterX()F
@@ -92,7 +92,7 @@
 
     invoke-virtual {p1, v1, v1}, Landroid/graphics/Canvas;->scale(FF)V
 
-    .line 72
+    .line 73
     new-instance v0, Landroid/graphics/Path;
 
     invoke-direct {v0}, Landroid/graphics/Path;-><init>()V
@@ -117,7 +117,7 @@
 
     invoke-virtual/range {v4 .. v10}, Landroid/graphics/Path;->cubicTo(FFFFFF)V
 
-    .line 73
+    .line 74
     const/high16 v9, 0x41400000    # 12.0f
 
     const/high16 v10, 0x40e00000    # 7.0f
@@ -162,7 +162,7 @@
 
     invoke-virtual {v0}, Landroid/graphics/Path;->close()V
 
-    .line 74
+    .line 75
     iget-object v1, p0, Lcom/melodix/music/PreviewUiRestyle$2;->p:Landroid/graphics/Paint;
 
     const v2, -0xa0a09
@@ -175,14 +175,14 @@
 
     invoke-virtual {p1}, Landroid/graphics/Canvas;->restore()V
 
-    .line 75
+    .line 76
     return-void
 .end method
 
 .method public getOpacity()I
     .locals 1
 
-    .line 78
+    .line 79
     const/4 v0, -0x3
 
     return v0
@@ -191,13 +191,13 @@
 .method public setAlpha(I)V
     .locals 0
 
-    .line 76
+    .line 77
     return-void
 .end method
 
 .method public setColorFilter(Landroid/graphics/ColorFilter;)V
     .locals 0
 
-    .line 77
+    .line 78
     return-void
 .end method

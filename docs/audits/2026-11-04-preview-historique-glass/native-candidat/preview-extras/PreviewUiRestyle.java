@@ -28,7 +28,8 @@ import java.util.WeakHashMap;
  * content, click handler or WebView access. Each view is styled once.
  */
 public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnGlobalLayoutListener, ViewTreeObserver.OnPreDrawListener {
-    private static final int WHITE = 0xfffafafa, LILAC = 0x73ffffff, SECONDARY = 0xa6ffffff, SHADOW = 0xff000000;
+    // UI UX Pro Max base (after 1022338): secondary text >= 4.5:1 on the dark glass (60% white), 8dp rhythm (16dp insets).
+    private static final int WHITE = 0xfffafafa, LILAC = 0x99ffffff, SECONDARY = 0xa6ffffff, SHADOW = 0xff000000;
     private final WeakHashMap<View, Boolean> done = new WeakHashMap<View, Boolean>();
     private ViewTreeObserver observer;
     private boolean scheduled;
@@ -137,7 +138,7 @@ public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnG
                 // Liner pill tabs: small clickable labels (filters, chips) become glass pills.
                 if (v.isClickable() && plainBackground(v) && v.getHeight() >= dp(28) && v.getHeight() <= dp(44) && v.getWidth() <= dp(180) && !insideGlass(v)) {
                     v.setBackground(glass(v.getHeight() / 2f, dp(1)));
-                    v.setPadding(Math.max(v.getPaddingLeft(), dp(14)), v.getPaddingTop(), Math.max(v.getPaddingRight(), dp(14)), v.getPaddingBottom());
+                    v.setPadding(Math.max(v.getPaddingLeft(), dp(16)), v.getPaddingTop(), Math.max(v.getPaddingRight(), dp(16)), v.getPaddingBottom());
                     press(v);
                 }
             }
@@ -150,7 +151,7 @@ public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnG
             } else if (v instanceof ViewGroup && v.isClickable() && plainBackground(v) &&
                        v.getWidth() >= dp(120) && v.getHeight() >= dp(48) && v.getHeight() <= dp(140) && !insideGlass(v)) {
                 int l = v.getPaddingLeft(), t = v.getPaddingTop(), r = v.getPaddingRight(), b = v.getPaddingBottom();
-                v.setBackground(flat(dp(10))); v.setPadding(Math.max(l, dp(14)), t, Math.max(r, dp(14)), b);
+                v.setBackground(flat(dp(12))); v.setPadding(Math.max(l, dp(16)), t, Math.max(r, dp(16)), b);
                 glassRows.put(v, Boolean.TRUE); press(v);
             }
         }
@@ -160,7 +161,7 @@ public final class PreviewUiRestyle extends View implements ViewTreeObserver.OnG
     private void field(android.widget.EditText e) {
         e.setBackground(glass(dp(24), dp(1)));
         e.setPadding(Math.max(e.getPaddingLeft(), dp(16)), e.getPaddingTop(), Math.max(e.getPaddingRight(), dp(16)), e.getPaddingBottom());
-        e.setTextColor(WHITE); e.setHintTextColor(0x73ffffff);
+        e.setTextColor(WHITE); e.setHintTextColor(0x99ffffff);
     }
     private int entered;
     /** Press feedback on any clickable surface: shrink while held, spring back. Leaves click handling untouched. */

@@ -3182,7 +3182,7 @@
 
     const/16 v7, 0xc
 
-    const v8, 0x73ffffff
+    const v8, -0x66000001
 
     const/4 v10, 0x0
 
@@ -5487,7 +5487,7 @@
 .end method
 
 .method private static track(Landroid/content/Context;Landroid/view/View;)V
-    .locals 7
+    .locals 8
 
     .line 156
     instance-of v0, p1, Landroid/widget/LinearLayout;
@@ -5591,67 +5591,65 @@
     invoke-virtual {v3, v4}, Landroid/widget/TextView;->setTextColor(I)V
 
     .line 162
-    const-string v4, "glass-row-duration"
+    const-string v5, "glass-row-duration"
 
-    invoke-virtual {p1, v4}, Landroid/widget/LinearLayout;->findViewWithTag(Ljava/lang/Object;)Landroid/view/View;
+    invoke-virtual {p1, v5}, Landroid/widget/LinearLayout;->findViewWithTag(Ljava/lang/Object;)Landroid/view/View;
 
-    move-result-object v5
+    move-result-object v6
 
-    if-eqz v5, :cond_3
+    if-eqz v6, :cond_3
 
     return-void
 
     .line 163
     :cond_3
-    const-string v5, "^(.*?)\\s*\u2022\\s*(\\d+(?::\\d{2}){1,2})$"
+    const-string v6, "^(.*?)\\s*\u2022\\s*(\\d+(?::\\d{2}){1,2})$"
 
-    invoke-static {v5}, Ljava/util/regex/Pattern;->compile(Ljava/lang/String;)Ljava/util/regex/Pattern;
+    invoke-static {v6}, Ljava/util/regex/Pattern;->compile(Ljava/lang/String;)Ljava/util/regex/Pattern;
 
-    move-result-object v5
+    move-result-object v6
 
     invoke-virtual {v3}, Landroid/widget/TextView;->getText()Ljava/lang/CharSequence;
 
+    move-result-object v7
+
+    invoke-static {v7}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
+
+    move-result-object v7
+
+    invoke-virtual {v6, v7}, Ljava/util/regex/Pattern;->matcher(Ljava/lang/CharSequence;)Ljava/util/regex/Matcher;
+
     move-result-object v6
-
-    invoke-static {v6}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
-
-    move-result-object v6
-
-    invoke-virtual {v5, v6}, Ljava/util/regex/Pattern;->matcher(Ljava/lang/CharSequence;)Ljava/util/regex/Matcher;
-
-    move-result-object v5
 
     .line 164
-    invoke-virtual {v5}, Ljava/util/regex/Matcher;->find()Z
+    invoke-virtual {v6}, Ljava/util/regex/Matcher;->find()Z
 
-    move-result v6
+    move-result v7
 
-    if-nez v6, :cond_4
+    if-nez v7, :cond_4
 
     return-void
 
     .line 165
     :cond_4
-    invoke-virtual {v5, v2}, Ljava/util/regex/Matcher;->group(I)Ljava/lang/String;
+    invoke-virtual {v6, v2}, Ljava/util/regex/Matcher;->group(I)Ljava/lang/String;
 
     move-result-object v2
 
     invoke-virtual {v3, v2}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
 
     .line 166
-    invoke-virtual {v5, v1}, Ljava/util/regex/Matcher;->group(I)Ljava/lang/String;
+    invoke-virtual {v6, v1}, Ljava/util/regex/Matcher;->group(I)Ljava/lang/String;
 
     move-result-object v2
 
     const/16 v3, 0xd
 
-    const v5, -0x7f000001
-
-    invoke-static {p0, v2, v3, v5, v0}, Lcom/melodix/music/GlassScreenStyler;->text(Landroid/content/Context;Ljava/lang/String;IIZ)Landroid/widget/TextView;
+    invoke-static {p0, v2, v3, v4, v0}, Lcom/melodix/music/GlassScreenStyler;->text(Landroid/content/Context;Ljava/lang/String;IIZ)Landroid/widget/TextView;
 
     move-result-object v2
 
-    invoke-virtual {v2, v4}, Landroid/widget/TextView;->setTag(Ljava/lang/Object;)V
+    invoke-virtual {v2, v5}, Landroid/widget/TextView;->setTag(Ljava/lang/Object;)V
 
     const/high16 v3, 0x41400000    # 12.0f
 

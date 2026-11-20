@@ -131,7 +131,7 @@ public final class GlassScreenStyler implements Runnable, android.view.ViewTreeO
             TextView meta=text(a,info,13,0x99ffffff,false);meta.setTag("glass-playlist-count");
             LinearLayout.LayoutParams mp=new LinearLayout.LayoutParams(-1,-2);mp.topMargin=dp(a,8);side.addView(meta,mp);
             if(!artists.isEmpty()){StringBuilder b=new StringBuilder("Avec ");int j=0;for(String n:artists){if(j++>0)b.append(", ");b.append(n);}
-                TextView with=text(a,b+(tracks>artists.size()?" et d'autres":""),12,0x73ffffff,false);with.setMaxLines(2);with.setEllipsize(TextUtils.TruncateAt.END);
+                TextView with=text(a,b+(tracks>artists.size()?" et d'autres":""),12,0x99ffffff,false);with.setMaxLines(2);with.setEllipsize(TextUtils.TruncateAt.END);
                 LinearLayout.LayoutParams wp=new LinearLayout.LayoutParams(-1,-2);wp.topMargin=dp(a,4);side.addView(with,wp);}}
         // Liner: no section title, a hairline separates the header from the tracks.
         // Stats chips (artists, average length) and the most present artist, from the rows shown.
@@ -163,7 +163,7 @@ public final class GlassScreenStyler implements Runnable, android.view.ViewTreeO
         java.util.regex.Matcher m=java.util.regex.Pattern.compile("^(.*?)\\s*•\\s*(\\d+(?::\\d{2}){1,2})$").matcher(String.valueOf(sub.getText()));
         if(!m.find())return;
         sub.setText(m.group(1));
-        TextView d=text(a,m.group(2),13,0x80ffffff,false);d.setTag("glass-row-duration");d.setPadding(dp(a,12),0,dp(a,4),0);
+        TextView d=text(a,m.group(2),13,0x99ffffff,false);d.setTag("glass-row-duration");d.setPadding(dp(a,12),0,dp(a,4),0);
         d.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         d.setGravity(Gravity.CENTER);g.addView(d,new LinearLayout.LayoutParams(-2,-1));
     }

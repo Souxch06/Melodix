@@ -15,8 +15,8 @@ MOTION_HELPER_SHA='eb059151043afc1ebde000e746b996b1053024107be4c1852152a5036ca9d
 RETRY='smali/com/melodix/music/NativeHomeRetryRunnable.smali'
 RETRY_SHA='95c78f85877e64c390743dcb77fcd4ff98541638fad8c8d3c85904ef3fd5b703'
 EXPECTED='197e84fa4374e28dccad1ea0ef7b58f085c5230167237edbe81d4a9bd4cfe6d8'
-SOURCE_SHA='e09a3f22a9eb3dc1883e7944c0384ab46d691dcd5bc97dd92fc2a2b07b145c91'
-HELPER_SHA='87de0bc02fdada63de0b880ac41a38c5597ae15eae4047f60249ab5a14350614'
+SOURCE_SHA='ca5fac0cb00a25089869f6f22437c8863db3d195065d689fef1e9e389ddb9cdd'
+HELPER_SHA='07e6c04f5246e4b0cd17ff69fb5f27ad0e70ea9892c377dbbfb16b82f4b52455'
 def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 def replace(s,a,b):
     if s.count(a)!=1:raise ValueError('unexpected anchor '+repr(a[:100]))
