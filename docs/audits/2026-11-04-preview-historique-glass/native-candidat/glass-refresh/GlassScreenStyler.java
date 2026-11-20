@@ -84,7 +84,7 @@ public final class GlassScreenStyler implements Runnable, android.view.ViewTreeO
         View old=rows.findViewWithTag("glass-old-playlist-heading");
         if(old!=null && old.getParent()==rows)rows.removeView(old);
         boolean isLiked=liked(uri);
-        final LinearLayout hero=vertical(a); hero.setTag("glass-playlist-hero"); hero.setPadding(dp(a,14),dp(a,16),dp(a,14),dp(a,18));
+        final LinearLayout hero=vertical(a); hero.setTag("glass-playlist-hero"); hero.setPadding(dp(a,16),dp(a,16),dp(a,16),dp(a,24));
         // Liner: soft glow of the cover colour behind the header, fading out.
         hero.setBackground(glow(a,0));
         // Liner album header: cover on the left, eyebrow and title beside it.
@@ -104,13 +104,13 @@ public final class GlassScreenStyler implements Runnable, android.view.ViewTreeO
             TextView glyph=text(a,isLiked?"♥︎":"♫",isLiked?72:58,0xfff8f5ff,!isLiked);glyph.setGravity(Gravity.CENTER);
             glyph.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);artBox.addView(glyph);
             if(!isLiked) {
-                TextView hint=text(a,"PLAYLIST",10,0x99ffffff,true);hint.setLetterSpacing(.16f);hint.setGravity(Gravity.CENTER);
+                TextView hint=text(a,"PLAYLIST",12,0x99ffffff,true);hint.setLetterSpacing(.16f);hint.setGravity(Gravity.CENTER);
                 hint.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);artBox.addView(hint);
             }
         }
         artLine.addView(artBox,new LinearLayout.LayoutParams(dp(a,140),dp(a,140)));hero.addView(artLine);
         LinearLayout side=vertical(a);side.setPadding(dp(a,16),0,0,0);artLine.addView(side,new LinearLayout.LayoutParams(-1,-2));
-        TextView eyebrow=text(a,isLiked?"VOTRE BIBLIOTHÈQUE":"PLAYLIST",11,0x99ffffff,false);eyebrow.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL),Typeface.NORMAL);eyebrow.setLetterSpacing(.12f);
+        TextView eyebrow=text(a,isLiked?"VOTRE BIBLIOTHÈQUE":"PLAYLIST",12,0x99ffffff,false);eyebrow.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL),Typeface.NORMAL);eyebrow.setLetterSpacing(.12f);
         side.addView(eyebrow,new LinearLayout.LayoutParams(-1,-2));
         TextView name=text(a,title==null||title.trim().isEmpty()?(isLiked?"Titres likés":"Playlist"):title,26,0xfffafafa,false);
         name.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL),Typeface.NORMAL);name.setLetterSpacing(-.01f);name.setLineSpacing(0,1.05f);
@@ -300,7 +300,7 @@ public final class GlassScreenStyler implements Runnable, android.view.ViewTreeO
                 if(i%2==0){line=new LinearLayout(a);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.topMargin=dp(a,8);grid.addView(line,lp);}
                 compact(a,card);LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(0,dp(a,56),1f);if(i%2==0)tp.rightMargin=dp(a,8);line.addView(card,tp);}
             if(quick.size()%2==1)line.addView(new View(a),new LinearLayout.LayoutParams(0,dp(a,56),1f));
-            LinearLayout.LayoutParams gp=new LinearLayout.LayoutParams(-1,-2);gp.topMargin=dp(a,14);head.addView(grid,gp);
+            LinearLayout.LayoutParams gp=new LinearLayout.LayoutParams(-1,-2);gp.topMargin=dp(a,16);head.addView(grid,gp);
             if(libCards.getChildCount()==0)for(View v:libShelf)v.setVisibility(View.GONE);}
         feed.addView(head,0,new LinearLayout.LayoutParams(-1,-2));
     }
@@ -324,7 +324,8 @@ public final class GlassScreenStyler implements Runnable, android.view.ViewTreeO
         if(v instanceof TextView){out.add((TextView)v);return;}
         if(v instanceof ViewGroup){ViewGroup g=(ViewGroup)v;for(int i=0;i<g.getChildCount();i++)textViews(g.getChildAt(i),out);}
     }
-    private static void eyebrow(TextView t){t.setBackground(null);t.setTextSize(11);t.setTextColor(0x8cffffff);t.setLetterSpacing(.14f);t.setText(String.valueOf(t.getText()).toUpperCase(Locale.FRENCH));}
+    // UI UX Pro Max (after 1022340): 8dp rhythm (16/24 insets) and no text under 12sp.
+    private static void eyebrow(TextView t){t.setBackground(null);t.setTextSize(12);t.setTextColor(0x8cffffff);t.setLetterSpacing(.14f);t.setText(String.valueOf(t.getText()).toUpperCase(Locale.FRENCH));}
     private static void heading(TextView t){t.setTextSize(22);t.setTextColor(0xfffafafa);t.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL),Typeface.BOLD);}
     private static GradientDrawable glow(Context c,int color) {
         int base=color==0?0xffffff:color&0xffffff;
@@ -362,15 +363,15 @@ public final class GlassScreenStyler implements Runnable, android.view.ViewTreeO
             View child=rows.getChildAt(i);
             if(child instanceof TextView){
                 TextView h=(TextView)child;eyebrow(h);h.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL),Typeface.NORMAL);
-                h.setPadding(dp(a,4),dp(a,26),dp(a,4),dp(a,8));
+                h.setPadding(dp(a,4),dp(a,24),dp(a,4),dp(a,8));
             } else if(child instanceof LinearLayout) styleSettingRow(a,(LinearLayout)child);
         }
         LinearLayout hero=vertical(a);
-        hero.setPadding(dp(a,18),dp(a,18),dp(a,18),dp(a,18));
+        hero.setPadding(dp(a,16),dp(a,16),dp(a,16),dp(a,16));
         hero.setBackground(glow(a,0));
-        TextView top=text(a,"MELODIX  •  PARAMÈTRES",11,0x8cffffff,false);top.setLetterSpacing(.14f);hero.addView(top);
+        TextView top=text(a,"MELODIX  •  PARAMÈTRES",12,0x8cffffff,false);top.setLetterSpacing(.14f);hero.addView(top);
         TextView title=text(a,"Votre musique,\nà votre façon.",26,0xfffafafa,true);
-        LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(-1,-2);tp.topMargin=dp(a,7);hero.addView(title,tp);
+        LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(-1,-2);tp.topMargin=dp(a,8);hero.addView(title,tp);
         TextView sub=text(a,"Personnalisez votre expérience.",13,0x99ffffff,false);
         LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(-1,-2);sp.topMargin=dp(a,6);hero.addView(sub,sp);
         LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(-1,-2);hp.bottomMargin=dp(a,6);
@@ -389,7 +390,7 @@ public final class GlassScreenStyler implements Runnable, android.view.ViewTreeO
         for(int i=1;i<label.getChildCount();i++)if(label.getChildAt(i) instanceof TextView){
             TextView sub=(TextView)label.getChildAt(i);sub.setTextSize(12);sub.setTextColor(0x8cffffff);sub.setMaxLines(3);
         }
-        row.setPadding(dp(a,12),dp(a,13),dp(a,12),dp(a,13));row.setMinimumHeight(dp(a,72));
+        row.setPadding(dp(a,16),dp(a,12),dp(a,16),dp(a,12));row.setMinimumHeight(dp(a,72));
         GradientDrawable surface=glass(a,0x0fffffff,0x0affffff,14,0x14ffffff);
         row.setBackground(row.isClickable()?new RippleDrawable(ColorStateList.valueOf(0x1fffffff),surface,null):surface);
         if(!hasImage){
@@ -404,7 +405,7 @@ public final class GlassScreenStyler implements Runnable, android.view.ViewTreeO
             // Neutral pills: ON is a white pill with dark text (Spotify/Liner), others stay quiet.
             int fill=on?0xfffafafa:unavailable?0x0dffffff:0x1affffff;
             badge.setBackground(glass(a,fill,fill,16,on?0:0x1fffffff));badge.setTextColor(on?0xff0a0a0a:unavailable?0x66ffffff:0xe6ffffff);
-            badge.setTextSize(11);badge.setPadding(dp(a,10),dp(a,7),dp(a,10),dp(a,7));
+            badge.setTextSize(12);badge.setPadding(dp(a,12),dp(a,8),dp(a,12),dp(a,8));
             badge.setMaxWidth(dp(a,112));badge.setMaxLines(2);badge.setEllipsize(TextUtils.TruncateAt.END);
         }
         ViewGroup.LayoutParams params=row.getLayoutParams();

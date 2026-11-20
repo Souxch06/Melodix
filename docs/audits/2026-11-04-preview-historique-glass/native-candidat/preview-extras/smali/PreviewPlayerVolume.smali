@@ -1065,25 +1065,25 @@
 
     invoke-virtual {v12, v14}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
 
-    const/high16 v14, 0x41200000    # 10.0f
+    const/high16 v14, 0x41400000    # 12.0f
 
     invoke-virtual {v12, v14}, Landroid/widget/TextView;->setTextSize(F)V
 
-    const v14, -0x66000001
+    const v15, -0x66000001
 
-    invoke-virtual {v12, v14}, Landroid/widget/TextView;->setTextColor(I)V
+    invoke-virtual {v12, v15}, Landroid/widget/TextView;->setTextColor(I)V
 
-    new-instance v15, Landroid/widget/LinearLayout$LayoutParams;
+    new-instance v14, Landroid/widget/LinearLayout$LayoutParams;
 
     const/high16 v9, 0x41900000    # 18.0f
 
     invoke-direct {v1, v9}, Lcom/melodix/music/PreviewPlayerVolume;->dp(F)I
 
-    move-result v14
+    move-result v15
 
-    invoke-direct {v15, v13, v14}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    invoke-direct {v14, v13, v15}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
 
-    invoke-virtual {v10, v12, v15}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    invoke-virtual {v10, v12, v14}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
     .line 116
     new-instance v12, Landroid/widget/TextView;
@@ -1299,118 +1299,118 @@
 
     invoke-direct {v1, v3}, Lcom/melodix/music/PreviewPlayerVolume;->dp(F)I
 
-    move-result v3
+    move-result v11
 
-    const/high16 v11, 0x41000000    # 8.0f
+    const/high16 v3, 0x41000000    # 8.0f
+
+    invoke-direct {v1, v3}, Lcom/melodix/music/PreviewPlayerVolume;->dp(F)I
+
+    move-result v15
+
+    invoke-virtual {v2, v5, v10, v11, v15}, Landroid/widget/LinearLayout;->setPadding(IIII)V
+
+    const v5, 0xcffffff
+
+    const v10, 0x16ffffff
+
+    invoke-static {v4, v5, v10, v9}, Lcom/melodix/music/PreviewPlayerSheet;->surface(Landroid/content/Context;IIF)Landroid/graphics/drawable/GradientDrawable;
+
+    move-result-object v5
+
+    invoke-virtual {v2, v5}, Landroid/widget/LinearLayout;->setBackground(Landroid/graphics/drawable/Drawable;)V
+
+    .line 124
+    new-instance v5, Landroid/widget/SeekBar;
+
+    invoke-direct {v5, v4}, Landroid/widget/SeekBar;-><init>(Landroid/content/Context;)V
+
+    iput-object v5, v1, Lcom/melodix/music/PreviewPlayerVolume;->slider:Landroid/widget/SeekBar;
+
+    iget-object v5, v1, Lcom/melodix/music/PreviewPlayerVolume;->slider:Landroid/widget/SeekBar;
+
+    const/16 v9, 0x64
+
+    invoke-virtual {v5, v9}, Landroid/widget/SeekBar;->setMax(I)V
+
+    iget-object v5, v1, Lcom/melodix/music/PreviewPlayerVolume;->slider:Landroid/widget/SeekBar;
+
+    iget v9, v1, Lcom/melodix/music/PreviewPlayerVolume;->percent:I
+
+    invoke-static {v6, v9}, Ljava/lang/Math;->max(II)I
+
+    move-result v9
+
+    invoke-virtual {v5, v9}, Landroid/widget/SeekBar;->setProgress(I)V
+
+    iget-object v5, v1, Lcom/melodix/music/PreviewPlayerVolume;->slider:Landroid/widget/SeekBar;
+
+    const-string v9, "Volume du lecteur, de z\u00e9ro \u00e0 cent pour cent"
+
+    invoke-virtual {v5, v9}, Landroid/widget/SeekBar;->setContentDescription(Ljava/lang/CharSequence;)V
+
+    .line 125
+    iget-object v5, v1, Lcom/melodix/music/PreviewPlayerVolume;->slider:Landroid/widget/SeekBar;
+
+    invoke-static {v5}, Lcom/melodix/music/PreviewUiRestyle;->volumeBar(Landroid/widget/SeekBar;)V
+
+    iget-object v5, v1, Lcom/melodix/music/PreviewPlayerVolume;->slider:Landroid/widget/SeekBar;
+
+    new-instance v9, Landroid/widget/LinearLayout$LayoutParams;
+
+    invoke-direct {v1, v12}, Lcom/melodix/music/PreviewPlayerVolume;->dp(F)I
+
+    move-result v10
+
+    invoke-direct {v9, v13, v10}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+
+    invoke-virtual {v2, v5, v9}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    .line 126
+    new-instance v5, Landroid/widget/LinearLayout;
+
+    invoke-direct {v5, v4}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
+
+    invoke-virtual {v5, v6}, Landroid/widget/LinearLayout;->setOrientation(I)V
+
+    .line 127
+    new-instance v9, Landroid/widget/TextView;
+
+    invoke-direct {v9, v4}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
+
+    const-string v10, "0 %"
+
+    const v11, -0x66000001
+
+    invoke-static {v4, v10, v6, v11}, Lcom/melodix/music/PreviewPanelIcon;->label(Landroid/content/Context;Ljava/lang/String;II)Ljava/lang/CharSequence;
+
+    move-result-object v10
+
+    invoke-virtual {v9, v10}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+
+    invoke-virtual {v9, v11}, Landroid/widget/TextView;->setTextColor(I)V
+
+    const/high16 v10, 0x41400000    # 12.0f
+
+    invoke-virtual {v9, v10}, Landroid/widget/TextView;->setTextSize(F)V
+
+    new-instance v10, Landroid/widget/LinearLayout$LayoutParams;
+
+    const/high16 v11, 0x41c00000    # 24.0f
 
     invoke-direct {v1, v11}, Lcom/melodix/music/PreviewPlayerVolume;->dp(F)I
 
     move-result v15
 
-    invoke-virtual {v2, v5, v10, v3, v15}, Landroid/widget/LinearLayout;->setPadding(IIII)V
+    const/high16 v11, 0x3f800000    # 1.0f
 
-    const v3, 0xcffffff
+    invoke-direct {v10, v6, v15, v11}, Landroid/widget/LinearLayout$LayoutParams;-><init>(IIF)V
 
-    const v5, 0x16ffffff
-
-    invoke-static {v4, v3, v5, v9}, Lcom/melodix/music/PreviewPlayerSheet;->surface(Landroid/content/Context;IIF)Landroid/graphics/drawable/GradientDrawable;
-
-    move-result-object v3
-
-    invoke-virtual {v2, v3}, Landroid/widget/LinearLayout;->setBackground(Landroid/graphics/drawable/Drawable;)V
-
-    .line 124
-    new-instance v3, Landroid/widget/SeekBar;
-
-    invoke-direct {v3, v4}, Landroid/widget/SeekBar;-><init>(Landroid/content/Context;)V
-
-    iput-object v3, v1, Lcom/melodix/music/PreviewPlayerVolume;->slider:Landroid/widget/SeekBar;
-
-    iget-object v3, v1, Lcom/melodix/music/PreviewPlayerVolume;->slider:Landroid/widget/SeekBar;
-
-    const/16 v5, 0x64
-
-    invoke-virtual {v3, v5}, Landroid/widget/SeekBar;->setMax(I)V
-
-    iget-object v3, v1, Lcom/melodix/music/PreviewPlayerVolume;->slider:Landroid/widget/SeekBar;
-
-    iget v5, v1, Lcom/melodix/music/PreviewPlayerVolume;->percent:I
-
-    invoke-static {v6, v5}, Ljava/lang/Math;->max(II)I
-
-    move-result v5
-
-    invoke-virtual {v3, v5}, Landroid/widget/SeekBar;->setProgress(I)V
-
-    iget-object v3, v1, Lcom/melodix/music/PreviewPlayerVolume;->slider:Landroid/widget/SeekBar;
-
-    const-string v5, "Volume du lecteur, de z\u00e9ro \u00e0 cent pour cent"
-
-    invoke-virtual {v3, v5}, Landroid/widget/SeekBar;->setContentDescription(Ljava/lang/CharSequence;)V
-
-    .line 125
-    iget-object v3, v1, Lcom/melodix/music/PreviewPlayerVolume;->slider:Landroid/widget/SeekBar;
-
-    invoke-static {v3}, Lcom/melodix/music/PreviewUiRestyle;->volumeBar(Landroid/widget/SeekBar;)V
-
-    iget-object v3, v1, Lcom/melodix/music/PreviewPlayerVolume;->slider:Landroid/widget/SeekBar;
-
-    new-instance v5, Landroid/widget/LinearLayout$LayoutParams;
-
-    invoke-direct {v1, v12}, Lcom/melodix/music/PreviewPlayerVolume;->dp(F)I
-
-    move-result v9
-
-    invoke-direct {v5, v13, v9}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-
-    invoke-virtual {v2, v3, v5}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
-
-    .line 126
-    new-instance v3, Landroid/widget/LinearLayout;
-
-    invoke-direct {v3, v4}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
-
-    invoke-virtual {v3, v6}, Landroid/widget/LinearLayout;->setOrientation(I)V
-
-    .line 127
-    new-instance v5, Landroid/widget/TextView;
-
-    invoke-direct {v5, v4}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
-
-    const-string v9, "0 %"
-
-    const v10, -0x66000001
-
-    invoke-static {v4, v9, v6, v10}, Lcom/melodix/music/PreviewPanelIcon;->label(Landroid/content/Context;Ljava/lang/String;II)Ljava/lang/CharSequence;
-
-    move-result-object v9
-
-    invoke-virtual {v5, v9}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-
-    invoke-virtual {v5, v10}, Landroid/widget/TextView;->setTextColor(I)V
-
-    const/high16 v9, 0x41300000    # 11.0f
-
-    invoke-virtual {v5, v9}, Landroid/widget/TextView;->setTextSize(F)V
-
-    new-instance v10, Landroid/widget/LinearLayout$LayoutParams;
-
-    const/high16 v15, 0x41c00000    # 24.0f
-
-    invoke-direct {v1, v15}, Lcom/melodix/music/PreviewPlayerVolume;->dp(F)I
-
-    move-result v11
-
-    const/high16 v15, 0x3f800000    # 1.0f
-
-    invoke-direct {v10, v6, v11, v15}, Landroid/widget/LinearLayout$LayoutParams;-><init>(IIF)V
-
-    invoke-virtual {v3, v5, v10}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    invoke-virtual {v5, v9, v10}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
     .line 128
-    new-instance v5, Landroid/widget/TextView;
+    new-instance v9, Landroid/widget/TextView;
 
-    invoke-direct {v5, v4}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
+    invoke-direct {v9, v4}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
 
     const-string v10, "100 %"
 
@@ -1422,15 +1422,31 @@
 
     move-result-object v10
 
-    invoke-virtual {v5, v10}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    invoke-virtual {v9, v10}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
 
-    invoke-virtual {v5, v11}, Landroid/widget/TextView;->setTextColor(I)V
+    invoke-virtual {v9, v11}, Landroid/widget/TextView;->setTextColor(I)V
 
-    invoke-virtual {v5, v9}, Landroid/widget/TextView;->setTextSize(F)V
+    const/high16 v10, 0x41400000    # 12.0f
 
-    const/4 v9, 0x5
+    invoke-virtual {v9, v10}, Landroid/widget/TextView;->setTextSize(F)V
 
-    invoke-virtual {v5, v9}, Landroid/widget/TextView;->setGravity(I)V
+    const/4 v10, 0x5
+
+    invoke-virtual {v9, v10}, Landroid/widget/TextView;->setGravity(I)V
+
+    new-instance v10, Landroid/widget/LinearLayout$LayoutParams;
+
+    const/high16 v11, 0x41c00000    # 24.0f
+
+    invoke-direct {v1, v11}, Lcom/melodix/music/PreviewPlayerVolume;->dp(F)I
+
+    move-result v15
+
+    const/high16 v11, 0x3f800000    # 1.0f
+
+    invoke-direct {v10, v6, v15, v11}, Landroid/widget/LinearLayout$LayoutParams;-><init>(IIF)V
+
+    invoke-virtual {v5, v9, v10}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
     new-instance v9, Landroid/widget/LinearLayout$LayoutParams;
 
@@ -1438,32 +1454,18 @@
 
     invoke-direct {v1, v10}, Lcom/melodix/music/PreviewPlayerVolume;->dp(F)I
 
-    move-result v11
+    move-result v10
 
-    const/high16 v10, 0x3f800000    # 1.0f
+    invoke-direct {v9, v13, v10}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
 
-    invoke-direct {v9, v6, v11, v10}, Landroid/widget/LinearLayout$LayoutParams;-><init>(IIF)V
-
-    invoke-virtual {v3, v5, v9}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
-
-    new-instance v5, Landroid/widget/LinearLayout$LayoutParams;
-
-    const/high16 v9, 0x41c00000    # 24.0f
-
-    invoke-direct {v1, v9}, Lcom/melodix/music/PreviewPlayerVolume;->dp(F)I
-
-    move-result v9
-
-    invoke-direct {v5, v13, v9}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-
-    invoke-virtual {v2, v3, v5}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    invoke-virtual {v2, v5, v9}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
     .line 129
-    new-instance v3, Landroid/widget/LinearLayout$LayoutParams;
+    new-instance v5, Landroid/widget/LinearLayout$LayoutParams;
 
-    invoke-direct {v3, v13, v14}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    invoke-direct {v5, v13, v14}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
 
-    invoke-virtual {v8, v2, v3}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    invoke-virtual {v8, v2, v5}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
     .line 130
     new-instance v2, Landroid/widget/LinearLayout;
@@ -1472,55 +1474,55 @@
 
     invoke-virtual {v2, v6}, Landroid/widget/LinearLayout;->setOrientation(I)V
 
-    const/high16 v3, 0x41600000    # 14.0f
+    const/high16 v5, 0x41600000    # 14.0f
 
-    invoke-direct {v1, v3}, Lcom/melodix/music/PreviewPlayerVolume;->dp(F)I
+    invoke-direct {v1, v5}, Lcom/melodix/music/PreviewPlayerVolume;->dp(F)I
 
-    move-result v3
+    move-result v5
 
-    invoke-virtual {v2, v6, v3, v6, v6}, Landroid/widget/LinearLayout;->setPadding(IIII)V
+    invoke-virtual {v2, v6, v5, v6, v6}, Landroid/widget/LinearLayout;->setPadding(IIII)V
 
     .line 131
-    const-string v3, "Silence"
+    const-string v5, "Silence"
 
-    const/4 v5, 0x1
+    const/4 v9, 0x1
 
-    invoke-direct {v1, v4, v3, v5}, Lcom/melodix/music/PreviewPlayerVolume;->action(Landroid/app/Activity;Ljava/lang/String;Z)Landroid/widget/Button;
+    invoke-direct {v1, v4, v5, v9}, Lcom/melodix/music/PreviewPlayerVolume;->action(Landroid/app/Activity;Ljava/lang/String;Z)Landroid/widget/Button;
 
-    move-result-object v3
+    move-result-object v5
 
-    iput-object v3, v1, Lcom/melodix/music/PreviewPlayerVolume;->mute:Landroid/widget/Button;
+    iput-object v5, v1, Lcom/melodix/music/PreviewPlayerVolume;->mute:Landroid/widget/Button;
 
-    iget-object v3, v1, Lcom/melodix/music/PreviewPlayerVolume;->mute:Landroid/widget/Button;
+    iget-object v5, v1, Lcom/melodix/music/PreviewPlayerVolume;->mute:Landroid/widget/Button;
 
-    new-instance v5, Landroid/widget/LinearLayout$LayoutParams;
+    new-instance v9, Landroid/widget/LinearLayout$LayoutParams;
 
     invoke-direct {v1, v12}, Lcom/melodix/music/PreviewPlayerVolume;->dp(F)I
 
-    move-result v9
+    move-result v10
 
-    const/high16 v10, 0x3f800000    # 1.0f
+    const/high16 v11, 0x3f800000    # 1.0f
 
-    invoke-direct {v5, v6, v9, v10}, Landroid/widget/LinearLayout$LayoutParams;-><init>(IIF)V
+    invoke-direct {v9, v6, v10, v11}, Landroid/widget/LinearLayout$LayoutParams;-><init>(IIF)V
 
-    invoke-virtual {v2, v3, v5}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    invoke-virtual {v2, v5, v9}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
     .line 132
     invoke-direct {v1, v4, v0, v6}, Lcom/melodix/music/PreviewPlayerVolume;->action(Landroid/app/Activity;Ljava/lang/String;Z)Landroid/widget/Button;
 
-    move-result-object v3
+    move-result-object v5
 
-    const/4 v5, 0x2
+    const/4 v9, 0x2
 
-    invoke-static {v4, v0, v5, v13}, Lcom/melodix/music/PreviewPanelIcon;->label(Landroid/content/Context;Ljava/lang/String;II)Ljava/lang/CharSequence;
+    invoke-static {v4, v0, v9, v13}, Lcom/melodix/music/PreviewPanelIcon;->label(Landroid/content/Context;Ljava/lang/String;II)Ljava/lang/CharSequence;
 
     move-result-object v0
 
-    invoke-virtual {v3, v0}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
+    invoke-virtual {v5, v0}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
 
     const-string v0, "Actualiser le volume du lecteur"
 
-    invoke-virtual {v3, v0}, Landroid/widget/Button;->setContentDescription(Ljava/lang/CharSequence;)V
+    invoke-virtual {v5, v0}, Landroid/widget/Button;->setContentDescription(Ljava/lang/CharSequence;)V
 
     new-instance v0, Landroid/widget/LinearLayout$LayoutParams;
 
@@ -1528,19 +1530,17 @@
 
     move-result v4
 
-    const/high16 v5, 0x3f800000    # 1.0f
+    const/high16 v9, 0x3f800000    # 1.0f
 
-    invoke-direct {v0, v6, v4, v5}, Landroid/widget/LinearLayout$LayoutParams;-><init>(IIF)V
+    invoke-direct {v0, v6, v4, v9}, Landroid/widget/LinearLayout$LayoutParams;-><init>(IIF)V
 
-    const/high16 v4, 0x41000000    # 8.0f
+    invoke-direct {v1, v3}, Lcom/melodix/music/PreviewPlayerVolume;->dp(F)I
 
-    invoke-direct {v1, v4}, Lcom/melodix/music/PreviewPlayerVolume;->dp(F)I
+    move-result v3
 
-    move-result v4
+    iput v3, v0, Landroid/widget/LinearLayout$LayoutParams;->leftMargin:I
 
-    iput v4, v0, Landroid/widget/LinearLayout$LayoutParams;->leftMargin:I
-
-    invoke-virtual {v2, v3, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    invoke-virtual {v2, v5, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
     new-instance v0, Landroid/widget/LinearLayout$LayoutParams;
 
@@ -1580,7 +1580,7 @@
 
     invoke-direct {v0, v1}, Lcom/melodix/music/PreviewPlayerVolume$10;-><init>(Lcom/melodix/music/PreviewPlayerVolume;)V
 
-    invoke-virtual {v3, v0}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
+    invoke-virtual {v5, v0}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
 
     .line 137
     const/4 v0, 0x1

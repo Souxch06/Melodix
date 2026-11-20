@@ -112,7 +112,7 @@ public final class PreviewPlayerVolume extends Button {
             handle.setOnTouchListener(d.dragListener());content.addView(handle,new LinearLayout.LayoutParams(-1,dp(32)));
             LinearLayout heading=new LinearLayout(a);heading.setGravity(Gravity.CENTER_VERTICAL);heading.setOrientation(LinearLayout.HORIZONTAL);
             LinearLayout headingText=new LinearLayout(a);headingText.setOrientation(LinearLayout.VERTICAL);
-            TextView eyebrow=new TextView(a);eyebrow.setText("LECTEUR");eyebrow.setTextSize(10);eyebrow.setTextColor(0x99ffffff);headingText.addView(eyebrow,new LinearLayout.LayoutParams(-1,dp(18)));
+            TextView eyebrow=new TextView(a);eyebrow.setText("LECTEUR");eyebrow.setTextSize(12);eyebrow.setTextColor(0x99ffffff);headingText.addView(eyebrow,new LinearLayout.LayoutParams(-1,dp(18)));
             TextView title=new TextView(a);title.setText("Volume du lecteur");title.setTextSize(20);title.setTextColor(Color.WHITE);title.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));title.setLetterSpacing(-0.01f);title.setMaxLines(2);headingText.addView(title,new LinearLayout.LayoutParams(-1,-2));
             heading.addView(headingText,new LinearLayout.LayoutParams(0,-2,1));
             valueLabel=new TextView(a);valueLabel.setTextColor(Color.WHITE);valueLabel.setTextSize(26);valueLabel.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));valueLabel.setGravity(Gravity.CENTER);
@@ -124,8 +124,8 @@ public final class PreviewPlayerVolume extends Button {
             slider=new SeekBar(a);slider.setMax(100);slider.setProgress(Math.max(0,percent));slider.setContentDescription("Volume du lecteur, de zéro à cent pour cent");
             PreviewUiRestyle.volumeBar(slider);controls.addView(slider,new LinearLayout.LayoutParams(-1,dp(48)));
             LinearLayout bounds=new LinearLayout(a);bounds.setOrientation(LinearLayout.HORIZONTAL);
-            TextView low=new TextView(a);low.setText(PreviewPanelIcon.label(a,"0 %",PreviewPanelIcon.MUTED,0x99ffffff));low.setTextColor(0x99ffffff);low.setTextSize(11);bounds.addView(low,new LinearLayout.LayoutParams(0,dp(24),1));
-            TextView high=new TextView(a);high.setText(PreviewPanelIcon.label(a,"100 %",PreviewPanelIcon.SPEAKER,0x99ffffff));high.setTextColor(0x99ffffff);high.setTextSize(11);high.setGravity(Gravity.RIGHT);bounds.addView(high,new LinearLayout.LayoutParams(0,dp(24),1));controls.addView(bounds,new LinearLayout.LayoutParams(-1,dp(24)));
+            TextView low=new TextView(a);low.setText(PreviewPanelIcon.label(a,"0 %",PreviewPanelIcon.MUTED,0x99ffffff));low.setTextColor(0x99ffffff);low.setTextSize(12);bounds.addView(low,new LinearLayout.LayoutParams(0,dp(24),1));
+            TextView high=new TextView(a);high.setText(PreviewPanelIcon.label(a,"100 %",PreviewPanelIcon.SPEAKER,0x99ffffff));high.setTextColor(0x99ffffff);high.setTextSize(12);high.setGravity(Gravity.RIGHT);bounds.addView(high,new LinearLayout.LayoutParams(0,dp(24),1));controls.addView(bounds,new LinearLayout.LayoutParams(-1,dp(24)));
             content.addView(controls,new LinearLayout.LayoutParams(-1,-2));
             LinearLayout actions=new LinearLayout(a);actions.setOrientation(LinearLayout.HORIZONTAL);actions.setPadding(0,dp(14),0,0);
             mute=action(a,"Silence",true);actions.addView(mute,new LinearLayout.LayoutParams(0,dp(48),1));
