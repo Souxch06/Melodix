@@ -22,7 +22,7 @@ class TestRefresh(unittest.TestCase):
   self.assertEqual(hashlib.sha256((HERE/'glass-refresh/smali/GlassLikedMotion.smali').read_bytes()).hexdigest(),refresh.MOTION_HELPER_SHA)
  def test_visual_hook_and_original_click_routes(self):
   activity=self.get(refresh.ACTIVITY);render=body(activity,'renderNativeRows');openrow=body(activity,'openNativeRow')
-  self.assertEqual(render.count('GlassScreenStyler;->style('),2)
+  self.assertEqual(render.count('GlassScreenStyler;->style('),3)
   self.assertIn('NativeHomeFeed;->paint',render);self.assertIn('removeAllViews()',render)
   self.assertIn('GlassScreenStyler;->rememberSelection(',openrow)
   for call in ('window.__sfOpenCollection','window.__sfNativeOpenUri','playlistOpened','lot1PushBack'):self.assertIn(call,openrow)

@@ -15,8 +15,8 @@ MOTION_HELPER_SHA='eb059151043afc1ebde000e746b996b1053024107be4c1852152a5036ca9d
 RETRY='smali/com/melodix/music/NativeHomeRetryRunnable.smali'
 RETRY_SHA='95c78f85877e64c390743dcb77fcd4ff98541638fad8c8d3c85904ef3fd5b703'
 EXPECTED='197e84fa4374e28dccad1ea0ef7b58f085c5230167237edbe81d4a9bd4cfe6d8'
-SOURCE_SHA='cd97f52ff2e09dd4304db0caaf4032119cb6f1720b60d822db9766068febb578'
-HELPER_SHA='42fa000ddc7cc5eb410aa33d8a652a18aa12da1cacb4caec57fa89f29296736c'
+SOURCE_SHA='1aaf082b6eefdc9e6ba121e2c4764d69a6c2bbbd2c4a3a8752ca0c7029777893'
+HELPER_SHA='a2d6a1c51e8014bdac8e4d1d8be37c51a17607315901d4818ce64cfd7170eb25'
 def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 def replace(s,a,b):
     if s.count(a)!=1:raise ValueError('unexpected anchor '+repr(a[:100]))
@@ -56,6 +56,10 @@ def prepare(root):
     new=replace(new,'''    invoke-virtual {v2, v6}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
     return-void''','''    invoke-virtual {v2, v6}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
 '''+decorate+'''    return-void''')
+    # Home returns early after the shelf painter: style it there too (v2 is still the feed).
+    new=replace(new,'''    if-lez v3, :preview_historical_feed
+''','''    if-lez v3, :preview_historical_feed
+'''+decorate)
     s=s[:a]+new+s[b:]
     # v3/v4 are a wide delay. With .locals 4, p0 aliases v4 and ART
     # rejects run(): p0 is overwritten by the high half of the delay.

@@ -64,6 +64,7 @@ public final class GlassScreenStyler implements Runnable {
     public static void style(Activity a,LinearLayout content,String screen,String uri,String title) {
         if(a==null||content==null)return;
         if("settings".equals(screen))settings(a,content);
+        else if("home".equals(screen))home(a,content);
         else if("detail".equals(screen)&&playlist(uri))playlist(a,content,uri,title);
         else if("detail".equals(screen)&&liked(uri))playlist(a,content,uri,title);
         GlassLikedMotion.bind(a,content,screen,uri);
@@ -176,6 +177,55 @@ public final class GlassScreenStyler implements Runnable {
     private final LinearLayout waitHero;private final ImageView waitImage;private final int waitTries;
     private GlassScreenStyler(LinearLayout h,ImageView i,int t){waitHero=h;waitImage=i;waitTries=t;}
     @Override public void run(){if(waitImage.isAttachedToWindow()||waitTries<4)tint(waitHero,waitImage,waitTries);}
+
+    // ---- Home (Spotify-style): greeting, quick-access grid of the real library cards ----
+    private static final String LIB="Votre bibliothèque",DISCOVER="À découvrir sur Spotify";
+    private static void home(Activity a,LinearLayout content){
+        LinearLayout feed=content.getChildCount()==1&&content.getChildAt(0) instanceof LinearLayout?(LinearLayout)content.getChildAt(0):content;
+        if(feed.findViewWithTag("glass-home-head")!=null)return;
+        java.util.List<View> libShelf=new java.util.ArrayList<View>();LinearLayout libCards=null;String group="";
+        for(int i=0;i<feed.getChildCount();i++){View c=feed.getChildAt(i);
+            if(c instanceof TextView){String t=String.valueOf(((TextView)c).getText());
+                if(LIB.equals(t)||DISCOVER.equals(t)){group=t;eyebrow((TextView)c);}else heading((TextView)c);
+                if(LIB.equals(group)&&libCards==null)libShelf.add(c);continue;}
+            if(LIB.equals(group)&&libCards==null){libCards=cards(c);if(libCards!=null)libShelf.add(c);}}
+        LinearLayout head=vertical(a);head.setTag("glass-home-head");head.setPadding(dp(a,16),dp(a,4),dp(a,16),dp(a,8));
+        int h=java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY);
+        head.addView(text(a,h>=5&&h<12?"Bonjour":h>=12&&h<18?"Bon après-midi":"Bonsoir",26,0xfffafafa,true));
+        // The real cards move into the grid: their own click routes stay untouched.
+        java.util.List<View> quick=new java.util.ArrayList<View>();
+        if(libCards!=null)for(int k=0;k<libCards.getChildCount()&&quick.size()<8;k++)if(libCards.getChildAt(k).isClickable())quick.add(libCards.getChildAt(k));
+        if(quick.size()>=2){LinearLayout grid=vertical(a);grid.setTag("glass-home-quick");LinearLayout line=null;
+            for(int i=0;i<quick.size();i++){View card=quick.get(i);libCards.removeView(card);
+                if(i%2==0){line=new LinearLayout(a);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.topMargin=dp(a,8);grid.addView(line,lp);}
+                compact(a,card);LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(0,dp(a,56),1f);if(i%2==0)tp.rightMargin=dp(a,8);line.addView(card,tp);}
+            if(quick.size()%2==1)line.addView(new View(a),new LinearLayout.LayoutParams(0,dp(a,56),1f));
+            LinearLayout.LayoutParams gp=new LinearLayout.LayoutParams(-1,-2);gp.topMargin=dp(a,14);head.addView(grid,gp);
+            if(libCards.getChildCount()==0)for(View v:libShelf)v.setVisibility(View.GONE);}
+        feed.addView(head,0,new LinearLayout.LayoutParams(-1,-2));
+    }
+    /** Shelf = a scroller whose only child is the row of cards. */
+    private static LinearLayout cards(View v){
+        if(!(v instanceof ViewGroup)||v instanceof LinearLayout)return null;ViewGroup g=(ViewGroup)v;
+        return g.getChildCount()==1&&g.getChildAt(0) instanceof LinearLayout?(LinearLayout)g.getChildAt(0):null;
+    }
+    /** Card -> compact Spotify quick tile: small square cover left, bold name right. */
+    private static void compact(Context a,View card){
+        if(!(card instanceof LinearLayout))return;LinearLayout t=(LinearLayout)card;
+        t.setOrientation(LinearLayout.HORIZONTAL);t.setGravity(Gravity.CENTER_VERTICAL);t.setPadding(0,0,0,0);
+        t.setBackground(glass(a,0x1fffffff,0x14ffffff,6,0));t.setClipToOutline(true);
+        for(int i=0;i<t.getChildCount();i++){View c=t.getChildAt(i);
+            if(i==0)c.setLayoutParams(new LinearLayout.LayoutParams(dp(a,56),dp(a,56)));
+            else{LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,-2,1f);c.setLayoutParams(p);c.setPadding(dp(a,10),0,dp(a,8),0);
+                java.util.List<TextView> tv=new java.util.ArrayList<TextView>();textViews(c,tv);
+                for(int k=0;k<tv.size();k++){TextView x=tv.get(k);if(k==0){x.setTextSize(13);x.setMaxLines(2);x.setEllipsize(TextUtils.TruncateAt.END);x.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL),Typeface.BOLD);}else x.setVisibility(View.GONE);}}}
+    }
+    private static void textViews(View v,java.util.List<TextView> out){
+        if(v instanceof TextView){out.add((TextView)v);return;}
+        if(v instanceof ViewGroup){ViewGroup g=(ViewGroup)v;for(int i=0;i<g.getChildCount();i++)textViews(g.getChildAt(i),out);}
+    }
+    private static void eyebrow(TextView t){t.setBackground(null);t.setTextSize(11);t.setTextColor(0x8cffffff);t.setLetterSpacing(.14f);t.setText(String.valueOf(t.getText()).toUpperCase(Locale.FRENCH));}
+    private static void heading(TextView t){t.setTextSize(22);t.setTextColor(0xfffafafa);t.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL),Typeface.BOLD);}
     private static GradientDrawable glow(Context c,int color) {
         int base=color==0?0xffffff:color&0xffffff;
         GradientDrawable g=new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,new int[]{(color==0?0x12:0x66)<<24|base,(color==0?0x05:0x1f)<<24|base,0});
