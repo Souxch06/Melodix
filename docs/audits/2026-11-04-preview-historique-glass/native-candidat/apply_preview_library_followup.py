@@ -6,6 +6,7 @@ HERE=Path(__file__).resolve().parent
 EXPECTED='ed18ae0b137951fc9b9f1d9fbc65a3f596fad94f38d6f31c8b22c7fa74462984'
 HELPER_SHA='8e50e4ef814b37decbf9f0f410fe622797f76b4ddf4df4f450881dab66caff34'
 LIKED_SHA='5355232ea283e1081f5051533a73c803a749c0678360fad7d3c88f37fc67fc0a'
+SETTINGS_SHA='ed45f2694cb42b59b0d12c9147f5617e5d02905ccba1836ed389651405ecb395'
 PAGING_SHA='bb8f02baec23ebf033389c89e14c41cbe7e0beb0e5b75f48245f7277f4f7dc34'
 PREWARM_SHA='3fdd1bb3b02d6a0e985946c8c42d415e353a491ef96cf918f0b8688adf95cc55'
 PREFETCH_SHA='272a7608bd2e2b0c539a63bd778895aa87f1d2fdc7a3a86c2e13076e63c0fd6d'
@@ -42,6 +43,9 @@ def apply(root):
     paging_bytes=(HERE/'preview-playlist-paging.js').read_bytes()
     if hashlib.sha256(paging_bytes).hexdigest()!=PAGING_SHA: raise ValueError('unexpected paging helper; no changes made')
     prefetch=prefetch+'\n'+paging_bytes.decode('utf8')
+    settings_bytes=(HERE/'preview-settings.js').read_bytes()
+    if hashlib.sha256(settings_bytes).hexdigest()!=SETTINGS_SHA: raise ValueError('unexpected settings helper; no changes made')
+    prefetch=prefetch+'\n'+settings_bytes.decode('utf8')
     s=raw.decode('utf8'); helper=liked_bytes.decode('utf8')+'\n'+prefetch+'\n'+helper_bytes.decode('utf8')
     # The upstream recovery loop used to leave a definitively failed script
     # node in place forever. Retry only an explicit resource-load failure;

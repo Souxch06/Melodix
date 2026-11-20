@@ -238,10 +238,9 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     private String cacheOutcome = "non chargé";
     // Invoked once, immediately after the real native layout has been inflated.
     public void layoutReady() {
-        // Home from the local copy at once (user request after 1022320); live Spotify data replaces it.
-        callStyler("restoreHome");
         final Activity a = activity.get(); if (a == null) return;
         cacheLoading = true; cacheStart = now();
+        // User report (1022327): the track appeared late at launch. Start its read first, then draw Home.
         PreviewLastTrackStore.load(a, new PreviewLastTrackStore.Callback() {
             public void loaded(PreviewLastTrackStore.Record r, Bitmap image, String status) {
                 cacheLoading = false; cacheOutcome = "lecture : " + status;
@@ -279,6 +278,8 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 cacheReadMs = Math.max(0, now() - cacheStart);
             }
         });
+        // Home from the local copy at once (user request after 1022320); live Spotify data replaces it.
+        callStyler("restoreHome");
     }
     // Incomplete, legacy and unknown snapshots must not erase a restored record.
     public boolean acceptPlayerPayload(String json) {
