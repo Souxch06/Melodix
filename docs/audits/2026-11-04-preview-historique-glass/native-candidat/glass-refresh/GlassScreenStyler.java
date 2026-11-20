@@ -114,13 +114,13 @@ public final class GlassScreenStyler implements Runnable {
         name.setMaxLines(3);name.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-1,-2);np.topMargin=dp(a,6);side.addView(name,np);
         // Liner hero meta: how many tracks are already shown (grows as the list completes).
-        int tracks=0,secs=0;java.util.LinkedHashSet<String> artists=new java.util.LinkedHashSet<String>();
+        int tracks=0,secs=0,timed=0;java.util.LinkedHashSet<String> artists=new java.util.LinkedHashSet<String>();java.util.LinkedHashMap<String,Integer> seen=new java.util.LinkedHashMap<String,Integer>();
         for(int i=0;i<rows.getChildCount();i++){View c=rows.getChildAt(i);if(c==hero||!c.isClickable())continue;tracks++;
             java.util.List<String> t=new java.util.ArrayList<String>();texts(c,t);
             for(String x:t){java.util.regex.Matcher m=java.util.regex.Pattern.compile("(?:^|• )(?:(\\d+):)?(\\d{1,2}):(\\d{2})$").matcher(x.trim());
-                if(m.find())secs+=(m.group(1)==null?0:Integer.parseInt(m.group(1))*3600)+Integer.parseInt(m.group(2))*60+Integer.parseInt(m.group(3));}
+                if(m.find()){timed++;secs+=(m.group(1)==null?0:Integer.parseInt(m.group(1))*3600)+Integer.parseInt(m.group(2))*60+Integer.parseInt(m.group(3));}}
             // Second text of a row is the artist line (first is the title).
-            if(t.size()>1&&artists.size()<3)for(String n:t.get(1).replaceAll("\\s*•\\s*[\\d:]+$","").split(",")){n=n.trim();if(!n.isEmpty()&&!n.matches(".*\\d:\\d\\d.*")&&artists.size()<3)artists.add(n);}}
+            if(t.size()>1)for(String n:t.get(1).replaceAll("\\s*•\\s*[\\d:]+$","").split(",")){n=n.trim();if(!n.isEmpty()&&!n.matches(".*\\d:\\d\\d.*"))seen.put(n,seen.containsKey(n)?seen.get(n)+1:1);if(!n.isEmpty()&&!n.matches(".*\\d:\\d\\d.*")&&artists.size()<3)artists.add(n);}}
         // The bridge appends an "Aperçu Spotify" row while the list may be incomplete: say "N+".
         boolean partial=false;for(int i=0;i<rows.getChildCount();i++){java.util.List<String> t=new java.util.ArrayList<String>();texts(rows.getChildAt(i),t);if(t.contains("Aperçu Spotify")){partial=true;if(rows.getChildAt(i).isClickable())tracks--;}}
         if(tracks>0){String info=tracks+(partial?"+":"")+(tracks>1?" titres":" titre");
@@ -131,6 +131,14 @@ public final class GlassScreenStyler implements Runnable {
                 TextView with=text(a,b+(tracks>artists.size()?" et d'autres":""),12,0x73ffffff,false);with.setMaxLines(2);with.setEllipsize(TextUtils.TruncateAt.END);
                 LinearLayout.LayoutParams wp=new LinearLayout.LayoutParams(-1,-2);wp.topMargin=dp(a,4);side.addView(with,wp);}}
         // Liner: no section title, a hairline separates the header from the tracks.
+        // Stats chips (artists, average length) and the most present artist, from the rows shown.
+        LinearLayout chips=new LinearLayout(a);chips.setTag("glass-playlist-stats");
+        if(seen.size()>1)chips.addView(chip(a,seen.size()+" artistes"));
+        if(timed>1)chips.addView(chip(a,"moy. "+(secs/timed)/60+":"+((secs/timed)%60<10?"0":"")+(secs/timed)%60));
+        if(chips.getChildCount()>0){LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,-2);cp.topMargin=dp(a,16);hero.addView(chips,cp);}
+        String top=null;int best=1;for(java.util.Map.Entry<String,Integer> e:seen.entrySet())if(e.getValue()>best){best=e.getValue();top=e.getKey();}
+        if(top!=null){TextView fav=text(a,"★  Le plus présent : "+top+" · "+best+" titres",12,0xb3ffffff,false);fav.setMaxLines(1);fav.setEllipsize(TextUtils.TruncateAt.END);
+            LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(-1,-2);fp.topMargin=dp(a,10);hero.addView(fav,fp);}
         View line=new View(a);line.setBackgroundColor(0x14ffffff);
         LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(-1,Math.max(1,dp(a,.5f)));hp.topMargin=dp(a,20);hero.addView(line,hp);
         rows.addView(hero,0,new LinearLayout.LayoutParams(-1,-2));
@@ -138,6 +146,10 @@ public final class GlassScreenStyler implements Runnable {
         for(int i=1;i<rows.getChildCount();i++){View c=rows.getChildAt(i);if(!c.isClickable())continue;
             GradientDrawable mask=glass(a,0xffffffff,0xffffffff,10,0);
             c.setForeground(new android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x1fffffff),null,mask));}
+    }
+    private static TextView chip(Context c,String s){
+        TextView t=text(c,s,12,0xe6ffffff,false);t.setPadding(dp(c,12),dp(c,6),dp(c,12),dp(c,6));t.setBackground(glass(c,0x1affffff,0x0dffffff,14,0x1fffffff));
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-2,-2);p.rightMargin=dp(c,8);t.setLayoutParams(p);return t;
     }
     private static void texts(View v,java.util.List<String> out){
         if(v instanceof TextView){CharSequence c=((TextView)v).getText();if(c!=null&&c.toString().trim().length()>0)out.add(c.toString());}
