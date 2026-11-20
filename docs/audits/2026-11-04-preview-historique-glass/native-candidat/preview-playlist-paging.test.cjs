@@ -30,3 +30,11 @@ test('leaving the playlist stops paging',async()=>{
  const x=setup(500);x.api('spotify:playlist:P1');x.w.__sfNativeCollectionUri=null;x.timers.shift()();for(let i=0;i<5;i++)await settle();
  assert.equal(x.calls.length,0);assert.equal(x.sent.length,0);
 });
+test('a late shorter bridge reply is replaced by the full list (user report 1022315)',async()=>{
+ const x=setup(48);x.w.Proxy=Proxy;const api=new Function('window',fs.readFileSync(path.join(__dirname,'preview-playlist-paging.js'),'utf8')+'\nreturn previewPlaylistPages;')(x.w);
+ api('spotify:playlist:P1');x.timers.at(-1)();for(let i=0;i<5;i++)await settle();
+ const before=x.sent.length;assert.equal(x.sent.at(-1)[1].length,48);
+ x.w.AndBridge.onMediaItemsLoaded('spotify:playlist:P1',JSON.stringify(Array.from({length:26},(_,i)=>({id:'spotify:track:t'+i}))));
+ assert.equal(x.sent.length,before+1);assert.equal(x.sent.at(-1)[1].length,48,'never back to 26');
+ x.w.AndBridge.onMediaItemsLoaded('spotify:playlist:Other',JSON.stringify([{id:'a'}]));assert.equal(x.sent.at(-1)[1].length,1,'other playlists untouched');
+});

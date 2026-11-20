@@ -1,7 +1,29 @@
     // User-approved (after Preview 1022239): the protected bridge reads only the
     // first 100 tracks of a playlist (sometimes fewer). Read every page the same way and hand the
     // full list to the bridge's own native callback. Token used as a header only.
-    var previewPages = {gen: 0};
+    var previewPages = {gen: 0, full: {}};
+    // User report (1022315): a late, shorter bridge reply still cut the list to 26 for up to 15 s.
+    // Guard the native callback: for a playlist whose full list is known, a shorter reply is
+    // replaced by the full list at once. The bridge object itself is untouched (proxy around it).
+    (function guardBridge() {
+        var real = window.AndBridge;
+        if (!real || real.__sfPagingGuard || typeof window.Proxy !== 'function') return;
+        try {
+            var guarded = function(uri, json) {
+                var full = previewPages.full[uri];
+                if (full && full.length) {
+                    var n = -1; try { var a = JSON.parse(json); n = Array.isArray(a) ? a.length : -1; } catch (_) {}
+                    if (n >= 0 && n < full.length) json = JSON.stringify(full);
+                }
+                return real.onMediaItemsLoaded(uri, json);
+            };
+            window.AndBridge = new window.Proxy(real, {get: function(t, k) {
+                if (k === '__sfPagingGuard') return true;
+                if (k === 'onMediaItemsLoaded') return guarded;
+                var v = t[k]; return typeof v === 'function' ? v.bind(t) : v;
+            }});
+        } catch (_) {}
+    })();
     function previewPlaylistPages(uri) {
         if (!/^spotify:playlist:[A-Za-z0-9]+$/.test(String(uri || ''))) return;
         var gen = ++previewPages.gen, all = [], offset = 0, limit = 100, pages = 0;
@@ -10,6 +32,7 @@
         if (!/^[a-f0-9]{64}$/i.test(String(hash || ''))) hash = '346811f856fb0b7e4f6c59f8ebea78dd081c6e2fb01b77c954b26259d5fc6763';
         function live() { return gen === previewPages.gen && window.__sfNativeCollectionUri === uri; }
         function deliver() {
+            if (all.length && live()) previewPages.full[uri] = all;
             try { if (all.length && live() && window.AndBridge && typeof window.AndBridge.onMediaItemsLoaded === 'function') window.AndBridge.onMediaItemsLoaded(uri, JSON.stringify(all)); } catch (_) {}
         }
         function page() {

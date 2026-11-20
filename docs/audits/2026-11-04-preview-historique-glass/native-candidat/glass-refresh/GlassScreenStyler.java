@@ -63,9 +63,11 @@ public final class GlassScreenStyler implements Runnable {
     private static String selectedArtwork(Activity a,String uri){Map<String,String> m=artwork.get(a);return m==null?"":m.containsKey(uri)?m.get(uri):"";}
     public static void style(Activity a,LinearLayout content,String screen,String uri,String title) {
         if(a==null||content==null)return;
+        keepScroll(content,"detail".equals(screen)?"detail:"+uri:String.valueOf(screen));
         if("settings".equals(screen))settings(a,content);
         else if("home".equals(screen))home(a,content);
         else if("library".equals(screen))library(a,content);
+        else if("search".equals(screen))search(a,content);
         else if("detail".equals(screen)&&playlist(uri))playlist(a,content,uri,title);
         else if("detail".equals(screen)&&liked(uri))playlist(a,content,uri,title);
         GlassLikedMotion.bind(a,content,screen,uri);
@@ -176,22 +178,46 @@ public final class GlassScreenStyler implements Runnable {
     }
     // One pending cover-colour check (single helper file: no inner classes).
     private final LinearLayout waitHero;private final ImageView waitImage;private final int waitTries;
-    private GlassScreenStyler(LinearLayout h,ImageView i,int t){waitHero=h;waitImage=i;waitTries=t;}
-    @Override public void run(){if(waitImage.isAttachedToWindow()||waitTries<4)tint(waitHero,waitImage,waitTries);}
+    private GlassScreenStyler(LinearLayout h,ImageView i,int t){waitHero=h;waitImage=i;waitTries=t;scroller=null;scrollTo=0;}
+    @Override public void run(){
+        if(scroller!=null){scroller.scrollTo(0,scrollTo);return;}
+        if(waitImage.isAttachedToWindow()||waitTries<4)tint(waitHero,waitImage,waitTries);}
 
+    // ---- Scroll position per screen (user report 1022315: back from a playlist landed at the bottom of Home) ----
+    private final android.widget.ScrollView scroller;private final int scrollTo;
+    private GlassScreenStyler(android.widget.ScrollView s,int y){waitHero=null;waitImage=null;waitTries=0;scroller=s;scrollTo=y;}
+    private static String lastScreen;private static final Map<String,Integer> scrolls=new LinkedHashMap<String,Integer>();
+    private static void keepScroll(View content,String key){
+        View v=content;while(v!=null&&!(v instanceof android.widget.ScrollView))v=v.getParent() instanceof View?(View)v.getParent():null;
+        if(v==null||key.equals(lastScreen))return;android.widget.ScrollView sv=(android.widget.ScrollView)v;
+        if(lastScreen!=null){if(scrolls.size()>=32&&!scrolls.containsKey(lastScreen))scrolls.remove(scrolls.keySet().iterator().next());scrolls.put(lastScreen,sv.getScrollY());}
+        lastScreen=key;
+        // A playlist always opens at its top; Home / Library come back where they were left.
+        int y=key.startsWith("detail:")||!scrolls.containsKey(key)?0:scrolls.get(key);
+        sv.scrollTo(0,0);if(y>0)sv.post(new GlassScreenStyler(sv,y));
+    }
+
+    /** Shared Spotify-like list row (Library, Search). Returns true for a clickable row. */
+    private static boolean listRow(Activity a,View c){
+        if(c instanceof TextView){heading((TextView)c);((TextView)c).setTextSize(18);return false;}
+        if(!c.isClickable())return false;
+        GradientDrawable mask=glass(a,0xffffffff,0xffffffff,10,0);
+        c.setForeground(new RippleDrawable(ColorStateList.valueOf(0x1fffffff),null,mask));
+        ImageView cover=c instanceof ViewGroup&&((ViewGroup)c).getChildCount()>0&&((ViewGroup)c).getChildAt(0) instanceof ImageView?(ImageView)((ViewGroup)c).getChildAt(0):null;
+        if(cover!=null){if(cover.getBackground()==null)cover.setBackground(glass(a,0xff2a2a2e,0xff18181b,6,0));cover.setClipToOutline(true);}
+        track(a,c);return true;
+    }
+    // ---- Search: results styled like Library rows ----
+    private static void search(Activity a,LinearLayout content){
+        LinearLayout rows=rowContainer(content);for(int i=0;i<rows.getChildCount();i++)listRow(a,rows.getChildAt(i));
+    }
     // ---- Library (Spotify-style): big title, what it holds, list rows with rounded covers ----
     private static void library(Activity a,LinearLayout content){
         LinearLayout rows=rowContainer(content);
         if(rows.findViewWithTag("glass-library-head")!=null)return;
         int items=0;java.util.LinkedHashMap<String,Integer> kinds=new java.util.LinkedHashMap<String,Integer>();
         for(int i=0;i<rows.getChildCount();i++){View c=rows.getChildAt(i);
-            if(c instanceof TextView){heading((TextView)c);((TextView)c).setTextSize(18);continue;}
-            if(!c.isClickable())continue;items++;
-            GradientDrawable mask=glass(a,0xffffffff,0xffffffff,10,0);
-            c.setForeground(new RippleDrawable(ColorStateList.valueOf(0x1fffffff),null,mask));
-            ImageView cover=c instanceof ViewGroup&&((ViewGroup)c).getChildCount()>0&&((ViewGroup)c).getChildAt(0) instanceof ImageView?(ImageView)((ViewGroup)c).getChildAt(0):null;
-            if(cover!=null){if(cover.getBackground()==null)cover.setBackground(glass(a,0xff2a2a2e,0xff18181b,6,0));cover.setClipToOutline(true);}
-            track(a,c);
+            if(!listRow(a,c))continue;items++;
             // Kind = first word of the subtitle ("Playlist • Moi", "Album • Artiste").
             java.util.List<String> t=new java.util.ArrayList<String>();texts(c,t);
             if(t.size()>1){String k=t.get(1).split("[•·]")[0].trim();if(k.matches("(?i)playlists?|albums?|artistes?|podcasts?|titres?"))kinds.put(k,kinds.containsKey(k)?kinds.get(k)+1:1);}}
