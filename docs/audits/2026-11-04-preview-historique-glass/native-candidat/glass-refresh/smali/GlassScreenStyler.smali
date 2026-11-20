@@ -852,9 +852,9 @@
 
     move-result v14
 
-    const/16 v15, 0x3c
+    const-string v15, ""
 
-    const/16 v11, 0xe10
+    const/16 v8, 0xe10
 
     if-ge v6, v14, :cond_13
 
@@ -878,14 +878,14 @@
     add-int/lit8 v7, v7, 0x1
 
     .line 119
-    new-instance v8, Ljava/util/ArrayList;
+    new-instance v10, Ljava/util/ArrayList;
 
-    invoke-direct {v8}, Ljava/util/ArrayList;-><init>()V
+    invoke-direct {v10}, Ljava/util/ArrayList;-><init>()V
 
-    invoke-static {v14, v8}, Lcom/melodix/music/GlassScreenStyler;->texts(Landroid/view/View;Ljava/util/List;)V
+    invoke-static {v14, v10}, Lcom/melodix/music/GlassScreenStyler;->texts(Landroid/view/View;Ljava/util/List;)V
 
     .line 120
-    invoke-interface {v8}, Ljava/util/List;->iterator()Ljava/util/Iterator;
+    invoke-interface {v10}, Ljava/util/List;->iterator()Ljava/util/Iterator;
 
     move-result-object v14
 
@@ -902,47 +902,47 @@
 
     check-cast v18, Ljava/lang/String;
 
-    const-string v19, "^(?:(\\d+):)?(\\d{1,2}):(\\d{2})$"
+    const-string v19, "(?:^|\u2022 )(?:(\\d+):)?(\\d{1,2}):(\\d{2})$"
 
     invoke-static/range {v19 .. v19}, Ljava/util/regex/Pattern;->compile(Ljava/lang/String;)Ljava/util/regex/Pattern;
 
-    move-result-object v10
+    move-result-object v5
 
     invoke-virtual/range {v18 .. v18}, Ljava/lang/String;->trim()Ljava/lang/String;
 
-    move-result-object v5
+    move-result-object v11
 
-    invoke-virtual {v10, v5}, Ljava/util/regex/Pattern;->matcher(Ljava/lang/CharSequence;)Ljava/util/regex/Matcher;
+    invoke-virtual {v5, v11}, Ljava/util/regex/Pattern;->matcher(Ljava/lang/CharSequence;)Ljava/util/regex/Matcher;
 
     move-result-object v5
 
     .line 121
     invoke-virtual {v5}, Ljava/util/regex/Matcher;->find()Z
 
-    move-result v10
+    move-result v11
 
-    if-eqz v10, :cond_c
+    if-eqz v11, :cond_c
 
     invoke-virtual {v5, v12}, Ljava/util/regex/Matcher;->group(I)Ljava/lang/String;
 
-    move-result-object v10
+    move-result-object v11
 
-    if-nez v10, :cond_b
+    if-nez v11, :cond_b
 
-    const/4 v10, 0x0
+    const/4 v11, 0x0
 
     goto :goto_8
 
     :cond_b
     invoke-virtual {v5, v12}, Ljava/util/regex/Matcher;->group(I)Ljava/lang/String;
 
-    move-result-object v10
+    move-result-object v11
 
-    invoke-static {v10}, Ljava/lang/Integer;->parseInt(Ljava/lang/String;)I
+    invoke-static {v11}, Ljava/lang/Integer;->parseInt(Ljava/lang/String;)I
 
-    move-result v10
+    move-result v11
 
-    mul-int/2addr v10, v11
+    mul-int/2addr v11, v8
 
     :goto_8
     invoke-virtual {v5, v13}, Ljava/util/regex/Matcher;->group(I)Ljava/lang/String;
@@ -953,9 +953,11 @@
 
     move-result v18
 
+    const/16 v19, 0x3c
+
     mul-int/lit8 v18, v18, 0x3c
 
-    add-int v10, v10, v18
+    add-int v11, v11, v18
 
     const/4 v13, 0x3
 
@@ -967,14 +969,12 @@
 
     move-result v5
 
-    add-int/2addr v10, v5
+    add-int/2addr v11, v5
 
-    add-int/2addr v9, v10
+    add-int/2addr v9, v11
 
     :cond_c
     const/4 v5, 0x3
-
-    const v10, -0x66000001
 
     const/4 v13, 0x2
 
@@ -982,7 +982,7 @@
 
     .line 123
     :cond_d
-    invoke-interface {v8}, Ljava/util/List;->size()I
+    invoke-interface {v10}, Ljava/util/List;->size()I
 
     move-result v5
 
@@ -992,15 +992,21 @@
 
     move-result v5
 
-    const/4 v10, 0x3
+    const/4 v8, 0x3
 
-    if-ge v5, v10, :cond_10
+    if-ge v5, v8, :cond_10
 
-    invoke-interface {v8, v12}, Ljava/util/List;->get(I)Ljava/lang/Object;
+    invoke-interface {v10, v12}, Ljava/util/List;->get(I)Ljava/lang/Object;
 
     move-result-object v5
 
     check-cast v5, Ljava/lang/String;
+
+    const-string v8, "\\s*\u2022\\s*[\\d:]+$"
+
+    invoke-virtual {v5, v8, v15}, Ljava/lang/String;->replaceAll(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v5
 
     const-string v8, ","
 
@@ -1057,7 +1063,7 @@
     goto :goto_9
 
     :cond_10
-    move v14, v10
+    move v14, v8
 
     goto :goto_b
 
@@ -1094,27 +1100,27 @@
     :goto_c
     invoke-virtual {v1}, Landroid/widget/LinearLayout;->getChildCount()I
 
-    move-result v8
+    move-result v10
 
-    if-ge v5, v8, :cond_16
+    if-ge v5, v10, :cond_16
 
-    new-instance v8, Ljava/util/ArrayList;
+    new-instance v10, Ljava/util/ArrayList;
 
-    invoke-direct {v8}, Ljava/util/ArrayList;-><init>()V
+    invoke-direct {v10}, Ljava/util/ArrayList;-><init>()V
 
     invoke-virtual {v1, v5}, Landroid/widget/LinearLayout;->getChildAt(I)Landroid/view/View;
 
-    move-result-object v10
+    move-result-object v11
 
-    invoke-static {v10, v8}, Lcom/melodix/music/GlassScreenStyler;->texts(Landroid/view/View;Ljava/util/List;)V
+    invoke-static {v11, v10}, Lcom/melodix/music/GlassScreenStyler;->texts(Landroid/view/View;Ljava/util/List;)V
 
-    const-string v10, "Aper\u00e7u Spotify"
+    const-string v11, "Aper\u00e7u Spotify"
 
-    invoke-interface {v8, v10}, Ljava/util/List;->contains(Ljava/lang/Object;)Z
+    invoke-interface {v10, v11}, Ljava/util/List;->contains(Ljava/lang/Object;)Z
 
-    move-result v8
+    move-result v10
 
-    if-eqz v8, :cond_15
+    if-eqz v10, :cond_15
 
     invoke-virtual {v1, v5}, Landroid/widget/LinearLayout;->getChildAt(I)Landroid/view/View;
 
@@ -1148,8 +1154,6 @@
 
     move-result-object v5
 
-    const-string v8, ""
-
     if-eqz v6, :cond_17
 
     const-string v6, "+"
@@ -1157,7 +1161,7 @@
     goto :goto_d
 
     :cond_17
-    move-object v6, v8
+    move-object v6, v15
 
     :goto_d
     invoke-virtual {v5, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -1183,7 +1187,9 @@
     move-result-object v5
 
     .line 127
-    if-lt v9, v15, :cond_1a
+    const/16 v6, 0x3c
+
+    if-lt v9, v6, :cond_1a
 
     new-instance v6, Ljava/lang/StringBuilder;
 
@@ -1201,39 +1207,45 @@
 
     const-string v6, " min"
 
-    new-instance v10, Ljava/lang/StringBuilder;
+    if-lt v9, v8, :cond_19
 
-    if-lt v9, v11, :cond_19
+    new-instance v10, Ljava/lang/StringBuilder;
 
     invoke-direct {v10}, Ljava/lang/StringBuilder;-><init>()V
 
-    div-int/lit16 v13, v9, 0xe10
+    div-int/lit16 v11, v9, 0xe10
 
-    invoke-virtual {v10, v13}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
-
-    move-result-object v10
-
-    const-string v13, " h "
-
-    invoke-virtual {v10, v13}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v10, v11}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
 
     move-result-object v10
 
-    rem-int/2addr v9, v11
+    const-string v11, " h "
+
+    invoke-virtual {v10, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v10
+
+    rem-int/2addr v9, v8
+
+    const/16 v8, 0x3c
 
     goto :goto_f
 
     :cond_19
+    const/16 v8, 0x3c
+
+    new-instance v10, Ljava/lang/StringBuilder;
+
     invoke-direct {v10}, Ljava/lang/StringBuilder;-><init>()V
 
     :goto_f
-    div-int/2addr v9, v15
+    div-int/2addr v9, v8
 
     invoke-virtual {v10, v9}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
 
-    move-result-object v9
+    move-result-object v8
 
-    invoke-virtual {v9, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v8, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v6
 
@@ -1253,11 +1265,11 @@
     :cond_1a
     const/16 v6, 0xd
 
-    const v9, -0x66000001
+    const v8, -0x66000001
 
-    const/4 v10, 0x0
+    const/4 v9, 0x0
 
-    invoke-static {v0, v5, v6, v9, v10}, Lcom/melodix/music/GlassScreenStyler;->text(Landroid/content/Context;Ljava/lang/String;IIZ)Landroid/widget/TextView;
+    invoke-static {v0, v5, v6, v8, v9}, Lcom/melodix/music/GlassScreenStyler;->text(Landroid/content/Context;Ljava/lang/String;IIZ)Landroid/widget/TextView;
 
     move-result-object v5
 
@@ -1268,19 +1280,19 @@
     .line 129
     new-instance v6, Landroid/widget/LinearLayout$LayoutParams;
 
-    const/4 v9, -0x2
+    const/4 v8, -0x2
 
-    const/4 v10, -0x1
+    const/4 v9, -0x1
 
-    invoke-direct {v6, v10, v9}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    invoke-direct {v6, v9, v8}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
 
-    const/high16 v9, 0x41000000    # 8.0f
+    const/high16 v8, 0x41000000    # 8.0f
 
-    invoke-static {v0, v9}, Lcom/melodix/music/GlassScreenStyler;->dp(Landroid/content/Context;F)I
+    invoke-static {v0, v8}, Lcom/melodix/music/GlassScreenStyler;->dp(Landroid/content/Context;F)I
 
-    move-result v9
+    move-result v8
 
-    iput v9, v6, Landroid/widget/LinearLayout$LayoutParams;->topMargin:I
+    iput v8, v6, Landroid/widget/LinearLayout$LayoutParams;->topMargin:I
 
     invoke-virtual {v4, v5, v6}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
@@ -1301,33 +1313,33 @@
 
     move-result-object v6
 
-    const/4 v9, 0x0
+    const/4 v8, 0x0
 
     :goto_10
     invoke-interface {v6}, Ljava/util/Iterator;->hasNext()Z
 
-    move-result v10
+    move-result v9
 
-    if-eqz v10, :cond_1c
+    if-eqz v9, :cond_1c
 
     invoke-interface {v6}, Ljava/util/Iterator;->next()Ljava/lang/Object;
 
-    move-result-object v10
+    move-result-object v9
 
-    check-cast v10, Ljava/lang/String;
+    check-cast v9, Ljava/lang/String;
 
-    add-int/lit8 v11, v9, 0x1
+    add-int/lit8 v10, v8, 0x1
 
-    if-lez v9, :cond_1b
+    if-lez v8, :cond_1b
 
-    const-string v9, ", "
+    const-string v8, ", "
 
-    invoke-virtual {v5, v9}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v5, v8}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     :cond_1b
-    invoke-virtual {v5, v10}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v5, v9}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    move v9, v11
+    move v8, v10
 
     goto :goto_10
 
@@ -1347,10 +1359,10 @@
 
     if-le v7, v2, :cond_1d
 
-    const-string v8, " et d\'autres"
+    const-string v15, " et d\'autres"
 
     :cond_1d
-    invoke-virtual {v5, v8}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v5, v15}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v2
 

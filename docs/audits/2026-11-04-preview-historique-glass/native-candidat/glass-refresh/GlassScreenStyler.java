@@ -117,10 +117,10 @@ public final class GlassScreenStyler implements Runnable {
         int tracks=0,secs=0;java.util.LinkedHashSet<String> artists=new java.util.LinkedHashSet<String>();
         for(int i=0;i<rows.getChildCount();i++){View c=rows.getChildAt(i);if(c==hero||!c.isClickable())continue;tracks++;
             java.util.List<String> t=new java.util.ArrayList<String>();texts(c,t);
-            for(String x:t){java.util.regex.Matcher m=java.util.regex.Pattern.compile("^(?:(\\d+):)?(\\d{1,2}):(\\d{2})$").matcher(x.trim());
+            for(String x:t){java.util.regex.Matcher m=java.util.regex.Pattern.compile("(?:^|• )(?:(\\d+):)?(\\d{1,2}):(\\d{2})$").matcher(x.trim());
                 if(m.find())secs+=(m.group(1)==null?0:Integer.parseInt(m.group(1))*3600)+Integer.parseInt(m.group(2))*60+Integer.parseInt(m.group(3));}
             // Second text of a row is the artist line (first is the title).
-            if(t.size()>1&&artists.size()<3)for(String n:t.get(1).split(",")){n=n.trim();if(!n.isEmpty()&&!n.matches(".*\\d:\\d\\d.*")&&artists.size()<3)artists.add(n);}}
+            if(t.size()>1&&artists.size()<3)for(String n:t.get(1).replaceAll("\\s*•\\s*[\\d:]+$","").split(",")){n=n.trim();if(!n.isEmpty()&&!n.matches(".*\\d:\\d\\d.*")&&artists.size()<3)artists.add(n);}}
         // The bridge appends an "Aperçu Spotify" row while the list may be incomplete: say "N+".
         boolean partial=false;for(int i=0;i<rows.getChildCount();i++){java.util.List<String> t=new java.util.ArrayList<String>();texts(rows.getChildAt(i),t);if(t.contains("Aperçu Spotify")){partial=true;if(rows.getChildAt(i).isClickable())tracks--;}}
         if(tracks>0){String info=tracks+(partial?"+":"")+(tracks>1?" titres":" titre");

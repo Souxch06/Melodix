@@ -36,8 +36,14 @@
                     if (!/^spotify:track:[A-Za-z0-9]+$/.test(String(id || '')) || typeof name !== 'string' || !name.trim()) return;
                     var artists = track.artists && (track.artists.items || track.artists), album = track.albumOfTrack || track.album || {};
                     var sources = album.coverArt && album.coverArt.sources || album.images || [];
-                    all.push({id: id, name: name, image: sources[0] && sources[0].url || null, browsable: false,
-                        artists: Array.isArray(artists) ? artists.map(function(a) { return a && (a.profile && a.profile.name || a.name) || ''; }).filter(Boolean) : []});
+                    var names = Array.isArray(artists) ? artists.map(function(a) { return a && (a.profile && a.profile.name || a.name) || ''; }).filter(Boolean) : [];
+                    // Like Spotify: each row shows its length ("Artist • 3:24"), same format as the DOM rows.
+                    var ms = track.trackDuration && track.trackDuration.totalMilliseconds || track.duration && (track.duration.totalMilliseconds || track.duration_ms) || track.duration_ms;
+                    if (typeof ms === 'number' && ms > 0 && names.length) {
+                        var t = Math.round(ms / 1000), h = Math.floor(t / 3600), m = Math.floor(t / 60) % 60, sec = t % 60;
+                        names[names.length - 1] += ' • ' + (h ? h + ':' + (m < 10 ? '0' : '') + m : m) + ':' + (sec < 10 ? '0' : '') + sec;
+                    }
+                    all.push({id: id, name: name, image: sources[0] && sources[0].url || null, browsable: false, artists: names});
                 });
                 offset += items.length;
                 if (items.length === limit && (typeof total !== 'number' || offset < total)) { if (offset > limit) deliver(); page(); }
