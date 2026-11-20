@@ -23,7 +23,6 @@ import java.util.Locale;
 
 /** Presentation only. Never starts playback or fabricates Spotify metadata. */
 public final class GlassScreenStyler implements Runnable {
-    private static final int WHITE=0xfff8f5ff, MUTED=0xffbdb4ca, LILAC=0xffcdb6ff;
     private static final WeakHashMap<Activity, Map<String,String>> artwork = new WeakHashMap<Activity, Map<String,String>>();
     private static int dp(Context c,float n) { return Math.round(n*c.getResources().getDisplayMetrics().density); }
     private static GradientDrawable glass(Context c, int start,int end,int radius,int stroke) {
@@ -207,6 +206,13 @@ public final class GlassScreenStyler implements Runnable {
         if(cover!=null){if(cover.getBackground()==null)cover.setBackground(glass(a,0xff2a2a2e,0xff18181b,6,0));cover.setClipToOutline(true);}
         track(a,c);return true;
     }
+    /** User report (1022316): the "Pop" chip searched the word, so it listed titles starting with "pop".
+     *  Real genres use Spotify's genre filter; moods and other chips keep their plain search. */
+    public static String genreQuery(String tag){
+        if(tag==null)return "";String t=tag.trim().toLowerCase(Locale.ROOT);
+        if(t.equals("pop")||t.equals("rock")||t.equals("latino")||t.equals("hip-hop"))return "genre:\""+(t.equals("latino")?"latin":t)+"\"";
+        return tag;
+    }
     // ---- Search: results styled like Library rows ----
     private static void search(Activity a,LinearLayout content){
         LinearLayout rows=rowContainer(content);for(int i=0;i<rows.getChildCount();i++)listRow(a,rows.getChildAt(i));
@@ -312,17 +318,17 @@ public final class GlassScreenStyler implements Runnable {
         for(int i=0;i<rows.getChildCount();i++) {
             View child=rows.getChildAt(i);
             if(child instanceof TextView){
-                TextView h=(TextView)child;h.setTextSize(14);h.setTextColor(LILAC);h.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
-                h.setPadding(dp(a,4),dp(a,22),dp(a,4),dp(a,10));
+                TextView h=(TextView)child;eyebrow(h);h.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL),Typeface.NORMAL);
+                h.setPadding(dp(a,4),dp(a,26),dp(a,4),dp(a,8));
             } else if(child instanceof LinearLayout) styleSettingRow(a,(LinearLayout)child);
         }
         LinearLayout hero=vertical(a);
         hero.setPadding(dp(a,18),dp(a,18),dp(a,18),dp(a,18));
-        hero.setBackground(glass(a,0xe85b3680,0xd6211a30,22,0x50ffffff));
-        TextView top=text(a,"MELODIX  •  VOTRE ESPACE",10,0xffe5d5ff,true);top.setLetterSpacing(.12f);hero.addView(top);
-        TextView title=text(a,"Votre musique,\nà votre façon.",22,WHITE,true);
+        hero.setBackground(glow(a,0));
+        TextView top=text(a,"MELODIX  •  PARAMÈTRES",11,0x8cffffff,false);top.setLetterSpacing(.14f);hero.addView(top);
+        TextView title=text(a,"Votre musique,\nà votre façon.",26,0xfffafafa,true);
         LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(-1,-2);tp.topMargin=dp(a,7);hero.addView(title,tp);
-        TextView sub=text(a,"Personnalisez votre expérience.",12,0xffd9cce5,false);
+        TextView sub=text(a,"Personnalisez votre expérience.",13,0x99ffffff,false);
         LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(-1,-2);sp.topMargin=dp(a,6);hero.addView(sub,sp);
         LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(-1,-2);hp.bottomMargin=dp(a,6);
         rows.addView(hero,0,hp);
@@ -336,25 +342,25 @@ public final class GlassScreenStyler implements Runnable {
             else if(v instanceof TextView)badge=(TextView)v;
         }
         if(label==null || label.getChildCount()==0 || !(label.getChildAt(0) instanceof TextView))return;
-        TextView title=(TextView)label.getChildAt(0);title.setTextSize(15);title.setTextColor(WHITE);title.setMaxLines(2);
+        TextView title=(TextView)label.getChildAt(0);title.setTextSize(15);title.setTextColor(0xfffafafa);title.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL),Typeface.NORMAL);title.setMaxLines(2);
         for(int i=1;i<label.getChildCount();i++)if(label.getChildAt(i) instanceof TextView){
-            TextView sub=(TextView)label.getChildAt(i);sub.setTextSize(12);sub.setTextColor(MUTED);sub.setMaxLines(3);
+            TextView sub=(TextView)label.getChildAt(i);sub.setTextSize(12);sub.setTextColor(0x8cffffff);sub.setMaxLines(3);
         }
         row.setPadding(dp(a,12),dp(a,13),dp(a,12),dp(a,13));row.setMinimumHeight(dp(a,72));
-        GradientDrawable surface=glass(a,0xc8382c49,0xd51b1726,20,0x30ffffff);
-        row.setBackground(row.isClickable()?new RippleDrawable(ColorStateList.valueOf(0x55c9a8ff),surface,null):surface);
+        GradientDrawable surface=glass(a,0x0fffffff,0x0affffff,14,0x14ffffff);
+        row.setBackground(row.isClickable()?new RippleDrawable(ColorStateList.valueOf(0x1fffffff),surface,null):surface);
         if(!hasImage){
-            TextView icon=text(a,glyph(String.valueOf(title.getText())),19,0xffe3d2ff,true);icon.setGravity(Gravity.CENTER);
-            icon.setBackground(glass(a,0xaa8057aa,0x88634382,12,0x30ffffff));
+            TextView icon=text(a,glyph(String.valueOf(title.getText())),18,0xfffafafa,true);icon.setGravity(Gravity.CENTER);
+            icon.setBackground(glass(a,0x1fffffff,0x14ffffff,20,0));
             icon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
             LinearLayout.LayoutParams ip=new LinearLayout.LayoutParams(dp(a,40),dp(a,40));ip.rightMargin=dp(a,12);row.addView(icon,0,ip);
         }
         if(badge!=null){
             String value=String.valueOf(badge.getText()); boolean on="ON".equalsIgnoreCase(value);
             boolean unavailable="Indisponible".equalsIgnoreCase(value);
-            int left=on?0xffa86df2:unavailable?0x664a4253:0x886d5d7c;
-            int right=on?0xffd751a5:unavailable?0x66403a49:0x88604f72;
-            badge.setBackground(glass(a,left,right,16,0x22ffffff));badge.setTextColor(unavailable?0xffc0b9c8:WHITE);
+            // Neutral pills: ON is a white pill with dark text (Spotify/Liner), others stay quiet.
+            int fill=on?0xfffafafa:unavailable?0x0dffffff:0x1affffff;
+            badge.setBackground(glass(a,fill,fill,16,on?0:0x1fffffff));badge.setTextColor(on?0xff0a0a0a:unavailable?0x66ffffff:0xe6ffffff);
             badge.setTextSize(11);badge.setPadding(dp(a,10),dp(a,7),dp(a,10),dp(a,7));
             badge.setMaxWidth(dp(a,112));badge.setMaxLines(2);badge.setEllipsize(TextUtils.TruncateAt.END);
         }

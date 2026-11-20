@@ -15,8 +15,8 @@ MOTION_HELPER_SHA='eb059151043afc1ebde000e746b996b1053024107be4c1852152a5036ca9d
 RETRY='smali/com/melodix/music/NativeHomeRetryRunnable.smali'
 RETRY_SHA='95c78f85877e64c390743dcb77fcd4ff98541638fad8c8d3c85904ef3fd5b703'
 EXPECTED='197e84fa4374e28dccad1ea0ef7b58f085c5230167237edbe81d4a9bd4cfe6d8'
-SOURCE_SHA='811a296897d2de76cdac6e2f55f86f85fd31a8deba037ef7225353ba8b080732'
-HELPER_SHA='6ebddd477fb69e9bb8636cc4a5fd7797dbc6ab0eda30f8844bbdb199bb2aee58'
+SOURCE_SHA='27ef95a9083e8364acb99026f4b6cff2f0caa9bdcc7e254c1eef8859af715a88'
+HELPER_SHA='6e26d3f4a26c222b4f15be4365debb38db27926314a037ccfcdd21bdf7c23e2a'
 def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 def replace(s,a,b):
     if s.count(a)!=1:raise ValueError('unexpected anchor '+repr(a[:100]))
@@ -60,6 +60,11 @@ def prepare(root):
     new=replace(new,'''    if-lez v3, :preview_historical_feed
 ''','''    if-lez v3, :preview_historical_feed
 '''+decorate)
+    s=s[:a]+new+s[b:]
+    a,b,old=method(s,'onNativeGenreClick')
+    new=replace(old,'''    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->performNativeLiveSearch(Ljava/lang/String;)V''','''    invoke-static {v0}, Lcom/melodix/music/GlassScreenStyler;->genreQuery(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v1
+    invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->performNativeLiveSearch(Ljava/lang/String;)V''')
     s=s[:a]+new+s[b:]
     # v3/v4 are a wide delay. With .locals 4, p0 aliases v4 and ART
     # rejects run(): p0 is overwritten by the high half of the delay.

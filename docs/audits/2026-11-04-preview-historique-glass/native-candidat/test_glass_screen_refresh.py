@@ -27,6 +27,7 @@ class TestRefresh(unittest.TestCase):
   self.assertIn('GlassScreenStyler;->rememberSelection(',openrow)
   for call in ('window.__sfOpenCollection','window.__sfNativeOpenUri','playlistOpened','lot1PushBack'):self.assertIn(call,openrow)
   self.assertIn('glass-old-playlist-heading',body(activity,'addNativePlaylistHeading'))
+  self.assertIn('GlassScreenStyler;->genreQuery(',body(activity,'onNativeGenreClick'))
  def test_no_playback_or_fake_metadata(self):
   src=(HERE/'glass-refresh/GlassScreenStyler.java').read_text()
   for value in ('playFromUri','__sfTogglePlayback','setOnClickListener','fetch(', 'java.net.', 'Runtime.getRuntime'):

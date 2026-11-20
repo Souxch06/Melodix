@@ -83,6 +83,7 @@ public class RefreshTest{
   sv.y=4000;GlassScreenStyler.style(a,sh,"home","","Accueil");yes(sv.y==900);GlassScreenStyler.style(a,sh,"home","","Accueil");yes(sv.y==900);
   LinearLayout sroot=group(a),srows=group(a);sroot.addView(srows);TextView sth=new TextView(a);sth.setText("Titres");srows.addView(sth);LinearLayout srow=group(a);srow.setClickable(true);srow.addView(new ImageView(a));LinearLayout scol=group(a);TextView s1=new TextView(a);s1.setText("Love Sosa");scol.addView(s1);TextView s2=new TextView(a);s2.setText("Chief Keef • 4:06");scol.addView(s2);srow.addView(scol);srows.addView(srow);
   GlassScreenStyler.style(a,sroot,"search","","Rechercher");yes(hasText(srow,"4:06"));yes(hasText(srow,"Chief Keef"));yes(srow.isClickable());
+  yes(GlassScreenStyler.genreQuery("Pop").equals("genre:\"pop\""));yes(GlassScreenStyler.genreQuery("Latino").equals("genre:\"latin\""));yes(GlassScreenStyler.genreQuery("Détente").equals("Détente"));
   System.out.println("Glass screen JVM simulation passed");
  }
 }'''
