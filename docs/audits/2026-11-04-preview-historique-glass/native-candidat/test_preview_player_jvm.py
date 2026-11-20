@@ -153,6 +153,8 @@ public class ControllerTest {
    back.snapshot(sample("Old","Artist",100000,1000000,"playing","")+";previewProgressSource=range");back.activityPaused();back.activityStopped();
    SystemClock.time+=6000;back.snapshot(sample("New","Artist",5000,200000,"playing",""));SystemClock.time+=500;back.activityStarted();back.activityResumed();
    yes(elapsed.text.equals("0:05"));yes(b2.image!=0x7f080122);}
+  // User report 1022319: that background reading is also what the next launch shows first.
+  yes(PreviewLastTrackStore.stored!=null&&PreviewLastTrackStore.stored.title.equals("New"));
   // Paused in the background: still Play after return.
   {saved.setBoolean(null,false);SystemClock.time+=1000000;PreviewPlayerController back=new PreviewPlayerController(a);back.activityStarted();back.activityResumed();
    back.snapshot(sample("Back2","Artist",100000,1000000,"playing","")+";previewProgressSource=range");back.activityPaused();back.activityStopped();

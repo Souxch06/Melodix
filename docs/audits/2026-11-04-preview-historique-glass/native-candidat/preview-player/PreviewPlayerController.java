@@ -292,15 +292,19 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             return true;
         } catch (Exception ignored) { return false; }
     }
-    private void saveLastTrack(JSONObject o, String title, String artist, String state, long pos, long dur) {
-        Activity a = activity.get(); if (a == null || !foreground || pending || seekPending || restored) return;
+    private void saveLastTrack(JSONObject o, String title, String artist, String state, long pos, long dur) { saveLastTrack(o, title, artist, state, pos, dur, false); }
+    // background: a fresh reading while the app is hidden (user report 1022319: launch showed the
+    // track from before the app went to the background, then the right one a frame later).
+    private void saveLastTrack(JSONObject o, String title, String artist, String state, long pos, long dur, boolean background) {
+        Activity a = activity.get(); if (a == null || (!foreground && !background) || pending || seekPending || restored) return;
         long wall = o.optLong("previewObservedAtMs", -1), t = now();
         String identity = title + "\n" + artist + "\n" + dur;
         PreviewLastTrackStore.Record r = new PreviewLastTrackStore.Record();
         r.title = title; r.artist = artist; r.state = state; r.position = pos; r.duration = dur; r.observed = wall;
         if (!PreviewLastTrackStore.valid(r, System.currentTimeMillis())) return;
         Bitmap bitmap = null; View view = a.findViewById(0x7f090244);
-        if (!o.optString("cover", "").isEmpty() && view instanceof ImageView) {
+        // In the background the cover on screen may still be the previous track's: save no artwork then.
+        if (!background && !o.optString("cover", "").isEmpty() && view instanceof ImageView) {
             Drawable d = ((ImageView) view).getDrawable();
             if (d instanceof BitmapDrawable) bitmap = ((BitmapDrawable) d).getBitmap();
         }
@@ -687,6 +691,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 // Also keep it when the track changed meanwhile (user report 1022318: the old title showed for a frame).
                 if (snapshotValid && identified && age >= 0 && age < MAX_OBSERVATION_AGE_MS) {
                     bgPos = pos; bgAt = t; bgPlaying = real; bgJson = json;
+                    saveLastTrack(o, title, artist, state, pos, dur, true);
                 } else { bgAt = -1; bgJson = null; }
                 recordReturn("mesure=" + pos + " ms ; âge observation=" + (age < 0 ? "inconnu" : age + " ms") +
                     " ; source=" + progressSource + " ; état page=" + pageState + " ; rejetée : arrière-plan ; signal audio natif=non lu");

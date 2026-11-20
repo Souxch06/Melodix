@@ -22,17 +22,17 @@ EXPECTED = {
     'res/layout-w600dp/activity_main.xml': '4d110f1df062fdf7676b9aa5e70146dd7ec148da3c0c614a553b5586ad5af8fe',
     'res/drawable/widget_progress_drawable.xml': '3a5f8f51ea984c7a8226d5acd69bf6b20383ca9622843d617b055c9fe18d772f',
 }
-SOURCE_SHA = '117b15733f93cd557ad914da9f2855a0245ef76667b7ffccd0d47fbb59e5e5e7'
+SOURCE_SHA = 'dcef3859d0bf1c9c13e90aa701b52888ecf7eb0f9cd6079437d7f2b59ca8c6eb'
 HELPER_SHA = {
     'PreviewPlayerController$1.smali': '04b724419c430be5f4ebacc3a1d443d30f480de152d809128c94ac4f13f4296c',
     'PreviewPlayerController$2.smali': 'ff9f8f02b423a2b9de58a5fb8ed5244f555f3bf9478776834d9e5bcb3616d39e',
     'PreviewPlayerController$3.smali': 'efbdefc3d111e582c1ccb1896bf9ccc3c9dd1e6292ff751e59eb40a7b952d470',
-    'PreviewPlayerController$4.smali': 'ad29c32417cf4fbce0cc669a1acba6745bd3a5b8817c762cc981d0da0e689d1a',
-    'PreviewPlayerController$5.smali': 'ee0c66dafde6b30154f6f06a28d52d277d1d3e1a938700e9c42f8d2347cd97ca',
-    'PreviewPlayerController$6.smali': '3ca5561285e5b9214aa6bccc9b53f850630029312ea0f542251a87108eda00ad',
-    'PreviewPlayerController$7.smali': 'eadb518dc4c7b90e51ee522505c5e3f11f84b754ee225bd13a55cce6f9afc29c',
-    'PreviewPlayerController$8.smali': '5bbe43bb5d43b9f7a22303a56a3e84f37c2904c93e0227cea96d13c72d7acca9',
-    'PreviewPlayerController.smali': '426f30a0169c99a727ac915242c0c6ab548eeb39f9ae27539bb4f9fee6ee00bc',
+    'PreviewPlayerController$4.smali': '5769565a0749ca2962ff03fab1e57e29df39a6041eb81c973d16c0c6a043f4a2',
+    'PreviewPlayerController$5.smali': '19bee5c1c7e9d519ccd53c30300e215062ee6dcebe594f4c4f497da80576516b',
+    'PreviewPlayerController$6.smali': 'a3bdae5be10739e1c9f6a15921e7cf8ecec08e875e9419826def9003bd9462cc',
+    'PreviewPlayerController$7.smali': '4d67952732c3ca23c3da786d75ad1a4147642b18af69e0a01558791678d1b6e0',
+    'PreviewPlayerController$8.smali': 'd2ee230ac8d1a0de52829d120feaf769b7b17601e8423fa67b399ad868231a0d',
+    'PreviewPlayerController.smali': '728b1759d37de0a3a7991d694043a2be2795a6536b2dca637d944de24d63360d',
     'PreviewLastTrackStore$1$1.smali': '945ee7420a49b41550b889369932b30e3f0f43943fdb46700d0dbfaf550792dc',
     'PreviewLastTrackStore$1.smali': '8f54f12ff47b7a995072f2255a1c28ffa996e311e8865cd8550330758557ace2',
     'PreviewLastTrackStore$2.smali': '1e3ffc3af8858e6b6f609c18bdf689f5d00d0aaf1c592a201844e24fb91c5aaa',
