@@ -57,8 +57,10 @@
                 previewPrewarm.calm = 0;
                 previewPrewarm.tries++;
                 if (previewPrewarm.tries <= 3) previewPrewarmOwn(function() { window.actPlayPause(false); });
-                // Still playing after ~3 s: stay muted; the user's next Play/Pause tap unmutes.
-                if (previewPrewarm.tries < 12) settle();
+                // User report (1022328): playback still started by itself at launch. Spotify's late start
+                // beat the pause: pause the page's own media directly too, and keep checking ~10 s.
+                previewPrewarmMedia().forEach(function(m) { if (m.paused === false) try { m.pause(); } catch (_) {} });
+                if (previewPrewarm.tries < 40) settle();
             }, previewPrewarm.tries === undefined || previewPrewarm.tries === 0 ? 400 : 250);
         })();
     }

@@ -11,7 +11,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 SOURCE = HERE / 'preview-player' / 'PreviewPlayerController.java'
 STORE_SOURCE = HERE / 'preview-player' / 'PreviewLastTrackStore.java'
-STORE_SOURCE_SHA = '194662c8da926900bfe3aa4695121b19248f431f31e4a7ff343be374fa99a082'
+STORE_SOURCE_SHA = '980e3fbdbb731d2157f04d4f3ff279545075c23aeb4f8c6d2c085736294a4f58'
 EXPECTED = {
     'assets/native_ui_shell.js': '7b171ed4773c34571cd5bc4974f764d303edb300f49f13bbdf5f6f3940d84004',
     'smali/com/melodix/music/MainActivity.smali': 'dd14f96c2e3143b1e015e58a4c881911147e8312df1938a59e7ba3fa1b9a6f53',
@@ -22,17 +22,17 @@ EXPECTED = {
     'res/layout-w600dp/activity_main.xml': '4d110f1df062fdf7676b9aa5e70146dd7ec148da3c0c614a553b5586ad5af8fe',
     'res/drawable/widget_progress_drawable.xml': '3a5f8f51ea984c7a8226d5acd69bf6b20383ca9622843d617b055c9fe18d772f',
 }
-SOURCE_SHA = 'f8c21dfd6e4b2e9fa53f3afacac50ef71232778447ec8bef5e7e55b4951eef7f'
+SOURCE_SHA = '980e3fbdbb731d2157f04d4f3ff279545075c23aeb4f8c6d2c085736294a4f58'
 HELPER_SHA = {
     'PreviewPlayerController$1.smali': '04b724419c430be5f4ebacc3a1d443d30f480de152d809128c94ac4f13f4296c',
     'PreviewPlayerController$2.smali': 'ff9f8f02b423a2b9de58a5fb8ed5244f555f3bf9478776834d9e5bcb3616d39e',
-    'PreviewPlayerController$3.smali': 'da6ed0e9f692690d798274a2930427f9e2625b039cc5daba9cf24f3a45ec3e41',
-    'PreviewPlayerController$4.smali': '23a8caa4f7ee35a96c37fde64caee0799d1e44ca299a4440176421bab1963c10',
-    'PreviewPlayerController$5.smali': '6e16b9a02a5cb7ff458279042e6cc720e1b10f5386bb27201009bb747f4139e6',
-    'PreviewPlayerController$6.smali': '5b7d2f17036aab38da914e5e95dc6a5421db19e9f895379b355ff2bff7ac1dbb',
-    'PreviewPlayerController$7.smali': 'b4ceae3e12a00ba2e91ec6acfe23d0db58b79111e0de58ad8def73df99d11f06',
-    'PreviewPlayerController$8.smali': 'd7964c37d7c48499ed92fa4d3c81e6fa3010761dbcc4d50e70d2e30d4c84cfd3',
-    'PreviewPlayerController.smali': '984133641b0a8413506eb9058677fcc353f02a2769625084a3b9e1467baf7bab',
+    'PreviewPlayerController$3.smali': '09857dd34a7b5b48e2fc3e1ddf1275d9f59f51e0ac44e09fe52c5c9b17c7be32',
+    'PreviewPlayerController$4.smali': 'f5723252e0dd02bec79ce173bb0e5f9ba8d1d75630797fbbe0d5c541c93fa3c7',
+    'PreviewPlayerController$5.smali': 'f92e26b34a8d2b20ad7ed64b9a3cd7c11f5c122d0bba5d9f00e9f5b466ddbd93',
+    'PreviewPlayerController$6.smali': '8ee7a76dc7484b44f1c934ea7e4c34d07a37b8b5e8f8755a3d2cc9e45115fb83',
+    'PreviewPlayerController$7.smali': 'dd15c9f90d0c71f9ed755ff8cb9b6793e848ad23be8ebea7df76a08db191d0fa',
+    'PreviewPlayerController$8.smali': 'ba40f0d31788bc511a6593ea3c929f534373837376c30125bdec16c684249a78',
+    'PreviewPlayerController.smali': '209f58b16be87c0d8a93782016c12844ec6f6bbc64567b3b835d68b6aa9e9b57',
     'PreviewLastTrackStore$1$1.smali': '945ee7420a49b41550b889369932b30e3f0f43943fdb46700d0dbfaf550792dc',
     'PreviewLastTrackStore$1.smali': '8f54f12ff47b7a995072f2255a1c28ffa996e311e8865cd8550330758557ace2',
     'PreviewLastTrackStore$2.smali': '1e3ffc3af8858e6b6f609c18bdf689f5d00d0aaf1c592a201844e24fb91c5aaa',

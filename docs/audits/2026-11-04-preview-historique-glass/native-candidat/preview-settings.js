@@ -35,14 +35,39 @@
             return {key: section + '|' + title, kind: kind, title: title, section: section, value: value, locked: locked};
         }).filter(function(s) { return s.title; });
     }
+    var previewSleep = {until: 0, timer: 0, steps: [0, 15, 30, 45, 60, 90]};
+    function previewSleepLabel() {
+        var left = previewSleep.until - Date.now();
+        return left > 0 ? Math.ceil(left / 60000) + ' min' : 'OFF';
+    }
+    // User request (after 1022328): a clean screen, grouped like Spotify's own settings.
     function previewSettingsRows() {
-        var base = buildSpotifySettingsRows().filter(function(r) { return r.settingValue !== 'Indisponible'; });
-        var mine = (previewSettings.list || [{title: 'Chargement des réglages Spotify…', section: 'Réglages Spotify', value: '', locked: true}]).map(function(s, i) {
+        var base = buildSpotifySettingsRows(), by = {};
+        base.forEach(function(r) { by[r.uri && r.uri.indexOf('melodix:action:retry') !== 0 ? r.uri : r.title] = r; });
+        function row(section, r, subtitle) { return r ? {section: section, title: r.title, subtitle: subtitle || r.subtitle, image: '', uri: r.uri, settingValue: r.settingValue} : null; }
+        var account = base[1], logout = by['spotify:settings:logout'] || by['melodix:action:open-login'];
+        var rows = [
+            row('Compte', account, 'Nom affiché par Spotify'),
+            row('Compte', logout, ''),
+            row('Compte', by['melodix:action:open-account'], 'Abonnement, confidentialité et données du compte'),
+            row('Lecture', by['melodix:setting:autoplay'], 'Continue avec des titres similaires à la fin'),
+            row('Lecture', by['Lecture aléatoire'], ''),
+            row('Lecture', by['Répétition'], ''),
+            {section: 'Lecture', title: 'Minuteur de veille', subtitle: 'Met en pause après ce délai. Appuie pour changer', image: '', uri: 'melodix:setting:sleep', settingValue: previewSleepLabel()},
+            row('Lecture', by['melodix:setting:bg_audio'], 'Garde la musique quand l’écran est éteint'),
+            row('Affichage', by['melodix:setting:canvas'], 'Vidéos courtes derrière certains titres'),
+            row('Bibliothèque', by['Actualiser la bibliothèque'], 'Recharge tes playlists et titres likés'),
+            row('Bibliothèque', by['melodix:action:open-search'], ''),
+            row('Notifications', by['melodix:action:open-notifications'], 'Autorisation gérée par Android')
+        ].filter(function(r) { return r && r.title && r.settingValue !== 'Indisponible'; });
+        var mine = (previewSettings.list && previewSettings.list.length ? previewSettings.list :
+            [{title: previewSettings.failed ? 'Réglages Spotify indisponibles pour le moment' : 'Chargement des réglages Spotify…', section: 'Réglages Spotify', value: '', locked: true}]).map(function(s, i) {
             return {section: s.section || 'Réglages Spotify', title: s.title, image: '', settingValue: s.value,
                 subtitle: s.locked ? (s.value ? 'À changer dans Spotify' : '') : s.kind === 'select' ? 'Appuie pour changer' : 'Réglage de ton compte Spotify',
                 uri: s.locked ? '' : 'spotify:settings:sp' + i};
         });
-        return base.slice(0, 2).concat(mine, base.slice(2));
+        var about = {section: 'À propos', title: 'Melodix', subtitle: 'Lecteur Spotify', image: '', uri: '', settingValue: ''};
+        return rows.concat(mine, [about]);
     }
     function previewSettingsSend(list) {
         if (list) { previewSettings.list = list; try { window.localStorage.setItem('melodix_spotify_prefs_v1', JSON.stringify(list)); } catch (_) {} }
@@ -69,10 +94,21 @@
         var origToggle = window.__sfToggleSpotifySetting;
         window.__sfRequestSpotifySettings = function() {
             var sent = previewSettingsSend();
-            previewSettingsVisit(function(ok, done) { if (ok) previewSettingsSend(previewSettingRead()); done(); });
+            // Refreshes call this often: read Spotify's page at most once a minute.
+            if (Date.now() - (previewSettings.at || 0) > 60000) {
+                previewSettings.at = Date.now();
+                previewSettingsVisit(function(ok, done) { if (ok) previewSettingsSend(previewSettingRead()); else { previewSettings.failed = true; previewSettingsSend(); } done(); });
+            }
             return sent;
         };
         window.__sfToggleSpotifySetting = function(uri) {
+            if (String(uri || '').trim() === 'melodix:setting:sleep') {
+                var k = previewSleep.steps.indexOf(Math.ceil(Math.max(0, previewSleep.until - Date.now()) / 900000) * 15);
+                var mins = previewSleep.steps[(k < 0 ? 0 : k + 1) % previewSleep.steps.length];
+                window.clearTimeout(previewSleep.timer); previewSleep.until = mins ? Date.now() + mins * 60000 : 0;
+                if (mins) previewSleep.timer = window.setTimeout(function() { previewSleep.until = 0; try { if (typeof window.actPlayPause === 'function') window.actPlayPause(false); } catch (_) {} }, mins * 60000);
+                return previewSettingsSend();
+            }
             var m = /^spotify:settings:sp(\d+)$/.exec(String(uri || '').trim());
             if (!m) return typeof origToggle === 'function' ? origToggle.apply(this, arguments) : undefined;
             var want = previewSettings.list && previewSettings.list[Number(m[1])];

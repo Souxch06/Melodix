@@ -262,7 +262,8 @@ public class ControllerTest {
    yes(title.text.equals("Local"));yes(artist.text.contains("Dernière position connue"));eq(splash.getVisibility(),View.GONE);eq(local.tapPlayPause(),-1);
    report=(String)reportMethod.invoke(local);yes(report.contains("lecture : valide"));yes(report.contains("écran de chargement masqué"));
    yes(!local.acceptPlayerPayload("track=No Track;artist=No Artist"));yes(title.text.equals("Local"));
-   yes(local.acceptPlayerPayload(sample("Different","Artist",5000,120000,"paused","")));local.snapshot(sample("Different","Artist",5000,120000,"paused",""));yes(PreviewLastTrackStore.stored.title.equals("Different"));
+   yes(!local.acceptPlayerPayload(sample("Different","Artist",5000,120000,"paused","")));yes(title.text.equals("Local"));SystemClock.time+=1500;// stale launch title waits 1.5 s (1022328)
+    yes(local.acceptPlayerPayload(sample("Different","Artist",5000,120000,"paused","")));local.snapshot(sample("Different","Artist",5000,120000,"paused",""));yes(PreviewLastTrackStore.stored.title.equals("Different"));
    PreviewPlayerController stuck=new PreviewPlayerController(h);stuck.layoutReady();stuck.activityResumed();PreviewLastTrackStore.deliver();eq(stuck.tapPlayPause(),-1);SystemClock.time+=5001;eq(stuck.tapPlayPause(),1);// stuck page: remembered track, after 5 s in the foreground the tap is sent (user-approved 1022293)
    stuck.snapshot(sample("Local","Artist",50000,120000,"playing",""));stuck.begin(3);yes(title.viewAlpha==0.45f);// skip: instant fade (user request 1022298)
    stuck.snapshot(sample("Local","Artist",51000,120000,"playing",""));yes(title.viewAlpha==0.45f);stuck.snapshot(sample("Next","Artist",0,150000,"playing",""));yes(title.viewAlpha==1f);artist.setText("");stuck.snapshot(sample("Next","Artist",1000,150000,"playing",""));yes(artist.text.toString().equals("Artist"));// a blanked artist is restored (user report 1022298)

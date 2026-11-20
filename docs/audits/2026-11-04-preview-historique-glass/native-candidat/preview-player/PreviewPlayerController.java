@@ -236,6 +236,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     private long cacheStart = -1, cacheReadMs = -1, lastCacheWrite = -1;
     private String lastCachedIdentity = "", lastCachedState = "";
     private String cacheOutcome = "non chargé";
+    private String pendingLiveKey = ""; private long pendingLiveAt;
     // Invoked once, immediately after the real native layout has been inflated.
     public void layoutReady() {
         final Activity a = activity.get(); if (a == null) return;
@@ -293,6 +294,13 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             if (!o.optBoolean("previewProgressValid", false) || !realMetadata(title) || !realMetadata(artist) ||
                 dur <= 0 || pos < 0 || pos > dur || age < 0 || age >= MAX_OBSERVATION_AGE_MS ||
                 (!state.equals("playing") && !state.equals("paused"))) return false;
+            // User report (1022328): at launch Spotify's page first shows a stale title, then the real one.
+            // A title other than the restored one must hold 1.5 s before it replaces it.
+            if (restored && !(title.equals(identityTitle) && artist.startsWith(identityArtist))) {
+                String key = title + "\n" + artist;
+                if (!key.equals(pendingLiveKey)) { pendingLiveKey = key; pendingLiveAt = now(); return false; }
+                if (now() - pendingLiveAt < 1500) return false;
+            }
             liveObserved = true;
             if (restored) {
                 restored = false; valid = tupleIdentity = false; lastShownAt = -1;

@@ -22,7 +22,7 @@ function setup(){
  Object.defineProperty(w.HTMLSelectElement.prototype,'value',{set(v){this.selectedIndex=this.options.findIndex(o=>o.value===v);},configurable:true});
  const document={querySelector:(s)=>s==='main'?main:s.startsWith('label')?labels[/"(.*)"/.exec(s)[1]]||null:null,getElementById:()=>null,body:main};
  const toggled=[];
- const base=[{section:'Compte Spotify',title:'Compte',uri:''},{section:'Compte Spotify',title:'Se déconnecter',uri:'spotify:settings:logout'},{section:'Lecture',title:'Gapless',settingValue:'Indisponible',uri:''},{section:'À propos',title:'Melodix',uri:''}];
+ const base=[{title:'État de la connexion Spotify',uri:''},{title:'Mon compte',uri:''},{title:'Se déconnecter',uri:'spotify:settings:logout'},{title:'Autres réglages Spotify',settingValue:'Non implémenté',uri:''},{title:'Lecture aléatoire',settingValue:'Indisponible',uri:''}];
  const src=fs.readFileSync(path.join(__dirname,'preview-settings.js'),'utf8');
  w.__sfToggleSpotifySetting=(u)=>toggled.push(u);
  new Function('window','document','sendNativeUiData','buildSpotifySettingsRows',src)(w,document,(k,rows)=>sent.push([k,rows]),()=>base.map(r=>Object.assign({},r)));
@@ -34,10 +34,10 @@ test('settings: real Spotify preferences are read, listed by section, and the We
  const x=setup();x.w.__sfRequestSpotifySettings();
  assert.equal(x.sent[0][1].find(r=>/Chargement/.test(r.title)).uri,'','loading row first, not tappable');
  x.run();const rows=x.sent.at(-1)[1];
- assert.deepEqual(rows.map(r=>r.title),['Compte','Se déconnecter','Fondu enchaîné','Normaliser le volume','Qualité du streaming','Langue','Contenu explicite','Melodix']);
- assert.equal(rows[2].section,'Lecture');assert.equal(rows[4].section,'Qualité audio');
- assert.equal(rows[2].settingValue,'OFF');assert.equal(rows[3].settingValue,'ON');assert.equal(rows[4].settingValue,'Automatique');
- assert.equal(rows[5].uri,'','language list is not changed from Melodix (would reload Spotify)');assert.equal(rows[6].uri,'','disabled setting is not tappable');
+ assert.deepEqual(rows.map(r=>r.title),['Mon compte','Se déconnecter','Minuteur de veille','Fondu enchaîné','Normaliser le volume','Qualité du streaming','Langue','Contenu explicite','Melodix']);
+ assert.equal(rows[3].section,'Lecture');assert.equal(rows[5].section,'Qualité audio');
+ assert.equal(rows[3].settingValue,'OFF');assert.equal(rows[4].settingValue,'ON');assert.equal(rows[5].settingValue,'Automatique');
+ assert.equal(rows[6].uri,'','language list is not changed from Melodix (would reload Spotify)');assert.equal(rows[7].uri,'','disabled setting is not tappable');
  assert.ok(!rows.some(r=>r.settingValue==='Indisponible'),'old fake rows removed');
  assert.equal(x.path(),'/playlist/P1','back where it was');
 });
@@ -52,4 +52,10 @@ test('settings: a tap changes exactly that setting and nothing on its own',()=>{
  x.w.__sfToggleSpotifySetting('spotify:settings:logout');assert.deepEqual(x.toggled,['spotify:settings:logout'],'Melodix rows keep their own action');
  x.w.__sfToggleSpotifySetting('spotify:settings:sp6');x.run();assert.equal(x.locked.checked,true,'locked setting never clicked');
  assert.equal(x.path(),'/playlist/P1');
+});
+test('settings: sleep timer cycles and pauses when it ends',()=>{
+ const x=setup();let paused=0;x.w.actPlayPause=(p)=>{if(p===false)paused++;};
+ x.w.clearTimeout=()=>{};x.w.__sfToggleSpotifySetting('melodix:setting:sleep');
+ assert.equal(x.sent.at(-1)[1].find(r=>r.title==='Minuteur de veille').settingValue,'15 min');
+ x.run();assert.equal(paused,1);
 });
