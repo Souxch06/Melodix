@@ -28,7 +28,8 @@ class TestRefresh(unittest.TestCase):
   for call in ('window.__sfOpenCollection','window.__sfNativeOpenUri','playlistOpened','lot1PushBack'):self.assertIn(call,openrow)
   self.assertIn('glass-old-playlist-heading',body(activity,'addNativePlaylistHeading'))
   self.assertIn('GlassScreenStyler;->genreQuery(',body(activity,'onNativeGenreClick'))
-  self.assertIn(':glass_home_changed',body(activity,'applyNativeUiData'))
+  # label name is renamed once the APK is decoded, so check the equals-then-return logic itself
+  self.assertRegex(body(activity,'applyNativeUiData'),r'iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeJson:Ljava/lang/String;\s+invoke-virtual \{p2, v2\}, Ljava/lang/String;->equals\(Ljava/lang/Object;\)Z\s+move-result v2\s+if-eqz v2, :\w+\s+return-void')
  def test_no_playback_or_fake_metadata(self):
   src=(HERE/'glass-refresh/GlassScreenStyler.java').read_text()
   for value in ('playFromUri','__sfTogglePlayback','setOnClickListener','fetch(', 'java.net.', 'Runtime.getRuntime'):
