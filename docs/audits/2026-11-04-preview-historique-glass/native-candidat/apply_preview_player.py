@@ -620,6 +620,10 @@ def prepare(root):
     invoke-virtual {v2, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v2
     invoke-static {v2}, Landroid/webkit/WebView;->setWebContentsDebuggingEnabled(Z)V''')
+    # User diagnostic (1022368): the page got a 146768-byte bridge, not the bundled 213364-byte one, and it never
+    # started. m9.d() prefers files/hotfixes/<name> (remote-config downloads) over the APK asset; always read the
+    # bundled asset so the 9016 scripts run as shipped.
+    s = replace(s, "    if-nez v1, :cond_2\n", "    goto :cond_2\n")
     files[path] = s
 
     path = 'smali/com/melodix/music/NativeSettingsRowFactory.smali'; s = files[path]
