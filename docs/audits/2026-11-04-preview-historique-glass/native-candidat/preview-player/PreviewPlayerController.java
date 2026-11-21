@@ -360,13 +360,24 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     // Ask Spotify's public oEmbed for the track's cover (track id only, no account data), once per track.
     private String coverAsked = "";
     void fetchCover(final Activity a, final String key, String uri) {
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile("^spotify:track:([A-Za-z0-9]{22})$").matcher(uri == null ? "" : uri);
-        if (!m.find() || key.equals(coverAsked)) return;
+        if (key.equals(coverAsked)) return;
         coverAsked = key;
         if (key.equals(a.getSharedPreferences(COVER_STORE, Context.MODE_PRIVATE).getString("k", null))) { restoreCover(a, key); return; }
-        final String id = m.group(1);
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("^spotify:track:([A-Za-z0-9]{22})$").matcher(uri == null ? "" : uri);
+        if (m.find()) { oembed(a, key, "track/" + m.group(1)); return; }
+        // User diagnostic (1022350: track_links=0, href_album=1): no track id in the bar; its album link gives the same cover.
+        WebView w = seekWeb.get(); if (w == null) { coverAsked = ""; return; }
+        try {
+            w.evaluateJavascript("(function(){try{var a=document.querySelector('[data-testid=\"now-playing-widget\"] a[href*=\"/album/\"],[data-testid=\"now-playing-widget-v2\"] a[href*=\"/album/\"],[data-testid=\"now-playing-bar\"] a[href*=\"/album/\"]');var m=a&&String(a.getAttribute('href')).match(/\\/album\\/([A-Za-z0-9]{22})/);return m?m[1]:''}catch(e){return ''}})()",
+                new ValueCallback<String>() { public void onReceiveValue(String v) {
+                    String id = v == null ? "" : v.replace("\"", "");
+                    if (id.matches("[A-Za-z0-9]{22}") && key.equals(coverAsked)) oembed(a, key, "album/" + id); else if (key.equals(coverAsked)) coverAsked = "";
+                }});
+        } catch (Exception e) { coverAsked = ""; }
+    }
+    private void oembed(final Activity a, final String key, final String path) {
         new Thread(new Runnable() { public void run() {
-            final String url = oembedCover(id);
+            final String url = oembedCover(path);
             if (url == null) return;
             handler.post(new Runnable() { public void run() {
                 if (!key.equals(coverAsked) || a.isFinishing()) return;
@@ -374,10 +385,10 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             }});
         }}).start();
     }
-    static String oembedCover(String id) {
+    static String oembedCover(String path) {
         java.net.HttpURLConnection c = null;
         try {
-            c = (java.net.HttpURLConnection) new java.net.URL("https://open.spotify.com/oembed?url=https%3A%2F%2Fopen.spotify.com%2Ftrack%2F" + id).openConnection();
+            c = (java.net.HttpURLConnection) new java.net.URL("https://open.spotify.com/oembed?url=https%3A%2F%2Fopen.spotify.com%2F" + path.replace("/", "%2F")).openConnection();
             c.setConnectTimeout(5000); c.setReadTimeout(5000);
             if (c.getResponseCode() != 200) return null;
             java.io.InputStream in = c.getInputStream(); byte[] buf = new byte[65536]; int n = 0, k;
