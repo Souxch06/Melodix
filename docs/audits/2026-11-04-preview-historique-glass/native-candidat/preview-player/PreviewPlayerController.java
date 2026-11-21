@@ -390,6 +390,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     }
     // User report (1022349): the hidden page often has no cover image in the player bar (lazy image, never shown).
     // Ask Spotify's public oEmbed for the track's cover (track id only, no account data), once per track.
+    private boolean bridgeRetried;
     private String coverAsked = "";
     void fetchCover(final Activity a, final String key, String uri) {
         if (key.equals(coverAsked)) return;
@@ -1107,11 +1108,22 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         } catch (Exception e) { out.append("\nPage Spotify : non lisible"); }
         // User report (1022349): playlist rows and cover both missing while the page is at 100 %. Show the bridge
         // state from the shell's own flags (no account data); the value is refreshed for the next opening.
-        out.append("\nPont (démarré ; terminé ; mode ; erreur ; CSP ; octets ; étape ; requête interceptée ; octets servis ; service worker actif ; relance unique (type@ligne:colonne), relevé précédent) : ").append(bridgeState);
+        out.append("\nPont (démarré ; terminé ; mode ; erreur ; CSP ; octets ; étape ; requête interceptée ; octets servis ; service worker actif ; relance native (type@ligne:colonne) ; trace du pont ; type terminé, relevé précédent) : ").append(bridgeState);
         try {
             WebView w = seekWeb.get();
-            if (w != null) w.evaluateJavascript("(function(){try{var w=window;var r=[w.__sfMelodixBridgeStarted===true,w.__sfMelodixBridgeCompleted===true,String(w.__sfBridgeExecMode||'-'),String(w.__sfBridgeLastError||'-'),w.__sfBridgeCspViolation?1:0,w.__sfBridgeBytes|0,String(w.__sfBridgeLoadStage||'-').slice(0,40),w.__sfBridgeIntercepted===true,w.__sfBridgeServedBytes|0,!!(navigator.serviceWorker&&navigator.serviceWorker.controller),String(w.__sfPrbErr||'-')].join(' ; ');if(w.__sfMelodixBridgeStarted!==true&&!w.__sfPrbTried){w.__sfPrbTried=1;w.__sfPrbErr='pending';w.addEventListener('error',function(e){if(String(e&&e.filename||'').indexOf('__melodix__')>=0)w.__sfPrbErr=String(e.error&&e.error.name||'?').slice(0,30)+'@'+(e.lineno|0)+':'+(e.colno|0)},true);var s=document.createElement('script');s.src=location.origin+'/__melodix__/spotify_bridge.js?retry=1';s.onload=function(){if(w.__sfPrbErr==='pending')w.__sfPrbErr='ok '+(w.__sfMelodixBridgeStarted===true)};s.onerror=function(){w.__sfPrbErr='load-failed'};(document.head||document.documentElement).appendChild(s)}return r}catch(e){return 'erreur'}})()",
+            if (w != null) w.evaluateJavascript("(function(){try{var w=window;var r=[w.__sfMelodixBridgeStarted===true,w.__sfMelodixBridgeCompleted===true,String(w.__sfBridgeExecMode||'-'),String(w.__sfBridgeLastError||'-'),w.__sfBridgeCspViolation?1:0,w.__sfBridgeBytes|0,String(w.__sfBridgeLoadStage||'-').slice(0,40),w.__sfBridgeIntercepted===true,w.__sfBridgeServedBytes|0,!!(navigator.serviceWorker&&navigator.serviceWorker.controller),String(w.__sfPrbErr||'-'),typeof w.__sfBridgeTrace,typeof w.__sfMelodixBridgeCompleted].join(' ; ');return r}catch(e){return 'erreur'}})()",
                 new android.webkit.ValueCallback<String>() { public void onReceiveValue(String v) { bridgeState = v == null ? "—" : v.length() > 260 ? v.substring(0, 260) : v; } });
+            // User diagnostic (1022360): the bridge script loads (served 146768 bytes) but never starts, with no
+            // visible error (a service-worker response can hide it). Run the bundled bridge once, natively, and
+            // keep only the error type and position.
+            if (w != null && !bridgeRetried) {
+                bridgeRetried = true;
+                Activity ba = activity.get(); if (ba == null) throw new java.io.IOException("no activity");
+                java.io.InputStream in = ba.getAssets().open("spotify_bridge.js");
+                java.io.ByteArrayOutputStream buf = new java.io.ByteArrayOutputStream(); byte[] b = new byte[16384]; int n;
+                try { while ((n = in.read(b)) > 0) buf.write(b, 0, n); } finally { in.close(); }
+                w.evaluateJavascript("(function(){var w=window;if(w.__sfMelodixBridgeStarted===true){w.__sfPrbErr='deja';return}w.__sfPrbErr='pending';try{\n" + buf.toString("UTF-8") + "\n;w.__sfPrbErr='ok '+(w.__sfMelodixBridgeStarted===true)}catch(e){var m=String(e&&e.stack||'').match(/:(\\d+):(\\d+)/);w.__sfPrbErr=String(e&&e.name||'?').slice(0,30)+'@'+(m?m[1]+':'+m[2]:'?')}})()", null);
+            }
         } catch (Exception e) { bridgeState = "non lisible"; }
         out.append("\nSource position : ").append(progressSource);
         out.append(" ; identité de titre présente : ").append(tupleIdentity ? "oui" : "non");
