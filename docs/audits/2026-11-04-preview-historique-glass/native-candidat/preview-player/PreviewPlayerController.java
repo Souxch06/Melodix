@@ -215,6 +215,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     private String pendingPlaylist = "";
     private int firstTracks = -1, shownTracks = -1;
     public void activityCreated() {
+        try { Activity ca = activity.get(); if (ca != null) crashCatcher(ca); } catch (Throwable e) { }
         if (firstCreateAt >= 0) return;
         firstCreateAt = now();
         // Public API starting in Android 12. On older versions, explicitly
@@ -286,6 +287,35 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         if (v.getDrawable() == null || url.contains("/liked-songs/") || !url.startsWith("https://")) { NativeImageLoader.load(v, url, size); return; }
         try { com.squareup.picasso.Picasso.get().load(url).noPlaceholder().resize(size, size).centerCrop().into(v); }
         catch (RuntimeException e) { NativeImageLoader.load(v, url, size); }
+    }
+    // User report (1022354): crash at launch with no system details. Keep the last crash's stack
+    // (exception class names and code frames only, never messages: they may carry page data) and
+    // copy it to the clipboard on the next launch so the user can paste it.
+    private static boolean crashHooked;
+    static void crashCatcher(Activity a) {
+        final android.content.SharedPreferences p = a.getSharedPreferences("preview_crash", Context.MODE_PRIVATE);
+        String last = p.getString("t", null);
+        if (last != null) {
+            p.edit().remove("t").commit();
+            ((ClipboardManager) a.getSystemService(Context.CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("Melodix crash", last));
+            Toast.makeText(a, "Erreur du dernier crash copiée : colle-la à Claude", Toast.LENGTH_LONG).show();
+        }
+        if (crashHooked) return;
+        crashHooked = true;
+        final Thread.UncaughtExceptionHandler prev = Thread.getDefaultUncaughtExceptionHandler();
+        Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() { public void uncaughtException(Thread t, Throwable e) {
+            try { p.edit().putString("t", crashTrace(e)).commit(); } catch (Throwable ignored) { }
+            if (prev != null) prev.uncaughtException(t, e);
+        }});
+    }
+    static String crashTrace(Throwable e) {
+        StringBuilder b = new StringBuilder("Melodix crash");
+        for (int d = 0; e != null && d < 5; e = e.getCause(), d++) {
+            b.append(d == 0 ? "\n" : "\nCause : ").append(e.getClass().getName());
+            StackTraceElement[] f = e.getStackTrace();
+            for (int i = 0; i < f.length && i < 25; i++) b.append("\n  at ").append(f[i].getClassName()).append('.').append(f[i].getMethodName()).append(':').append(f[i].getLineNumber());
+        }
+        return b.toString();
     }
     // Incomplete, legacy and unknown snapshots must not erase a restored record.
     public boolean acceptPlayerPayload(String json) {

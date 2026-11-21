@@ -22,18 +22,19 @@ EXPECTED = {
     'res/layout-w600dp/activity_main.xml': '4d110f1df062fdf7676b9aa5e70146dd7ec148da3c0c614a553b5586ad5af8fe',
     'res/drawable/widget_progress_drawable.xml': '3a5f8f51ea984c7a8226d5acd69bf6b20383ca9622843d617b055c9fe18d772f',
 }
-SOURCE_SHA = 'fee2282d04a2f18ee91507ff29df7b6fb480636f3c373c2b7713b51e7b29d22a'
+SOURCE_SHA = '5336f0f71621f8b78d5bf70c3d18a61fd735a2459fe8877ebadd31ef4460b4c8'
 HELPER_SHA = {
     'PreviewPlayerController$1.smali': '04b724419c430be5f4ebacc3a1d443d30f480de152d809128c94ac4f13f4296c',
     'PreviewPlayerController$2.smali': 'ff9f8f02b423a2b9de58a5fb8ed5244f555f3bf9478776834d9e5bcb3616d39e',
-    'PreviewPlayerController$3.smali': '7470acee37fdfe0bf7bb92073c7f5b1f6e048e7ea98a1e259721a82a6dbc35ae',
-    'PreviewPlayerController$4.smali': '6b58dc8c1063a95e36965a091d90e72eef282f55fdc60275b875a5ba9ac68377',
-    'PreviewPlayerController$5.smali': '90b04c11d8d30dc44d58065108a1e347dee2115dfeb5e0820f97f4e4015865af',
-    'PreviewPlayerController$6.smali': '8b875106069572dd1d4dd64ab6bd91b70313dd597f2bce3ad1cf8545a4bcefb6',
-    'PreviewPlayerController$7.smali': '9bc3c5851a46baed63c0e0dda80eb9a55a42d2b27576eeb74141a7a1536e7d67',
-    'PreviewPlayerController$8.smali': 'f31e2cfb59d5fa45e38eec12c32483b9153da0395c4f5fb31a2531ff5ed1e291',
-    'PreviewPlayerController$9.smali': '19031ed3387aced632ca8b5bea50bb0816a24894bd5d6b5a965cc3cdf4c382b6',
-    'PreviewPlayerController.smali': 'bf1a3f17a9d2a669463f51dc3463d38cf2d906c7bcf5b3dede6e4c0343b4a8ac',
+    'PreviewPlayerController$3.smali': '89511b1279abc7d1cacabb510bdf6f33d22e9a17e31282202e699942105be1cc',
+    'PreviewPlayerController$4.smali': 'bc0a1d6ea01403a3be3546e38bcf335a06ad9736285147e1a8fbfb9096102b69',
+    'PreviewPlayerController$5.smali': '9b1248468e238fb952ecfcc872c2f889e40cb698a1d0d4adbfdfa4f4ab551c35',
+    'PreviewPlayerController$6.smali': '96b3bd392836dd1a638869200cfcc6d6f0864750f6861a7198611c92f3ac9444',
+    'PreviewPlayerController$7.smali': '6731a2cc4fce06174691a0dd6ee42096797e9a488b35f821eedb230755a3e835',
+    'PreviewPlayerController$8.smali': 'a1c451986d8e96cee795581d4a5498ed3b664dc7372b9348131cef7d8392ad2b',
+    'PreviewPlayerController$9.smali': '8fc4dc3c292c084f8c8460a9be2d431272350a175c68e987762d05eefb008157',
+    'PreviewPlayerController$10.smali': '9db52a9fcba2efb9fa252c5e9fbc09ac14922886dadc4c972de59d588cdcabc9',
+    'PreviewPlayerController.smali': '997b356781d9fdf2ba8bd44af07cd627b79b305fd8a339a2d1ea2f87b73af037',
     'PreviewLastTrackStore$1$1.smali': '945ee7420a49b41550b889369932b30e3f0f43943fdb46700d0dbfaf550792dc',
     'PreviewLastTrackStore$1.smali': '8f54f12ff47b7a995072f2255a1c28ffa996e311e8865cd8550330758557ace2',
     'PreviewLastTrackStore$2.smali': '1e3ffc3af8858e6b6f609c18bdf689f5d00d0aaf1c592a201844e24fb91c5aaa',

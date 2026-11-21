@@ -3,12 +3,12 @@
 .source "PreviewPlayerController.java"
 
 # interfaces
-.implements Landroid/content/DialogInterface$OnClickListener;
+.implements Landroid/webkit/ValueCallback;
 
 
 # annotations
 .annotation system Ldalvik/annotation/EnclosingMethod;
-    value = Lcom/melodix/music/PreviewPlayerController;->showDiagnostics()V
+    value = Lcom/melodix/music/PreviewPlayerController;->report()Ljava/lang/String;
 .end annotation
 
 .annotation system Ldalvik/annotation/InnerClass;
@@ -16,43 +16,34 @@
     name = null
 .end annotation
 
+.annotation system Ldalvik/annotation/Signature;
+    value = {
+        "Ljava/lang/Object;",
+        "Landroid/webkit/ValueCallback<",
+        "Ljava/lang/String;",
+        ">;"
+    }
+.end annotation
+
 
 # instance fields
 .field final synthetic this$0:Lcom/melodix/music/PreviewPlayerController;
 
-.field final synthetic val$a:Landroid/app/Activity;
-
-.field final synthetic val$report:Ljava/lang/String;
-
 
 # direct methods
-.method constructor <init>(Lcom/melodix/music/PreviewPlayerController;Landroid/app/Activity;Ljava/lang/String;)V
+.method constructor <init>(Lcom/melodix/music/PreviewPlayerController;)V
     .locals 0
     .annotation system Ldalvik/annotation/MethodParameters;
         accessFlags = {
-            0x8010,
-            0x1010,
-            0x1010
+            0x8010
         }
         names = {
-            null,
-            null,
             null
         }
     .end annotation
 
-    .annotation system Ldalvik/annotation/Signature;
-        value = {
-            "()V"
-        }
-    .end annotation
-
-    .line 1100
+    .line 1065
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerController$9;->this$0:Lcom/melodix/music/PreviewPlayerController;
-
-    iput-object p2, p0, Lcom/melodix/music/PreviewPlayerController$9;->val$a:Landroid/app/Activity;
-
-    iput-object p3, p0, Lcom/melodix/music/PreviewPlayerController$9;->val$report:Ljava/lang/String;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
@@ -61,36 +52,55 @@
 
 
 # virtual methods
-.method public onClick(Landroid/content/DialogInterface;I)V
-    .locals 1
+.method public bridge synthetic onReceiveValue(Ljava/lang/Object;)V
+    .locals 0
+    .annotation system Ldalvik/annotation/MethodParameters;
+        accessFlags = {
+            0x1000
+        }
+        names = {
+            null
+        }
+    .end annotation
 
-    .line 1102
-    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerController$9;->val$a:Landroid/app/Activity;
+    .line 1065
+    check-cast p1, Ljava/lang/String;
 
-    const-string p2, "clipboard"
+    invoke-virtual {p0, p1}, Lcom/melodix/music/PreviewPlayerController$9;->onReceiveValue(Ljava/lang/String;)V
 
-    invoke-virtual {p1, p2}, Landroid/app/Activity;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+    return-void
+.end method
+
+.method public onReceiveValue(Ljava/lang/String;)V
+    .locals 3
+
+    .line 1065
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$9;->this$0:Lcom/melodix/music/PreviewPlayerController;
+
+    if-nez p1, :cond_0
+
+    const-string p1, "\u2014"
+
+    goto :goto_0
+
+    :cond_0
+    invoke-virtual {p1}, Ljava/lang/String;->length()I
+
+    move-result v1
+
+    const/16 v2, 0xa0
+
+    if-le v1, v2, :cond_1
+
+    const/4 v1, 0x0
+
+    invoke-virtual {p1, v1, v2}, Ljava/lang/String;->substring(II)Ljava/lang/String;
 
     move-result-object p1
 
-    .line 1103
-    instance-of p2, p1, Landroid/content/ClipboardManager;
+    :cond_1
+    :goto_0
+    invoke-static {v0, p1}, Lcom/melodix/music/PreviewPlayerController;->access$4502(Lcom/melodix/music/PreviewPlayerController;Ljava/lang/String;)Ljava/lang/String;
 
-    if-eqz p2, :cond_0
-
-    check-cast p1, Landroid/content/ClipboardManager;
-
-    const-string p2, "Diagnostic Preview"
-
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$9;->val$report:Ljava/lang/String;
-
-    invoke-static {p2, v0}, Landroid/content/ClipData;->newPlainText(Ljava/lang/CharSequence;Ljava/lang/CharSequence;)Landroid/content/ClipData;
-
-    move-result-object p2
-
-    invoke-virtual {p1, p2}, Landroid/content/ClipboardManager;->setPrimaryClip(Landroid/content/ClipData;)V
-
-    .line 1104
-    :cond_0
     return-void
 .end method

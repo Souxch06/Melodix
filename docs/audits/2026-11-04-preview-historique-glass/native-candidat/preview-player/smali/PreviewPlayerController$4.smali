@@ -3,12 +3,12 @@
 .source "PreviewPlayerController.java"
 
 # interfaces
-.implements Ljava/lang/Runnable;
+.implements Ljava/lang/Thread$UncaughtExceptionHandler;
 
 
 # annotations
-.annotation system Ldalvik/annotation/EnclosingClass;
-    value = Lcom/melodix/music/PreviewPlayerController;
+.annotation system Ldalvik/annotation/EnclosingMethod;
+    value = Lcom/melodix/music/PreviewPlayerController;->crashCatcher(Landroid/app/Activity;)V
 .end annotation
 
 .annotation system Ldalvik/annotation/InnerClass;
@@ -18,25 +18,24 @@
 
 
 # instance fields
-.field private dim:Z
+.field final synthetic val$p:Landroid/content/SharedPreferences;
 
-.field final synthetic this$0:Lcom/melodix/music/PreviewPlayerController;
+.field final synthetic val$prev:Ljava/lang/Thread$UncaughtExceptionHandler;
 
 
 # direct methods
-.method constructor <init>(Lcom/melodix/music/PreviewPlayerController;)V
+.method constructor <init>(Landroid/content/SharedPreferences;Ljava/lang/Thread$UncaughtExceptionHandler;)V
     .locals 0
-    .annotation system Ldalvik/annotation/MethodParameters;
-        accessFlags = {
-            0x8010
-        }
-        names = {
-            null
+    .annotation system Ldalvik/annotation/Signature;
+        value = {
+            "()V"
         }
     .end annotation
 
-    .line 666
-    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerController$4;->this$0:Lcom/melodix/music/PreviewPlayerController;
+    .line 306
+    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerController$4;->val$p:Landroid/content/SharedPreferences;
+
+    iput-object p2, p0, Lcom/melodix/music/PreviewPlayerController$4;->val$prev:Ljava/lang/Thread$UncaughtExceptionHandler;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
@@ -45,108 +44,47 @@
 
 
 # virtual methods
-.method public run()V
-    .locals 4
+.method public uncaughtException(Ljava/lang/Thread;Ljava/lang/Throwable;)V
+    .locals 3
 
-    .line 669
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$4;->this$0:Lcom/melodix/music/PreviewPlayerController;
+    .line 307
+    :try_start_0
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$4;->val$p:Landroid/content/SharedPreferences;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$1800(Lcom/melodix/music/PreviewPlayerController;)Ljava/lang/ref/WeakReference;
-
-    move-result-object v0
-
-    invoke-virtual {v0}, Ljava/lang/ref/WeakReference;->get()Ljava/lang/Object;
+    invoke-interface {v0}, Landroid/content/SharedPreferences;->edit()Landroid/content/SharedPreferences$Editor;
 
     move-result-object v0
 
-    check-cast v0, Landroid/app/Activity;
+    const-string v1, "t"
 
-    if-nez v0, :cond_0
-
-    return-void
-
-    .line 670
-    :cond_0
-    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$4;->this$0:Lcom/melodix/music/PreviewPlayerController;
-
-    invoke-static {v1}, Lcom/melodix/music/PreviewPlayerController;->access$4000(Lcom/melodix/music/PreviewPlayerController;)Z
-
-    move-result v1
-
-    if-eqz v1, :cond_1
-
-    iget-boolean v1, p0, Lcom/melodix/music/PreviewPlayerController$4;->dim:Z
-
-    if-nez v1, :cond_1
-
-    const/4 v1, 0x1
-
-    goto :goto_0
-
-    :cond_1
-    const/4 v1, 0x0
-
-    :goto_0
-    iput-boolean v1, p0, Lcom/melodix/music/PreviewPlayerController$4;->dim:Z
-
-    .line 671
-    iget-boolean v1, p0, Lcom/melodix/music/PreviewPlayerController$4;->dim:Z
-
-    if-eqz v1, :cond_2
-
-    const/high16 v1, 0x3f000000    # 0.5f
-
-    goto :goto_1
-
-    :cond_2
-    const/high16 v1, 0x3f800000    # 1.0f
-
-    .line 672
-    :goto_1
-    const v2, 0x7f090238
-
-    invoke-virtual {v0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    invoke-static {p2}, Lcom/melodix/music/PreviewPlayerController;->crashTrace(Ljava/lang/Throwable;)Ljava/lang/String;
 
     move-result-object v2
 
-    const v3, 0x7f09023e
-
-    invoke-virtual {v0, v3}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    invoke-interface {v0, v1, v2}, Landroid/content/SharedPreferences$Editor;->putString(Ljava/lang/String;Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
 
     move-result-object v0
 
-    .line 673
-    if-eqz v2, :cond_3
+    invoke-interface {v0}, Landroid/content/SharedPreferences$Editor;->commit()Z
+    :try_end_0
+    .catchall {:try_start_0 .. :try_end_0} :catchall_0
 
-    invoke-virtual {v2, v1}, Landroid/view/View;->setAlpha(F)V
+    goto :goto_0
 
-    .line 674
-    :cond_3
-    if-eqz v0, :cond_4
+    :catchall_0
+    move-exception v0
 
-    invoke-virtual {v0, v1}, Landroid/view/View;->setAlpha(F)V
+    .line 308
+    :goto_0
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$4;->val$prev:Ljava/lang/Thread$UncaughtExceptionHandler;
 
-    .line 675
-    :cond_4
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$4;->this$0:Lcom/melodix/music/PreviewPlayerController;
+    if-eqz v0, :cond_0
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$4000(Lcom/melodix/music/PreviewPlayerController;)Z
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$4;->val$prev:Ljava/lang/Thread$UncaughtExceptionHandler;
 
-    move-result v0
+    invoke-interface {v0, p1, p2}, Ljava/lang/Thread$UncaughtExceptionHandler;->uncaughtException(Ljava/lang/Thread;Ljava/lang/Throwable;)V
 
-    if-eqz v0, :cond_5
-
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$4;->this$0:Lcom/melodix/music/PreviewPlayerController;
-
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$4100(Lcom/melodix/music/PreviewPlayerController;)Landroid/os/Handler;
-
-    move-result-object v0
-
-    const-wide/16 v1, 0x1a4
-
-    invoke-virtual {v0, p0, v1, v2}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
-
-    .line 676
-    :cond_5
+    .line 309
+    :cond_0
     return-void
 .end method
