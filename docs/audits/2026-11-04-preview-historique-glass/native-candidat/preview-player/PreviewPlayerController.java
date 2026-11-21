@@ -321,6 +321,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     // track from before the app went to the background, then the right one a frame later).
     private void saveLastTrack(JSONObject o, String title, String artist, String state, long pos, long dur, boolean background) {
         Activity a = activity.get(); if (a != null) rememberCover(a, title + "\n" + artist, o.optString("cover", ""));
+        if (a != null && o.optString("cover", "").isEmpty()) fetchCover(a, title + "\n" + artist, o.optString("previewTrackUri", ""));
         if (a == null || (!foreground && !background) || pending || seekPending || restored) return;
         long wall = o.optLong("previewObservedAtMs", -1), t = now();
         String identity = title + "\n" + artist + "\n" + dur;
@@ -354,6 +355,41 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         View mini = a.findViewById(0x7f090244), full = a.findViewById(0x7f090245);
         if (mini instanceof ImageView) cover((ImageView) mini, u, 192);
         if (full instanceof ImageView) cover((ImageView) full, u, 720);
+    }
+    // User report (1022349): the hidden page often has no cover image in the player bar (lazy image, never shown).
+    // Ask Spotify's public oEmbed for the track's cover (track id only, no account data), once per track.
+    private String coverAsked = "";
+    void fetchCover(final Activity a, final String key, String uri) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("^spotify:track:([A-Za-z0-9]{22})$").matcher(uri == null ? "" : uri);
+        if (!m.find() || key.equals(coverAsked)) return;
+        coverAsked = key;
+        if (key.equals(a.getSharedPreferences(COVER_STORE, Context.MODE_PRIVATE).getString("k", null))) { restoreCover(a, key); return; }
+        final String id = m.group(1);
+        new Thread(new Runnable() { public void run() {
+            final String url = oembedCover(id);
+            if (url == null) return;
+            handler.post(new Runnable() { public void run() {
+                if (!key.equals(coverAsked) || a.isFinishing()) return;
+                rememberCover(a, key, url); restoreCover(a, key);
+            }});
+        }}).start();
+    }
+    static String oembedCover(String id) {
+        java.net.HttpURLConnection c = null;
+        try {
+            c = (java.net.HttpURLConnection) new java.net.URL("https://open.spotify.com/oembed?url=https%3A%2F%2Fopen.spotify.com%2Ftrack%2F" + id).openConnection();
+            c.setConnectTimeout(5000); c.setReadTimeout(5000);
+            if (c.getResponseCode() != 200) return null;
+            java.io.InputStream in = c.getInputStream(); byte[] buf = new byte[65536]; int n = 0, k;
+            while (n < buf.length && (k = in.read(buf, n, buf.length - n)) > 0) n += k;
+            return coverFromOembed(new String(buf, 0, n, "UTF-8"));
+        } catch (Exception e) { return null; } finally { if (c != null) c.disconnect(); }
+    }
+    static String coverFromOembed(String body) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("\"thumbnail_url\"\\s*:\\s*\"(https://[^\"\\\\]+)\"").matcher(body);
+        if (!m.find()) return null;
+        String u = m.group(1), host = u.substring(8).split("/", 2)[0].toLowerCase();
+        return host.endsWith(".scdn.co") || host.endsWith(".spotifycdn.com") ? u : null;
     }
     public void clearLastTrack() {
         Activity a = activity.get(); if (a != null) { PreviewLastTrackStore.clear(a); a.getSharedPreferences(COVER_STORE, Context.MODE_PRIVATE).edit().remove("k").remove("u").apply(); }

@@ -134,6 +134,8 @@ public class ControllerTest {
   yes(!report.contains("action invoquée"));yes(!report.contains("PrivateTitle")&&!report.contains("PrivateArtist"));
   yes(report.contains("remplacé par un nouveau geste"));
   // Playlist timing is monotonic, anonymous, and only uses observed phases.
+  if(!"https://image-cdn-ak.spotifycdn.com/image/ab67".equals(PreviewPlayerController.coverFromOembed("{\"title\":\"x\",\"thumbnail_url\":\"https://image-cdn-ak.spotifycdn.com/image/ab67\",\"type\":\"rich\"}")))throw new AssertionError("oEmbed cover");
+  if(PreviewPlayerController.coverFromOembed("{\"thumbnail_url\":\"https://evil.example/x.jpg\"}")!=null)throw new AssertionError("foreign host must be refused");
   {PreviewPlayerController cv=new PreviewPlayerController(a);a.views.put(0x7f090244,new ImageView());int cb=NativeImageLoader.loads;
    cv.rememberCover(a,"T\nA","https://i.scdn.co/image/x");cv.restoreCover(a,"Other\nB");if(NativeImageLoader.loads!=cb)throw new AssertionError("cover of another track must not load");
    cv.restoreCover(a,"T\nA");if(NativeImageLoader.loads!=cb+1)throw new AssertionError("remembered cover must load at launch");}
