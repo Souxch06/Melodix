@@ -42,7 +42,7 @@
         }
     .end annotation
 
-    .line 1121
+    .line 1145
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerController$12;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -63,7 +63,7 @@
         }
     .end annotation
 
-    .line 1121
+    .line 1145
     check-cast p1, Ljava/lang/String;
 
     invoke-virtual {p0, p1}, Lcom/melodix/music/PreviewPlayerController$12;->onReceiveValue(Ljava/lang/String;)V
@@ -72,12 +72,39 @@
 .end method
 
 .method public onReceiveValue(Ljava/lang/String;)V
-    .locals 1
+    .locals 3
 
-    .line 1121
+    .line 1145
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$12;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
-    invoke-static {v0, p1}, Lcom/melodix/music/PreviewPlayerController;->access$4902(Lcom/melodix/music/PreviewPlayerController;Ljava/lang/String;)Ljava/lang/String;
+    if-nez p1, :cond_0
+
+    const-string p1, "\u2014"
+
+    goto :goto_0
+
+    :cond_0
+    invoke-virtual {p1}, Ljava/lang/String;->length()I
+
+    move-result v1
+
+    const/16 v2, 0x104
+
+    if-le v1, v2, :cond_1
+
+    const/4 v1, 0x0
+
+    invoke-virtual {p1, v1, v2}, Ljava/lang/String;->substring(II)Ljava/lang/String;
+
+    move-result-object p1
+
+    :cond_1
+    :goto_0
+    invoke-static {v0, p1}, Lcom/melodix/music/PreviewPlayerController;->access$4802(Lcom/melodix/music/PreviewPlayerController;Ljava/lang/String;)Ljava/lang/String;
+
+    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerController$12;->this$0:Lcom/melodix/music/PreviewPlayerController;
+
+    invoke-static {p1}, Lcom/melodix/music/PreviewPlayerController;->access$4908(Lcom/melodix/music/PreviewPlayerController;)I
 
     return-void
 .end method

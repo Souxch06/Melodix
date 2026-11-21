@@ -33,7 +33,7 @@
         }
     .end annotation
 
-    .line 1197
+    .line 1218
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerController$13;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -46,10 +46,10 @@
 .method public run()V
     .locals 5
 
-    .line 1198
+    .line 1219
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$13;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$4800(Lcom/melodix/music/PreviewPlayerController;)I
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$4900(Lcom/melodix/music/PreviewPlayerController;)I
 
     move-result v0
 
@@ -57,7 +57,7 @@
 
     invoke-static {v1}, Lcom/melodix/music/PreviewPlayerController;->access$5000(Lcom/melodix/music/PreviewPlayerController;)Ljava/lang/String;
 
-    .line 1199
+    .line 1220
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$13;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     invoke-static {v1}, Lcom/melodix/music/PreviewPlayerController;->access$200(Lcom/melodix/music/PreviewPlayerController;)J
@@ -68,7 +68,7 @@
 
     add-long/2addr v1, v3
 
-    .line 1200
+    .line 1221
     iget-object v3, p0, Lcom/melodix/music/PreviewPlayerController$13;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     invoke-static {v3}, Lcom/melodix/music/PreviewPlayerController;->access$4200(Lcom/melodix/music/PreviewPlayerController;)Landroid/os/Handler;
@@ -83,6 +83,6 @@
 
     invoke-virtual {v3, v4, v0, v1}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
 
-    .line 1204
+    .line 1225
     return-void
 .end method

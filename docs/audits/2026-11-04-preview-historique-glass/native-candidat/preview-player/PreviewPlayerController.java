@@ -797,7 +797,36 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             !s.equalsIgnoreCase("No Artist") && !s.equalsIgnoreCase("Aucun titre") &&
             !s.equalsIgnoreCase("Lecture arrêtée") && !s.equalsIgnoreCase("Aucune lecture en cours");
     }
+    // User report (1022366): the bundled bridge never starts in the hidden page (served, never entered), so
+    // playlists wait ~10 s for the slow fallback. Run the bundled bridge once per page from Android; it guards
+    // itself (started/completed flags) and the page flag __sfPrbTried keeps it to one run per page.
+    private static String bridgeSource;
+    private long bridgeCheckAt = -1;
+    void injectBridge(WebView w) {
+        try {
+            if (bridgeSource == null) {
+                Activity ba = activity.get(); if (ba == null) throw new java.io.IOException("no activity");
+                java.io.InputStream in = ba.getAssets().open("spotify_bridge.js");
+                java.io.ByteArrayOutputStream buf = new java.io.ByteArrayOutputStream(); byte[] b = new byte[16384]; int n;
+                try { while ((n = in.read(b)) > 0) buf.write(b, 0, n); } finally { in.close(); }
+                bridgeSource = buf.toString("UTF-8");
+            }
+            w.evaluateJavascript("(function(){var w=window;if(w.__sfMelodixBridgeStarted===true||w.__sfPrbTried===1)return;w.__sfPrbTried=1;w.__sfPrbErr='pending';try{\n" + bridgeSource + "\n;w.__sfPrbErr='ok '+(w.__sfMelodixBridgeStarted===true)}catch(e){var m=String(e&&e.stack||'').match(/:(\\d+):(\\d+)/);w.__sfPrbErr=String(e&&e.name||'?').slice(0,30)+'@'+(m?m[1]+':'+m[2]:'?')}})()", null);
+            retryNote = "envoyé (" + bridgeSource.length() + " car.)";
+        } catch (Throwable e) { retryNote = "échec " + e.getClass().getSimpleName(); }
+    }
+    private void autoBridge() {
+        final WebView w = seekWeb.get(); long t = now();
+        if (w == null || (bridgeCheckAt >= 0 && t - bridgeCheckAt < 3000)) return;
+        bridgeCheckAt = t;
+        try {
+            w.evaluateJavascript("(function(){var w=window;return w.__sfMelodixBridgeStarted===true?'ok':w.__sfPrbTried===1?'tried':performance.now()<3000?'young':'need'})()",
+                new ValueCallback<String>() { public void onReceiveValue(String v) { if ("\"need\"".equals(v)) { autoRuns++; injectBridge(w); } } });
+        } catch (Throwable e) { }
+    }
+    private int autoRuns;
     public void snapshot(String json) {
+        autoBridge();
         try {
             JSONObject o = new JSONObject(json);
             long t = now();
@@ -1109,7 +1138,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         } catch (Exception e) { out.append("\nPage Spotify : non lisible"); }
         // User report (1022349): playlist rows and cover both missing while the page is at 100 %. Show the bridge
         // state from the shell's own flags (no account data); the value is refreshed for the next opening.
-        out.append("\nPont (démarré ; terminé ; mode ; erreur ; CSP ; octets ; étape ; requête interceptée ; octets servis ; service worker actif ; relance native (type@ligne:colonne) ; pont entré ; type terminé ; relance déjà faite sur cette page ; script court reçu ; âge de la page, relevé précédent) : ").append(bridgeState).append(" ; relance côté Android : ").append(retryNote).append(" ; âge de la page au script court : ").append(pingAge);
+        out.append("\nPont (démarré ; terminé ; mode ; erreur ; CSP ; octets ; étape ; requête interceptée ; octets servis ; service worker actif ; relance native (type@ligne:colonne) ; pont entré ; type terminé ; relance déjà faite sur cette page ; script court reçu ; âge de la page, relevé précédent) : ").append(bridgeState).append(" ; relance côté Android : ").append(retryNote).append(" ; relances auto : ").append(autoRuns).append(" ; âge de la page au script court : ").append(pingAge);
         try {
             WebView w = seekWeb.get();
             if (w != null) w.evaluateJavascript("(function(){try{var w=window;var r=[w.__sfMelodixBridgeStarted===true,w.__sfMelodixBridgeCompleted===true,String(w.__sfBridgeExecMode||'-'),String(w.__sfBridgeLastError||'-'),w.__sfBridgeCspViolation?1:0,w.__sfBridgeBytes|0,String(w.__sfBridgeLoadStage||'-').slice(0,40),w.__sfBridgeIntercepted===true,w.__sfBridgeServedBytes|0,!!(navigator.serviceWorker&&navigator.serviceWorker.controller),String(w.__sfPrbErr||'-'),w.__sfBridgeEntered===true,typeof w.__sfMelodixBridgeCompleted,w.__sfPrbTried===1,w.__sfPrbPing===1,Math.round(performance.now()/1000)+' s'].join(' ; ');return r}catch(e){return 'erreur'}})()",
@@ -1117,15 +1146,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             // User diagnostic (1022360): the bridge script loads (served 146768 bytes) but never starts, with no
             // visible error (a service-worker response can hide it). Run the bundled bridge once, natively, and
             // keep only the error type and position.
-            if (w != null) try {
-                w.evaluateJavascript("window.__sfPrbPing=1;Math.round(performance.now()/1000)", new android.webkit.ValueCallback<String>() { public void onReceiveValue(String v) { pingAge = v; } });
-                Activity ba = activity.get(); if (ba == null) throw new java.io.IOException("no activity");
-                java.io.InputStream in = ba.getAssets().open("spotify_bridge.js");
-                java.io.ByteArrayOutputStream buf = new java.io.ByteArrayOutputStream(); byte[] b = new byte[16384]; int n;
-                try { while ((n = in.read(b)) > 0) buf.write(b, 0, n); } finally { in.close(); }
-                w.evaluateJavascript("(function(){var w=window;if(w.__sfMelodixBridgeStarted===true||w.__sfPrbTried===1)return;w.__sfPrbTried=1;w.__sfPrbErr='pending';try{\n" + buf.toString("UTF-8") + "\n;w.__sfPrbErr='ok '+(w.__sfMelodixBridgeStarted===true)}catch(e){var m=String(e&&e.stack||'').match(/:(\\d+):(\\d+)/);w.__sfPrbErr=String(e&&e.name||'?').slice(0,30)+'@'+(m?m[1]+':'+m[2]:'?')}})()", null);
-                retryNote = "lu " + buf.size() + " o, envoyé";
-            } catch (Throwable e) { retryNote = "échec " + e.getClass().getSimpleName(); }
+            if (w != null) injectBridge(w);
         } catch (Exception e) { bridgeState = "non lisible"; }
         out.append("\nSource position : ").append(progressSource);
         out.append(" ; identité de titre présente : ").append(tupleIdentity ? "oui" : "non");
