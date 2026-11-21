@@ -52,6 +52,8 @@ const operation=(op,hash)=>({method:'POST',body:JSON.stringify({operationName:op
 const wait=async()=>{for(let i=0;i<40;i++)await Promise.resolve()};
 function response(track){return {ok:true,json:async()=>({data:{playlistV2:{content:{items:track?[{itemV2:{data:{uri:'spotify:track:'+track,name:track,artists:{items:[]}}}}]:[]}}}})}}
 function init(respond){const x=bootstrap(req=>req.body?.operationName==='fetchPlaylist' && req.body?.variables?.offset>0 ? response(null) : respond?.(req));x.w.eval(bridge);x.w.__sfMelodixBridgeStarted=true;x.nav=[];x.w.__sfNativeOpenUri=uri=>{x.nav.push(uri);x.w.__sfCancelPendingCollection();return true};return x}
+// An empty bridge reply is reported after 4 s (time for the full playlist read).
+function late(x){for(const t of x.timers.filter(t=>t.ms===4000&&!t.cleared)){t.cleared=true;t.fn()}}
 function fire(x){for(const t of x.timers.filter(t=>t.ms===6000&&!t.cleared)){t.cleared=true;t.fn()}}
 function media(x,id){return x.calls.filter(c=>c.event==='media'&&c.id===id)}
 test('cached success cancels pre-armed fallback even when synchronous',async()=>{const x=init();try{const id='spotify:playlist:cache';x.w.__sfMediaItemsCache.set(id,[{id:'spotify:track:one',name:'one'}]);x.w.__sfCompleteNativePlaylistTokens.set(id,x.w.spotAuthToken);x.w.__sfOpenCollection(id);assert.equal(media(x,id).length,1);fire(x);assert.equal(x.nav.length,0)}finally{x.close()}});
@@ -135,7 +137,7 @@ test('failed request is never automatically repeated',async()=>{
   x.w.__sfMelodixBridgeStarted=true;x.w.__sfMelodixBridgeCompleted=true;
   x.w.document.body.insertAdjacentHTML('beforeend','<button data-testid="control-button-playpause" aria-label="Pause"></button>');
   let count=0;x.w.fetchMediaItems=()=>{count++;return Promise.resolve()};
-  x.w.__sfOpenCollection('spotify:album:first');await wait();assert.equal(count,1);
+  x.w.__sfOpenCollection('spotify:album:first');await wait();late(x);assert.equal(count,1);
   assert.equal(stages(x).at(-1),'no-data:unknown');fire(x);assert.equal(count,1);
   const rows=x.calls.filter(c=>c.event==='native'&&c.id==='detail').at(-1).rows;
   assert.equal(rows[0].title,'Titres indisponibles');assert.equal(rows[1].title,'Réessayer');
@@ -163,7 +165,7 @@ for(const uri of ['spotify:playlist:abc123','spotify:collection:tracks']) {
     x.w.fetch=()=>{count++;return Promise.resolve({ok:false,status:403})};
    }
    x.w.__sfNativeOpenUri=u=>{x.nav.push(u);x.w.__sfCancelPendingCollection();return true};
-   x.w.__sfOpenCollection(uri);await wait();fire(x);
+   x.w.__sfOpenCollection(uri);await wait();late(x);fire(x);
    assert.equal(count,1);assert.deepEqual(x.nav,[uri]);assert.equal(x.requests.length,0);
   }finally{x.close()}
  });
@@ -220,7 +222,7 @@ test('recent play request blocks navigation even if the pause button is stale',a
   x.w.document.body.insertAdjacentHTML('beforeend','<button data-testid="control-button-playpause" aria-label="Play"></button>');
   x.w.__sfLastPlayRequestAt=Date.now();x.w.__sfMelodixBridgeCompleted=true;x.w.fetchMediaItems=()=>Promise.resolve();x.nav=[];
   x.w.__sfNativeOpenUri=u=>{x.nav.push(u);return true};
-  x.w.__sfOpenCollection('spotify:playlist:abc');await wait();assert.deepEqual(x.nav,[]);
+  x.w.__sfOpenCollection('spotify:playlist:abc');await wait();late(x);assert.deepEqual(x.nav,[]);
   assert.equal(x.calls.filter(c=>c.event==='native'&&c.id==='detail').at(-1).rows[1].title,'Réessayer');
  }finally{x.close()}
 });
