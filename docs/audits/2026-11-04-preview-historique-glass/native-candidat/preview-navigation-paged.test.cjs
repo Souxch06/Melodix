@@ -121,13 +121,14 @@ test('library refuses in-memory entries when account provenance is missing or mi
 // Full shell and synthetic bridge/timers only: not Spotify or Android audio.
 function fireNext(x,ms){const t=x.timers.find(t=>t.kind==='timeout'&&t.ms===ms&&!t.cleared);assert.ok(t,'missing timer '+ms);t.cleared=true;t.fn()}
 function stages(x){return x.calls.filter(c=>c.event==='native-text'&&c.id==='preview-load').map(c=>c.text)}
-test('bridge startup waits for completion before making its single request',async()=>{
+// User-approved (1022370): the running bridge never sets the completed flag; its playlist reader is enough.
+test('bridge startup waits for the playlist reader before making its single request',async()=>{
  const x=bootstrap();try{
   const requests=[];x.w.__sfOpenCollection('spotify:album:secret');
   assert.equal(stages(x).at(-1),'waiting-bridge:unknown');
-  x.w.__sfMelodixBridgeStarted=true;x.w.fetchMediaItems=(uri,id)=>{requests.push(uri);x.w.__sfNativeCollectionLoaded(uri,id);return Promise.resolve()};
-  fireNext(x,250);assert.equal(requests.length,0);
-  x.w.__sfMelodixBridgeCompleted=true;fireNext(x,250);await wait();
+  fireNext(x,250);assert.equal(requests.length,0);assert.equal(stages(x).at(-1),'waiting-bridge:unknown');
+  x.w.fetchMediaItems=(uri,id)=>{requests.push(uri);x.w.__sfNativeCollectionLoaded(uri,id);return Promise.resolve()};
+  fireNext(x,250);await wait();
   assert.deepEqual(requests,['spotify:album:secret']);assert.equal(stages(x).at(-1),'data:unknown');
   fire(x);assert.equal(requests.length,1);
  }finally{x.close()}
