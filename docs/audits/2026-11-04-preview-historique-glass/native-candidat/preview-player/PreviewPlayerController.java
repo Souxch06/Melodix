@@ -264,7 +264,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                     View mini = current.findViewById(0x7f090244), full = current.findViewById(0x7f090245);
                     if (mini instanceof ImageView) ((ImageView) mini).setImageBitmap(image);
                     if (full instanceof ImageView) ((ImageView) full).setImageBitmap(image);
-                } else restoreCover(current, r.title + "\n" + r.artist);
+                } else try { restoreCover(current, r.title + "\n" + r.artist); } catch (Throwable e) { }
                 haveReal = true; renderProgress(); renderButtons(); syncGlow();
                 // The splash is a higher-elevation sibling of nativeRoot. Do
                 // not call showNativeUi(), which marks the session ready and
@@ -320,8 +320,9 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     // background: a fresh reading while the app is hidden (user report 1022319: launch showed the
     // track from before the app went to the background, then the right one a frame later).
     private void saveLastTrack(JSONObject o, String title, String artist, String state, long pos, long dur, boolean background) {
-        Activity a = activity.get(); if (a != null) rememberCover(a, title + "\n" + artist, o.optString("cover", ""));
-        if (a != null && o.optString("cover", "").isEmpty()) fetchCover(a, title + "\n" + artist, o.optString("previewTrackUri", ""));
+        Activity a = activity.get(); try { if (a != null) rememberCover(a, title + "\n" + artist, o.optString("cover", "")); } catch (Throwable e) { }
+        // User report (1022352): crash at launch; the cover fetch must never take the app down.
+        try { if (a != null && o.optString("cover", "").isEmpty()) fetchCover(a, title + "\n" + artist, o.optString("previewTrackUri", "")); } catch (Throwable e) { coverAsked = ""; }
         if (a == null || (!foreground && !background) || pending || seekPending || restored) return;
         long wall = o.optLong("previewObservedAtMs", -1), t = now();
         String identity = title + "\n" + artist + "\n" + dur;
@@ -349,7 +350,8 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         android.content.SharedPreferences p = a.getSharedPreferences(COVER_STORE, Context.MODE_PRIVATE);
         if (!url.equals(p.getString("u", null)) || !key.equals(p.getString("k", null))) p.edit().putString("k", key).putString("u", url).apply();
     }
-    void restoreCover(Activity a, String key) {
+    void restoreCover(Activity a, String key) { try { restoreCoverNow(a, key); } catch (Throwable e) { } }
+    private void restoreCoverNow(Activity a, String key) {
         android.content.SharedPreferences p = a.getSharedPreferences(COVER_STORE, Context.MODE_PRIVATE);
         String u = p.getString("u", null); if (u == null || !key.equals(p.getString("k", null))) return;
         View mini = a.findViewById(0x7f090244), full = a.findViewById(0x7f090245);
@@ -369,21 +371,21 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         WebView w = seekWeb.get(); if (w == null) { coverAsked = ""; return; }
         try {
             w.evaluateJavascript("(function(){try{var a=document.querySelector('[data-testid=\"now-playing-widget\"] a[href*=\"/album/\"],[data-testid=\"now-playing-widget-v2\"] a[href*=\"/album/\"],[data-testid=\"now-playing-bar\"] a[href*=\"/album/\"]');var m=a&&String(a.getAttribute('href')).match(/\\/album\\/([A-Za-z0-9]{22})/);return m?m[1]:''}catch(e){return ''}})()",
-                new ValueCallback<String>() { public void onReceiveValue(String v) {
+                new ValueCallback<String>() { public void onReceiveValue(String v) { try {
                     String id = v == null ? "" : v.replace("\"", "");
                     if (id.matches("[A-Za-z0-9]{22}") && key.equals(coverAsked)) oembed(a, key, "album/" + id); else if (key.equals(coverAsked)) coverAsked = "";
-                }});
-        } catch (Exception e) { coverAsked = ""; }
+                } catch (Throwable e) { coverAsked = ""; } }});
+        } catch (Throwable e) { coverAsked = ""; }
     }
     private void oembed(final Activity a, final String key, final String path) {
-        new Thread(new Runnable() { public void run() {
+        try { new Thread(new Runnable() { public void run() { try {
             final String url = oembedCover(path);
             if (url == null) return;
-            handler.post(new Runnable() { public void run() {
+            handler.post(new Runnable() { public void run() { try {
                 if (!key.equals(coverAsked) || a.isFinishing()) return;
                 rememberCover(a, key, url); restoreCover(a, key);
-            }});
-        }}).start();
+            } catch (Throwable e) { } }});
+        } catch (Throwable e) { } }}).start(); } catch (Throwable e) { }
     }
     static String oembedCover(String path) {
         java.net.HttpURLConnection c = null;
@@ -394,7 +396,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             java.io.InputStream in = c.getInputStream(); byte[] buf = new byte[65536]; int n = 0, k;
             while (n < buf.length && (k = in.read(buf, n, buf.length - n)) > 0) n += k;
             return coverFromOembed(new String(buf, 0, n, "UTF-8"));
-        } catch (Exception e) { return null; } finally { if (c != null) c.disconnect(); }
+        } catch (Throwable e) { return null; } finally { try { if (c != null) c.disconnect(); } catch (Throwable e) { } }
     }
     static String coverFromOembed(String body) {
         java.util.regex.Matcher m = java.util.regex.Pattern.compile("\"thumbnail_url\"\\s*:\\s*\"(https://[^\"\\\\]+)\"").matcher(body);

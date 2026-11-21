@@ -56,7 +56,7 @@
         }
     .end annotation
 
-    .line 372
+    .line 374
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerController$4;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerController$4;->val$key:Ljava/lang/String;
@@ -81,7 +81,7 @@
         }
     .end annotation
 
-    .line 372
+    .line 374
     check-cast p1, Ljava/lang/String;
 
     invoke-virtual {p0, p1}, Lcom/melodix/music/PreviewPlayerController$4;->onReceiveValue(Ljava/lang/String;)V
@@ -90,9 +90,9 @@
 .end method
 
 .method public onReceiveValue(Ljava/lang/String;)V
-    .locals 5
+    .locals 6
 
-    .line 373
+    .line 375
     const-string v0, ""
 
     if-nez p1, :cond_0
@@ -102,13 +102,14 @@
     goto :goto_0
 
     :cond_0
+    :try_start_0
     const-string v1, "\""
 
     invoke-virtual {p1, v1, v0}, Ljava/lang/String;->replace(Ljava/lang/CharSequence;Ljava/lang/CharSequence;)Ljava/lang/String;
 
     move-result-object p1
 
-    .line 374
+    .line 376
     :goto_0
     const-string v1, "[A-Za-z0-9]{22}"
 
@@ -132,23 +133,23 @@
 
     if-eqz v1, :cond_1
 
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$4;->this$0:Lcom/melodix/music/PreviewPlayerController;
+    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$4;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
-    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$4;->val$a:Landroid/app/Activity;
+    iget-object v2, p0, Lcom/melodix/music/PreviewPlayerController$4;->val$a:Landroid/app/Activity;
 
-    iget-object v2, p0, Lcom/melodix/music/PreviewPlayerController$4;->val$key:Ljava/lang/String;
+    iget-object v3, p0, Lcom/melodix/music/PreviewPlayerController$4;->val$key:Ljava/lang/String;
 
-    new-instance v3, Ljava/lang/StringBuilder;
+    new-instance v4, Ljava/lang/StringBuilder;
 
-    invoke-direct {v3}, Ljava/lang/StringBuilder;-><init>()V
+    invoke-direct {v4}, Ljava/lang/StringBuilder;-><init>()V
 
-    const-string v4, "album/"
+    const-string v5, "album/"
 
-    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v4, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    move-result-object v3
+    move-result-object v4
 
-    invoke-virtual {v3, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v4, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object p1
 
@@ -156,7 +157,7 @@
 
     move-result-object p1
 
-    invoke-static {v0, v1, v2, p1}, Lcom/melodix/music/PreviewPlayerController;->access$4100(Lcom/melodix/music/PreviewPlayerController;Landroid/app/Activity;Ljava/lang/String;Ljava/lang/String;)V
+    invoke-static {v1, v2, v3, p1}, Lcom/melodix/music/PreviewPlayerController;->access$4100(Lcom/melodix/music/PreviewPlayerController;Landroid/app/Activity;Ljava/lang/String;Ljava/lang/String;)V
 
     goto :goto_1
 
@@ -178,9 +179,21 @@
     iget-object p1, p0, Lcom/melodix/music/PreviewPlayerController$4;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     invoke-static {p1, v0}, Lcom/melodix/music/PreviewPlayerController;->access$4002(Lcom/melodix/music/PreviewPlayerController;Ljava/lang/String;)Ljava/lang/String;
+    :try_end_0
+    .catchall {:try_start_0 .. :try_end_0} :catchall_0
 
-    .line 375
+    .line 377
     :cond_2
     :goto_1
+    goto :goto_2
+
+    :catchall_0
+    move-exception p1
+
+    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerController$4;->this$0:Lcom/melodix/music/PreviewPlayerController;
+
+    invoke-static {p1, v0}, Lcom/melodix/music/PreviewPlayerController;->access$4002(Lcom/melodix/music/PreviewPlayerController;Ljava/lang/String;)Ljava/lang/String;
+
+    :goto_2
     return-void
 .end method

@@ -51,7 +51,7 @@
         }
     .end annotation
 
-    .line 379
+    .line 381
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerController$5;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerController$5;->val$path:Ljava/lang/String;
@@ -70,19 +70,20 @@
 .method public run()V
     .locals 3
 
-    .line 380
+    .line 382
+    :try_start_0
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$5;->val$path:Ljava/lang/String;
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->oembedCover(Ljava/lang/String;)Ljava/lang/String;
 
     move-result-object v0
 
-    .line 381
+    .line 383
     if-nez v0, :cond_0
 
     return-void
 
-    .line 382
+    .line 384
     :cond_0
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$5;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
@@ -95,7 +96,15 @@
     invoke-direct {v2, p0, v0}, Lcom/melodix/music/PreviewPlayerController$5$1;-><init>(Lcom/melodix/music/PreviewPlayerController$5;Ljava/lang/String;)V
 
     invoke-virtual {v1, v2}, Landroid/os/Handler;->post(Ljava/lang/Runnable;)Z
+    :try_end_0
+    .catchall {:try_start_0 .. :try_end_0} :catchall_0
 
-    .line 386
+    goto :goto_0
+
+    .line 388
+    :catchall_0
+    move-exception v0
+
+    :goto_0
     return-void
 .end method
