@@ -1,0 +1,7 @@
+phone INSTRUMENTATION_STATUS: action_height=126
+phone INSTRUMENTATION_STATUS: phase=geometry
+phone INSTRUMENTATION_STATUS: viewport_height=1920
+phone INSTRUMENTATION_STATUS: viewport_width=1080
+phone INSTRUMENTATION_STATUS: phase=capture_synthetic
+phone INSTRUMENTATION_STATUS: result=passed
+phone INSTRUMENTATION_RESULT: overall=passed

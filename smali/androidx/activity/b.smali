@@ -340,6 +340,22 @@
     .line 37
     packed-switch p0, :pswitch_data_0
 
+    # MEL-BUG-002. Additive guard, placed BEFORE every WebView branch and before
+    # the callback fallback. A native pushed screen owns the Back key; otherwise
+    # handleNativeSystemBack returns false and the original Melodix chain runs
+    # unchanged: fullscreen player closing, WebView history, media handling.
+    # v1 (the callback) is preserved; only p0 and v0 are used, and the original
+    # code reassigns both immediately below.
+    iget-object p0, v1, Lr70;->e:Ljava/lang/Object;
+    instance-of v0, p0, Lcom/melodix/music/MainActivity;
+    if-eqz v0, :mel_dispatcher_continue
+    check-cast p0, Lcom/melodix/music/MainActivity;
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->handleNativeSystemBack()Z
+    move-result v0
+    if-eqz v0, :mel_dispatcher_continue
+    return-void
+    :mel_dispatcher_continue
+
     .line 38
     .line 39
     .line 40

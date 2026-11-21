@@ -14,11 +14,6 @@
      * standard HTTP network-first loading via the WebView cache. */
     if (navigator.serviceWorker) {
         try {
-            navigator.serviceWorker.register = function() {
-                return Promise.reject(new Error('SW blocked by Melodix'));
-            };
-        } catch(e) {}
-        try {
             navigator.serviceWorker.getRegistrations().then(function(regs) {
                 if (regs && regs.length) {
                     regs.forEach(function(reg) {
@@ -166,11 +161,20 @@
         try { Object.defineProperty(obj, name, { get: getter, configurable: true }); } catch(e) {}
     }
 
+    // The native WebView supplies a desktop-shaped UA with its actual runtime
+    // Chrome version. Keep client hints aligned instead of pinning an old build.
+    var nativeUserAgent = String((navigator && navigator.userAgent) || '');
+    var chromeVersionMatch = nativeUserAgent.match(/Chrome\/([0-9.]+)/);
+    var chromeVersion = chromeVersionMatch ? chromeVersionMatch[1] : '';
+    var chromeMajor = chromeVersion ? chromeVersion.split('.')[0] : '';
+    var nativePlatform = String((navigator && navigator.platform) || '');
+    var nativeOscpu = String((navigator && navigator.oscpu) || '');
+
     safeDefine(navigator, 'webdriver', function() { return false; });
     safeDefine(navigator, 'vendor', function() { return 'Google Inc.'; });
     safeDefine(navigator, 'productSub', function() { return '20030107'; });
-    safeDefine(navigator, 'platform', function() { return 'Win32'; });
-    safeDefine(navigator, 'oscpu', function() { return 'Windows NT 10.0; Win64; x64'; });
+    safeDefine(navigator, 'platform', function() { return chromeVersion ? 'Win32' : nativePlatform; });
+    safeDefine(navigator, 'oscpu', function() { return chromeVersion ? 'Windows NT 10.0; Win64; x64' : nativeOscpu; });
     safeDefine(navigator, 'languages', function() { return ['en-US', 'en']; });
     safeDefine(navigator, 'language', function() { return 'en-US'; });
 
@@ -424,89 +428,44 @@
         };
     } catch(e) {}
 
-    // Mock navigator.userAgentData to align JS client hints with desktop User-Agent
-    if (navigator.userAgentData) {
-        var mockUserAgentData = {
-            brands: [
-                { brand: 'Not;A=Brand', version: '8' },
-                { brand: 'Chromium', version: '134' },
-                { brand: 'Google Chrome', version: '134' }
-            ],
-            mobile: false,
-            platform: 'Windows',
-            architecture: 'x86',
-            bitness: '64',
-            model: '',
-            platformVersion: '10.0.0',
-            uaFullVersion: '134.0.0.0',
-            getHighEntropyValues: async function(hints) {
-                return {
-                    brands: [
-                        { brand: 'Not;A=Brand', version: '8' },
-                        { brand: 'Chromium', version: '134' },
-                        { brand: 'Google Chrome', version: '134' }
-                    ],
-                    mobile: false,
-                    platform: 'Windows',
-                    platformVersion: '10.0.0',
-                    architecture: 'x86',
-                    bitness: '64',
-                    model: '',
-                    uaFullVersion: '134.0.0.0'
-                };
-            },
-            toJSON: function() {
-                return {
-                    brands: this.brands,
-                    mobile: this.mobile,
-                    platform: this.platform
-                };
-            }
-        };
-        safeDefine(navigator, 'userAgentData', function() { return mockUserAgentData; });
-    }
-
-    // =========================================================================
-    // SECTION 4: NON-BLOCKING ASYNC FETCH & CAPABILITIES INTERCEPTOR
-    // =========================================================================
-
-    // Non-blocking fetch interceptor: Rewrites connect-state device capabilities in JS
-    // without invoking synchronous Java bridge calls, keeping the UI at 60fps.
-    (function() {
-        var _origFetch = window.fetch;
-        window.fetch = async function(input, init) {
-            var url = (typeof input === 'string') ? input : (input && input.url ? input.url : '');
-            var method = (init && init.method || (input && input.method) || 'GET').toUpperCase();
-
-            // Rewrite connect-state capabilities
-            if (url && url.indexOf('connect-state/v1/devices') !== -1 && method === 'PUT') {
-                try {
-                    var bodyText = null;
-                    if (init && init.body) {
-                        bodyText = (typeof init.body === 'string') ? init.body : await new Response(init.body).text();
-                    } else if (input && input.body) {
-                        bodyText = await input.clone().text();
-                    }
-                    if (bodyText) {
-                        var payload = JSON.parse(bodyText);
-                        var caps = payload && payload.device && payload.device.device_info && payload.device.device_info.capabilities;
-                        if (caps) {
-                            caps.can_be_player = true;
-                            caps.hidden = false;
-                        }
-                        var newBody = JSON.stringify(payload);
-                        if (init) {
-                            init.body = newBody;
-                        } else if (typeof input === 'object') {
-                            init = Object.assign({}, input, { body: newBody });
-                        }
-                    }
-                } catch(e) {}
-            }
-
-            return _origFetch.call(this, input, init);
-        };
-    })();
+    // Keep JavaScript client hints on the same Chromium release the native
+    // WebView exposes to requests. If the provider gives no Chrome version,
+    // leave its built-in client hints untouched rather than invent one.
+    try {
+        if (chromeVersion && chromeMajor) {
+            var mockUserAgentData = {
+                brands: [
+                    { brand: 'Not;A=Brand', version: '8' },
+                    { brand: 'Chromium', version: chromeMajor },
+                    { brand: 'Google Chrome', version: chromeMajor }
+                ],
+                mobile: false,
+                platform: 'Windows',
+                architecture: 'x86',
+                bitness: '64',
+                wow64: false,
+                model: '',
+                platformVersion: '10.0.0',
+                uaFullVersion: chromeVersion,
+                fullVersionList: [
+                    { brand: 'Not;A=Brand', version: '8' },
+                    { brand: 'Chromium', version: chromeVersion },
+                    { brand: 'Google Chrome', version: chromeVersion }
+                ],
+                getHighEntropyValues: async function(hints) {
+                    var out = {};
+                    hints.forEach(function(hint) {
+                        if (hint in mockUserAgentData) out[hint] = mockUserAgentData[hint];
+                    });
+                    return out;
+                }
+            };
+            Object.defineProperty(navigator, 'userAgentData', {
+                value: mockUserAgentData,
+                configurable: true
+            });
+        }
+    } catch(e) {}
 
     // =========================================================================
     // SECTION 5: TOUCHSCREEN PLAY BUTTON INJECTION

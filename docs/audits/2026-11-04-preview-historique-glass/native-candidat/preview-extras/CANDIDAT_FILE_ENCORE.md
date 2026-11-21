@@ -1,0 +1,7 @@
+# Candidat File Encore — hypothèse à vérifier sur appareil
+
+Le diagnostic `shape:61999000099091` indique notamment des marqueurs de lignes dans la racine sélectionnée mais aucun titre exploitable avec les anciens sélecteurs. Il ne démontre ni que la racine est la bonne ni que ces lignes sont des pistes.
+
+Ce candidat reconnaît `#queue-panel` et, dans une région explicitement associée à la File, un titre portant la classe `ListRowTitle__ListRowText` ; il ne devine pas le titre à partir d'un lien d'album ou de texte générique. Les variantes de Spotify observées publiquement ne prouvent pas la structure utilisée sur le téléphone. Les titres multiples ou cachés ne sont pas retenus. Les racines indépendantes restent ambiguës. Les protections de fermeture et de transfert restent en place. Un décompte anonyme supplémentaire `detail:` n'est produit qu'en cas d'échec ; ses neuf chiffres sont plafonnés à 9 : descendants `#queue-panel`, titres Encore, détails Encore, liens artiste, liens album, attributs de contexte piste/épisode, cellules grille, textes Encore, en-têtes de section. Aucun titre, URI, identifiant ou libellé arbitraire n'est journalisé. La catégorie de racine `8` correspond à `#queue-panel`.
+
+Les tests DOM sont des simulations ; seuls un essai en lecture réelle sur le téléphone et la vérification des quatre boutons peuvent confirmer le résultat. Ce changement ne corrige pas Like, ni ne démontre que les autres panneaux et le son fonctionnent sur l'appareil.

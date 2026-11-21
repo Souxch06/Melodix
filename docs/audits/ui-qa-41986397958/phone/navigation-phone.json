@@ -1,0 +1,128 @@
+[
+  {
+    "optional_present": [
+      "nativeContent"
+    ],
+    "profile": "phone",
+    "required_missing": [],
+    "required_present": [
+      "nativeRoot",
+      "nativeTabBar",
+      "nativeHomeTab",
+      "nativeScreenTitle"
+    ],
+    "step": "home",
+    "verdict": "reached",
+    "visible_id_count": 15
+  },
+  {
+    "optional_present": [
+      "nativeContent",
+      "nativeRowsScroll"
+    ],
+    "profile": "phone",
+    "required_missing": [],
+    "required_present": [
+      "nativeRoot",
+      "nativeLibraryTab",
+      "nativeLibraryCategories"
+    ],
+    "step": "library",
+    "verdict": "reached",
+    "visible_id_count": 16
+  },
+  {
+    "optional_present": [
+      "nativeGenreScroll"
+    ],
+    "profile": "phone",
+    "required_missing": [],
+    "required_present": [
+      "nativeRoot",
+      "nativeSearchPanel",
+      "nativeSearchInput"
+    ],
+    "step": "search",
+    "verdict": "reached",
+    "visible_id_count": 16
+  },
+  {
+    "optional_present": [
+      "nativeSearchInput"
+    ],
+    "profile": "phone",
+    "required_missing": [],
+    "required_present": [
+      "nativeRoot"
+    ],
+    "step": "browse-tile",
+    "verdict": "reached",
+    "visible_id_count": 16
+  },
+  {
+    "optional_present": [
+      "nativeScreenTitle"
+    ],
+    "profile": "phone",
+    "required_missing": [],
+    "required_present": [
+      "nativeRoot",
+      "nativeContent",
+      "nativeBackButton"
+    ],
+    "step": "settings",
+    "verdict": "reached",
+    "visible_id_count": 16
+  },
+  {
+    "optional_present": [
+      "nativeContent"
+    ],
+    "profile": "phone",
+    "required_missing": [],
+    "required_present": [
+      "nativeRoot",
+      "nativeTabBar"
+    ],
+    "step": "back-from-settings",
+    "verdict": "reached",
+    "visible_id_count": 16
+  },
+  {
+    "optional_present": [
+      "nativeContent"
+    ],
+    "profile": "phone",
+    "required_missing": [],
+    "required_present": [
+      "nativeRoot",
+      "nativeTabBar",
+      "nativeHomeTab"
+    ],
+    "step": "home-again",
+    "verdict": "reached",
+    "visible_id_count": 15
+  },
+  {
+    "optional_present": [],
+    "profile": "phone",
+    "required_missing": [
+      "nativeMiniPlayer"
+    ],
+    "required_present": [],
+    "step": "mini-player",
+    "verdict": "blocked_no_session",
+    "visible_id_count": 15
+  },
+  {
+    "optional_present": [],
+    "profile": "phone",
+    "required_missing": [
+      "nativePlayerPanel"
+    ],
+    "required_present": [],
+    "step": "player",
+    "verdict": "blocked_no_session",
+    "visible_id_count": 15
+  }
+]

@@ -1,0 +1,5 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.melodix.diagnostic">
+    <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="35" />
+    <application android:label="Melodix CI read-only diagnostic" />
+    <instrumentation android:name="com.melodix.diagnostic.DemoReturnProbe" android:targetPackage="com.melodix.music.preview" />
+</manifest>

@@ -1,0 +1,15 @@
+# Panneaux : campagne de cas adverses
+
+Campagne sur DOM simulé, pas sur Spotify réel ni sur téléphone. Les cas initiaux ci-dessous ont été rendus rouges avant correction, puis retestés : ils prouvent un comportement possible de l'ancien code sur ces fixtures, pas sa survenue chez l'utilisateur.
+
+- **File :** un panneau nommé pouvait inclure des pistes d'un historique adjacent ; une ligne masquée pouvait être lue. Si `#queue-panel` est présent, sa sous-arborescence seule est utilisée ; une cible générique `aria-controls` n'est plus suffisante pour lire des pistes. Les lignes, titres et artistes masqués sont ignorés.
+- **Paroles :** des lignes masquées ou des boutons portant un marqueur de paroles pouvaient être pris pour des paroles ; une cible `aria-controls` arbitraire pouvait être lue via ses paragraphes. Le chemin exige désormais une racine ou un marqueur spécifique et ignore les lignes/commandes masquées. Plusieurs lignes « actives » ne produisent plus une ligne courante prétendument unique.
+- **Appareils :** refus d'un transfert vers une racine contrôlée non reconnue ; vérification préalable même pour une cible déjà active mais masquée/désactivée ; recherche des doublons sur toute la liste y compris au-delà des 30 lignes affichées et parmi les éléments masqués. Un changement de conteneur ou de nœud après clic n'est plus pris pour une confirmation sur la foi du seul nom. Un résultat non confirmé ne prouve pas qu'aucun transfert n'a eu lieu : ne pas réessayer automatiquement.
+- **Volume :** la lecture ne masque plus plusieurs curseurs ni un curseur désactivé par un repli média ; deux barres sont ambiguës ; plusieurs éléments média ne sont pas tous modifiés ; les barres/curseurs masqués ne sont pas utilisés. La relecture DOM après une commande ne prouve pas l'effet sonore ; le journal natif dit désormais « commande envoyée », non « réglé ».
+- **Ouverture et nettoyage :** pas de clic sur un déclencheur masqué. Lors du redimensionnement temporaire d'un panneau, les seules propriétés forcées sont restaurées si elles conservent encore la valeur forcée ; les changements concurrents de la page sur d'autres propriétés ou sur une propriété modifiée ensuite sont conservés.
+
+Les tests de remplacement d'élément d'appareil attendent désormais « non confirmé » (ce comportement conservateur peut refuser une transition réelle si Spotify recrée son DOM). Une simulation d'erreur de style est déclenchée après le clic pour tester la quarantaine au nettoyage, plutôt qu'avant le clic que le nouveau contrôle bloque.
+
+## Limites
+
+Les sélecteurs et nouveaux cas sont des hypothèses non confirmées par un essai des quatre boutons sur l'appareil. Le panneau peut encore être lu avant la fin du rafraîchissement de Spotify ; l'unique média de la page n'a pas d'identité audio prouvée ; la présence et l'identité réelle d'un appareil ne sont pas prouvées par son nom. Like est un problème distinct non corrigé. Ne pas prétendre mesurer ou confirmer le son. La File sémantique reste la piste documentée dans `CANDIDAT_FILE_SEMANTIQUE.md`.

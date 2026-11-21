@@ -1,0 +1,12 @@
+keyboard-mdxperf sid=1d358a32 t=163971 session-state from=verifying state=verifying reason=verification-start
+keyboard-mdxperf sid=1d358a32 t=164065 session-state from=verifying state=no-session reason=cookie-absent
+keyboard-mdxperf sid=1d358a32 t=164570 session-state from=no-session state=no-session reason=cookie-absent-auto-login
+keyboard-mdxperf sid=1d358a32 t=167749 session-state from=no-session state=session-expired reason=repeated-refusal-cookie-present
+phone-mdxperf sid=3bb16068 t=131127 session-state from=verifying state=verifying reason=verification-start
+phone-mdxperf sid=3bb16068 t=131465 session-state from=verifying state=no-session reason=cookie-absent
+phone-mdxperf sid=3bb16068 t=132376 session-state from=no-session state=no-session reason=cookie-absent-auto-login
+phone-mdxperf sid=3bb16068 t=135592 session-state from=no-session state=session-expired reason=repeated-refusal-cookie-present
+small-large-font-mdxperf sid=cd00c8fc t=146365 session-state from=verifying state=verifying reason=verification-start
+small-large-font-mdxperf sid=cd00c8fc t=146890 session-state from=verifying state=no-session reason=cookie-absent
+small-large-font-mdxperf sid=cd00c8fc t=148091 session-state from=no-session state=no-session reason=cookie-absent-auto-login
+small-large-font-mdxperf sid=cd00c8fc t=151006 session-state from=no-session state=session-expired reason=repeated-refusal-cookie-present

@@ -1,0 +1,1 @@
+    topResumedActivity=ActivityRecord{230780007 u0 com.melodix.music/.MainActivity t7}

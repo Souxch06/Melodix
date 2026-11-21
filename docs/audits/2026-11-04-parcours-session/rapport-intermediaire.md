@@ -1,0 +1,110 @@
+# Session Spotify — rapport intermédiaire, pas une validation de connexion
+
+Référence : `b9b01c70011c3ebd7d03668350e7e7f2bbb44499`. Mission inachevée : le `generation-null` du téléphone n'est pas reproduit et aucun correctif ne garantit le rétablissement d'un pont dont les deux getters sont indisponibles. Les essais offline ne valident pas une session Spotify réelle. Ne pas fusionner avant validation.
+
+## Audit du WIP antérieur
+
+Le parseur refuse les jetons sans expiration explicite future et distingue syntaxe JSON incorrecte, objet invalide, expiration et échec réseau ; il conserve les deux codes des endpoints. Un `SyntaxError` du premier endpoint 2xx permet le repli existant ; une erreur de transport ou de lecture de corps reste réseau et ne le déclenche pas. Aucun corps d'erreur n'est lu. Les tests VM utilisent les fonctions du dépôt avec transport synthétique et ne démontrent pas ce que Spotify retourne au téléphone.
+
+Dans le shell, la preuve libraryV3 autorise l'accès bibliothèque mais ne prouve pas l'identité. Le nom du widget reste un signal non vérifié, et ne peut être transmis sans preuve libraryV3. La fonction `cleanText` précédemment appelée n'était pas définie dans ce shell ; un nettoyeur local borné la remplace. Aucun compte OAuth, scope ni identité officielle n'a été établi. Les changements d'assertions reflètent le nouveau contrat et les comparaisons historiques épinglent les blocs modifiés ainsi que les octets inchangés ; les garde-fous de données privées restent actifs.
+
+## Défauts reproduits et corrections
+
+1. `__sfRequestSessionVerification` acceptait un appel sans génération ni pont et appelait `checkMediaLib`. Un test de l'IIFE réel reproduit le lancement ; désormais toute génération absente, nulle, non entière, hors plage, périmée ou sans vol natif actif est refusée avant la tentative. La génération n'est jamais fabriquée.
+2. Deux appels concurrents de même génération lançaient deux vols après le déblocage de la première promesse : quatre appels de transport synthétiques au lieu de deux. Le hook réserve maintenant une génération unique et partage sa promesse ; une génération native suivante peut lancer une nouvelle tentative. Les tests vérifient les deux endpoints et les identifiants génération/tentative.
+3. `checkMediaLib` signalait un démarrage réseau avant l'appel à `fetch`. L'accusé est maintenant émis après invocation du transport token, avec génération et tentative ; une observation initiale sans accusé ne prouve plus un démarrage. Un échec synchrone de transport n'émet pas cet accusé. Ce signal ne prouve pas que Spotify a reçu ou accepté la requête.
+4. Les observations `token-response` contiennent uniquement endpoint de catégorie fixe, génération, tentative, HTTP borné et catégorie MIME (`json`, `html`, `other`, `missing`). Elles ne contiennent ni valeur d'en-tête, ni corps, ni jeton. Les deux filtres natifs et le journal utilisent une grammaire fermée.
+
+Le poller natif existe déjà et n'accepte une génération différente ni un `null` sans repli texte strictement égal. Un test simulé montre qu'il peut partir si le pont est remplacé par un pont valide avant la deadline ; ce remplacement est simulé et n'est **pas** une récupération Android implémentée. Le délai de présentation de 3 s n'est pas une expiration, et le sondage du hook est borné à 8 s. Un callback absent reste un échec borné, non une réussite réseau.
+
+## Refus et limites
+
+Dans la trace téléphone, le 400 concerne `/api/token`, le 403 le repli token déjà existant. Les corps et Content-Type de cet essai n'ont pas été capturés ; la cause reste inconnue. Un 403 est un refus d'accès et ne prouve ni expiration ni déconnexion ; le 400 ne prouve pas la raison exacte. Sans token, le code ne doit pas interroger libraryV3 ni inventer un 401 bibliothèque. La fixture Android prévoit désormais séparément un token synthétique valide suivi d'un 401 synthétique ; aucune requête Spotify réelle n'y est faite. Pour un prochain essai autorisé, les nouvelles catégories MIME et statuts peuvent être lus dans le diagnostic borné, sans journaliser les valeurs d'en-tête ni les corps privés. Une analyse éventuelle des corps exige un mécanisme de classification à liste blanche et une revue spécifique avant collecte ; ne jamais envoyer les corps bruts.
+
+Le projet exploite la session WebView et des réponses bibliothèque, sans flux OAuth Melodix ni renouvellement OAuth implémenté. Un token explicitement périmé est refusé et le repli déjà présent peut être essayé ; cela ne constitue pas un refresh OAuth. Une erreur ne purge pas automatiquement cookies ou stockage. L'accès aux données privées reste conditionné au token et à une réponse libraryV3 validée.
+
+## Tests et limites Android
+
+Dernier `npm test` local : 1 298 tests, 1 293 réussis, zéro échec et 5 skips (outils Java ou PyYAML absents). Les tests de régression supplémentaires exécutent l'IIFE et des transports synthétiques, ainsi qu'un interpréteur de branches smali ; ils ne remplacent ni Android ni un téléphone. La fixture Android a été adaptée au contrat existant : refus token 400/403 signifie zéro requête bibliothèque ; un cas séparé de token synthétique valide vérifie le 401. Les anciennes attentes 401 sans bearer contredisaient le garde-fou de production ; elles n'ont pas été conservées comme preuve d'une requête qui ne doit pas partir.
+
+Le WIP et l'historique du checkout partagé n'ont pas été modifiés. Aucun APK de release n'est produit. Les résultats Android éventuels doivent être rapportés séparément et ne peuvent établir une connexion réelle sans session autorisée.
+
+
+## Diagnostic Android complémentaire — état intermédiaire
+
+Les getters de `AndBridge` sont identiques dans le parent `b9b01c70`, `77f4e925` et le code courant : le getter entier retourne directement la génération native `volatile` ; le getter texte convertit le même entier. Dans le poller, `generation-null` ne distingue pas pourquoi le getter texte a échoué ; l'examen des traces disponibles ne localise donc pas la disparition entre l'invocation, le pont WebView et le retour JS. Aucune cause du téléphone n'est démontrée. `begin` incrémente directement la génération ; le vol actif ne bloque pas cet incrément. Le rattachement/remplacement du pont sur navigation et après `onPageStarted` reste une hypothèse, non une preuve.
+
+Le run [43233663382](https://github.com/Souxch06/Melodix/actions/runs/43233663382) (réexécution des échecs) a identifié l'assertion `stale_evidence_unchanged`, et non une preuve que la génération périmée était acceptée. Le run [43235763176](https://github.com/Souxch06/Melodix/actions/runs/43235763176) a observé, dans le cas courant analogue, `current_evidence_changed_deadline_zero` : l'échéance native de présentation a réinitialisé le compteur de preuve synthétique dont l'empreinte ne correspond à aucun cookie. C'est une cause démontrée de cette interférence-là, et une explication plausible mais non prouvée pour l'échec stale précédent. L'instrumentation isole désormais le contrôle du callback de cette échéance et conserve le test distinct de celle-ci ; elle attend effectivement `generation-mismatch` dans le callback de production au lieu de simplement attendre l'absence de ligne. Sur [43238182895](https://github.com/Souxch06/Melodix/actions/runs/43238182895), les deux scénarios de lecture, le rejet stale et l'échéance passent, mais la suite téléphone expire après l'entrée dans l'assertion du cas token et bibliothèque synthétiques valides ; le reste de la suite n'est pas validé.
+
+Dans ce même run, les fixtures de navigation avec WebView 133 et Chromium 156 passent, y compris les contrôles génération, réponse tardive, déduplication et refus synthétique. Dans les sondes de remplacement, l'ancien objet n'a pas été collecté et les getters numériques restent des nombres : on ne peut pas conclure à un effet de GC. La navigation 133 a toutefois échoué de manière intermittente dans des runs précédents (`synthetic_valid_restore_bridge` puis `player_bridge_visible`) ; une catégorie fermée permet d'en préciser l'observation si elle se reproduit. Les fixtures utilisent des pages et réponses locales, pas Spotify réel.
+
+Le contrôle strict `install -r` du run 43238182895 échoue sur `verify_storage_value` : cookie synthétique retrouvé, valeur localStorage `null`. Même processus : succès ; redémarrage et arrêt forcé immédiats : échec ; témoins distincts à 5 secondes avec et sans mise à jour : succès. Le redémarrage immédiat a aussi réussi dans un autre run : il est variable. Le callback d'écriture JS établit une lecture en mémoire, pas une écriture durable ; `CookieManager.flush()` ne garantit pas la durabilité du WebStorage. Aucun délai arbitraire, purge ou faux succès n'a été ajouté. Il reste à établir une garantie réelle ou à corriger la procédure de mise à jour sur une base démontrée, sans changer les mécanismes de session sans autorisation.
+
+Bilan : phase non terminée, pas de réparation démontrée de `generation-null`, persistance immédiate et run Android global rouges. Aucune validation réelle du compte Spotify. Les observations téléphoniques HTTP 400/403 restent inchangées ; leur cause est inconnue. Un job de build UI distinct requiert le secret de signature de test `MELODIX_TEST_KEYSTORE_B64`, absent de l'environnement du run précédent ; aucun secret ne doit être communiqué dans le chat.
+
+
+### Nouvelles observations des sondes
+
+Sur [43239714685](https://github.com/Souxch06/Melodix/actions/runs/43239714685), après substitution par un proxy JavaScript de fixture puis restauration de la référence native d'origine, les getters entier et texte ont **tous les deux retourné `null`** sur WebView 133 (`synthetic_valid_restore_null_null`). Les méthodes natives ne retournent pas volontairement ces valeurs. Le proxy n'existe pas dans le code de production : ce résultat caractérise cette séquence synthétique et ne démontre pas qu'elle survient sur le téléphone. Le contrôle de visibilité du bridge a aussi échoué de façon intermittente dans un autre run.
+
+Le run [43240684221](https://github.com/Souxch06/Melodix/actions/runs/43240684221) ajoute une sonde contrôlée de ce remplacement, avec objet réel `AndBridge`, références faible et forte séparées et GC forcé. Dans les deux cas, WebView 133 et Chromium 156 retournent `number_string` et l'objet n'a pas été collecté : la collecte n'est pas établie comme cause. Le scénario plus complet et intermittent a passé ce run. La navigation offline et le rejet stale passent, mais la suite téléphone expire après `valid_token_assert_returned` : les assertions sur le thread principal ont terminé ; l'attente globale d'inactivité qui suit ne revient pas. Le correctif de fixture utilise maintenant une synchronisation sur le retour du bloc UI, uniquement pour ce contrôle synchrone, en gardant ses assertions ; son résultat Android doit encore être vérifié. La persistance immédiate est de nouveau rouge (redémarrage, arrêt forcé et mise à jour), tandis que les contrôles même processus et écritures stabilisées passent. Aucune garantie de persistance réelle n'est démontrée.
+
+### Dernier run Android du code instrumenté
+
+[43242078748](https://github.com/Souxch06/Melodix/actions/runs/43242078748), sur `3b1fdfab42891eb40528cca5131d22ccd9a07bfc` : les deux jobs de navigation WebView 133 et Chromium 156 passent, ainsi que les sondes proxy avec et sans référence forte ; aucun objet observé n'a été collecté. Le test complet phone passe, y compris réception/rejet de la génération stale, preuve synthétique valide, refus et absence de cookie, réponse tardive, rotation, recréation et reprise. Les jobs tablet passent en mode captures seulement. Le remplacement de l'attente d'inactivité par le retour du bloc UI a permis au cas valide de terminer avec ses assertions intactes sur ce run, sans changer le code de production.
+
+Le job update-persistence échoue toujours : `verify_storage_value=null` après mise à jour immédiate. Redémarrage immédiat et arrêt forcé échouent aussi ; même processus, écriture stabilisée et mise à jour stabilisée passent. Le run global est donc rouge et la phase reste inachevée. Le `null` observé après le proxy synthétique sur un run précédent reste intermittent et ne démontre pas sa cause sur le téléphone. Aucun nouveau correctif de production n'est proposé sans cette preuve. Les résultats 400/403 observés sur le téléphone ne sont pas expliqués ni validés par ces fixtures.
+
+Suite JS sur ce même code : `npm test`, 1 298 tests, 1 293 réussis, 0 échec, 5 skips. Contrôles ciblés de la dernière modification d'instrumentation : 53/53. Les outils Android locaux manquent ; l'instrumentation a été exécutée en CI. Pas de fusion, release ou prétention de connexion Spotify réelle.
+
+## Persistance native — chantier en cours
+
+La génération de vérification et une observation historique de preuve sont
+stockées dans les préférences natives privées `native_session_epoch` par
+`commit()` synchrone. Seule une preuve vivante token + bibliothèque valide
+peut ouvrir la surface privée : les métadonnées historiques ne sont jamais
+rechargées comme autorisation. Une génération non positive est rejetée ; un
+échec d'écriture interdit la reconnexion destructive et la relance. Le fichier
+est exclu des sauvegardes cloud et du transfert Android afin de ne pas restaurer
+un ancien compteur. La sortie de connexion reconnue, `onPause` et `onStop`
+demandent un flush des cookies ; ce flush ne concerne pas localStorage.
+
+La fixture hors ligne utilise un cookie synthétique, des métadonnées natives,
+et une page locale. Elle vérifie leurs commits après redémarrage de processus,
+force-stop et remplacement d'APK ; localStorage n'est vérifié que dans le même
+processus. La version avant mise à jour est désormais épinglée au premier commit
+de ce store (`c6d598d5`) ; la version après est indépendante. Ce test ne
+vérifie donc pas la migration depuis un APK antérieur au store, ni une connexion
+Spotify réelle. La compilation et l'exécution Android doivent être vérifiées
+sur le commit final ; l'état des runs précédents ne suffit pas.
+
+Les causes des retours 400/403 et de `generation-null` restent inconnues.
+Les interfaces WebView sont exposées aussi aux cadres et ne permettent pas
+nativement de connaître l'origine de l'appel ; la préparation du pont concerne
+le document suivant et l'injection dépend de la navigation. Les diagnostics
+supplémentaires demandés (types JS par getter, contexte de document et thread,
+réponses réseau assainies et source exacte du jeton) ne sont pas encore livrés.
+Aucun résultat synthétique n'établit une connexion Spotify fonctionnelle.
+
+Sur `2cdcc842`, la suite locale passe (1298 réussites, 5 tests ignorés) et
+[le run Android ciblé](https://github.com/Souxch06/Melodix/actions/runs/43249008380)
+réussit, y compris les quatre scénarios synthétiques de persistance. Ces
+résultats ne portent pas sur l'instrumentation ajoutée après ce commit ; elle
+injecte des échecs de commit et un dépassement dans le vrai Smali du store,
+sans toucher aux préférences réelles. Son run doit être vérifié séparément.
+Le job UI de build nécessitant `MELODIX_TEST_KEYSTORE_B64` reste hors de ce run
+et ne doit pas être considéré comme validé.
+
+Sur `b8a44196`, les contrôles Android du store par backend synthétique (commit
+refusé et dépassement), les scénarios de persistance, les profils téléphone et
+tablette et WebView 156 passent dans [43250106265](https://github.com/Souxch06/Melodix/actions/runs/43250106265).
+Mais le run global est **rouge** : WebView 133 échoue à nouveau sur
+`synthetic_valid_restore_null_null` après remplacement synthétique par proxy.
+Ce cas intermittent déjà observé n'établit pas sa cause sur téléphone. Une
+relance des échecs a été demandée pour observer la variabilité ; même verte,
+elle ne suffirait pas à démontrer la résolution de cette intermittence. La
+mission reste inachevée.
+
+La relance du même run (tentative 2 sur `b8a44196`) est verte, y compris
+WebView 133. Elle confirme la variabilité, pas une correction de l'échec
+initial ; la phase ne peut donc pas être déclarée terminée sur cette base.

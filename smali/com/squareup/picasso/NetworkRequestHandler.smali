@@ -506,7 +506,10 @@
 .end method
 
 .method public load(Lcom/squareup/picasso/Request;I)Lcom/squareup/picasso/RequestHandler$Result;
-    .locals 5
+    .locals 7
+    invoke-static {p1}, Lcom/melodix/music/NativeImageTrace;->request(Lcom/squareup/picasso/Request;)V
+    invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
+    move-result-wide v5
 
     .line 1
     invoke-static {p1, p2}, Lcom/squareup/picasso/NetworkRequestHandler;->createRequest(Lcom/squareup/picasso/Request;I)Lm01;
@@ -527,6 +530,7 @@
     .line 9
     .line 10
     move-result-object p2
+    invoke-static {p1, p2, v5, v6}, Lcom/melodix/music/NativeImageTrace;->http(Lcom/squareup/picasso/Request;Lf11;J)V
 
     .line 11
     iget-object v0, p2, Lf11;->p:Lh11;

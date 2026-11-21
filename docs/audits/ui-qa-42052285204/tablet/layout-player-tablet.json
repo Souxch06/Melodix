@@ -1,0 +1,452 @@
+{
+  "container_items": {
+    "nativeContent": [
+      {
+        "cls": "LinearLayout",
+        "h_dp": 208.5,
+        "px": [
+          80,
+          264,
+          1520,
+          681
+        ],
+        "w_dp": 720.0,
+        "x_dp": 40.0,
+        "y_dp": 132.0
+      },
+      {
+        "cls": "TextView",
+        "h_dp": 78.5,
+        "px": [
+          0,
+          721,
+          1600,
+          878
+        ],
+        "w_dp": 800.0,
+        "x_dp": 0.0,
+        "y_dp": 360.5
+      }
+    ]
+  },
+  "container_items_deep": {
+    "nativeContent": [
+      {
+        "cls": "LinearLayout",
+        "depth": 1,
+        "h_dp": 208.5,
+        "kids": 3,
+        "path": "/0",
+        "px": [
+          80,
+          264,
+          1520,
+          681
+        ],
+        "w_dp": 720.0,
+        "x_dp": 40.0,
+        "y_dp": 132.0
+      },
+      {
+        "cls": "LinearLayout",
+        "depth": 2,
+        "h_dp": 52.0,
+        "kids": 2,
+        "path": "/0/0",
+        "px": [
+          136,
+          312,
+          1464,
+          416
+        ],
+        "w_dp": 664.0,
+        "x_dp": 68.0,
+        "y_dp": 156.0
+      },
+      {
+        "cls": "ImageView",
+        "depth": 3,
+        "h_dp": 52.0,
+        "kids": 0,
+        "path": "/0/0/0",
+        "px": [
+          136,
+          312,
+          240,
+          416
+        ],
+        "w_dp": 52.0,
+        "x_dp": 68.0,
+        "y_dp": 156.0
+      },
+      {
+        "cls": "LinearLayout",
+        "depth": 3,
+        "h_dp": 39.5,
+        "kids": 2,
+        "path": "/0/0/1",
+        "px": [
+          272,
+          324,
+          1464,
+          403
+        ],
+        "w_dp": 596.0,
+        "x_dp": 136.0,
+        "y_dp": 162.0
+      },
+      {
+        "cls": "TextView",
+        "depth": 2,
+        "h_dp": 16.5,
+        "kids": 0,
+        "path": "/0/1",
+        "px": [
+          136,
+          452,
+          1464,
+          485
+        ],
+        "w_dp": 664.0,
+        "x_dp": 68.0,
+        "y_dp": 226.0
+      },
+      {
+        "cls": "LinearLayout",
+        "depth": 2,
+        "h_dp": 54.0,
+        "kids": 1,
+        "path": "/0/2",
+        "px": [
+          136,
+          525,
+          1464,
+          633
+        ],
+        "w_dp": 664.0,
+        "x_dp": 68.0,
+        "y_dp": 262.5
+      },
+      {
+        "cls": "TextView",
+        "depth": 3,
+        "h_dp": 54.0,
+        "kids": 0,
+        "path": "/0/2/0",
+        "px": [
+          136,
+          525,
+          1464,
+          633
+        ],
+        "w_dp": 664.0,
+        "x_dp": 68.0,
+        "y_dp": 262.5
+      },
+      {
+        "cls": "TextView",
+        "depth": 1,
+        "h_dp": 78.5,
+        "kids": 0,
+        "path": "/1",
+        "px": [
+          0,
+          721,
+          1600,
+          878
+        ],
+        "w_dp": 800.0,
+        "x_dp": 0.0,
+        "y_dp": 360.5
+      }
+    ]
+  },
+  "defects": {
+    "collapsed": [],
+    "offscreen": [],
+    "overlap": [],
+    "small_target": []
+  },
+  "density_dpi": 320.0,
+  "node_count": 72,
+  "profile": "tablet",
+  "readable": true,
+  "schema_version": 1,
+  "screen_px": [
+    1600,
+    2560
+  ],
+  "surface": "player",
+  "views": [
+    {
+      "cls": "LinearLayout",
+      "dp": [
+        0.0,
+        0.0,
+        800.0,
+        1280.0
+      ],
+      "h_dp": 1280.0,
+      "id": "action_bar_root",
+      "px": [
+        0,
+        0,
+        1600,
+        2560
+      ],
+      "w_dp": 800.0
+    },
+    {
+      "cls": "ViewGroup",
+      "dp": [
+        0.0,
+        0.0,
+        800.0,
+        1280.0
+      ],
+      "h_dp": 1280.0,
+      "id": "main",
+      "px": [
+        0,
+        0,
+        1600,
+        2560
+      ],
+      "w_dp": 800.0
+    },
+    {
+      "cls": "LinearLayout",
+      "dp": [
+        0.0,
+        0.0,
+        800.0,
+        1280.0
+      ],
+      "h_dp": 1280.0,
+      "id": "nativeRoot",
+      "px": [
+        0,
+        0,
+        1600,
+        2560
+      ],
+      "w_dp": 800.0
+    },
+    {
+      "cls": "ImageView",
+      "dp": [
+        32.0,
+        32.0,
+        88.0,
+        88.0
+      ],
+      "h_dp": 56.0,
+      "id": "nativeHeaderAvatar",
+      "px": [
+        64,
+        64,
+        176,
+        176
+      ],
+      "w_dp": 56.0
+    },
+    {
+      "cls": "TextView",
+      "dp": [
+        88.0,
+        41.0,
+        708.0,
+        79.0
+      ],
+      "h_dp": 38.0,
+      "id": "nativeScreenTitle",
+      "px": [
+        176,
+        82,
+        1416,
+        158
+      ],
+      "w_dp": 620.0
+    },
+    {
+      "cls": "ImageView",
+      "dp": [
+        716.0,
+        34.0,
+        768.0,
+        86.0
+      ],
+      "h_dp": 52.0,
+      "id": "nativeSettingsButton",
+      "px": [
+        1432,
+        68,
+        1536,
+        172
+      ],
+      "w_dp": 52.0
+    },
+    {
+      "cls": "ScrollView",
+      "dp": [
+        0.0,
+        100.0,
+        800.0,
+        1171.0
+      ],
+      "h_dp": 1071.0,
+      "id": "nativeRowsScroll",
+      "px": [
+        0,
+        200,
+        1600,
+        2342
+      ],
+      "w_dp": 800.0
+    },
+    {
+      "cls": "LinearLayout",
+      "dp": [
+        0.0,
+        100.0,
+        800.0,
+        1171.0
+      ],
+      "h_dp": 1071.0,
+      "id": "nativeContent",
+      "px": [
+        0,
+        200,
+        1600,
+        2342
+      ],
+      "w_dp": 800.0
+    },
+    {
+      "cls": "LinearLayout",
+      "dp": [
+        0.0,
+        1172.0,
+        800.0,
+        1248.0
+      ],
+      "h_dp": 76.0,
+      "id": "nativeTabBar",
+      "px": [
+        0,
+        2344,
+        1600,
+        2496
+      ],
+      "w_dp": 800.0
+    },
+    {
+      "cls": "TextView",
+      "dp": [
+        0.0,
+        1179.0,
+        266.5,
+        1247.0
+      ],
+      "h_dp": 68.0,
+      "id": "nativeHomeTab",
+      "px": [
+        0,
+        2358,
+        533,
+        2494
+      ],
+      "w_dp": 266.5
+    },
+    {
+      "cls": "TextView",
+      "dp": [
+        266.5,
+        1179.0,
+        533.0,
+        1247.0
+      ],
+      "h_dp": 68.0,
+      "id": "nativeSearchTab",
+      "px": [
+        533,
+        2358,
+        1066,
+        2494
+      ],
+      "w_dp": 266.5
+    },
+    {
+      "cls": "TextView",
+      "dp": [
+        533.0,
+        1179.0,
+        800.0,
+        1247.0
+      ],
+      "h_dp": 68.0,
+      "id": "nativeLibraryTab",
+      "px": [
+        1066,
+        2358,
+        1600,
+        2494
+      ],
+      "w_dp": 267.0
+    },
+    {
+      "cls": "HorizontalScrollView",
+      "dp": [
+        0.0,
+        0.0,
+        800.0,
+        1280.0
+      ],
+      "h_dp": 1280.0,
+      "id": "hScrollView",
+      "px": [
+        0,
+        0,
+        1600,
+        2560
+      ],
+      "w_dp": 800.0
+    },
+    {
+      "cls": "FrameLayout",
+      "dp": [
+        0.0,
+        80.0,
+        800.0,
+        1280.0
+      ],
+      "h_dp": 1200.0,
+      "id": "webViewContainer",
+      "px": [
+        0,
+        160,
+        1600,
+        2560
+      ],
+      "w_dp": 800.0
+    },
+    {
+      "cls": "TextView",
+      "dp": [
+        0.0,
+        80.0,
+        800.0,
+        1280.0
+      ],
+      "h_dp": 1200.0,
+      "id": "frameBgText",
+      "px": [
+        0,
+        160,
+        1600,
+        2560
+      ],
+      "w_dp": 800.0
+    }
+  ]
+}

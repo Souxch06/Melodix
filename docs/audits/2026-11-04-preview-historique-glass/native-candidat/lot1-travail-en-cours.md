@@ -1,0 +1,28 @@
+# Lot 1 Preview — candidat accepté avec limites
+
+Référence de non-régression : Preview 9016, livraison `f5f32ffe61dea424486639468b1729cbbeea6c9f`, base historique `d0f206b08b3db7c2d41a1e844f6dd4abf196a5f6`. Voir [diagnostic des deux bases](../diagnostic-lot1-reference.md). Ni les tests ni la mesure de l'application racine ne sont modifiés. L'utilisateur accepte la limite sur les durées de listes et a demandé la publication d'un candidat Preview pour test téléphone. Ce candidat n'a pas été validé sur appareil.
+
+## Livraison
+
+Le [candidat Preview signé](livraison-preview-lot1.md) a été publié sur demande avec la limite de durées de listes acceptée. Le document de livraison précise l'APK, ses empreintes, la comparaison exacte à 9016 et les limites des tests.
+
+## Travaux préparés
+
+- Un garde épingle les sept assets protégés de la 9016 et compare leurs octets par SHA-256 dans le projet transformé puis dans l'APK signé. Des tests vérifient le rejet d'une modification, d'une absence et d'un doublon dans le ZIP. Il est activé dans la chaîne historique, y compris le travail en cours.
+- Un patch épinglé traite les valeurs du lecteur comme des secondes, corrige le remplissage des secondes et produit `h:mm:ss` à partir d'une heure. Un test exécute le shell réel en JSDOM, puis interprète un sous-ensemble strict des instructions Smali décodées jusqu'aux champs de texte simulés : les sept cas demandés et 38 s / 141 s passent. Sur la 9016, ces assertions échouent. Ce test est **une simulation**, pas une exécution ART ni une observation des vues Android.
+- Un second patch préparatoire enlève la forme de bouton des repères Home, remplace l'ancien libellé Preview au seul rendu des réglages, ajoute une marge de 16 dp aux réglages, masque l'engrenage sur cet écran et prépare des replis dégradé/note pour les pochettes. La zone défilante et le mini-lecteur sont des frères dans une disposition verticale pondérée ; les réserves basses sont augmentées à 32 dp. Les tests sont structurels ; la possibilité de faire défiler le dernier élément au-dessus du mini-lecteur reste à confirmer sur téléphone.
+- La comparaison de tous les IDs publics de ressources entre les APK décodés 9016 et candidat passe en local. Aucun CSS n'a été modifié.
+
+## Vérifications et limites
+
+Compilation et redécodage apktool locaux réussis ; tests JS ciblés sur le Smali décodé et les scripts synthétiques réussis ; les contrôles structuraux du patch visuel et ceux de la garde passent. Les tests ne prouvent pas le rendu, la charge d'une image, le geste Android, la lecture, le temps restant ni les durées de listes sur un téléphone ou un compte Spotify réel. Les durées de listes n'ont pas encore été validées.
+
+La 9016 utilise une seule sauvegarde de retour : des écrans imbriqués tels que playlist → lecteur → réglages peuvent écraser l'origine. Avec l'accord de l'utilisateur, un patch expérimental garde une pile d'écrans et raccorde le callback AndroidX existant au bouton natif seulement si le shell est visible et affiche un détail, le lecteur ou les réglages. Le chemin hérité est conservé dans les autres cas. Les tests statiques et une simulation des instructions décodées couvrent notamment un retour imbriqué et le shell masqué ; ils ne prouvent pas le geste réel, la connexion, ni le comportement en cas de pagination interrompue. Un test Android réel reste indispensable.
+
+Le précédent [run 43708315086](https://github.com/Souxch06/Melodix/actions/runs/43708315086), source `8bd3eea608cf58e166aba50457dde5d5665a3a13`, a compilé, contrôlé et signé le candidat WIP et comparé directement les sept fichiers protégés avec l'APK 9016 signé ; ils étaient identiques et l'upload était alors désactivé. Sur demande de l'utilisateur, le sélecteur `v1.2.2-test.9017-preview` peut désormais publier l'artefact après compilation, tests et comparaison des sept fichiers. Une CI verte ne prouve ni le rendu ni le comportement sur téléphone.
+
+Le formateur `b(J)` du widget reçoit des millisecondes ; un patch local le corrige sans modifier son acquisition de données. Le lecteur natif reçoit des secondes et affiche maintenant aussi un temps restant calculé à partir de sa position et de sa durée, ou un tiret si la durée est inconnue. Les huit valeurs demandées passent par les instructions Smali décodées en simulation pour le lecteur, le restant et le formateur du widget ; cela ne prouve pas les vues réelles.
+
+L'utilisateur a choisi une solution de présentation sans modifier les sept fichiers. Le shell normalise les deux horloges visibles du lecteur Web historique, sans modifier son état, et peut ajouter une durée déjà présente et identifiable dans le DOM à une ligne du repli DOM. Il conserve l'ordre, les doublons, les gardes et la priorité des données paginées. Tests JSDOM : huit valeurs, horloges ajoutées ou mises à jour, durée absente ou invalide, doublons, et absence de remplacement des résultats paginés. Pas de données inventées.
+
+**Limite connue acceptée :** le chemin paginé dans `spotify_bridge.js` ne transmet pas les durées et remplace normalement le repli DOM ; les durées peuvent donc rester absentes, y compris pour des titres visibles. La présence des sélecteurs testés dans la version Spotify réelle n'est pas prouvée. Aucun `0:00` n'est fabriqué ; il n'y a pas de colonne durée dédiée, et un sous-titre entièrement vide est masqué sans occuper de place. L'alignement visuel doit être vérifié sur téléphone. Ne pas modifier les octets protégés ou le traitement des playlists sans autorisation expresse. L'accessibilité du dernier élément et les retours et rotations réels restent aussi à établir sur téléphone.

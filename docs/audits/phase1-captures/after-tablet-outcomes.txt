@@ -1,0 +1,17 @@
+tablet INSTRUMENTATION_STATUS: action_height=48
+tablet INSTRUMENTATION_STATUS: card_height=477
+tablet INSTRUMENTATION_STATUS: card_width=480
+tablet INSTRUMENTATION_STATUS: center_delta=1
+tablet INSTRUMENTATION_STATUS: phase=geometry
+tablet INSTRUMENTATION_STATUS: viewport_height=1200
+tablet INSTRUMENTATION_STATUS: viewport_width=1920
+tablet INSTRUMENTATION_STATUS: action_height=48
+tablet INSTRUMENTATION_STATUS: card_height=582
+tablet INSTRUMENTATION_STATUS: card_width=480
+tablet INSTRUMENTATION_STATUS: center_delta=0
+tablet INSTRUMENTATION_STATUS: phase=geometry
+tablet INSTRUMENTATION_STATUS: viewport_height=1200
+tablet INSTRUMENTATION_STATUS: viewport_width=1920
+tablet INSTRUMENTATION_STATUS: phase=capture_synthetic
+tablet INSTRUMENTATION_STATUS: result=passed
+tablet INSTRUMENTATION_RESULT: overall=passed

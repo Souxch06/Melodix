@@ -1,0 +1,304 @@
+name: Build and capture offline demo preview
+on:
+  workflow_call:
+    inputs:
+      source_ref:
+        required: true
+        type: string
+      release_tag:
+        required: true
+        type: string
+      evidence_run:
+        required: false
+        type: string
+        default: "0"
+      strict_launcher_validation:
+        required: false
+        type: boolean
+        default: false
+  workflow_dispatch:
+    inputs:
+      strict_launcher_validation:
+        description: Strict launcher, real settings and session acceptance; no synthetic session
+        required: false
+        type: boolean
+        default: false
+      evidence_run:
+        description: Existing demo run to inspect without another APK build
+        required: false
+        type: string
+        default: "0"
+      source_ref:
+        description: Full commit SHA to build and validate
+        required: true
+        type: string
+      release_tag:
+        description: Build-only preview artifact name
+        required: true
+        type: string
+        default: v1.2.2-test.149-preview
+permissions:
+  contents: read
+  actions: read
+jobs:
+  suite:
+    if: inputs.evidence_run == '0'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.source_ref }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install ripgrep for the complete test suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v rg >/dev/null; then
+            # Use the pinned Linux binary when distro mirrors are unavailable;
+            # the fallback remains a real system ripgrep, never a test stub.
+            if npm install --prefix "$RUNNER_TEMP/ripgrep" --no-save --no-audit --no-fund @vscode/ripgrep-linux-x64@1.18.0; then
+              rg_bin="$RUNNER_TEMP/ripgrep/node_modules/@vscode/ripgrep-linux-x64/bin"
+              export PATH="$rg_bin:$PATH"
+              echo "$rg_bin" >> "$GITHUB_PATH"
+            else
+              sudo apt-get update && sudo apt-get install -y ripgrep
+            fi
+          fi
+          rg --version
+      - run: python -m pip install PyYAML==6.0.2
+      - run: npm ci
+      - name: Run the complete suite before building any preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          npm test 2>&1 | tee "$RUNNER_TEMP/demo-suite.tap"
+          suite_status=${PIPESTATUS[0]}
+          set -e
+          if [ "$suite_status" != 0 ]; then
+            failures=$(grep -E '^not ok' "$RUNNER_TEMP/demo-suite.tap" | head -20 | tr '\n' ';' || true)
+            details=$(grep -A12 -E '^not ok' "$RUNNER_TEMP/demo-suite.tap" | head -100 | tr '\n' ' ' | cut -c1-3000 || true)
+            echo "::error title=Demo suite failures::$failures"
+            echo "::error title=Demo suite details::$details"
+            exit "$suite_status"
+          fi
+          if grep -Eq '^# skipped [1-9][0-9]*$' "$RUNNER_TEMP/demo-suite.tap"; then
+            echo "::error::Preview blocked because the suite skipped tests."
+            exit 1
+          fi
+          grep -qx '# fail 0' "$RUNNER_TEMP/demo-suite.tap"
+          grep -qx '# skipped 0' "$RUNNER_TEMP/demo-suite.tap"
+  build:
+    needs: suite
+    if: inputs.evidence_run == '0'
+    uses: ./.github/workflows/preview-apk.yml
+    with:
+      source_ref: ${{ inputs.source_ref }}
+      release_tag: ${{ inputs.release_tag }}
+      build_only: true
+      demo_build: true
+      version_code_base: 1021285
+    secrets: inherit
+  capture:
+    # Evidence is optional; failures remain visible in job steps and artifacts.
+    continue-on-error: true
+    if: inputs.strict_launcher_validation != true
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [phone, tablet, small]
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.source_ref }}
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4.0.4
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: ${{ needs.build.outputs.apk_name }}
+          path: target-apk
+      - run: sudo chmod 666 /dev/kvm
+      - name: Install the exact preview and capture offline demo screens
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
+          script: |
+            bash scripts/run_demo_capture.sh "target-apk/${{ needs.build.outputs.apk_name }}" "${{ matrix.profile }}"
+            python3 scripts/capture_real_no_session.py "${{ matrix.profile }}" "captures/${{ matrix.profile }}/real-no-session"
+      - name: Upload capture evidence
+        if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: demo-captures-${{ matrix.profile }}
+          path: captures/${{ matrix.profile }}
+          if-no-files-found: warn
+  bundle:
+    # A failed/incomplete bundle must never block the build or be called verified.
+    continue-on-error: true
+    if: inputs.strict_launcher_validation != true
+    needs: [build, capture]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.source_ref }}
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: ${{ needs.build.outputs.apk_name }}
+          path: bundle
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          pattern: demo-captures-*
+          path: bundle/captures
+      - name: Verify and package all captures alongside the exact APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          for p in phone tablet small; do
+            for screen in accueil recherche bibliotheque playlist reglages lecteur mini-lecteur; do
+              test -s "bundle/captures/demo-captures-$p/$screen.png"
+            done
+            test -s "bundle/captures/demo-captures-$p/real-no-session/observation.json"
+            test -s "bundle/captures/demo-captures-$p/real-no-session/etat-observe.png"
+            for screen in session-entree-demo demo-depuis-session retour-session; do
+              test -s "bundle/captures/demo-captures-$p/real-no-session/$screen.png"
+            done
+            test -s "bundle/captures/demo-captures-$p/reglages-test-entree.png"
+            test -s "bundle/captures/demo-captures-$p/entree-reglages.png"
+          done
+          cp docs/audits/partie-b-etat-provisoire.md bundle/specification-vs-realise.md
+          sha256sum "bundle/${{ needs.build.outputs.apk_name }}" > bundle/SHA256SUMS.txt
+          echo "source=${{ inputs.source_ref }}" > bundle/build-info.txt
+          echo "versionCode=${{ needs.build.outputs.version_code }}" >> bundle/build-info.txt
+      - uses: actions/upload-artifact@v4.6.2
+        with:
+          name: Melodix-demo-preview-with-captures
+          path: bundle
+          if-no-files-found: error
+          retention-days: 14
+
+  launcher-acceptance:
+    name: Strict launcher and real-surface acceptance
+    if: inputs.strict_launcher_validation == true && inputs.evidence_run == '0'
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      APK_NAME: ${{ needs.build.outputs.apk_name }}
+      SOURCE_REF: ${{ inputs.source_ref }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.source_ref }}
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4.0.4
+      - run: sdkmanager --install "build-tools;35.0.0"
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: ${{ needs.build.outputs.apk_name }}
+          path: target-apk
+      - name: Inspect the exact APK and its actual DEX definitions
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd target-apk && sha256sum -c "$APK_NAME.sha256" && cd ..
+          python3 scripts/inspect_demo_apk.py "target-apk/$APK_NAME" "$SOURCE_REF" evidence
+      - run: sudo chmod 666 /dev/kvm
+      - name: Fresh emulator launcher and actual user navigation
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
+          script: bash scripts/launch_acceptance.sh
+      - name: Require every real capture before delivering APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in 01-premier-ecran 02-reglages-test 03-session 04-accueil-demo 05-lecteur-demo 06-apres-sortie 07-reglages-reels; do
+            test -s "evidence/$name.png"
+          done
+          python3 -c 'import json; assert json.load(open("evidence/observations.json"))["failure"] is None'
+          mkdir -p validated-bundle/evidence
+          cp "target-apk/$APK_NAME" "target-apk/$APK_NAME.sha256" validated-bundle/
+          cp -a evidence/. validated-bundle/evidence/
+      - name: Upload validated APK and real captures together
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: Melodix-demo-launcher-validated
+          path: validated-bundle
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload partial diagnostics separately, even on failure
+        if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: demo-launcher-observations
+          path: evidence
+          if-no-files-found: warn
+          retention-days: 14
+
+  validate-captures:
+    if: inputs.evidence_run != '0'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: Melodix-demo-preview-with-captures
+          path: bundle
+          run-id: ${{ inputs.evidence_run }}
+          github-token: ${{ github.token }}
+      - name: Verify actual screenshot dimensions
+        run: |
+          python3 - <<'PY'
+          import pathlib, struct
+          for profile in ('phone','tablet','small'):
+              for screen in ('accueil','recherche','bibliotheque','playlist','reglages','lecteur','mini-lecteur'):
+                  p=pathlib.Path('bundle/captures/demo-captures-'+profile)/(screen+'.png')
+                  data=p.read_bytes()
+                  assert data[:8]==b'\x89PNG\r\n\x1a\n',p
+                  w,h=struct.unpack('>II',data[16:24])
+                  assert (w<h if profile in ('phone','small') else w>h),(str(p),w,h)
+                  print(f'::notice title=Demo screenshot::{profile}/{screen}={w}x{h}')
+          PY
+      - name: Report the recorded real no-session observations
+        run: |
+          python3 - <<'PY'
+          import json, pathlib
+          for profile in ('phone', 'tablet', 'small'):
+              folder = pathlib.Path('bundle/captures/demo-captures-' + profile + '/real-no-session')
+              data = json.loads((folder / 'observation.json').read_text())
+              for key in ('error', 'settings'):
+                  print(f'::notice title=Real no-session {profile}::{key}={data[key]}')
+              for image in ('demarrage-immediat.png', 'etat-observe.png', 'erreur-observee.png', 'reglages-reels.png'):
+                  print(f'::notice title=Real capture {profile}::{image}={"present" if (folder / image).is_file() else "not observed"}')
+          PY

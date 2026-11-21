@@ -1,0 +1,66 @@
+name: Preview historical APK offline Android smoke
+on:
+  push:
+    branches:
+      - arena/6b935c3e-melodix
+permissions:
+  actions: read
+  contents: read
+jobs:
+  offline-smoke:
+    if: contains(github.event.head_commit.message, '[preview-offline-smoke]')
+    name: Exact signed Preview — offline Android ${{ matrix.api }} smoke
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [30, 35]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4.0.4
+      - name: Download exact signed APK 1022136
+        uses: actions/download-artifact@v4.3.0
+        with:
+          name: Melodix-Preview-lot1
+          run-id: 43737912021
+          github-token: ${{ github.token }}
+          path: target-apk
+      - name: Check exact signed APK hash
+        run: |
+          set -euo pipefail
+          test -f target-apk/Melodix-Preview-historique-glass.apk
+          echo '55fc795d402f77b2b4c09351230e3e13c2d9d749859ecdf1d127be8e794586ce  target-apk/Melodix-Preview-historique-glass.apk' | sha256sum --check
+      - name: Check offline safety preconditions in isolation
+        run: python3 docs/audits/2026-11-04-preview-historique-glass/native-candidat/test_preview_offline_smoke.py
+      - name: Install fixture build tools
+        run: sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Allow emulator access
+        run: test -e /dev/kvm && sudo chmod 666 /dev/kvm
+      - name: Launch offline with no Spotify account
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          MELODIX_PREVIEW_KEYSTORE_B64: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_B64 }}
+          MELODIX_PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
+          MELODIX_PREVIEW_KEY_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEY_PASSWORD || secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
+        with:
+          api-level: ${{ matrix.api }}
+          target: google_apis
+          arch: x86_64
+          disable-animations: false
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: |
+            bash docs/audits/2026-11-04-preview-historique-glass/native-candidat/preview-offline-smoke.sh target-apk/Melodix-Preview-historique-glass.apk 55fc795d402f77b2b4c09351230e3e13c2d9d749859ecdf1d127be8e794586ce
+            bash docs/audits/2026-11-04-preview-historique-glass/native-candidat/glass-refresh/fixture/run-offline-visual-fixture.sh
+      - name: Upload synthetic screenshots
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: glass-fixture-android-${{ matrix.api }}
+          path: visual-fixture-output/*.png
+          if-no-files-found: warn
+          retention-days: 14

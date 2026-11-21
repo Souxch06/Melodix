@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@android:id/background"><shape><corners android:radius="3dp"/><solid android:color="@color/mel_glass_edge"/></shape></item>
+    <item android:id="@android:id/progress"><scale android:scaleWidth="100%" android:scaleGravity="left"><layer-list>
+        <item><shape><corners android:radius="3dp"/><gradient android:angle="0" android:startColor="@color/mel_gradient_start" android:endColor="@color/mel_gradient_end"/></shape></item>
+        <item android:gravity="right|center_vertical" android:width="6dp" android:height="6dp"><shape android:shape="oval"><gradient android:type="radial" android:gradientRadius="3dp" android:startColor="@color/mel_text_primary" android:endColor="@color/mel_gradient_end"/></shape></item>
+    </layer-list></scale></item>
+</layer-list>

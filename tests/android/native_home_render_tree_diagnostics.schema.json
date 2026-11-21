@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "melodix.native-home-render-tree.v1",
+  "title": "Melodix native Home render-tree instrumentation report",
+  "type": "object",
+  "required": [
+    "schema",
+    "schema_version",
+    "fixture_id",
+    "status",
+    "synthetic_fixture_only",
+    "started_monotonic_elapsed_realtime_ns",
+    "updated_monotonic_elapsed_realtime_ns",
+    "active_phase_id",
+    "last_successful_event_id",
+    "last_event_name",
+    "event_count",
+    "report_file_saved",
+    "screenshot_file_saved",
+    "events",
+    "failure",
+    "hierarchy_at_failure",
+    "pixel_evidence",
+    "privacy",
+    "artifacts"
+  ],
+  "properties": {
+    "schema": { "const": "melodix.native-home-render-tree.v1" },
+    "schema_version": { "const": 1 },
+    "fixture_id": { "const": "native_home_render_tree_fixture" },
+    "status": { "enum": ["running", "passed", "failed"] },
+    "synthetic_fixture_only": { "const": true },
+    "started_monotonic_elapsed_realtime_ns": { "type": "integer", "minimum": 0 },
+    "updated_monotonic_elapsed_realtime_ns": { "type": "integer", "minimum": 0 },
+    "active_phase_id": { "type": "string", "pattern": "^native_home_render_tree_fixture_[a-z0-9_]{1,30}$" },
+    "last_successful_event_id": { "type": "integer", "minimum": 0 },
+    "last_event_name": { "type": "string" },
+    "event_count": { "type": "integer", "minimum": 0 },
+    "report_file_saved": { "type": "boolean" },
+    "screenshot_file_saved": { "type": "boolean" },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["event_id", "phase_id", "event", "outcome", "monotonic_elapsed_realtime_ns", "expected", "observed"],
+        "properties": {
+          "event_id": { "type": "integer", "minimum": 1 },
+          "phase_id": { "type": "string", "pattern": "^native_home_render_tree_fixture_[a-z0-9_]{1,30}$" },
+          "event": { "type": "string", "minLength": 1 },
+          "outcome": { "enum": ["pass", "fail", "observed", "unavailable"] },
+          "monotonic_elapsed_realtime_ns": { "type": "integer", "minimum": 0 },
+          "expected": {},
+          "observed": {}
+        },
+        "additionalProperties": true
+      }
+    },
+    "failure": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["exception_class", "message", "message_redacted", "stack_trace", "unwrapped_cause_class", "failure_phase", "active_phase_id", "last_successful_event_id", "last_event_name"],
+          "properties": {
+            "exception_class": { "type": "string", "minLength": 1 },
+            "message": { "type": "string" },
+            "message_redacted": { "type": "boolean" },
+            "stack_trace": { "type": "string" },
+            "unwrapped_cause_class": { "type": "string" },
+            "failure_phase": { "type": "string" },
+            "active_phase_id": { "type": "string" },
+            "last_successful_event_id": { "type": "integer", "minimum": 0 },
+            "last_event_name": { "type": "string" },
+            "secondary_failures": { "type": "array" }
+          },
+          "additionalProperties": true
+        }
+      ]
+    },
+    "hierarchy_at_failure": { "oneOf": [{ "type": "null" }, { "type": "object" }] },
+    "pixel_evidence": { "oneOf": [{ "type": "null" }, { "type": "object" }] },
+    "privacy": {
+      "type": "object",
+      "required": ["payload_content_recorded", "view_text_recorded", "spotify_token_recorded", "cookie_recorded"],
+      "properties": {
+        "payload_content_recorded": { "const": false },
+        "view_text_recorded": { "const": false },
+        "spotify_token_recorded": { "const": false },
+        "cookie_recorded": { "const": false }
+      },
+      "additionalProperties": false
+    },
+    "artifacts": {
+      "type": "object",
+      "required": ["report", "screenshot"],
+      "properties": {
+        "report": { "const": "files/melodix-preview-native-home-render-tree-diagnostics.json" },
+        "screenshot": { "const": "files/melodix-preview-native-home-render-tree.png" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": true
+}

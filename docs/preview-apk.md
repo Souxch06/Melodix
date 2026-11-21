@@ -1,8 +1,10 @@
 # Créer et publier l'APK Melodix Preview
 
-Cette procédure crée une application d'essai séparée, package `com.melodix.music.preview`, nommée **Melodix Preview**. Elle peut être installée à côté de l'application normale `com.melodix.music` sans la désinstaller. Ce n'est pas une mise à jour de test.7 : l'application et ses données sont séparées.
+La Preview est une application d'essai séparée, identifiant `com.melodix.music.preview`, nommée **Melodix Preview**. Elle s'installe à côté de l'application normale `com.melodix.music` sans la désinstaller et garde ses propres données.
 
-La clé de test.7 n'étant pas disponible, cette prévisualisation doit avoir sa propre clé. Il faut conserver cette nouvelle clé pour que les prochaines versions Preview puissent mettre à jour cette même application.
+La dernière release est **[v1.2.2-test.89-preview](https://github.com/Souxch06/Melodix/releases/tag/v1.2.2-test.89-preview)**, construite depuis le commit `5953424ed100a2232d3d8fba80c6a508c085e16d`. APK : [Melodix-Preview-v1.2.2-test89.apk](https://github.com/Souxch06/Melodix/releases/download/v1.2.2-test.89-preview/Melodix-Preview-v1.2.2-test89.apk). Son SHA-256 est `10ba68c341efa0e52c5c5bd53535d5f1b79fa07fddcb65637d88fdb2dab4ff8c`. Elle retire le clic automatique sur le CTA Spotify, susceptible d'ouvrir l'application Spotify native. **Le test sur l'appareil reste à faire** : la CI verte ne valide pas l'affichage réel.
+
+Les versions plus anciennes sont supprimées après publication pour ne garder que la dernière release. Les tags et commits historiques restent disponibles. La Preview doit être signée avec sa propre clé; conserve cette même clé afin que les prochaines versions puissent mettre à jour l'application.
 
 ## 1. Créer la clé Preview sur Windows
 
@@ -40,22 +42,21 @@ Pour préparer la valeur de `MELODIX_PREVIEW_KEYSTORE_B64`, exécute dans PowerS
 
 Cette commande copie le texte encodé dans le presse-papiers sans l'afficher. Colle-le directement dans le champ **Value** du secret `MELODIX_PREVIEW_KEYSTORE_B64`. Pour le secret du mot de passe, saisis le mot de passe du keystore. N'envoie aucune de ces valeurs dans le chat.
 
-## 3. Lancer la pré-release
+## 3. Publier ou installer une version Preview
 
-1. Sur GitHub, ouvre le dépôt puis l'onglet **Actions**.
-2. Sélectionne **Build Melodix Preview APK**.
-3. Clique **Run workflow** et sélectionne la branche `main`.
-4. Laisse le tag par défaut `v1.2.2-test.8-preview`, puis clique **Run workflow**.
-5. Attends que le run soit terminé avec l'état vert **Success**.
+La release à installer est toujours celle indiquée en haut de ce document. Pour `test.89`, le fichier est `Melodix-Preview-v1.2.2-test89.apk`; avec la même clé Preview, il met à jour l'application `com.melodix.music.preview` sans désinstaller l'application normale.
 
-Le workflow crée la pré-release `Melodix Preview v1.2.2 test.8` et y attache :
+Un commit dont le message commence par `[preview-release] v1.2.2-test.N-preview ...`, poussé sur la branche Preview, déclenche automatiquement **Build Melodix Preview APK**. Le workflow assemble et signe l'APK, crée la release et joint le `.sha256`. Il calcule lui-même un `versionCode` croissant. Une publication plus récente doit utiliser un nouveau numéro de test.
 
-- `Melodix-Preview-v1.2.2-test8.apk`
-- son fichier `.sha256`
+Pour lancer manuellement le workflow :
 
-La pré-release apparaîtra sur GitHub dans **Releases**. Télécharge l'APK depuis cette page et installe-la sur Android. Elle apparaîtra sous le nom **Melodix Preview** et ne remplacera pas l'application normale.
+1. Sur GitHub, ouvre l'onglet **Actions** et choisis **Build Melodix Preview APK**.
+2. Clique **Run workflow** sur la branche de travail.
+3. Indique un tag unique (par exemple `v1.2.2-test.90-preview`) et le SHA complet de 40 caractères du commit à construire.
+4. Attends l'état vert **Success**, puis vérifie les noms et l'empreinte SHA-256 des deux artefacts de la release.
+5. Une fois la nouvelle release vérifiée, supprime l'ancienne release pour n'en conserver qu'une seule. Ne supprime pas les tags Git si leur retrait n'est pas explicitement demandé.
 
-Le workflow adapte dans sa copie temporaire l'empreinte de signature intégrée à l'application pour qu'elle corresponde à la clé Preview, puis augmente le `versionCode` afin que la correction puisse mettre à jour la première APK Preview déjà installée. Le projet source et la signature de l'application normale restent inchangés.
+Après installation, vérifie dans les infos de l'application que tu as lancé **Melodix Preview** (pas Spotify) et que **Paramètres → GUI Mode** est réglé sur **CSS+JS Mobile**. La capture d'écran ou l'essai sur appareil reste nécessaire pour valider le comportement : une compilation CI verte ne prouve pas que l'interface s'affiche.
 
 ## Si le workflow échoue
 

@@ -1,0 +1,121 @@
+name: Preview demo delivery A
+on:
+  workflow_call:
+    inputs:
+      source_ref:
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+jobs:
+  suite:
+    name: Local regression suite before demo build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.source_ref }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install ripgrep required by the regression suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v rg >/dev/null; then
+            if npm install --prefix "$RUNNER_TEMP/ripgrep" --no-save --no-audit --no-fund @vscode/ripgrep-linux-x64@1.18.0; then
+              echo "$RUNNER_TEMP/ripgrep/node_modules/@vscode/ripgrep-linux-x64/bin" >> "$GITHUB_PATH"
+            else
+              sudo apt-get update && sudo apt-get install -y ripgrep
+            fi
+          fi
+      - run: python -m pip install PyYAML==6.0.2
+      - run: npm ci
+      - name: Run all tests, fail on errors and skips
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          npm test 2>&1 | tee "$RUNNER_TEMP/demo-a-suite.tap"
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ "$status" != 0 ]; then
+            grep -A12 -E '^not ok' "$RUNNER_TEMP/demo-a-suite.tap" | head -80 | while IFS= read -r line; do echo "::error title=Demo A suite::$line"; done
+            exit "$status"
+          fi
+          grep -qx '# fail 0' "$RUNNER_TEMP/demo-a-suite.tap"
+          grep -qx '# skipped 0' "$RUNNER_TEMP/demo-a-suite.tap"
+  build:
+    needs: suite
+    uses: ./.github/workflows/preview-apk.yml
+    with:
+      source_ref: ${{ inputs.source_ref }}
+      release_tag: v1.2.2-test.169-preview
+      build_only: true
+      demo_build: true
+      version_code_base: 1021508
+    secrets: inherit
+  demo:
+    needs: build
+    name: Launcher, demo and exit (${{ matrix.profile }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [small, phone, tablet]
+    env:
+      APK_NAME: ${{ needs.build.outputs.apk_name }}
+      SOURCE_REF: ${{ inputs.source_ref }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.source_ref }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: android-actions/setup-android@v4.0.4
+      - run: sdkmanager --install 'build-tools;35.0.0'
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: ${{ needs.build.outputs.apk_name }}
+          path: target-apk
+      - name: Verify exact signed demo APK and version
+        run: |
+          set -euo pipefail
+          (cd target-apk && sha256sum -c "$APK_NAME.sha256")
+          python3 scripts/inspect_demo_apk.py "target-apk/$APK_NAME" "$SOURCE_REF" "evidence-a/${{ matrix.profile }}"
+          python3 scripts/check_preview_dex.py "target-apk/$APK_NAME"
+          python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["versionCode"]>1021508' "evidence-a/${{ matrix.profile }}/inspection.json"
+      - run: sudo chmod 666 /dev/kvm
+      - name: Install exact APK and test demo from launcher through exit
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
+          script: |
+            adb install "target-apk/$APK_NAME"
+            python3 scripts/acceptance_autonomous.py '${{ matrix.profile }}' 'evidence-a/${{ matrix.profile }}'
+            if [ '${{ matrix.profile }}' = phone ]; then python3 scripts/acceptance_local_playback.py 'evidence-a/${{ matrix.profile }}'; fi
+      - uses: actions/upload-artifact@v4.6.2
+        if: always()
+        with:
+          name: demo-delivery-a-${{ matrix.profile }}
+          path: evidence-a/${{ matrix.profile }}
+          if-no-files-found: warn
+          retention-days: 14

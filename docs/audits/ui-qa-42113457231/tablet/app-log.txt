@@ -1,0 +1,160 @@
+11-05 21:37:49.476  2167  2167 I m.melodix.music:   at boolean android.os.Looper.loopOnce(android.os.Looper, long, int) (Looper.java:248)
+11-05 21:37:49.476  2167  2167 I m.melodix.music:   at void android.os.Looper.loop() (Looper.java:338)
+11-05 21:37:49.476  2167  2167 I m.melodix.music:   at void android.app.ActivityThread.main(java.lang.String[]) (ActivityThread.java:9067)
+11-05 21:37:49.476  2167  2167 I m.melodix.music:   at java.lang.Object java.lang.reflect.Method.invoke(java.lang.Object, java.lang.Object[]) (Method.java:-2)
+11-05 21:37:49.476  2167  2167 I m.melodix.music:   at void com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run() (RuntimeInit.java:593)
+11-05 21:37:49.476  2167  2167 I m.melodix.music:   at void com.android.internal.os.ZygoteInit.main(java.lang.String[]) (ZygoteInit.java:932)
+11-05 21:37:49.483  1006  1054 D WindowManagerShell: onActivityRestartAttempt: topActivity=ComponentInfo{com.melodix.music/com.melodix.music.MainActivity}, wasVisible=false
+11-05 21:37:49.508   577   664 V WindowManager: Sent Transition (#9) createdAt=11-05 21:37:49.453 via request=TransitionRequestInfo { type = OPEN, triggerTask = TaskInfo{userId=0 taskId=7 effectiveUid=10216 displayId=0 isRunning=true baseIntent=Intent { flg=0x10000000 cmp=com.melodix.music/.MainActivity } baseActivity=ComponentInfo{com.melodix.music/com.melodix.music.MainActivity} topActivity=ComponentInfo{com.melodix.music/com.melodix.music.MainActivity} origActivity=null realActivity=ComponentInfo{com.melodix.music/com.melodix.music.MainActivity} numActivities=1 lastActiveTime=235145 supportsMultiWindow=true resizeMode=1 isResizeable=true minWidth=-1 minHeight=-1 defaultMinSize=220 token=WCT{RemoteToken{c566ae6 Task{1fa65f1 #7 type=standard A=10216:com.melodix.music}}} topActivityType=1 pictureInPictureParams=null shouldDockBigOverlays=false launchIntoPipHostTaskId=-1 lastParentTaskIdBeforePip=-1 displayCutoutSafeInsets=Rect(0, 0 - 0, 0) topActivityInfo=ActivityInfo{941c827 com.melodix.music.MainActivity} launchCookies=[] positionInParent=Point(0, 0) parentTaskId=-1 isFocused=false isVisible=false isVisibleRequested=false isTopActivityNoDisplay=false isSleeping=false locusId=null displayAreaFeatureId=1 isTopActivityTransparent=false isActivityStackTransparent=false lastNonFullscreenBounds=Rect(388, 540 - 1212, 2004) capturedLink=null capturedLinkTimestamp=0 requestedVisibleTypes=-9 topActivityRequestOpenInBrowserEducationTimestamp=0 appCompatTaskInfo=AppCompatTaskInfo { topActivityInSizeCompat=false eligibleForLetterboxEducation= false isLetterboxEducationEnabled= true isLetterboxDoubleTapEnabled= false eligibleForUserAspectRatioButton= true topActivityBoundsLetterboxed= false isFromLetterboxDoubleTap= false topActivityLetterboxVerticalPosition= -1 topActivityLetterboxHorizontalPosition= -1 topActivityLetterboxWidth=-1 topActivityLetterboxHeight=-1 topActivityAppBounds=Rect(0, 0 - 1600, 2560) isUserFullscreenOverrideEnabled=false isSystemFullscreenOverrideEnabled=false hasMinAspectRatioOverride=false topActivityLetterboxBounds=null cameraCompatTaskInfo=CameraCompatTaskInfo { freeformCameraCompatMode=inactive}} topActivityMainWindowFrame=null}, pipChange = null, remoteTransition = null, displayChange = null, flags = 0, debugId = 9 }
+11-05 21:37:49.512   577   664 V WindowManager:         {WCT{RemoteToken{c566ae6 Task{1fa65f1 #7 type=standard A=10216:com.melodix.music}}} m=TO_FRONT f=MOVE_TO_TOP leash=Surface(name=Task=7)/@0x99debe0 sb=Rect(0, 0 - 1600, 2560) eb=Rect(0, 0 - 1600, 2560) epz=Point(1600, 2560) d=0 taskParent=-1},
+11-05 21:37:50.130   577   770 I ImeTracker: com.melodix.music:99d13b13: onRequestHide at ORIGIN_SERVER reason HIDE_UNSPECIFIED_WINDOW fromUser false
+11-05 21:37:50.140  1495  1495 I GoogleInputMethodService: GoogleInputMethodService.onStartInput():1293 onStartInput(EditorInfo{EditorInfo{packageName=com.melodix.music, inputType=0, inputTypeString=NULL, enableLearning=false, autoCorrection=false, autoComplete=false, imeOptions=0, privateImeOptions=null, actionName=UNSPECIFIED, actionLabel=null, initialSelStart=-1, initialSelEnd=-1, initialCapsMode=0, label=null, fieldId=0, fieldName=null, extras=null, hintText=null, hintLocales=[]}}, false)
+11-05 21:37:50.144   577  2056 W PackageConfigPersister: App-specific configuration not found for packageName: com.melodix.music and userId: 0
+11-05 21:37:50.238  2167  2167 I ImeTracker: com.melodix.music:99d13b13: onCancelled at PHASE_CLIENT_ALREADY_HIDDEN
+11-05 21:37:58.143  5921  5921 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-05 21:37:58.148  5921  5921 I AndroidRuntime: Using default boot image
+11-05 21:37:58.148  5921  5921 I AndroidRuntime: Leaving lock profiling enabled
+11-05 21:37:58.234  5921  5921 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-05 21:37:59.270  5921  5921 D AndroidRuntime: Shutting down VM
+11-05 21:38:00.182  5937  5937 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-05 21:38:00.185  5937  5937 I AndroidRuntime: Using default boot image
+11-05 21:38:00.185  5937  5937 I AndroidRuntime: Leaving lock profiling enabled
+11-05 21:38:00.271  5937  5937 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-05 21:38:01.328  5937  5937 D AndroidRuntime: Shutting down VM
+11-05 21:38:02.688  5957  5957 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-05 21:38:02.692  5957  5957 I AndroidRuntime: Using default boot image
+11-05 21:38:02.692  5957  5957 I AndroidRuntime: Leaving lock profiling enabled
+11-05 21:38:02.783  5957  5957 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-05 21:38:03.822  5957  5957 D AndroidRuntime: Shutting down VM
+11-05 21:38:07.792  5980  5980 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-05 21:38:07.796  5980  5980 I AndroidRuntime: Using default boot image
+11-05 21:38:07.796  5980  5980 I AndroidRuntime: Leaving lock profiling enabled
+11-05 21:38:07.885  5980  5980 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-05 21:38:08.934  5980  5980 D AndroidRuntime: Shutting down VM
+11-05 21:38:09.934  1495  1495 I GoogleInputMethodService: GoogleInputMethodService.onStartInput():1293 onStartInput(EditorInfo{EditorInfo{packageName=com.melodix.music, inputType=1, inputTypeString=Normal[], enableLearning=true, autoCorrection=true, autoComplete=true, imeOptions=3, privateImeOptions=null, actionName=SEARCH, actionLabel=null, initialSelStart=0, initialSelEnd=0, initialCapsMode=0, label=null, fieldId=2131296819, fieldName=null, extras=Bundle[mParcelledData.dataSize=168], hintText=non-empty, hintLocales=[]}}, false)
+11-05 21:38:10.039   577  2056 W PackageConfigPersister: App-specific configuration not found for packageName: com.melodix.music and userId: 0
+11-05 21:38:12.960  6011  6011 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-05 21:38:12.963  6011  6011 I AndroidRuntime: Using default boot image
+11-05 21:38:12.964  6011  6011 I AndroidRuntime: Leaving lock profiling enabled
+11-05 21:38:13.054  6011  6011 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-05 21:38:14.096  6011  6011 D AndroidRuntime: Shutting down VM
+11-05 21:38:15.025  2167  2167 I MelRowId: row-id name=mel_settings_row_height pkg=com.melodix.music id=2131165369 sibling_id=2131165366 nopkg_id=0 framework_id=17105764
+11-05 21:38:18.105  6046  6046 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-05 21:38:18.108  6046  6046 I AndroidRuntime: Using default boot image
+11-05 21:38:18.109  6046  6046 I AndroidRuntime: Leaving lock profiling enabled
+11-05 21:38:18.194  6046  6046 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-05 21:38:19.242  6046  6046 D AndroidRuntime: Shutting down VM
+11-05 21:38:19.530  2167  2167 I MelRowId: row-id name=mel_settings_row_height pkg=com.melodix.music id=2131165369 sibling_id=2131165366 nopkg_id=0 framework_id=17105764
+11-05 21:38:19.532  2167  2167 I MelRowId: row-id name=mel_settings_row_height pkg=com.melodix.music id=2131165369 sibling_id=2131165366 nopkg_id=0 framework_id=17105764
+11-05 21:38:19.534  2167  2167 I MelRowId: row-id name=mel_settings_row_height pkg=com.melodix.music id=2131165369 sibling_id=2131165366 nopkg_id=0 framework_id=17105764
+11-05 21:38:19.537  2167  2167 I MelRowId: row-id name=mel_settings_row_height pkg=com.melodix.music id=2131165369 sibling_id=2131165366 nopkg_id=0 framework_id=17105764
+11-05 21:38:19.539  2167  2167 I MelRowId: row-id name=mel_settings_row_height pkg=com.melodix.music id=2131165369 sibling_id=2131165366 nopkg_id=0 framework_id=17105764
+11-05 21:38:25.236  6076  6076 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-05 21:38:25.240  6076  6076 I AndroidRuntime: Using default boot image
+11-05 21:38:25.240  6076  6076 I AndroidRuntime: Leaving lock profiling enabled
+11-05 21:38:25.326  6076  6076 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-05 21:38:26.362  6076  6076 D AndroidRuntime: Shutting down VM
+11-05 21:38:27.275  6092  6092 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-05 21:38:27.278  6092  6092 I AndroidRuntime: Using default boot image
+11-05 21:38:27.278  6092  6092 I AndroidRuntime: Leaving lock profiling enabled
+11-05 21:38:27.368  6092  6092 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-05 21:38:28.404  6092  6092 D AndroidRuntime: Shutting down VM
+11-05 21:38:28.851  1273  1293 D AlphabeticIndexCompat: computeSectionName: cs: Melodix sectionName: M
+11-05 21:38:28.913  1273  1293 D AlphabeticIndexCompat: computeSectionName: cs: Melodix sectionName: M
+11-05 21:38:29.749  6162  6162 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-05 21:38:29.753  6162  6162 I AndroidRuntime: Using default boot image
+11-05 21:38:29.753  6162  6162 I AndroidRuntime: Leaving lock profiling enabled
+11-05 21:38:29.847  6162  6162 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-05 21:38:30.899  6162  6162 D AndroidRuntime: Shutting down VM
+11-05 21:38:34.867  6188  6188 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-05 21:38:34.870  6188  6188 I AndroidRuntime: Using default boot image
+11-05 21:38:34.870  6188  6188 I AndroidRuntime: Leaving lock profiling enabled
+11-05 21:38:34.955  6188  6188 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-05 21:38:35.995  6188  6188 D AndroidRuntime: Shutting down VM
+11-05 21:38:39.984  6211  6211 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-05 21:38:39.987  6211  6211 I AndroidRuntime: Using default boot image
+11-05 21:38:39.987  6211  6211 I AndroidRuntime: Leaving lock profiling enabled
+11-05 21:38:40.073  6211  6211 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-05 21:38:41.110  6211  6211 D AndroidRuntime: Shutting down VM
+11-05 21:38:42.034  2167  2167 I MelRowId: row-id name=mel_settings_row_height pkg=com.melodix.music id=2131165369 sibling_id=2131165366 nopkg_id=0 framework_id=17105764
+11-05 21:38:45.108  6233  6233 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-05 21:38:45.111  6233  6233 I AndroidRuntime: Using default boot image
+11-05 21:38:45.111  6233  6233 I AndroidRuntime: Leaving lock profiling enabled
+11-05 21:38:45.193  6233  6233 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-05 21:38:46.235  6233  6233 D AndroidRuntime: Shutting down VM
+11-05 21:38:46.538  2167  2167 I MelRowId: row-id name=mel_settings_row_height pkg=com.melodix.music id=2131165369 sibling_id=2131165366 nopkg_id=0 framework_id=17105764
+11-05 21:38:46.540  2167  2167 I MelRowId: row-id name=mel_settings_row_height pkg=com.melodix.music id=2131165369 sibling_id=2131165366 nopkg_id=0 framework_id=17105764
+11-05 21:38:46.542  2167  2167 I MelRowId: row-id name=mel_settings_row_height pkg=com.melodix.music id=2131165369 sibling_id=2131165366 nopkg_id=0 framework_id=17105764
+11-05 21:38:46.544  2167  2167 I MelRowId: row-id name=mel_settings_row_height pkg=com.melodix.music id=2131165369 sibling_id=2131165366 nopkg_id=0 framework_id=17105764
+11-05 21:38:46.546  2167  2167 I MelRowId: row-id name=mel_settings_row_height pkg=com.melodix.music id=2131165369 sibling_id=2131165366 nopkg_id=0 framework_id=17105764
+11-05 21:38:52.257  6264  6264 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-05 21:38:52.260  6264  6264 I AndroidRuntime: Using default boot image
+11-05 21:38:52.260  6264  6264 I AndroidRuntime: Leaving lock profiling enabled
+11-05 21:38:52.344  6264  6264 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-05 21:38:53.378  6264  6264 D AndroidRuntime: Shutting down VM
+11-05 21:38:54.286  6280  6280 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-05 21:38:54.289  6280  6280 I AndroidRuntime: Using default boot image
+11-05 21:38:54.289  6280  6280 I AndroidRuntime: Leaving lock profiling enabled
+11-05 21:38:54.375  6280  6280 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-05 21:38:55.442  6280  6280 D AndroidRuntime: Shutting down VM
+11-05 21:38:56.783  6300  6300 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-05 21:38:56.787  6300  6300 I AndroidRuntime: Using default boot image
+11-05 21:38:56.788  6300  6300 I AndroidRuntime: Leaving lock profiling enabled
+11-05 21:38:56.877  6300  6300 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-05 21:38:57.918  6300  6300 D AndroidRuntime: Shutting down VM
+11-05 21:39:01.897  6323  6323 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-05 21:39:01.900  6323  6323 I AndroidRuntime: Using default boot image
+11-05 21:39:01.900  6323  6323 I AndroidRuntime: Leaving lock profiling enabled
+11-05 21:39:01.987  6323  6323 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-05 21:39:03.032  6323  6323 D AndroidRuntime: Shutting down VM
+11-05 21:39:07.111  6372  6372 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-05 21:39:07.115  6372  6372 I AndroidRuntime: Using default boot image
+11-05 21:39:07.116  6372  6372 I AndroidRuntime: Leaving lock profiling enabled
+11-05 21:39:07.204  6372  6372 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-05 21:39:08.241  6372  6372 D AndroidRuntime: Shutting down VM
+11-05 21:39:09.168  2167  2167 I MelRowId: row-id name=mel_settings_row_height pkg=com.melodix.music id=2131165369 sibling_id=2131165366 nopkg_id=0 framework_id=17105764
+11-05 21:39:12.239  6394  6394 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-05 21:39:12.242  6394  6394 I AndroidRuntime: Using default boot image
+11-05 21:39:12.242  6394  6394 I AndroidRuntime: Leaving lock profiling enabled
+11-05 21:39:12.330  6394  6394 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-05 21:39:13.384  6394  6394 D AndroidRuntime: Shutting down VM
+11-05 21:39:13.672  2167  2167 I MelRowId: row-id name=mel_settings_row_height pkg=com.melodix.music id=2131165369 sibling_id=2131165366 nopkg_id=0 framework_id=17105764
+11-05 21:39:13.674  2167  2167 I MelRowId: row-id name=mel_settings_row_height pkg=com.melodix.music id=2131165369 sibling_id=2131165366 nopkg_id=0 framework_id=17105764
+11-05 21:39:13.676  2167  2167 I MelRowId: row-id name=mel_settings_row_height pkg=com.melodix.music id=2131165369 sibling_id=2131165366 nopkg_id=0 framework_id=17105764
+11-05 21:39:13.679  2167  2167 I MelRowId: row-id name=mel_settings_row_height pkg=com.melodix.music id=2131165369 sibling_id=2131165366 nopkg_id=0 framework_id=17105764
+11-05 21:39:13.681  2167  2167 I MelRowId: row-id name=mel_settings_row_height pkg=com.melodix.music id=2131165369 sibling_id=2131165366 nopkg_id=0 framework_id=17105764
+11-05 21:39:19.391  6421  6421 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-05 21:39:19.395  6421  6421 I AndroidRuntime: Using default boot image
+11-05 21:39:19.395  6421  6421 I AndroidRuntime: Leaving lock profiling enabled
+11-05 21:39:19.484  6421  6421 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-05 21:39:20.520  6421  6421 D AndroidRuntime: Shutting down VM
+11-05 21:39:21.427  6437  6437 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-05 21:39:21.429  6437  6437 I AndroidRuntime: Using default boot image
+11-05 21:39:21.429  6437  6437 I AndroidRuntime: Leaving lock profiling enabled
+11-05 21:39:21.512  6437  6437 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-05 21:39:22.558  6437  6437 D AndroidRuntime: Shutting down VM
+11-05 21:39:23.907  6457  6457 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-05 21:39:23.911  6457  6457 I AndroidRuntime: Using default boot image
+11-05 21:39:23.911  6457  6457 I AndroidRuntime: Leaving lock profiling enabled
+11-05 21:39:24.002  6457  6457 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-05 21:39:25.048  6457  6457 D AndroidRuntime: Shutting down VM
+11-05 21:39:30.985  6479  6479 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-05 21:39:30.988  6479  6479 I AndroidRuntime: Using default boot image
+11-05 21:39:30.988  6479  6479 I AndroidRuntime: Leaving lock profiling enabled
+11-05 21:39:31.080  6479  6479 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-05 21:39:32.118  6479  6479 D AndroidRuntime: Shutting down VM
+11-05 21:39:33.488  6500  6500 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-05 21:39:33.491  6500  6500 I AndroidRuntime: Using default boot image
+11-05 21:39:33.491  6500  6500 I AndroidRuntime: Leaving lock profiling enabled
+11-05 21:39:33.582  6500  6500 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-05 21:39:34.617  6500  6500 D AndroidRuntime: Shutting down VM
+11-05 21:39:35.551  6519  6519 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-05 21:39:35.553  6519  6519 I AndroidRuntime: Using default boot image
+11-05 21:39:35.553  6519  6519 I AndroidRuntime: Leaving lock profiling enabled
+11-05 21:39:35.640  6519  6519 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-05 21:39:36.686  6519  6519 D AndroidRuntime: Shutting down VM
+11-05 21:39:38.045  6539  6539 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-05 21:39:38.048  6539  6539 I AndroidRuntime: Using default boot image
+11-05 21:39:38.048  6539  6539 I AndroidRuntime: Leaving lock profiling enabled
+11-05 21:39:38.137  6539  6539 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-05 21:39:39.195  6539  6539 D AndroidRuntime: Shutting down VM

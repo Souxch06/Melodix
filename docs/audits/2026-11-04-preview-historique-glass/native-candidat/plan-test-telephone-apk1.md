@@ -1,0 +1,13 @@
+# Plan téléphone — APK 1 Preview, barre et lecteur
+
+À exécuter seulement après publication de l'APK signée et de son contrôle 9016. Cette liste est un plan, pas le résultat d'un essai.
+
+1. Installer la Preview par-dessus la précédente si Android autorise la mise à jour. Vérifier ouverture et session existante, accueil et bibliothèque. Échec : installation refusée, déconnexion non souhaitée ou liste manquante.
+2. Ouvrir une playlist sans lancer automatiquement de titre, puis démarrer une lecture par les moyens existants. Vérifier pochette, titre, artiste et mini-lecteur. Le lot A n'est pas dans cette APK. Échec : lecture déclenchée à l'ouverture, données erronées ou écran vide.
+3. Pendant deux minutes, écran allumé, observer les deux barres : progression fluide, même position, durée bornée et temps restant cohérent. Ouvrir/fermer le lecteur, naviguer dans l'application et revenir. Échec : saut répété, désaccord, dépassement, progression inventée pendant un chargement.
+4. Dans le mini-lecteur puis le lecteur, faire cinq essais lecture/pause : l'icône réagit immédiatement, la barre se fige à la pause puis reprend si l'état réel confirme. Vérifier aussi suivant/précédent, une interruption réseau et une attente de confirmation ; aucun plafonnement lot A ne s'applique aux boutons. Échec : oscillation, commande non exécutée, gel restant ou réaction visiblement lente.
+5. Tester un déplacement de position si la commande est disponible, la fin d'un titre, le changement de playlist, la mise en veille/réveil et la rotation. Les deux barres doivent rester cohérentes et se recaler sans dépasser la durée. Si le contrôle seek n'est pas disponible dans cette Preview, le noter au lieu d'affirmer le test passé.
+6. Réglages > À propos : appui long sur « Melodix • Client Spotify Natif » pour ouvrir le diagnostic Preview, puis « Copier ». Faire des essais mini/full et suivant/précédent, et recopier les mesures dans la conversation. Le rapport ne doit contenir que des durées et intervalles, sans titre, identifiant ou donnée de session. L'instant « commande reçue du pont » ne constitue pas un accusé Spotify ; le diagnostic ne mesure pas le premier son.
+7. Vérifier le retour Android depuis accueil, recherche, bibliothèque, playlist, lecteur, réglages et diagnostic, et le bas des listes au-dessus du mini-lecteur. Vérifier à nouveau artiste, temps restant et durées d'une heure si un titre adapté est disponible. Échec : retour rechargeant Spotify, bibliothèque vidée, élément caché ou erreur d'affichage.
+
+Les tests de modèle/JVM/DOM et le décodage ne prouvent ni l'exécution ART, ni le temps réel < 100 ms, ni le son, ni l'état de Spotify. Conserver les éventuels écarts et les chiffres bruts sans déduire de latence non mesurée.

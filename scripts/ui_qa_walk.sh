@@ -1,0 +1,301 @@
+#!/usr/bin/env bash
+# Walk the native navigation graph on a booted device and capture every surface.
+#
+# Runs on a clean, unauthenticated install. Nothing is injected and no account
+# is used, so surfaces that need real playback are recorded as
+# blocked_no_session rather than faked.
+#
+# For each step: dump the hierarchy, screenshot it, record whether the expected
+# screen was reached, and audit the bounds for layout defects.
+#
+# Usage: ui_qa_walk.sh DEVICE PROFILE DENSITY OUT_DIR
+set -uo pipefail
+
+[[ $# -eq 4 ]] || { echo "usage: ui_qa_walk.sh DEVICE PROFILE DENSITY OUT_DIR" >&2; exit 2; }
+device="$1"; profile="$2"; density="$3"; out="$4"
+mkdir -p "$out"
+trace="$out/navigation-$profile.json"
+: > "$trace"
+failures=0
+
+dump_now() {
+  local target="$1"
+  adb -s "$device" shell uiautomator dump /sdcard/melodix-qa.xml >/dev/null 2>&1 || true
+  adb -s "$device" shell cat /sdcard/melodix-qa.xml > "$target" 2>/dev/null || true
+}
+
+# capture STEP -> dump, screenshot, navigation verdict, layout audit
+capture() {
+  local step="$1"
+  local xml="$out/$step-$profile.xml"
+  dump_now "$xml"
+  adb -s "$device" exec-out screencap -p > "$out/$step-$profile.png" 2>/dev/null || true
+  python3 scripts/ui_qa_trace.py "$step" "$profile" "$xml" "$trace" || failures=$((failures + 1))
+  python3 scripts/ui_layout_audit.py "$step" "$profile" "$density" "$xml" \
+    "$out/layout-$step-$profile.json" || failures=$((failures + 1))
+}
+
+# tap ID [CHILD_INDEX] -> returns 1 when the target is not on screen
+tap() {
+  local id="$1" index="${2:-}"
+  local point
+  if [[ -n "$index" ]]; then
+    point="$(python3 scripts/ui_view_center.py "$out/current-$profile.xml" "$id" "$index" || true)"
+  else
+    point="$(python3 scripts/ui_view_center.py "$out/current-$profile.xml" "$id" || true)"
+  fi
+  [[ -n "$point" ]] || return 1
+  # shellcheck disable=SC2086
+  adb -s "$device" shell input tap $point >/dev/null 2>&1 || return 1
+  sleep 3
+  return 0
+}
+
+refresh() { dump_now "$out/current-$profile.xml"; }
+
+# settle ID [BUDGET_S] -> poll until the expected view is on screen.
+# A fixed sleep is not enough on the tablet profile: the first tablet walk
+# reported Library and Search as not_reached with only 15 visible ids, i.e. it
+# dumped mid-transition. Waiting for the view that defines the screen removes
+# that false defect. It never waits on a screen we EXPECT to be wrong, so a real
+# navigation failure is still recorded as a failure.
+settle() {
+  local id="$1" budget="${2:-24}"
+  local deadline=$(( $(date +%s) + budget ))
+  while [[ "$(date +%s)" -lt "$deadline" ]]; do
+    refresh
+    if grep -q "com.melodix.music:id/$id" "$out/current-$profile.xml" 2>/dev/null; then
+      return 0
+    fi
+    sleep 2
+  done
+  echo "::notice title=QA walk $profile::$id did not appear within ${budget}s"
+  return 1
+}
+
+# ---- wait for the native shell to own the display -------------------------
+deadline=$(( $(date +%s) + 180 ))
+ready=0
+while [[ "$(date +%s)" -lt "$deadline" ]]; do
+  refresh
+  if grep -q 'com.melodix.music:id/nativeRoot' "$out/current-$profile.xml" 2>/dev/null; then
+    ready=1
+    break
+  fi
+  sleep 6
+done
+if [[ "$ready" != "1" ]]; then
+  echo "::error title=QA walk $profile::the native shell never appeared; no surface was inspected"
+  # A crash is the first thing to rule out. Without this the only symptom is
+  # "the launcher is showing", which says nothing about the cause.
+  adb -s "$device" logcat -d -b crash 2>/dev/null | tail -120 > "$out/crash.txt" || true
+  adb -s "$device" logcat -d 2>/dev/null | grep -iE "AndroidRuntime|FATAL|melodix" | tail -80 > "$out/app-log.txt" || true
+  head -25 "$out/crash.txt" || true
+  python3 scripts/ui_metrics_diagnose.py "$profile" "$out/current-$profile.xml" || true
+  exit 1
+fi
+
+# ---- 1. Home -------------------------------------------------------------
+capture home
+refresh
+
+# ---- 2. Home -> Library --------------------------------------------------
+if tap nativeLibraryTab; then settle nativeLibraryCategories || true; capture library; else
+  echo "::error title=QA walk $profile::the Library tab is not on screen"; failures=$((failures + 1))
+fi
+refresh
+
+# ---- 3. Library -> Search (browse grid) ----------------------------------
+if tap nativeSearchTab; then settle nativeSearchInput || true; capture search; else
+  echo "::error title=QA walk $profile::the Search tab is not on screen"; failures=$((failures + 1))
+fi
+refresh
+
+# ---- 4. Browse tile -> live search --------------------------------------
+genre_point="$(python3 scripts/ui_view_center.py "$out/current-$profile.xml" nativeGenreScroll 0 || true)"
+echo "tap_point=${genre_point:-none}" > "$out/genre-tap.txt"
+if tap nativeGenreScroll 0; then
+  echo "tap=delivered" >> "$out/genre-tap.txt"
+  capture browse-tile
+else
+  echo "tap=noClickableDescendant" >> "$out/genre-tap.txt"
+  echo "::notice title=QA walk $profile::no browse tile was tappable on this surface"
+  capture browse-tile
+fi
+refresh
+# Collect the styler trace NOW. Reading logcat only at the end of the walk lost it:
+# the main buffer rotates, and an empty file then looks like "the styler did nothing".
+adb -s "$device" logcat -d 2>/dev/null \
+  | sed -n 's/.*MelGenre: //p' | sort -u > "$out/genre-diag.txt" || true
+# The selected ring is pure presentation, so it must appear WITHOUT a session.
+# Asserting it turns "the tap was delivered" into "the tap did something".
+python3 scripts/ui_selected_check.py "$out/current-$profile.xml" nativeGenreScroll \
+  > "$out/genre-selection.txt" 2>&1 || true
+# grep for a POSITIVE count. Testing only for the line's presence passed with
+# "selected=0", a false green of my own making.
+if ! grep -q '^selected=[1-9]' "$out/genre-selection.txt"; then
+  echo "::error title=QA walk $profile::tapping a browse tile selected nothing: $(cat "$out/genre-selection.txt")"
+  failures=$((failures + 1))
+fi
+
+# ---- 5. Navigation -> Settings ------------------------------------------
+# The header settings button is reachable from Home; go back there first.
+tap nativeHomeTab || true
+refresh
+if tap nativeSettingsButton; then settle nativeBackButton || true; capture settings; else
+  echo "::error title=QA walk $profile::the Settings button is not on screen"; failures=$((failures + 1))
+fi
+refresh
+
+# ---- 6. Back and resume -------------------------------------------------
+adb -s "$device" shell input keyevent KEYCODE_BACK >/dev/null 2>&1 || true
+# Deliberately generous: to claim the system Back key does not leave Settings,
+# the screen must have had ample time to change.
+sleep 8
+capture back-from-settings
+refresh
+
+# ---- 7. Return to Home --------------------------------------------------
+tap nativeHomeTab || true
+# Same reasoning: stale content must not be a screenshot taken too early.
+sleep 6
+capture home-again
+refresh
+
+# ---- 7b. Back navigation, in depth (MEL-BUG-002) -------------------------
+# Second Settings visit: the first Back test above ran before the fix existed in
+# this build, so repeat it and then prove a single press lands exactly on Home.
+tap nativeSettingsButton || true
+settle nativeBackButton || true
+capture settings-again
+refresh
+
+adb -s "$device" shell input keyevent KEYCODE_BACK >/dev/null 2>&1 || true
+sleep 8
+capture back-once
+refresh
+
+# If the key were handled twice, a second navigation would land here.
+sleep 5
+capture back-settled
+refresh
+
+# The app must still own the display: a swallowed-or-doubled Back that finished
+# the activity would leave the launcher, which the trace records as unreadable
+# or wrong_screen rather than as a pass.
+# Android renamed this field across versions (mResumedActivity,
+# topResumedActivity, ResumedActivity): match case-insensitively and keep the
+# first hit, otherwise the evidence file is silently empty.
+fg="$(adb -s "$device" shell dumpsys activity activities 2>/dev/null \
+  | grep -m1 -iE 'resumedactivity' | tr -d '\r' || true)"
+if [[ -z "$fg" ]]; then
+  fg="$(adb -s "$device" shell dumpsys window 2>/dev/null \
+    | grep -m1 -iE 'mCurrentFocus|mFocusedApp' | tr -d '\r' || true)"
+fi
+[[ -n "$fg" ]] || fg="unavailable: neither dumpsys activity nor window reported a focused activity"
+echo "$fg" > "$out/foreground.txt"
+echo "::notice title=QA walk $profile::foreground=$fg"
+
+# ---- 7c. Back from tab screens ------------------------------------------
+# These have no native back arrow, so the original WebView chain must keep
+# owning the key. Recorded honestly, never asserted as a native back.
+if tap nativeLibraryTab; then
+  settle nativeLibraryCategories || true
+  adb -s "$device" shell input keyevent KEYCODE_BACK >/dev/null 2>&1 || true
+  sleep 5
+  capture back-from-library
+  refresh
+fi
+if tap nativeSearchTab; then
+  settle nativeSearchInput || true
+  adb -s "$device" shell input keyevent KEYCODE_BACK >/dev/null 2>&1 || true
+  sleep 5
+  capture back-from-search
+  refresh
+fi
+
+# ---- 7d. Lifecycle: background then resume -------------------------------
+# Revenir explicitement a l'accueil avant la mise en arriere-plan : l'invariant
+# teste est "la reprise conserve l'ecran courant". Sans ce retour explicite,
+# l'ecran attendu dependait d'une navigation precedente non assertee.
+tap nativeHomeTab || true
+settle nativeHomeTab || true
+adb -s "$device" shell input keyevent KEYCODE_HOME >/dev/null 2>&1 || true
+sleep 4
+adb -s "$device" shell am start -W -n com.melodix.music/.MainActivity >/dev/null 2>&1 || true
+sleep 8
+settle nativeTabBar || true
+capture background-resume
+refresh
+
+# ---- 7e. Parcours H : enchainement repete et stabilite --------------------
+# Three full cycles through four screens each. A single pass can look fine while
+# state accumulates; this checks the shell still owns the screen, the title still
+# matches and nothing leaks after repeated navigation. No session required.
+for cycle in 1 2 3; do
+  tap nativeLibraryTab || true
+  settle nativeLibraryCategories || true
+  tap nativeSearchTab || true
+  settle nativeGenreScroll || true
+  tap nativeSettingsButton || true
+  settle nativeBackButton || true
+  adb -s "$device" shell input keyevent KEYCODE_BACK >/dev/null 2>&1 || true
+  sleep 2
+  tap nativeHomeTab || true
+  settle nativeHomeTab || true
+  capture "stress-cycle-$cycle"
+  refresh
+done
+# Let any deferred work settle, then assert the app is still foregrounded and
+# still on the expected screen rather than merely still running.
+sleep 5
+capture stress-settled
+refresh
+adb -s "$device" shell dumpsys activity activities 2>/dev/null \
+  | grep -m1 -iE 'resumedactivity' | tr -d '\r' > "$out/foreground-after-stress.txt" || true
+
+# ---- 8. Surfaces that need real playback --------------------------------
+# Recorded honestly from whatever is on screen: without a session the mini
+# player and the full player are absent, which the trace marks as blocked.
+capture mini-player
+capture player
+
+# MEL-BUG-001: what the runtime resolver actually saw, per token. Deduplicated
+# because metric() runs on every render; each token/configuration pair once.
+# Crash evidence must be collected on EVERY walk, not only when the shell never
+# appears. Run 42057787244 died on the library screen AFTER a healthy start, so the
+# startup-only branch never fired and there was no crash.txt at all. A class that
+# fails verification never runs its own catch, so the app-level diagnostic tags
+# stay empty and logcat is the only witness.
+adb -s "$device" logcat -d -b crash 2>/dev/null | tail -200 > "$out/crash.txt" || true
+adb -s "$device" logcat -d 2>/dev/null \
+  | grep -iE "AndroidRuntime|FATAL|VerifyError|melodix|Rejecting class" \
+  | tail -160 > "$out/app-log.txt" || true
+if [[ -s "$out/crash.txt" ]]; then
+  echo "::error title=QA walk $profile::the app crashed during the walk; see crash.txt"
+  head -40 "$out/crash.txt" || true
+fi
+adb -s "$device" logcat -d -s MelBack:I 2>/dev/null \
+  | sed -n 's/.*MelBack: //p' | sort | uniq -c > "$out/back-key.txt" || true
+adb -s "$device" logcat -d -s MelMetrics:I 2>/dev/null \
+  | sed -n 's/.*MelMetrics: //p' | sort -u > "$out/metrics-resolution.txt" || true
+echo "::notice title=QA walk $profile::metric lines=$(wc -l < "$out/metrics-resolution.txt" || echo 0)"
+
+# MEL-BUG-001: real row geometry after layout, so the gap between a resolved
+# token and the final view is demonstrated rather than estimated from pixels.
+adb -s "$device" logcat -d 2>/dev/null \
+  | sed -n 's/.*MelRowGeom: //p' | sort -u > "$out/row-geometry.txt" || true
+adb -s "$device" logcat -d 2>/dev/null \
+  | sed -n 's/.*MelRowId: //p' | sort -u > "$out/row-identity.txt" || true
+adb -s "$device" logcat -d 2>/dev/null \
+  | sed -n 's/.*MelShortcut: //p' | sort -u > "$out/shortcut-diag.txt" || true
+adb -s "$device" logcat -d 2>/dev/null \
+  | sed -n 's/.*MelEmpty: //p' | sort -u > "$out/empty-state-diag.txt" || true
+adb -s "$device" logcat -d 2>/dev/null \
+  | sed -n 's/.*MelState: //p' | sort -u > "$out/state-diag.txt" || true
+adb -s "$device" logcat -d 2>/dev/null \
+  | sed -n 's/.*MelGenre: //p' | sort -u > "$out/genre-diag.txt" || true
+echo "::notice title=QA walk $profile::row geometry lines=$(wc -l < "$out/row-geometry.txt" || echo 0)"
+
+echo "::notice title=QA walk $profile::failures=$failures; trace=$trace"
+exit "$failures"

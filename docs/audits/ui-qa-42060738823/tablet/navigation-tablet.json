@@ -1,0 +1,258 @@
+[
+  {
+    "forbidden_present": [],
+    "optional_present": [
+      "nativeContent"
+    ],
+    "profile": "tablet",
+    "required_missing": [],
+    "required_present": [
+      "nativeRoot",
+      "nativeTabBar",
+      "nativeHomeTab",
+      "nativeScreenTitle"
+    ],
+    "step": "home",
+    "title_expected": "Accueil",
+    "title_matched": true,
+    "unexpected_chrome_present": false,
+    "verdict": "reached",
+    "visible_id_count": 15
+  },
+  {
+    "forbidden_present": [],
+    "optional_present": [],
+    "profile": "tablet",
+    "required_missing": [
+      "nativeRoot",
+      "nativeLibraryTab",
+      "nativeLibraryCategories"
+    ],
+    "required_present": [],
+    "step": "library",
+    "title_expected": "Votre biblioth\u00e8que",
+    "title_matched": false,
+    "unexpected_chrome_present": false,
+    "verdict": "not_reached",
+    "visible_id_count": 0
+  },
+  {
+    "forbidden_present": [],
+    "optional_present": [],
+    "profile": "tablet",
+    "required_missing": [
+      "nativeRoot"
+    ],
+    "required_present": [],
+    "scope_note": "tap delivered only; genre results require an authenticated session",
+    "step": "browse-tile",
+    "title_expected": "Rechercher",
+    "title_matched": false,
+    "unexpected_chrome_present": false,
+    "verdict": "not_reached",
+    "visible_id_count": 0
+  },
+  {
+    "forbidden_present": [],
+    "optional_present": [],
+    "profile": "tablet",
+    "required_missing": [
+      "nativeRoot",
+      "nativeTabBar"
+    ],
+    "required_present": [],
+    "step": "back-from-settings",
+    "title_expected": "Accueil",
+    "title_matched": false,
+    "unexpected_chrome_present": false,
+    "verdict": "not_reached",
+    "visible_id_count": 0
+  },
+  {
+    "forbidden_present": [],
+    "optional_present": [],
+    "profile": "tablet",
+    "required_missing": [
+      "nativeRoot",
+      "nativeTabBar",
+      "nativeHomeTab"
+    ],
+    "required_present": [],
+    "step": "home-again",
+    "title_expected": "Accueil",
+    "title_matched": false,
+    "unexpected_chrome_present": false,
+    "verdict": "not_reached",
+    "visible_id_count": 0
+  },
+  {
+    "forbidden_present": [],
+    "optional_present": [],
+    "profile": "tablet",
+    "required_missing": [
+      "nativeRoot",
+      "nativeContent",
+      "nativeBackButton"
+    ],
+    "required_present": [],
+    "step": "settings-again",
+    "title_expected": "Param\u00e8tres",
+    "title_matched": false,
+    "unexpected_chrome_present": false,
+    "verdict": "not_reached",
+    "visible_id_count": 0
+  },
+  {
+    "forbidden_present": [],
+    "optional_present": [],
+    "profile": "tablet",
+    "required_missing": [
+      "nativeRoot",
+      "nativeTabBar",
+      "nativeHomeTab"
+    ],
+    "required_present": [],
+    "step": "back-once",
+    "title_expected": "Accueil",
+    "title_matched": false,
+    "unexpected_chrome_present": false,
+    "verdict": "not_reached",
+    "visible_id_count": 0
+  },
+  {
+    "forbidden_present": [],
+    "optional_present": [],
+    "profile": "tablet",
+    "required_missing": [
+      "nativeRoot",
+      "nativeTabBar",
+      "nativeHomeTab"
+    ],
+    "required_present": [],
+    "step": "back-settled",
+    "title_expected": "Accueil",
+    "title_matched": false,
+    "unexpected_chrome_present": false,
+    "verdict": "not_reached",
+    "visible_id_count": 0
+  },
+  {
+    "forbidden_present": [],
+    "optional_present": [],
+    "profile": "tablet",
+    "required_missing": [],
+    "required_present": [
+      "nativeRoot",
+      "nativeTabBar",
+      "nativeHomeTab"
+    ],
+    "step": "background-resume",
+    "title_expected": "Accueil",
+    "title_matched": true,
+    "unexpected_chrome_present": false,
+    "verdict": "reached",
+    "visible_id_count": 15
+  },
+  {
+    "forbidden_present": [],
+    "optional_present": [],
+    "profile": "tablet",
+    "required_missing": [
+      "nativeRoot",
+      "nativeTabBar",
+      "nativeHomeTab",
+      "nativeScreenTitle"
+    ],
+    "required_present": [],
+    "step": "stress-cycle-1",
+    "title_expected": "Accueil",
+    "title_matched": false,
+    "unexpected_chrome_present": false,
+    "verdict": "not_reached",
+    "visible_id_count": 0
+  },
+  {
+    "forbidden_present": [],
+    "optional_present": [],
+    "profile": "tablet",
+    "required_missing": [
+      "nativeRoot",
+      "nativeTabBar",
+      "nativeHomeTab",
+      "nativeScreenTitle"
+    ],
+    "required_present": [],
+    "step": "stress-cycle-2",
+    "title_expected": "Accueil",
+    "title_matched": false,
+    "unexpected_chrome_present": false,
+    "verdict": "not_reached",
+    "visible_id_count": 0
+  },
+  {
+    "forbidden_present": [],
+    "optional_present": [],
+    "profile": "tablet",
+    "required_missing": [
+      "nativeRoot",
+      "nativeTabBar",
+      "nativeHomeTab",
+      "nativeScreenTitle"
+    ],
+    "required_present": [],
+    "step": "stress-cycle-3",
+    "title_expected": "Accueil",
+    "title_matched": false,
+    "unexpected_chrome_present": false,
+    "verdict": "not_reached",
+    "visible_id_count": 0
+  },
+  {
+    "forbidden_present": [],
+    "optional_present": [],
+    "profile": "tablet",
+    "required_missing": [
+      "nativeRoot",
+      "nativeTabBar",
+      "nativeHomeTab",
+      "nativeScreenTitle"
+    ],
+    "required_present": [],
+    "step": "stress-settled",
+    "title_expected": "Accueil",
+    "title_matched": false,
+    "unexpected_chrome_present": false,
+    "verdict": "not_reached",
+    "visible_id_count": 0
+  },
+  {
+    "forbidden_present": [],
+    "optional_present": [],
+    "profile": "tablet",
+    "required_missing": [
+      "nativeMiniPlayer"
+    ],
+    "required_present": [],
+    "step": "mini-player",
+    "title_expected": null,
+    "title_matched": true,
+    "unexpected_chrome_present": false,
+    "verdict": "blocked_no_session",
+    "visible_id_count": 0
+  },
+  {
+    "forbidden_present": [],
+    "optional_present": [],
+    "profile": "tablet",
+    "required_missing": [
+      "nativePlayerPanel"
+    ],
+    "required_present": [],
+    "step": "player",
+    "title_expected": null,
+    "title_matched": true,
+    "unexpected_chrome_present": false,
+    "verdict": "blocked_no_session",
+    "visible_id_count": 0
+  }
+]

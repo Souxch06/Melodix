@@ -1,0 +1,125 @@
+name: Publish signed Preview as a draft
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Exact existing signed Preview build run ID
+        required: true
+        type: string
+      version_code:
+        description: Android versionCode of that exact APK
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: preview-draft-publication
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Verify and attach the existing signed APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RUN_ID: ${{ inputs.run_id }}
+      VERSION_CODE: ${{ inputs.version_code }}
+    steps:
+      - name: Check the pinned build and existing tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Only builds with an independently recorded APK checksum may be published.
+          test "$RUN_ID" = '43751750103' && test "$VERSION_CODE" = '1022143' || {
+            echo 'Build/version pair is not on the verified allowlist.'; exit 1;
+          }
+          expected_commit='4ba72d21bfb04ce8eaf8264f5ed3fab9703705cf'
+          tag="preview-$VERSION_CODE"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" > "$RUNNER_TEMP/run.json" 2>/dev/null
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" > "$RUNNER_TEMP/jobs.json" 2>/dev/null
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/artifacts" > "$RUNNER_TEMP/artifacts.json" 2>/dev/null
+          python3 - "$RUNNER_TEMP/run.json" "$RUNNER_TEMP/jobs.json" "$RUNNER_TEMP/artifacts.json" "$expected_commit" <<'PY'
+          import json, sys
+          run, jobs, artifacts = (json.load(open(p, encoding='utf-8')) for p in sys.argv[1:4])
+          assert run['name'] == 'Build Melodix Preview APK' and run['status'] == 'completed' and run['conclusion'] == 'success'
+          assert run['head_sha'] == sys.argv[4] and run['head_branch'] == 'arena/6b935c3e-melodix'
+          matching = [j for j in jobs['jobs'] if j['name'] == 'Preview séparée d0f206b0 + Glass' and j['conclusion'] == 'success']
+          assert len(matching) == 1
+          steps = {s['name']: s['conclusion'] for s in matching[0]['steps']}
+          for name in ('Build separate Preview and sign with pinned key', 'Compare protected bytes with original signed 9016 artifact', 'Require signed 9016 comparison for candidate APKs'):
+              assert steps.get(name) == 'success'
+          artifacts = [a for a in artifacts['artifacts'] if a['name'] == 'Melodix-Preview-lot1' and not a['expired']]
+          assert len(artifacts) == 1 and artifacts[0]['id'] == 14176980169
+          print('Pinned build and signed comparison verified.')
+          PY
+          gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/$tag" --jq '.[].ref' > "$RUNNER_TEMP/tags.txt" 2>/dev/null
+          if grep -Fxq "refs/tags/$tag" "$RUNNER_TEMP/tags.txt"; then echo 'Tag already exists; refusing publication.'; exit 1; fi
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --paginate --jq '.[].tag_name' > "$RUNNER_TEMP/releases.txt" 2>/dev/null
+          if grep -Fxq "$tag" "$RUNNER_TEMP/releases.txt"; then echo 'Release already exists; refusing publication.'; exit 1; fi
+      - name: Download the existing artifact and check its SHA-256
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/source" "$RUNNER_TEMP/delivery"
+          if ! gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --name Melodix-Preview-lot1 --dir "$RUNNER_TEMP/source" >/dev/null 2>&1; then
+            echo 'Existing artifact could not be downloaded.'; exit 1
+          fi
+          python3 - "$RUNNER_TEMP/source" "$RUNNER_TEMP/delivery" <<'PY'
+          import hashlib, pathlib, shutil, sys
+          source, dest = map(pathlib.Path, sys.argv[1:])
+          apk = source / 'Melodix-Preview-historique-glass.apk'
+          checksum = source / 'Melodix-Preview-historique-glass.apk.sha256'
+          expected = 'e9269315f2fcd54d1cf7cd664db0c01c5f3831108a5ef5f2b66222fe87ec1a44'
+          assert apk.is_file() and checksum.is_file()
+          assert hashlib.sha256(apk.read_bytes()).hexdigest() == expected
+          assert checksum.read_text(encoding='utf-8').split()[0] == expected
+          target = dest / 'Melodix-Preview-1022143.apk'
+          shutil.copyfile(apk, target)
+          (dest / (target.name + '.sha256')).write_text(expected + '  ' + target.name + '\n', encoding='ascii')
+          print('APK SHA-256 verified against the pinned checksum and original sidecar.')
+          PY
+      - uses: android-actions/setup-android@v4
+      - name: Verify version and existing Preview signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager --install 'build-tools;35.0.0' >/dev/null 2>&1
+          tools="$ANDROID_HOME/build-tools/35.0.0"
+          apk="$RUNNER_TEMP/delivery/Melodix-Preview-1022143.apk"
+          "$tools/aapt" dump badging "$apk" > "$RUNNER_TEMP/badging.txt"
+          "$tools/apksigner" verify --verbose --print-certs --min-sdk-version 24 "$apk" > "$RUNNER_TEMP/signature.txt" 2>&1
+          python3 - "$RUNNER_TEMP/badging.txt" "$RUNNER_TEMP/signature.txt" <<'PY'
+          import pathlib, re, sys
+          badging, signature = (pathlib.Path(p).read_text(encoding='utf-8') for p in sys.argv[1:])
+          assert re.search(r"package: name='com\.melodix\.music\.preview' versionCode='1022143'", badging)
+          cert = re.search(r'^Signer #1 certificate SHA-256 digest: ([0-9a-fA-F]+)$', signature, re.M)
+          assert cert and cert.group(1).upper() == 'E3CEB66F4F67CCBD53D92272F5C6422C3B10664AA57A28512BBAFDB89657802F'
+          print('Package, versionCode and existing Preview signature verified.')
+          PY
+      - name: Create a new draft prerelease without replacing existing assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="preview-$VERSION_CODE"
+          # Recheck immediately before creating a draft; never create a public tag.
+          gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/$tag" --jq '.[].ref' > "$RUNNER_TEMP/tags-final.txt" 2>/dev/null
+          if grep -Fxq "refs/tags/$tag" "$RUNNER_TEMP/tags-final.txt"; then echo 'Tag already exists; refusing publication.'; exit 1; fi
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --paginate --jq '.[].tag_name' > "$RUNNER_TEMP/releases-final.txt" 2>/dev/null
+          if grep -Fxq "$tag" "$RUNNER_TEMP/releases-final.txt"; then echo 'Release already exists; refusing publication.'; exit 1; fi
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target 4ba72d21bfb04ce8eaf8264f5ed3fab9703705cf --draft --prerelease \
+            --title "Melodix Preview $VERSION_CODE" --notes 'APK Preview signée existante, non validée sur téléphone.' \
+            "$RUNNER_TEMP/delivery/Melodix-Preview-1022143.apk" \
+            "$RUNNER_TEMP/delivery/Melodix-Preview-1022143.apk.sha256" >/dev/null
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,tagName,assets > "$RUNNER_TEMP/release.json"
+          python3 - "$RUNNER_TEMP/release.json" <<'PY'
+          import json, sys
+          r = json.load(open(sys.argv[1], encoding='utf-8'))
+          assert r['isDraft'] and r['isPrerelease'] and r['tagName'] == 'preview-1022143'
+          assert {a['name'] for a in r['assets']} == {'Melodix-Preview-1022143.apk', 'Melodix-Preview-1022143.apk.sha256'}
+          print('Draft prerelease created with exactly two files.')
+          PY

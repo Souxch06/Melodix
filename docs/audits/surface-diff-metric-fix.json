@@ -1,0 +1,616 @@
+{
+ "before": "42008408954",
+ "after": "42022211867",
+ "profiles": {
+  "phone": [
+   {
+    "step": "back-from-library",
+    "changes": [
+     {
+      "view": "nativeContent[0]",
+      "kind": "h_dp",
+      "before": 190.1,
+      "after": 190.9
+     }
+    ],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "back-from-search",
+    "changes": [
+     {
+      "view": "nativeContent[0]",
+      "kind": "h_dp",
+      "before": 190.1,
+      "after": 190.9
+     }
+    ],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "back-from-settings",
+    "changes": [
+     {
+      "view": "nativeContent[0]",
+      "kind": "h_dp",
+      "before": 190.1,
+      "after": 190.9
+     }
+    ],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "back-once",
+    "changes": [
+     {
+      "view": "nativeContent[0]",
+      "kind": "h_dp",
+      "before": 190.1,
+      "after": 190.9
+     }
+    ],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "back-settled",
+    "changes": [
+     {
+      "view": "nativeContent[0]",
+      "kind": "h_dp",
+      "before": 190.1,
+      "after": 190.9
+     }
+    ],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "background-resume",
+    "changes": [
+     {
+      "view": "nativeContent[0]",
+      "kind": "h_dp",
+      "before": 190.1,
+      "after": 190.9
+     }
+    ],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "browse-tile",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "home",
+    "changes": [
+     {
+      "view": "nativeContent[0]",
+      "kind": "h_dp",
+      "before": 126.1,
+      "after": 126.9
+     }
+    ],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "home-again",
+    "changes": [
+     {
+      "view": "nativeContent[0]",
+      "kind": "h_dp",
+      "before": 190.1,
+      "after": 190.9
+     }
+    ],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "library",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "mini-player",
+    "changes": [
+     {
+      "view": "nativeContent[0]",
+      "kind": "h_dp",
+      "before": 190.1,
+      "after": 190.9
+     }
+    ],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "player",
+    "changes": [
+     {
+      "view": "nativeContent[0]",
+      "kind": "h_dp",
+      "before": 190.1,
+      "after": 190.9
+     }
+    ],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "search",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "settings",
+    "changes": [
+     {
+      "view": "nativeContent[0]",
+      "kind": "w_dp",
+      "before": 411.4,
+      "after": 379.4
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "h_dp",
+      "before": 65.1,
+      "after": 66.3
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "x_dp",
+      "before": 0.0,
+      "after": 16.0
+     }
+    ],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "settings-again",
+    "changes": [
+     {
+      "view": "nativeContent[0]",
+      "kind": "w_dp",
+      "before": 411.4,
+      "after": 379.4
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "h_dp",
+      "before": 65.1,
+      "after": 66.3
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "x_dp",
+      "before": 0.0,
+      "after": 16.0
+     }
+    ],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   }
+  ],
+  "tablet": [
+   {
+    "step": "back-from-library",
+    "changes": [
+     {
+      "view": "nativeContent[0]",
+      "kind": "w_dp",
+      "before": 560.0,
+      "after": 720.0
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "h_dp",
+      "before": 174.5,
+      "after": 208.5
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "x_dp",
+      "before": 120.0,
+      "after": 40.0
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "y_dp",
+      "before": 128.0,
+      "after": 132.0
+     }
+    ],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "back-from-search",
+    "changes": [
+     {
+      "view": "nativeContent[0]",
+      "kind": "w_dp",
+      "before": 560.0,
+      "after": 720.0
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "h_dp",
+      "before": 174.5,
+      "after": 208.5
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "x_dp",
+      "before": 120.0,
+      "after": 40.0
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "y_dp",
+      "before": 128.0,
+      "after": 132.0
+     }
+    ],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "back-from-settings",
+    "changes": [
+     {
+      "view": "nativeContent[0]",
+      "kind": "w_dp",
+      "before": 560.0,
+      "after": 720.0
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "h_dp",
+      "before": 174.5,
+      "after": 208.5
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "x_dp",
+      "before": 120.0,
+      "after": 40.0
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "y_dp",
+      "before": 128.0,
+      "after": 132.0
+     }
+    ],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "back-once",
+    "changes": [
+     {
+      "view": "nativeContent[0]",
+      "kind": "w_dp",
+      "before": 560.0,
+      "after": 720.0
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "h_dp",
+      "before": 174.5,
+      "after": 208.5
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "x_dp",
+      "before": 120.0,
+      "after": 40.0
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "y_dp",
+      "before": 128.0,
+      "after": 132.0
+     }
+    ],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "back-settled",
+    "changes": [
+     {
+      "view": "nativeContent[0]",
+      "kind": "w_dp",
+      "before": 560.0,
+      "after": 720.0
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "h_dp",
+      "before": 174.5,
+      "after": 208.5
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "x_dp",
+      "before": 120.0,
+      "after": 40.0
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "y_dp",
+      "before": 128.0,
+      "after": 132.0
+     }
+    ],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "background-resume",
+    "changes": [
+     {
+      "view": "nativeContent[0]",
+      "kind": "w_dp",
+      "before": 560.0,
+      "after": 720.0
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "h_dp",
+      "before": 174.5,
+      "after": 208.5
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "x_dp",
+      "before": 120.0,
+      "after": 40.0
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "y_dp",
+      "before": 128.0,
+      "after": 132.0
+     }
+    ],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "browse-tile",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "home",
+    "changes": [
+     {
+      "view": "nativeContent[0]",
+      "kind": "w_dp",
+      "before": 560.0,
+      "after": 720.0
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "h_dp",
+      "before": 127.0,
+      "after": 134.5
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "x_dp",
+      "before": 120.0,
+      "after": 40.0
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "y_dp",
+      "before": 128.0,
+      "after": 132.0
+     }
+    ],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "home-again",
+    "changes": [
+     {
+      "view": "nativeContent[0]",
+      "kind": "w_dp",
+      "before": 560.0,
+      "after": 720.0
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "h_dp",
+      "before": 174.5,
+      "after": 208.5
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "x_dp",
+      "before": 120.0,
+      "after": 40.0
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "y_dp",
+      "before": 128.0,
+      "after": 132.0
+     }
+    ],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "library",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "mini-player",
+    "changes": [
+     {
+      "view": "nativeContent[0]",
+      "kind": "w_dp",
+      "before": 560.0,
+      "after": 720.0
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "h_dp",
+      "before": 174.5,
+      "after": 208.5
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "x_dp",
+      "before": 120.0,
+      "after": 40.0
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "y_dp",
+      "before": 128.0,
+      "after": 132.0
+     }
+    ],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "player",
+    "changes": [
+     {
+      "view": "nativeContent[0]",
+      "kind": "w_dp",
+      "before": 560.0,
+      "after": 720.0
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "h_dp",
+      "before": 174.5,
+      "after": 208.5
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "x_dp",
+      "before": 120.0,
+      "after": 40.0
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "y_dp",
+      "before": 128.0,
+      "after": 132.0
+     }
+    ],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "search",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "settings",
+    "changes": [
+     {
+      "view": "nativeContent[0]",
+      "kind": "w_dp",
+      "before": 800.0,
+      "after": 736.0
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "h_dp",
+      "before": 66.0,
+      "after": 80.0
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "x_dp",
+      "before": 0.0,
+      "after": 32.0
+     }
+    ],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "settings-again",
+    "changes": [
+     {
+      "view": "nativeContent[0]",
+      "kind": "w_dp",
+      "before": 800.0,
+      "after": 736.0
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "h_dp",
+      "before": 66.0,
+      "after": 80.0
+     },
+     {
+      "view": "nativeContent[0]",
+      "kind": "x_dp",
+      "before": 0.0,
+      "after": 32.0
+     }
+    ],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   }
+  ]
+ }
+}

@@ -1,0 +1,227 @@
+[
+  {
+    "forbidden_present": [],
+    "optional_present": [
+      "nativeContent"
+    ],
+    "profile": "phone",
+    "required_missing": [],
+    "required_present": [
+      "nativeRoot",
+      "nativeTabBar",
+      "nativeHomeTab",
+      "nativeScreenTitle"
+    ],
+    "step": "home",
+    "title_expected": null,
+    "title_matched": true,
+    "unexpected_chrome_present": false,
+    "verdict": "reached",
+    "visible_id_count": 15
+  },
+  {
+    "forbidden_present": [],
+    "optional_present": [
+      "nativeContent",
+      "nativeRowsScroll"
+    ],
+    "profile": "phone",
+    "required_missing": [],
+    "required_present": [
+      "nativeRoot",
+      "nativeLibraryTab",
+      "nativeLibraryCategories"
+    ],
+    "step": "library",
+    "title_expected": "Votre biblioth\u00e8que",
+    "title_matched": true,
+    "unexpected_chrome_present": false,
+    "verdict": "reached",
+    "visible_id_count": 16
+  },
+  {
+    "forbidden_present": [],
+    "optional_present": [
+      "nativeGenreScroll"
+    ],
+    "profile": "phone",
+    "required_missing": [],
+    "required_present": [
+      "nativeRoot",
+      "nativeSearchPanel",
+      "nativeSearchInput"
+    ],
+    "step": "search",
+    "title_expected": null,
+    "title_matched": true,
+    "unexpected_chrome_present": false,
+    "verdict": "reached",
+    "visible_id_count": 16
+  },
+  {
+    "forbidden_present": [],
+    "optional_present": [
+      "nativeSearchInput"
+    ],
+    "profile": "phone",
+    "required_missing": [],
+    "required_present": [
+      "nativeRoot"
+    ],
+    "scope_note": "tap delivered only; genre results require an authenticated session",
+    "step": "browse-tile",
+    "title_expected": null,
+    "title_matched": true,
+    "unexpected_chrome_present": false,
+    "verdict": "reached",
+    "visible_id_count": 16
+  },
+  {
+    "forbidden_present": [],
+    "optional_present": [],
+    "profile": "phone",
+    "required_missing": [
+      "nativeRoot",
+      "nativeContent",
+      "nativeBackButton"
+    ],
+    "required_present": [],
+    "step": "settings",
+    "title_expected": "Param\u00e8tres",
+    "title_matched": false,
+    "unexpected_chrome_present": false,
+    "verdict": "not_reached",
+    "visible_id_count": 0
+  },
+  {
+    "forbidden_present": [],
+    "optional_present": [],
+    "profile": "phone",
+    "required_missing": [
+      "nativeRoot",
+      "nativeTabBar"
+    ],
+    "required_present": [],
+    "step": "back-from-settings",
+    "title_expected": "Accueil",
+    "title_matched": false,
+    "unexpected_chrome_present": false,
+    "verdict": "not_reached",
+    "visible_id_count": 0
+  },
+  {
+    "forbidden_present": [],
+    "optional_present": [],
+    "profile": "phone",
+    "required_missing": [
+      "nativeRoot",
+      "nativeTabBar",
+      "nativeHomeTab"
+    ],
+    "required_present": [],
+    "step": "home-again",
+    "title_expected": "Accueil",
+    "title_matched": false,
+    "unexpected_chrome_present": false,
+    "verdict": "not_reached",
+    "visible_id_count": 0
+  },
+  {
+    "forbidden_present": [],
+    "optional_present": [],
+    "profile": "phone",
+    "required_missing": [
+      "nativeRoot",
+      "nativeContent",
+      "nativeBackButton"
+    ],
+    "required_present": [],
+    "step": "settings-again",
+    "title_expected": "Param\u00e8tres",
+    "title_matched": false,
+    "unexpected_chrome_present": false,
+    "verdict": "not_reached",
+    "visible_id_count": 0
+  },
+  {
+    "forbidden_present": [],
+    "optional_present": [],
+    "profile": "phone",
+    "required_missing": [
+      "nativeRoot",
+      "nativeTabBar",
+      "nativeHomeTab"
+    ],
+    "required_present": [],
+    "step": "back-once",
+    "title_expected": "Accueil",
+    "title_matched": false,
+    "unexpected_chrome_present": false,
+    "verdict": "not_reached",
+    "visible_id_count": 0
+  },
+  {
+    "forbidden_present": [],
+    "optional_present": [],
+    "profile": "phone",
+    "required_missing": [
+      "nativeRoot",
+      "nativeTabBar",
+      "nativeHomeTab"
+    ],
+    "required_present": [],
+    "step": "back-settled",
+    "title_expected": "Accueil",
+    "title_matched": false,
+    "unexpected_chrome_present": false,
+    "verdict": "not_reached",
+    "visible_id_count": 0
+  },
+  {
+    "forbidden_present": [],
+    "optional_present": [],
+    "profile": "phone",
+    "required_missing": [
+      "nativeRoot",
+      "nativeTabBar",
+      "nativeHomeTab"
+    ],
+    "required_present": [],
+    "step": "background-resume",
+    "title_expected": "Accueil",
+    "title_matched": false,
+    "unexpected_chrome_present": false,
+    "verdict": "not_reached",
+    "visible_id_count": 5
+  },
+  {
+    "forbidden_present": [],
+    "optional_present": [],
+    "profile": "phone",
+    "required_missing": [
+      "nativeMiniPlayer"
+    ],
+    "required_present": [],
+    "step": "mini-player",
+    "title_expected": null,
+    "title_matched": true,
+    "unexpected_chrome_present": false,
+    "verdict": "blocked_no_session",
+    "visible_id_count": 5
+  },
+  {
+    "forbidden_present": [],
+    "optional_present": [],
+    "profile": "phone",
+    "required_missing": [
+      "nativePlayerPanel"
+    ],
+    "required_present": [],
+    "step": "player",
+    "title_expected": null,
+    "title_matched": true,
+    "unexpected_chrome_present": false,
+    "verdict": "blocked_no_session",
+    "visible_id_count": 5
+  }
+]

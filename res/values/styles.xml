@@ -1714,26 +1714,33 @@
         <item name="windowNoTitle">true</item>
     </style>
     <style name="Theme.Spotifuck" parent="@style/Theme.AppCompat.NoActionBar">
-        <item name="android:windowBackground">@color/spotify_black</item>
+        <!-- Branded instant background: the system paints it before the first
+             line of Java runs, so a slow cold start never looks like a dead
+             black screen. It matches the splash overlay (same colour, same
+             logo) so the hand-over is invisible. -->
+        <item name="android:windowBackground">@drawable/mel_launch_background</item>
         <item name="android:actionOverflowButtonStyle">@style/overflowStyle</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
-        <item name="android:statusBarColor">@color/spotify_black</item>
-        <item name="android:navigationBarColor">@color/spotify_black</item>
+        <!-- The system bars continue the app background (#0B0B14), so a phone
+             with the three-button navigation never shows a darker strip under
+             the dock. -->
+        <item name="android:statusBarColor">@color/mel_background</item>
+        <item name="android:navigationBarColor">@color/mel_background</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLightNavigationBar">false</item>
         <item name="actionBarSize">48.0dip</item>
         <item name="colorOnPrimary">@color/white</item>
         <item name="colorOnSecondary">@color/white</item>
-        <item name="colorPrimary">@color/red</item>
-        <item name="colorPrimaryVariant">@color/purple_700</item>
-        <item name="colorSecondary">@color/teal_200</item>
-        <item name="colorSecondaryVariant">@color/teal_700</item>
+        <item name="colorPrimary">@color/mel_accent</item>
+        <item name="colorPrimaryVariant">@color/mel_accent_deep</item>
+        <item name="colorSecondary">@color/mel_accent</item>
+        <item name="colorSecondaryVariant">@color/mel_accent_deep</item>
     </style>
     <style name="Theme.Spotifuck.Settings" parent="@style/Theme.AppCompat.NoActionBar">
-        <item name="android:colorBackground">@color/spotify_black</item>
+        <item name="android:colorBackground">@color/mel_background</item>
         <item name="android:textColorPrimary">@color/white</item>
         <item name="android:textColorSecondary">#b3ffffff</item>
-        <item name="android:windowBackground">@color/spotify_black</item>
+        <item name="android:windowBackground">@color/mel_background</item>
         <item name="android:textColorTertiary">#80ffffff</item>
         <item name="android:statusBarColor">@color/spotify_black</item>
         <item name="android:navigationBarColor">@color/spotify_black</item>
@@ -1741,11 +1748,11 @@
         <item name="android:windowLightNavigationBar">false</item>
         <item name="alertDialogTheme">@style/Theme.Spotifuck.Settings.Dialog</item>
         <item name="borderlessButtonStyle">@style/Widget.Spotifuck.Button.Borderless</item>
-        <item name="colorAccent">@color/teal_200</item>
-        <item name="colorControlActivated">@color/teal_200</item>
-        <item name="colorPrimary">@color/red</item>
+        <item name="colorAccent">@color/mel_accent</item>
+        <item name="colorControlActivated">@color/mel_accent</item>
+        <item name="colorPrimary">@color/mel_accent</item>
         <item name="colorPrimaryDark">@color/dark_red</item>
-        <item name="colorSecondary">@color/teal_200</item>
+        <item name="colorSecondary">@color/mel_accent</item>
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
     </style>
@@ -1756,17 +1763,17 @@
         <item name="android:navigationBarColor">@android:color/black</item>
     </style>
     <style name="Theme.Spotifuck.Settings.Dialog" parent="@style/Theme.AppCompat.Dialog.Alert">
-        <item name="android:colorBackground">@color/spotify_black</item>
+        <item name="android:colorBackground">@color/mel_background</item>
         <item name="android:textColorPrimary">@color/white</item>
         <item name="android:textColorSecondary">#b3ffffff</item>
-        <item name="android:windowBackground">@color/spotify_black</item>
+        <item name="android:windowBackground">@color/mel_background</item>
         <item name="android:textColorAlertDialogListItem">@color/white</item>
         <item name="buttonBarNegativeButtonStyle">@style/Widget.Spotifuck.Button.Dialog</item>
         <item name="buttonBarNeutralButtonStyle">@style/Widget.Spotifuck.Button.Dialog</item>
         <item name="buttonBarPositiveButtonStyle">@style/Widget.Spotifuck.Button.Dialog</item>
-        <item name="colorAccent">@color/teal_200</item>
-        <item name="colorControlActivated">@color/teal_200</item>
-        <item name="colorPrimary">@color/teal_200</item>
+        <item name="colorAccent">@color/mel_accent</item>
+        <item name="colorControlActivated">@color/mel_accent</item>
+        <item name="colorPrimary">@color/mel_accent</item>
     </style>
     <style name="ThemeOverlay.AppCompat.ActionBar" parent="@style/Base.ThemeOverlay.AppCompat.ActionBar" />
     <style name="ThemeOverlay.AppCompat.Dark" parent="@style/Base.ThemeOverlay.AppCompat.Dark" />
@@ -2653,10 +2660,10 @@
         <item name="shapeAppearance">@style/ShapeAppearance.MaterialComponents.Tooltip</item>
     </style>
     <style name="Widget.Spotifuck.Button.Borderless" parent="@style/Widget.AppCompat.Button.Borderless">
-        <item name="android:textColor">@color/teal_200</item>
+        <item name="android:textColor">@color/mel_accent</item>
     </style>
     <style name="Widget.Spotifuck.Button.Dialog" parent="@style/Widget.AppCompat.Button.Borderless">
-        <item name="android:textColor">@color/teal_200</item>
+        <item name="android:textColor">@color/mel_accent</item>
     </style>
     <style name="overflowStyle" parent="@style/Widget.AppCompat.ActionButton.Overflow">
         <item name="android:padding">2.0dip</item>

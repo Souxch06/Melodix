@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ripple xmlns:android="http://schemas.android.com/apk/res/android" android:color="@color/mel_glass_stroke"><item android:drawable="@drawable/native_tab_active"/><item android:id="@android:id/mask"><shape><solid android:color="@color/mel_mask"/><corners android:radius="999.0dip"/></shape></item></ripple>

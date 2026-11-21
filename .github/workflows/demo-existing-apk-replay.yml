@@ -1,0 +1,446 @@
+name: Replay existing demo APK without rebuilding
+# Diagnostic and screenshot replay are manual only; a normal push does not run them.
+on:
+  workflow_dispatch:
+    inputs:
+      demo_delivery_a:
+        description: Build and test the demo Preview from this commit
+        required: false
+        type: boolean
+        default: false
+      real_interface_preview:
+        description: Build a non-demo Preview that opens the original launcher
+        required: false
+        type: boolean
+        default: false
+      test163_private_fixture:
+        description: Run only disposable TEST163 Android private UI fixture
+        required: false
+        type: boolean
+        default: false
+      test162_baseline:
+        description: Run the strict production-shell baseline on exact test160, not the demo
+        required: false
+        type: boolean
+        default: false
+      test161_signing_only:
+        description: Run only disposable signing experiment and C pending
+        required: false
+        type: boolean
+        default: false
+      test161_autonomous_only:
+        description: Re-run only the A walk (and C pending), no bridge rerun
+        required: false
+        type: boolean
+        default: false
+      test161_evidence:
+        description: Run A and B on exact test160; C explicitly pending
+        required: false
+        type: boolean
+        default: false
+      diagnose_test157:
+        description: Replay the exact test157 with strict acceptance and redacted diagnostics
+        required: false
+        type: boolean
+        default: false
+      dom_probe:
+        description: Use ephemeral same-signature read-only DOM instrumentation on the fresh emulator
+        required: false
+        type: boolean
+        default: false
+      diagnose_test158:
+        description: Observe the exact test158 launcher and login without rebuilding
+        required: false
+        type: boolean
+        default: false
+      diagnose_test159:
+        description: Replay exact test159 strict acceptance with read-only WebView diagnostics
+        required: false
+        type: boolean
+        default: false
+      capture_test158_demo:
+        description: Capture actual isolated offline demo screens from the exact test158 without rebuilding
+        required: false
+        type: boolean
+        default: false
+      capture_test159_demo:
+        description: Capture actual isolated offline demo screens from the exact test159 without rebuilding
+        required: false
+        type: boolean
+        default: false
+permissions:
+  actions: read
+  contents: read
+jobs:
+  replay:
+    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true && inputs.capture_test159_demo != true && inputs.diagnose_test159 != true && inputs.test161_evidence != true && inputs.test162_baseline != true && inputs.test163_private_fixture != true && inputs.demo_delivery_a != true && inputs.real_interface_preview != true
+    # Diagnostic evidence is non-blocking; inspect the actual step outcomes.
+    continue-on-error: true
+    name: Replay the same Preview APK on a fresh offline phone
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4.0.4
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: Melodix-Preview-v1.2.2-test154.apk
+          run-id: 42997630197
+          github-token: ${{ github.token }}
+          path: target-apk
+      - run: sudo chmod 666 /dev/kvm
+      - name: Replay without rebuilding or publishing
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
+          script: sh scripts/replay_existing_apk.sh
+  capture:
+    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true && inputs.capture_test159_demo != true && inputs.diagnose_test159 != true && inputs.test161_evidence != true && inputs.test162_baseline != true && inputs.test163_private_fixture != true && inputs.demo_delivery_a != true && inputs.real_interface_preview != true
+    # Diagnostic evidence is non-blocking; inspect the actual step outcomes.
+    continue-on-error: true
+    name: Capture existing Preview on ${{ matrix.profile }}
+    needs: replay
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [phone, tablet, small]
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4.0.4
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: Melodix-Preview-v1.2.2-test154.apk
+          run-id: 42997630197
+          github-token: ${{ github.token }}
+          path: target-apk
+      - run: sudo chmod 666 /dev/kvm
+      - name: Capture the already-built APK without publishing
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
+          script: bash scripts/replay_demo_capture.sh ${{ matrix.profile }}
+      - uses: actions/upload-artifact@v4.6.2
+        if: always()
+        with:
+          name: existing-demo-captures-${{ matrix.profile }}
+          path: captures/${{ matrix.profile }}
+          if-no-files-found: warn
+          retention-days: 14
+  bundle:
+    if: inputs.diagnose_test157 != true && inputs.diagnose_test158 != true && inputs.capture_test158_demo != true && inputs.capture_test159_demo != true && inputs.diagnose_test159 != true && inputs.test161_evidence != true && inputs.test162_baseline != true && inputs.test163_private_fixture != true && inputs.demo_delivery_a != true && inputs.real_interface_preview != true
+    # Diagnostic evidence is non-blocking; inspect the actual step outcomes.
+    continue-on-error: true
+    name: Bundle the same APK and verified screenshots
+    needs: capture
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: Melodix-Preview-v1.2.2-test154.apk
+          run-id: 42997630197
+          github-token: ${{ github.token }}
+          path: bundle
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          pattern: existing-demo-captures-*
+          path: bundle/captures
+      - name: Require each real capture and verify APK identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=$(find bundle -maxdepth 1 -name '*.apk' -print -quit)
+          test -s "$apk"
+          echo '54231b677bc382f608f67c1bd5f8ff8409c34b76620fc4bdc2fb4b2f67364066  '"$apk" | sha256sum -c -
+          for p in phone tablet small; do
+            for screen in accueil recherche bibliotheque playlist reglages lecteur mini-lecteur reglages-test-entree entree-reglages; do
+              test -s "bundle/captures/existing-demo-captures-$p/$screen.png"
+            done
+            for screen in etat-observe session-entree-demo demo-depuis-session retour-session; do
+              test -s "bundle/captures/existing-demo-captures-$p/real-no-session/$screen.png"
+            done
+            test -s "bundle/captures/existing-demo-captures-$p/real-no-session/observation.json"
+          done
+          echo 'APK source commit: 5805a88c793725bce3cb155d9fb576f2c6c97f2a' > bundle/source.txt
+          echo "Capture scripts commit: $GITHUB_SHA" >> bundle/source.txt
+          sha256sum "$apk" > bundle/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4.6.2
+        with:
+          name: Melodix-Preview-test154-with-verified-captures
+          path: bundle
+          if-no-files-found: error
+          retention-days: 14
+
+  test157-diagnostics:
+    if: inputs.diagnose_test157 == true
+    name: Exact test157 strict launcher diagnostic
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      MELODIX_DEMO_DOM_PROBE: ${{ inputs.dom_probe && '1' || '0' }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4.0.4
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: Melodix-Preview-v1.2.2-test157.apk
+          run-id: 43074770471
+          github-token: ${{ github.token }}
+          path: target-apk
+      - name: Verify unchanged test157 bytes
+        run: echo '00ce34bf864e0678d88906eab43b4f529398cc63624394edc4b80aefde880fec  target-apk/Melodix-Preview-v1.2.2-test157.apk' | sha256sum -c -
+      - name: Install compiler and build ephemeral read-only instrumentation
+        if: inputs.dom_probe == true
+        env:
+          MELODIX_PREVIEW_KEYSTORE_B64: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_B64 }}
+          MELODIX_PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
+          MELODIX_PREVIEW_KEY_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEY_PASSWORD || secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
+        run: |
+          sdkmanager --install "platforms;android-36" "build-tools;35.0.0"
+          bash scripts/build_demo_return_probe.sh
+      - run: sudo chmod 666 /dev/kvm
+      - name: Strict launcher replay with observational markers
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
+          script: bash scripts/replay_demo_with_probe.sh
+      - name: Summarize redacted replay evidence
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PYDIAG'
+          import json, pathlib
+          folder = pathlib.Path('evidence')
+          samples = folder / 'ui-samples.json'
+          if samples.exists():
+              rows = [s for s in json.loads(samples.read_text()) if s['state'].get('phase') == 'after-exit']
+              print('::notice title=Return samples::' + json.dumps(rows[:1] + rows[-1:] if len(rows) > 1 else rows, ensure_ascii=False))
+          journal = folder / 'journal-safe.txt'
+          if journal.exists():
+              lines = journal.read_text().splitlines()
+              selected = [x for x in lines if ' MARK ' in x or ' DOM ' in x or any(k in x for k in ('navigation ', 'bridge-', 'page-loaded', 'session-state ', 'activity-resume'))]
+              for i in range(0, min(len(selected), 72), 12):
+                  print('::notice title=Return trace %03d::%s' % (i//12, ' | '.join(selected[i:i+12])))
+          summary = folder / 'diagnostic-summary.json'
+          if summary.exists():
+              print('::notice title=Return summary::' + json.dumps(json.loads(summary.read_text()), ensure_ascii=False))
+          PYDIAG
+      - name: Upload redacted diagnostics and real captures
+        if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: test157-return-diagnostics
+          path: evidence
+          if-no-files-found: warn
+          retention-days: 14
+
+  test158-observation:
+    if: inputs.diagnose_test158 == true
+    name: Observe exact test158 login without rebuilding
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4.0.4
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: Melodix-Preview-v1.2.2-test158.apk
+          run-id: 43094648501
+          github-token: ${{ github.token }}
+          path: target-apk
+      - name: Verify exact test158
+        run: echo '2251561cc171edba1059ce3250e3ba1b66172050bd25b8eff57f321736e76bf9  target-apk/Melodix-Preview-v1.2.2-test158.apk' | sha256sum -c -
+      - run: sudo chmod 666 /dev/kvm
+      - name: Observe launcher and login on clean emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
+          script: |
+            adb install target-apk/Melodix-Preview-v1.2.2-test158.apk
+            python3 scripts/observe_test158_login.py evidence-test158
+      - name: Upload real diagnostic captures
+        if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: test158-login-observation
+          path: evidence-test158
+          if-no-files-found: warn
+          retention-days: 14
+
+  test158-demo-capture:
+    if: inputs.capture_test158_demo == true || inputs.capture_test159_demo == true
+    name: Capture exact Preview offline demo on ${{ matrix.profile }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      APK_NAME: ${{ inputs.capture_test159_demo && 'Melodix-Preview-v1.2.2-test159.apk' || 'Melodix-Preview-v1.2.2-test158.apk' }}
+      APK_SHA: ${{ inputs.capture_test159_demo && '31f561be0765c0d7f5b4b790ded3f47c5a86b877ab6dd0b8c7c8f5d2c224f8f7' || '2251561cc171edba1059ce3250e3ba1b66172050bd25b8eff57f321736e76bf9' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [phone, small]
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4.0.4
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: ${{ inputs.capture_test159_demo && 'Melodix-Preview-v1.2.2-test159.apk' || 'Melodix-Preview-v1.2.2-test158.apk' }}
+          run-id: ${{ inputs.capture_test159_demo && '43107820755' || '43094648501' }}
+          github-token: ${{ github.token }}
+          path: target-apk
+      - name: Verify exact original APK
+        run: echo "$APK_SHA  target-apk/$APK_NAME" | sha256sum -c -
+      - run: sudo chmod 666 /dev/kvm
+      - name: Capture real demo screens from launcher without any session
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
+          script: |
+            adb install "target-apk/$APK_NAME"
+            python3 scripts/capture_test158_demo.py "${{ matrix.profile }}" "captures/${{ matrix.profile }}"
+      - name: Upload only actual emulator captures, even on failure
+        if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: ${{ inputs.capture_test159_demo && 'test159' || 'test158' }}-demo-captures-${{ matrix.profile }}
+          path: captures/${{ matrix.profile }}
+          if-no-files-found: warn
+          retention-days: 14
+
+  test159-strict-diagnostic:
+    if: inputs.diagnose_test159 == true
+    name: Diagnose exact test159 strict login without rebuilding
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      MELODIX_DEMO_DOM_PROBE: '1'
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4.0.4
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: Melodix-Preview-v1.2.2-test159.apk
+          run-id: 43107820755
+          github-token: ${{ github.token }}
+          path: target-apk
+      - name: Verify exact unchanged APK
+        run: echo '31f561be0765c0d7f5b4b790ded3f47c5a86b877ab6dd0b8c7c8f5d2c224f8f7  target-apk/Melodix-Preview-v1.2.2-test159.apk' | sha256sum -c -
+      - name: Build ephemeral read-only instrumentation
+        env:
+          MELODIX_PREVIEW_KEYSTORE_B64: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_B64 }}
+          MELODIX_PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
+          MELODIX_PREVIEW_KEY_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEY_PASSWORD || secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
+        run: |
+          sdkmanager --install "platforms;android-36" "build-tools;35.0.0"
+          bash scripts/build_demo_return_probe.sh
+      - run: sudo chmod 666 /dev/kvm
+      - name: Original strict acceptance with read-only measurements
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
+          script: |
+            adb install target-apk/Melodix-Preview-v1.2.2-test159.apk
+            adb install "$RUNNER_TEMP/melodix-return-probe/probe.apk"
+            python3 scripts/diagnose_demo_return.py
+      - name: Upload observations and actual screenshots
+        if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: test159-strict-diagnostic
+          path: evidence
+          if-no-files-found: warn
+          retention-days: 14
+
+  independent-test161:
+    if: inputs.test161_evidence == true
+    name: Test161 separated evidence
+    uses: ./.github/workflows/test161-independent.yml
+    with:
+      run_fixture: ${{ inputs.test161_autonomous_only != true && inputs.test161_signing_only != true }}
+      run_autonomous: ${{ inputs.test161_signing_only != true }}
+      run_ephemeral: ${{ inputs.test161_signing_only == true }}
+    secrets: inherit
+
+  test162-baseline:
+    if: inputs.test162_baseline == true
+    uses: ./.github/workflows/test162-production-baseline.yml
+    secrets: inherit
+
+  test163-private-fixture:
+    if: inputs.test163_private_fixture == true
+    uses: ./.github/workflows/test163-private-fixture.yml
+
+  demo-delivery-a:
+    if: inputs.demo_delivery_a == true
+    uses: ./.github/workflows/demo-delivery-a.yml
+    with:
+      source_ref: ${{ github.sha }}
+    secrets: inherit
+
+  real-interface-preview:
+    if: inputs.real_interface_preview == true && inputs.demo_delivery_a != true
+    uses: ./.github/workflows/real-interface-preview.yml
+    with:
+      source_ref: ${{ github.sha }}
+    secrets: inherit

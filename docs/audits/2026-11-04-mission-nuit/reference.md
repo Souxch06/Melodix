@@ -1,0 +1,10 @@
+# Référence avant mission de nuit
+
+- PR #8 ouverte, branche exclusive `arena/6b935c3e-melodix`, HEAD de départ local et distant `899aaec41d73b850e7092a9485a9bff6dd7d6f25`, parent `9ef2dc4032fceb2920465e38386aa028494029ca`.
+- Checkout isolé : non suivi préexistant `docs/audits/2026-11-04-token-test157/etat-preview158.md`. Checkout partagé : `44902d9b8d1d1d70bc72acbd66f7c0c2d4b41e0d` (historique tronqué dans ce checkout), nombreux fichiers modifiés et non suivis ; hash exact de `git status --porcelain=v1` : `218e42f623f0f1e9a33cd7fdb94aea06a51dd8bde8850264ec992971c27af87e`. Aucun nettoyage autorisé.
+- `main` distant au départ : `81ef774fcb2208d4c4e999943411040aa1bfa33f`. Aucun merge ni release effectué.
+- Commits vérifiés : `0c3ed32cfe6cde0294ab1f24108b37137c341dac`, `b514e528e060e641211028312969beded841b81c`, `b056bc8a3f1167eee06c63735c69ef633808a20a`. Référence historique vérifiée : `5986ed6b2ca40f0efb4cedfc877fdcf56322ba24`.
+- Depuis test158 `b056bc8a`, seuls deux commits de diagnostic modifient workflow de rejeu et script d'observation ; pas de changement produit. La comparaison historique touche 239 fichiers, 46 307 insertions et 19 232 suppressions dans assets/scripts/res/smali/demo : une restauration globale aveugle serait dangereuse.
+- Dernier build Preview de la branche : run `43094648501`, source `b056bc8a`, suite et build réussis, acceptation stricte échouée. Artefact original `13890636572`, non expiré au contrôle, versionCode `1021504`, SHA-256 APK (inspection du runner) `2251561cc171edba1059ce3250e3ba1b66172050bd25b8eff57f321736e76bf9`. Les deux rejeux suivants échouent dans leurs sondes spécifiques, sans construire de nouvel APK.
+- Run CI QA `43094642959` : suite réussie mais build échoué ; run métriques `43094642658` : build réussi mais deux jobs de mesure échoués ; les causes doivent être vérifiées séparément, sans postuler qu'il s'agit du workflow Preview strict.
+- Les téléchargements depuis les stockages de logs/artifacts ont été retentés : EOF/502 depuis ce sandbox ; les métadonnées et annotations GitHub restent accessibles.

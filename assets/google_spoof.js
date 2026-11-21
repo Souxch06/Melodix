@@ -1,14 +1,24 @@
 (function(){
-    var DESKTOP_UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36';
-    var DESKTOP_APP='5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36';
-    try {
-        window.screen.__defineGetter__('width', function(){ return 1920; });
-        window.screen.__defineGetter__('height', function(){ return 1080; });
-        window.screen.__defineGetter__('availWidth', function(){ return 1920; });
-        window.screen.__defineGetter__('availHeight', function(){ return 1040; });
-        window.__defineGetter__('innerWidth', function(){ return 1920; });
-        window.__defineGetter__('innerHeight', function(){ return 978; });
-    } catch(e){}
+    var nativeUserAgent = String((navigator && navigator.userAgent) || '');
+    var chromeVersionMatch = nativeUserAgent.match(/Chrome\/([0-9.]+)/);
+    var chromeVersion = chromeVersionMatch ? chromeVersionMatch[1] : '';
+    var chromeMajor = chromeVersion ? chromeVersion.split('.')[0] : '';
+    var nativePlatform = String((navigator && navigator.platform) || '');
+    var nativeOscpu = String((navigator && navigator.oscpu) || '');
+    var DESKTOP_UA = chromeVersion
+        ? 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/' + chromeVersion + ' Safari/537.36'
+        : nativeUserAgent;
+    var DESKTOP_APP = DESKTOP_UA.replace(/^Mozilla\//, '');
+    if (chromeVersion) {
+        try {
+            window.screen.__defineGetter__('width', function(){ return 1920; });
+            window.screen.__defineGetter__('height', function(){ return 1080; });
+            window.screen.__defineGetter__('availWidth', function(){ return 1920; });
+            window.screen.__defineGetter__('availHeight', function(){ return 1040; });
+            window.__defineGetter__('innerWidth', function(){ return 1920; });
+            window.__defineGetter__('innerHeight', function(){ return 978; });
+        } catch(e){}
+    }
     function safeDefine(obj, name, getter){
         try { Object.defineProperty(obj, name, { get: getter, configurable: true }); } catch(e){}
     }
@@ -20,8 +30,8 @@
     safeDefine(navigator, 'appName', function(){ return 'Netscape'; });
     safeDefine(navigator, 'appCodeName', function(){ return 'Mozilla'; });
     safeDefine(navigator, 'product', function(){ return 'Gecko'; });
-    safeDefine(navigator, 'platform', function(){ return 'Win32'; });
-    safeDefine(navigator, 'oscpu', function(){ return 'Windows NT 10.0; Win64; x64'; });
+    safeDefine(navigator, 'platform', function(){ return chromeVersion ? 'Win32' : nativePlatform; });
+    safeDefine(navigator, 'oscpu', function(){ return chromeVersion ? 'Windows NT 10.0; Win64; x64' : nativeOscpu; });
     safeDefine(navigator, 'languages', function(){ return ['en-US','en']; });
     safeDefine(navigator, 'language', function(){ return 'en-US'; });
     safeDefine(navigator, 'plugins', function(){
@@ -42,33 +52,35 @@
         return m;
     });
     try {
-        var uaData = {
-            brands: [
-                { brand: 'Not.A/Brand', version: '8' },
-                { brand: 'Chromium', version: '134' },
-                { brand: 'Google Chrome', version: '134' }
-            ],
-            mobile: false,
-            platform: 'Windows',
-            architecture: 'x86',
-            bitness: '64',
-            wow64: false,
-            model: '',
-            platformVersion: '10.0.0',
-            uaFullVersion: '134.0.0.0',
-            fullVersionList: [
-                { brand: 'Not.A/Brand', version: '8' },
-                { brand: 'Chromium', version: '134.0.0.0' },
-                { brand: 'Google Chrome', version: '134.0.0.0' }
-            ]
-        };
-        uaData.getHighEntropyValues = async function(hints){
-            var out = {};
-            hints.forEach(function(h){ if(h in uaData) out[h] = uaData[h]; });
-            return out;
-        };
-        safeDefine(navigator, 'userAgentData', function(){ return uaData; });
-        safeDefine(navigator, 'maxTouchPoints', function(){ return 0; });
+        if (chromeVersion && chromeMajor) {
+            var uaData = {
+                brands: [
+                    { brand: 'Not.A/Brand', version: '8' },
+                    { brand: 'Chromium', version: chromeMajor },
+                    { brand: 'Google Chrome', version: chromeMajor }
+                ],
+                mobile: false,
+                platform: 'Windows',
+                architecture: 'x86',
+                bitness: '64',
+                wow64: false,
+                model: '',
+                platformVersion: '10.0.0',
+                uaFullVersion: chromeVersion,
+                fullVersionList: [
+                    { brand: 'Not.A/Brand', version: '8' },
+                    { brand: 'Chromium', version: chromeVersion },
+                    { brand: 'Google Chrome', version: chromeVersion }
+                ]
+            };
+            uaData.getHighEntropyValues = async function(hints){
+                var out = {};
+                hints.forEach(function(h){ if(h in uaData) out[h] = uaData[h]; });
+                return out;
+            };
+            safeDefine(navigator, 'userAgentData', function(){ return uaData; });
+            safeDefine(navigator, 'maxTouchPoints', function(){ return 0; });
+        }
     } catch(e){}
     try {
         if(!window.chrome){

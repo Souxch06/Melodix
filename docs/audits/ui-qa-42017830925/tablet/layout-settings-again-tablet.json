@@ -1,0 +1,20 @@
+{
+  "container_items": {},
+  "defects": {
+    "collapsed": [],
+    "offscreen": [],
+    "overlap": [],
+    "small_target": []
+  },
+  "density_dpi": 320.0,
+  "node_count": 50,
+  "profile": "tablet",
+  "readable": true,
+  "schema_version": 1,
+  "screen_px": [
+    1600,
+    2560
+  ],
+  "surface": "settings-again",
+  "views": []
+}

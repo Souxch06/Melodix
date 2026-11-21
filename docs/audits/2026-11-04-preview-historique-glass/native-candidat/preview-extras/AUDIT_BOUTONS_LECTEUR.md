@@ -1,0 +1,47 @@
+# Audit des boutons du lecteur plein écran — mission autonome
+
+Référence : correctif de retour 1022155. Statuts : **FAIT** uniquement pour une propriété prouvée par simulation ou comparaison locale ; **PARTIEL** si une partie fonctionne en code mais manque de preuves, conditions ou couverture ; **BLOQUÉ** si le comportement demandé exige un changement interdit ou n'a pas de chemin sûr existant. Aucun essai sur téléphone ni sur une session Spotify réelle. Les temps et le feedback ne sont pas mesurés sur appareil.
+
+| Bouton | Commande/donnée existante ; comportement avant mission | Risque et état affiché | Correction / statut |
+|---|---|---|---|
+| Chevron | `onNativeBackClick`, restaure écran natif précédent | Retour effectif sans rechargement non vérifié sur appareil | **PARTIEL** : écouteur conservé, zone 48 dp et effet déjà présents ; pas de debounce propre. |
+| Retour Android | Pile native `lot1PopBack` / interception existante | Comportement selon navigation et OS non vérifié ici | **PARTIEL** : inchangé, vérifier que le lecteur se réduit et que la WebView ne recharge pas. |
+| Glisser vers le bas | Aucun geste dédié dans ce lecteur | Rien ne garantit la réduction ; ne pas confondre avec le seek | **BLOQUÉ** : pas de chemin existant vérifié, interception sûre sans conflit avec les gestes et sans téléphone non établie. |
+| Like | `actAddToFav`, état `aria-checked` du bouton DOM et titre/identité piste ; grisé si doute | Fonction protégée possède son comportement interne ; DOM peut changer ; pas de preuve de résultat serveur | **PARTIEL** : identité et état revérifiés avant une seule commande, attente visiblement atténuée, 400 ms entre appuis, délai indépendant 5 s et message « Action non confirmée. Réessayer » ; état inconnu en cas d'échec. Confirmation seulement par observation DOM, pas de test réel. |
+| Aléatoire | `actShuffle`, état DOM (`shmode` côté bridge), gris si inconnu | Contrôle absent, état ambigu, callback manquant | **PARTIEL** : même protection 400 ms, confirmation observée, délai et message ; pas de test réel ni garantie sur le point visuel. |
+| Répétition | `actRepeat`, `aria-checked` faux/vrai/mixed (`repmode` côté bridge) | État illisible ou changement non confirmé | **PARTIEL** : états observés et protection comme ci-dessus ; les trois valeurs DOM sont testées mais cycle et résultat réel restent à vérifier. |
+| Précédent / suivant | `__sfSkip` puis repli DOM `control-button-skip-back/forward` | Absence de titre adjacent non déductible sûrement de ces seuls boutons ; pas de debounce ni d'erreur confirmée | **BLOQUÉ** pour désactivation fiable et garantie une commande/double appui sans changer la logique de lecture ni disposer d'une source fiable ; action existante et feedback conservés, pas de fausse disponibilité inventée. |
+| Lecture/pause | `tapPlayPause`, `__sfTogglePlayback`, repli `actPlayPause` | État et audio réels non prouvés, message spécifique de délai non garanti | **BLOQUÉ** pour nouveau comportement optimiste + délai « Lecture lente… Réessayer » : toucher l'automate/commandes de lecture ou l'horloge est interdit. Code 1022155 préservé ; icône dépend de ses observations, sans garantie audio réel. |
+| Seek | SeekBar et écouteurs existants | Pastille, extrémités, temps visé et cas lecture ne sont pas validés ici sur appareil | **PARTIEL** : aucun changement de logique ni d'écouteurs ; structures et octets du contrôleur conservés. Vérification visuelle antérieure ne prouve pas la recherche Spotify réelle. |
+| File | `openQueue` existant, sélecteur `control-button-queue` | Ferme le lecteur Web avant action ; retour/contenu natif non vérifié | **BLOQUÉ** : tuile grisée et libellé indisponible ; navigation sûre exige adaptation de commande protégée ou intégration non vérifiée. |
+| Paroles | Aucune intégration native fiable identifiée | Contenu non disponible | **BLOQUÉ** : tuile grisée, pas de contenu inventé. |
+| Appareils | `openConnect`, sélecteur fondé sur libellé anglais | Ne couvre pas les langues ; fermeture lecteur Web, retour non vérifié | **BLOQUÉ** : tuile grisée ; couverture multilingue et navigation sûre exigeraient de modifier le pont protégé ou une intégration non vérifiée. |
+| Volume | `AudioManager.STREAM_MUSIC`, `ADJUST_SAME` + panneau système Android | N'est pas le volume d'un appareil Spotify distant ; panneau et valeur réels non testés | **PARTIEL** : valeur locale et description accessibles actualisées chaque seconde tant que visible, 400 ms anti-double-appui, échec en français ; curseur fourni par Android, pas un curseur natif. Simulation uniquement. |
+| Menu ⋯ | Aucun chemin fiable demandé | Un menu actif suggérerait des actions fictives | **FAIT** pour le masquage structurel déjà présent ; non testé en rendu appareil. |
+
+## Simulations et limites
+
+- Like/aléatoire/répétition : `control.test.cjs` (5 tests DOM) vérifie absence/ambiguïté, identité du like, état et appel unique ; `test_mode_jvm.py` simule pour chacun succès DOM, échec, absence, double appui, callback perdu et tardif, masquage et retour. Un état DOM est une observation, pas une preuve de lecture audio ni de mise à jour serveur. Le timeout ne relance jamais la commande.
+- Volume : `test_tiles_jvm.py` simule service disponible/absent, mise à jour aux changements simulés, double appui, exception, arrière-plan et reprise. Aucun panneau système réel ni touche physique testés.
+- Les autres boutons n'ont **pas** reçu une matrice simulée complète succès/échec/absence/double appui/arrière-plan/reprise. État bloqué ou inchangé ci-dessus ; les tests de structure ne prouvent pas leurs résultats ni une latence <100 ms. Les zones des tuiles dépendent de la largeur disponible : 44 dp minimum non démontré pour tous les écrans et grandes polices. TalkBack et animations réduites non vérifiés sur appareil.
+- Le projet et l'APK locale non signée passent la garde 7/7 ; MainActivity, contrôleur natif et shell comparés octet pour octet avant/après les seules substitutions des contrôles. Aucun nouveau code ne lit de jeton/cookie/en-tête, ne fait de requête, ne persiste ni ne force lecture/seek. Les appels protégés et leurs effets internes préexistants demeurent inchangés.
+- Plein écran / mini / widget : ils s'appuient sur données existantes ; cohérence réelle non démontrée. Rotation, onglets, veille, doublons d'écouteurs et latence nécessitent un appareil. Pas de prétention à la fraîcheur réelle Spotify.
+- Retour 1022155 inchangé : gel en interruption sans preuve fiable d'audio continu ; observation récente et cohérente au retour ; divergence >5 s pendant 10 s rattrapée doucement. L'autoplay conditionnel préexistant (`autoPlayMode`, restauration canvas `v.play()`, `WebService.g(Z)`) n'est pas modifié et peut relancer selon configuration. Pas de preuve ici d'audio écran éteint ou d'absence d'autoplay.
+
+## Checklist téléphone (à exécuter ultérieurement, jamais déclarée validée ici)
+
+Pour chaque bouton, essayer appui simple, rapide double, contrôle absent si possible, hors premier plan puis retour. Noter heure et écran, sans partager compte, jeton ni cookie.
+
+- [ ] Chevron puis Retour Android : ouvrir lecteur, réduire ; attendu écran précédent et musique/session conservées sans rechargement ; échec écran fermé/rechargé ou navigation erronée.
+- [ ] Glisser bas : tenter hors barre de progression ; attendu réduction demandée ; échec aucun effet ou seek involontaire (actuellement non implémenté).
+- [ ] Like : sur deux titres, observer état réel puis toucher ; attendu atténuation, un seul changement confirmé et cœur magenta si liké ; échec oscillation, mauvais titre ou absence prolongée de message.
+- [ ] Aléatoire : activer/désactiver, comparer avec mini/Web ; attendu état/indicateur concordant ; échec état affirmé sans confirmation ou double bascule.
+- [ ] Répétition : parcourir désactivé/liste/titre ; attendu trois états confirmés ; échec mauvais cycle ou changement sans observation.
+- [ ] Précédent/suivant : un appui puis double appui rapide, début/fin de file ; attendu une commande par intention, indisponibilité si absence connue ; échec double saut ou bouton trompeur. Cette garantie reste bloquée.
+- [ ] Lecture/pause : toucher, attendre, comparer audio et icône ; attendu icône pause uniquement si lecture effective et message neutre si lente ; échec faux état ou relance inattendue. Messages spécifiques restent bloqués.
+- [ ] Seek : viser 0, milieu, fin ; attendu pastille entière, temps visé cohérent et retour sans saut fantôme ; échec curseur tronqué ou position incohérente.
+- [ ] File/paroles/appareils : vérifier qu'ils sont grisés et ne déclenchent rien ; échec s'ils semblent disponibles ou ouvrent une page non maîtrisée.
+- [ ] Volume : ouvrir panneau, changer via panneau et touches physiques ; attendu pourcentage local et description TalkBack mis à jour en environ 1 s, sans prétention distante ; échec valeur figée ou service silencieusement indisponible.
+- [ ] Menu : attendu absent ; échec s'il apparaît.
+- [ ] Mini, widget, plein écran : comparer titre, lecture, progression et modes après chaque action, rotation, changement onglet et veille ; échec incohérence persistante ou écouteur doublé.
+- [ ] Reprise : quitter 10 s, 1 min, 10 min, pause, processus recréé, écran éteint avec audio, puis changer titre ; attendu gel sans preuve d'audio continu, reprise après observation cohérente, pas de temps d'absence ajouté artificiellement ; échec saut ou lecture affirmée sans preuve. Observer aussi toute reprise automatique existante sans en attribuer la cause sans trace.

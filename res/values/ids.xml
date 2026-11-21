@@ -272,6 +272,7 @@
     <item type="id" name="navigation_bar_item_large_label_view" />
     <item type="id" name="navigation_bar_item_small_label_view" />
     <item type="id" name="navigation_header_container" />
+    <item type="id" name="nativeSettingsButton" />
     <item type="id" name="noScroll" />
     <item type="id" name="notification_background" />
     <item type="id" name="notification_main_column" />

@@ -1,0 +1,18 @@
+{
+  "defects": {
+    "collapsed": [],
+    "offscreen": [],
+    "overlap": [],
+    "small_target": []
+  },
+  "density_dpi": 420.0,
+  "node_count": 71,
+  "profile": "phone",
+  "readable": true,
+  "schema_version": 1,
+  "screen_px": [
+    1080,
+    2400
+  ],
+  "surface": "mini-player"
+}

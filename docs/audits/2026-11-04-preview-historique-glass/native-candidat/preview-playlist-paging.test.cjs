@@ -1,0 +1,63 @@
+'use strict';
+// Simulated fetch: checks paging past the bridge's 100-track page. Not a Spotify benchmark.
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const src=fs.readFileSync(path.join(__dirname,'preview-playlist-paging.js'),'utf8');
+function setup(total){
+ const calls=[],sent=[],timers=[];
+ const w={spotAuthToken:'Bearer T',__sfNativeCollectionUri:'spotify:playlist:P1',AbortController:undefined,
+  AndBridge:{onMediaItemsLoaded:(u,j)=>sent.push([u,JSON.parse(j)])},
+  setTimeout:(f)=>{timers.push(f);return timers.length},clearTimeout(){},
+  fetch:(u,o)=>{const v=JSON.parse(o.body).variables;calls.push(v);const n=Math.max(0,Math.min(v.limit,total-v.offset));
+   return Promise.resolve({ok:true,json:async()=>({data:{playlistV2:{content:{totalCount:total,items:Array.from({length:n},(_,i)=>({itemV2:{data:{uri:'spotify:track:t'+(v.offset+i),name:'N'+(v.offset+i),artists:{items:[{profile:{name:'A'}}]},trackDuration:{totalMilliseconds:204000+(v.offset+i)}}}}))}}}})});}};
+ const api=new Function('window',src+'\nreturn previewPlaylistPages;')(w);
+ return {w,calls,sent,timers,api};
+}
+const settle=()=>new Promise(r=>setTimeout(r,20));
+test('237-track playlist: three pages, full list delivered to the bridge callback',async()=>{
+ const x=setup(237);x.api('spotify:playlist:P1');x.timers.shift()();for(let i=0;i<10;i++)await settle();
+ assert.deepEqual(x.calls.map(c=>c.offset),[0,100,200]);
+ assert.equal(x.sent.length,2);x.timers.slice(-4).forEach(f=>f());assert.equal(x.sent.length,6);for(let k=0;k<5;k++)x.timers.at(-1)();assert.equal(x.sent.length,11,'keeps resending while open (1022308)');x.w.__sfNativeCollectionUri='spotify:playlist:Other';x.timers.at(-1)();assert.equal(x.sent.length,11,'stops after leaving');const last=x.sent.at(-1);assert.equal(last[0],'spotify:playlist:P1');assert.equal(last[1].length,237);assert.equal(last[1][236].id,'spotify:track:t236');assert.deepEqual(last[1][0].artists,['A • 3:24'],'row length like Spotify');
+});
+test('playlist of 100 or fewer: one page, full list delivered (the bridge can stop short, phone 1022271: 26 shown)',async()=>{
+ const x=setup(60);x.api('spotify:playlist:P1');x.timers.shift()();for(let i=0;i<5;i++)await settle();
+ assert.equal(x.calls.length,1);assert.equal(x.sent.length,1);assert.equal(x.sent[0][1].length,60);
+});
+test('empty or failed page: nothing delivered',async()=>{
+ const x=setup(0);x.api('spotify:playlist:P1');x.timers.shift()();for(let i=0;i<5;i++)await settle();
+ assert.equal(x.sent.length,0);
+});
+test('leaving the playlist stops paging',async()=>{
+ const x=setup(500);x.api('spotify:playlist:P1');x.w.__sfNativeCollectionUri=null;x.timers.shift()();for(let i=0;i<5;i++)await settle();
+ assert.equal(x.calls.length,0);assert.equal(x.sent.length,0);
+});
+test('a late shorter bridge reply is replaced by the full list (user report 1022315)',async()=>{
+ const x=setup(48);x.w.Proxy=Proxy;const api=new Function('window',fs.readFileSync(path.join(__dirname,'preview-playlist-paging.js'),'utf8')+'\nreturn previewPlaylistPages;')(x.w);
+ api('spotify:playlist:P1');x.timers.at(-1)();for(let i=0;i<5;i++)await settle();
+ const before=x.sent.length;assert.equal(x.sent.at(-1)[1].length,48);
+ x.w.AndBridge.onMediaItemsLoaded('spotify:playlist:P1',JSON.stringify(Array.from({length:26},(_,i)=>({id:'spotify:track:t'+i}))));
+ assert.equal(x.sent.length,before+1);assert.equal(x.sent.at(-1)[1].length,48,'never back to 26');
+ x.w.AndBridge.onMediaItemsLoaded('spotify:playlist:P1',JSON.stringify(Array.from({length:48},(_,i)=>({id:'spotify:track:t'+i,artists:['A']}))));
+ assert.deepEqual(x.sent.at(-1)[1][0].artists,['A • 3:24'],'same count still gets the full list (every artist, 1022324)');
+ x.w.AndBridge.onMediaItemsLoaded('spotify:playlist:P1','not json');assert.equal(x.sent.at(-1)[1].length,48,'odd reply never blanks rows (1022326)');
+ x.w.AndBridge.onMediaItemsLoaded('spotify:playlist:P1',JSON.stringify(Array.from({length:60},(_,i)=>({id:'x'+i}))));assert.equal(x.sent.at(-1)[1].length,48,'longer reply never swaps rows');
+ const n=x.sent.length;x.timers.forEach(f=>f());assert.equal(x.sent.length,n,'resend of the list already shown does not redraw');
+ x.w.AndBridge.onMediaItemsLoaded('spotify:playlist:Other',JSON.stringify([{id:'a'}]));assert.equal(x.sent.at(-1)[1].length,1,'other playlists untouched');
+});
+test('a shorter late bridge reply never replaces a longer shown list, even after a page reload (1022337: 48 then 26)',()=>{
+ const store={},sent=[];const mk=()=>{const w={localStorage:{getItem:k=>store[k]??null,setItem:(k,v)=>{store[k]=v}},Proxy,setTimeout(){},
+  AndBridge:{onMediaItemsLoaded:(u,j)=>sent.push(JSON.parse(j).length)}};new Function('window',src)(w);return w;};
+ const rows=n=>JSON.stringify(Array.from({length:n},(_,i)=>({id:'spotify:track:t'+i})));
+ let w=mk();w.AndBridge.onMediaItemsLoaded('spotify:playlist:P1',rows(48));w.AndBridge.onMediaItemsLoaded('spotify:playlist:P1',rows(26));
+ w=mk();w.AndBridge.onMediaItemsLoaded('spotify:playlist:P1',rows(26));w.AndBridge.onMediaItemsLoaded('spotify:playlist:P1','[]');
+ w.AndBridge.onMediaItemsLoaded('spotify:playlist:P1',rows(50));
+ assert.deepEqual(sent,[48,50]);
+});
+test('liked tracks get a heart in other playlists, remembered from "Titres likés" (user request 1022338)',()=>{
+ const store={},ui=[],media=[];const w={localStorage:{getItem:k=>store[k]??null,setItem:(k,v)=>{store[k]=v}},Proxy,setTimeout(){},
+  AndBridge:{onNativeUiData:(s,j)=>ui.push([s,JSON.parse(j)]),onMediaItemsLoaded:(u,j)=>media.push(JSON.parse(j))}};new Function('window',src)(w);
+ w.__sfNativeCollectionUri='spotify:collection:tracks';w.AndBridge.onNativeUiData('detail',JSON.stringify([{title:'A',subtitle:'X',uri:'spotify:track:a'}]));
+ assert.equal(ui[0][1][0].subtitle,'♥ X');
+ w.__sfNativeCollectionUri='spotify:playlist:P';w.AndBridge.onMediaItemsLoaded('spotify:playlist:P',JSON.stringify([{id:'spotify:track:a',artists:['X • 3:00']},{id:'spotify:track:b',artists:['Y']}]));
+ assert.deepEqual(media[0].map(r=>r.artists[0]),['♥ X • 3:00','Y']);
+ w.AndBridge.onNativeUiData('home','[{"subtitle":"s"}]');assert.equal(ui[1][1][0].subtitle,'s','other screens untouched');
+});

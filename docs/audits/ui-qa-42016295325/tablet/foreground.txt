@@ -1,0 +1,1 @@
+      topResumedActivity=ActivityRecord{159102987 u0 com.google.android.apps.nexuslauncher/.NexusLauncherActivity t6}

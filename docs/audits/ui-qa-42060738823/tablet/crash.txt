@@ -1,0 +1,49 @@
+--------- beginning of crash
+11-05 16:04:56.554  2059  2059 E AndroidRuntime: FATAL EXCEPTION: main
+11-05 16:04:56.554  2059  2059 E AndroidRuntime: Process: com.melodix.music, PID: 2059
+11-05 16:04:56.554  2059  2059 E AndroidRuntime: java.lang.IllegalStateException: Could not execute method for android:onClick
+11-05 16:04:56.554  2059  2059 E AndroidRuntime: 	at a9.onClick(r8-map-id-37e276fb91e34a5f1b4d8f51e71abe3719dc52e9eeab3bd3e0cf2cd8d4f7becf:146)
+11-05 16:04:56.554  2059  2059 E AndroidRuntime: 	at android.view.View.performClick(View.java:8083)
+11-05 16:04:56.554  2059  2059 E AndroidRuntime: 	at android.view.View.performClickInternal(View.java:8060)
+11-05 16:04:56.554  2059  2059 E AndroidRuntime: 	at android.view.View.-$$Nest$mperformClickInternal(Unknown Source:0)
+11-05 16:04:56.554  2059  2059 E AndroidRuntime: 	at android.view.View$PerformClick.run(View.java:31549)
+11-05 16:04:56.554  2059  2059 E AndroidRuntime: 	at android.os.Handler.handleCallback(Handler.java:995)
+11-05 16:04:56.554  2059  2059 E AndroidRuntime: 	at android.os.Handler.dispatchMessage(Handler.java:103)
+11-05 16:04:56.554  2059  2059 E AndroidRuntime: 	at android.os.Looper.loopOnce(Looper.java:248)
+11-05 16:04:56.554  2059  2059 E AndroidRuntime: 	at android.os.Looper.loop(Looper.java:338)
+11-05 16:04:56.554  2059  2059 E AndroidRuntime: 	at android.app.ActivityThread.main(ActivityThread.java:9067)
+11-05 16:04:56.554  2059  2059 E AndroidRuntime: 	at java.lang.reflect.Method.invoke(Native Method)
+11-05 16:04:56.554  2059  2059 E AndroidRuntime: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:593)
+11-05 16:04:56.554  2059  2059 E AndroidRuntime: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:932)
+11-05 16:04:56.554  2059  2059 E AndroidRuntime: Caused by: java.lang.reflect.InvocationTargetException
+11-05 16:04:56.554  2059  2059 E AndroidRuntime: 	at java.lang.reflect.Method.invoke(Native Method)
+11-05 16:04:56.554  2059  2059 E AndroidRuntime: 	at a9.onClick(r8-map-id-37e276fb91e34a5f1b4d8f51e71abe3719dc52e9eeab3bd3e0cf2cd8d4f7becf:138)
+11-05 16:04:56.554  2059  2059 E AndroidRuntime: 	... 12 more
+11-05 16:04:56.554  2059  2059 E AndroidRuntime: Caused by: java.lang.VerifyError: Verifier rejected class com.melodix.music.NativeEmptyState: android.widget.LinearLayout com.melodix.music.NativeEmptyState.create(com.melodix.music.MainActivity, java.lang.String, java.lang.String, java.lang.String) failed to verify: android.widget.LinearLayout com.melodix.music.NativeEmptyState.create(com.melodix.music.MainActivity, java.lang.String, java.lang.String, java.lang.String): [0xE1] returning undefined register (declaration of 'com.melodix.music.NativeEmptyState' appears in /data/app/~~TFCvOFTNOSY4wttVMoqtMw==/com.melodix.music-I-7HRHS375xKN-rlgtz8rw==/base.apk)
+11-05 16:04:56.554  2059  2059 E AndroidRuntime: 	at com.melodix.music.MainActivity.renderNativeRows(Unknown Source:368)
+11-05 16:04:56.554  2059  2059 E AndroidRuntime: 	at com.melodix.music.MainActivity.onNativeLibraryClick(Unknown Source:16)
+11-05 16:04:56.554  2059  2059 E AndroidRuntime: 	... 14 more
+11-05 16:08:14.440  3060  3060 E AndroidRuntime: FATAL EXCEPTION: main
+11-05 16:08:14.440  3060  3060 E AndroidRuntime: Process: com.melodix.music, PID: 3060
+11-05 16:08:14.440  3060  3060 E AndroidRuntime: java.lang.IllegalStateException: Could not execute method for android:onClick
+11-05 16:08:14.440  3060  3060 E AndroidRuntime: 	at a9.onClick(r8-map-id-37e276fb91e34a5f1b4d8f51e71abe3719dc52e9eeab3bd3e0cf2cd8d4f7becf:146)
+11-05 16:08:14.440  3060  3060 E AndroidRuntime: 	at android.view.View.performClick(View.java:8083)
+11-05 16:08:14.440  3060  3060 E AndroidRuntime: 	at android.view.View.performClickInternal(View.java:8060)
+11-05 16:08:14.440  3060  3060 E AndroidRuntime: 	at android.view.View.-$$Nest$mperformClickInternal(Unknown Source:0)
+11-05 16:08:14.440  3060  3060 E AndroidRuntime: 	at android.view.View$PerformClick.run(View.java:31549)
+11-05 16:08:14.440  3060  3060 E AndroidRuntime: 	at android.os.Handler.handleCallback(Handler.java:995)
+11-05 16:08:14.440  3060  3060 E AndroidRuntime: 	at android.os.Handler.dispatchMessage(Handler.java:103)
+11-05 16:08:14.440  3060  3060 E AndroidRuntime: 	at android.os.Looper.loopOnce(Looper.java:248)
+11-05 16:08:14.440  3060  3060 E AndroidRuntime: 	at android.os.Looper.loop(Looper.java:338)
+11-05 16:08:14.440  3060  3060 E AndroidRuntime: 	at android.app.ActivityThread.main(ActivityThread.java:9067)
+11-05 16:08:14.440  3060  3060 E AndroidRuntime: 	at java.lang.reflect.Method.invoke(Native Method)
+11-05 16:08:14.440  3060  3060 E AndroidRuntime: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:593)
+11-05 16:08:14.440  3060  3060 E AndroidRuntime: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:932)
+11-05 16:08:14.440  3060  3060 E AndroidRuntime: Caused by: java.lang.reflect.InvocationTargetException
+11-05 16:08:14.440  3060  3060 E AndroidRuntime: 	at java.lang.reflect.Method.invoke(Native Method)
+11-05 16:08:14.440  3060  3060 E AndroidRuntime: 	at a9.onClick(r8-map-id-37e276fb91e34a5f1b4d8f51e71abe3719dc52e9eeab3bd3e0cf2cd8d4f7becf:138)
+11-05 16:08:14.440  3060  3060 E AndroidRuntime: 	... 12 more
+11-05 16:08:14.440  3060  3060 E AndroidRuntime: Caused by: java.lang.VerifyError: Verifier rejected class com.melodix.music.NativeEmptyState: android.widget.LinearLayout com.melodix.music.NativeEmptyState.create(com.melodix.music.MainActivity, java.lang.String, java.lang.String, java.lang.String) failed to verify: android.widget.LinearLayout com.melodix.music.NativeEmptyState.create(com.melodix.music.MainActivity, java.lang.String, java.lang.String, java.lang.String): [0xE1] returning undefined register (declaration of 'com.melodix.music.NativeEmptyState' appears in /data/app/~~TFCvOFTNOSY4wttVMoqtMw==/com.melodix.music-I-7HRHS375xKN-rlgtz8rw==/base.apk)
+11-05 16:08:14.440  3060  3060 E AndroidRuntime: 	at com.melodix.music.MainActivity.renderNativeRows(Unknown Source:368)
+11-05 16:08:14.440  3060  3060 E AndroidRuntime: 	at com.melodix.music.MainActivity.onNativeLibraryClick(Unknown Source:16)
+11-05 16:08:14.440  3060  3060 E AndroidRuntime: 	... 14 more

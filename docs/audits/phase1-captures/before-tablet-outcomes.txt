@@ -1,0 +1,7 @@
+tablet INSTRUMENTATION_STATUS: action_height=48
+tablet INSTRUMENTATION_STATUS: phase=geometry
+tablet INSTRUMENTATION_STATUS: viewport_height=1200
+tablet INSTRUMENTATION_STATUS: viewport_width=1920
+tablet INSTRUMENTATION_STATUS: phase=capture_synthetic
+tablet INSTRUMENTATION_STATUS: result=passed
+tablet INSTRUMENTATION_RESULT: overall=passed

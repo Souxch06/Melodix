@@ -1,0 +1,539 @@
+package com.melodix.test;
+
+import android.app.Activity;
+import android.app.Application;
+import android.app.Instrumentation;
+import android.content.Intent;
+import android.content.pm.ActivityInfo;
+import android.os.Bundle;
+import android.os.SystemClock;
+import android.view.View;
+import android.view.ViewGroup;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.widget.TextView;
+import android.graphics.Bitmap;
+import android.graphics.Rect;
+import android.widget.EditText;
+import android.widget.FrameLayout;
+import android.view.inputmethod.InputMethodManager;
+import android.content.Context;
+import java.io.File;
+import java.io.FileOutputStream;
+import org.json.JSONObject;
+import java.io.ByteArrayInputStream;
+import java.lang.reflect.Field;
+import java.util.concurrent.atomic.AtomicReference;
+
+/** Test-only synthetic state observations. Never reads/sets/deletes any cookie or token.
+ * Not evidence of Spotify accepting a real session; runs on a fresh CI emulator only. */
+public final class SessionGateInstrumentation extends Instrumentation {
+    private Class<?> gate;
+    private final AtomicReference<Activity> current = new AtomicReference<>();
+    private String phase = "launch";
+    private Bundle arguments;
+    private int attempt;
+    private Class<?> evidence;
+    private static final String PACKAGE = "com.melodix.music.preview";
+    @Override public void onCreate(Bundle args) { super.onCreate(args); arguments = args; start(); }
+    private Object field(String name) throws Exception { return gate.getField(name).get(null); }
+    private void set(String name, Object value) throws Exception { gate.getField(name).set(null, value); }
+    private void call(String name, Class<?>[] types, Object... values) throws Exception {
+        gate.getMethod(name, types).invoke(null, values);
+    }
+    private Activity activity() { return current.get(); }
+    private void uiImmediate(final Checked action) {
+        final Throwable[] failure = new Throwable[1];
+        runOnMainSync(() -> { try { action.run(); } catch (Throwable t) { failure[0] = t; } });
+        if (failure[0] != null) throw new AssertionError("synthetic state operation failed", failure[0]);
+    }
+    private void ui(final Checked action) {
+        uiImmediate(action);
+        waitForIdleSync();
+    }
+    private interface Checked { void run() throws Exception; }
+    private void check(boolean condition) { if (!condition) throw new AssertionError("session gate invariant failed: " + phase); }
+    private TextView view(String name) {
+        Activity a = activity();
+        return (TextView) a.findViewById(a.getResources().getIdentifier(name, "id", PACKAGE));
+    }
+    private void state(int value) throws Exception { check(((Integer) field("state")) == value); }
+    private View findText(View root, String text) {
+        if (root instanceof TextView && text.equals(((TextView)root).getText().toString())) return root;
+        if (root instanceof ViewGroup) { ViewGroup group=(ViewGroup)root;
+            for (int i=0;i<group.getChildCount();i++) { View found=findText(group.getChildAt(i),text); if(found!=null)return found; }
+        }
+        return null;
+    }
+    private View nativeRoot() { Activity a=activity(); return a.findViewById(a.getResources().getIdentifier("nativeRoot","id",PACKAGE)); }
+    private void limited(String title) {
+        check(nativeRoot()!=null && nativeRoot().isShown());
+        check(view("nativeScreenTitle").getText().toString().equals(title));
+        check(findText(nativeRoot(),"Bibliothèque Spotify indisponible")!=null || !title.equals("Accueil"));
+        check(findText(nativeRoot(),"Se connecter à Spotify")!=null);
+        check(findText(nativeRoot(),"Réessayer la bibliothèque")!=null);
+    }
+    private void surfacePaint() throws Exception {
+        getTargetContext().getClassLoader().loadClass("com.melodix.music.NativeSessionSurface")
+            .getMethod("paint", activity().getClass()).invoke(null,activity());
+    }
+    private void freezeNetwork() throws Exception {
+        // Block all fixture WebView requests without modifying session stores or production code.
+        WebView web = (WebView) activity().getClass().getField("G").get(activity());
+        if (web != null) {
+            web.stopLoading();
+            web.setWebViewClient(new WebViewClient() {
+                @Override public WebResourceResponse shouldInterceptRequest(WebView w, WebResourceRequest request) {
+                    return new WebResourceResponse("text/html", "UTF-8", new ByteArrayInputStream(new byte[0]));
+                }
+            });
+        }
+    }
+    private void begin() throws Exception {
+        call("begin", new Class<?>[]{activity().getClass()}, activity());
+    }
+    private void result(boolean token, boolean library, boolean refused, int http) throws Exception {
+        JSONObject proof = new JSONObject().put("generation", field("generation"))
+            .put("attempt", ++attempt).put("completed", true).put("token", token)
+            .put("libraryOk", library).put("tokenRefused", refused).put("libraryHttp", http)
+            .put("tokenApiHttp", refused ? 400 : 200).put("tokenFallbackHttp", refused ? 403 : 0);
+        call("result", new Class<?>[]{activity().getClass(), String.class}, activity(), proof.toString());
+    }
+    private void note() { Bundle b = new Bundle(); b.putString("phase", phase); b.putString("result", "passed"); sendStatus(1, b); }
+    private void noteStarted() { Bundle b = new Bundle(); b.putString("phase", phase); b.putString("result", "started"); sendStatus(1, b); }
+    /** Separate network-blocked WebView; synthetic observations only, never Spotify. */
+    private void diagnosticReadback(boolean stale) throws Exception {
+        final String outerPhase=phase;
+        final String detail=stale ? "stale_" : "current_";
+        final WebView[] local={null};final int[] gen={0},evidenceBefore={0};
+        final Object[] activePull={null};
+        final java.util.concurrent.CountDownLatch loaded=new java.util.concurrent.CountDownLatch(1);
+        ui(() -> {
+            phase=detail+"begin";
+            begin();gen[0]=(Integer)field("generation");
+            if(stale) check(gen[0]>1);
+            // Isolate diagnostic callbacks from the separate 3-second
+            // presentation deadline. That deadline legitimately clears our
+            // synthetic fingerprint when there is no matching real cookie.
+            // Its own production behavior is exercised independently below.
+            call("transition",new Class<?>[]{int.class,String.class},4,"verification-failed-no-logout");
+            evidence.getMethod("reset").invoke(null);
+            phase=detail+"initial_evidence";
+            check((Integer)evidence.getMethod("record",String.class).invoke(null,"synthetic-A")==1);
+            evidenceBefore[0]=(Integer)evidence.getMethod("count").invoke(null);
+            local[0]=new WebView(activity());
+            local[0].getSettings().setJavaScriptEnabled(true);
+            local[0].getSettings().setBlockNetworkLoads(true);
+            local[0].setWebViewClient(new WebViewClient(){@Override public void onPageFinished(WebView v,String url){loaded.countDown();}});
+            int observed=stale?gen[0]-1:gen[0];
+            String fixture="{nativeGeneration:"+observed+",attempt:71,source:'native-retry',phase:'response',requests:1,http:401}";
+            local[0].loadDataWithBaseURL(null,"<html><script>window.__sfMediaLibLastDiagnostic="+fixture+";</script></html>","text/html","UTF-8",null);
+        });
+        phase=detail+"fixture_load";
+        check(loaded.await(10,java.util.concurrent.TimeUnit.SECONDS));
+        phase=detail+"pull_start";
+        ui(() -> {Class<?> pull=getTargetContext().getClassLoader().loadClass("com.melodix.music.NativeSessionDiagnosticPull");
+            activePull[0]=pull.getConstructor(WebView.class,int.class).newInstance(local[0],gen[0]);
+            ((Runnable)activePull[0]).run();});
+        // Observe the actual production callback, not merely absence of a row
+        // after a fixed sleep: a lost callback must fail this test as well.
+        Field status=activePull[0].getClass().getDeclaredField("lastStatus");status.setAccessible(true);
+        String expectedStatus=stale?"generation-mismatch":"accepted";
+        final String[] observedStatus={null};
+        for(int i=0;i<80;i++){
+            ui(() -> observedStatus[0]=(String)status.get(activePull[0]));
+            if(expectedStatus.equals(observedStatus[0]))break;
+            SystemClock.sleep(100);
+        }
+        phase=detail+"callback_status";
+        check(expectedStatus.equals(observedStatus[0]));
+        final String key="Tentative "+gen[0]+"/71";
+        final String[] details={""};
+        ui(() -> {
+            details[0]=(String)gate.getMethod("details").invoke(null);
+            if(stale) {
+                phase=detail+"no_current_row";
+                check(!details[0].contains(key));
+            } else {
+                phase=detail+"current_row";
+                check(details[0].contains(key));
+                phase=detail+"observation_values";
+                check(details[0].contains("token API=inconnu · repli=inconnu · bibliothèque=401 · terminée=inconnu · cookie=inconnu"));
+                phase=detail+"observation_source";
+                check(details[0].contains("source=native-retry · token=inconnu"));
+            }
+            phase=detail+"evidence_unchanged";
+            int observedEvidence=(Integer)evidence.getMethod("count").invoke(null);
+            if(observedEvidence!=evidenceBefore[0]) {
+                String reason=(String)field("lastReason");
+                phase=detail+"evidence_changed_"+("presentation-deadline-not-expiration".equals(reason)?"deadline":"other")+
+                    (observedEvidence==0?"_zero":"_nonzero");
+            }
+            check(observedEvidence==evidenceBefore[0]);
+            phase=detail+"not_expired";
+            check(!(Boolean)field("expiredEvidence"));
+            evidence.getMethod("reset").invoke(null);
+            local[0].destroy();
+        });
+        phase=outerPhase;
+    }
+    private void paintFixture(boolean baseline) throws Exception {
+        set("loginActive", false);set("freshLogin",false);set("expiredEvidence",!baseline);
+        set("tokenApiHttp",400);set("tokenFallbackHttp",403);set("libraryHttp",401);
+        if(evidence!=null) { evidence.getMethod("reset").invoke(null);
+            evidence.getMethod("record",String.class).invoke(null,"synthetic-A");
+            evidence.getMethod("record",String.class).invoke(null,"synthetic-A"); }
+        call("transition",new Class<?>[]{int.class,String.class},baseline?4:2,
+            baseline?"verification-failed-no-logout":"repeated-refusal-cookie-present");
+        // Preserve the standalone legacy session-surface layout/geometry test;
+        // production gate presentation is tested separately below.
+        surfacePaint();
+    }
+    private void capture(String name) throws Exception {
+        Bitmap bitmap=getUiAutomation().takeScreenshot();check(bitmap!=null);
+        File dir=new File(getTargetContext().getFilesDir(),"session-captures");check(dir.exists()||dir.mkdirs());
+        try(FileOutputStream out=new FileOutputStream(new File(dir,name+".png"))) { bitmap.compress(Bitmap.CompressFormat.PNG,100,out); }
+        String journal=(String)getTargetContext().getClassLoader().loadClass("com.melodix.music.NativeStartupTiming").getMethod("appendTo",String.class).invoke(null,"");
+        try(FileOutputStream out=new FileOutputStream(new File(dir,"mdxperf.txt"))) { out.write(journal.getBytes("UTF-8")); }
+        bitmap.recycle();
+        ui(() -> {
+            View root=(View)field("overlay");int[] xy=new int[2];root.getLocationOnScreen(xy);
+            View card=activity().findViewById(activity().getResources().getIdentifier("sessionCard","id",PACKAGE));
+            Bundle metric=new Bundle();metric.putString("phase","geometry");
+            metric.putInt("viewport_height",root.getHeight());metric.putInt("viewport_width",root.getWidth());
+            metric.putInt("action_height",view("sessionAction").getHeight());
+            if(card!=null) {
+                int[] c=new int[2];card.getLocationOnScreen(c);metric.putInt("card_height",card.getHeight());metric.putInt("card_width",card.getWidth());
+                metric.putInt("center_delta",Math.abs((2*c[1]+card.getHeight())-(2*xy[1]+root.getHeight())));
+                // When the card fits, centering must be real, not inferred from XML.
+                if(card.getHeight()+40*activity().getResources().getDisplayMetrics().density<root.getHeight())
+                    check(Math.abs((2*c[1]+card.getHeight())-(2*xy[1]+root.getHeight()))<=4);
+                check(card.getWidth()<=481*activity().getResources().getDisplayMetrics().density);
+            }
+            sendStatus(1,metric);
+        });
+    }
+    @Override public void onStart() {
+        Application app = (Application) getTargetContext().getApplicationContext();
+        Application.ActivityLifecycleCallbacks observer = new Application.ActivityLifecycleCallbacks() {
+            @Override public void onActivityResumed(Activity a) { current.set(a); }
+            @Override public void onActivityCreated(Activity a, Bundle b) { current.set(a); }
+            @Override public void onActivityStarted(Activity a) {}
+            @Override public void onActivityPaused(Activity a) {}
+            @Override public void onActivityStopped(Activity a) {}
+            @Override public void onActivitySaveInstanceState(Activity a, Bundle b) {}
+            @Override public void onActivityDestroyed(Activity a) {}
+        };
+        app.registerActivityLifecycleCallbacks(observer);
+        Bundle outcome = new Bundle();
+        try {
+            gate = getTargetContext().getClassLoader().loadClass("com.melodix.music.NativeSessionGate");
+            try { evidence=getTargetContext().getClassLoader().loadClass("com.melodix.music.NativeSessionEvidence"); }
+            catch(ClassNotFoundException beforePhase1) { /* baseline capture only */ }
+            Intent launch = getTargetContext().getPackageManager().getLaunchIntentForPackage(PACKAGE);
+            check(launch != null);
+            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            current.set(startActivitySync(launch));
+            boolean baseline="true".equals(arguments.getString("baseline"));
+            ui(() -> { freezeNetwork();
+                if (!baseline) check(!(Boolean) field("loginActive"));
+                check((Integer) field("state") != 3); });
+            if ("true".equals(arguments.getString("capture_only"))) {
+                phase="capture_synthetic";
+                ui(() -> paintFixture(baseline));
+                SystemClock.sleep(350);
+                if ("true".equals(arguments.getString("keyboard"))) {
+                    ui(() -> {
+                        EditText input=new EditText(activity());
+                        input.setSingleLine(true);
+                        FrameLayout.LayoutParams lp=new FrameLayout.LayoutParams(1,1);
+                        activity().addContentView(input,lp);input.requestFocus();
+                        ((InputMethodManager)activity().getSystemService(Context.INPUT_METHOD_SERVICE)).showSoftInput(input,InputMethodManager.SHOW_IMPLICIT);
+                    });
+                    SystemClock.sleep(1000);
+                }
+                capture("status");
+                if (!baseline) {
+                    ui(() -> view("sessionDisclosure").performClick());
+                    SystemClock.sleep(350);capture("details");
+                }
+                note();outcome.putString("overall","passed");finish(Activity.RESULT_OK,outcome);return;
+            }
+            phase = "first_launch_limited_home";
+            ui(() -> {
+                View root=nativeRoot(); check(root!=null && root.isShown());
+                Rect rootRect=new Rect(); check(root.getGlobalVisibleRect(rootRect));
+                check(rootRect.width()>0 && rootRect.height()>0);
+                View splash=activity().findViewById(activity().getResources().getIdentifier("splashOverlay","id",PACKAGE));
+                check(splash!=null && !splash.isShown());
+                View status=findText(root,"Bibliothèque Spotify indisponible");
+                if(status==null) status=findText(root,"Vérification de la bibliothèque…");
+                check(status!=null && status.isShown());
+                Rect statusRect=new Rect(); check(status.getGlobalVisibleRect(statusRect));
+                check(statusRect.width()>0 && statusRect.height()>0);
+                android.view.accessibility.AccessibilityNodeInfo node=status.createAccessibilityNodeInfo();
+                check(node!=null && node.isVisibleToUser() && node.getText()!=null && node.getText().length()>0);
+                node.recycle();
+                Class<?> glass=getTargetContext().getClassLoader().loadClass("com.melodix.music.NativeLimitedGlass");
+                java.lang.reflect.Method measured=glass.getMethod("contentVisible",activity().getClass());
+                check((Boolean)measured.invoke(null,activity()));
+                View content=activity().findViewById(activity().getResources().getIdentifier("nativeContent","id",PACKAGE));
+                content.setVisibility(View.GONE);
+                check(!(Boolean)measured.invoke(null,activity()));
+                content.setVisibility(View.VISIBLE);
+                View login=findText(root,"Se connecter à Spotify");
+                View retry=findText(root,"Réessayer la bibliothèque");
+                check(login!=null && login.isShown() && login.isClickable());
+                check(retry!=null && retry.isShown() && retry.isClickable());
+                for(String id:new String[]{"nativeHomeTab","nativeSearchTab","nativeLibraryTab","nativeSettingsButton"}) {
+                    View control=activity().findViewById(activity().getResources().getIdentifier(id,"id",PACKAGE));
+                    Rect r=new Rect();check(control!=null && control.isShown() && control.isClickable());
+                    check(control.getGlobalVisibleRect(r) && r.width()>0 && r.height()>0);
+                }
+            }); note();
+
+            phase = "separate_web_page_navigation_allowlist";
+            ui(() -> {
+                Class<?> client=getTargetContext().getClassLoader().loadClass("com.melodix.music.SpotifyWebPageClient");
+                java.lang.reflect.Method allowed=client.getDeclaredMethod("allowed",android.net.Uri.class);
+                allowed.setAccessible(true);
+                for (String url : new String[]{"https://open.spotify.com/", "https://accounts.spotify.com/login"})
+                    check((Boolean)allowed.invoke(null,android.net.Uri.parse(url)));
+                for (String url : new String[]{"http://open.spotify.com/", "https://open.spotify.com.example.com/",
+                        "https://open.spotify.com@evil.example/", "https://open.spotify.com:444/", "file:///tmp/a"})
+                    check(!(Boolean)allowed.invoke(null,android.net.Uri.parse(url)));
+            }); note();
+
+            phase = "diagnostic_real_webview_fallback";
+            diagnosticReadback(false); note();
+            phase = "diagnostic_real_webview_rejects_stale";
+            diagnosticReadback(true); note();
+
+            phase = "verifying_deadline_not_expiry";
+            ui(() -> { set("freshLogin", false); begin(); state(0); });
+            SystemClock.sleep(3300);
+            ui(() -> { state(4); check(!(Boolean) field("expiredEvidence")); limited("Accueil");
+                surfacePaint(); check(view("sessionAction").isShown());
+                check(view("sessionSecondary").isShown());
+                check(view("sessionSecondary").getText().toString().equals("Se reconnecter"));
+                check(view("sessionNotice").isShown());
+                check(view("sessionNotice").getText().toString().contains("uniquement après ton appui"));
+                check(!view("sessionDetails").isShown()); }); note();
+
+            phase = "valid_token_begin"; noteStarted();
+            // These state and overlay assertions run synchronously on the main
+            // thread. Showing the native UI can keep the global queue busy, so
+            // waitForIdleSync is not a completion signal for this operation.
+            uiImmediate(() -> { begin(); phase="valid_token_result"; noteStarted();
+                result(true, true, false, 200); phase="valid_token_assert"; noteStarted();
+                state(3); check(field("overlay") == null);
+                phase="valid_home_synthetic_render"; noteStarted();
+                Class<?> renderer=getTargetContext().getClassLoader().loadClass("com.melodix.music.NativeHomeShelfRenderer");
+                renderer.getMethod("render",activity().getClass(),String.class).invoke(null,activity(),
+                    "[{\"title\":\"SYNTHETIC TEST CARD\",\"section\":\"Vos playlists\",\"uri\":\"spotify:playlist:fixture123\"}]");
+                phase="valid_home_connected_heading"; noteStarted();
+                check(findText(nativeRoot(),"Bibliothèque · Connecté")!=null);
+                phase="valid_token_assert_returned"; note(); });
+            phase = "valid_token_and_library"; note();
+
+            phase = "network_and_isolated_401";
+            ui(() -> { begin();
+                check(findText(nativeRoot(),"Vérification de la bibliothèque…")!=null);
+                result(false, false, false, 401); state(4); check(!(Boolean) field("expiredEvidence"));
+                check(findText(nativeRoot(),"Spotify a refusé la requête de bibliothèque (HTTP 401). La cause n’est pas établie.")!=null);
+                check(findText(nativeRoot(),"Bibliothèque · Connecté")==null);
+                check(findText(nativeRoot(),"SYNTHETIC TEST CARD")==null);
+            }); note();
+
+            phase = "limited_glass_navigation_and_payload_privacy";
+            ui(() -> {
+                limited("Accueil");
+                // A late unverified payload must not replace the fixed native state.
+                activity().getClass().getMethod("applyNativeUiData",String.class,String.class)
+                    .invoke(activity(),"home","[{\"title\":\"PRIVATE SYNTHETIC PLAYLIST\"}]");
+                check(findText(nativeRoot(),"PRIVATE SYNTHETIC PLAYLIST")==null);
+                activity().getClass().getMethod("onNativeLibraryClick",View.class).invoke(activity(),new Object[]{null});
+                limited("Bibliothèque");
+                activity().getClass().getMethod("onNativeSearchClick",View.class).invoke(activity(),new Object[]{null});
+                limited("Rechercher");
+                activity().getClass().getMethod("onNativeSettingsClick",View.class).invoke(activity(),new Object[]{null});
+                limited("Paramètres"); check(findText(nativeRoot(),"Notifications Android")!=null);
+                check((Boolean)activity().getClass().getMethod("handleNativeSystemBack").invoke(activity()));
+                limited("Accueil");
+            }); note();
+            phase = "limited_glass_stale_queued_payload";
+            ui(() -> {
+                // Model a payload received under an earlier proven generation,
+                // then withdraw proof before it can run on the UI queue.
+                call("transition",new Class<?>[]{int.class,String.class},3,"synthetic-library-ok");
+                Class<?> task=getTargetContext().getClassLoader().loadClass("com.melodix.music.NativeUiUpdateRunnable");
+                java.lang.reflect.Constructor<?> ctor=task.getDeclaredConstructor(activity().getClass(),String.class,String.class,int.class);
+                ctor.setAccessible(true);
+                Runnable stale=(Runnable)ctor.newInstance(activity(),"home","[{\"title\":\"PRIVATE STALE FIXTURE\"}]",1);
+                call("transition",new Class<?>[]{int.class,String.class},4,"library-http-401");
+                call("paint",new Class<?>[]{activity().getClass()},activity()); stale.run();
+                limited("Accueil");check(findText(nativeRoot(),"PRIVATE STALE FIXTURE")==null);
+            }); note();
+            phase = "limited_glass_manual_retry";
+            ui(() -> {
+                Class<?> flight=getTargetContext().getClassLoader().loadClass("com.melodix.music.NativeSessionVerificationFlight");
+                flight.getMethod("fail",int.class).invoke(null,(Integer)field("generation"));
+                int old=(Integer)field("generation");
+                check(findText(nativeRoot(),"Réessayer la bibliothèque").performClick());
+                check((Integer)field("generation")>old); check(!(Boolean)field("loginActive"));
+            }); note();
+            phase = "limited_glass_403_and_malformed";
+            ui(() -> { begin(); result(false,false,false,403); state(4); limited("Accueil");
+                check("library-http-403".equals(field("lastReason")));
+                check(findText(nativeRoot(),"Spotify a refusé la requête de bibliothèque (HTTP 403). La cause n’est pas établie.")!=null);
+                begin(); result(false,false,false,200); state(4); limited("Accueil");
+                check("verification-failed-no-logout".equals(field("lastReason")));
+            }); note();
+            phase = "network_error_cannot_cover_limited_glass";
+            ui(() -> {
+                begin(); result(false,false,false,401); state(4); limited("Accueil");
+                Activity a=activity();
+                a.getClass().getMethod("D",boolean.class).invoke(a,true);
+                limited("Accueil");
+                View splash=a.findViewById(a.getResources().getIdentifier("splashOverlay","id",PACKAGE));
+                check(splash==null || !splash.isShown());
+                Class<?> task=getTargetContext().getClassLoader().loadClass("zk0");
+                Runnable queued=(Runnable)task.getConstructor(a.getClass(),boolean.class,int.class).newInstance(a,true,0);
+                queued.run(); limited("Accueil"); check(splash==null || !splash.isShown()); state(4);
+            }); note();
+            phase = "limited_glass_explicit_login";
+            ui(() -> { check(findText(nativeRoot(),"Se connecter à Spotify").performClick());
+                check((Boolean)field("loginActive")); check(!nativeRoot().isShown());
+            }); note();
+            phase = "login_explicit_return_unverified";
+            ui(() -> { int old=(Integer)field("generation");
+                check(view("sessionAction").isShown());
+                check(view("sessionAction").getText().toString().equals("Retour à Melodix"));
+                check(view("sessionAction").performClick());
+                check(!(Boolean)field("loginActive")); check((Integer)field("generation")>old);
+                state(4); limited("Accueil");
+                check("login-exited-unverified".equals(field("lastReason")));
+                JSONObject stale = new JSONObject().put("generation",old).put("attempt",++attempt)
+                    .put("completed",true).put("token",true).put("libraryOk",true).put("libraryHttp",200);
+                call("result", new Class<?>[]{activity().getClass(),String.class}, activity(),stale.toString());
+                state(4); limited("Accueil");
+            }); note();
+
+            phase = "missing_cookie_is_not_expiry";
+            ui(() -> { set("autoUsed", true); begin(); result(false, false, true, 401); state(4);
+                check(!(Boolean) field("expiredEvidence")); check(!(Boolean) field("loginActive")); }); note();
+
+            phase = "same_digest_bounded_accumulator";
+            ui(() -> {
+                evidence.getMethod("reset").invoke(null);
+                check((Integer)evidence.getMethod("record", String.class).invoke(null, "synthetic-A") == 1);
+                check((Integer)evidence.getMethod("record", String.class).invoke(null, "synthetic-A") == 2);
+                check((Integer)evidence.getMethod("record", String.class).invoke(null, "synthetic-B") == 1);
+                check(!(Boolean)evidence.getMethod("canClear").invoke(null));
+                evidence.getMethod("reset").invoke(null);
+            }); note();
+
+            phase = "probable_expiry_surface_synthetic";
+            ui(() -> { paintFixture(false);
+                check(view("sessionTitle").getText().toString().equals("Spotify refuse l’accès avec ta session actuelle"));
+                check(view("sessionAction").isShown()); check(view("sessionSecondary").isShown());
+                check(view("sessionSecondary").getText().toString().equals("Se reconnecter"));
+                check(view("sessionNotice").isShown());
+                check(!view("sessionDetails").isShown()); view("sessionDisclosure").performClick();
+                check(view("sessionDetails").isShown());
+                phase="probable_expiry_clipboard_synthetic";
+                // Copy appends capture-end to the in-memory debug journal. Take
+                // the expected details before that mutation, not after the click.
+                String details=(String)gate.getMethod("details").invoke(null);
+                phase="probable_expiry_clipboard_click";
+                check(view("sessionCopy").performClick());
+                phase="probable_expiry_clipboard_read";
+                android.content.ClipboardManager cb=(android.content.ClipboardManager)activity().getSystemService(Context.CLIPBOARD_SERVICE);
+                String copied=cb.getPrimaryClip().getItemAt(0).getText().toString();
+                phase="probable_expiry_clipboard_prefix";
+                check(copied.startsWith(details+"\nMDXPERF-BEGIN v=1 dropped="));
+                phase="probable_expiry_clipboard_suffix";
+                check(copied.endsWith("MDXPERF-END"));
+                phase="probable_expiry_details_collapse";
+                view("sessionDisclosure").performClick(); check(!view("sessionDetails").isShown());
+                phase="probable_expiry_reconnect_guard";
+                // The legacy evidence-based gate remains blocked without a real cookie.
+                check(!(Boolean)gate.getMethod("canReconnect").invoke(null));
+            }); note();
+
+            phase = "fresh_login_refusal_no_loop";
+            ui(() -> { set("freshLogin", true); begin(); result(false, false, true, 401); state(4);
+                check(!(Boolean) field("loginActive")); check(!(Boolean) field("expiredEvidence"));
+                call("transition",new Class<?>[]{int.class,String.class},4,"fresh-account-refused");
+                call("paint",new Class<?>[]{activity().getClass()},activity()); limited("Accueil");
+                surfacePaint(); check(view("sessionTitle").getText().toString().equals("Spotify refuse l’accès avec ce compte"));
+            }); note();
+
+            phase = "stale_result_ignored";
+            ui(() -> { begin(); int old = (Integer) field("generation"); begin();
+                JSONObject stale = new JSONObject().put("generation", old).put("attempt", 1).put("completed", true)
+                    .put("token", true).put("libraryOk", true);
+                call("result", new Class<?>[]{activity().getClass(), String.class}, activity(), stale.toString()); state(0); }); note();
+
+            phase = "rotation_preserves_budget_and_deadline";
+            final Activity before = activity();
+            ui(() -> { set("autoUsed", true); before.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE); });
+            SystemClock.sleep(3500);
+            ui(() -> { freezeNetwork(); check((Boolean) field("autoUsed")); state(4);
+                limited("Accueil");
+                check(findText(nativeRoot(),"Se connecter à Spotify").getHeight() >= 44 * activity().getResources().getDisplayMetrics().density); }); note();
+
+            phase = "activity_recreation_preserves_budget";
+            ui(() -> activity().recreate());
+            SystemClock.sleep(3500);
+            ui(() -> { freezeNetwork(); check((Boolean) field("autoUsed")); state(4);
+                limited("Accueil"); }); note();
+
+            phase = "background_resume_no_extra_redirect";
+            ui(() -> check(activity().moveTaskToBack(true)));
+            SystemClock.sleep(700);
+            Intent foreground = getTargetContext().getPackageManager().getLaunchIntentForPackage(PACKAGE);
+            check(foreground != null);
+            foreground.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+            getTargetContext().startActivity(foreground);
+            SystemClock.sleep(1200);
+            ui(() -> { check((Boolean) field("autoUsed")); state(4);
+                limited("Accueil"); }); note();
+
+            phase = "separate_web_page_browser_profile";
+            ui(() -> {
+                View button=findText(nativeRoot(),"Spotify (page Web)");
+                check(button!=null && button.performClick());
+            });
+            SystemClock.sleep(1500);
+            ui(() -> {
+                Activity page=activity();
+                check(page.getClass().getName().equals("com.melodix.music.SpotifyWebPageActivity"));
+                Field webField=page.getClass().getDeclaredField("web"); webField.setAccessible(true);
+                WebView isolated=(WebView)webField.get(page);
+                Class<?> profile=getTargetContext().getClassLoader().loadClass("com.melodix.music.BrowserProfile");
+                String expected=(String)profile.getMethod("desktopUserAgent",Context.class).invoke(null,page);
+                check(expected.equals(isolated.getSettings().getUserAgentString()));
+                check(isolated.getSettings().getJavaScriptEnabled());
+                check(!isolated.getSettings().getAllowFileAccess());
+                page.finish();
+            });
+            SystemClock.sleep(1000);
+            ui(() -> { check(activity().getClass().getName().equals("com.melodix.music.MainActivity"));
+                state(4); limited("Accueil"); }); note();
+
+            phase = "back_exits_without_revealing_home";
+            final Activity ending = activity();
+            ui(() -> ending.onBackPressed()); check(ending.isFinishing()); note();
+            outcome.putString("overall", "passed");
+            finish(Activity.RESULT_OK, outcome);
+        } catch (Throwable error) {
+            outcome.putString("overall", "failed"); outcome.putString("phase", phase);
+            // Fixed phase + exception class only; no raw throwable, URL or page data.
+            outcome.putString("error_class", error.getClass().getSimpleName());
+            finish(Activity.RESULT_CANCELED, outcome);
+        } finally { app.unregisterActivityLifecycleCallbacks(observer); }
+    }
+}

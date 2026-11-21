@@ -1,0 +1,220 @@
+{
+ "before": "42022211867",
+ "after": "42027909065",
+ "profiles": {
+  "phone": [
+   {
+    "step": "back-from-library",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "back-from-search",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "back-from-settings",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "back-once",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "back-settled",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "background-resume",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "browse-tile",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "home",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "home-again",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "library",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "mini-player",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "player",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "search",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "settings",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "settings-again",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   }
+  ],
+  "tablet": [
+   {
+    "step": "back-from-library",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "back-from-search",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "back-from-settings",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "back-once",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "back-settled",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "background-resume",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "browse-tile",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "home",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "home-again",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "library",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "mini-player",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "player",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "search",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "settings",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   },
+   {
+    "step": "settings-again",
+    "changes": [],
+    "defects_before": 0,
+    "defects_after": 0,
+    "defects_after_detail": {}
+   }
+  ]
+ }
+}

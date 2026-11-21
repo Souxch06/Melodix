@@ -1,0 +1,120 @@
+name: Real interface Preview
+on:
+  workflow_call:
+    inputs:
+      source_ref:
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+jobs:
+  suite:
+    name: Local regression suite before demo build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.source_ref }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install ripgrep required by the regression suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v rg >/dev/null; then
+            if npm install --prefix "$RUNNER_TEMP/ripgrep" --no-save --no-audit --no-fund @vscode/ripgrep-linux-x64@1.18.0; then
+              echo "$RUNNER_TEMP/ripgrep/node_modules/@vscode/ripgrep-linux-x64/bin" >> "$GITHUB_PATH"
+            else
+              sudo apt-get update && sudo apt-get install -y ripgrep
+            fi
+          fi
+      - run: python -m pip install PyYAML==6.0.2
+      - run: npm ci
+      - name: Run all tests, fail on errors and skips
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          npm test 2>&1 | tee "$RUNNER_TEMP/demo-a-suite.tap"
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ "$status" != 0 ]; then
+            grep -A12 -E '^not ok' "$RUNNER_TEMP/demo-a-suite.tap" | head -80 | while IFS= read -r line; do echo "::error title=Demo A suite::$line"; done
+            exit "$status"
+          fi
+          grep -qx '# fail 0' "$RUNNER_TEMP/demo-a-suite.tap"
+          grep -qx '# skipped 0' "$RUNNER_TEMP/demo-a-suite.tap"
+  build:
+    needs: suite
+    uses: ./.github/workflows/preview-apk.yml
+    with:
+      source_ref: ${{ inputs.source_ref }}
+      release_tag: v1.2.2-test.170-preview
+      build_only: true
+      demo_build: false
+      version_code_base: 1021600
+    secrets: inherit
+  launch:
+    needs: build
+    name: Install and start original app launcher
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      APK_NAME: ${{ needs.build.outputs.apk_name }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.source_ref }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: android-actions/setup-android@v4.0.4
+      - run: sdkmanager --install 'build-tools;35.0.0'
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: ${{ needs.build.outputs.apk_name }}
+          path: target-apk
+      - name: Verify signed APK and the actual non-demo launcher
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd target-apk && sha256sum -c "$APK_NAME.sha256")
+          aapt="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          "$aapt" dump badging "target-apk/$APK_NAME" > "$RUNNER_TEMP/badging.txt"
+          grep -F "launchable-activity: name='com.melodix.music.MainActivity'" "$RUNNER_TEMP/badging.txt"
+          "$aapt" dump xmltree "target-apk/$APK_NAME" AndroidManifest.xml > "$RUNNER_TEMP/manifest.txt"
+          if grep -Fq 'com.melodix.demo.DemoActivity' "$RUNNER_TEMP/manifest.txt"; then
+            echo '::error::Unexpected demo activity in the real-interface Preview'; exit 1
+          fi
+      - run: sudo chmod 666 /dev/kvm
+      - name: Install exact APK and start launcher without a synthetic session
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
+          script: |
+            adb install "target-apk/$APK_NAME"
+            python3 scripts/smoke_real_preview.py evidence-real
+      - uses: actions/upload-artifact@v4.6.2
+        if: always()
+        with:
+          name: real-interface-launch-evidence
+          path: evidence-real
+          if-no-files-found: warn
+          retention-days: 14
