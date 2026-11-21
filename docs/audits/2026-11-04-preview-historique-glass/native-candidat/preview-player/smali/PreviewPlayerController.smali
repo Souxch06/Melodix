@@ -4492,7 +4492,7 @@
 
     .line 1110
     :goto_a
-    const-string v0, "\nPont (d\u00e9marr\u00e9 ; termin\u00e9 ; mode ; erreur ; CSP ; octets, relev\u00e9 pr\u00e9c\u00e9dent) : "
+    const-string v0, "\nPont (d\u00e9marr\u00e9 ; termin\u00e9 ; mode ; erreur ; CSP ; octets ; \u00e9tape ; requ\u00eate intercept\u00e9e ; octets servis ; service worker actif, relev\u00e9 pr\u00e9c\u00e9dent) : "
 
     invoke-virtual {v2, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
@@ -4515,7 +4515,7 @@
     .line 1113
     if-eqz v0, :cond_c
 
-    const-string v8, "(function(){try{var w=window;return [w.__sfMelodixBridgeStarted===true,w.__sfMelodixBridgeCompleted===true,String(w.__sfBridgeExecMode||\'-\'),String(w.__sfBridgeLastError||\'-\'),w.__sfBridgeCspViolation?1:0,w.__sfBridgeBytes|0].join(\' ; \')}catch(e){return \'erreur\'}})()"
+    const-string v8, "(function(){try{var w=window;return [w.__sfMelodixBridgeStarted===true,w.__sfMelodixBridgeCompleted===true,String(w.__sfBridgeExecMode||\'-\'),String(w.__sfBridgeLastError||\'-\'),w.__sfBridgeCspViolation?1:0,w.__sfBridgeBytes|0,String(w.__sfBridgeLoadStage||\'-\').slice(0,40),w.__sfBridgeIntercepted===true,w.__sfBridgeServedBytes|0,!!(navigator.serviceWorker&&navigator.serviceWorker.controller)].join(\' ; \')}catch(e){return \'erreur\'}})()"
 
     new-instance v9, Lcom/melodix/music/PreviewPlayerController$11;
 

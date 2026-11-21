@@ -1107,10 +1107,10 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         } catch (Exception e) { out.append("\nPage Spotify : non lisible"); }
         // User report (1022349): playlist rows and cover both missing while the page is at 100 %. Show the bridge
         // state from the shell's own flags (no account data); the value is refreshed for the next opening.
-        out.append("\nPont (démarré ; terminé ; mode ; erreur ; CSP ; octets, relevé précédent) : ").append(bridgeState);
+        out.append("\nPont (démarré ; terminé ; mode ; erreur ; CSP ; octets ; étape ; requête interceptée ; octets servis ; service worker actif, relevé précédent) : ").append(bridgeState);
         try {
             WebView w = seekWeb.get();
-            if (w != null) w.evaluateJavascript("(function(){try{var w=window;return [w.__sfMelodixBridgeStarted===true,w.__sfMelodixBridgeCompleted===true,String(w.__sfBridgeExecMode||'-'),String(w.__sfBridgeLastError||'-'),w.__sfBridgeCspViolation?1:0,w.__sfBridgeBytes|0].join(' ; ')}catch(e){return 'erreur'}})()",
+            if (w != null) w.evaluateJavascript("(function(){try{var w=window;return [w.__sfMelodixBridgeStarted===true,w.__sfMelodixBridgeCompleted===true,String(w.__sfBridgeExecMode||'-'),String(w.__sfBridgeLastError||'-'),w.__sfBridgeCspViolation?1:0,w.__sfBridgeBytes|0,String(w.__sfBridgeLoadStage||'-').slice(0,40),w.__sfBridgeIntercepted===true,w.__sfBridgeServedBytes|0,!!(navigator.serviceWorker&&navigator.serviceWorker.controller)].join(' ; ')}catch(e){return 'erreur'}})()",
                 new android.webkit.ValueCallback<String>() { public void onReceiveValue(String v) { bridgeState = v == null ? "—" : v.length() > 160 ? v.substring(0, 160) : v; } });
         } catch (Exception e) { bridgeState = "non lisible"; }
         out.append("\nSource position : ").append(progressSource);
