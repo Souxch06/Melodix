@@ -1307,6 +1307,26 @@
     return-object p1
 .end method
 
+.method static synthetic access$4800(Lcom/melodix/music/PreviewPlayerController;)Ljava/lang/String;
+    .locals 0
+
+    .line 34
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerController;->report()Ljava/lang/String;
+
+    move-result-object p0
+
+    return-object p0
+.end method
+
+.method static synthetic access$4900(Lcom/melodix/music/PreviewPlayerController;)V
+    .locals 0
+
+    .line 34
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerController;->showDiagnosticsNow()V
+
+    return-void
+.end method
+
 .method static synthetic access$500(Lcom/melodix/music/PreviewPlayerController;)J
     .locals 2
 
@@ -6384,6 +6404,80 @@
     return p0
 .end method
 
+.method private showDiagnosticsNow()V
+    .locals 4
+
+    .line 1185
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController;->activity:Ljava/lang/ref/WeakReference;
+
+    invoke-virtual {v0}, Ljava/lang/ref/WeakReference;->get()Ljava/lang/Object;
+
+    move-result-object v0
+
+    check-cast v0, Landroid/app/Activity;
+
+    if-eqz v0, :cond_1
+
+    invoke-virtual {v0}, Landroid/app/Activity;->isFinishing()Z
+
+    move-result v1
+
+    if-eqz v1, :cond_0
+
+    goto :goto_0
+
+    .line 1186
+    :cond_0
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerController;->report()Ljava/lang/String;
+
+    move-result-object v1
+
+    .line 1187
+    new-instance v2, Landroid/app/AlertDialog$Builder;
+
+    invoke-direct {v2, v0}, Landroid/app/AlertDialog$Builder;-><init>(Landroid/content/Context;)V
+
+    const-string v3, "Diagnostic Preview"
+
+    invoke-virtual {v2, v3}, Landroid/app/AlertDialog$Builder;->setTitle(Ljava/lang/CharSequence;)Landroid/app/AlertDialog$Builder;
+
+    move-result-object v2
+
+    invoke-virtual {v2, v1}, Landroid/app/AlertDialog$Builder;->setMessage(Ljava/lang/CharSequence;)Landroid/app/AlertDialog$Builder;
+
+    move-result-object v2
+
+    new-instance v3, Lcom/melodix/music/PreviewPlayerController$14;
+
+    invoke-direct {v3, p0, v0, v1}, Lcom/melodix/music/PreviewPlayerController$14;-><init>(Lcom/melodix/music/PreviewPlayerController;Landroid/app/Activity;Ljava/lang/String;)V
+
+    .line 1188
+    const-string v0, "Copier"
+
+    invoke-virtual {v2, v0, v3}, Landroid/app/AlertDialog$Builder;->setPositiveButton(Ljava/lang/CharSequence;Landroid/content/DialogInterface$OnClickListener;)Landroid/app/AlertDialog$Builder;
+
+    move-result-object v0
+
+    .line 1193
+    const-string v1, "Fermer"
+
+    const/4 v2, 0x0
+
+    invoke-virtual {v0, v1, v2}, Landroid/app/AlertDialog$Builder;->setNegativeButton(Ljava/lang/CharSequence;Landroid/content/DialogInterface$OnClickListener;)Landroid/app/AlertDialog$Builder;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Landroid/app/AlertDialog$Builder;->show()Landroid/app/AlertDialog;
+
+    .line 1194
+    return-void
+
+    .line 1185
+    :cond_1
+    :goto_0
+    return-void
+.end method
+
 .method private stopGlow(I)V
     .locals 3
 
@@ -10305,7 +10399,7 @@
 .method public showDiagnostics()V
     .locals 4
 
-    .line 1176
+    .line 1178
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController;->activity:Ljava/lang/ref/WeakReference;
 
     invoke-virtual {v0}, Ljava/lang/ref/WeakReference;->get()Ljava/lang/Object;
@@ -10318,50 +10412,44 @@
 
     return-void
 
-    .line 1177
+    .line 1179
     :cond_0
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerController;->report()Ljava/lang/String;
 
-    move-result-object v1
-
-    .line 1178
-    new-instance v2, Landroid/app/AlertDialog$Builder;
-
-    invoke-direct {v2, v0}, Landroid/app/AlertDialog$Builder;-><init>(Landroid/content/Context;)V
-
-    const-string v3, "Diagnostic Preview"
-
-    invoke-virtual {v2, v3}, Landroid/app/AlertDialog$Builder;->setTitle(Ljava/lang/CharSequence;)Landroid/app/AlertDialog$Builder;
-
-    move-result-object v2
-
-    invoke-virtual {v2, v1}, Landroid/app/AlertDialog$Builder;->setMessage(Ljava/lang/CharSequence;)Landroid/app/AlertDialog$Builder;
-
-    move-result-object v2
-
-    new-instance v3, Lcom/melodix/music/PreviewPlayerController$12;
-
-    invoke-direct {v3, p0, v0, v1}, Lcom/melodix/music/PreviewPlayerController$12;-><init>(Lcom/melodix/music/PreviewPlayerController;Landroid/app/Activity;Ljava/lang/String;)V
-
-    .line 1179
-    const-string v0, "Copier"
-
-    invoke-virtual {v2, v0, v3}, Landroid/app/AlertDialog$Builder;->setPositiveButton(Ljava/lang/CharSequence;Landroid/content/DialogInterface$OnClickListener;)Landroid/app/AlertDialog$Builder;
-
-    move-result-object v0
-
-    .line 1184
-    const-string v1, "Fermer"
+    .line 1180
+    const-string v1, "Diagnostic en pr\u00e9paration (3 s)\u2026"
 
     const/4 v2, 0x0
 
-    invoke-virtual {v0, v1, v2}, Landroid/app/AlertDialog$Builder;->setNegativeButton(Ljava/lang/CharSequence;Landroid/content/DialogInterface$OnClickListener;)Landroid/app/AlertDialog$Builder;
+    invoke-static {v0, v1, v2}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
 
     move-result-object v0
 
-    invoke-virtual {v0}, Landroid/app/AlertDialog$Builder;->show()Landroid/app/AlertDialog;
+    invoke-virtual {v0}, Landroid/widget/Toast;->show()V
 
-    .line 1185
+    .line 1181
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController;->handler:Landroid/os/Handler;
+
+    new-instance v1, Lcom/melodix/music/PreviewPlayerController$12;
+
+    invoke-direct {v1, p0}, Lcom/melodix/music/PreviewPlayerController$12;-><init>(Lcom/melodix/music/PreviewPlayerController;)V
+
+    const-wide/16 v2, 0xbb8
+
+    invoke-virtual {v0, v1, v2, v3}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
+
+    .line 1182
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController;->handler:Landroid/os/Handler;
+
+    new-instance v1, Lcom/melodix/music/PreviewPlayerController$13;
+
+    invoke-direct {v1, p0}, Lcom/melodix/music/PreviewPlayerController$13;-><init>(Lcom/melodix/music/PreviewPlayerController;)V
+
+    const-wide/16 v2, 0xd48
+
+    invoke-virtual {v0, v1, v2, v3}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
+
+    .line 1183
     return-void
 .end method
 

@@ -1172,8 +1172,17 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         out.append(PreviewPlayerTiles.diagnosticReport());
         return out.toString();
     }
+    // User report (1022359): the bridge line needed three openings (probe, retry, result). Probe now, read the
+    // retry result 3 s later, then show; the report text itself is unchanged.
     public void showDiagnostics() {
         final Activity a = activity.get(); if (a == null) return;
+        report();
+        Toast.makeText(a, "Diagnostic en préparation (3 s)…", Toast.LENGTH_SHORT).show();
+        handler.postDelayed(new Runnable() { public void run() { report(); } }, 3000);
+        handler.postDelayed(new Runnable() { public void run() { showDiagnosticsNow(); } }, 3400);
+    }
+    private void showDiagnosticsNow() {
+        final Activity a = activity.get(); if (a == null || a.isFinishing()) return;
         final String report = report();
         new AlertDialog.Builder(a).setTitle("Diagnostic Preview").setMessage(report)
             .setPositiveButton("Copier", new DialogInterface.OnClickListener() {

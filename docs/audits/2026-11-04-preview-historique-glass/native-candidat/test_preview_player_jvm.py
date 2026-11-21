@@ -148,7 +148,7 @@ public class ControllerTest {
   metrics.phase("page-ready|spotify:playlist:Secret");SystemClock.time+=300;metrics.phase("rows-received");metrics.rowsPainted("detail","spotify:playlist:Secret","uri=spotify:track:Hidden");SystemClock.time+=20;Choreographer.frame();
   metrics.loadState("waiting-bridge:unknown");
   report=(String)reportMethod.invoke(metrics);yes(report.contains("attente pont : 3000 ms"));yes(report.contains("navigation → page prête : 500 ms"));yes(report.contains("Phase dominante : attente pont"));yes(report.contains("waiting-bridge avec lignes : oui"));yes(report.contains("data:unknown"));yes(!report.contains("Secret")&&!report.contains("Hidden"));
-  View about=new View();metrics.attachAbout(about);yes(about.listener.onLongClick(about));AlertDialog.copy.onClick(null,0);yes(ClipboardManager.copied.equals(AlertDialog.body));
+  View about=new View();metrics.attachAbout(about);yes(about.listener.onLongClick(about));SystemClock.time+=3400;Handler.flush();AlertDialog.copy.onClick(null,0);yes(ClipboardManager.copied.equals(AlertDialog.body));
   // Background audio isn't observed here: lifecycle and input data are simulated.
   // Isolate the views from delayed tasks of earlier seek-controller tests.
   a=new Activity();mini=new ProgressBar();full=new SeekBar();elapsed=new TextView();duration=new TextView();remain=new TextView();b1=new ImageView();b2=new ImageView();root=new View();root.tags.put("nativePlayerRemaining",remain);
