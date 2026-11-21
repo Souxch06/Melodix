@@ -33,7 +33,7 @@
         }
     .end annotation
 
-    .line 1192
+    .line 1195
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerController$13;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -46,7 +46,7 @@
 .method public run()V
     .locals 1
 
-    .line 1192
+    .line 1195
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$13;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$4900(Lcom/melodix/music/PreviewPlayerController;)V

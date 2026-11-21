@@ -51,7 +51,7 @@
         }
     .end annotation
 
-    .line 411
+    .line 412
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerController$6;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerController$6;->val$path:Ljava/lang/String;
@@ -70,7 +70,7 @@
 .method public run()V
     .locals 3
 
-    .line 412
+    .line 413
     :try_start_0
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$6;->val$path:Ljava/lang/String;
 
@@ -78,12 +78,12 @@
 
     move-result-object v0
 
-    .line 413
+    .line 414
     if-nez v0, :cond_0
 
     return-void
 
-    .line 414
+    .line 415
     :cond_0
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$6;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
@@ -101,7 +101,7 @@
 
     goto :goto_0
 
-    .line 418
+    .line 419
     :catchall_0
     move-exception v0
 
