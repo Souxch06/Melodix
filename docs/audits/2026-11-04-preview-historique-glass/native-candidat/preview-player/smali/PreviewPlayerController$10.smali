@@ -3,12 +3,12 @@
 .source "PreviewPlayerController.java"
 
 # interfaces
-.implements Ljava/lang/Runnable;
+.implements Landroid/view/View$OnLongClickListener;
 
 
 # annotations
-.annotation system Ldalvik/annotation/EnclosingClass;
-    value = Lcom/melodix/music/PreviewPlayerController;
+.annotation system Ldalvik/annotation/EnclosingMethod;
+    value = Lcom/melodix/music/PreviewPlayerController;->attachAbout(Landroid/view/View;)V
 .end annotation
 
 .annotation system Ldalvik/annotation/InnerClass;
@@ -33,7 +33,7 @@
         }
     .end annotation
 
-    .line 1081
+    .line 1053
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerController$10;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -43,25 +43,15 @@
 
 
 # virtual methods
-.method public run()V
-    .locals 3
+.method public onLongClick(Landroid/view/View;)Z
+    .locals 0
 
-    .line 1081
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$10;->this$0:Lcom/melodix/music/PreviewPlayerController;
+    .line 1054
+    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerController$10;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
-    const-wide/16 v1, -0x1
+    invoke-virtual {p1}, Lcom/melodix/music/PreviewPlayerController;->showDiagnostics()V
 
-    invoke-static {v0, v1, v2}, Lcom/melodix/music/PreviewPlayerController;->access$4602(Lcom/melodix/music/PreviewPlayerController;J)J
+    const/4 p1, 0x1
 
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$10;->this$0:Lcom/melodix/music/PreviewPlayerController;
-
-    const/high16 v1, 0x3f800000    # 1.0f
-
-    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerController;->access$4700(Lcom/melodix/music/PreviewPlayerController;F)V
-
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$10;->this$0:Lcom/melodix/music/PreviewPlayerController;
-
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$1600(Lcom/melodix/music/PreviewPlayerController;)V
-
-    return-void
+    return p1
 .end method

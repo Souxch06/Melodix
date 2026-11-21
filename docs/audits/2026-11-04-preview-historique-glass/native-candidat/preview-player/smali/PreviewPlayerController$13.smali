@@ -3,12 +3,12 @@
 .source "PreviewPlayerController.java"
 
 # interfaces
-.implements Ljava/lang/Runnable;
+.implements Landroid/content/DialogInterface$OnClickListener;
 
 
 # annotations
 .annotation system Ldalvik/annotation/EnclosingMethod;
-    value = Lcom/melodix/music/PreviewPlayerController;->showDiagnostics()V
+    value = Lcom/melodix/music/PreviewPlayerController;->showDiagnosticsNow()V
 .end annotation
 
 .annotation system Ldalvik/annotation/InnerClass;
@@ -20,21 +20,39 @@
 # instance fields
 .field final synthetic this$0:Lcom/melodix/music/PreviewPlayerController;
 
+.field final synthetic val$a:Landroid/app/Activity;
+
+.field final synthetic val$report:Ljava/lang/String;
+
 
 # direct methods
-.method constructor <init>(Lcom/melodix/music/PreviewPlayerController;)V
+.method constructor <init>(Lcom/melodix/music/PreviewPlayerController;Landroid/app/Activity;Ljava/lang/String;)V
     .locals 0
     .annotation system Ldalvik/annotation/MethodParameters;
         accessFlags = {
-            0x8010
+            0x8010,
+            0x1010,
+            0x1010
         }
         names = {
+            null,
+            null,
             null
         }
     .end annotation
 
-    .line 1218
+    .annotation system Ldalvik/annotation/Signature;
+        value = {
+            "()V"
+        }
+    .end annotation
+
+    .line 1193
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerController$13;->this$0:Lcom/melodix/music/PreviewPlayerController;
+
+    iput-object p2, p0, Lcom/melodix/music/PreviewPlayerController$13;->val$a:Landroid/app/Activity;
+
+    iput-object p3, p0, Lcom/melodix/music/PreviewPlayerController$13;->val$report:Ljava/lang/String;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
@@ -43,46 +61,36 @@
 
 
 # virtual methods
-.method public run()V
-    .locals 5
+.method public onClick(Landroid/content/DialogInterface;I)V
+    .locals 1
 
-    .line 1219
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$13;->this$0:Lcom/melodix/music/PreviewPlayerController;
+    .line 1195
+    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerController$13;->val$a:Landroid/app/Activity;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$4900(Lcom/melodix/music/PreviewPlayerController;)I
+    const-string p2, "clipboard"
 
-    move-result v0
+    invoke-virtual {p1, p2}, Landroid/app/Activity;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
 
-    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$13;->this$0:Lcom/melodix/music/PreviewPlayerController;
+    move-result-object p1
 
-    invoke-static {v1}, Lcom/melodix/music/PreviewPlayerController;->access$5000(Lcom/melodix/music/PreviewPlayerController;)Ljava/lang/String;
+    .line 1196
+    instance-of p2, p1, Landroid/content/ClipboardManager;
 
-    .line 1220
-    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$13;->this$0:Lcom/melodix/music/PreviewPlayerController;
+    if-eqz p2, :cond_0
 
-    invoke-static {v1}, Lcom/melodix/music/PreviewPlayerController;->access$200(Lcom/melodix/music/PreviewPlayerController;)J
+    check-cast p1, Landroid/content/ClipboardManager;
 
-    move-result-wide v1
+    const-string p2, "Diagnostic Preview"
 
-    const-wide/16 v3, 0x1388
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$13;->val$report:Ljava/lang/String;
 
-    add-long/2addr v1, v3
+    invoke-static {p2, v0}, Landroid/content/ClipData;->newPlainText(Ljava/lang/CharSequence;Ljava/lang/CharSequence;)Landroid/content/ClipData;
 
-    .line 1221
-    iget-object v3, p0, Lcom/melodix/music/PreviewPlayerController$13;->this$0:Lcom/melodix/music/PreviewPlayerController;
+    move-result-object p2
 
-    invoke-static {v3}, Lcom/melodix/music/PreviewPlayerController;->access$4200(Lcom/melodix/music/PreviewPlayerController;)Landroid/os/Handler;
+    invoke-virtual {p1, p2}, Landroid/content/ClipboardManager;->setPrimaryClip(Landroid/content/ClipData;)V
 
-    move-result-object v3
-
-    new-instance v4, Lcom/melodix/music/PreviewPlayerController$13$1;
-
-    invoke-direct {v4, p0, v0, v1, v2}, Lcom/melodix/music/PreviewPlayerController$13$1;-><init>(Lcom/melodix/music/PreviewPlayerController$13;IJ)V
-
-    const-wide/16 v0, 0xc8
-
-    invoke-virtual {v3, v4, v0, v1}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
-
-    .line 1225
+    .line 1197
+    :cond_0
     return-void
 .end method
