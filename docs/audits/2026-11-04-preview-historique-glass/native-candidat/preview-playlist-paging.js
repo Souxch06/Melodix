@@ -54,7 +54,9 @@
         }
         function page() {
             var token = window.spotAuthToken;
-            if (!live() || !token || ++pages > 50) return;
+            if (!live() || ++pages > 50) return;
+            // User report (1022346, waiting-bridge): no token yet at open; the read gave up for good. Retry (bounded by pages).
+            if (!token) return window.setTimeout(page, 300);
             var headers = {'Authorization': token, 'Content-Type': 'application/json;charset=UTF-8', 'app-platform': 'WebPlayer', 'spotify-app-version': '1.2.40.0'};
             if (window.spotCliToken) headers['Client-Token'] = window.spotCliToken;
             var deadline, controller = typeof window.AbortController === 'function' ? new window.AbortController() : null;
