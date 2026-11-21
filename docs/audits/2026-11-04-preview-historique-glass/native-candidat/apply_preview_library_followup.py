@@ -5,11 +5,11 @@ import hashlib,sys
 from pathlib import Path
 HERE=Path(__file__).resolve().parent
 EXPECTED='ed18ae0b137951fc9b9f1d9fbc65a3f596fad94f38d6f31c8b22c7fa74462984'
-HELPER_SHA='8e50e4ef814b37decbf9f0f410fe622797f76b4ddf4df4f450881dab66caff34'
+HELPER_SHA='8adf107107836285890dee1cb52250663221e9110e5384d398193d50029209ea'
 LIKED_SHA='5355232ea283e1081f5051533a73c803a749c0678360fad7d3c88f37fc67fc0a'
 SETTINGS_SHA='3acb99a853ae8ad39aa020102ad806e62e7e0905709d08963b7c48dfc445f86e'
-PAGING_SHA='8f53a0a59c18005cf2bf95414e0cd611ffa2e8bfd2a899400321ea9c63154af6'
-PREWARM_SHA='382c3558cd9485f835fa22a05fcf710c11588be33cc9431c2a4252d049564963'
+PAGING_SHA='68bb3420dbbd6090310a625aee59122fb7db62b8133bbf1117a1ccb6d244ac93'
+PREWARM_SHA='1e2f4797bc20cada64335fd218118412c9b71925adfbc8da8305a3322789d003'
 PREFETCH_SHA='272a7608bd2e2b0c539a63bd778895aa87f1d2fdc7a3a86c2e13076e63c0fd6d'
 
 def one(text, old, new):
@@ -177,6 +177,8 @@ def apply(root):
     start=s.index('    // Preview-only progress samples.')
     end=s.index('    function publishPlayerState(force)', start)
     s=s[:start]+tuple_bytes.decode('utf8')+'\n'+prewarm_bytes.decode('utf8')+'\n'+s[end:]
+    # Skips poll the new title quickly (previewZap, preview-prewarm.js).
+    for d in ('Back','Forward'): s=one(s, "window.actSkip"+d+"();\n                publishPlayerState(true);", "window.actSkip"+d+"();\n                previewZap();")
     s=one(s, "            payload.playing ? '1' : '0',\n            payload.duration,", "            payload.playing ? '1' : '0',\n            payload.previewPlaybackState,\n            payload.previewConfirmPositionMs,\n            payload.duration,")
     # Artwork can arrive after metadata; include its URL in the update signature.
     # It is passed only to the native player, never included in diagnostics.

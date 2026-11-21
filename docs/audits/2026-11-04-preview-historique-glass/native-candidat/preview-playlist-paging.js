@@ -7,7 +7,7 @@
     // replaced by the full list at once. The bridge object itself is untouched (proxy around it).
     (function guardBridge() {
         var real = window.AndBridge;
-        if (!real || real.__sfPagingGuard || typeof window.Proxy !== 'function') return;
+        if (!real || real.__sfPagingGuard) return;
         try {
             var guarded = function(uri, json) {
                 var full = previewPages.full[uri];
@@ -49,7 +49,8 @@
             if (all.length && live()) previewPages.full[uri] = all;
             // Already showing this exact list: a resend would only redraw it (blink).
             if (previewPages.last[uri] === JSON.stringify(all)) return;
-            try { if (all.length && live() && window.AndBridge && typeof window.AndBridge.onMediaItemsLoaded === 'function') window.AndBridge.onMediaItemsLoaded(uri, JSON.stringify(all)); } catch (_) {}
+            // User report (1022344, Spotify-owned playlist): the bridge had no rows, so "Titres indisponibles" stayed over the full read.
+            try { if (all.length && live()) { window.__sfNativeCollectionHasData = true; window.AndBridge.onMediaItemsLoaded(uri, JSON.stringify(all)); } } catch (_) {}
         }
         function page() {
             var token = window.spotAuthToken;

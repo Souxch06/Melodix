@@ -119,3 +119,6 @@
         })();
     }
     window.setTimeout(function check() { previewPrewarmStart(); if (!previewPrewarm.done) window.setTimeout(check, 1000); }, 1500);
+    // User report (1022344): a skip showed the new title only at the next 1 s tick.
+    // Check every 150 ms for 2.4 s; an unchanged state is not re-sent (signature check).
+    function previewZap() { for (var t = 0; t < 2500; t += 150) window.setTimeout(publishPlayerState, t, !t); }

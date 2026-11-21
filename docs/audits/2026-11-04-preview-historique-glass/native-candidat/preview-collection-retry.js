@@ -120,7 +120,8 @@
             try {
                 Promise.resolve(window.fetchMediaItems(uri, requestId, String(value))).then(function() {
                     done = true;
-                    if (current()) failed('no-data');
+                    // The full read (preview-playlist-paging.js) can still bring the rows of a Spotify-owned playlist (4 s at most).
+                    window.setTimeout(function() { if (current()) failed('no-data'); }, 4000);
                 }, function() { done = true; failed('failed'); });
             } catch (_) { done = true; failed('failed'); }
         }
