@@ -421,6 +421,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     }
     // User video (1022347): at launch a partial Home (shelves missing) showed for ~1 s, then the full one.
     // shortcut: only 15 s after the first Home; later a Home with fewer shelves is shown as is.
+    private String bridgeState = "non relevé (rouvrir le diagnostic)";
     private String homeRows; private long homeAt = -1;
     String keepHome(String rows) {
         long t = now(); if (homeAt < 0) homeAt = t;
@@ -1025,6 +1026,14 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             java.util.regex.Matcher m = java.util.regex.Pattern.compile("^https://open\\.spotify\\.com/([a-z-]*)").matcher(u == null ? "" : u);
             out.append("\nPage Spotify (type de route seulement) : ").append(w == null ? "WebView absente" : "chargement " + w.getProgress() + " % ; route=" + (m.find() ? (m.group(1).isEmpty() ? "accueil" : m.group(1)) : u == null ? "aucune" : "hors Spotify"));
         } catch (Exception e) { out.append("\nPage Spotify : non lisible"); }
+        // User report (1022349): playlist rows and cover both missing while the page is at 100 %. Show the bridge
+        // state from the shell's own flags (no account data); the value is refreshed for the next opening.
+        out.append("\nPont (démarré ; terminé ; mode ; erreur ; CSP ; octets, relevé précédent) : ").append(bridgeState);
+        try {
+            WebView w = seekWeb.get();
+            if (w != null) w.evaluateJavascript("(function(){try{var w=window;return [w.__sfMelodixBridgeStarted===true,w.__sfMelodixBridgeCompleted===true,String(w.__sfBridgeExecMode||'-'),String(w.__sfBridgeLastError||'-'),w.__sfBridgeCspViolation?1:0,w.__sfBridgeBytes|0].join(' ; ')}catch(e){return 'erreur'}})()",
+                new android.webkit.ValueCallback<String>() { public void onReceiveValue(String v) { bridgeState = v == null ? "—" : v.length() > 160 ? v.substring(0, 160) : v; } });
+        } catch (Exception e) { bridgeState = "non lisible"; }
         out.append("\nSource position : ").append(progressSource);
         out.append(" ; identité de titre présente : ").append(tupleIdentity ? "oui" : "non");
         out.append("\nAnimation barre : ").append(progressStopReason());
