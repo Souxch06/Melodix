@@ -116,6 +116,8 @@
 
 .field private bridgeAt:J
 
+.field private bridgeSeq:I
+
 .field private bridgeState:Ljava/lang/String;
 
 .field private cacheLoading:Z
@@ -1312,7 +1314,29 @@
     return-object p1
 .end method
 
-.method static synthetic access$4800(Lcom/melodix/music/PreviewPlayerController;)Ljava/lang/String;
+.method static synthetic access$4800(Lcom/melodix/music/PreviewPlayerController;)I
+    .locals 0
+
+    .line 34
+    iget p0, p0, Lcom/melodix/music/PreviewPlayerController;->bridgeSeq:I
+
+    return p0
+.end method
+
+.method static synthetic access$4808(Lcom/melodix/music/PreviewPlayerController;)I
+    .locals 2
+
+    .line 34
+    iget v0, p0, Lcom/melodix/music/PreviewPlayerController;->bridgeSeq:I
+
+    add-int/lit8 v1, v0, 0x1
+
+    iput v1, p0, Lcom/melodix/music/PreviewPlayerController;->bridgeSeq:I
+
+    return v0
+.end method
+
+.method static synthetic access$4900(Lcom/melodix/music/PreviewPlayerController;)Ljava/lang/String;
     .locals 0
 
     .line 34
@@ -1323,15 +1347,6 @@
     return-object p0
 .end method
 
-.method static synthetic access$4900(Lcom/melodix/music/PreviewPlayerController;)V
-    .locals 0
-
-    .line 34
-    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerController;->showDiagnosticsNow()V
-
-    return-void
-.end method
-
 .method static synthetic access$500(Lcom/melodix/music/PreviewPlayerController;)J
     .locals 2
 
@@ -1339,6 +1354,15 @@
     iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerController;->seekSerial:J
 
     return-wide v0
+.end method
+
+.method static synthetic access$5000(Lcom/melodix/music/PreviewPlayerController;)V
+    .locals 0
+
+    .line 34
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerController;->showDiagnosticsNow()V
+
+    return-void
 .end method
 
 .method static synthetic access$600(Lcom/melodix/music/PreviewPlayerController;Ljava/lang/String;)V
@@ -6604,7 +6628,7 @@
 .method private showDiagnosticsNow()V
     .locals 4
 
-    .line 1198
+    .line 1207
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController;->activity:Ljava/lang/ref/WeakReference;
 
     invoke-virtual {v0}, Ljava/lang/ref/WeakReference;->get()Ljava/lang/Object;
@@ -6623,13 +6647,13 @@
 
     goto :goto_0
 
-    .line 1199
+    .line 1208
     :cond_0
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerController;->report()Ljava/lang/String;
 
     move-result-object v1
 
-    .line 1200
+    .line 1209
     new-instance v2, Landroid/app/AlertDialog$Builder;
 
     invoke-direct {v2, v0}, Landroid/app/AlertDialog$Builder;-><init>(Landroid/content/Context;)V
@@ -6644,18 +6668,18 @@
 
     move-result-object v2
 
-    new-instance v3, Lcom/melodix/music/PreviewPlayerController$14;
+    new-instance v3, Lcom/melodix/music/PreviewPlayerController$13;
 
-    invoke-direct {v3, p0, v0, v1}, Lcom/melodix/music/PreviewPlayerController$14;-><init>(Lcom/melodix/music/PreviewPlayerController;Landroid/app/Activity;Ljava/lang/String;)V
+    invoke-direct {v3, p0, v0, v1}, Lcom/melodix/music/PreviewPlayerController$13;-><init>(Lcom/melodix/music/PreviewPlayerController;Landroid/app/Activity;Ljava/lang/String;)V
 
-    .line 1201
+    .line 1210
     const-string v0, "Copier"
 
     invoke-virtual {v2, v0, v3}, Landroid/app/AlertDialog$Builder;->setPositiveButton(Ljava/lang/CharSequence;Landroid/content/DialogInterface$OnClickListener;)Landroid/app/AlertDialog$Builder;
 
     move-result-object v0
 
-    .line 1206
+    .line 1215
     const-string v1, "Fermer"
 
     const/4 v2, 0x0
@@ -6666,10 +6690,10 @@
 
     invoke-virtual {v0}, Landroid/app/AlertDialog$Builder;->show()Landroid/app/AlertDialog;
 
-    .line 1207
+    .line 1216
     return-void
 
-    .line 1198
+    .line 1207
     :cond_1
     :goto_0
     return-void
@@ -10624,7 +10648,7 @@
 
     invoke-virtual {v0}, Landroid/widget/Toast;->show()V
 
-    .line 1194
+    .line 1196
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController;->handler:Landroid/os/Handler;
 
     new-instance v1, Lcom/melodix/music/PreviewPlayerController$12;
@@ -10635,18 +10659,7 @@
 
     invoke-virtual {v0, v1, v2, v3}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
 
-    .line 1195
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController;->handler:Landroid/os/Handler;
-
-    new-instance v1, Lcom/melodix/music/PreviewPlayerController$13;
-
-    invoke-direct {v1, p0}, Lcom/melodix/music/PreviewPlayerController$13;-><init>(Lcom/melodix/music/PreviewPlayerController;)V
-
-    const-wide/16 v2, 0xd48
-
-    invoke-virtual {v0, v1, v2, v3}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
-
-    .line 1196
+    .line 1204
     return-void
 .end method
 

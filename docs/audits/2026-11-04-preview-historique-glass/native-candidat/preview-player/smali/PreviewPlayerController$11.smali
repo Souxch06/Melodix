@@ -102,5 +102,9 @@
     :goto_0
     invoke-static {v0, p1}, Lcom/melodix/music/PreviewPlayerController;->access$4702(Lcom/melodix/music/PreviewPlayerController;Ljava/lang/String;)Ljava/lang/String;
 
+    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerController$11;->this$0:Lcom/melodix/music/PreviewPlayerController;
+
+    invoke-static {p1}, Lcom/melodix/music/PreviewPlayerController;->access$4808(Lcom/melodix/music/PreviewPlayerController;)I
+
     return-void
 .end method

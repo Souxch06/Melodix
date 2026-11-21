@@ -1112,7 +1112,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         try {
             WebView w = seekWeb.get();
             if (w != null) w.evaluateJavascript("(function(){try{var w=window;var r=[w.__sfMelodixBridgeStarted===true,w.__sfMelodixBridgeCompleted===true,String(w.__sfBridgeExecMode||'-'),String(w.__sfBridgeLastError||'-'),w.__sfBridgeCspViolation?1:0,w.__sfBridgeBytes|0,String(w.__sfBridgeLoadStage||'-').slice(0,40),w.__sfBridgeIntercepted===true,w.__sfBridgeServedBytes|0,!!(navigator.serviceWorker&&navigator.serviceWorker.controller),String(w.__sfPrbErr||'-'),w.__sfBridgeEntered===true,typeof w.__sfMelodixBridgeCompleted,w.__sfPrbTried===1,w.__sfPrbPing===1].join(' ; ');return r}catch(e){return 'erreur'}})()",
-                new android.webkit.ValueCallback<String>() { public void onReceiveValue(String v) { bridgeState = v == null ? "—" : v.length() > 260 ? v.substring(0, 260) : v; } });
+                new android.webkit.ValueCallback<String>() { public void onReceiveValue(String v) { bridgeState = v == null ? "—" : v.length() > 260 ? v.substring(0, 260) : v; bridgeSeq++; } });
             // User diagnostic (1022360): the bridge script loads (served 146768 bytes) but never starts, with no
             // visible error (a service-worker response can hide it). Run the bundled bridge once, natively, and
             // keep only the error type and position.
@@ -1191,9 +1191,18 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         final Activity a = activity.get(); if (a == null) return;
         report();
         Toast.makeText(a, "Diagnostic en préparation (3 s)…", Toast.LENGTH_SHORT).show();
-        handler.postDelayed(new Runnable() { public void run() { report(); } }, 3000);
-        handler.postDelayed(new Runnable() { public void run() { showDiagnosticsNow(); } }, 3400);
+        // User report (1022364): running the bridge keeps the page busy, so the second probe answered after the
+        // dialog was shown. Wait for that answer (8 s at most) before showing.
+        handler.postDelayed(new Runnable() { public void run() {
+            final int seq = bridgeSeq; report();
+            final long until = now() + 5000;
+            handler.postDelayed(new Runnable() { public void run() {
+                if (bridgeSeq == seq && now() < until) { handler.postDelayed(this, 200); return; }
+                showDiagnosticsNow();
+            }}, 200);
+        }}, 3000);
     }
+    private int bridgeSeq;
     private void showDiagnosticsNow() {
         final Activity a = activity.get(); if (a == null || a.isFinishing()) return;
         final String report = report();
