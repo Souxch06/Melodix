@@ -22,17 +22,17 @@ EXPECTED = {
     'res/layout-w600dp/activity_main.xml': '4d110f1df062fdf7676b9aa5e70146dd7ec148da3c0c614a553b5586ad5af8fe',
     'res/drawable/widget_progress_drawable.xml': '3a5f8f51ea984c7a8226d5acd69bf6b20383ca9622843d617b055c9fe18d772f',
 }
-SOURCE_SHA = '58e35e2a5a6f25acbe23b46443fdf704ccb237191e7b15e748e54ecda901a533'
+SOURCE_SHA = 'd4453b2edde9167a26d1b014411c34fe04ca6d5d0b45bbd61900a6cf55883b85'
 HELPER_SHA = {
     'PreviewPlayerController$1.smali': '04b724419c430be5f4ebacc3a1d443d30f480de152d809128c94ac4f13f4296c',
     'PreviewPlayerController$2.smali': 'ff9f8f02b423a2b9de58a5fb8ed5244f555f3bf9478776834d9e5bcb3616d39e',
-    'PreviewPlayerController$3.smali': '917640d627d78caa19ed88d50d215da65c2950c55f9a371334477026d9496db3',
-    'PreviewPlayerController$4.smali': '02f068a238429a8472d4e1036c646dbeeae27895b33f7bf8008e61c3ef9d87fe',
-    'PreviewPlayerController$5.smali': '1d3d1457f000dac970f6339277ff21d15a2f217ea04233088720e698341eb998',
-    'PreviewPlayerController$6.smali': 'e61e524ccd6df5c0e8cbd1e168420ebab63d6a3d27abab89e289ed1bccaec6d1',
-    'PreviewPlayerController$7.smali': '6818ecaceac4cfe206b6122aa9fdf77e7dd1c49f46d841687708c32362913d70',
-    'PreviewPlayerController$8.smali': '87b8c268a43766a31dbee49e90d837e7b27262bcd8cd6a9b0afb9cfd372625ae',
-    'PreviewPlayerController.smali': 'a4aa4d389d38f9d427bb8537186352850005ce7dfa07d8b45803baf1e0a0bdc2',
+    'PreviewPlayerController$3.smali': '7470acee37fdfe0bf7bb92073c7f5b1f6e048e7ea98a1e259721a82a6dbc35ae',
+    'PreviewPlayerController$4.smali': 'c2ea421b317417517023e6d925c5b0625cede3cb5e421530d03593fd07bf99de',
+    'PreviewPlayerController$5.smali': 'b14ee248c6d6ea46db2e655a06e668ee618ea37aeef479316209f0e3e6729825',
+    'PreviewPlayerController$6.smali': '81e3f8632d68fd62eec3e5bf78688a064187f17ebc4261472fd7c9698e3e837b',
+    'PreviewPlayerController$7.smali': '2b1354ad6d558e9410fe7501777bb63bb29df3f73124fee9621f1edfc8d5910c',
+    'PreviewPlayerController$8.smali': 'be4ce28cc4494a492db69bed6f815d798fe9d13bc3d1788a4e08f184c915e25d',
+    'PreviewPlayerController.smali': 'b0a893d031a862afeb95c487ec04ebb1f4e67ae382c3176beb575b0358c2fcd2',
     'PreviewLastTrackStore$1$1.smali': '945ee7420a49b41550b889369932b30e3f0f43943fdb46700d0dbfaf550792dc',
     'PreviewLastTrackStore$1.smali': '8f54f12ff47b7a995072f2255a1c28ffa996e311e8865cd8550330758557ace2',
     'PreviewLastTrackStore$2.smali': '1e3ffc3af8858e6b6f609c18bdf689f5d00d0aaf1c592a201844e24fb91c5aaa',

@@ -264,7 +264,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                     View mini = current.findViewById(0x7f090244), full = current.findViewById(0x7f090245);
                     if (mini instanceof ImageView) ((ImageView) mini).setImageBitmap(image);
                     if (full instanceof ImageView) ((ImageView) full).setImageBitmap(image);
-                }
+                } else restoreCover(current, r.title + "\n" + r.artist);
                 haveReal = true; renderProgress(); renderButtons(); syncGlow();
                 // The splash is a higher-elevation sibling of nativeRoot. Do
                 // not call showNativeUi(), which marks the session ready and
@@ -320,7 +320,8 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     // background: a fresh reading while the app is hidden (user report 1022319: launch showed the
     // track from before the app went to the background, then the right one a frame later).
     private void saveLastTrack(JSONObject o, String title, String artist, String state, long pos, long dur, boolean background) {
-        Activity a = activity.get(); if (a == null || (!foreground && !background) || pending || seekPending || restored) return;
+        Activity a = activity.get(); if (a != null) rememberCover(a, title + "\n" + artist, o.optString("cover", ""));
+        if (a == null || (!foreground && !background) || pending || seekPending || restored) return;
         long wall = o.optLong("previewObservedAtMs", -1), t = now();
         String identity = title + "\n" + artist + "\n" + dur;
         PreviewLastTrackStore.Record r = new PreviewLastTrackStore.Record();
@@ -339,8 +340,23 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         lastCachedIdentity = identity; lastCachedState = state; lastCacheWrite = t;
         PreviewLastTrackStore.save(a, r, bitmap);
     }
+    // User report (1022348): no cover at launch when the track changed in the background (no artwork saved then)
+    // and the paused page sends none. Keep the cover address per track; it comes from Spotify's payload, not the screen.
+    private static final String COVER_STORE = "preview_cover";
+    void rememberCover(Activity a, String key, String url) {
+        if (!url.startsWith("https://")) return;
+        android.content.SharedPreferences p = a.getSharedPreferences(COVER_STORE, Context.MODE_PRIVATE);
+        if (!url.equals(p.getString("u", null)) || !key.equals(p.getString("k", null))) p.edit().putString("k", key).putString("u", url).apply();
+    }
+    void restoreCover(Activity a, String key) {
+        android.content.SharedPreferences p = a.getSharedPreferences(COVER_STORE, Context.MODE_PRIVATE);
+        String u = p.getString("u", null); if (u == null || !key.equals(p.getString("k", null))) return;
+        View mini = a.findViewById(0x7f090244), full = a.findViewById(0x7f090245);
+        if (mini instanceof ImageView) cover((ImageView) mini, u, 192);
+        if (full instanceof ImageView) cover((ImageView) full, u, 720);
+    }
     public void clearLastTrack() {
-        Activity a = activity.get(); if (a != null) PreviewLastTrackStore.clear(a);
+        Activity a = activity.get(); if (a != null) { PreviewLastTrackStore.clear(a); a.getSharedPreferences(COVER_STORE, Context.MODE_PRIVATE).edit().remove("k").remove("u").apply(); }
         callStyler("forgetHome");
         restored = cacheLoading = false; liveObserved = true;
         savedValid = savedIdentity = false; valid = tupleIdentity = false; moving = false;

@@ -134,6 +134,9 @@ public class ControllerTest {
   yes(!report.contains("action invoquée"));yes(!report.contains("PrivateTitle")&&!report.contains("PrivateArtist"));
   yes(report.contains("remplacé par un nouveau geste"));
   // Playlist timing is monotonic, anonymous, and only uses observed phases.
+  {PreviewPlayerController cv=new PreviewPlayerController(a);a.views.put(0x7f090244,new ImageView());int cb=NativeImageLoader.loads;
+   cv.rememberCover(a,"T\nA","https://i.scdn.co/image/x");cv.restoreCover(a,"Other\nB");if(NativeImageLoader.loads!=cb)throw new AssertionError("cover of another track must not load");
+   cv.restoreCover(a,"T\nA");if(NativeImageLoader.loads!=cb+1)throw new AssertionError("remembered cover must load at launch");}
   {PreviewPlayerController h=new PreviewPlayerController(a);String hf="section=A;title=x|section=B;title=y",hp="section=A;title=x";
    if(!hf.equals(h.keepRows("home","",hf))||!hf.equals(h.keepRows("home","",hp)))throw new AssertionError("launch Home with fewer shelves must keep the full one");
    SystemClock.time+=16000;if(!hp.equals(h.keepRows("home","",hp)))throw new AssertionError("after 15 s a shorter Home is shown");}
