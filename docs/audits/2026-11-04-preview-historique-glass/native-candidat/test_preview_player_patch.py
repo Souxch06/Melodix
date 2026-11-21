@@ -177,8 +177,7 @@ class PreviewPlayer(unittest.TestCase):
         end=re.search(r'function\s+installSearchFallback\s*\(',shell)
         self.assertIsNotNone(start); self.assertIsNotNone(end); self.assertLess(start.start(),end.start())
         flow=shell[start.start():end.start()]
-        # User-approved (1022370): the guard waits for the bridge's playlist reader (the running bridge never sets completed).
-        self.assertRegex(flow, r"if\s*\(\s*typeof\s+window\.fetchMediaItems\s*===\s*['\"]function['\"]\s*\)")
+        self.assertRegex(flow, r"window\.__sfMelodixBridgeCompleted\s*===\s*true\s*&&\s*typeof\s+window\.fetchMediaItems\s*===\s*['\"]function['\"]")
         self.assertNotIn('spotAuthToken',flow)
         self.assertNotIn('api.spotify.com',flow)
         self.assertRegex(flow,r"previewPhase\(['\"]rows-received['\"]\)")
