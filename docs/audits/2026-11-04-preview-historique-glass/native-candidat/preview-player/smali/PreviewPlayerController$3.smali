@@ -269,7 +269,7 @@
     invoke-static {v1, p3, v5, v0}, Lcom/melodix/music/PreviewPlayerController;->access$3700(Lcom/melodix/music/PreviewPlayerController;Landroid/app/Activity;ILjava/lang/String;)V
 
     .line 263
-    if-eqz p2, :cond_2
+    if-eqz p2, :cond_3
 
     .line 264
     const p1, 0x7f090244
@@ -297,17 +297,17 @@
     :cond_1
     instance-of p1, v0, Landroid/widget/ImageView;
 
-    if-eqz p1, :cond_3
+    if-eqz p1, :cond_2
 
     check-cast v0, Landroid/widget/ImageView;
 
     invoke-virtual {v0, p2}, Landroid/widget/ImageView;->setImageBitmap(Landroid/graphics/Bitmap;)V
 
-    goto :goto_0
-
     .line 267
     :cond_2
-    :try_start_0
+    goto :goto_0
+
+    :cond_3
     iget-object p2, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     new-instance v0, Ljava/lang/StringBuilder;
@@ -337,19 +337,9 @@
     move-result-object p1
 
     invoke-virtual {p2, p3, p1}, Lcom/melodix/music/PreviewPlayerController;->restoreCover(Landroid/app/Activity;Ljava/lang/String;)V
-    :try_end_0
-    .catchall {:try_start_0 .. :try_end_0} :catchall_0
-
-    goto :goto_0
-
-    :catchall_0
-    move-exception p1
-
-    :cond_3
-    :goto_0
-    nop
 
     .line 268
+    :goto_0
     iget-object p1, p0, Lcom/melodix/music/PreviewPlayerController$3;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     invoke-static {p1, v4}, Lcom/melodix/music/PreviewPlayerController;->access$2702(Lcom/melodix/music/PreviewPlayerController;Z)Z
