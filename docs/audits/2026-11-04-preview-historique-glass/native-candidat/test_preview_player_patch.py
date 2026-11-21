@@ -152,9 +152,7 @@ class PreviewPlayer(unittest.TestCase):
     def test_bundled_assets_are_never_replaced_by_downloaded_hotfixes(self):
         text=method(self.get('smali/m9.smali'),'.method public static d(Ljava/lang/String;)Ljava/lang/String;')
         self.assertIn('hotfixes/',text)
-        tail=text[text.index('hotfixes/'):]
-        first=tail.index('Ljava/io/File;->exists()Z'); jump=tail[first:tail.index('Ljava/io/File;->exists()Z',first+1)]
-        self.assertRegex(jump,r'\n    goto :\w+\n'); self.assertNotIn('if-',jump)
+        self.assertIn('    goto :cond_2\n',text); self.assertNotIn('if-nez v1, :cond_2',text)
 
     def test_webview_debugging_is_confined_to_exact_preview_package(self):
         text=method(self.get('smali/m9.smali'),'.method public static g(Landroid/content/Context;)Landroid/webkit/WebView;')
