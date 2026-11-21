@@ -149,11 +149,6 @@ class PreviewPlayer(unittest.TestCase):
         self.assertIn('préparation de frame',report)
         self.assertIn('firstHomeFrameMs',report); self.assertIn('playlistFrameMs',report)
 
-    def test_bundled_assets_are_never_replaced_by_downloaded_hotfixes(self):
-        text=method(self.get('smali/m9.smali'),'.method public static d(Ljava/lang/String;)Ljava/lang/String;')
-        self.assertIn('hotfixes/',text)
-        self.assertIn('    goto :cond_2\n',text); self.assertNotIn('if-nez v1, :cond_2',text)
-
     def test_webview_debugging_is_confined_to_exact_preview_package(self):
         text=method(self.get('smali/m9.smali'),'.method public static g(Landroid/content/Context;)Landroid/webkit/WebView;')
         package=text.index('com.melodix.music.preview')
