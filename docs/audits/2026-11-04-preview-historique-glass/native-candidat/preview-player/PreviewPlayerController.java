@@ -388,6 +388,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     // reply that is the start of the shown list, or one with no track, never replaces the rows already kept.
     // shortcut: limited to 2 min after opening, so tracks removed elsewhere show on the next visit.
     public String keepRows(String screen, String context, String rows) {
+        if ("home".equals(screen)) return keepHome(rows);
         try {
             Activity a = activity.get(); String k = playlistKey(context);
             if (a == null || !"detail".equals(screen) || k.isEmpty() || !k.equals(pendingPlaylist) || playlistStart < 0 || now() - playlistStart > 120000) return rows;
@@ -401,6 +402,19 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             }
             return kept.toString();
         } catch (Exception e) { return rows; }
+    }
+    // User video (1022347): at launch a partial Home (shelves missing) showed for ~1 s, then the full one.
+    // shortcut: only 15 s after the first Home; later a Home with fewer shelves is shown as is.
+    private String homeRows; private long homeAt = -1;
+    String keepHome(String rows) {
+        long t = now(); if (homeAt < 0) homeAt = t;
+        try { if (homeRows != null && t - homeAt < 15000 && shelves(rows) < shelves(homeRows)) return homeRows; } catch (Exception e) {}
+        homeRows = rows; return rows;
+    }
+    static int shelves(String rows) throws Exception {
+        JSONArray a = new JSONArray(rows); java.util.Set<String> s = new java.util.HashSet<String>();
+        for (int i = 0; i < a.length(); i++) { JSONObject o = a.optJSONObject(i); if (o != null && o.has("section")) s.add(o.optString("section", "")); }
+        return s.size();
     }
     private void storeRows(String context, JSONArray data) {
         Activity a = activity.get(); String k = playlistKey(context);
@@ -989,6 +1003,12 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             .append(previousPlaylistFrameMs < 0 ? "—" : Long.toString(previousPlaylistFrameMs) + " ms")
             .append(" (peut concerner une autre playlist ; comparaison indicative)");
         out.append("\nChargement playlist (état local, sans identifiant) : ").append(loadStage);
+        // User report (1022347): Spotify playlist stays empty with waiting-bridge; show the page state (route type only, no id).
+        try {
+            WebView w = seekWeb.get(); String u = w == null ? null : w.getUrl();
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("^https://open\\.spotify\\.com/([a-z-]*)").matcher(u == null ? "" : u);
+            out.append("\nPage Spotify (type de route seulement) : ").append(w == null ? "WebView absente" : "chargement " + w.getProgress() + " % ; route=" + (m.find() ? (m.group(1).isEmpty() ? "accueil" : m.group(1)) : u == null ? "aucune" : "hors Spotify"));
+        } catch (Exception e) { out.append("\nPage Spotify : non lisible"); }
         out.append("\nSource position : ").append(progressSource);
         out.append(" ; identité de titre présente : ").append(tupleIdentity ? "oui" : "non");
         out.append("\nAnimation barre : ").append(progressStopReason());
