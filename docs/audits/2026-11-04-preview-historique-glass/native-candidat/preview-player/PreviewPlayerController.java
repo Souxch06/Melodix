@@ -390,6 +390,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     }
     // User report (1022349): the hidden page often has no cover image in the player bar (lazy image, never shown).
     // Ask Spotify's public oEmbed for the track's cover (track id only, no account data), once per track.
+    private String pingAge = "—";
     private String retryNote = "—";
     private String coverAsked = "";
     void fetchCover(final Activity a, final String key, String uri) {
@@ -1108,16 +1109,16 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         } catch (Exception e) { out.append("\nPage Spotify : non lisible"); }
         // User report (1022349): playlist rows and cover both missing while the page is at 100 %. Show the bridge
         // state from the shell's own flags (no account data); the value is refreshed for the next opening.
-        out.append("\nPont (démarré ; terminé ; mode ; erreur ; CSP ; octets ; étape ; requête interceptée ; octets servis ; service worker actif ; relance native (type@ligne:colonne) ; pont entré ; type terminé ; relance déjà faite sur cette page ; script court reçu, relevé précédent) : ").append(bridgeState).append(" ; relance côté Android : ").append(retryNote);
+        out.append("\nPont (démarré ; terminé ; mode ; erreur ; CSP ; octets ; étape ; requête interceptée ; octets servis ; service worker actif ; relance native (type@ligne:colonne) ; pont entré ; type terminé ; relance déjà faite sur cette page ; script court reçu ; âge de la page, relevé précédent) : ").append(bridgeState).append(" ; relance côté Android : ").append(retryNote).append(" ; âge de la page au script court : ").append(pingAge);
         try {
             WebView w = seekWeb.get();
-            if (w != null) w.evaluateJavascript("(function(){try{var w=window;var r=[w.__sfMelodixBridgeStarted===true,w.__sfMelodixBridgeCompleted===true,String(w.__sfBridgeExecMode||'-'),String(w.__sfBridgeLastError||'-'),w.__sfBridgeCspViolation?1:0,w.__sfBridgeBytes|0,String(w.__sfBridgeLoadStage||'-').slice(0,40),w.__sfBridgeIntercepted===true,w.__sfBridgeServedBytes|0,!!(navigator.serviceWorker&&navigator.serviceWorker.controller),String(w.__sfPrbErr||'-'),w.__sfBridgeEntered===true,typeof w.__sfMelodixBridgeCompleted,w.__sfPrbTried===1,w.__sfPrbPing===1].join(' ; ');return r}catch(e){return 'erreur'}})()",
+            if (w != null) w.evaluateJavascript("(function(){try{var w=window;var r=[w.__sfMelodixBridgeStarted===true,w.__sfMelodixBridgeCompleted===true,String(w.__sfBridgeExecMode||'-'),String(w.__sfBridgeLastError||'-'),w.__sfBridgeCspViolation?1:0,w.__sfBridgeBytes|0,String(w.__sfBridgeLoadStage||'-').slice(0,40),w.__sfBridgeIntercepted===true,w.__sfBridgeServedBytes|0,!!(navigator.serviceWorker&&navigator.serviceWorker.controller),String(w.__sfPrbErr||'-'),w.__sfBridgeEntered===true,typeof w.__sfMelodixBridgeCompleted,w.__sfPrbTried===1,w.__sfPrbPing===1,Math.round(performance.now()/1000)+' s'].join(' ; ');return r}catch(e){return 'erreur'}})()",
                 new android.webkit.ValueCallback<String>() { public void onReceiveValue(String v) { bridgeState = v == null ? "—" : v.length() > 260 ? v.substring(0, 260) : v; bridgeSeq++; } });
             // User diagnostic (1022360): the bridge script loads (served 146768 bytes) but never starts, with no
             // visible error (a service-worker response can hide it). Run the bundled bridge once, natively, and
             // keep only the error type and position.
             if (w != null) try {
-                w.evaluateJavascript("window.__sfPrbPing=1", null);
+                w.evaluateJavascript("window.__sfPrbPing=1;Math.round(performance.now()/1000)", new android.webkit.ValueCallback<String>() { public void onReceiveValue(String v) { pingAge = v; } });
                 Activity ba = activity.get(); if (ba == null) throw new java.io.IOException("no activity");
                 java.io.InputStream in = ba.getAssets().open("spotify_bridge.js");
                 java.io.ByteArrayOutputStream buf = new java.io.ByteArrayOutputStream(); byte[] b = new byte[16384]; int n;
