@@ -136,8 +136,7 @@
             if (previewReadyPlaylistCache(uri)) {
                 request(); return;
             }
-            // User report (1022370): the running bridge never sets the completed flag; its playlist reader is enough.
-            if (typeof window.fetchMediaItems === 'function') {
+            if (window.__sfMelodixBridgeCompleted === true && typeof window.fetchMediaItems === 'function') {
                 request(); return;
             }
             if (remaining <= 0) { failed('waiting-bridge'); return; }
