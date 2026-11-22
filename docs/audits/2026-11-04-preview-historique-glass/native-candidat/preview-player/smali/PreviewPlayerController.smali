@@ -10,6 +10,8 @@
 
 
 # static fields
+.field static final BRIDGE_MARK:Ljava/lang/String; = "(function(w){if(w.__spotiduck_bridge_applied===true&&typeof w.fetchMediaItems===\'function\'&&w.__sfMelodixBridgeCompleted!==true){w.__sfMelodixBridgeStarted=true;w.__sfMelodixBridgeCompleted=true;return 1}return 0})(window)"
+
 .field private static final CORRECTION_MS:J = 0xfa0L
 
 .field private static final COVER_STORE:Ljava/lang/String; = "preview_cover"
@@ -115,6 +117,10 @@
 .field private base:D
 
 .field private bridgeAt:J
+
+.field private bridgeMarkAt:J
+
+.field private bridgeMarks:I
 
 .field private bridgeSeq:I
 
@@ -413,7 +419,7 @@
 
     sput-wide v0, Lcom/melodix/music/PreviewPlayerController;->processHomeFrameMs:J
 
-    .line 1045
+    .line 1058
     const/4 v0, 0x6
 
     new-array v0, v0, [I
@@ -721,17 +727,20 @@
 
     iput-object v2, p0, Lcom/melodix/music/PreviewPlayerController;->pulse:Ljava/lang/Runnable;
 
-    .line 1044
+    .line 801
+    iput-wide v0, p0, Lcom/melodix/music/PreviewPlayerController;->bridgeMarkAt:J
+
+    .line 1057
     iput-wide v0, p0, Lcom/melodix/music/PreviewPlayerController;->skipUntil:J
 
-    .line 1050
-    new-instance v0, Lcom/melodix/music/PreviewPlayerController$9;
+    .line 1063
+    new-instance v0, Lcom/melodix/music/PreviewPlayerController$10;
 
-    invoke-direct {v0, p0}, Lcom/melodix/music/PreviewPlayerController$9;-><init>(Lcom/melodix/music/PreviewPlayerController;)V
+    invoke-direct {v0, p0}, Lcom/melodix/music/PreviewPlayerController$10;-><init>(Lcom/melodix/music/PreviewPlayerController;)V
 
     iput-object v0, p0, Lcom/melodix/music/PreviewPlayerController;->undim:Ljava/lang/Runnable;
 
-    .line 1198
+    .line 1211
     const-string v0, "non relev\u00e9"
 
     iput-object v0, p0, Lcom/melodix/music/PreviewPlayerController;->pageFlags:Ljava/lang/String;
@@ -1280,7 +1289,20 @@
     return p1
 .end method
 
-.method static synthetic access$4400(Lcom/melodix/music/PreviewPlayerController;)J
+.method static synthetic access$4408(Lcom/melodix/music/PreviewPlayerController;)I
+    .locals 2
+
+    .line 34
+    iget v0, p0, Lcom/melodix/music/PreviewPlayerController;->bridgeMarks:I
+
+    add-int/lit8 v1, v0, 0x1
+
+    iput v1, p0, Lcom/melodix/music/PreviewPlayerController;->bridgeMarks:I
+
+    return v0
+.end method
+
+.method static synthetic access$4500(Lcom/melodix/music/PreviewPlayerController;)J
     .locals 2
 
     .line 34
@@ -1289,7 +1311,7 @@
     return-wide v0
 .end method
 
-.method static synthetic access$4502(Lcom/melodix/music/PreviewPlayerController;J)J
+.method static synthetic access$4602(Lcom/melodix/music/PreviewPlayerController;J)J
     .locals 0
 
     .line 34
@@ -1298,7 +1320,7 @@
     return-wide p1
 .end method
 
-.method static synthetic access$4600(Lcom/melodix/music/PreviewPlayerController;F)V
+.method static synthetic access$4700(Lcom/melodix/music/PreviewPlayerController;F)V
     .locals 0
 
     .line 34
@@ -1307,7 +1329,7 @@
     return-void
 .end method
 
-.method static synthetic access$4702(Lcom/melodix/music/PreviewPlayerController;Ljava/lang/String;)Ljava/lang/String;
+.method static synthetic access$4802(Lcom/melodix/music/PreviewPlayerController;Ljava/lang/String;)Ljava/lang/String;
     .locals 0
 
     .line 34
@@ -1316,7 +1338,7 @@
     return-object p1
 .end method
 
-.method static synthetic access$4800(Lcom/melodix/music/PreviewPlayerController;)I
+.method static synthetic access$4900(Lcom/melodix/music/PreviewPlayerController;)I
     .locals 0
 
     .line 34
@@ -1325,7 +1347,7 @@
     return p0
 .end method
 
-.method static synthetic access$4808(Lcom/melodix/music/PreviewPlayerController;)I
+.method static synthetic access$4908(Lcom/melodix/music/PreviewPlayerController;)I
     .locals 2
 
     .line 34
@@ -1338,15 +1360,6 @@
     return v0
 .end method
 
-.method static synthetic access$4902(Lcom/melodix/music/PreviewPlayerController;Ljava/lang/String;)Ljava/lang/String;
-    .locals 0
-
-    .line 34
-    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerController;->pageFlags:Ljava/lang/String;
-
-    return-object p1
-.end method
-
 .method static synthetic access$500(Lcom/melodix/music/PreviewPlayerController;)J
     .locals 2
 
@@ -1356,7 +1369,16 @@
     return-wide v0
 .end method
 
-.method static synthetic access$5000(Lcom/melodix/music/PreviewPlayerController;)V
+.method static synthetic access$5002(Lcom/melodix/music/PreviewPlayerController;Ljava/lang/String;)Ljava/lang/String;
+    .locals 0
+
+    .line 34
+    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerController;->pageFlags:Ljava/lang/String;
+
+    return-object p1
+.end method
+
+.method static synthetic access$5100(Lcom/melodix/music/PreviewPlayerController;)V
     .locals 0
 
     .line 34
@@ -2146,7 +2168,7 @@
 .method private delta(J)Ljava/lang/String;
     .locals 4
 
-    .line 1057
+    .line 1070
     const-wide/16 v0, 0x0
 
     cmp-long v2, p1, v0
@@ -2201,7 +2223,7 @@
 .method private dimTrack(F)V
     .locals 5
 
-    .line 1047
+    .line 1060
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController;->activity:Ljava/lang/ref/WeakReference;
 
     invoke-virtual {v0}, Ljava/lang/ref/WeakReference;->get()Ljava/lang/Object;
@@ -2214,7 +2236,7 @@
 
     return-void
 
-    .line 1048
+    .line 1061
     :cond_0
     sget-object v1, Lcom/melodix/music/PreviewPlayerController;->TRACK_VIEWS:[I
 
@@ -2240,7 +2262,7 @@
 
     goto :goto_0
 
-    .line 1049
+    .line 1062
     :cond_2
     return-void
 .end method
@@ -2248,7 +2270,7 @@
 .method private dominantPhase()Ljava/lang/String;
     .locals 18
 
-    .line 1075
+    .line 1088
     move-object/from16 v0, p0
 
     iget-wide v1, v0, Lcom/melodix/music/PreviewPlayerController;->playlistStart:J
@@ -2313,7 +2335,7 @@
 
     goto/16 :goto_3
 
-    .line 1077
+    .line 1090
     :cond_0
     iget-wide v1, v0, Lcom/melodix/music/PreviewPlayerController;->bridgeAt:J
 
@@ -2341,7 +2363,7 @@
     :goto_0
     iget-wide v10, v0, Lcom/melodix/music/PreviewPlayerController;->receivedAt:J
 
-    .line 1078
+    .line 1091
     iget-wide v12, v0, Lcom/melodix/music/PreviewPlayerController;->pageReadyAt:J
 
     cmp-long v5, v12, v3
@@ -2394,7 +2416,7 @@
 
     aput-wide v14, v6, v1
 
-    .line 1079
+    .line 1092
     const-string v1, "r\u00e9ception \u2192 rendu natif"
 
     const-string v2, "rendu \u2192 frame"
@@ -2409,10 +2431,10 @@
 
     move-result-object v1
 
-    .line 1080
+    .line 1093
     nop
 
-    .line 1081
+    .line 1094
     const-string v2, "ind\u00e9termin\u00e9e"
 
     const-wide/16 v16, -0x1
@@ -2443,7 +2465,7 @@
 
     goto :goto_2
 
-    .line 1082
+    .line 1095
     :cond_4
     new-instance v1, Ljava/lang/StringBuilder;
 
@@ -2465,7 +2487,7 @@
 
     return-object v1
 
-    .line 1076
+    .line 1089
     :cond_5
     :goto_3
     const-string v1, "ind\u00e9termin\u00e9e (phases manquantes ou non s\u00e9quentielles)"
@@ -2476,12 +2498,12 @@
 .method static flagsSetTrue(Ljava/lang/String;)Ljava/lang/String;
     .locals 4
 
-    .line 1217
+    .line 1230
     new-instance v0, Ljava/util/TreeSet;
 
     invoke-direct {v0}, Ljava/util/TreeSet;-><init>()V
 
-    .line 1218
+    .line 1231
     const-string v1, "window\\.(__sf[A-Za-z0-9_]*)\\s*=\\s*(?:!0|true)\\b"
 
     invoke-static {v1}, Ljava/util/regex/Pattern;->compile(Ljava/lang/String;)Ljava/util/regex/Pattern;
@@ -2492,7 +2514,7 @@
 
     move-result-object p0
 
-    .line 1219
+    .line 1232
     :goto_0
     invoke-virtual {p0}, Ljava/util/regex/Matcher;->find()Z
 
@@ -2518,7 +2540,7 @@
 
     goto :goto_0
 
-    .line 1220
+    .line 1233
     :cond_0
     new-instance p0, Ljava/lang/StringBuilder;
 
@@ -2563,7 +2585,7 @@
 
     goto :goto_1
 
-    .line 1221
+    .line 1234
     :cond_2
     invoke-virtual {v0}, Ljava/util/TreeSet;->isEmpty()Z
 
@@ -2730,7 +2752,7 @@
 .method private hotfixFlags()Ljava/lang/String;
     .locals 9
 
-    .line 1201
+    .line 1214
     const-string v0, " "
 
     const-string v1, "\\s+"
@@ -2750,7 +2772,7 @@
 
     return-object v0
 
-    .line 1202
+    .line 1215
     :cond_0
     new-instance v3, Ljava/io/File;
 
@@ -2762,7 +2784,7 @@
 
     invoke-direct {v3, v2, v4}, Ljava/io/File;-><init>(Ljava/io/File;Ljava/lang/String;)V
 
-    .line 1203
+    .line 1216
     invoke-virtual {v3}, Ljava/io/File;->exists()Z
 
     move-result v2
@@ -2773,7 +2795,7 @@
 
     return-object v0
 
-    .line 1204
+    .line 1217
     :cond_1
     new-instance v2, Ljava/lang/String;
 
@@ -2789,7 +2811,7 @@
 
     invoke-direct {v2, v4, v5}, Ljava/lang/String;-><init>([BLjava/lang/String;)V
 
-    .line 1206
+    .line 1219
     invoke-virtual {v2}, Ljava/lang/String;->length()I
 
     move-result v4
@@ -2810,7 +2832,7 @@
 
     move-result-object v4
 
-    .line 1207
+    .line 1220
     invoke-virtual {v2}, Ljava/lang/String;->length()I
 
     move-result v6
@@ -2829,7 +2851,7 @@
 
     move-result-object v0
 
-    .line 1208
+    .line 1221
     const-string v1, "function"
 
     const/4 v5, -0x1
@@ -2852,7 +2874,7 @@
 
     add-int/lit8 v5, v5, -0x1
 
-    .line 1209
+    .line 1222
     new-instance v6, Ljava/lang/StringBuilder;
 
     invoke-direct {v6}, Ljava/lang/StringBuilder;-><init>()V
@@ -2927,7 +2949,7 @@
 
     return-object v0
 
-    .line 1210
+    .line 1223
     :catchall_0
     move-exception v0
 
@@ -3009,6 +3031,76 @@
 
     .line 597
     :cond_0
+    return-void
+.end method
+
+.method private markBridge()V
+    .locals 7
+
+    .line 805
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController;->seekWeb:Ljava/lang/ref/WeakReference;
+
+    invoke-virtual {v0}, Ljava/lang/ref/WeakReference;->get()Ljava/lang/Object;
+
+    move-result-object v0
+
+    check-cast v0, Landroid/webkit/WebView;
+
+    invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerController;->now()J
+
+    move-result-wide v1
+
+    .line 806
+    if-eqz v0, :cond_1
+
+    iget-wide v3, p0, Lcom/melodix/music/PreviewPlayerController;->bridgeMarkAt:J
+
+    const-wide/16 v5, 0x0
+
+    cmp-long v3, v3, v5
+
+    if-ltz v3, :cond_0
+
+    iget-wide v3, p0, Lcom/melodix/music/PreviewPlayerController;->bridgeMarkAt:J
+
+    sub-long v3, v1, v3
+
+    const-wide/16 v5, 0x3e8
+
+    cmp-long v3, v3, v5
+
+    if-gez v3, :cond_0
+
+    goto :goto_1
+
+    .line 807
+    :cond_0
+    iput-wide v1, p0, Lcom/melodix/music/PreviewPlayerController;->bridgeMarkAt:J
+
+    .line 808
+    :try_start_0
+    const-string v1, "(function(w){if(w.__spotiduck_bridge_applied===true&&typeof w.fetchMediaItems===\'function\'&&w.__sfMelodixBridgeCompleted!==true){w.__sfMelodixBridgeStarted=true;w.__sfMelodixBridgeCompleted=true;return 1}return 0})(window)"
+
+    new-instance v2, Lcom/melodix/music/PreviewPlayerController$8;
+
+    invoke-direct {v2, p0}, Lcom/melodix/music/PreviewPlayerController$8;-><init>(Lcom/melodix/music/PreviewPlayerController;)V
+
+    invoke-virtual {v0, v1, v2}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
+    :try_end_0
+    .catchall {:try_start_0 .. :try_end_0} :catchall_0
+
+    goto :goto_0
+
+    :catchall_0
+    move-exception v0
+
+    .line 809
+    :goto_0
+    return-void
+
+    .line 806
+    :cond_1
+    :goto_1
     return-void
 .end method
 
@@ -3231,7 +3323,7 @@
 .method private phaseDuration(JJ)Ljava/lang/String;
     .locals 2
 
-    .line 1071
+    .line 1084
     const-wide/16 v0, 0x0
 
     cmp-long v0, p1, v0
@@ -3504,7 +3596,7 @@
 .method private progressStopReason()Ljava/lang/String;
     .locals 4
 
-    .line 1059
+    .line 1072
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerController;->interrupted:Z
 
     if-eqz v0, :cond_0
@@ -3513,7 +3605,7 @@
 
     return-object v0
 
-    .line 1060
+    .line 1073
     :cond_0
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerController;->haveReal:Z
 
@@ -3523,7 +3615,7 @@
 
     return-object v0
 
-    .line 1061
+    .line 1074
     :cond_1
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerController;->pending:Z
 
@@ -3537,7 +3629,7 @@
 
     return-object v0
 
-    .line 1062
+    .line 1075
     :cond_2
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController;->playbackState:Ljava/lang/String;
 
@@ -3553,7 +3645,7 @@
 
     return-object v0
 
-    .line 1063
+    .line 1076
     :cond_3
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController;->playbackState:Ljava/lang/String;
 
@@ -3569,7 +3661,7 @@
 
     return-object v0
 
-    .line 1064
+    .line 1077
     :cond_4
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerController;->tupleIdentity:Z
 
@@ -3579,7 +3671,7 @@
 
     return-object v0
 
-    .line 1065
+    .line 1078
     :cond_5
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerController;->valid:Z
 
@@ -3589,7 +3681,7 @@
 
     return-object v0
 
-    .line 1066
+    .line 1079
     :cond_6
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerController;->moving:Z
 
@@ -3599,7 +3691,7 @@
 
     return-object v0
 
-    .line 1067
+    .line 1080
     :cond_7
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerController;->now()J
 
@@ -3621,7 +3713,7 @@
 
     return-object v0
 
-    .line 1068
+    .line 1081
     :cond_8
     const-string v0, "animation active"
 
@@ -3636,7 +3728,7 @@
         }
     .end annotation
 
-    .line 1213
+    .line 1226
     :try_start_0
     new-instance v0, Ljava/io/ByteArrayOutputStream;
 
@@ -3646,7 +3738,7 @@
 
     new-array v1, v1, [B
 
-    .line 1214
+    .line 1227
     :goto_0
     invoke-virtual {p0, v1}, Ljava/io/InputStream;->read([B)I
 
@@ -4451,7 +4543,7 @@
 .method private report()Ljava/lang/String;
     .locals 17
 
-    .line 1085
+    .line 1098
     move-object/from16 v1, p0
 
     const-string v2, "non lisible"
@@ -4462,7 +4554,7 @@
 
     invoke-direct {v3, v0}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
 
-    .line 1086
+    .line 1099
     iget-wide v4, v1, Lcom/melodix/music/PreviewPlayerController;->tapAt:J
 
     const-wide/16 v6, 0x0
@@ -4491,7 +4583,7 @@
 
     invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1087
+    .line 1100
     const-string v0, "\nInterface optimiste : "
 
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -4506,7 +4598,7 @@
 
     invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1088
+    .line 1101
     const-string v0, "\n\u00c9tat du lecteur observ\u00e9 : "
 
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -4521,7 +4613,7 @@
 
     invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1089
+    .line 1102
     const-string v0, "\nInterface confirm\u00e9e : "
 
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -4536,7 +4628,7 @@
 
     invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1090
+    .line 1103
     const-string v0, "\nCache local : "
 
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -4561,7 +4653,7 @@
 
     invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1091
+    .line 1104
     const-string v0, "\nCache local : lecture et application \u00e9ventuelle des vues, sans mesure de frame : "
 
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -4604,14 +4696,14 @@
     :goto_1
     invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1092
+    .line 1105
     const-string v0, "\nD\u00e9marrage : processus \u2192 prochaine frame accueil avec donn\u00e9es (Android 12+) : "
 
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v0
 
-    .line 1093
+    .line 1106
     sget-wide v9, Lcom/melodix/music/PreviewPlayerController;->processHomeFrameMs:J
 
     cmp-long v4, v9, v6
@@ -4648,14 +4740,14 @@
     :goto_2
     invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1094
+    .line 1107
     const-string v0, "\nD\u00e9marrage : activit\u00e9 \u2192 prochaine frame accueil avec donn\u00e9es : "
 
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v0
 
-    .line 1095
+    .line 1108
     sget-wide v9, Lcom/melodix/music/PreviewPlayerController;->firstHomeFrameMs:J
 
     cmp-long v4, v9, v6
@@ -4692,14 +4784,14 @@
     :goto_3
     invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1096
+    .line 1109
     const-string v0, "\nPlaylist : appui \u2192 prochaine frame avec titres : "
 
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v0
 
-    .line 1097
+    .line 1110
     iget-wide v9, v1, Lcom/melodix/music/PreviewPlayerController;->playlistFrameMs:J
 
     cmp-long v4, v9, v6
@@ -4736,14 +4828,14 @@
     :goto_4
     invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1098
+    .line 1111
     const-string v0, "\nPlaylist : mesure pr\u00e9c\u00e9dente appui \u2192 frame avec titres : "
 
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v0
 
-    .line 1099
+    .line 1112
     iget-wide v9, v1, Lcom/melodix/music/PreviewPlayerController;->previousPlaylistFrameMs:J
 
     cmp-long v4, v9, v6
@@ -4782,12 +4874,12 @@
 
     move-result-object v0
 
-    .line 1100
+    .line 1113
     const-string v4, " (peut concerner une autre playlist ; comparaison indicative)"
 
     invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1101
+    .line 1114
     const-string v0, "\nChargement playlist (\u00e9tat local, sans identifiant) : "
 
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -4798,7 +4890,7 @@
 
     invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1104
+    .line 1117
     const/4 v4, 0x1
 
     :try_start_0
@@ -4821,7 +4913,7 @@
 
     move-result-object v9
 
-    .line 1105
+    .line 1118
     :goto_6
     const-string v10, "^https://open\\.spotify\\.com/([a-z-]*)"
 
@@ -4843,7 +4935,7 @@
 
     move-result-object v10
 
-    .line 1106
+    .line 1119
     const-string v11, "\nPage Spotify (type de route seulement) : "
 
     invoke-virtual {v3, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -4932,7 +5024,7 @@
     :try_end_0
     .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
 
-    .line 1107
+    .line 1120
     goto :goto_a
 
     :catch_0
@@ -4942,9 +5034,9 @@
 
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1110
+    .line 1123
     :goto_a
-    const-string v0, "\nPont (d\u00e9marr\u00e9 ; termin\u00e9 ; mode ; erreur ; CSP ; octets ; \u00e9tape ; requ\u00eate intercept\u00e9e ; octets servis ; service worker actif ; pont entr\u00e9 ; \u00e2ge de la page, relev\u00e9 \u00e0 l\'ouverture) : "
+    const-string v0, "\nPont (d\u00e9marr\u00e9 ; termin\u00e9 ; mode ; erreur ; CSP ; octets ; \u00e9tape ; requ\u00eate intercept\u00e9e ; octets servis ; service worker actif ; pont entr\u00e9 ; \u00e2ge de la page ; pont d\'origine appliqu\u00e9 ; lecteur de playlist, relev\u00e9 \u00e0 l\'ouverture) : "
 
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
@@ -4954,7 +5046,19 @@
 
     invoke-virtual {v0, v9}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1112
+    move-result-object v0
+
+    const-string v9, " ; signaux traduits : "
+
+    invoke-virtual {v0, v9}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    iget v9, v1, Lcom/melodix/music/PreviewPlayerController;->bridgeMarks:I
+
+    invoke-virtual {v0, v9}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    .line 1125
     :try_start_1
     iget-object v0, v1, Lcom/melodix/music/PreviewPlayerController;->seekWeb:Ljava/lang/ref/WeakReference;
 
@@ -4964,20 +5068,20 @@
 
     check-cast v0, Landroid/webkit/WebView;
 
-    .line 1113
+    .line 1126
     if-eqz v0, :cond_c
 
-    const-string v9, "(function(){try{var w=window;var r=[w.__sfMelodixBridgeStarted===true,w.__sfMelodixBridgeCompleted===true,String(w.__sfBridgeExecMode||\'-\'),String(w.__sfBridgeLastError||\'-\'),w.__sfBridgeCspViolation?1:0,w.__sfBridgeBytes|0,String(w.__sfBridgeLoadStage||\'-\').slice(0,40),w.__sfBridgeIntercepted===true,w.__sfBridgeServedBytes|0,!!(navigator.serviceWorker&&navigator.serviceWorker.controller),w.__sfBridgeEntered===true,Math.round(performance.now()/1000)+\' s\'].join(\' ; \');return r}catch(e){return \'erreur\'}})()"
+    const-string v9, "(function(){try{var w=window;var r=[w.__sfMelodixBridgeStarted===true,w.__sfMelodixBridgeCompleted===true,String(w.__sfBridgeExecMode||\'-\'),String(w.__sfBridgeLastError||\'-\'),w.__sfBridgeCspViolation?1:0,w.__sfBridgeBytes|0,String(w.__sfBridgeLoadStage||\'-\').slice(0,40),w.__sfBridgeIntercepted===true,w.__sfBridgeServedBytes|0,!!(navigator.serviceWorker&&navigator.serviceWorker.controller),w.__sfBridgeEntered===true,Math.round(performance.now()/1000)+\' s\',w.__spotiduck_bridge_applied===true,typeof w.fetchMediaItems].join(\' ; \');return r}catch(e){return \'erreur\'}})()"
 
-    new-instance v10, Lcom/melodix/music/PreviewPlayerController$11;
+    new-instance v10, Lcom/melodix/music/PreviewPlayerController$12;
 
-    invoke-direct {v10, v1}, Lcom/melodix/music/PreviewPlayerController$11;-><init>(Lcom/melodix/music/PreviewPlayerController;)V
+    invoke-direct {v10, v1}, Lcom/melodix/music/PreviewPlayerController$12;-><init>(Lcom/melodix/music/PreviewPlayerController;)V
 
     invoke-virtual {v0, v9, v10}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
     :try_end_1
     .catch Ljava/lang/Exception; {:try_start_1 .. :try_end_1} :catch_1
 
-    .line 1115
+    .line 1128
     :cond_c
     goto :goto_b
 
@@ -4986,7 +5090,7 @@
 
     iput-object v2, v1, Lcom/melodix/music/PreviewPlayerController;->bridgeState:Ljava/lang/String;
 
-    .line 1118
+    .line 1131
     :goto_b
     const-string v0, "\nPont t\u00e9l\u00e9charg\u00e9 (taille ; drapeaux pos\u00e9s \u00e0 true) : "
 
@@ -5000,7 +5104,7 @@
 
     invoke-virtual {v0, v9}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1119
+    .line 1132
     const-string v0, "\nDrapeaux __sf vrais dans la page (relev\u00e9 \u00e0 l\'ouverture) : "
 
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -5011,7 +5115,7 @@
 
     invoke-virtual {v0, v9}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1121
+    .line 1134
     :try_start_2
     iget-object v0, v1, Lcom/melodix/music/PreviewPlayerController;->seekWeb:Ljava/lang/ref/WeakReference;
 
@@ -5021,20 +5125,20 @@
 
     check-cast v0, Landroid/webkit/WebView;
 
-    .line 1122
+    .line 1135
     if-eqz v0, :cond_d
 
     const-string v9, "(function(){try{return Object.keys(window).filter(function(k){return /^__sf/.test(k)&&window[k]===true}).sort().join(\',\').slice(0,900)}catch(e){return \'erreur\'}})()"
 
-    new-instance v10, Lcom/melodix/music/PreviewPlayerController$12;
+    new-instance v10, Lcom/melodix/music/PreviewPlayerController$13;
 
-    invoke-direct {v10, v1}, Lcom/melodix/music/PreviewPlayerController$12;-><init>(Lcom/melodix/music/PreviewPlayerController;)V
+    invoke-direct {v10, v1}, Lcom/melodix/music/PreviewPlayerController$13;-><init>(Lcom/melodix/music/PreviewPlayerController;)V
 
     invoke-virtual {v0, v9, v10}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
     :try_end_2
     .catch Ljava/lang/Exception; {:try_start_2 .. :try_end_2} :catch_2
 
-    .line 1124
+    .line 1137
     :cond_d
     goto :goto_c
 
@@ -5043,7 +5147,7 @@
 
     iput-object v2, v1, Lcom/melodix/music/PreviewPlayerController;->pageFlags:Ljava/lang/String;
 
-    .line 1125
+    .line 1138
     :goto_c
     const-string v0, "\nSource position : "
 
@@ -5055,7 +5159,7 @@
 
     invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1126
+    .line 1139
     const-string v0, " ; identit\u00e9 de titre pr\u00e9sente : "
 
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -5080,7 +5184,7 @@
     :goto_d
     invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1127
+    .line 1140
     const-string v0, "\nAnimation barre : "
 
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -5093,7 +5197,7 @@
 
     invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1128
+    .line 1141
     const-string v0, "\nIdentit\u00e9 titre/artiste/dur\u00e9e : "
 
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -5112,7 +5216,7 @@
     :goto_e
     invoke-virtual {v0, v9}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1129
+    .line 1142
     const-string v0, " ; \u00e9tat : "
 
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -5123,7 +5227,7 @@
 
     invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1130
+    .line 1143
     const-string v0, " ; \u00e2ge de la mesure : "
 
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -5176,7 +5280,7 @@
     :goto_f
     invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1131
+    .line 1144
     const-string v0, "\nPlaylist \u2014 attente pont : "
 
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -5193,7 +5297,7 @@
 
     invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1132
+    .line 1145
     const-string v0, " ; appui \u2192 navigation : "
 
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -5210,7 +5314,7 @@
 
     invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1133
+    .line 1146
     const-string v0, " ; titres affich\u00e9s : premi\u00e8re liste="
 
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -5261,7 +5365,7 @@
     :goto_11
     invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1134
+    .line 1147
     const-string v0, " ; navigation \u2192 page pr\u00eate : "
 
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -5278,7 +5382,7 @@
 
     invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1135
+    .line 1148
     const-string v0, " ; page pr\u00eate/pont \u2192 lignes re\u00e7ues : "
 
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -5307,7 +5411,7 @@
 
     invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1136
+    .line 1149
     const-string v0, " ; r\u00e9ception \u2192 rendu natif : "
 
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -5324,7 +5428,7 @@
 
     invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1137
+    .line 1150
     const-string v0, " ; rendu \u2192 frame pr\u00e9par\u00e9e : "
 
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -5341,7 +5445,7 @@
 
     invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1138
+    .line 1151
     iget-boolean v0, v1, Lcom/melodix/music/PreviewPlayerController;->likedCollection:Z
 
     if-eqz v0, :cond_15
@@ -5358,7 +5462,7 @@
 
     move-result-object v0
 
-    .line 1139
+    .line 1152
     const-string v2, " ; rendu natif : "
 
     invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -5381,7 +5485,7 @@
     :goto_13
     invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1140
+    .line 1153
     :cond_15
     const-string v0, "\nPhase dominante : "
 
@@ -5395,7 +5499,7 @@
 
     invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1141
+    .line 1154
     const-string v0, " ; waiting-bridge avec lignes : "
 
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -5434,12 +5538,12 @@
     :goto_14
     invoke-virtual {v0, v10}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1142
+    .line 1155
     const-string v0, "\nSeek \u2014 8 derniers gestes (dur\u00e9es depuis le rel\u00e2chement) :"
 
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1143
+    .line 1156
     iget v0, v1, Lcom/melodix/music/PreviewPlayerController;->seekDiagCount:I
 
     if-nez v0, :cond_19
@@ -5448,7 +5552,7 @@
 
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1144
+    .line 1157
     :cond_19
     const/4 v0, 0x0
 
@@ -5459,7 +5563,7 @@
 
     if-ge v2, v9, :cond_1b
 
-    .line 1145
+    .line 1158
     iget v9, v1, Lcom/melodix/music/PreviewPlayerController;->seekDiagIndex:I
 
     iget v10, v1, Lcom/melodix/music/PreviewPlayerController;->seekDiagCount:I
@@ -5482,7 +5586,7 @@
 
     rem-int/2addr v9, v10
 
-    .line 1146
+    .line 1159
     const-string v10, "\n#"
 
     invoke-virtual {v3, v10}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -5511,14 +5615,14 @@
 
     aget-wide v14, v11, v9
 
-    .line 1147
+    .line 1160
     invoke-direct {v1, v12, v13, v14, v15}, Lcom/melodix/music/PreviewPlayerController;->phaseDuration(JJ)Ljava/lang/String;
 
     move-result-object v11
 
     invoke-virtual {v10, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1148
+    .line 1161
     const-string v10, " ; fin JS : "
 
     invoke-virtual {v3, v10}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -5541,7 +5645,7 @@
 
     move-result-object v10
 
-    .line 1149
+    .line 1162
     const-string v11, " ("
 
     invoke-virtual {v10, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -5560,7 +5664,7 @@
 
     invoke-virtual {v10, v12}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1150
+    .line 1163
     const-string v10, " ; premi\u00e8re position UI diff\u00e9rente : "
 
     invoke-virtual {v3, v10}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -5583,7 +5687,7 @@
 
     invoke-virtual {v10, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1151
+    .line 1164
     const-string v4, " ; position UI confirm\u00e9e : "
 
     invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -5606,7 +5710,7 @@
 
     move-result-object v4
 
-    .line 1152
+    .line 1165
     invoke-virtual {v4, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v4
@@ -5621,14 +5725,14 @@
 
     invoke-virtual {v4, v12}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1153
+    .line 1166
     const-string v4, " ; \u00e2ge derni\u00e8re observation re\u00e7ue au rel\u00e2chement : "
 
     invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v4
 
-    .line 1154
+    .line 1167
     iget-object v5, v1, Lcom/melodix/music/PreviewPlayerController;->seekDiagAge:[J
 
     aget-wide v6, v5, v9
@@ -5675,7 +5779,7 @@
     :goto_16
     invoke-virtual {v4, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1144
+    .line 1157
     add-int/lit8 v2, v2, 0x1
 
     move-object v5, v6
@@ -5686,7 +5790,7 @@
 
     goto/16 :goto_15
 
-    .line 1156
+    .line 1169
     :cond_1b
     move-object v6, v5
 
@@ -5694,19 +5798,19 @@
 
     invoke-virtual {v3, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1157
+    .line 1170
     const-string v2, "\nIntervalles position : "
 
     invoke-virtual {v3, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1158
+    .line 1171
     iget v2, v1, Lcom/melodix/music/PreviewPlayerController;->intervalCount:I
 
     if-nez v2, :cond_1c
 
     invoke-virtual {v3, v8}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1159
+    .line 1172
     :cond_1c
     move v2, v0
 
@@ -5715,14 +5819,14 @@
 
     if-ge v2, v4, :cond_1e
 
-    .line 1160
+    .line 1173
     if-lez v2, :cond_1d
 
     const-string v4, ", "
 
     invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1161
+    .line 1174
     :cond_1d
     iget v4, v1, Lcom/melodix/music/PreviewPlayerController;->intervalIndex:I
 
@@ -5744,7 +5848,7 @@
 
     rem-int/2addr v4, v5
 
-    .line 1162
+    .line 1175
     iget-object v5, v1, Lcom/melodix/music/PreviewPlayerController;->intervals:[J
 
     aget-wide v4, v5, v4
@@ -5755,12 +5859,12 @@
 
     invoke-virtual {v4, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1159
+    .line 1172
     add-int/lit8 v2, v2, 0x1
 
     goto :goto_17
 
-    .line 1164
+    .line 1177
     :cond_1e
     const-string v2, "\nRetour \u2014 absence : "
 
@@ -5802,17 +5906,17 @@
     :goto_18
     invoke-virtual {v2, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1165
+    .line 1178
     const-string v2, "\n\u00c2ge depuis observation JS, pas fra\u00eecheur garantie c\u00f4t\u00e9 Spotify."
 
     invoke-virtual {v3, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1166
+    .line 1179
     const-string v2, "\nRetour \u2014 20 derniers \u00e9v\u00e9nements (horloge monotone Android) :"
 
     invoke-virtual {v3, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1167
+    .line 1180
     move v2, v0
 
     :goto_19
@@ -5822,7 +5926,7 @@
 
     if-ge v2, v4, :cond_20
 
-    .line 1168
+    .line 1181
     iget v4, v1, Lcom/melodix/music/PreviewPlayerController;->returnEventIndex:I
 
     iget v6, v1, Lcom/melodix/music/PreviewPlayerController;->returnEventCount:I
@@ -5843,7 +5947,7 @@
 
     rem-int/2addr v4, v6
 
-    .line 1169
+    .line 1182
     invoke-virtual {v3, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v5
@@ -5854,18 +5958,18 @@
 
     invoke-virtual {v5, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1167
+    .line 1180
     add-int/lit8 v2, v2, 0x1
 
     goto :goto_19
 
-    .line 1171
+    .line 1184
     :cond_20
     const-string v2, "\nRetour \u2014 relev\u00e9s pendant 10 secondes :"
 
     invoke-virtual {v3, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1172
+    .line 1185
     move v2, v0
 
     :goto_1a
@@ -5887,13 +5991,13 @@
 
     goto :goto_1a
 
-    .line 1173
+    .line 1186
     :cond_21
     const-string v2, "\nHistorique (120 derni\u00e8res secondes au premier plan) :"
 
     invoke-virtual {v3, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1174
+    .line 1187
     nop
 
     :goto_1b
@@ -5901,7 +6005,7 @@
 
     if-ge v0, v2, :cond_22
 
-    .line 1175
+    .line 1188
     iget v2, v1, Lcom/melodix/music/PreviewPlayerController;->traceIndex:I
 
     iget v4, v1, Lcom/melodix/music/PreviewPlayerController;->traceCount:I
@@ -5922,7 +6026,7 @@
 
     rem-int/2addr v2, v4
 
-    .line 1176
+    .line 1189
     invoke-virtual {v3, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v4
@@ -5933,39 +6037,39 @@
 
     invoke-virtual {v4, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1174
+    .line 1187
     add-int/lit8 v0, v0, 0x1
 
     goto :goto_1b
 
-    .line 1178
+    .line 1191
     :cond_22
     const-string v0, "\nMesures de pr\u00e9paration de frame, pas pr\u00e9sentation \u00e9cran. D\u00e9marrage hors lanceur ; premier son non mesur\u00e9. La r\u00e9ception du pont n\'est pas un accus\u00e9 Spotify."
 
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1179
+    .line 1192
     invoke-static {}, Lcom/melodix/music/PreviewPlayerMode;->diagnosticReport()Ljava/lang/String;
 
     move-result-object v0
 
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1180
+    .line 1193
     invoke-static {}, Lcom/melodix/music/PreviewPlayerVolume;->diagnosticReport()Ljava/lang/String;
 
     move-result-object v0
 
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1181
+    .line 1194
     invoke-static {}, Lcom/melodix/music/PreviewPlayerTiles;->diagnosticReport()Ljava/lang/String;
 
     move-result-object v0
 
     invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    .line 1182
+    .line 1195
     invoke-virtual {v3}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
     move-result-object v0
@@ -6894,7 +6998,7 @@
 .method private showDiagnosticsNow()V
     .locals 4
 
-    .line 1224
+    .line 1237
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController;->activity:Ljava/lang/ref/WeakReference;
 
     invoke-virtual {v0}, Ljava/lang/ref/WeakReference;->get()Ljava/lang/Object;
@@ -6913,13 +7017,13 @@
 
     goto :goto_0
 
-    .line 1225
+    .line 1238
     :cond_0
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerController;->report()Ljava/lang/String;
 
     move-result-object v1
 
-    .line 1226
+    .line 1239
     new-instance v2, Landroid/app/AlertDialog$Builder;
 
     invoke-direct {v2, v0}, Landroid/app/AlertDialog$Builder;-><init>(Landroid/content/Context;)V
@@ -6934,18 +7038,18 @@
 
     move-result-object v2
 
-    new-instance v3, Lcom/melodix/music/PreviewPlayerController$14;
+    new-instance v3, Lcom/melodix/music/PreviewPlayerController$15;
 
-    invoke-direct {v3, p0, v0, v1}, Lcom/melodix/music/PreviewPlayerController$14;-><init>(Lcom/melodix/music/PreviewPlayerController;Landroid/app/Activity;Ljava/lang/String;)V
+    invoke-direct {v3, p0, v0, v1}, Lcom/melodix/music/PreviewPlayerController$15;-><init>(Lcom/melodix/music/PreviewPlayerController;Landroid/app/Activity;Ljava/lang/String;)V
 
-    .line 1227
+    .line 1240
     const-string v0, "Copier"
 
     invoke-virtual {v2, v0, v3}, Landroid/app/AlertDialog$Builder;->setPositiveButton(Ljava/lang/CharSequence;Landroid/content/DialogInterface$OnClickListener;)Landroid/app/AlertDialog$Builder;
 
     move-result-object v0
 
-    .line 1232
+    .line 1245
     const-string v1, "Fermer"
 
     const/4 v2, 0x0
@@ -6956,10 +7060,10 @@
 
     invoke-virtual {v0}, Landroid/app/AlertDialog$Builder;->show()Landroid/app/AlertDialog;
 
-    .line 1233
+    .line 1246
     return-void
 
-    .line 1224
+    .line 1237
     :cond_1
     :goto_0
     return-void
@@ -8449,14 +8553,14 @@
 .method public attachAbout(Landroid/view/View;)V
     .locals 1
 
-    .line 1053
-    new-instance v0, Lcom/melodix/music/PreviewPlayerController$10;
+    .line 1066
+    new-instance v0, Lcom/melodix/music/PreviewPlayerController$11;
 
-    invoke-direct {v0, p0}, Lcom/melodix/music/PreviewPlayerController$10;-><init>(Lcom/melodix/music/PreviewPlayerController;)V
+    invoke-direct {v0, p0}, Lcom/melodix/music/PreviewPlayerController$11;-><init>(Lcom/melodix/music/PreviewPlayerController;)V
 
     invoke-virtual {p1, v0}, Landroid/view/View;->setOnLongClickListener(Landroid/view/View$OnLongClickListener;)V
 
-    .line 1056
+    .line 1069
     return-void
 .end method
 
@@ -8516,7 +8620,7 @@
 .method public begin(I)V
     .locals 6
 
-    .line 1033
+    .line 1046
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerController;->now()J
 
     move-result-wide v0
@@ -8533,14 +8637,14 @@
 
     iput-wide v0, p0, Lcom/melodix/music/PreviewPlayerController;->commandAt:J
 
-    .line 1034
+    .line 1047
     iput p1, p0, Lcom/melodix/music/PreviewPlayerController;->operation:I
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController;->track:Ljava/lang/String;
 
     iput-object v0, p0, Lcom/melodix/music/PreviewPlayerController;->trackBefore:Ljava/lang/String;
 
-    .line 1037
+    .line 1050
     const/4 v0, 0x2
 
     if-eq p1, v0, :cond_0
@@ -8558,7 +8662,7 @@
 
     if-eqz p1, :cond_1
 
-    .line 1038
+    .line 1051
     iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerController;->tapAt:J
 
     const-wide/16 v2, 0xfa0
@@ -8581,7 +8685,7 @@
 
     iput-boolean p1, p0, Lcom/melodix/music/PreviewPlayerController;->moving:Z
 
-    .line 1039
+    .line 1052
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerController;->renderProgress()V
 
     const p1, 0x3ee66666    # 0.45f
@@ -8594,7 +8698,7 @@
 
     iput-wide v0, p0, Lcom/melodix/music/PreviewPlayerController;->optimisticAt:J
 
-    .line 1040
+    .line 1053
     iget-object p1, p0, Lcom/melodix/music/PreviewPlayerController;->handler:Landroid/os/Handler;
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController;->undim:Ljava/lang/Runnable;
@@ -8607,7 +8711,7 @@
 
     invoke-virtual {p1, v0, v2, v3}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
 
-    .line 1042
+    .line 1055
     :cond_1
     return-void
 .end method
@@ -8694,7 +8798,7 @@
 .method public command()V
     .locals 4
 
-    .line 1051
+    .line 1064
     iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerController;->tapAt:J
 
     const-wide/16 v2, 0x0
@@ -10886,7 +10990,7 @@
 .method public showDiagnostics()V
     .locals 5
 
-    .line 1187
+    .line 1200
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController;->activity:Ljava/lang/ref/WeakReference;
 
     invoke-virtual {v0}, Ljava/lang/ref/WeakReference;->get()Ljava/lang/Object;
@@ -10899,13 +11003,13 @@
 
     return-void
 
-    .line 1190
+    .line 1203
     :cond_0
     iget v0, p0, Lcom/melodix/music/PreviewPlayerController;->bridgeSeq:I
 
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerController;->report()Ljava/lang/String;
 
-    .line 1191
+    .line 1204
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerController;->now()J
 
     move-result-wide v1
@@ -10914,25 +11018,25 @@
 
     add-long/2addr v1, v3
 
-    .line 1192
+    .line 1205
     iget-object v3, p0, Lcom/melodix/music/PreviewPlayerController;->handler:Landroid/os/Handler;
 
-    new-instance v4, Lcom/melodix/music/PreviewPlayerController$13;
+    new-instance v4, Lcom/melodix/music/PreviewPlayerController$14;
 
-    invoke-direct {v4, p0, v0, v1, v2}, Lcom/melodix/music/PreviewPlayerController$13;-><init>(Lcom/melodix/music/PreviewPlayerController;IJ)V
+    invoke-direct {v4, p0, v0, v1, v2}, Lcom/melodix/music/PreviewPlayerController$14;-><init>(Lcom/melodix/music/PreviewPlayerController;IJ)V
 
     const-wide/16 v0, 0x96
 
     invoke-virtual {v3, v4, v0, v1}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
 
-    .line 1196
+    .line 1209
     return-void
 .end method
 
 .method public snapshot(Ljava/lang/String;)V
     .locals 52
 
-    .line 800
+    .line 811
     move-object/from16 v11, p0
 
     move-object/from16 v0, p1
@@ -10947,17 +11051,20 @@
 
     const-string v5, "playing"
 
+    invoke-direct/range {p0 .. p0}, Lcom/melodix/music/PreviewPlayerController;->markBridge()V
+
+    .line 813
     :try_start_0
     new-instance v6, Lorg/json/JSONObject;
 
     invoke-direct {v6, v0}, Lorg/json/JSONObject;-><init>(Ljava/lang/String;)V
 
-    .line 801
+    .line 814
     invoke-direct/range {p0 .. p0}, Lcom/melodix/music/PreviewPlayerController;->now()J
 
     move-result-wide v8
 
-    .line 802
+    .line 815
     invoke-virtual {v6, v4}, Lorg/json/JSONObject;->has(Ljava/lang/String;)Z
 
     move-result v7
@@ -10976,7 +11083,7 @@
 
     if-nez v7, :cond_4
 
-    .line 803
+    .line 816
     :try_start_1
     iget-boolean v0, v11, Lcom/melodix/music/PreviewPlayerController;->foreground:Z
 
@@ -10988,7 +11095,7 @@
 
     return-void
 
-    .line 807
+    .line 820
     :cond_0
     move-object/from16 v7, v16
 
@@ -11000,7 +11107,7 @@
 
     move-result-object v1
 
-    .line 810
+    .line 823
     iget-boolean v2, v11, Lcom/melodix/music/PreviewPlayerController;->tupleIdentity:Z
 
     if-eqz v2, :cond_2
@@ -11033,7 +11140,7 @@
 
     if-nez v2, :cond_2
 
-    .line 811
+    .line 824
     :cond_1
     invoke-direct/range {p0 .. p0}, Lcom/melodix/music/PreviewPlayerController;->cancelSeek()V
 
@@ -11047,7 +11154,7 @@
 
     iput-boolean v1, v11, Lcom/melodix/music/PreviewPlayerController;->glowSampleValid:Z
 
-    .line 812
+    .line 825
     iput-wide v14, v11, Lcom/melodix/music/PreviewPlayerController;->measurementPosition:J
 
     iput-wide v14, v11, Lcom/melodix/music/PreviewPlayerController;->measurementAt:J
@@ -11058,7 +11165,7 @@
 
     goto :goto_0
 
-    .line 813
+    .line 826
     :cond_2
     iget-boolean v2, v11, Lcom/melodix/music/PreviewPlayerController;->tupleIdentity:Z
 
@@ -11082,7 +11189,7 @@
 
     iput-object v1, v11, Lcom/melodix/music/PreviewPlayerController;->fullArtist:Ljava/lang/String;
 
-    .line 814
+    .line 827
     :cond_3
     :goto_0
     invoke-direct/range {p0 .. p0}, Lcom/melodix/music/PreviewPlayerController;->renderProgress()V
@@ -11091,10 +11198,10 @@
 
     invoke-direct/range {p0 .. p0}, Lcom/melodix/music/PreviewPlayerController;->syncGlow()V
 
-    .line 815
+    .line 828
     return-void
 
-    .line 817
+    .line 830
     :cond_4
     move-object/from16 v7, v16
 
@@ -11106,14 +11213,14 @@
 
     move-result-object v10
 
-    .line 818
+    .line 831
     const-string v13, "previewTrackUri"
 
     invoke-virtual {v6, v13, v12}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
 
     move-result-object v13
 
-    .line 819
+    .line 832
     const-string v14, "previewPositionMs"
 
     move-object/from16 v20, v12
@@ -11136,7 +11243,7 @@
 
     move-result-wide v12
 
-    .line 820
+    .line 833
     const/4 v1, 0x0
 
     invoke-virtual {v6, v5, v1}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;Z)Z
@@ -11168,7 +11275,7 @@
 
     move-result-object v0
 
-    .line 821
+    .line 834
     invoke-virtual {v0, v5}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v16
@@ -11188,13 +11295,13 @@
 
     move-object v0, v1
 
-    .line 823
+    .line 836
     :cond_6
     invoke-virtual {v6, v3, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
 
     move-result-object v3
 
-    .line 824
+    .line 837
     invoke-virtual {v3, v5}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v16
@@ -11211,7 +11318,7 @@
 
     goto :goto_2
 
-    .line 825
+    .line 838
     :cond_7
     move-object v15, v3
 
@@ -11220,7 +11327,7 @@
 
     move-result v5
 
-    .line 826
+    .line 839
     const/4 v3, 0x0
 
     invoke-virtual {v6, v4, v3}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;Z)Z
@@ -11254,7 +11361,7 @@
     :cond_8
     const/4 v4, 0x0
 
-    .line 827
+    .line 840
     :goto_3
     invoke-static {v7}, Lcom/melodix/music/PreviewPlayerController;->realMetadata(Ljava/lang/String;)Z
 
@@ -11279,7 +11386,7 @@
     :cond_9
     const/16 v25, 0x0
 
-    .line 829
+    .line 842
     :goto_4
     if-eqz v25, :cond_b
 
@@ -11297,7 +11404,7 @@
 
     iget-object v3, v11, Lcom/melodix/music/PreviewPlayerController;->identityArtist:Ljava/lang/String;
 
-    .line 830
+    .line 843
     invoke-static {v3, v10}, Lcom/melodix/music/PreviewPlayerController;->sameArtists(Ljava/lang/String;Ljava/lang/String;)Z
 
     move-result v3
@@ -11318,7 +11425,7 @@
     :cond_b
     const/4 v0, 0x0
 
-    .line 831
+    .line 844
     :goto_5
     move-object/from16 v28, v12
 
@@ -11330,7 +11437,7 @@
 
     if-lez v1, :cond_d
 
-    .line 833
+    .line 846
     if-eqz v0, :cond_c
 
     const-wide/16 v12, -0x1
@@ -11349,20 +11456,20 @@
 
     goto :goto_6
 
-    .line 834
+    .line 847
     :cond_c
     if-eqz v25, :cond_d
 
     return-void
 
-    .line 836
+    .line 849
     :cond_d
     :goto_6
     invoke-direct {v11, v8, v9}, Lcom/melodix/music/PreviewPlayerController;->positionUnderlying(J)D
 
     move-result-wide v12
 
-    .line 837
+    .line 850
     if-nez v0, :cond_e
 
     if-eqz v4, :cond_e
@@ -11397,7 +11504,7 @@
     :cond_f
     const/4 v13, 0x0
 
-    .line 838
+    .line 851
     :goto_7
     if-eqz v4, :cond_10
 
@@ -11419,7 +11526,7 @@
 
     if-eqz v1, :cond_10
 
-    .line 839
+    .line 852
     :cond_10
     iget-boolean v1, v11, Lcom/melodix/music/PreviewPlayerController;->pending:Z
 
@@ -11444,11 +11551,11 @@
     :cond_11
     const/4 v13, 0x0
 
-    .line 840
+    .line 853
     :goto_8
     iget-boolean v1, v11, Lcom/melodix/music/PreviewPlayerController;->moving:Z
 
-    .line 841
+    .line 854
     const-string v3, "previewProgressSource"
 
     invoke-virtual {v6, v3, v2}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
@@ -11457,7 +11564,7 @@
 
     iput-object v3, v11, Lcom/melodix/music/PreviewPlayerController;->progressSource:Ljava/lang/String;
 
-    .line 842
+    .line 855
     iget-object v3, v11, Lcom/melodix/music/PreviewPlayerController;->progressSource:Ljava/lang/String;
 
     move-object/from16 v12, v21
@@ -11490,7 +11597,7 @@
 
     iput-object v2, v11, Lcom/melodix/music/PreviewPlayerController;->progressSource:Ljava/lang/String;
 
-    .line 845
+    .line 858
     :cond_12
     const-string v2, "previewObservedAtMs"
 
@@ -11502,7 +11609,7 @@
 
     move-result-wide v33
 
-    .line 846
+    .line 859
     const-wide/16 v13, 0x0
 
     cmp-long v2, v33, v13
@@ -11520,7 +11627,7 @@
 
     sub-long v13, v13, v33
 
-    .line 847
+    .line 860
     :goto_9
     iget-boolean v2, v11, Lcom/melodix/music/PreviewPlayerController;->foreground:Z
     :try_end_3
@@ -11544,7 +11651,7 @@
 
     if-nez v2, :cond_16
 
-    .line 851
+    .line 864
     if-eqz v4, :cond_14
 
     if-eqz v25, :cond_14
@@ -11559,7 +11666,7 @@
 
     if-gez v3, :cond_14
 
-    .line 852
+    .line 865
     :try_start_4
     sput-wide v22, Lcom/melodix/music/PreviewPlayerController;->bgPos:J
 
@@ -11569,7 +11676,7 @@
 
     sput-object p1, Lcom/melodix/music/PreviewPlayerController;->bgJson:Ljava/lang/String;
 
-    .line 853
+    .line 866
     const/16 v17, 0x1
 
     move-wide v8, v1
@@ -11594,7 +11701,7 @@
 
     goto :goto_a
 
-    .line 854
+    .line 867
     :cond_14
     const-wide/16 v1, -0x1
 
@@ -11604,7 +11711,7 @@
 
     sput-object v1, Lcom/melodix/music/PreviewPlayerController;->bgJson:Ljava/lang/String;
 
-    .line 855
+    .line 868
     :goto_a
     new-instance v1, Ljava/lang/StringBuilder;
 
@@ -11695,10 +11802,10 @@
 
     invoke-direct {v11, v0}, Lcom/melodix/music/PreviewPlayerController;->recordReturn(Ljava/lang/String;)V
 
-    .line 857
+    .line 870
     return-void
 
-    .line 859
+    .line 872
     :cond_16
     move/from16 v26, v1
 
@@ -11729,7 +11836,7 @@
 
     sub-double v1, v1, v31
 
-    .line 860
+    .line 873
     :goto_d
     move/from16 v27, v3
 
@@ -11773,7 +11880,7 @@
 
     if-eqz v25, :cond_19
 
-    .line 861
+    .line 874
     move-object/from16 v1, v19
 
     move-object/from16 v0, v24
@@ -11788,7 +11895,7 @@
 
     goto :goto_e
 
-    .line 860
+    .line 873
     :cond_18
     move-object v3, v0
 
@@ -11799,11 +11906,11 @@
 
     move-object/from16 v0, v24
 
-    .line 861
+    .line 874
     :cond_1a
     const/4 v2, 0x0
 
-    .line 865
+    .line 878
     :goto_e
     if-eqz v4, :cond_1c
 
@@ -11843,7 +11950,7 @@
 
     if-ltz v0, :cond_1d
 
-    .line 867
+    .line 880
     invoke-static/range {v31 .. v32}, Ljava/lang/Double;->isNaN(D)Z
 
     move-result v0
@@ -11873,19 +11980,19 @@
 
     goto :goto_f
 
-    .line 865
+    .line 878
     :cond_1c
     move-object/from16 v24, v0
 
     :cond_1d
     move-object/from16 v19, v1
 
-    .line 867
+    .line 880
     :cond_1e
     :goto_f
     const/4 v0, 0x0
 
-    .line 868
+    .line 881
     :goto_10
     iget-object v1, v11, Lcom/melodix/music/PreviewPlayerController;->progressSource:Ljava/lang/String;
 
@@ -11916,7 +12023,7 @@
 
     move-wide/from16 v8, v45
 
-    .line 869
+    .line 882
     :goto_11
     if-nez v4, :cond_20
 
@@ -11935,7 +12042,7 @@
 
     goto :goto_12
 
-    .line 870
+    .line 883
     :cond_21
     cmp-long v1, v13, v36
 
@@ -11945,7 +12052,7 @@
 
     goto :goto_12
 
-    .line 871
+    .line 884
     :cond_22
     if-nez v25, :cond_23
 
@@ -11953,7 +12060,7 @@
 
     goto :goto_12
 
-    .line 872
+    .line 885
     :cond_23
     iget-boolean v1, v11, Lcom/melodix/music/PreviewPlayerController;->interrupted:Z
 
@@ -11965,7 +12072,7 @@
 
     goto :goto_12
 
-    .line 873
+    .line 886
     :cond_24
     if-nez v0, :cond_25
 
@@ -11991,7 +12098,7 @@
 
     sub-double v4, v4, v31
 
-    .line 874
+    .line 887
     invoke-static {v4, v5}, Ljava/lang/Math;->abs(D)D
 
     move-result-wide v4
@@ -12009,7 +12116,7 @@
     :cond_25
     move-object/from16 v1, v20
 
-    .line 877
+    .line 890
     :goto_12
     const-string v4, "\u00e9cart >= seuil"
 
@@ -12019,7 +12126,7 @@
 
     if-eqz v4, :cond_2b
 
-    .line 878
+    .line 891
     const-wide/16 v4, 0x0
 
     cmpl-double v8, v42, v4
@@ -12033,7 +12140,7 @@
     :cond_26
     const/4 v4, -0x1
 
-    .line 879
+    .line 892
     :goto_13
     iget-wide v8, v11, Lcom/melodix/music/PreviewPlayerController;->divergentSince:J
 
@@ -12072,7 +12179,7 @@
 
     goto :goto_15
 
-    .line 880
+    .line 893
     :cond_28
     :goto_14
     move-wide/from16 v8, v47
@@ -12089,7 +12196,7 @@
 
     iput-object v4, v11, Lcom/melodix/music/PreviewPlayerController;->divergentSource:Ljava/lang/String;
 
-    .line 882
+    .line 895
     :goto_15
     iput-wide v8, v11, Lcom/melodix/music/PreviewPlayerController;->divergentLastAt:J
 
@@ -12101,7 +12208,7 @@
 
     iput v4, v11, Lcom/melodix/music/PreviewPlayerController;->divergentCount:I
 
-    .line 883
+    .line 896
     iget-boolean v4, v11, Lcom/melodix/music/PreviewPlayerController;->resyncing:Z
 
     if-nez v4, :cond_2a
@@ -12122,7 +12229,7 @@
 
     if-ltz v4, :cond_2a
 
-    .line 884
+    .line 897
     move-wide/from16 v4, v31
 
     iput-wide v4, v11, Lcom/melodix/music/PreviewPlayerController;->base:D
@@ -12137,7 +12244,7 @@
 
     iput-wide v8, v11, Lcom/melodix/music/PreviewPlayerController;->correction:D
 
-    .line 885
+    .line 898
     iget-boolean v8, v11, Lcom/melodix/music/PreviewPlayerController;->interrupted:Z
 
     if-eqz v8, :cond_29
@@ -12146,13 +12253,13 @@
 
     iput-boolean v8, v11, Lcom/melodix/music/PreviewPlayerController;->moving:Z
 
-    .line 886
+    .line 899
     :cond_29
     const/4 v9, 0x1
 
     iput-boolean v9, v11, Lcom/melodix/music/PreviewPlayerController;->resyncing:Z
 
-    .line 887
+    .line 900
     new-instance v9, Ljava/lang/StringBuilder;
 
     invoke-direct {v9}, Ljava/lang/StringBuilder;-><init>()V
@@ -12185,12 +12292,12 @@
 
     invoke-direct {v11, v8}, Lcom/melodix/music/PreviewPlayerController;->recordReturn(Ljava/lang/String;)V
 
-    .line 888
+    .line 901
     invoke-direct/range {p0 .. p0}, Lcom/melodix/music/PreviewPlayerController;->scheduleFrame()V
 
     goto :goto_16
 
-    .line 883
+    .line 896
     :cond_2a
     move-wide/from16 v47, v8
 
@@ -12200,7 +12307,7 @@
 
     goto :goto_16
 
-    .line 890
+    .line 903
     :cond_2b
     move-object/from16 v21, v10
 
@@ -12211,15 +12318,15 @@
     :goto_16
     nop
 
-    .line 891
+    .line 904
     invoke-virtual {v1}, Ljava/lang/String;->isEmpty()Z
 
     move-result v8
 
-    .line 892
+    .line 905
     nop
 
-    .line 893
+    .line 906
     if-eqz v8, :cond_2d
 
     if-nez v33, :cond_2c
@@ -12246,11 +12353,11 @@
     :cond_2d
     const/4 v9, 0x0
 
-    .line 894
+    .line 907
     :goto_17
     iput-boolean v8, v11, Lcom/melodix/music/PreviewPlayerController;->glowSampleValid:Z
 
-    .line 895
+    .line 908
     new-instance v10, Ljava/lang/StringBuilder;
 
     invoke-direct {v10}, Ljava/lang/StringBuilder;-><init>()V
@@ -12329,7 +12436,7 @@
 
     move-result-object v3
 
-    .line 896
+    .line 909
     invoke-static {v4, v5}, Ljava/lang/Double;->isNaN(D)Z
 
     move-result v10
@@ -12373,7 +12480,7 @@
 
     move-result-object v3
 
-    .line 897
+    .line 910
     if-eqz v8, :cond_30
 
     const-string v4, "accept\u00e9e"
@@ -12408,13 +12515,13 @@
 
     move-result-object v3
 
-    .line 895
+    .line 908
     invoke-direct {v11, v3}, Lcom/melodix/music/PreviewPlayerController;->recordReturn(Ljava/lang/String;)V
 
-    .line 898
+    .line 911
     if-eqz v33, :cond_33
 
-    .line 899
+    .line 912
     invoke-direct/range {p0 .. p0}, Lcom/melodix/music/PreviewPlayerController;->cancelSeek()V
 
     const-wide/16 v3, -0x1
@@ -12423,7 +12530,7 @@
 
     iput-wide v3, v11, Lcom/melodix/music/PreviewPlayerController;->independentObservationAt:J
 
-    .line 900
+    .line 913
     const/4 v3, 0x0
 
     iput-boolean v3, v11, Lcom/melodix/music/PreviewPlayerController;->valid:Z
@@ -12432,7 +12539,7 @@
 
     iput-boolean v3, v11, Lcom/melodix/music/PreviewPlayerController;->resyncing:Z
 
-    .line 901
+    .line 914
     invoke-direct/range {p0 .. p0}, Lcom/melodix/music/PreviewPlayerController;->resetDivergence()V
 
     const-wide/16 v4, -0x1
@@ -12441,7 +12548,7 @@
 
     iput-wide v4, v11, Lcom/melodix/music/PreviewPlayerController;->measurementAt:J
 
-    .line 903
+    .line 916
     iget-object v4, v11, Lcom/melodix/music/PreviewPlayerController;->identityTitle:Ljava/lang/String;
 
     move-object/from16 v5, v23
@@ -12476,13 +12583,13 @@
 
     iput-object v4, v11, Lcom/melodix/music/PreviewPlayerController;->fullArtist:Ljava/lang/String;
 
-    .line 905
+    .line 918
     :cond_32
     move-wide/from16 v12, v38
 
     goto :goto_1d
 
-    .line 898
+    .line 911
     :cond_33
     move-object/from16 v10, v21
 
@@ -12490,7 +12597,7 @@
 
     move-wide/from16 v12, v31
 
-    .line 905
+    .line 918
     :goto_1d
     if-eqz v25, :cond_34
 
@@ -12516,7 +12623,7 @@
 
     iput-object v10, v11, Lcom/melodix/music/PreviewPlayerController;->fullArtist:Ljava/lang/String;
 
-    .line 906
+    .line 919
     :cond_34
     if-eqz v25, :cond_35
 
@@ -12537,7 +12644,7 @@
     :cond_35
     move-wide/from16 v14, v29
 
-    .line 907
+    .line 920
     :goto_1e
     invoke-virtual/range {v28 .. v28}, Ljava/lang/String;->isEmpty()Z
 
@@ -12560,7 +12667,7 @@
 
     iput-object v4, v11, Lcom/melodix/music/PreviewPlayerController;->track:Ljava/lang/String;
 
-    .line 910
+    .line 923
     :goto_20
     const-string v3, "previewConfirmPositionMs"
 
@@ -12580,7 +12687,7 @@
 
     move-result-wide v9
 
-    .line 911
+    .line 924
     if-eqz v25, :cond_39
 
     const-wide/16 v6, 0x0
@@ -12593,7 +12700,7 @@
 
     if-gtz v3, :cond_39
 
-    .line 912
+    .line 925
     iget-boolean v3, v11, Lcom/melodix/music/PreviewPlayerController;->seekPending:Z
 
     if-eqz v3, :cond_38
@@ -12638,14 +12745,14 @@
 
     if-eqz v3, :cond_38
 
-    .line 914
+    .line 927
     iget-object v3, v11, Lcom/melodix/music/PreviewPlayerController;->seekDiagDifferent:[J
 
     iget v6, v11, Lcom/melodix/music/PreviewPlayerController;->seekDiagIndex:I
 
     aput-wide v47, v3, v6
 
-    .line 915
+    .line 928
     :cond_38
     iput-wide v9, v11, Lcom/melodix/music/PreviewPlayerController;->independentObservation:J
 
@@ -12655,11 +12762,11 @@
 
     goto :goto_21
 
-    .line 911
+    .line 924
     :cond_39
     move-wide/from16 v6, v47
 
-    .line 917
+    .line 930
     :goto_21
     if-eqz v8, :cond_3a
 
@@ -12675,39 +12782,39 @@
 
     iput-boolean v3, v11, Lcom/melodix/music/PreviewPlayerController;->resyncing:Z
 
-    .line 918
+    .line 931
     :cond_3a
     if-eqz v2, :cond_3b
 
     if-eqz v8, :cond_3b
 
-    .line 919
+    .line 932
     const/4 v3, 0x0
 
     iput-boolean v3, v11, Lcom/melodix/music/PreviewPlayerController;->interrupted:Z
 
     iput-boolean v3, v11, Lcom/melodix/music/PreviewPlayerController;->resyncing:Z
 
-    .line 920
+    .line 933
     const-string v3, "retour confirm\u00e9 par observation coh\u00e9rente ; son non v\u00e9rifi\u00e9"
 
     invoke-direct {v11, v3}, Lcom/melodix/music/PreviewPlayerController;->recordReturn(Ljava/lang/String;)V
 
-    .line 922
+    .line 935
     :cond_3b
     nop
 
-    .line 923
+    .line 936
     iget-boolean v3, v11, Lcom/melodix/music/PreviewPlayerController;->seekPending:Z
 
     if-eqz v3, :cond_47
 
     if-nez v33, :cond_47
 
-    .line 924
+    .line 937
     nop
 
-    .line 925
+    .line 938
     if-eqz v44, :cond_3c
 
     move-object/from16 v20, v4
@@ -12733,7 +12840,7 @@
 
     const-wide/16 v3, 0x0
 
-    .line 926
+    .line 939
     :goto_22
     iget-wide v12, v11, Lcom/melodix/music/PreviewPlayerController;->seekTarget:J
 
@@ -12743,7 +12850,7 @@
 
     move-result-wide v3
 
-    .line 927
+    .line 940
     const-wide/16 v12, 0x0
 
     cmp-long v22, v9, v12
@@ -12754,12 +12861,12 @@
 
     if-gtz v12, :cond_3d
 
-    .line 928
+    .line 941
     iput-wide v9, v11, Lcom/melodix/music/PreviewPlayerController;->seekFallbackPosition:J
 
     iput-wide v6, v11, Lcom/melodix/music/PreviewPlayerController;->seekFallbackAt:J
 
-    .line 930
+    .line 943
     :cond_3d
     if-ltz v22, :cond_40
 
@@ -12777,7 +12884,7 @@
 
     goto :goto_23
 
-    .line 941
+    .line 954
     :cond_3e
     iget v3, v11, Lcom/melodix/music/PreviewPlayerController;->seekDiagIndex:I
 
@@ -12797,7 +12904,7 @@
 
     aput-object v8, v3, v4
 
-    .line 942
+    .line 955
     :cond_3f
     const/4 v3, 0x0
 
@@ -12811,12 +12918,12 @@
 
     iput-wide v12, v11, Lcom/melodix/music/PreviewPlayerController;->seekSerial:J
 
-    .line 943
+    .line 956
     invoke-virtual {v1}, Ljava/lang/String;->isEmpty()Z
 
     move-result v8
 
-    .line 944
+    .line 957
     const-wide/16 v12, -0x1
 
     iput-wide v12, v11, Lcom/melodix/music/PreviewPlayerController;->measurementAt:J
@@ -12837,7 +12944,7 @@
 
     goto/16 :goto_27
 
-    .line 931
+    .line 944
     :cond_40
     :goto_23
     iget-boolean v0, v11, Lcom/melodix/music/PreviewPlayerController;->moving:Z
@@ -12858,7 +12965,7 @@
 
     iput-wide v1, v11, Lcom/melodix/music/PreviewPlayerController;->correction:D
 
-    .line 932
+    .line 945
     :cond_41
     if-eqz v44, :cond_42
 
@@ -12880,7 +12987,7 @@
 
     iput-boolean v0, v11, Lcom/melodix/music/PreviewPlayerController;->haveReal:Z
 
-    .line 933
+    .line 946
     iget-boolean v0, v11, Lcom/melodix/music/PreviewPlayerController;->interrupted:Z
 
     if-nez v0, :cond_44
@@ -12914,7 +13021,7 @@
 
     move-object/from16 v10, v24
 
-    .line 934
+    .line 947
     :cond_45
     :goto_26
     iget-boolean v0, v11, Lcom/melodix/music/PreviewPlayerController;->interrupted:Z
@@ -12929,7 +13036,7 @@
 
     if-nez v0, :cond_46
 
-    .line 935
+    .line 948
     iput-wide v6, v11, Lcom/melodix/music/PreviewPlayerController;->lastConfirmedStateAt:J
 
     move/from16 v9, v44
@@ -12942,7 +13049,7 @@
 
     iput-boolean v9, v11, Lcom/melodix/music/PreviewPlayerController;->shownPlaying:Z
 
-    .line 937
+    .line 950
     :cond_46
     invoke-direct/range {p0 .. p0}, Lcom/melodix/music/PreviewPlayerController;->renderProgress()V
 
@@ -12954,7 +13061,7 @@
 
     return-void
 
-    .line 923
+    .line 936
     :cond_47
     move-object/from16 v20, v4
 
@@ -12966,7 +13073,7 @@
 
     move/from16 v9, v44
 
-    .line 946
+    .line 959
     move/from16 v4, p1
 
     move-wide/from16 v12, v22
@@ -12976,10 +13083,10 @@
     :goto_27
     if-eqz v8, :cond_5a
 
-    .line 947
+    .line 960
     iput-wide v14, v11, Lcom/melodix/music/PreviewPlayerController;->duration:J
 
-    .line 948
+    .line 961
     iget-boolean v3, v11, Lcom/melodix/music/PreviewPlayerController;->valid:Z
 
     if-eqz v3, :cond_54
@@ -13002,7 +13109,7 @@
 
     goto/16 :goto_2d
 
-    .line 951
+    .line 964
     :cond_48
     if-eqz v2, :cond_4e
 
@@ -13010,7 +13117,7 @@
 
     if-nez v0, :cond_4e
 
-    .line 954
+    .line 967
     if-eqz v9, :cond_4a
 
     long-to-double v2, v12
@@ -13038,7 +13145,7 @@
     :goto_28
     const/4 v0, 0x1
 
-    .line 955
+    .line 968
     :goto_29
     if-eqz v0, :cond_4b
 
@@ -13068,7 +13175,7 @@
     :goto_2b
     iput-wide v2, v11, Lcom/melodix/music/PreviewPlayerController;->correction:D
 
-    .line 956
+    .line 969
     if-eqz v0, :cond_4d
 
     const-string v0, "retour : saut"
@@ -13081,7 +13188,7 @@
     :goto_2c
     invoke-direct {v11, v0}, Lcom/melodix/music/PreviewPlayerController;->recordReturn(Ljava/lang/String;)V
 
-    .line 957
+    .line 970
     move-object/from16 v16, v1
 
     move/from16 p1, v4
@@ -13095,7 +13202,7 @@
 
     if-nez v9, :cond_4f
 
-    .line 958
+    .line 971
     long-to-double v2, v14
 
     move-object/from16 v16, v1
@@ -13132,7 +13239,7 @@
 
     goto/16 :goto_2e
 
-    .line 957
+    .line 970
     :cond_4f
     move-object/from16 v16, v1
 
@@ -13140,14 +13247,14 @@
 
     move-wide/from16 v29, v14
 
-    .line 959
+    .line 972
     if-eqz v4, :cond_50
 
     if-nez v9, :cond_50
 
     if-nez v27, :cond_50
 
-    .line 960
+    .line 973
     move-wide/from16 v14, v29
 
     long-to-double v2, v14
@@ -13174,16 +13281,16 @@
 
     goto :goto_2e
 
-    .line 959
+    .line 972
     :cond_50
     move-wide/from16 v14, v29
 
-    .line 961
+    .line 974
     if-eqz v4, :cond_51
 
     if-nez v27, :cond_51
 
-    .line 962
+    .line 975
     long-to-double v2, v14
 
     invoke-static {v2, v3, v0, v1}, Ljava/lang/Math;->min(DD)D
@@ -13212,13 +13319,13 @@
 
     goto :goto_2e
 
-    .line 961
+    .line 974
     :cond_51
     move/from16 p1, v4
 
     move-object/from16 v23, v5
 
-    .line 963
+    .line 976
     if-eqz v26, :cond_52
 
     if-eqz v9, :cond_53
@@ -13230,7 +13337,7 @@
 
     if-eqz v9, :cond_55
 
-    .line 964
+    .line 977
     :cond_53
     long-to-double v2, v14
 
@@ -13252,7 +13359,7 @@
 
     goto :goto_2e
 
-    .line 948
+    .line 961
     :cond_54
     move-object/from16 v16, v1
 
@@ -13260,7 +13367,7 @@
 
     move-object/from16 v23, v5
 
-    .line 949
+    .line 962
     :goto_2d
     long-to-double v1, v12
 
@@ -13272,19 +13379,19 @@
 
     iput-wide v1, v11, Lcom/melodix/music/PreviewPlayerController;->correction:D
 
-    .line 950
+    .line 963
     if-eqz v0, :cond_55
 
     const-string v0, "retour d\u00e9but observ\u00e9 ; lecture non command\u00e9e"
 
     invoke-direct {v11, v0}, Lcom/melodix/music/PreviewPlayerController;->recordReturn(Ljava/lang/String;)V
 
-    .line 966
+    .line 979
     :cond_55
     :goto_2e
     if-eqz p1, :cond_57
 
-    .line 967
+    .line 980
     iget-wide v0, v11, Lcom/melodix/music/PreviewPlayerController;->measurementAt:J
 
     const-wide/16 v2, 0x0
@@ -13301,7 +13408,7 @@
 
     if-eqz v9, :cond_56
 
-    .line 968
+    .line 981
     iget-object v0, v11, Lcom/melodix/music/PreviewPlayerController;->intervals:[J
 
     iget v1, v11, Lcom/melodix/music/PreviewPlayerController;->intervalIndex:I
@@ -13312,7 +13419,7 @@
 
     aput-wide v4, v0, v1
 
-    .line 969
+    .line 982
     iget v0, v11, Lcom/melodix/music/PreviewPlayerController;->intervalIndex:I
 
     const/4 v1, 0x1
@@ -13327,7 +13434,7 @@
 
     iput v0, v11, Lcom/melodix/music/PreviewPlayerController;->intervalIndex:I
 
-    .line 970
+    .line 983
     iget v0, v11, Lcom/melodix/music/PreviewPlayerController;->intervalCount:I
 
     iget-object v1, v11, Lcom/melodix/music/PreviewPlayerController;->intervals:[J
@@ -13344,7 +13451,7 @@
 
     iput v0, v11, Lcom/melodix/music/PreviewPlayerController;->intervalCount:I
 
-    .line 972
+    .line 985
     :cond_56
     iput-wide v6, v11, Lcom/melodix/music/PreviewPlayerController;->measurementAt:J
 
@@ -13352,17 +13459,17 @@
 
     goto :goto_2f
 
-    .line 966
+    .line 979
     :cond_57
     const-wide/16 v2, 0x0
 
-    .line 974
+    .line 987
     :goto_2f
     const/4 v0, 0x1
 
     iput-boolean v0, v11, Lcom/melodix/music/PreviewPlayerController;->valid:Z
 
-    .line 975
+    .line 988
     iget-boolean v0, v11, Lcom/melodix/music/PreviewPlayerController;->interrupted:Z
 
     if-eqz v0, :cond_58
@@ -13375,7 +13482,7 @@
 
     iput-wide v0, v11, Lcom/melodix/music/PreviewPlayerController;->frozenPosition:D
 
-    .line 976
+    .line 989
     :cond_58
     if-eqz v25, :cond_59
 
@@ -13399,7 +13506,7 @@
 
     goto :goto_32
 
-    .line 977
+    .line 990
     :cond_5a
     move-object/from16 v16, v1
 
@@ -13421,7 +13528,7 @@
 
     if-nez v4, :cond_5e
 
-    .line 978
+    .line 991
     if-eqz v9, :cond_5b
 
     if-eqz v27, :cond_5c
@@ -13439,7 +13546,7 @@
 
     iput-wide v4, v11, Lcom/melodix/music/PreviewPlayerController;->correction:D
 
-    .line 979
+    .line 992
     :cond_5c
     if-eqz v9, :cond_5d
 
@@ -13461,7 +13568,7 @@
 
     goto :goto_32
 
-    .line 980
+    .line 993
     :cond_5e
     const/4 v1, 0x0
 
@@ -13469,7 +13576,7 @@
 
     iput-boolean v1, v11, Lcom/melodix/music/PreviewPlayerController;->moving:Z
 
-    .line 981
+    .line 994
     :goto_32
     iget-boolean v0, v11, Lcom/melodix/music/PreviewPlayerController;->interrupted:Z
 
@@ -13498,14 +13605,14 @@
     :cond_60
     move-object/from16 v0, v16
 
-    .line 982
+    .line 995
     :cond_61
     :goto_34
     const/4 v4, 0x1
 
     iput-boolean v4, v11, Lcom/melodix/music/PreviewPlayerController;->haveReal:Z
 
-    .line 983
+    .line 996
     iget-boolean v5, v11, Lcom/melodix/music/PreviewPlayerController;->interrupted:Z
 
     if-nez v5, :cond_63
@@ -13518,13 +13625,13 @@
 
     if-nez v5, :cond_63
 
-    .line 984
+    .line 997
     iput-wide v6, v11, Lcom/melodix/music/PreviewPlayerController;->lastConfirmedStateAt:J
 
-    .line 985
+    .line 998
     iput-boolean v9, v11, Lcom/melodix/music/PreviewPlayerController;->realPlaying:Z
 
-    .line 986
+    .line 999
     iget-boolean v5, v11, Lcom/melodix/music/PreviewPlayerController;->pending:Z
 
     if-eqz v5, :cond_62
@@ -13545,7 +13652,7 @@
 
     iput-wide v2, v11, Lcom/melodix/music/PreviewPlayerController;->serial:J
 
-    .line 987
+    .line 1000
     :cond_62
     iget-boolean v1, v11, Lcom/melodix/music/PreviewPlayerController;->pending:Z
 
@@ -13553,7 +13660,7 @@
 
     iput-boolean v9, v11, Lcom/melodix/music/PreviewPlayerController;->shownPlaying:Z
 
-    .line 989
+    .line 1002
     :cond_63
     if-eqz v8, :cond_64
 
@@ -13569,7 +13676,7 @@
 
     if-nez v1, :cond_64
 
-    .line 990
+    .line 1003
     const-wide/16 v17, 0x0
 
     move-object/from16 v1, p0
@@ -13606,7 +13713,7 @@
 
     goto :goto_35
 
-    .line 989
+    .line 1002
     :cond_64
     move v12, v4
 
@@ -13618,7 +13725,7 @@
 
     const-wide/16 v17, 0x0
 
-    .line 991
+    .line 1004
     :goto_35
     invoke-direct/range {p0 .. p0}, Lcom/melodix/music/PreviewPlayerController;->renderProgress()V
 
@@ -13628,12 +13735,12 @@
 
     invoke-direct/range {p0 .. p0}, Lcom/melodix/music/PreviewPlayerController;->scheduleFrame()V
 
-    .line 992
+    .line 1005
     const-string v1, "apr\u00e8s mesure"
 
     invoke-direct {v11, v1}, Lcom/melodix/music/PreviewPlayerController;->recordReturn(Ljava/lang/String;)V
 
-    .line 993
+    .line 1006
     iget-wide v1, v11, Lcom/melodix/music/PreviewPlayerController;->tapAt:J
 
     cmp-long v1, v1, v17
@@ -13656,7 +13763,7 @@
 
     if-ne v1, v12, :cond_65
 
-    .line 994
+    .line 1007
     invoke-virtual {v10, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v0
@@ -13674,7 +13781,7 @@
 
     if-eq v0, v12, :cond_67
 
-    .line 995
+    .line 1008
     invoke-virtual/range {v19 .. v19}, Ljava/lang/String;->isEmpty()Z
 
     move-result v0
@@ -13691,7 +13798,7 @@
 
     if-nez v0, :cond_67
 
-    .line 996
+    .line 1009
     :cond_66
     move-wide/from16 v0, v47
 
@@ -13705,15 +13812,15 @@
     :try_end_4
     .catch Ljava/lang/Exception; {:try_start_4 .. :try_end_4} :catch_0
 
-    .line 1002
+    .line 1015
     :cond_67
     goto :goto_37
 
-    .line 998
+    .line 1011
     :catch_0
     move-exception v0
 
-    .line 999
+    .line 1012
     invoke-direct/range {p0 .. p0}, Lcom/melodix/music/PreviewPlayerController;->now()J
 
     move-result-wide v0
@@ -13722,7 +13829,7 @@
 
     move-result-wide v0
 
-    .line 1000
+    .line 1013
     iget-boolean v2, v11, Lcom/melodix/music/PreviewPlayerController;->valid:Z
 
     if-eqz v2, :cond_68
@@ -13754,7 +13861,7 @@
     :cond_68
     const/4 v1, 0x0
 
-    .line 1001
+    .line 1014
     :goto_36
     iput-boolean v1, v11, Lcom/melodix/music/PreviewPlayerController;->glowSampleValid:Z
 
@@ -13766,7 +13873,7 @@
 
     invoke-direct/range {p0 .. p0}, Lcom/melodix/music/PreviewPlayerController;->syncGlow()V
 
-    .line 1003
+    .line 1016
     :goto_37
     return-void
 .end method
@@ -13774,7 +13881,7 @@
 .method public tapPlayPause()I
     .locals 7
 
-    .line 1013
+    .line 1026
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerController;->haveReal:Z
 
     const/4 v1, -0x1
@@ -13791,7 +13898,7 @@
 
     goto/16 :goto_1
 
-    .line 1014
+    .line 1027
     :cond_0
     iget-wide v2, p0, Lcom/melodix/music/PreviewPlayerController;->lastConfirmedStateAt:J
 
@@ -13824,18 +13931,18 @@
     :cond_1
     return v1
 
-    .line 1015
+    .line 1028
     :cond_2
     const/4 v0, 0x1
 
     invoke-virtual {p0, v0}, Lcom/melodix/music/PreviewPlayerController;->begin(I)V
 
-    .line 1016
+    .line 1029
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerController;->now()J
 
     move-result-wide v1
 
-    .line 1017
+    .line 1030
     iget-boolean v3, p0, Lcom/melodix/music/PreviewPlayerController;->valid:Z
 
     const/4 v4, 0x0
@@ -13862,7 +13969,7 @@
 
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerController;->renderProgress()V
 
-    .line 1019
+    .line 1032
     :cond_3
     iget-boolean v1, p0, Lcom/melodix/music/PreviewPlayerController;->interrupted:Z
 
@@ -13894,7 +14001,7 @@
 
     iput-boolean v0, p0, Lcom/melodix/music/PreviewPlayerController;->pending:Z
 
-    .line 1020
+    .line 1033
     iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerController;->serial:J
 
     const-wide/16 v2, 0x1
@@ -13903,7 +14010,7 @@
 
     iput-wide v0, p0, Lcom/melodix/music/PreviewPlayerController;->serial:J
 
-    .line 1021
+    .line 1034
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerController;->renderButtons()V
 
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerController;->syncGlow()V
@@ -13914,7 +14021,7 @@
 
     iput-wide v2, p0, Lcom/melodix/music/PreviewPlayerController;->optimisticAt:J
 
-    .line 1022
+    .line 1035
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerController;->handler:Landroid/os/Handler;
 
     iget-object v3, p0, Lcom/melodix/music/PreviewPlayerController;->pulse:Ljava/lang/Runnable;
@@ -13927,23 +14034,23 @@
 
     invoke-virtual {v2, v3}, Landroid/os/Handler;->post(Ljava/lang/Runnable;)Z
 
-    .line 1023
+    .line 1036
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerController;->handler:Landroid/os/Handler;
 
-    new-instance v3, Lcom/melodix/music/PreviewPlayerController$8;
+    new-instance v3, Lcom/melodix/music/PreviewPlayerController$9;
 
-    invoke-direct {v3, p0, v0, v1}, Lcom/melodix/music/PreviewPlayerController$8;-><init>(Lcom/melodix/music/PreviewPlayerController;J)V
+    invoke-direct {v3, p0, v0, v1}, Lcom/melodix/music/PreviewPlayerController$9;-><init>(Lcom/melodix/music/PreviewPlayerController;J)V
 
     const-wide/16 v0, 0x1f40
 
     invoke-virtual {v2, v3, v0, v1}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
 
-    .line 1030
+    .line 1043
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerController;->pendingTarget:Z
 
     return v0
 
-    .line 1013
+    .line 1026
     :cond_7
     :goto_1
     return v1

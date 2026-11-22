@@ -795,7 +795,20 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             !s.equalsIgnoreCase("No Artist") && !s.equalsIgnoreCase("Aucun titre") &&
             !s.equalsIgnoreCase("Lecture arrêtée") && !s.equalsIgnoreCase("Aucune lecture en cours");
     }
+    // User diagnostic (1022374): the bridge that runs is the downloaded original one; it marks itself with
+    // __spotiduck_bridge_applied and provides fetchMediaItems, never the __sfMelodixBridge* flags the playlist code
+    // waits for. Once it is really applied, translate its own signal (the "bridge complete" rule stays).
+    private long bridgeMarkAt = -1;
+    private int bridgeMarks;
+    static final String BRIDGE_MARK = "(function(w){if(w.__spotiduck_bridge_applied===true&&typeof w.fetchMediaItems==='function'&&w.__sfMelodixBridgeCompleted!==true){w.__sfMelodixBridgeStarted=true;w.__sfMelodixBridgeCompleted=true;return 1}return 0})(window)";
+    private void markBridge() {
+        WebView w = seekWeb.get(); long t = now();
+        if (w == null || (bridgeMarkAt >= 0 && t - bridgeMarkAt < 1000)) return;
+        bridgeMarkAt = t;
+        try { w.evaluateJavascript(BRIDGE_MARK, new ValueCallback<String>() { public void onReceiveValue(String v) { if ("1".equals(v)) bridgeMarks++; } }); } catch (Throwable e) { }
+    }
     public void snapshot(String json) {
+        markBridge();
         try {
             JSONObject o = new JSONObject(json);
             long t = now();
@@ -1107,10 +1120,10 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         } catch (Exception e) { out.append("\nPage Spotify : non lisible"); }
         // User report (1022349): playlist rows and cover both missing while the page is at 100 %. Show the bridge
         // state from the shell's own flags (no account data); the value is refreshed for the next opening.
-        out.append("\nPont (démarré ; terminé ; mode ; erreur ; CSP ; octets ; étape ; requête interceptée ; octets servis ; service worker actif ; pont entré ; âge de la page, relevé à l'ouverture) : ").append(bridgeState);
+        out.append("\nPont (démarré ; terminé ; mode ; erreur ; CSP ; octets ; étape ; requête interceptée ; octets servis ; service worker actif ; pont entré ; âge de la page ; pont d'origine appliqué ; lecteur de playlist, relevé à l'ouverture) : ").append(bridgeState).append(" ; signaux traduits : ").append(bridgeMarks);
         try {
             WebView w = seekWeb.get();
-            if (w != null) w.evaluateJavascript("(function(){try{var w=window;var r=[w.__sfMelodixBridgeStarted===true,w.__sfMelodixBridgeCompleted===true,String(w.__sfBridgeExecMode||'-'),String(w.__sfBridgeLastError||'-'),w.__sfBridgeCspViolation?1:0,w.__sfBridgeBytes|0,String(w.__sfBridgeLoadStage||'-').slice(0,40),w.__sfBridgeIntercepted===true,w.__sfBridgeServedBytes|0,!!(navigator.serviceWorker&&navigator.serviceWorker.controller),w.__sfBridgeEntered===true,Math.round(performance.now()/1000)+' s'].join(' ; ');return r}catch(e){return 'erreur'}})()",
+            if (w != null) w.evaluateJavascript("(function(){try{var w=window;var r=[w.__sfMelodixBridgeStarted===true,w.__sfMelodixBridgeCompleted===true,String(w.__sfBridgeExecMode||'-'),String(w.__sfBridgeLastError||'-'),w.__sfBridgeCspViolation?1:0,w.__sfBridgeBytes|0,String(w.__sfBridgeLoadStage||'-').slice(0,40),w.__sfBridgeIntercepted===true,w.__sfBridgeServedBytes|0,!!(navigator.serviceWorker&&navigator.serviceWorker.controller),w.__sfBridgeEntered===true,Math.round(performance.now()/1000)+' s',w.__spotiduck_bridge_applied===true,typeof w.fetchMediaItems].join(' ; ');return r}catch(e){return 'erreur'}})()",
                 new android.webkit.ValueCallback<String>() { public void onReceiveValue(String v) { bridgeState = v == null ? "—" : v.length() > 260 ? v.substring(0, 260) : v; bridgeSeq++; } });
         } catch (Exception e) { bridgeState = "non lisible"; }
         // User choice (1022370, option B): find the completion signal the downloaded bridge really sets.
