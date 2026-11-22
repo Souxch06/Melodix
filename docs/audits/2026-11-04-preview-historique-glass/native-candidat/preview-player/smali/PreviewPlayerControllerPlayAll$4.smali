@@ -21,7 +21,7 @@
 .method constructor <init>()V
     .locals 0
 
-    .line 106
+    .line 113
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
     return-void
@@ -32,12 +32,12 @@
 .method public onTouch(Landroid/view/View;Landroid/view/MotionEvent;)Z
     .locals 2
 
-    .line 107
+    .line 114
     invoke-virtual {p2}, Landroid/view/MotionEvent;->getActionMasked()I
 
     move-result p2
 
-    .line 108
+    .line 115
     const/4 v0, 0x3
 
     if-nez p2, :cond_0
@@ -74,7 +74,7 @@
 
     goto :goto_0
 
-    .line 109
+    .line 116
     :cond_0
     const/4 v1, 0x1
 
@@ -82,7 +82,7 @@
 
     if-ne p2, v0, :cond_2
 
-    .line 110
+    .line 117
     :cond_1
     invoke-virtual {p1}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
 
@@ -120,7 +120,7 @@
 
     invoke-virtual {p1}, Landroid/view/ViewPropertyAnimator;->start()V
 
-    .line 111
+    .line 118
     :cond_2
     :goto_0
     const/4 p1, 0x0

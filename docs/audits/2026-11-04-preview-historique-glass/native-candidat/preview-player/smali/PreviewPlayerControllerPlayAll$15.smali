@@ -3,12 +3,12 @@
 .source "PreviewPlayerControllerPlayAll.java"
 
 # interfaces
-.implements Ljava/lang/Runnable;
+.implements Landroid/view/View$OnClickListener;
 
 
 # annotations
 .annotation system Ldalvik/annotation/EnclosingMethod;
-    value = Lcom/melodix/music/PreviewPlayerControllerPlayAll;->close(Landroid/app/Dialog;Ljava/lang/Runnable;)V
+    value = Lcom/melodix/music/PreviewPlayerControllerPlayAll;->item(Landroid/app/Activity;ILjava/lang/String;Ljava/lang/Runnable;Landroid/app/Dialog;)Landroid/view/View;
 .end annotation
 
 .annotation system Ldalvik/annotation/InnerClass;
@@ -18,9 +18,9 @@
 
 
 # instance fields
-.field final synthetic val$dlg:Landroid/app/Dialog;
+.field final synthetic val$action:Ljava/lang/Runnable;
 
-.field final synthetic val$then:Ljava/lang/Runnable;
+.field final synthetic val$dlg:Landroid/app/Dialog;
 
 
 # direct methods
@@ -35,7 +35,7 @@
     .line 250
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$15;->val$dlg:Landroid/app/Dialog;
 
-    iput-object p2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$15;->val$then:Ljava/lang/Runnable;
+    iput-object p2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$15;->val$action:Ljava/lang/Runnable;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
@@ -44,31 +44,15 @@
 
 
 # virtual methods
-.method public run()V
+.method public onClick(Landroid/view/View;)V
     .locals 1
 
-    .line 251
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$15;->val$dlg:Landroid/app/Dialog;
+    .line 250
+    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$15;->val$dlg:Landroid/app/Dialog;
 
-    invoke-virtual {v0}, Landroid/app/Dialog;->dismiss()V
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$15;->val$action:Ljava/lang/Runnable;
 
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$15;->val$then:Ljava/lang/Runnable;
+    invoke-static {p1, v0}, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->close(Landroid/app/Dialog;Ljava/lang/Runnable;)V
 
-    if-eqz v0, :cond_0
-
-    :try_start_0
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$15;->val$then:Ljava/lang/Runnable;
-
-    invoke-interface {v0}, Ljava/lang/Runnable;->run()V
-    :try_end_0
-    .catch Ljava/lang/RuntimeException; {:try_start_0 .. :try_end_0} :catch_0
-
-    goto :goto_0
-
-    :catch_0
-    move-exception v0
-
-    :cond_0
-    :goto_0
     return-void
 .end method

@@ -30,7 +30,7 @@
         }
     .end annotation
 
-    .line 46
+    .line 49
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$2;->val$a:Landroid/app/Activity;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -43,7 +43,7 @@
 .method public onClick(Landroid/view/View;)V
     .locals 2
 
-    .line 48
+    .line 51
     sget-boolean v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->shuffleOn:Z
 
     xor-int/lit8 v0, v0, 0x1
@@ -52,7 +52,7 @@
 
     invoke-virtual {p1}, Landroid/view/View;->invalidate()V
 
-    .line 49
+    .line 52
     iget-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$2;->val$a:Landroid/app/Activity;
 
     const-string v0, "melodix_playall"
@@ -77,6 +77,6 @@
 
     invoke-interface {p1}, Landroid/content/SharedPreferences$Editor;->apply()V
 
-    .line 50
+    .line 53
     return-void
 .end method

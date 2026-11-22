@@ -562,6 +562,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         if ("detail".equals(screen)) try { JSONArray ra = new JSONArray(rows); for (int i = 0; i < ra.length(); i++) { JSONObject o = ra.optJSONObject(i);
             if (o != null && o.optString("uri", o.optString("id", "")).startsWith("spotify:track:")) { StringBuilder b = new StringBuilder(); java.util.Iterator<String> it = o.keys();
                 while (it.hasNext()) b.append(b.length() == 0 ? "" : ",").append(it.next()); rowKeys = b.toString(); break; } } } catch (Exception ignored) { }
+        live = new WeakReference<PreviewPlayerController>(this);
         onDetail = "detail".equals(screen); try { highlightPlaying(true); } catch (RuntimeException ignored) { }
         // User screenshot (1022390): no ⋮ appeared; the painted rows may not carry the tracks, so fall back to the
         // playlist's kept copy (same fields: title, subtitle, uri, image).
@@ -795,6 +796,20 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             if (pending) handler.postDelayed(this, 420);
         }
     };
+    // User report (1022401): starting a playlist did not flip the play icons. Shared with the playlist header.
+    static WeakReference<PreviewPlayerController> live;
+    static boolean playingNow;
+    static boolean headerPlaying() { PreviewPlayerController c = live == null ? null : live.get(); return c != null && playingNow && !c.lit.isEmpty(); }
+    static void togglePlayback(Activity a) { View m = a.findViewById(MINI_BUTTON); if (m != null) m.performClick(); }
+    static void expect() { PreviewPlayerController c = live == null ? null : live.get(); if (c != null) c.expectPlaying(); }
+    // A playlist start shows "playing" at once; Spotify's next reading confirms it, else it reverts silently.
+    void expectPlaying() {
+        if (!haveReal || !foreground || pending) return;
+        pendingTarget = true; pending = true; final long id = ++serial;
+        renderButtons(); syncGlow(); handler.removeCallbacks(pulse); handler.post(pulse);
+        handler.postDelayed(new Runnable() { public void run() {
+            if (pending && serial == id) { pending = false; shownPlaying = realPlaying; renderButtons(); syncGlow(); } } }, RECONCILE_MS);
+    }
     private void renderButtons() {
         Activity a = activity.get(); if (a == null || !haveReal) return;
         // User request (1022283): the icon flips at the tap; it pulses until Spotify confirms
@@ -807,6 +822,9 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         View mini = a.findViewById(MINI_BUTTON), full = a.findViewById(FULL_BUTTON);
         if (mini instanceof ImageView) { ((ImageView) mini).setImageResource(icon); mini.setContentDescription(description); }
         if (full instanceof ImageView) { ((ImageView) full).setImageResource(icon); full.setContentDescription(description); }
+        boolean was = playingNow; playingNow = icon == PAUSE_ICON;
+        if (was != playingNow) { View root = a.findViewById(0x7f09022f); View row = root == null ? null : root.findViewWithTag(PreviewPlayerControllerPlayAll.TAG);
+            if (row instanceof android.view.ViewGroup) for (int i = 0; i < ((android.view.ViewGroup) row).getChildCount(); i++) ((android.view.ViewGroup) row).getChildAt(i).invalidate(); }
     }
     private boolean correctionInProgress(long t) {
         double window = Math.max((double) CORRECTION_MS, correction > 0 ? correction * 4.0 : -correction * 1.25);

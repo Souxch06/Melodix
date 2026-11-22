@@ -24,12 +24,12 @@
 .method constructor <init>(Landroid/content/Context;F)V
     .locals 0
 
-    .line 126
+    .line 133
     iput p2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$5;->val$d:F
 
     invoke-direct {p0, p1}, Landroid/view/View;-><init>(Landroid/content/Context;)V
 
-    .line 127
+    .line 134
     new-instance p1, Landroid/graphics/Paint;
 
     const/4 p2, 0x1
@@ -46,7 +46,7 @@
 .method protected onDraw(Landroid/graphics/Canvas;)V
     .locals 6
 
-    .line 128
+    .line 135
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$5;->p:Landroid/graphics/Paint;
 
     const v1, -0x4c4c4d
@@ -71,7 +71,7 @@
 
     div-float/2addr v2, v1
 
-    .line 129
+    .line 136
     const/4 v1, -0x1
 
     :goto_0

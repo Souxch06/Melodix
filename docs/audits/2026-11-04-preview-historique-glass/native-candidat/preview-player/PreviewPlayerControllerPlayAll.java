@@ -35,6 +35,9 @@ final class PreviewPlayerControllerPlayAll {
         rl.topMargin = (int) (14 * d); row.setLayoutParams(rl);
         View play = icon(a, true); play.setContentDescription("Lire la playlist");
         play.setOnClickListener(new View.OnClickListener() { public void onClick(final View v) {
+            // User report (1022401): while this playlist plays, the header button is pause/resume like Spotify.
+            if (PreviewPlayerController.headerPlaying()) { PreviewPlayerController.togglePlayback(a); return; }
+            PreviewPlayerController.expect();
             // User report (1022387): Spotify takes a moment to start; show it instead of looking frozen.
             loadingUntil = android.os.SystemClock.uptimeMillis() + 3000; v.invalidate();
             v.postDelayed(new Runnable() { public void run() { v.invalidate(); } }, 3050);
@@ -74,7 +77,8 @@ final class PreviewPlayerControllerPlayAll {
             final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
             @Override protected void onDraw(Canvas c) {
                 float w = getWidth(), h = getHeight(), r = Math.min(w, h) / 2f - d, cx = w / 2f, cy = h / 2f;
-                boolean on = !play && shuffleOn, loading = play && android.os.SystemClock.uptimeMillis() < loadingUntil;
+                boolean pause = play && PreviewPlayerController.headerPlaying();
+                boolean on = !play && shuffleOn, loading = play && !pause && android.os.SystemClock.uptimeMillis() < loadingUntil;
                 p.setStyle(Paint.Style.FILL);
                 if (play || on) {
                     // Soft white halo, then the white disc (same look as the mini player's play button).
@@ -89,7 +93,10 @@ final class PreviewPlayerControllerPlayAll {
                     if (loading) { p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(2.5f * d); p.setStrokeCap(Paint.Cap.ROUND);
                         float a0 = (android.os.SystemClock.uptimeMillis() % 1000) * 0.36f;
                         c.drawArc(new android.graphics.RectF(cx - r * 0.38f, cy - r * 0.38f, cx + r * 0.38f, cy + r * 0.38f), a0, 270, false, p); postInvalidateOnAnimation(); return; }
-                    p.setStyle(Paint.Style.FILL); Path t = new Path();
+                    p.setStyle(Paint.Style.FILL);
+                    if (pause) { float bw = r * 0.17f, bh = r * 0.36f; c.drawRoundRect(new android.graphics.RectF(cx - r * 0.26f, cy - bh, cx - r * 0.26f + bw, cy + bh), bw / 3, bw / 3, p);
+                        c.drawRoundRect(new android.graphics.RectF(cx + r * 0.26f - bw, cy - bh, cx + r * 0.26f, cy + bh), bw / 3, bw / 3, p); return; }
+                    Path t = new Path();
                     t.moveTo(cx - r * 0.26f, cy - r * 0.36f); t.lineTo(cx + r * 0.40f, cy); t.lineTo(cx - r * 0.26f, cy + r * 0.36f); t.close(); c.drawPath(t, p); return;
                 }
                 p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(1.8f * d); p.setStrokeCap(Paint.Cap.ROUND); p.setStrokeJoin(Paint.Join.ROUND);
@@ -137,9 +144,34 @@ final class PreviewPlayerControllerPlayAll {
     // outline icons). Only actions that work are listed; the queue/playlist ones need a page job (next step).
     static void sheet(final Activity a, final org.json.JSONObject track, final View row) {
         final float d = a.getResources().getDisplayMetrics().density;
-        final android.app.Dialog dlg = new android.app.Dialog(a);
+        final android.app.Dialog dlg = new android.app.Dialog(a) {
+            // User request (1022401): Back and a tap outside also slide the panel away instead of cutting it.
+            @Override public void onBackPressed() { close(this, null); }
+            @Override public boolean onTouchEvent(android.view.MotionEvent e) { if (e.getActionMasked() == android.view.MotionEvent.ACTION_DOWN) { close(this, null); return true; } return super.onTouchEvent(e); }
+        };
         dlg.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
-        android.widget.LinearLayout box = new android.widget.LinearLayout(a); box.setOrientation(android.widget.LinearLayout.VERTICAL);
+        // User request (1022401): drag the panel down to close it, like Spotify.
+        android.widget.LinearLayout box = new android.widget.LinearLayout(a) {
+            float y0, dy; boolean drag; final int slop = android.view.ViewConfiguration.get(a).getScaledTouchSlop();
+            @Override public boolean onInterceptTouchEvent(android.view.MotionEvent e) {
+                if (e.getActionMasked() == android.view.MotionEvent.ACTION_DOWN) { y0 = e.getRawY(); drag = false; }
+                else if (e.getActionMasked() == android.view.MotionEvent.ACTION_MOVE && e.getRawY() - y0 > slop) drag = true;
+                return drag;
+            }
+            @Override public boolean onTouchEvent(android.view.MotionEvent e) {
+                int m = e.getActionMasked();
+                if (m == android.view.MotionEvent.ACTION_DOWN) { y0 = e.getRawY(); return true; }
+                dy = Math.max(0, e.getRawY() - y0);
+                if (m == android.view.MotionEvent.ACTION_MOVE) { setTranslationY(dy); return true; }
+                if (m == android.view.MotionEvent.ACTION_UP || m == android.view.MotionEvent.ACTION_CANCEL) {
+                    if (dy > getHeight() * 0.25f) close(dlg, null);
+                    else animate().translationY(0).setDuration(180).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+                    drag = false; return true;
+                }
+                return true;
+            }
+        };
+        box.setClickable(true); box.setOrientation(android.widget.LinearLayout.VERTICAL);
         android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable(); bg.setColor(0xff1f1f22);
         bg.setCornerRadii(new float[]{22 * d, 22 * d, 22 * d, 22 * d, 0, 0, 0, 0}); box.setBackground(bg);
         box.setPadding(0, (int) (12 * d), 0, (int) (28 * d));
@@ -172,7 +204,7 @@ final class PreviewPlayerControllerPlayAll {
                 .setPositiveButton("Supprimer", new android.content.DialogInterface.OnClickListener() { public void onClick(android.content.DialogInterface x, int k) {
                     pageMenu(a, id, "Supprimer de cette playlist|Remove from this playlist", "Supprimé de la playlist"); } }).show();
         } }, dlg));
-        dlg.setContentView(box);
+        dlg.setCanceledOnTouchOutside(false); dlg.setContentView(box);
         final android.view.Window w = dlg.getWindow();
         if (w != null) { w.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(0)); w.setGravity(android.view.Gravity.BOTTOM);
             w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT); w.setWindowAnimations(0); w.setDimAmount(0f); }
@@ -244,10 +276,12 @@ final class PreviewPlayerControllerPlayAll {
         va.start();
     }
     static void close(final android.app.Dialog dlg, final Runnable then) {
-        View panel = closer.get(dlg);
-        if (panel == null || panel.getHeight() == 0) { dlg.dismiss(); if (then != null) try { then.run(); } catch (RuntimeException ignored) { } return; }
-        dim(dlg.getWindow(), 0.6f, 0f, 200);
-        panel.animate().translationY(panel.getHeight()).setDuration(200).setInterpolator(new android.view.animation.AccelerateInterpolator(2f)).withEndAction(new Runnable() { public void run() {
+        View panel = closer.remove(dlg);
+        if (panel == null) return; // already closing (drag + tap); every sheet registers before show
+        if (panel.getHeight() == 0) { dlg.dismiss(); if (then != null) try { then.run(); } catch (RuntimeException ignored) { } return; }
+        dim(dlg.getWindow(), 0.6f, 0f, 220);
+        // User request (1022401): fade out while sliding away.
+        panel.animate().translationY(panel.getHeight()).alpha(0f).setDuration(220).setInterpolator(new android.view.animation.AccelerateInterpolator(2f)).withEndAction(new Runnable() { public void run() {
             dlg.dismiss(); if (then != null) try { then.run(); } catch (RuntimeException ignored) { } } }).start();
     }
     // Spotify's own track menu in the hidden page (no token): right-click the track row, then click the entry.

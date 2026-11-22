@@ -1,9 +1,6 @@
 .class Lcom/melodix/music/PreviewPlayerControllerPlayAll$7;
-.super Ljava/lang/Object;
+.super Landroid/app/Dialog;
 .source "PreviewPlayerControllerPlayAll.java"
-
-# interfaces
-.implements Ljava/lang/Runnable;
 
 
 # annotations
@@ -17,64 +14,51 @@
 .end annotation
 
 
-# instance fields
-.field final synthetic val$a:Landroid/app/Activity;
-
-.field final synthetic val$link:Ljava/lang/String;
-
-
 # direct methods
-.method constructor <init>(Ljava/lang/String;Landroid/app/Activity;)V
+.method constructor <init>(Landroid/content/Context;)V
     .locals 0
-    .annotation system Ldalvik/annotation/Signature;
-        value = {
-            "()V"
-        }
-    .end annotation
 
-    .line 159
-    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$7;->val$link:Ljava/lang/String;
-
-    iput-object p2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$7;->val$a:Landroid/app/Activity;
-
-    invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+    .line 147
+    invoke-direct {p0, p1}, Landroid/app/Dialog;-><init>(Landroid/content/Context;)V
 
     return-void
 .end method
 
 
 # virtual methods
-.method public run()V
-    .locals 3
+.method public onBackPressed()V
+    .locals 1
 
-    .line 160
-    new-instance v0, Landroid/content/Intent;
+    .line 149
+    const/4 v0, 0x0
 
-    const-string v1, "android.intent.action.SEND"
+    invoke-static {p0, v0}, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->close(Landroid/app/Dialog;Ljava/lang/Runnable;)V
 
-    invoke-direct {v0, v1}, Landroid/content/Intent;-><init>(Ljava/lang/String;)V
-
-    const-string v1, "text/plain"
-
-    invoke-virtual {v0, v1}, Landroid/content/Intent;->setType(Ljava/lang/String;)Landroid/content/Intent;
-
-    .line 161
-    const-string v1, "android.intent.extra.TEXT"
-
-    iget-object v2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$7;->val$link:Ljava/lang/String;
-
-    invoke-virtual {v0, v1, v2}, Landroid/content/Intent;->putExtra(Ljava/lang/String;Ljava/lang/String;)Landroid/content/Intent;
-
-    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$7;->val$a:Landroid/app/Activity;
-
-    const-string v2, "Partager"
-
-    invoke-static {v0, v2}, Landroid/content/Intent;->createChooser(Landroid/content/Intent;Ljava/lang/CharSequence;)Landroid/content/Intent;
-
-    move-result-object v0
-
-    invoke-virtual {v1, v0}, Landroid/app/Activity;->startActivity(Landroid/content/Intent;)V
-
-    .line 162
     return-void
+.end method
+
+.method public onTouchEvent(Landroid/view/MotionEvent;)Z
+    .locals 1
+
+    .line 150
+    invoke-virtual {p1}, Landroid/view/MotionEvent;->getActionMasked()I
+
+    move-result v0
+
+    if-nez v0, :cond_0
+
+    const/4 p1, 0x0
+
+    invoke-static {p0, p1}, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->close(Landroid/app/Dialog;Ljava/lang/Runnable;)V
+
+    const/4 p1, 0x1
+
+    return p1
+
+    :cond_0
+    invoke-super {p0, p1}, Landroid/app/Dialog;->onTouchEvent(Landroid/view/MotionEvent;)Z
+
+    move-result p1
+
+    return p1
 .end method

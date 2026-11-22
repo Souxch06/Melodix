@@ -34,7 +34,7 @@
         }
     .end annotation
 
-    .line 132
+    .line 139
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$6;->val$a:Landroid/app/Activity;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$6;->val$track:Lorg/json/JSONObject;
@@ -51,7 +51,7 @@
 .method public onClick(Landroid/view/View;)V
     .locals 2
 
-    .line 132
+    .line 139
     iget-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$6;->val$a:Landroid/app/Activity;
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$6;->val$track:Lorg/json/JSONObject;
