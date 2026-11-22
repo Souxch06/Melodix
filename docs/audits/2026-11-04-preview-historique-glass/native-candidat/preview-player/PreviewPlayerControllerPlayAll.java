@@ -133,57 +133,68 @@ final class PreviewPlayerControllerPlayAll {
             ((ViewGroup) row).addView(dots, new ViewGroup.LayoutParams((int) (36 * d), (int) (48 * d)));
         }
     }
+    // User screenshot (1022396): Spotify's track sheet copied (grip, cover + title, full-width line, tall rows with
+    // outline icons). Only actions that work are listed; the queue/playlist ones need a page job (next step).
     static void sheet(final Activity a, final org.json.JSONObject track, final View row) {
         final float d = a.getResources().getDisplayMetrics().density;
         final android.app.Dialog dlg = new android.app.Dialog(a);
         dlg.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
         android.widget.LinearLayout box = new android.widget.LinearLayout(a); box.setOrientation(android.widget.LinearLayout.VERTICAL);
         android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable(); bg.setColor(0xff1f1f22);
-        bg.setCornerRadii(new float[]{18 * d, 18 * d, 18 * d, 18 * d, 0, 0, 0, 0}); box.setBackground(bg);
-        box.setPadding((int) (20 * d), (int) (10 * d), (int) (20 * d), (int) (24 * d));
+        bg.setCornerRadii(new float[]{22 * d, 22 * d, 22 * d, 22 * d, 0, 0, 0, 0}); box.setBackground(bg);
+        box.setPadding(0, (int) (12 * d), 0, (int) (28 * d));
         View grip = new View(a); android.graphics.drawable.GradientDrawable gb = new android.graphics.drawable.GradientDrawable(); gb.setColor(0x66ffffff); gb.setCornerRadius(3 * d); grip.setBackground(gb);
-        android.widget.LinearLayout.LayoutParams gl = new android.widget.LinearLayout.LayoutParams((int) (40 * d), (int) (5 * d)); gl.gravity = android.view.Gravity.CENTER_HORIZONTAL; gl.bottomMargin = (int) (14 * d); box.addView(grip, gl);
-        android.widget.LinearLayout head = new android.widget.LinearLayout(a); head.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        android.widget.LinearLayout.LayoutParams gl = new android.widget.LinearLayout.LayoutParams((int) (40 * d), (int) (5 * d)); gl.gravity = android.view.Gravity.CENTER_HORIZONTAL; gl.bottomMargin = (int) (20 * d); box.addView(grip, gl);
+        android.widget.LinearLayout head = new android.widget.LinearLayout(a); head.setGravity(android.view.Gravity.CENTER_VERTICAL); head.setPadding((int) (20 * d), 0, (int) (20 * d), 0);
         android.widget.ImageView art = new android.widget.ImageView(a); art.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);
         try { PreviewPlayerController.cover(art, track.optString("image", ""), (int) (56 * d)); } catch (RuntimeException ignored) { }
         head.addView(art, new android.widget.LinearLayout.LayoutParams((int) (56 * d), (int) (56 * d)));
-        android.widget.LinearLayout names = new android.widget.LinearLayout(a); names.setOrientation(android.widget.LinearLayout.VERTICAL); names.setPadding((int) (14 * d), 0, 0, 0);
-        names.addView(text(a, title(track), 17, 0xfff5f5f7, true)); names.addView(text(a, artist(track), 14, 0xffa1a1aa, false));
+        android.widget.LinearLayout names = new android.widget.LinearLayout(a); names.setOrientation(android.widget.LinearLayout.VERTICAL); names.setPadding((int) (16 * d), 0, 0, 0);
+        names.addView(text(a, title(track), 17, 0xfff5f5f7, false)); TextView sub = text(a, artist(track), 14, 0xffa1a1aa, false); sub.setPadding(0, (int) (4 * d), 0, 0); names.addView(sub);
         head.addView(names, new android.widget.LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         box.addView(head);
-        View line = new View(a); line.setBackgroundColor(0x22ffffff);
-        android.widget.LinearLayout.LayoutParams ll = new android.widget.LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Math.max(1, (int) d)); ll.topMargin = ll.bottomMargin = (int) (14 * d); box.addView(line, ll);
+        View line = new View(a); line.setBackgroundColor(0x33ffffff);
+        android.widget.LinearLayout.LayoutParams ll = new android.widget.LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Math.max(1, (int) d)); ll.topMargin = (int) (18 * d); ll.bottomMargin = (int) (6 * d); box.addView(line, ll);
         final String link = "https://open.spotify.com/track/" + trackUri(track).substring("spotify:track:".length());
-        box.addView(item(a, "▶", "Lire", new Runnable() { public void run() { row.performClick(); } }, dlg));
-        // User request (1022395): Spotify's "go to artist" through the app's own search (rows carry no artist link).
-        final String who = artist(track).split(",")[0].trim(), what = title(track);
-        if (!who.isEmpty()) box.addView(item(a, "♪", "Voir l'artiste", new Runnable() { public void run() { search(a, who); } }, dlg));
-        if (!what.isEmpty()) box.addView(item(a, "⌕", "Rechercher ce titre", new Runnable() { public void run() { search(a, (what + " " + who).trim()); } }, dlg));
-        box.addView(item(a, "↗", "Partager", new Runnable() { public void run() {
+        box.addView(item(a, 0, "Partager", new Runnable() { public void run() {
             android.content.Intent i = new android.content.Intent(android.content.Intent.ACTION_SEND); i.setType("text/plain");
             i.putExtra(android.content.Intent.EXTRA_TEXT, link); a.startActivity(android.content.Intent.createChooser(i, "Partager"));
         } }, dlg));
-        box.addView(item(a, "⧉", "Copier le lien", new Runnable() { public void run() {
-            ((android.content.ClipboardManager) a.getSystemService(android.content.Context.CLIPBOARD_SERVICE)).setPrimaryClip(android.content.ClipData.newPlainText("Lien", link));
-            android.widget.Toast.makeText(a, "Lien copié", android.widget.Toast.LENGTH_SHORT).show();
-        } }, dlg));
+        final String who = artist(track).split(",")[0].trim();
+        if (!who.isEmpty()) box.addView(item(a, 1, "Accéder à l'artiste", new Runnable() { public void run() { search(a, who); } }, dlg));
         dlg.setContentView(box);
         android.view.Window w = dlg.getWindow();
         if (w != null) { w.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(0)); w.setGravity(android.view.Gravity.BOTTOM);
-            w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT); w.setWindowAnimations(android.R.style.Animation_InputMethod); w.setDimAmount(0.55f); }
+            w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT); w.setWindowAnimations(android.R.style.Animation_InputMethod); w.setDimAmount(0.6f); }
         dlg.show();
     }
     static TextView text(Activity a, String s, int sp, int color, boolean bold) {
         TextView t = new TextView(a); t.setText(s); t.setTextSize(sp); t.setTextColor(color); t.setSingleLine(true);
         t.setEllipsize(android.text.TextUtils.TruncateAt.END); if (bold) t.setTypeface(android.graphics.Typeface.DEFAULT_BOLD); return t;
     }
-    static View item(Activity a, String glyph, String label, final Runnable action, final android.app.Dialog dlg) {
+    // Outline icons drawn like Spotify's (0 share, 1 artist).
+    static View glyph(Activity a, final int kind) {
+        final float d = a.getResources().getDisplayMetrics().density;
+        return new View(a) {
+            final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+            @Override protected void onDraw(Canvas c) {
+                p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(1.8f * d); p.setColor(0xfff5f5f7); p.setStrokeCap(Paint.Cap.ROUND); p.setStrokeJoin(Paint.Join.ROUND);
+                float w = getWidth(), h = getHeight(), u = Math.min(w, h) / 24f; c.save(); c.translate((w - 24 * u) / 2f, (h - 24 * u) / 2f); c.scale(u, u); p.setStrokeWidth(1.8f * d / u);
+                if (kind == 0) { c.drawCircle(18, 5, 3, p); c.drawCircle(6, 12, 3, p); c.drawCircle(18, 19, 3, p); c.drawLine(8.6f, 10.5f, 15.4f, 6.5f, p); c.drawLine(8.6f, 13.5f, 15.4f, 17.5f, p); }
+                else { c.drawCircle(10, 7, 4, p); Path q = new Path(); q.moveTo(3, 21); q.cubicTo(3, 15.5f, 6.5f, 13, 10, 13); q.cubicTo(11.5f, 13, 12.7f, 13.4f, 13.6f, 14); c.drawPath(q, p);
+                    c.drawCircle(18, 19, 2, p); c.drawLine(20, 19, 20, 12, p); c.drawLine(20, 12, 22.5f, 13, p); }
+                c.restore();
+            }
+        };
+    }
+    static View item(Activity a, int icon, String label, final Runnable action, final android.app.Dialog dlg) {
         float d = a.getResources().getDisplayMetrics().density;
         android.widget.LinearLayout row = new android.widget.LinearLayout(a); row.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        row.setPadding(0, (int) (14 * d), 0, (int) (14 * d)); row.setClickable(true);
-        TextView g = text(a, glyph, 20, 0xfff5f5f7, false); g.setGravity(android.view.Gravity.CENTER);
-        row.addView(g, new android.widget.LinearLayout.LayoutParams((int) (32 * d), ViewGroup.LayoutParams.WRAP_CONTENT));
-        TextView l = text(a, label, 16, 0xfff5f5f7, false); l.setPadding((int) (18 * d), 0, 0, 0); row.addView(l);
+        row.setPadding((int) (20 * d), 0, (int) (20 * d), 0); row.setClickable(true); row.setMinimumHeight((int) (64 * d));
+        android.util.TypedValue tv = new android.util.TypedValue();
+        if (a.getTheme().resolveAttribute(android.R.attr.selectableItemBackground, tv, true)) row.setBackgroundResource(tv.resourceId);
+        row.addView(glyph(a, icon), new android.widget.LinearLayout.LayoutParams((int) (28 * d), (int) (28 * d)));
+        TextView l = text(a, label, 17, 0xfff5f5f7, false); l.setPadding((int) (20 * d), 0, 0, 0); row.addView(l);
         row.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { dlg.dismiss(); try { action.run(); } catch (RuntimeException ignored) { } } });
         return row;
     }
