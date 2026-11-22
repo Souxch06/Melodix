@@ -1,6 +1,9 @@
 .class Lcom/melodix/music/PreviewPlayerControllerPlayAll$1;
-.super Landroid/view/View;
+.super Ljava/lang/Object;
 .source "PreviewPlayerControllerPlayAll.java"
+
+# interfaces
+.implements Landroid/view/View$OnClickListener;
 
 
 # annotations
@@ -15,116 +18,80 @@
 
 
 # instance fields
-.field final p:Landroid/graphics/Paint;
+.field final synthetic val$root:Landroid/view/View;
 
 
 # direct methods
-.method constructor <init>(Landroid/content/Context;)V
-    .locals 1
+.method constructor <init>(Landroid/view/View;)V
+    .locals 0
+    .annotation system Ldalvik/annotation/Signature;
+        value = {
+            "()V"
+        }
+    .end annotation
 
-    .line 22
-    invoke-direct {p0, p1}, Landroid/view/View;-><init>(Landroid/content/Context;)V
+    .line 30
+    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$1;->val$root:Landroid/view/View;
 
-    .line 23
-    new-instance p1, Landroid/graphics/Paint;
-
-    const/4 v0, 0x1
-
-    invoke-direct {p1, v0}, Landroid/graphics/Paint;-><init>(I)V
-
-    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$1;->p:Landroid/graphics/Paint;
+    invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
     return-void
 .end method
 
 
 # virtual methods
-.method protected onDraw(Landroid/graphics/Canvas;)V
-    .locals 6
+.method public onClick(Landroid/view/View;)V
+    .locals 3
 
-    .line 25
-    invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerControllerPlayAll$1;->getWidth()I
+    .line 31
+    const/4 p1, 0x0
 
-    move-result v0
+    :goto_0
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$1;->val$root:Landroid/view/View;
 
-    invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerControllerPlayAll$1;->getHeight()I
+    add-int/lit8 v1, p1, 0x1
 
-    move-result v1
+    invoke-static {v1}, Ljava/lang/String;->valueOf(I)Ljava/lang/String;
 
-    invoke-static {v0, v1}, Ljava/lang/Math;->min(II)I
+    move-result-object v2
 
-    move-result v0
+    invoke-static {v0, v2}, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->find(Landroid/view/View;Ljava/lang/String;)Landroid/widget/TextView;
 
-    int-to-float v0, v0
+    move-result-object v0
 
-    const/high16 v1, 0x40000000    # 2.0f
+    if-eqz v0, :cond_0
 
-    div-float/2addr v0, v1
+    const/16 v0, 0x1f4
 
-    invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerControllerPlayAll$1;->getHeight()I
+    if-ge p1, v0, :cond_0
 
-    move-result v2
+    move p1, v1
 
-    int-to-float v2, v2
+    goto :goto_0
 
-    div-float/2addr v2, v1
+    .line 32
+    :cond_0
+    if-lez p1, :cond_1
 
-    .line 26
-    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$1;->p:Landroid/graphics/Paint;
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$1;->val$root:Landroid/view/View;
 
-    const v3, -0xe128a0
+    new-instance v1, Ljava/util/Random;
 
-    invoke-virtual {v1, v3}, Landroid/graphics/Paint;->setColor(I)V
+    invoke-direct {v1}, Ljava/util/Random;-><init>()V
 
-    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$1;->p:Landroid/graphics/Paint;
+    invoke-virtual {v1, p1}, Ljava/util/Random;->nextInt(I)I
 
-    invoke-virtual {p1, v0, v2, v0, v1}, Landroid/graphics/Canvas;->drawCircle(FFFLandroid/graphics/Paint;)V
+    move-result p1
 
-    .line 27
-    new-instance v1, Landroid/graphics/Path;
+    add-int/lit8 p1, p1, 0x1
 
-    invoke-direct {v1}, Landroid/graphics/Path;-><init>()V
+    invoke-static {p1}, Ljava/lang/String;->valueOf(I)Ljava/lang/String;
 
-    .line 28
-    const v3, 0x3e8f5c29    # 0.28f
+    move-result-object p1
 
-    mul-float/2addr v3, v0
+    invoke-static {v0, p1}, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->tap(Landroid/view/View;Ljava/lang/String;)V
 
-    sub-float v3, v0, v3
-
-    const v4, 0x3ec28f5c    # 0.38f
-
-    mul-float/2addr v4, v0
-
-    sub-float v5, v2, v4
-
-    invoke-virtual {v1, v3, v5}, Landroid/graphics/Path;->moveTo(FF)V
-
-    const v5, 0x3ed70a3d    # 0.42f
-
-    mul-float/2addr v5, v0
-
-    add-float/2addr v0, v5
-
-    invoke-virtual {v1, v0, v2}, Landroid/graphics/Path;->lineTo(FF)V
-
-    add-float/2addr v2, v4
-
-    invoke-virtual {v1, v3, v2}, Landroid/graphics/Path;->lineTo(FF)V
-
-    invoke-virtual {v1}, Landroid/graphics/Path;->close()V
-
-    .line 29
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$1;->p:Landroid/graphics/Paint;
-
-    const/high16 v2, -0x1000000
-
-    invoke-virtual {v0, v2}, Landroid/graphics/Paint;->setColor(I)V
-
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$1;->p:Landroid/graphics/Paint;
-
-    invoke-virtual {p1, v1, v0}, Landroid/graphics/Canvas;->drawPath(Landroid/graphics/Path;Landroid/graphics/Paint;)V
-
-    .line 30
+    .line 33
+    :cond_1
     return-void
 .end method
