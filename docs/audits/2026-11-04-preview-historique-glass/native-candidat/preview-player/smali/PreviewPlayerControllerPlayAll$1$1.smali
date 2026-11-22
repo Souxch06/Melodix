@@ -43,7 +43,7 @@
         }
     .end annotation
 
-    .line 37
+    .line 39
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$1$1;->this$0:Lcom/melodix/music/PreviewPlayerControllerPlayAll$1;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$1$1;->val$v:Landroid/view/View;
@@ -58,7 +58,7 @@
 .method public run()V
     .locals 1
 
-    .line 37
+    .line 39
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$1$1;->val$v:Landroid/view/View;
 
     invoke-virtual {v0}, Landroid/view/View;->invalidate()V

@@ -28,6 +28,8 @@ final class PreviewPlayerControllerPlayAll {
         // User feedback (1022384): clearer labelled pills across the width: white "Lecture", glass "Aléatoire".
         android.widget.LinearLayout row = new android.widget.LinearLayout(a);
         row.setTag(TAG); row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        // User request (1022389): icons only, right-aligned like Spotify, Melodix colours (no green).
+        row.setGravity(android.view.Gravity.END | android.view.Gravity.CENTER_VERTICAL);
         ViewGroup.MarginLayoutParams rl = new ViewGroup.MarginLayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         rl.topMargin = (int) (14 * d); row.setLayoutParams(rl);
         View play = icon(a, true); play.setContentDescription("Lire la playlist");
@@ -44,9 +46,8 @@ final class PreviewPlayerControllerPlayAll {
             // User report (1022387): turning shuffle on started a track at once; it only toggles now.
             shuffleOn = !shuffleOn; v.invalidate();
         }});
-        android.widget.LinearLayout.LayoutParams pl = new android.widget.LinearLayout.LayoutParams(0, (int) (48 * d), 1f); pl.rightMargin = (int) (6 * d);
-        android.widget.LinearLayout.LayoutParams sl = new android.widget.LinearLayout.LayoutParams(0, (int) (48 * d), 1f); sl.leftMargin = (int) (6 * d);
-        row.addView(play, pl); row.addView(shuffle, sl);
+        android.widget.LinearLayout.LayoutParams sl = new android.widget.LinearLayout.LayoutParams((int) (48 * d), (int) (48 * d)); sl.rightMargin = (int) (16 * d);
+        row.addView(shuffle, sl); row.addView(play, new android.widget.LinearLayout.LayoutParams((int) (60 * d), (int) (60 * d)));
         ViewGroup card = hero;
         // Fade in only on a fresh open: a list redraw rebuilds the header, and replaying it would flicker.
         long now = android.os.SystemClock.uptimeMillis(); boolean fresh = now - lastAdd > 3000; lastAdd = now;
@@ -60,39 +61,41 @@ final class PreviewPlayerControllerPlayAll {
         View v = new View(a) {
             final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
             @Override protected void onDraw(Canvas c) {
-                float w = getWidth(), h = getHeight(), r = h / 2f, cy = h / 2f;
-                android.graphics.RectF box = new android.graphics.RectF(1, 1, w - 1, h - 1);
-                boolean on = !play && shuffleOn;
-                p.setStyle(Paint.Style.FILL); p.setColor(play ? 0xfff5f5f7 : on ? 0x331ed760 : 0x26ffffff); c.drawRoundRect(box, r, r, p);
-                if (!play) { p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(d); p.setColor(on ? 0xff1ed760 : 0x40ffffff); c.drawRoundRect(box, r, r, p); }
-                int ink = play ? 0xff111114 : on ? 0xff1ed760 : 0xfff5f5f7;
-                if (on) { p.setStyle(Paint.Style.FILL); p.setColor(0xff1ed760); c.drawCircle(w / 2f, h - 6 * d, 2 * d, p); }
-                boolean loading = play && android.os.SystemClock.uptimeMillis() < loadingUntil;
-                String label = play ? (loading ? "Chargement…" : "Lecture") : "Aléatoire";
-                p.setStyle(Paint.Style.FILL); p.setTextSize(15 * d); p.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-                float tw = p.measureText(label), iw = 14 * d, gap = 8 * d, x = (w - iw - gap - tw) / 2f;
-                p.setColor(ink);
-                if (play) { Path t = new Path(); t.moveTo(x, cy - 7 * d); t.lineTo(x + iw, cy); t.lineTo(x, cy + 7 * d); t.close(); c.drawPath(t, p); }
-                else {
-                    p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(1.8f * d); p.setStrokeCap(Paint.Cap.ROUND); p.setStrokeJoin(Paint.Join.ROUND);
-                    float l = x, rr = x + iw, t = cy - 5 * d, b = cy + 5 * d, k = 3 * d; Path q = new Path();
-                    q.moveTo(l, b); q.cubicTo(l + iw * 0.45f, b, l + iw * 0.55f, t, rr, t);
-                    q.moveTo(l, t); q.cubicTo(l + iw * 0.45f, t, l + iw * 0.55f, b, rr, b);
-                    q.moveTo(rr - k, t - k); q.lineTo(rr, t); q.lineTo(rr - k, t + k);
-                    q.moveTo(rr - k, b - k); q.lineTo(rr, b); q.lineTo(rr - k, b + k);
-                    c.drawPath(q, p); p.setStyle(Paint.Style.FILL);
+                float w = getWidth(), h = getHeight(), r = Math.min(w, h) / 2f - d, cx = w / 2f, cy = h / 2f;
+                boolean on = !play && shuffleOn, loading = play && android.os.SystemClock.uptimeMillis() < loadingUntil;
+                p.setStyle(Paint.Style.FILL);
+                if (play || on) {
+                    // Soft white halo, then the white disc (same look as the mini player's play button).
+                    p.setColor(0x22ffffff); c.drawCircle(cx, cy, r + d, p);
+                    p.setColor(0xfff5f5f7); c.drawCircle(cx, cy, r - 2 * d, p);
+                } else {
+                    p.setColor(0x26ffffff); c.drawCircle(cx, cy, r, p);
+                    p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(d); p.setColor(0x40ffffff); c.drawCircle(cx, cy, r, p);
                 }
-                Paint.FontMetrics fm = p.getFontMetrics();
-                c.drawText(label, x + iw + gap, cy - (fm.ascent + fm.descent) / 2f, p);
+                int ink = play || on ? 0xff111114 : 0xfff5f5f7; p.setColor(ink);
+                if (play) {
+                    if (loading) { p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(2.5f * d); p.setStrokeCap(Paint.Cap.ROUND);
+                        float a0 = (android.os.SystemClock.uptimeMillis() % 1000) * 0.36f;
+                        c.drawArc(new android.graphics.RectF(cx - r * 0.38f, cy - r * 0.38f, cx + r * 0.38f, cy + r * 0.38f), a0, 270, false, p); postInvalidateOnAnimation(); return; }
+                    p.setStyle(Paint.Style.FILL); Path t = new Path();
+                    t.moveTo(cx - r * 0.26f, cy - r * 0.36f); t.lineTo(cx + r * 0.40f, cy); t.lineTo(cx - r * 0.26f, cy + r * 0.36f); t.close(); c.drawPath(t, p); return;
+                }
+                p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(1.8f * d); p.setStrokeCap(Paint.Cap.ROUND); p.setStrokeJoin(Paint.Join.ROUND);
+                float iw = r * 0.9f, l = cx - iw / 2f, rr = cx + iw / 2f, t = cy - r * 0.28f, b = cy + r * 0.28f, k = r * 0.16f; Path q = new Path();
+                q.moveTo(l, b); q.cubicTo(l + iw * 0.45f, b, l + iw * 0.55f, t, rr, t);
+                q.moveTo(l, t); q.cubicTo(l + iw * 0.45f, t, l + iw * 0.55f, b, rr, b);
+                q.moveTo(rr - k, t - k); q.lineTo(rr, t); q.lineTo(rr - k, t + k);
+                q.moveTo(rr - k, b - k); q.lineTo(rr, b); q.lineTo(rr - k, b + k);
+                c.drawPath(q, p);
             }
         };
         v.setClickable(true);
         // Press feedback like the player buttons: shrink while held, spring back on release.
         v.setOnTouchListener(new View.OnTouchListener() { public boolean onTouch(View x, android.view.MotionEvent e) {
             int m = e.getActionMasked();
-            if (m == android.view.MotionEvent.ACTION_DOWN) x.animate().scaleX(0.88f).scaleY(0.88f).setDuration(90).start();
+            if (m == android.view.MotionEvent.ACTION_DOWN) { x.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP); x.animate().scaleX(0.86f).scaleY(0.86f).alpha(0.85f).setDuration(90).start(); }
             else if (m == android.view.MotionEvent.ACTION_UP || m == android.view.MotionEvent.ACTION_CANCEL)
-                x.animate().scaleX(1f).scaleY(1f).setDuration(220).setInterpolator(new android.view.animation.OvershootInterpolator(2f)).start();
+                x.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(260).setInterpolator(new android.view.animation.OvershootInterpolator(2f)).start();
             return false;
         }});
         return v;
