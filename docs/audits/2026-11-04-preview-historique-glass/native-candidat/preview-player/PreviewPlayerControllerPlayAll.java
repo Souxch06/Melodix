@@ -63,7 +63,7 @@ final class PreviewPlayerControllerPlayAll {
         // Fade in only on a fresh open: a list redraw rebuilds the header, and replaying it would flicker.
         long now = android.os.SystemClock.uptimeMillis(); boolean fresh = now - lastAdd > 3000; lastAdd = now;
         if (fresh) { row.setAlpha(0f); row.setTranslationY(8 * d); }
-        card.addView(row, Math.max(0, card.getChildCount() - 1)); // above the hairline
+        card.addView(row);
         if (fresh) row.animate().alpha(1f).translationY(0).setDuration(260).start();
     }
     // Drawn in code (no new resource): a rounded pill with an icon and a label.

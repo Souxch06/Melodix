@@ -109,9 +109,9 @@ public final class GlassScreenStyler implements Runnable, android.view.ViewTreeO
                 hint.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);artBox.addView(hint);
             }
         }
-        artLine.addView(artBox,new LinearLayout.LayoutParams(dp(a,240),dp(a,240)));hero.addView(artLine);
+        artLine.addView(artBox,new LinearLayout.LayoutParams(dp(a,260),dp(a,260)));hero.addView(artLine);
         LinearLayout side=vertical(a);LinearLayout.LayoutParams sdp=new LinearLayout.LayoutParams(-1,-2);sdp.topMargin=dp(a,20);artLine.addView(side,sdp);
-        TextView name=text(a,title==null||title.trim().isEmpty()?(isLiked?"Titres likés":"Playlist"):title,28,0xfffafafa,true);name.setLetterSpacing(-.01f);name.setLineSpacing(0,1.05f);
+        TextView name=text(a,title==null||title.trim().isEmpty()?(isLiked?"Titres likés":"Playlist"):title,30,0xfffafafa,true);name.setLetterSpacing(-.01f);name.setLineSpacing(0,1.05f);
         name.setMaxLines(3);name.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-1,-2);np.topMargin=dp(a,6);side.addView(name,np);
         // Liner hero meta: how many tracks are already shown (grows as the list completes).
@@ -130,8 +130,7 @@ public final class GlassScreenStyler implements Runnable, android.view.ViewTreeO
             LinearLayout.LayoutParams mp=new LinearLayout.LayoutParams(-1,-2);mp.topMargin=dp(a,8);side.addView(meta,mp);
         }
         // User request (1022388): no artist list, stats chips or "most present" line (Spotify shows none).
-        View line=new View(a);line.setBackgroundColor(0x14ffffff);
-        LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(-1,Math.max(1,dp(a,.5f)));hp.topMargin=dp(a,20);hero.addView(line,hp);
+        // User request (1022392): Spotify has no separator under the header.
         rows.addView(hero,0,new LinearLayout.LayoutParams(-1,-2));
         // Liner rows: rounded press highlight (row motion stays in GlassLikedMotion).
         int n=0;for(int i=1;i<rows.getChildCount();i++){View c=rows.getChildAt(i);if(!c.isClickable())continue;

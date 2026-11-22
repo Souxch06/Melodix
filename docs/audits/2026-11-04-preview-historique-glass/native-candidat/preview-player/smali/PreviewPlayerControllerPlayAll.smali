@@ -329,43 +329,28 @@
 
     if-lez v1, :cond_5
 
-    move v1, v6
-
-    goto :goto_1
+    move v0, v6
 
     :cond_5
-    move v1, v0
-
-    :goto_1
     sput-wide v11, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->lastAdd:J
 
     .line 65
-    if-eqz v1, :cond_6
+    if-eqz v0, :cond_6
 
     invoke-virtual {v5, v2}, Landroid/widget/LinearLayout;->setAlpha(F)V
 
-    const/high16 v8, 0x41000000    # 8.0f
+    const/high16 v1, 0x41000000    # 8.0f
 
-    mul-float/2addr v4, v8
+    mul-float/2addr v4, v1
 
     invoke-virtual {v5, v4}, Landroid/widget/LinearLayout;->setTranslationY(F)V
 
     .line 66
     :cond_6
-    invoke-virtual {v3}, Landroid/view/ViewGroup;->getChildCount()I
-
-    move-result v4
-
-    sub-int/2addr v4, v6
-
-    invoke-static {v0, v4}, Ljava/lang/Math;->max(II)I
-
-    move-result v0
-
-    invoke-virtual {v3, v5, v0}, Landroid/view/ViewGroup;->addView(Landroid/view/View;I)V
+    invoke-virtual {v3, v5}, Landroid/view/ViewGroup;->addView(Landroid/view/View;)V
 
     .line 67
-    if-eqz v1, :cond_7
+    if-eqz v0, :cond_7
 
     invoke-virtual {v5}, Landroid/widget/LinearLayout;->animate()Landroid/view/ViewPropertyAnimator;
 
