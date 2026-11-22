@@ -16,7 +16,7 @@ final class PreviewPlayerControllerPlayAll {
     static void add(final Activity a) {
         final View root = a.findViewById(0x7f09022f);
         if (root == null || root.findViewWithTag(TAG) != null) return;
-        TextView label = find(root, "PLAYLIST");
+        TextView label = find(root, "PLAYLIST"); if (label == null) label = find(root, "VOTRE BIBLIOTHÈQUE");
         if (label == null || !(label.getParent() instanceof ViewGroup)) return;
         float d = a.getResources().getDisplayMetrics().density;
         // Spotify layout (user screenshot 1022381): a right-aligned row under the header info, shuffle then a big play.
@@ -34,9 +34,17 @@ final class PreviewPlayerControllerPlayAll {
         View play = icon(a, true); play.setContentDescription("Lire la playlist");
         play.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { tap(root, "1"); } });
         row.addView(shuffle, sl); row.addView(play, new android.widget.LinearLayout.LayoutParams((int) (56 * d), (int) (56 * d)));
-        ViewGroup box = (ViewGroup) label.getParent();
-        ViewGroup card = box.getParent() instanceof android.widget.LinearLayout && ((android.widget.LinearLayout) box.getParent()).getOrientation() == android.widget.LinearLayout.VERTICAL ? (ViewGroup) box.getParent() : box;
-        card.addView(row, card.indexOfChild(box) + 1);
+        // User screenshot (1022382): the row must close the header card. The card is the first vertical ancestor
+        // whose child holding the label is a horizontal row (cover | texts); the row goes at its end.
+        ViewGroup card = null;
+        for (View x = label; x.getParent() instanceof ViewGroup; x = (View) x.getParent()) {
+            ViewGroup g = (ViewGroup) x.getParent();
+            if (g instanceof android.widget.LinearLayout && ((android.widget.LinearLayout) g).getOrientation() == android.widget.LinearLayout.VERTICAL
+                && x instanceof android.widget.LinearLayout && ((android.widget.LinearLayout) x).getOrientation() == android.widget.LinearLayout.HORIZONTAL) { card = g; break; }
+            if (g == root) break;
+        }
+        if (card == null) card = (ViewGroup) label.getParent(); // layout not recognised: keep the button reachable
+        card.addView(row);
     }
     // Drawn in code (no new resource): green disc with a black triangle, or Spotify's crossed shuffle arrows.
     static View icon(Activity a, final boolean play) {
@@ -49,11 +57,14 @@ final class PreviewPlayerControllerPlayAll {
                     Path t = new Path(); t.moveTo(cx - r * 0.26f, cy - r * 0.38f); t.lineTo(cx + r * 0.42f, cy); t.lineTo(cx - r * 0.26f, cy + r * 0.38f); t.close();
                     p.setColor(0xff000000); c.drawPath(t, p); return;
                 }
-                p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(r * 0.12f); p.setStrokeCap(Paint.Cap.ROUND); p.setColor(0xffb3b3b3);
-                float l = cx - r * 0.6f, rr = cx + r * 0.6f, t = cy - r * 0.4f, b = cy + r * 0.4f;
-                c.drawLine(l, t, rr, b, p); c.drawLine(l, b, rr, t, p);
-                c.drawLine(rr, t, rr - r * 0.25f, t, p); c.drawLine(rr, t, rr, t + r * 0.25f, p);
-                c.drawLine(rr, b, rr - r * 0.25f, b, p); c.drawLine(rr, b, rr, b - r * 0.25f, p);
+                p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(r * 0.09f); p.setStrokeCap(Paint.Cap.ROUND); p.setStrokeJoin(Paint.Join.ROUND); p.setColor(0xffb3b3b3);
+                float l = cx - r * 0.62f, rr = cx + r * 0.55f, t = cy - r * 0.34f, b = cy + r * 0.34f, k = r * 0.2f;
+                Path q = new Path();
+                q.moveTo(l, b); q.cubicTo(cx - r * 0.1f, b, cx + r * 0.05f, t, rr, t);   // rising curve
+                q.moveTo(l, t); q.cubicTo(cx - r * 0.1f, t, cx + r * 0.05f, b, rr, b);   // falling curve
+                q.moveTo(rr - k, t - k); q.lineTo(rr, t); q.lineTo(rr - k, t + k);      // arrow heads
+                q.moveTo(rr - k, b - k); q.lineTo(rr, b); q.lineTo(rr - k, b + k);
+                c.drawPath(q, p);
             }
         };
         v.setClickable(true); return v;
