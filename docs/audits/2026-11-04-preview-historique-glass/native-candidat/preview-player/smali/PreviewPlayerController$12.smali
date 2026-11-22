@@ -3,12 +3,12 @@
 .source "PreviewPlayerController.java"
 
 # interfaces
-.implements Ljava/lang/Runnable;
+.implements Landroid/webkit/ValueCallback;
 
 
 # annotations
 .annotation system Ldalvik/annotation/EnclosingMethod;
-    value = Lcom/melodix/music/PreviewPlayerController;->showDiagnostics()V
+    value = Lcom/melodix/music/PreviewPlayerController;->report()Ljava/lang/String;
 .end annotation
 
 .annotation system Ldalvik/annotation/InnerClass;
@@ -16,43 +16,34 @@
     name = null
 .end annotation
 
+.annotation system Ldalvik/annotation/Signature;
+    value = {
+        "Ljava/lang/Object;",
+        "Landroid/webkit/ValueCallback<",
+        "Ljava/lang/String;",
+        ">;"
+    }
+.end annotation
+
 
 # instance fields
 .field final synthetic this$0:Lcom/melodix/music/PreviewPlayerController;
 
-.field final synthetic val$seq:I
-
-.field final synthetic val$until:J
-
 
 # direct methods
-.method constructor <init>(Lcom/melodix/music/PreviewPlayerController;IJ)V
+.method constructor <init>(Lcom/melodix/music/PreviewPlayerController;)V
     .locals 0
     .annotation system Ldalvik/annotation/MethodParameters;
         accessFlags = {
-            0x8010,
-            0x1010,
-            0x1010
+            0x8010
         }
         names = {
-            null,
-            null,
             null
         }
     .end annotation
 
-    .annotation system Ldalvik/annotation/Signature;
-        value = {
-            "()V"
-        }
-    .end annotation
-
-    .line 1183
+    .line 1123
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerController$12;->this$0:Lcom/melodix/music/PreviewPlayerController;
-
-    iput p2, p0, Lcom/melodix/music/PreviewPlayerController$12;->val$seq:I
-
-    iput-wide p3, p0, Lcom/melodix/music/PreviewPlayerController$12;->val$until:J
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
@@ -61,50 +52,37 @@
 
 
 # virtual methods
-.method public run()V
-    .locals 4
+.method public bridge synthetic onReceiveValue(Ljava/lang/Object;)V
+    .locals 0
+    .annotation system Ldalvik/annotation/MethodParameters;
+        accessFlags = {
+            0x1000
+        }
+        names = {
+            null
+        }
+    .end annotation
 
-    .line 1184
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$12;->this$0:Lcom/melodix/music/PreviewPlayerController;
+    .line 1123
+    check-cast p1, Ljava/lang/String;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$4800(Lcom/melodix/music/PreviewPlayerController;)I
-
-    move-result v0
-
-    iget v1, p0, Lcom/melodix/music/PreviewPlayerController$12;->val$seq:I
-
-    if-ne v0, v1, :cond_0
-
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$12;->this$0:Lcom/melodix/music/PreviewPlayerController;
-
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$200(Lcom/melodix/music/PreviewPlayerController;)J
-
-    move-result-wide v0
-
-    iget-wide v2, p0, Lcom/melodix/music/PreviewPlayerController$12;->val$until:J
-
-    cmp-long v0, v0, v2
-
-    if-gez v0, :cond_0
-
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$12;->this$0:Lcom/melodix/music/PreviewPlayerController;
-
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$4200(Lcom/melodix/music/PreviewPlayerController;)Landroid/os/Handler;
-
-    move-result-object v0
-
-    const-wide/16 v1, 0x96
-
-    invoke-virtual {v0, p0, v1, v2}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
+    invoke-virtual {p0, p1}, Lcom/melodix/music/PreviewPlayerController$12;->onReceiveValue(Ljava/lang/String;)V
 
     return-void
+.end method
 
-    .line 1185
-    :cond_0
+.method public onReceiveValue(Ljava/lang/String;)V
+    .locals 1
+
+    .line 1123
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$12;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$4900(Lcom/melodix/music/PreviewPlayerController;)V
+    if-nez p1, :cond_0
 
-    .line 1186
+    const-string p1, "\u2014"
+
+    :cond_0
+    invoke-static {v0, p1}, Lcom/melodix/music/PreviewPlayerController;->access$4902(Lcom/melodix/music/PreviewPlayerController;Ljava/lang/String;)Ljava/lang/String;
+
     return-void
 .end method

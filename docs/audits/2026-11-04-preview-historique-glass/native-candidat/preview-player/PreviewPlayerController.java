@@ -1113,6 +1113,15 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             if (w != null) w.evaluateJavascript("(function(){try{var w=window;var r=[w.__sfMelodixBridgeStarted===true,w.__sfMelodixBridgeCompleted===true,String(w.__sfBridgeExecMode||'-'),String(w.__sfBridgeLastError||'-'),w.__sfBridgeCspViolation?1:0,w.__sfBridgeBytes|0,String(w.__sfBridgeLoadStage||'-').slice(0,40),w.__sfBridgeIntercepted===true,w.__sfBridgeServedBytes|0,!!(navigator.serviceWorker&&navigator.serviceWorker.controller),w.__sfBridgeEntered===true,Math.round(performance.now()/1000)+' s'].join(' ; ');return r}catch(e){return 'erreur'}})()",
                 new android.webkit.ValueCallback<String>() { public void onReceiveValue(String v) { bridgeState = v == null ? "—" : v.length() > 260 ? v.substring(0, 260) : v; bridgeSeq++; } });
         } catch (Exception e) { bridgeState = "non lisible"; }
+        // User choice (1022370, option B): find the completion signal the downloaded bridge really sets.
+        // Names only: flags it assigns to true (file) and __sf flags true now (page). No values, no account data.
+        out.append("\nPont téléchargé (taille ; drapeaux posés à true) : ").append(hotfixFlags());
+        out.append("\nDrapeaux __sf vrais dans la page (relevé à l'ouverture) : ").append(pageFlags);
+        try {
+            WebView w = seekWeb.get();
+            if (w != null) w.evaluateJavascript("(function(){try{return Object.keys(window).filter(function(k){return /^__sf/.test(k)&&window[k]===true}).sort().join(',').slice(0,900)}catch(e){return 'erreur'}})()",
+                new android.webkit.ValueCallback<String>() { public void onReceiveValue(String v) { pageFlags = v == null ? "—" : v; } });
+        } catch (Exception e) { pageFlags = "non lisible"; }
         out.append("\nSource position : ").append(progressSource);
         out.append(" ; identité de titre présente : ").append(tupleIdentity ? "oui" : "non");
         out.append("\nAnimation barre : ").append(progressStopReason());
@@ -1186,6 +1195,26 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         }}, 150);
     }
     private int bridgeSeq;
+    private String pageFlags = "non relevé";
+    private String hotfixFlags() {
+        try {
+            Activity a = activity.get(); if (a == null) return "—";
+            java.io.File f = new java.io.File(a.getFilesDir(), "hotfixes/spotify_bridge.js");
+            if (!f.exists()) return "absent";
+            return f.length() + " o ; " + flagsSetTrue(new String(readAll(new java.io.FileInputStream(f)), "UTF-8"));
+        } catch (Throwable e) { return "non lisible (" + e.getClass().getSimpleName() + ")"; }
+    }
+    static byte[] readAll(java.io.InputStream in) throws java.io.IOException {
+        try { java.io.ByteArrayOutputStream buf = new java.io.ByteArrayOutputStream(); byte[] b = new byte[16384]; int n;
+            while ((n = in.read(b)) > 0) buf.write(b, 0, n); return buf.toByteArray(); } finally { in.close(); }
+    }
+    static String flagsSetTrue(String js) {
+        java.util.TreeSet<String> names = new java.util.TreeSet<String>();
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("window\\.(__sf[A-Za-z0-9_]*)\\s*=\\s*(?:!0|true)\\b").matcher(js);
+        while (m.find() && names.size() < 60) names.add(m.group(1));
+        StringBuilder b = new StringBuilder(); for (String n : names) b.append(b.length() == 0 ? "" : ",").append(n);
+        return names.isEmpty() ? "aucun" : b.toString();
+    }
     private void showDiagnosticsNow() {
         final Activity a = activity.get(); if (a == null || a.isFinishing()) return;
         final String report = report();
