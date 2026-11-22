@@ -1201,7 +1201,12 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             Activity a = activity.get(); if (a == null) return "—";
             java.io.File f = new java.io.File(a.getFilesDir(), "hotfixes/spotify_bridge.js");
             if (!f.exists()) return "absent";
-            return f.length() + " o ; " + flagsSetTrue(new String(readAll(new java.io.FileInputStream(f)), "UTF-8"));
+            String js = new String(readAll(new java.io.FileInputStream(f)), "UTF-8");
+            // Code shape only (downloaded script text, no account data): start, end and how much looks like JS.
+            String head = js.substring(0, Math.min(80, js.length())).replaceAll("\\s+", " ");
+            String tail = js.substring(Math.max(0, js.length() - 40)).replaceAll("\\s+", " ");
+            int fn = js.split("function", -1).length - 1, win = js.split("window\\.", -1).length - 1;
+            return f.length() + " o ; " + flagsSetTrue(js) + " ; début=[" + head + "] ; fin=[" + tail + "] ; function=" + fn + " ; window.=" + win;
         } catch (Throwable e) { return "non lisible (" + e.getClass().getSimpleName() + ")"; }
     }
     static byte[] readAll(java.io.InputStream in) throws java.io.IOException {
