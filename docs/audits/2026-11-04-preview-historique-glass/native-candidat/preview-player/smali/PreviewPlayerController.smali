@@ -10834,7 +10834,7 @@
 .end method
 
 .method public rowsPainted(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
-    .locals 10
+    .locals 11
 
     .line 562
     const-string v0, "detail"
@@ -10843,11 +10843,13 @@
 
     move-result v1
 
-    const-string v2, "uri"
+    const-string v2, "id"
 
-    const-string v3, ""
+    const-string v3, "uri"
 
-    const/4 v4, 0x0
+    const-string v4, ""
+
+    const/4 v5, 0x0
 
     if-eqz v1, :cond_4
 
@@ -10856,75 +10858,79 @@
 
     invoke-direct {v1, p3}, Lorg/json/JSONArray;-><init>(Ljava/lang/String;)V
 
-    move v5, v4
+    move v6, v5
 
     :goto_0
     invoke-virtual {v1}, Lorg/json/JSONArray;->length()I
 
-    move-result v6
+    move-result v7
 
-    if-ge v5, v6, :cond_3
+    if-ge v6, v7, :cond_3
 
-    invoke-virtual {v1, v5}, Lorg/json/JSONArray;->optJSONObject(I)Lorg/json/JSONObject;
-
-    move-result-object v6
-
-    .line 563
-    if-eqz v6, :cond_2
-
-    invoke-virtual {v6, v2, v3}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    invoke-virtual {v1, v6}, Lorg/json/JSONArray;->optJSONObject(I)Lorg/json/JSONObject;
 
     move-result-object v7
 
-    const-string v8, "spotify:track:"
-
-    invoke-virtual {v7, v8}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
-
-    move-result v7
-
+    .line 563
     if-eqz v7, :cond_2
+
+    invoke-virtual {v7, v2, v4}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v8
+
+    invoke-virtual {v7, v3, v8}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v8
+
+    const-string v9, "spotify:track:"
+
+    invoke-virtual {v8, v9}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+
+    move-result v8
+
+    if-eqz v8, :cond_2
 
     new-instance v1, Ljava/lang/StringBuilder;
 
     invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
 
-    invoke-virtual {v6}, Lorg/json/JSONObject;->keys()Ljava/util/Iterator;
+    invoke-virtual {v7}, Lorg/json/JSONObject;->keys()Ljava/util/Iterator;
 
-    move-result-object v5
+    move-result-object v6
 
     .line 564
     :goto_1
-    invoke-interface {v5}, Ljava/util/Iterator;->hasNext()Z
+    invoke-interface {v6}, Ljava/util/Iterator;->hasNext()Z
 
-    move-result v6
+    move-result v7
 
-    if-eqz v6, :cond_1
+    if-eqz v7, :cond_1
 
     invoke-virtual {v1}, Ljava/lang/StringBuilder;->length()I
 
-    move-result v6
+    move-result v7
 
-    if-nez v6, :cond_0
+    if-nez v7, :cond_0
 
-    move-object v6, v3
+    move-object v7, v4
 
     goto :goto_2
 
     :cond_0
-    const-string v6, ","
+    const-string v7, ","
 
     :goto_2
-    invoke-virtual {v1, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v6
-
-    invoke-interface {v5}, Ljava/util/Iterator;->next()Ljava/lang/Object;
+    invoke-virtual {v1, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v7
 
-    check-cast v7, Ljava/lang/String;
+    invoke-interface {v6}, Ljava/util/Iterator;->next()Ljava/lang/Object;
 
-    invoke-virtual {v6, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    move-result-object v8
+
+    check-cast v8, Ljava/lang/String;
+
+    invoke-virtual {v7, v8}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     goto :goto_1
 
@@ -10941,7 +10947,7 @@
 
     .line 562
     :cond_2
-    add-int/lit8 v5, v5, 0x1
+    add-int/lit8 v6, v6, 0x1
 
     goto :goto_0
 
@@ -10971,7 +10977,7 @@
     goto :goto_4
 
     :catch_1
-    move-exception v5
+    move-exception v6
 
     .line 568
     :goto_4
@@ -10979,119 +10985,119 @@
 
     .line 569
     :try_start_2
-    new-instance v5, Lorg/json/JSONArray;
+    new-instance v6, Lorg/json/JSONArray;
 
-    invoke-direct {v5, p3}, Lorg/json/JSONArray;-><init>(Ljava/lang/String;)V
+    invoke-direct {v6, p3}, Lorg/json/JSONArray;-><init>(Ljava/lang/String;)V
 
-    invoke-static {v5}, Lcom/melodix/music/PreviewPlayerController;->storableRows(Lorg/json/JSONArray;)Lorg/json/JSONArray;
+    invoke-static {v6}, Lcom/melodix/music/PreviewPlayerController;->storableRows(Lorg/json/JSONArray;)Lorg/json/JSONArray;
 
-    move-result-object v5
+    move-result-object v6
 
-    invoke-virtual {v5}, Lorg/json/JSONArray;->length()I
+    invoke-virtual {v6}, Lorg/json/JSONArray;->length()I
 
-    move-result v5
+    move-result v6
 
-    if-nez v5, :cond_6
+    if-nez v6, :cond_6
 
-    iget-object v5, p0, Lcom/melodix/music/PreviewPlayerController;->activity:Ljava/lang/ref/WeakReference;
+    iget-object v6, p0, Lcom/melodix/music/PreviewPlayerController;->activity:Ljava/lang/ref/WeakReference;
 
-    invoke-virtual {v5}, Ljava/lang/ref/WeakReference;->get()Ljava/lang/Object;
+    invoke-virtual {v6}, Ljava/lang/ref/WeakReference;->get()Ljava/lang/Object;
 
-    move-result-object v5
+    move-result-object v6
 
-    check-cast v5, Landroid/app/Activity;
+    check-cast v6, Landroid/app/Activity;
 
-    const/4 v6, 0x0
+    const/4 v7, 0x0
 
-    if-nez v5, :cond_5
+    if-nez v6, :cond_5
 
     :goto_5
     goto :goto_6
 
     :cond_5
-    const-string v7, "melodix_playlists"
+    const-string v8, "melodix_playlists"
 
-    invoke-virtual {v5, v7, v4}, Landroid/app/Activity;->getSharedPreferences(Ljava/lang/String;I)Landroid/content/SharedPreferences;
+    invoke-virtual {v6, v8, v5}, Landroid/app/Activity;->getSharedPreferences(Ljava/lang/String;I)Landroid/content/SharedPreferences;
 
-    move-result-object v5
+    move-result-object v6
 
     invoke-static {p2}, Lcom/melodix/music/PreviewPlayerController;->playlistKey(Ljava/lang/String;)Ljava/lang/String;
 
+    move-result-object v8
+
+    invoke-interface {v6, v8, v7}, Landroid/content/SharedPreferences;->getString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+
     move-result-object v7
-
-    invoke-interface {v5, v7, v6}, Landroid/content/SharedPreferences;->getString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
-
-    move-result-object v6
     :try_end_2
     .catch Ljava/lang/Exception; {:try_start_2 .. :try_end_2} :catch_2
 
     goto :goto_5
 
     :goto_6
-    if-eqz v6, :cond_6
+    if-eqz v7, :cond_6
 
     goto :goto_7
 
     :cond_6
-    move-object v6, p3
+    move-object v7, p3
 
     goto :goto_7
 
     :catch_2
-    move-exception v5
+    move-exception v6
 
-    move-object v6, p3
+    move-object v7, p3
 
     .line 570
     :goto_7
     nop
 
     .line 571
-    iget-boolean v5, p0, Lcom/melodix/music/PreviewPlayerController;->onDetail:Z
+    iget-boolean v6, p0, Lcom/melodix/music/PreviewPlayerController;->onDetail:Z
 
-    if-eqz v5, :cond_7
+    if-eqz v6, :cond_7
 
     invoke-static {p2}, Lcom/melodix/music/PreviewPlayerController;->playlistKey(Ljava/lang/String;)Ljava/lang/String;
 
-    move-result-object v5
+    move-result-object v6
 
-    invoke-virtual {v5}, Ljava/lang/String;->isEmpty()Z
+    invoke-virtual {v6}, Ljava/lang/String;->isEmpty()Z
 
-    move-result v5
+    move-result v6
 
-    if-nez v5, :cond_7
+    if-nez v6, :cond_7
 
-    iget-object v5, p0, Lcom/melodix/music/PreviewPlayerController;->handler:Landroid/os/Handler;
+    iget-object v6, p0, Lcom/melodix/music/PreviewPlayerController;->handler:Landroid/os/Handler;
 
-    new-instance v7, Lcom/melodix/music/PreviewPlayerController$7;
+    new-instance v8, Lcom/melodix/music/PreviewPlayerController$7;
 
-    invoke-direct {v7, p0, v6}, Lcom/melodix/music/PreviewPlayerController$7;-><init>(Lcom/melodix/music/PreviewPlayerController;Ljava/lang/String;)V
+    invoke-direct {v8, p0, v7}, Lcom/melodix/music/PreviewPlayerController$7;-><init>(Lcom/melodix/music/PreviewPlayerController;Ljava/lang/String;)V
 
-    invoke-virtual {v5, v7}, Landroid/os/Handler;->post(Ljava/lang/Runnable;)Z
+    invoke-virtual {v6, v8}, Landroid/os/Handler;->post(Ljava/lang/Runnable;)Z
 
     .line 572
     :cond_7
-    const-string v5, "home"
+    const-string v6, "home"
 
-    invoke-virtual {v5, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    invoke-virtual {v6, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
-    move-result v5
+    move-result v6
 
-    const-wide/16 v6, 0x0
+    const-wide/16 v7, 0x0
 
-    if-eqz v5, :cond_8
+    if-eqz v6, :cond_8
 
-    sget-wide v8, Lcom/melodix/music/PreviewPlayerController;->firstCreateAt:J
+    sget-wide v9, Lcom/melodix/music/PreviewPlayerController;->firstCreateAt:J
 
-    cmp-long v5, v8, v6
+    cmp-long v6, v9, v7
 
-    if-ltz v5, :cond_8
+    if-ltz v6, :cond_8
 
-    sget-wide v8, Lcom/melodix/music/PreviewPlayerController;->firstHomeFrameMs:J
+    sget-wide v9, Lcom/melodix/music/PreviewPlayerController;->firstHomeFrameMs:J
 
-    cmp-long v5, v8, v6
+    cmp-long v6, v9, v7
 
-    if-gez v5, :cond_8
+    if-gez v6, :cond_8
 
     iput-boolean v1, p0, Lcom/melodix/music/PreviewPlayerController;->measureHomeFrame:Z
 
@@ -11099,25 +11105,25 @@
     :cond_8
     invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
-    move-result v5
+    move-result v6
 
-    if-eqz v5, :cond_9
+    if-eqz v6, :cond_9
 
     if-eqz p2, :cond_9
 
     :try_start_3
-    new-instance v5, Lorg/json/JSONArray;
+    new-instance v6, Lorg/json/JSONArray;
 
-    invoke-direct {v5, p3}, Lorg/json/JSONArray;-><init>(Ljava/lang/String;)V
+    invoke-direct {v6, p3}, Lorg/json/JSONArray;-><init>(Ljava/lang/String;)V
 
-    invoke-direct {p0, p2, v5}, Lcom/melodix/music/PreviewPlayerController;->storeRows(Ljava/lang/String;Lorg/json/JSONArray;)V
+    invoke-direct {p0, p2, v6}, Lcom/melodix/music/PreviewPlayerController;->storeRows(Ljava/lang/String;Lorg/json/JSONArray;)V
     :try_end_3
     .catch Ljava/lang/Exception; {:try_start_3 .. :try_end_3} :catch_3
 
     goto :goto_8
 
     :catch_3
-    move-exception v5
+    move-exception v6
 
     .line 574
     :cond_9
@@ -11128,9 +11134,9 @@
 
     if-eqz p1, :cond_e
 
-    iget-wide v8, p0, Lcom/melodix/music/PreviewPlayerController;->playlistStart:J
+    iget-wide v9, p0, Lcom/melodix/music/PreviewPlayerController;->playlistStart:J
 
-    cmp-long p1, v8, v6
+    cmp-long p1, v9, v7
 
     if-ltz p1, :cond_e
 
@@ -11180,23 +11186,21 @@
 
     move-result p2
 
-    if-ge v4, p2, :cond_d
+    if-ge v5, p2, :cond_d
 
     .line 579
-    invoke-virtual {p1, v4}, Lorg/json/JSONArray;->optJSONObject(I)Lorg/json/JSONObject;
+    invoke-virtual {p1, v5}, Lorg/json/JSONArray;->optJSONObject(I)Lorg/json/JSONObject;
 
     move-result-object p2
 
     .line 580
     if-eqz p2, :cond_c
 
-    const-string p3, "id"
-
-    invoke-virtual {p2, p3, v3}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    invoke-virtual {p2, v2, v4}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
 
     move-result-object p3
 
-    invoke-virtual {p2, v2, p3}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    invoke-virtual {p2, v3, p3}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
 
     move-result-object p2
 
@@ -11211,7 +11215,7 @@
     .line 581
     iget-wide p1, p0, Lcom/melodix/music/PreviewPlayerController;->rowsAt:J
 
-    cmp-long p1, p1, v6
+    cmp-long p1, p1, v7
 
     if-gez p1, :cond_b
 
@@ -11240,7 +11244,7 @@
 
     .line 578
     :cond_c
-    add-int/lit8 v4, v4, 0x1
+    add-int/lit8 v5, v5, 0x1
 
     goto :goto_9
 

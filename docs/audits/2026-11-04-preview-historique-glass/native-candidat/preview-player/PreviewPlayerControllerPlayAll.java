@@ -115,7 +115,7 @@ final class PreviewPlayerControllerPlayAll {
     // work are listed (rows carry title, artist, cover and track link; no album/artist link, no queue command).
     static void addMenus(final Activity a, View root, org.json.JSONArray rows) {
         java.util.List<org.json.JSONObject> tracks = new java.util.ArrayList<org.json.JSONObject>();
-        for (int i = 0; i < rows.length(); i++) { org.json.JSONObject o = rows.optJSONObject(i); if (o != null && o.optString("uri", "").startsWith("spotify:track:")) tracks.add(o); }
+        for (int i = 0; i < rows.length(); i++) { org.json.JSONObject o = rows.optJSONObject(i); if (o != null && trackUri(o).startsWith("spotify:track:")) tracks.add(o); }
         final float d = a.getResources().getDisplayMetrics().density;
         for (int i = 0; i < tracks.size(); i++) {
             TextView idx = find(root, String.valueOf(i + 1)); if (idx == null) break;
@@ -152,7 +152,7 @@ final class PreviewPlayerControllerPlayAll {
         box.addView(head);
         View line = new View(a); line.setBackgroundColor(0x22ffffff);
         android.widget.LinearLayout.LayoutParams ll = new android.widget.LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Math.max(1, (int) d)); ll.topMargin = ll.bottomMargin = (int) (14 * d); box.addView(line, ll);
-        final String link = "https://open.spotify.com/track/" + track.optString("uri", "").substring("spotify:track:".length());
+        final String link = "https://open.spotify.com/track/" + trackUri(track).substring("spotify:track:".length());
         box.addView(item(a, "▶", "Lire", new Runnable() { public void run() { row.performClick(); } }, dlg));
         box.addView(item(a, "↗", "Partager", new Runnable() { public void run() {
             android.content.Intent i = new android.content.Intent(android.content.Intent.ACTION_SEND); i.setType("text/plain");
@@ -182,6 +182,8 @@ final class PreviewPlayerControllerPlayAll {
         row.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { dlg.dismiss(); try { action.run(); } catch (RuntimeException ignored) { } } });
         return row;
     }
+    // User screenshot (1022391): rows from some paths carry the track link as "id", not "uri".
+    static String trackUri(org.json.JSONObject o) { String u = o.optString("uri", ""); return u.isEmpty() ? o.optString("id", "") : u; }
     static boolean fresh0() { long now = android.os.SystemClock.uptimeMillis(); boolean f = now - lastAdd > 3000; lastAdd = now; return f; }
     static boolean shuffleOn;
     static long loadingUntil;

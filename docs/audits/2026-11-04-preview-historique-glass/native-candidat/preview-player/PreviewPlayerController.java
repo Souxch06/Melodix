@@ -560,7 +560,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     }
     public void rowsPainted(String screen, String context, String rows) {
         if ("detail".equals(screen)) try { JSONArray ra = new JSONArray(rows); for (int i = 0; i < ra.length(); i++) { JSONObject o = ra.optJSONObject(i);
-            if (o != null && o.optString("uri", "").startsWith("spotify:track:")) { StringBuilder b = new StringBuilder(); java.util.Iterator<String> it = o.keys();
+            if (o != null && o.optString("uri", o.optString("id", "")).startsWith("spotify:track:")) { StringBuilder b = new StringBuilder(); java.util.Iterator<String> it = o.keys();
                 while (it.hasNext()) b.append(b.length() == 0 ? "" : ",").append(it.next()); rowKeys = b.toString(); break; } } } catch (Exception ignored) { }
         onDetail = "detail".equals(screen); try { highlightPlaying(true); } catch (RuntimeException ignored) { }
         // User screenshot (1022390): no ⋮ appeared; the painted rows may not carry the tracks, so fall back to the
