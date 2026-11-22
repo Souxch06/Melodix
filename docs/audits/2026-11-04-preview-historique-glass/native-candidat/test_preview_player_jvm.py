@@ -43,6 +43,7 @@ STUBS = {
 'android/view/View.java': '''package android.view; import java.util.*; public class View { public int id=-1; public int getId(){return id;} public float viewAlpha=1f; public void setAlpha(float f){viewAlpha=f;} public interface OnLongClickListener{ boolean onLongClick(View v); } public interface OnTouchListener{boolean onTouch(View v,MotionEvent e);} public void setOnTouchListener(OnTouchListener x){} public OnLongClickListener listener; public String description=""; public void setContentDescription(CharSequence s){description=s.toString();} public boolean shown=true; public static final int VISIBLE=0,GONE=8; public int visibility=VISIBLE; public int getVisibility(){return visibility;} public void setVisibility(int x){visibility=x;} public boolean isShown(){return shown && visibility==VISIBLE;} public Map<String,View> tags=new HashMap<String,View>(); public void setOnLongClickListener(OnLongClickListener l){listener=l;} public View findViewWithTag(Object tag){return tags.get(tag);} }''',
 'android/widget/Toast.java': """package android.widget; import android.content.Context; public class Toast { public static int count; public static final int LENGTH_SHORT=0; public static final int LENGTH_LONG=1; public static Toast makeText(Context c,CharSequence s,int n){return new Toast();} public void show(){count++;} }""",
 'org/json/JSONArray.java': """package org.json; public class JSONArray { private String[] rows; public JSONArray(String s){rows=s.isEmpty()?new String[0]:s.split(\"\\\\|\");} public JSONArray(){rows=new String[0];} public JSONArray put(Object o){String[] n=java.util.Arrays.copyOf(rows,rows.length+1);n[rows.length]=String.valueOf(o);rows=n;return this;} public String toString(){return String.join(\"|\",rows);} public int length(){return rows.length;} public JSONObject optJSONObject(int i){return new JSONObject(rows[i]);} }""",
+'com/melodix/music/PreviewPlayerControllerPlayAll.java': 'package com.melodix.music; final class PreviewPlayerControllerPlayAll { static int adds; static void add(android.app.Activity a){adds++;} }',
 'android/view/ViewGroup.java': '''package android.view; public class ViewGroup extends View { public java.util.List<View> kids=new java.util.ArrayList<View>(); public int getChildCount(){return kids.size();} public View getChildAt(int i){return kids.get(i);} }''',
 'android/widget/TextView.java': '''package android.widget; public class TextView extends android.view.View { public String text=""; public CharSequence getText(){return text;} public void setText(CharSequence s){text=s.toString();} public int color=0xffffffff; public int getCurrentTextColor(){return color;} public void setTextColor(int c){color=c;} }''',
 'android/widget/ImageView.java': '''package android.widget; public class ImageView extends android.view.View { public int image; public void setImageResource(int x){image=x;} public void setImageBitmap(android.graphics.Bitmap b){} public android.graphics.drawable.Drawable getDrawable(){return null;} }''',
@@ -308,11 +309,6 @@ public class ControllerTest {
    if(ct.contains("secret")||ct.contains("page data")||!ct.contains("java.lang.RuntimeException")||!ct.contains("Cause : java.lang.IllegalStateException")||!ct.contains("  at "))throw new AssertionError("crash trace: classes and frames only");}
   if(!"__sfA,__sfB".equals(PreviewPlayerController.flagsSetTrue("window.__sfB=!0;window.__sfA = true;window.__sfC=false;window.__sfD=1;window.__sfB=true")))throw new AssertionError("flags set to true");
   if(!"aucun".equals(PreviewPlayerController.flagsSetTrue("var x=1")))throw new AssertionError("no flags");
-  {/* user request 1022378: play row copies the first track, added once, never stored */
-   String w=PreviewPlayerController.withPlayRow("title=Info|uri=spotify:track:F1;title=A|uri=spotify:track:F2;title=B");
-   org.json.JSONArray wa=new org.json.JSONArray(w);eq(wa.length(),4);yes(wa.optJSONObject(0).optString("uri","").equals("spotify:track:F1"));yes(wa.optJSONObject(0).optString("title","").contains("Lire la playlist"));
-   eq(new org.json.JSONArray(PreviewPlayerController.withPlayRow(w)).length(),4);eq(PreviewPlayerController.storableRows(wa).length(),2);
-   yes(PreviewPlayerController.withPlayRow("title=Info").equals("title=Info"));}
   {/* user request 1022379: the playing row is green; player titles untouched; restored on change */
    Activity hx=new Activity();android.view.ViewGroup hroot=new android.view.ViewGroup();hroot.id=0x7f09022f;hx.views.put(0x7f09022f,hroot);
    TextView row=new TextView();row.text="HiSong";TextView other=new TextView();other.text="Else";TextView hmini=new TextView();hmini.id=0x7f090236;hmini.text="HiSong";
@@ -321,6 +317,10 @@ public class ControllerTest {
    hc.rowsPainted("detail","spotify:playlist:Hx","uri=spotify:track:H1;title=HiSong");
    eq(row.color,PreviewPlayerController.PLAYING_COLOR);eq(other.color,0xffffffff);eq(hmini.color,0xffffffff);
    hc.snapshot(sample("NextSong","Artist",1000,180000,"playing",""));eq(row.color,0xffffffff);}
+  {/* user request 1022379: the header play button is added after a playlist is shown, not on Home */
+   PreviewPlayerController pc=new PreviewPlayerController(new Activity());Handler.flush();int pb=PreviewPlayerControllerPlayAll.adds;
+   pc.rowsPainted("home",null,"title=x");Handler.flush();eq(PreviewPlayerControllerPlayAll.adds,pb);
+   pc.rowsPainted("detail","spotify:playlist:Pa","uri=spotify:track:P1;title=P");Handler.flush();eq(PreviewPlayerControllerPlayAll.adds,pb+1);}
   System.out.println("Preview controller JVM simulation passed");
  }
 }''',
