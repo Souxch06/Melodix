@@ -299,6 +299,10 @@ public class ControllerTest {
    eq(PreviewPlayerController.storableRows(new org.json.JSONArray("uri=spotify:track:T1|title=Copie enregistrée")).length(),0);
    cx.prefs.m.put("spotify:playlist:Ab1",kept.toString());String shown=PreviewPlayerController.cachedRows(cx,"/playlist/Ab1","SK");
    yes(shown.contains("T2")&&shown.contains("Copie enregistrée"));}
+  {/* user report 1022377: a playlist opened by link must be kept and shown at once next time */
+   PreviewPlayerController lk=new PreviewPlayerController(a);lk.playlistOpened("https://open.spotify.com/playlist/Lk1?si=q");
+   lk.rowsPainted("detail","https://open.spotify.com/playlist/Lk1?si=q","uri=spotify:track:Z9;title=Z");
+   yes(PreviewPlayerController.cachedRows(a,"spotify:playlist:Lk1","SK").contains("Z9"));}
   {String ct=PreviewPlayerController.crashTrace(new RuntimeException("secret-token", new IllegalStateException("page data")));
    if(ct.contains("secret")||ct.contains("page data")||!ct.contains("java.lang.RuntimeException")||!ct.contains("Cause : java.lang.IllegalStateException")||!ct.contains("  at "))throw new AssertionError("crash trace: classes and frames only");}
   if(!"__sfA,__sfB".equals(PreviewPlayerController.flagsSetTrue("window.__sfB=!0;window.__sfA = true;window.__sfC=false;window.__sfD=1;window.__sfB=true")))throw new AssertionError("flags set to true");

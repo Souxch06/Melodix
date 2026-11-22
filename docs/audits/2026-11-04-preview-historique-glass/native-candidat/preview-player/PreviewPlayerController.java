@@ -210,7 +210,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         else if (event.equals("bridge-ready") && bridgeAt < 0) bridgeAt = t;
         else if (event.equals("navigation") && navigationAt < 0) navigationAt = t;
         else if (event.startsWith("page-ready|") && navigationAt >= 0 && pageReadyAt < 0 &&
-                 event.substring("page-ready|".length()).equals(pendingPlaylist)) pageReadyAt = t;
+                 playlistKey(event.substring("page-ready|".length())).equals(pendingPlaylist)) pageReadyAt = t;
     }
     private String pendingPlaylist = "";
     private int firstTracks = -1, shownTracks = -1;
@@ -445,10 +445,10 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         if (playlistFrameMs >= 0) previousPlaylistFrameMs = playlistFrameMs;
         playlistStart = -1; playlistFrameMs = -1; pendingPlaylist = ""; measurePlaylistFrame = false; loadStage = "—";
         bridgeAt = navigationAt = pageReadyAt = receivedAt = rowsAt = frameAt = -1; firstTracks = shownTracks = -1; stageAtRows = "—"; likedObservation = "non observée"; staleWaitingObserved = false;
-        likedCollection = "spotify:collection:tracks".equals(uri);
-        if (uri != null && (uri.matches("(?i)^spotify:playlist:[a-z0-9]+$") || uri.equals("spotify:collection:tracks"))) {
-            pendingPlaylist = uri; playlistStart = now();
-        }
+        // User report (1022377): reopening was as slow as the first open; the id can be a link, not spotify:playlist:<id>.
+        String k = playlistKey(uri);
+        likedCollection = "spotify:collection:tracks".equals(k);
+        if (!k.isEmpty()) { pendingPlaylist = k; playlistStart = now(); }
     }
     // User-approved on-device copy of opened playlists: only the rows already shown
     // natively (no token, cookie or account field), app-private, 30 playlists max.
@@ -514,7 +514,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     }
     private void storeRows(String context, JSONArray data) {
         Activity a = activity.get(); String k = playlistKey(context);
-        if (a == null || k.isEmpty() || !context.equals(k)) return;
+        if (a == null || k.isEmpty()) return;
         JSONArray keep = storableRows(data); if (keep.length() == 0) return;
         try {
             android.content.SharedPreferences p = a.getSharedPreferences(PLAYLIST_STORE, Context.MODE_PRIVATE);
@@ -532,7 +532,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     public void rowsPainted(String screen, String context, String rows) {
         if ("home".equals(screen) && firstCreateAt >= 0 && firstHomeFrameMs < 0) measureHomeFrame = true;
         if ("detail".equals(screen) && context != null) { try { storeRows(context, new JSONArray(rows)); } catch (Exception ignored) { } }
-        if ("detail".equals(screen) && playlistStart >= 0 && pendingPlaylist.equals(context)) {
+        if ("detail".equals(screen) && playlistStart >= 0 && pendingPlaylist.equals(playlistKey(context))) {
             try {
                 JSONArray data = new JSONArray(rows);
                 int tracks = storableRows(data).length(); if (tracks > 0) { shownTracks = tracks; if (firstTracks < 0) firstTracks = tracks; }
