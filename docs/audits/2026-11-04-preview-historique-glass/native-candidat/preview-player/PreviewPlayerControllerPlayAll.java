@@ -13,6 +13,7 @@ import android.widget.TextView;
 // shortcut: the header is found by its "PLAYLIST" label and the first row by its "1" index; upgrade if the layout changes.
 final class PreviewPlayerControllerPlayAll {
     static final String TAG = "melodixPlayAll";
+    private static long lastAdd = -100000;
     static void add(final Activity a) {
         final View root = a.findViewById(0x7f09022f);
         if (root == null || root.findViewWithTag(TAG) != null) return;
@@ -25,7 +26,7 @@ final class PreviewPlayerControllerPlayAll {
         ViewGroup.MarginLayoutParams rl = new ViewGroup.MarginLayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         rl.topMargin = (int) (12 * d); row.setLayoutParams(rl);
         View shuffle = icon(a, false); shuffle.setContentDescription("Lecture aléatoire");
-        android.widget.LinearLayout.LayoutParams sl = new android.widget.LinearLayout.LayoutParams((int) (44 * d), (int) (44 * d)); sl.rightMargin = (int) (16 * d);
+        android.widget.LinearLayout.LayoutParams sl = new android.widget.LinearLayout.LayoutParams((int) (46 * d), (int) (46 * d)); sl.rightMargin = (int) (14 * d);
         // shortcut: plays a random row (Spotify's shuffle mode needs the hidden player control); upgrade with a page shuffle command.
         shuffle.setOnClickListener(new View.OnClickListener() { public void onClick(View v) {
             int n = 0; while (find(root, String.valueOf(n + 1)) != null && n < 500) n++;
@@ -44,7 +45,11 @@ final class PreviewPlayerControllerPlayAll {
             if (g == root) break;
         }
         if (card == null) card = (ViewGroup) label.getParent(); // layout not recognised: keep the button reachable
+        // Fade in only on a fresh open: a list redraw rebuilds the header, and replaying it would flicker.
+        long now = android.os.SystemClock.uptimeMillis(); boolean fresh = now - lastAdd > 3000; lastAdd = now;
+        if (fresh) { row.setAlpha(0f); row.setTranslationY(8 * d); }
         card.addView(row);
+        if (fresh) row.animate().alpha(1f).translationY(0).setDuration(260).start();
     }
     // Drawn in code (no new resource): green disc with a black triangle, or Spotify's crossed shuffle arrows.
     static View icon(Activity a, final boolean play) {
@@ -53,11 +58,16 @@ final class PreviewPlayerControllerPlayAll {
             @Override protected void onDraw(Canvas c) {
                 float w = getWidth(), h = getHeight(), r = Math.min(w, h) / 2f, cx = w / 2f, cy = h / 2f;
                 if (play) {
-                    p.setStyle(Paint.Style.FILL); p.setColor(0xff1ed760); c.drawCircle(cx, cy, r, p);
+                    // Same look as the mini player's play button (white disc, dark triangle) to match the app.
+                    p.setStyle(Paint.Style.FILL); p.setColor(0xfff5f5f7); c.drawCircle(cx, cy, r, p);
                     Path t = new Path(); t.moveTo(cx - r * 0.26f, cy - r * 0.38f); t.lineTo(cx + r * 0.42f, cy); t.lineTo(cx - r * 0.26f, cy + r * 0.38f); t.close();
-                    p.setColor(0xff000000); c.drawPath(t, p); return;
+                    p.setColor(0xff111114); c.drawPath(t, p); return;
                 }
-                p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(r * 0.09f); p.setStrokeCap(Paint.Cap.ROUND); p.setStrokeJoin(Paint.Join.ROUND); p.setColor(0xffb3b3b3);
+                // Glass circle like the app's top buttons, then the arrows.
+                p.setStyle(Paint.Style.FILL); p.setColor(0x26ffffff); c.drawCircle(cx, cy, r - 1, p);
+                p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(Math.max(1f, r * 0.04f)); p.setColor(0x40ffffff); c.drawCircle(cx, cy, r - 1, p);
+                r *= 0.62f;
+                p.setStrokeWidth(r * 0.13f); p.setStrokeCap(Paint.Cap.ROUND); p.setStrokeJoin(Paint.Join.ROUND); p.setColor(0xfff5f5f7);
                 float l = cx - r * 0.62f, rr = cx + r * 0.55f, t = cy - r * 0.34f, b = cy + r * 0.34f, k = r * 0.2f;
                 Path q = new Path();
                 q.moveTo(l, b); q.cubicTo(cx - r * 0.1f, b, cx + r * 0.05f, t, rr, t);   // rising curve
@@ -67,7 +77,16 @@ final class PreviewPlayerControllerPlayAll {
                 c.drawPath(q, p);
             }
         };
-        v.setClickable(true); return v;
+        v.setClickable(true);
+        // Press feedback like the player buttons: shrink while held, spring back on release.
+        v.setOnTouchListener(new View.OnTouchListener() { public boolean onTouch(View x, android.view.MotionEvent e) {
+            int m = e.getActionMasked();
+            if (m == android.view.MotionEvent.ACTION_DOWN) x.animate().scaleX(0.88f).scaleY(0.88f).setDuration(90).start();
+            else if (m == android.view.MotionEvent.ACTION_UP || m == android.view.MotionEvent.ACTION_CANCEL)
+                x.animate().scaleX(1f).scaleY(1f).setDuration(220).setInterpolator(new android.view.animation.OvershootInterpolator(2f)).start();
+            return false;
+        }});
+        return v;
     }
     static void tap(View root, String index) {
         for (View x = find(root, index); x != null; x = x.getParent() instanceof View ? (View) x.getParent() : null)

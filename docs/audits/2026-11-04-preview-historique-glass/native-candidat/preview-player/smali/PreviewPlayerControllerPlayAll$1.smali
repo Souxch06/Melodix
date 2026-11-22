@@ -30,7 +30,7 @@
         }
     .end annotation
 
-    .line 30
+    .line 31
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$1;->val$root:Landroid/view/View;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -43,7 +43,7 @@
 .method public onClick(Landroid/view/View;)V
     .locals 3
 
-    .line 31
+    .line 32
     const/4 p1, 0x0
 
     :goto_0
@@ -69,7 +69,7 @@
 
     goto :goto_0
 
-    .line 32
+    .line 33
     :cond_0
     if-lez p1, :cond_1
 
@@ -91,7 +91,7 @@
 
     invoke-static {v0, p1}, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->tap(Landroid/view/View;Ljava/lang/String;)V
 
-    .line 33
+    .line 34
     :cond_1
     return-void
 .end method

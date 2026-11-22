@@ -30,7 +30,7 @@
         }
     .end annotation
 
-    .line 35
+    .line 36
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$2;->val$root:Landroid/view/View;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -43,7 +43,7 @@
 .method public onClick(Landroid/view/View;)V
     .locals 1
 
-    .line 35
+    .line 36
     iget-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$2;->val$root:Landroid/view/View;
 
     const-string v0, "1"
