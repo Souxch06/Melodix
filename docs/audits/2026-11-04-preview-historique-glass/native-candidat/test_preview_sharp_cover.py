@@ -3,7 +3,7 @@ import json
 import subprocess
 import unittest
 
-from apply_preview_sharp_cover import ANCHORS, HELPER, ROW_SOURCE, patch
+from apply_preview_sharp_cover import ANCHORS, HELPER, ROW_SOURCE, patch, library, LIBRARY_OLD
 
 BASE = ("    function safeSpotifyImage(value) { return /^https:\\/\\/i\\.scdn\\.co\\//.test(value) ? value : ''; }\n"
         + "\n".join(a[0] for a in ANCHORS) + "\n")
@@ -28,6 +28,13 @@ console.log(JSON.stringify([
         res=json.loads(subprocess.run(['node','-e',js],capture_output=True,text=True,check=True).stdout)
         self.assertEqual(res,['https://i.scdn.co/300','https://i.scdn.co/64','https://i.scdn.co/2x',''])
 
+    def test_library_waits_for_completed_bridge(self):
+        # User report 1022399: Library must wait for the Completed flag the running bridge sets.
+        out = library('x\n' + LIBRARY_OLD + '\ny')
+        self.assertIn('__sfMelodixBridgeCompleted === true && typeof window.fetchMediaItems', out)
+        self.assertNotIn('__sfMelodixBridgeStarted', out)
+        with self.assertRaises(ValueError): library('nothing')
+
     def test_largest_listed_image_within_allowlist(self):
         js = BASE.split('\n')[0] + '\n' + HELPER + ' }\n' + '''
 function img(src, srcset){ return {src: src, currentSrc: src, getAttribute: function(){ return srcset; }}; }
@@ -44,3 +51,4 @@ console.log(JSON.stringify([
 
 if __name__ == '__main__':
     unittest.main()
+

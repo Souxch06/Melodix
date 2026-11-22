@@ -56,9 +56,23 @@ def patch(text):
     return text
 
 
+LIBRARY_OLD = """        if (window.__sfMelodixBridgeStarted === true && typeof window.fetchMediaItems === 'function') {
+            try {
+                // A genuinely empty/failed bridge result"""
+LIBRARY_NEW = LIBRARY_OLD.replace('__sfMelodixBridgeStarted', '__sfMelodixBridgeCompleted', 1)
+
+
+def library(text):
+    # User report 1022399: Library stayed "momentanément indisponible". The
+    # running bridge never sets Started (setting it autoplays); playlists already wait for Completed.
+    if text.count(LIBRARY_OLD) != 1:
+        raise ValueError('library bridge anchor not found once; no changes made')
+    return text.replace(LIBRARY_OLD, LIBRARY_NEW, 1)
+
+
 def apply(root):
     p = Path(root) / 'assets' / 'native_ui_shell.js'
-    p.write_text(patch(p.read_text(encoding='utf-8')), encoding='utf-8')
+    p.write_text(library(patch(p.read_text(encoding='utf-8'))), encoding='utf-8')
     print('preview sharp cover applied')
 
 

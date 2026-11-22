@@ -30,9 +30,6 @@ class PreviewPlayer(unittest.TestCase):
         cls.files=cls.patch.prepare(ROOT) if INPUT else None
     def get(self, path):
         return self.files[path] if INPUT else (ROOT/path).read_text()
-    def test_library_waits_for_completed_bridge(self):
-        # User report 1022399: the running bridge never sets Started, so Library must use Completed.
-        if INPUT: self.assertIn("if (window.__sfMelodixBridgeCompleted === true && typeof window.fetchMediaItems === 'function') {\n            try {\n                // A genuinely empty/failed bridge result", self.get('assets/native_ui_shell.js'))
     def test_launch_diagnostic_dialog_disabled(self):
         # User report 1022399: the PR-6 JSON dialog must never pop up on page load again.
         text=self.get('smali/com/melodix/music/RuntimeDiagnostic.smali')

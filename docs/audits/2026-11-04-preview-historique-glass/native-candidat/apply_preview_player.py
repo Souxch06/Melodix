@@ -149,13 +149,6 @@ def prepare(root):
         files[path] = s.replace(old, new)
 
     path = 'assets/native_ui_shell.js'; s = files[path]
-    # User report 1022399: Library stayed "momentanément indisponible". The
-    # running bridge never sets Started (setting it autoplays); playlists already wait for Completed.
-    s = replace(s, """        if (window.__sfMelodixBridgeStarted === true && typeof window.fetchMediaItems === 'function') {
-            try {
-                // A genuinely empty/failed bridge result""", """        if (window.__sfMelodixBridgeCompleted === true && typeof window.fetchMediaItems === 'function') {
-            try {
-                // A genuinely empty/failed bridge result""")
     s = replace(s, '''    function readMediaProgress() {''', '''    // Read the actual Spotify player slider already used by the existing
     // bridge. Its max/value are milliseconds; reject absent, invalid or
     // percent-style controls rather than inventing a position or duration.
