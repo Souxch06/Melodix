@@ -563,7 +563,8 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             if (o != null && o.optString("uri", "").startsWith("spotify:track:")) { StringBuilder b = new StringBuilder(); java.util.Iterator<String> it = o.keys();
                 while (it.hasNext()) b.append(b.length() == 0 ? "" : ",").append(it.next()); rowKeys = b.toString(); break; } } } catch (Exception ignored) { }
         onDetail = "detail".equals(screen); try { highlightPlaying(true); } catch (RuntimeException ignored) { }
-        if (onDetail && !playlistKey(context).isEmpty()) handler.post(new Runnable() { public void run() { Activity pa = activity.get(); if (pa != null) try { PreviewPlayerControllerPlayAll.add(pa); } catch (RuntimeException ignored) { } } });
+        final String rowsForMenu = rows;
+        if (onDetail && !playlistKey(context).isEmpty()) handler.post(new Runnable() { public void run() { Activity pa = activity.get(); if (pa != null) try { PreviewPlayerControllerPlayAll.add(pa, rowsForMenu); } catch (RuntimeException ignored) { } } });
         if ("home".equals(screen) && firstCreateAt >= 0 && firstHomeFrameMs < 0) measureHomeFrame = true;
         if ("detail".equals(screen) && context != null) { try { storeRows(context, new JSONArray(rows)); } catch (Exception ignored) { } }
         if ("detail".equals(screen) && playlistStart >= 0 && pendingPlaylist.equals(playlistKey(context))) {

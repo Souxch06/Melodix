@@ -20,21 +20,33 @@
 # instance fields
 .field final synthetic this$0:Lcom/melodix/music/PreviewPlayerController;
 
+.field final synthetic val$rowsForMenu:Ljava/lang/String;
+
 
 # direct methods
-.method constructor <init>(Lcom/melodix/music/PreviewPlayerController;)V
+.method constructor <init>(Lcom/melodix/music/PreviewPlayerController;Ljava/lang/String;)V
     .locals 0
     .annotation system Ldalvik/annotation/MethodParameters;
         accessFlags = {
-            0x8010
+            0x8010,
+            0x1010
         }
         names = {
+            null,
             null
         }
     .end annotation
 
-    .line 566
+    .annotation system Ldalvik/annotation/Signature;
+        value = {
+            "()V"
+        }
+    .end annotation
+
+    .line 567
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerController$7;->this$0:Lcom/melodix/music/PreviewPlayerController;
+
+    iput-object p2, p0, Lcom/melodix/music/PreviewPlayerController$7;->val$rowsForMenu:Ljava/lang/String;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
@@ -44,9 +56,9 @@
 
 # virtual methods
 .method public run()V
-    .locals 1
+    .locals 2
 
-    .line 566
+    .line 567
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$7;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$1800(Lcom/melodix/music/PreviewPlayerController;)Ljava/lang/ref/WeakReference;
@@ -62,7 +74,9 @@
     if-eqz v0, :cond_0
 
     :try_start_0
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->add(Landroid/app/Activity;)V
+    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerController$7;->val$rowsForMenu:Ljava/lang/String;
+
+    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->add(Landroid/app/Activity;Ljava/lang/String;)V
     :try_end_0
     .catch Ljava/lang/RuntimeException; {:try_start_0 .. :try_end_0} :catch_0
 
