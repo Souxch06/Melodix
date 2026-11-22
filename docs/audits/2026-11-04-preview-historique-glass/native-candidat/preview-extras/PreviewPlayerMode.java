@@ -289,7 +289,7 @@ public final class PreviewPlayerMode extends ImageButton {
         if(kind.equals("shuffle") && known)shuffleLocked=false;
         boolean locked=kind.equals("shuffle") && shuffleLocked && !known && !pending;
         boolean looping=kind.equals("repeat") && appLoop && !pending;
-        if(looping){active=true;desc="Boucle du titre (Melodix)";if(drawable("repone")!=0)setImageResource(drawable("repone"));}
+        if(looping){active=true;desc="Répéter le titre (boucle Melodix)";/* PreviewPlayerDecoration lights the icon from this prefix */if(drawable("repone")!=0)setImageResource(drawable("repone"));}
         if(locked){active=true;desc=LOCKED;if(drawable("shuffle")!=0)setImageResource(drawable("shuffle"));}
         setColorFilter(active?0xffffffff:0xffa1a1aa);setContentDescription(pending?desc+", en attente":desc);
         if(locked||looping){setEnabled(true);setAlpha(1f);invalidate();return;}

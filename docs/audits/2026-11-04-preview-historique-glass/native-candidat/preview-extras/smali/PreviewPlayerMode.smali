@@ -3353,7 +3353,7 @@
 
     .line 293
     :cond_26
-    const-string v4, "Boucle du titre (Melodix)"
+    const-string v4, "R\u00e9p\u00e9ter le titre (boucle Melodix)"
 
     move v5, v3
 
