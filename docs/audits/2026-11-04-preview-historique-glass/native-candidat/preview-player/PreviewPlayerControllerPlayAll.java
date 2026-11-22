@@ -48,6 +48,17 @@ final class PreviewPlayerControllerPlayAll {
         }});
         android.widget.LinearLayout.LayoutParams sl = new android.widget.LinearLayout.LayoutParams((int) (48 * d), (int) (48 * d)); sl.rightMargin = (int) (16 * d);
         row.addView(shuffle, sl); row.addView(play, new android.widget.LinearLayout.LayoutParams((int) (60 * d), (int) (60 * d)));
+        // User screenshot (1022390): like Spotify, the meta line and the buttons share one row.
+        View meta = hero.findViewWithTag("glass-playlist-count");
+        if (meta != null && meta.getParent() instanceof ViewGroup) {
+            ViewGroup side = (ViewGroup) meta.getParent(); int at = side.indexOfChild(meta);
+            side.removeView(meta); row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            row.addView(meta, 0, new android.widget.LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+            ((ViewGroup.MarginLayoutParams) row.getLayoutParams()).topMargin = (int) (6 * d);
+            side.addView(row, at);
+            if (fresh0()) { row.setAlpha(0f); row.animate().alpha(1f).setDuration(260).start(); }
+            return;
+        }
         ViewGroup card = hero;
         // Fade in only on a fresh open: a list redraw rebuilds the header, and replaying it would flicker.
         long now = android.os.SystemClock.uptimeMillis(); boolean fresh = now - lastAdd > 3000; lastAdd = now;
@@ -171,6 +182,7 @@ final class PreviewPlayerControllerPlayAll {
         row.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { dlg.dismiss(); try { action.run(); } catch (RuntimeException ignored) { } } });
         return row;
     }
+    static boolean fresh0() { long now = android.os.SystemClock.uptimeMillis(); boolean f = now - lastAdd > 3000; lastAdd = now; return f; }
     static boolean shuffleOn;
     static long loadingUntil;
     static void random(View root) {

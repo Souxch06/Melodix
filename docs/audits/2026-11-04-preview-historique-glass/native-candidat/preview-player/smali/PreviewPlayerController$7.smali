@@ -43,7 +43,7 @@
         }
     .end annotation
 
-    .line 567
+    .line 571
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerController$7;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerController$7;->val$rowsForMenu:Ljava/lang/String;
@@ -58,7 +58,7 @@
 .method public run()V
     .locals 2
 
-    .line 567
+    .line 571
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$7;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$1800(Lcom/melodix/music/PreviewPlayerController;)Ljava/lang/ref/WeakReference;
