@@ -546,7 +546,34 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             e.apply();
         } catch (RuntimeException ignored) { }
     }
+    // User request (1022379): show which playlist row is playing (Spotify green), restored when it changes.
+    // shortcut: matched by exact title text, so two rows with the same title both light up; fine until rows carry ids.
+    static final int PLAYING_COLOR = 0xff1ed760;
+    private final java.util.List<WeakReference<TextView>> lit = new java.util.ArrayList<WeakReference<TextView>>();
+    private final java.util.List<Integer> litColors = new java.util.ArrayList<Integer>();
+    private String litTitle = null; private boolean onDetail;
+    void highlightPlaying(boolean force) {
+        String t = onDetail ? identityTitle : "";
+        if (!force && t.equals(litTitle)) return;
+        litTitle = t;
+        for (int i = 0; i < lit.size(); i++) { TextView v = lit.get(i).get(); if (v != null && v.getCurrentTextColor() == PLAYING_COLOR) v.setTextColor(litColors.get(i)); }
+        lit.clear(); litColors.clear();
+        Activity a = activity.get(); if (a == null || t.isEmpty()) return;
+        View root = a.findViewById(0x7f09022f); if (root != null) light(root, t);
+    }
+    private void light(View v, String t) {
+        int id = v.getId();
+        if (id == 0x7f09023a || id == 0x7f090236 || id == 0x7f09023b) return; // player panel and player titles
+        if (v instanceof TextView) {
+            TextView tv = (TextView) v;
+            if (t.equals(String.valueOf(tv.getText())) && tv.getCurrentTextColor() != PLAYING_COLOR) { lit.add(new WeakReference<TextView>(tv)); litColors.add(tv.getCurrentTextColor()); tv.setTextColor(PLAYING_COLOR); }
+        } else if (v instanceof android.view.ViewGroup) {
+            android.view.ViewGroup g = (android.view.ViewGroup) v;
+            for (int i = 0; i < g.getChildCount(); i++) light(g.getChildAt(i), t);
+        }
+    }
     public void rowsPainted(String screen, String context, String rows) {
+        onDetail = "detail".equals(screen); try { highlightPlaying(true); } catch (RuntimeException ignored) { }
         if ("home".equals(screen) && firstCreateAt >= 0 && firstHomeFrameMs < 0) measureHomeFrame = true;
         if ("detail".equals(screen) && context != null) { try { storeRows(context, new JSONArray(rows)); } catch (Exception ignored) { } }
         if ("detail".equals(screen) && playlistStart >= 0 && pendingPlaylist.equals(playlistKey(context))) {
@@ -934,6 +961,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             }
             if (identified && artist.length() > fullArtist.length() && sameArtists(identityArtist, artist)) fullArtist = artist;
             if (identified) { identityTitle = title; identityArtist = artist; identityDuration = dur; tupleIdentity = true; }
+            try { highlightPlaying(false); } catch (RuntimeException ignored) { }
             if (!uri.isEmpty() || changed) track = uri;
             // Do not use previewPositionMs: actSeek itself writes its range property.
             // These are received UI samples, which may already be stale in Spotify.
