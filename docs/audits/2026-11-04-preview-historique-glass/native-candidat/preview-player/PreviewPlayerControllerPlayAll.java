@@ -126,7 +126,7 @@ final class PreviewPlayerControllerPlayAll {
                 @Override protected void onDraw(Canvas c) { p.setColor(0xffb3b3b3); float cx = getWidth() / 2f, cy = getHeight() / 2f;
                     for (int k = -1; k <= 1; k++) c.drawCircle(cx, cy + k * 6 * d, 1.8f * d, p); }
             };
-            dots.setTag("melodixDots"); dots.setContentDescription("Plus d'options pour " + track.optString("title", ""));
+            dots.setTag("melodixDots"); dots.setContentDescription("Plus d'options pour " + title(track));
             dots.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { sheet(a, track, rowView); } });
             ((ViewGroup) row).addView(dots, new ViewGroup.LayoutParams((int) (36 * d), (int) (48 * d)));
         }
@@ -146,7 +146,7 @@ final class PreviewPlayerControllerPlayAll {
         try { PreviewPlayerController.cover(art, track.optString("image", ""), (int) (56 * d)); } catch (RuntimeException ignored) { }
         head.addView(art, new android.widget.LinearLayout.LayoutParams((int) (56 * d), (int) (56 * d)));
         android.widget.LinearLayout names = new android.widget.LinearLayout(a); names.setOrientation(android.widget.LinearLayout.VERTICAL); names.setPadding((int) (14 * d), 0, 0, 0);
-        names.addView(text(a, track.optString("title", ""), 17, 0xfff5f5f7, true)); names.addView(text(a, track.optString("subtitle", ""), 14, 0xffa1a1aa, false));
+        names.addView(text(a, title(track), 17, 0xfff5f5f7, true)); names.addView(text(a, artist(track), 14, 0xffa1a1aa, false));
         head.addView(names, new android.widget.LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         box.addView(head);
         View line = new View(a); line.setBackgroundColor(0x22ffffff);
@@ -183,6 +183,15 @@ final class PreviewPlayerControllerPlayAll {
     }
     // User screenshot (1022391): rows from some paths carry the track link as "id", not "uri".
     static String trackUri(org.json.JSONObject o) { String u = o.optString("uri", ""); return u.isEmpty() ? o.optString("id", "") : u; }
+    // User diagnostic (1022394): media rows carry name/artists instead of title/subtitle.
+    static String title(org.json.JSONObject o) { String t = o.optString("title", ""); return t.isEmpty() ? o.optString("name", "") : t; }
+    static String artist(org.json.JSONObject o) {
+        String s = o.optString("subtitle", ""); if (!s.isEmpty()) return s;
+        org.json.JSONArray a = o.optJSONArray("artists"); StringBuilder b = new StringBuilder();
+        for (int i = 0; a != null && i < a.length(); i++) { Object x = a.opt(i); String n = x instanceof org.json.JSONObject ? ((org.json.JSONObject) x).optString("name", "") : String.valueOf(x);
+            if (!n.isEmpty()) b.append(b.length() == 0 ? "" : ", ").append(n); }
+        return b.toString();
+    }
     static boolean fresh0() { long now = android.os.SystemClock.uptimeMillis(); boolean f = now - lastAdd > 3000; lastAdd = now; return f; }
     static boolean shuffleOn;
     static long loadingUntil;
