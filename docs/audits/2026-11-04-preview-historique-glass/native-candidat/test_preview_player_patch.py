@@ -30,9 +30,17 @@ class PreviewPlayer(unittest.TestCase):
         cls.files=cls.patch.prepare(ROOT) if INPUT else None
     def get(self, path):
         return self.files[path] if INPUT else (ROOT/path).read_text()
+    def test_library_waits_for_completed_bridge(self):
+        # User report 1022399: the running bridge never sets Started, so Library must use Completed.
+        if INPUT: self.assertIn("if (window.__sfMelodixBridgeCompleted === true && typeof window.fetchMediaItems === 'function') {\n            try {\n                // A genuinely empty/failed bridge result", self.get('assets/native_ui_shell.js'))
+    def test_launch_diagnostic_dialog_disabled(self):
+        # User report 1022399: the PR-6 JSON dialog must never pop up on page load again.
+        text=self.get('smali/com/melodix/music/RuntimeDiagnostic.smali')
+        body=text.split('.method public static runIfPreview(Landroid/webkit/WebView;Ljava/lang/String;)V',1)[1]
+        if INPUT: self.assertEqual(body.split('\n')[1:4],['    .locals 4','','    return-void'])
     def test_only_preview_paths_and_exact_pinned_helpers(self):
         if INPUT:
-            self.assertEqual(set(self.files), set(self.patch.EXPECTED)|{'smali/com/melodix/music/'+x for x in self.patch.HELPER_SHA})
+            self.assertEqual(set(self.files), set(self.patch.EXPECTED)|{'smali/com/melodix/music/'+x for x in self.patch.HELPER_SHA}|{'smali/com/melodix/music/RuntimeDiagnostic.smali'})
             from verify_9016_protected_assets import ASSET_SHA256
             self.assertFalse(set(self.files)&set(ASSET_SHA256))
         for name, digest in self.patch.HELPER_SHA.items():

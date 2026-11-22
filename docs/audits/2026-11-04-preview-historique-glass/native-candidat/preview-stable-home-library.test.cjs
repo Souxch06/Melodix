@@ -51,15 +51,15 @@ test('without a bearer token Home snapshots are not reused',()=>{
 });
 test('late empty bridge result restores real fallback, and does not make up data',async()=>{
  let finish;const gate=new Promise(r=>finish=r);const b=boot({mediaLib:lib});
- try{b.w.__sfMelodixBridgeStarted=true;b.w.fetchMediaItems=()=>gate;b.w.__sfOpenLibrary();assert.equal(latest(b,'media:playlists').length,2);b.w.mediaLib={playlists:[]};b.w.AndBridge.onNativeUiData('media:playlists','[]');finish();await Promise.resolve();await Promise.resolve();assert.equal(latest(b,'media:playlists').length,2)}finally{b.close()}
+ try{b.w.__sfMelodixBridgeStarted=true;b.w.__sfMelodixBridgeCompleted=true;b.w.fetchMediaItems=()=>gate;b.w.__sfOpenLibrary();assert.equal(latest(b,'media:playlists').length,2);b.w.mediaLib={playlists:[]};b.w.AndBridge.onNativeUiData('media:playlists','[]');finish();await Promise.resolve();await Promise.resolve();assert.equal(latest(b,'media:playlists').length,2)}finally{b.close()}
 });
 test('a late fallback cannot replace a different selected library category',async()=>{
  let finish;const gate=new Promise(r=>finish=r);const b=boot({mediaLib:lib});
- try{b.w.__sfMelodixBridgeStarted=true;b.w.fetchMediaItems=id=>id==='playlists'?gate:Promise.resolve();b.w.__sfOpenLibrary();b.w.__sfOpenLibraryCategory('albums');const n=b.calls.filter(x=>x.screen==='media:playlists').length;b.w.mediaLib={playlists:[],albums:[]};finish();await Promise.resolve();await Promise.resolve();assert.equal(b.calls.filter(x=>x.screen==='media:playlists').length,n)}finally{b.close()}
+ try{b.w.__sfMelodixBridgeStarted=true;b.w.__sfMelodixBridgeCompleted=true;b.w.fetchMediaItems=id=>id==='playlists'?gate:Promise.resolve();b.w.__sfOpenLibrary();b.w.__sfOpenLibraryCategory('albums');const n=b.calls.filter(x=>x.screen==='media:playlists').length;b.w.mediaLib={playlists:[],albums:[]};finish();await Promise.resolve();await Promise.resolve();assert.equal(b.calls.filter(x=>x.screen==='media:playlists').length,n)}finally{b.close()}
 });
 test('sidebar loaded after opening Library is emitted once without unrelated recommendations',()=>{
  const b=boot({html:'<main id="main-view"><a href="/playlist/recommendation">Recommended</a></main><nav id="Desktop_LeftSidebar_Id"></nav>',mediaLib:null});
- try{b.w.__sfMelodixBridgeStarted=true;b.w.fetchMediaItems=()=>new Promise(()=>{});b.w.__sfOpenLibrary();assert.equal(latest(b,'media:playlists'),null);b.document.querySelector('nav').innerHTML='<a href="/playlist/mine">Mine</a>';b.w.__sfNativeUiRefresh();assert.deepEqual(latest(b,'media:playlists').map(r=>r.uri),['spotify:playlist:mine']);const n=b.calls.filter(c=>c.screen==='media:playlists').length;b.w.__sfNativeUiRefresh();assert.equal(b.calls.filter(c=>c.screen==='media:playlists').length,n)}finally{b.close()}
+ try{b.w.__sfMelodixBridgeStarted=true;b.w.__sfMelodixBridgeCompleted=true;b.w.fetchMediaItems=()=>new Promise(()=>{});b.w.__sfOpenLibrary();assert.equal(latest(b,'media:playlists'),null);b.document.querySelector('nav').innerHTML='<a href="/playlist/mine">Mine</a>';b.w.__sfNativeUiRefresh();assert.deepEqual(latest(b,'media:playlists').map(r=>r.uri),['spotify:playlist:mine']);const n=b.calls.filter(c=>c.screen==='media:playlists').length;b.w.__sfNativeUiRefresh();assert.equal(b.calls.filter(c=>c.screen==='media:playlists').length,n)}finally{b.close()}
 });
 test('Library copies currently observed Home personal rows even before a token is intercepted',()=>{
  const b=boot({html,mediaLib:lib,token:null});try{b.w.__sfOpenLibrary();assert.deepEqual(latest(b,'media:playlists').map(r=>r.uri),['spotify:collection:tracks','spotify:playlist:flex']);assert.ok(!latest(b,'media:playlists').some(r=>r.uri==='spotify:playlist:public'))}finally{b.close()}

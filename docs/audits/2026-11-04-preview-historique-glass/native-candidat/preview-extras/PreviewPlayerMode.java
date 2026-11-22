@@ -283,7 +283,7 @@ public final class PreviewPlayerMode extends ImageButton {
         if(id!=0 && lastIcon!=0 && id!=lastIcon && !loading && (Build.VERSION.SDK_INT<26 || ValueAnimator.areAnimatorsEnabled())){setScaleX(0.6f);setScaleY(0.6f);animate().scaleX(1f).scaleY(1f).setDuration(260).setInterpolator(new android.view.animation.OvershootInterpolator(2.5f)).start();}
         lastIcon=id;
         boolean tap=running && !known && tappable() && !loading;
-        if(!known && tap && shuffleMissing())desc="Aléatoire : bouton absent de la page Spotify ; touchez pour envoyer le raccourci clavier (effet non vérifiable)";
+        if(!known && tap && shuffleMissing())desc="Lecture aléatoire"; // short label (report 1022399); the 0.5 alpha already shows it is unverified
         else if(!known && likeMissing())desc="Like indisponible : bouton absent de la page Spotify";
         else if(!known && tap)desc="État inconnu : touchez pour essayer ("+(kind.equals("like")?"Like":kind.equals("shuffle")?"Aléatoire":"Répétition")+")";
         else if(!known)desc=(loading?"Chargement : ":"Indisponible : ")+reasonText()+" ("+(kind.equals("like")?"Like":kind.equals("shuffle")?"Aléatoire":"Répétition")+")"+(kind.equals("shuffle")?" ; nécessite un contrôle et un état Spotify reconnus":"");

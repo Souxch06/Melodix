@@ -3116,7 +3116,7 @@
 
     if-eqz v4, :cond_1b
 
-    const-string v4, "Al\u00e9atoire : bouton absent de la page Spotify ; touchez pour envoyer le raccourci clavier (effet non v\u00e9rifiable)"
+    const-string v4, "Lecture al\u00e9atoire"
 
     goto/16 :goto_12
 
