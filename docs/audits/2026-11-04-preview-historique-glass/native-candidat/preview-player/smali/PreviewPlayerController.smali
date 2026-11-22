@@ -3065,7 +3065,7 @@
 
     sub-long v3, v1, v3
 
-    const-wide/16 v5, 0x3e8
+    const-wide/16 v5, 0xfa
 
     cmp-long v3, v3, v5
 

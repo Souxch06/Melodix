@@ -167,7 +167,11 @@ public final class PreviewPlayerMode extends ImageButton {
     }
     private void invoke() {
         long t=SystemClock.elapsedRealtime();
-        if(!running || !isShown() || getWindowVisibility()!=View.VISIBLE || pending || t-lastTap<TAP_GUARD_MS)return;
+        if(!running || !isShown() || getWindowVisibility()!=View.VISIBLE || t-lastTap<TAP_GUARD_MS)return;
+        // User report (1022375): a tap during the 7 s confirmation wait was dropped silently ("button does not react").
+        // After 1.2 s a new explicit tap replaces the unconfirmed one; earlier it gets a visible "busy" feedback.
+        if(pending && t-lastTap<1200){performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);shake();return;}
+        if(pending){pending=false;generation++;querySerial++;queryInFlight=false;}
         // Every tap is tried again: the forced state may have ended (user report 1022295).
         if(kind.equals("shuffle"))shuffleLocked=false;
         if(state.equals("unknown") && !tappable()) {
@@ -289,7 +293,7 @@ public final class PreviewPlayerMode extends ImageButton {
         if(locked){active=true;desc=LOCKED;if(drawable("shuffle")!=0)setImageResource(drawable("shuffle"));}
         setColorFilter(active?0xffffffff:0xffa1a1aa);setContentDescription(pending?desc+", en attente":desc);
         if(locked||looping){setEnabled(true);setAlpha(1f);invalidate();return;}
-        setEnabled((known||tap||(kind.equals("like")&&running))&&!pending); setAlpha(tap?(shuffleMissing()?0.5f:0.8f):kind.equals("like")?(pending?0.65f:known?1f:0.35f):!known?(loading?0.65f:0.35f):pending?0.65f:1.0f);invalidate();
+        setEnabled(known||tap||(kind.equals("like")&&running)); setAlpha(tap?(shuffleMissing()?0.5f:0.8f):kind.equals("like")?(pending?0.65f:known?1f:0.35f):!known?(loading?0.65f:0.35f):pending?0.65f:1.0f);invalidate();
     }
     private void sync() {
         boolean visible=isAttachedToWindow() && isShown() && getWindowVisibility()==View.VISIBLE;

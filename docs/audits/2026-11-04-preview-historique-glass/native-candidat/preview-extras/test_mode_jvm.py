@@ -38,7 +38,7 @@ stubs={
   // Control not recognised in the narrow bar: the button stays usable but neutral, never a fake state.
   Handler.step();a.G.reply(data("unknown")+";reason=control");Handler.advance(2500);ok(m.enabled);ok(m.description.startsWith("État inconnu"));
   // Known state: one tap starts one page job with the shown state and native title; second tap blocked.
-  a.G.reply(data("false"));ok(m.enabled);int n=a.G.calls;m.performClick();ok(a.G.calls==n+1);ok(a.G.js.contains("\\"run\\"")&&a.G.js.contains("\\"false\\"")&&a.G.js.contains("\\"Titre\\""));ok(!m.enabled);m.performClick();ok(a.G.calls==n+1);
+  a.G.reply(data("false"));ok(m.enabled);int n=a.G.calls;m.performClick();ok(a.G.calls==n+1);ok(a.G.js.contains("\\"run\\"")&&a.G.js.contains("\\"false\\"")&&a.G.js.contains("\\"Titre\\""));m.performClick();ok(a.G.calls==n+1);/* user report 1022375: stays tappable; after 1.2 s a new tap replaces the unconfirmed job */SystemClock.t+=1300;m.performClick();ok(a.G.calls==n+2);
   a.G.reply("status=started");Handler.advance(250);ok(a.G.js.contains("\\"poll\\""));a.G.reply("status=running");Handler.advance(250);
   a.G.reply("status=done;outcome=confirmed;state=true;method=now-playing-view;journal=a:absent>b:found>b:click>b:verified");ok(m.enabled);if(kind.equals("like"))ok(Toast.message==null||!Toast.message.contains("Ajouté"));
   ok(PreviewPlayerMode.diagnosticReport().contains("méthode=now-playing-view"));ok(!PreviewPlayerMode.diagnosticReport().contains("Titre"));

@@ -803,7 +803,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     static final String BRIDGE_MARK = "(function(w){if(w.__spotiduck_bridge_applied===true&&typeof w.fetchMediaItems==='function'&&w.__sfMelodixBridgeCompleted!==true){w.__sfMelodixBridgeStarted=true;w.__sfMelodixBridgeCompleted=true;return 1}return 0})(window)";
     private void markBridge() {
         WebView w = seekWeb.get(); long t = now();
-        if (w == null || (bridgeMarkAt >= 0 && t - bridgeMarkAt < 1000)) return;
+        if (w == null || (bridgeMarkAt >= 0 && t - bridgeMarkAt < 250)) return;
         bridgeMarkAt = t;
         try { w.evaluateJavascript(BRIDGE_MARK, new ValueCallback<String>() { public void onReceiveValue(String v) { if ("1".equals(v)) bridgeMarks++; } }); } catch (Throwable e) { }
     }
