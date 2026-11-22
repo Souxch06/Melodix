@@ -27,12 +27,13 @@ final class PreviewPlayerControllerPlayAll {
         ViewGroup.MarginLayoutParams rl = new ViewGroup.MarginLayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         rl.topMargin = (int) (14 * d); row.setLayoutParams(rl);
         View play = icon(a, true); play.setContentDescription("Lire la playlist");
-        play.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { tap(root, "1"); } });
+        play.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { if (shuffleOn) random(root); else tap(root, "1"); } });
         View shuffle = icon(a, false); shuffle.setContentDescription("Lecture aléatoire");
         // shortcut: plays a random row (Spotify's shuffle mode needs the hidden player control); upgrade with a page shuffle command.
+        // User request (1022385): a visible on/off shuffle; when on, "Lecture" starts a random track.
         shuffle.setOnClickListener(new View.OnClickListener() { public void onClick(View v) {
-            int n = 0; while (find(root, String.valueOf(n + 1)) != null && n < 500) n++;
-            if (n > 0) tap(root, String.valueOf(1 + new java.util.Random().nextInt(n)));
+            shuffleOn = !shuffleOn; v.invalidate();
+            if (shuffleOn) random(root);
         }});
         android.widget.LinearLayout.LayoutParams pl = new android.widget.LinearLayout.LayoutParams(0, (int) (48 * d), 1f); pl.rightMargin = (int) (6 * d);
         android.widget.LinearLayout.LayoutParams sl = new android.widget.LinearLayout.LayoutParams(0, (int) (48 * d), 1f); sl.leftMargin = (int) (6 * d);
@@ -61,9 +62,11 @@ final class PreviewPlayerControllerPlayAll {
             @Override protected void onDraw(Canvas c) {
                 float w = getWidth(), h = getHeight(), r = h / 2f, cy = h / 2f;
                 android.graphics.RectF box = new android.graphics.RectF(1, 1, w - 1, h - 1);
-                p.setStyle(Paint.Style.FILL); p.setColor(play ? 0xfff5f5f7 : 0x26ffffff); c.drawRoundRect(box, r, r, p);
-                if (!play) { p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(d); p.setColor(0x40ffffff); c.drawRoundRect(box, r, r, p); }
-                int ink = play ? 0xff111114 : 0xfff5f5f7;
+                boolean on = !play && shuffleOn;
+                p.setStyle(Paint.Style.FILL); p.setColor(play ? 0xfff5f5f7 : on ? 0x331ed760 : 0x26ffffff); c.drawRoundRect(box, r, r, p);
+                if (!play) { p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(d); p.setColor(on ? 0xff1ed760 : 0x40ffffff); c.drawRoundRect(box, r, r, p); }
+                int ink = play ? 0xff111114 : on ? 0xff1ed760 : 0xfff5f5f7;
+                if (on) { p.setStyle(Paint.Style.FILL); p.setColor(0xff1ed760); c.drawCircle(w / 2f, h - 6 * d, 2 * d, p); }
                 String label = play ? "Lecture" : "Aléatoire";
                 p.setStyle(Paint.Style.FILL); p.setTextSize(15 * d); p.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
                 float tw = p.measureText(label), iw = 14 * d, gap = 8 * d, x = (w - iw - gap - tw) / 2f;
@@ -92,6 +95,11 @@ final class PreviewPlayerControllerPlayAll {
             return false;
         }});
         return v;
+    }
+    static boolean shuffleOn;
+    static void random(View root) {
+        int n = 0; while (find(root, String.valueOf(n + 1)) != null && n < 500) n++;
+        if (n > 0) tap(root, String.valueOf(1 + new java.util.Random().nextInt(n)));
     }
     static void tap(View root, String index) {
         for (View x = find(root, index); x != null; x = x.getParent() instanceof View ? (View) x.getParent() : null)

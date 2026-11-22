@@ -559,6 +559,9 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         }
     }
     public void rowsPainted(String screen, String context, String rows) {
+        if ("detail".equals(screen)) try { JSONArray ra = new JSONArray(rows); for (int i = 0; i < ra.length(); i++) { JSONObject o = ra.optJSONObject(i);
+            if (o != null && o.optString("uri", "").startsWith("spotify:track:")) { StringBuilder b = new StringBuilder(); java.util.Iterator<String> it = o.keys();
+                while (it.hasNext()) b.append(b.length() == 0 ? "" : ",").append(it.next()); rowKeys = b.toString(); break; } } } catch (Exception ignored) { }
         onDetail = "detail".equals(screen); try { highlightPlaying(true); } catch (RuntimeException ignored) { }
         if (onDetail && !playlistKey(context).isEmpty()) handler.post(new Runnable() { public void run() { Activity pa = activity.get(); if (pa != null) try { PreviewPlayerControllerPlayAll.add(pa); } catch (RuntimeException ignored) { } } });
         if ("home".equals(screen) && firstCreateAt >= 0 && firstHomeFrameMs < 0) measureHomeFrame = true;
@@ -1163,6 +1166,14 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         // Names only: flags it assigns to true (file) and __sf flags true now (page). No values, no account data.
         out.append("\nPont téléchargé (taille ; drapeaux posés à true) : ").append(hotfixFlags());
         out.append("\nDrapeaux __sf vrais dans la page (relevé à l'ouverture) : ").append(pageFlags);
+        // User request (1022385): what a track row and the running bridge offer for the "..." menu (names only).
+        out.append("\nChamps d'une ligne de titre (noms seulement) : ").append(rowKeys);
+        out.append("\nFonctions du pont utiles au menu (noms seulement) : ").append(menuFns);
+        try {
+            WebView w = seekWeb.get();
+            if (w != null) w.evaluateJavascript("(function(){try{return Object.keys(window).filter(function(k){return typeof window[k]==='function'&&/queue|album|artist|share|playlist|context|menu|add|remove/i.test(k)}).sort().join(',').slice(0,900)}catch(e){return 'erreur'}})()",
+                new android.webkit.ValueCallback<String>() { public void onReceiveValue(String v) { menuFns = v == null ? "—" : v; } });
+        } catch (Exception e) { menuFns = "non lisible"; }
         try {
             WebView w = seekWeb.get();
             if (w != null) w.evaluateJavascript("(function(){try{return Object.keys(window).filter(function(k){return /^__sf/.test(k)&&window[k]===true}).sort().join(',').slice(0,900)}catch(e){return 'erreur'}})()",
@@ -1241,7 +1252,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         }}, 150);
     }
     private int bridgeSeq;
-    private String pageFlags = "non relevé";
+    private String pageFlags = "non relevé", menuFns = "non relevé", rowKeys = "aucune ligne vue";
     private String hotfixFlags() {
         try {
             Activity a = activity.get(); if (a == null) return "—";

@@ -44,11 +44,23 @@
     .locals 1
 
     .line 30
+    sget-boolean p1, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->shuffleOn:Z
+
+    if-eqz p1, :cond_0
+
+    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$1;->val$root:Landroid/view/View;
+
+    invoke-static {p1}, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->random(Landroid/view/View;)V
+
+    goto :goto_0
+
+    :cond_0
     iget-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$1;->val$root:Landroid/view/View;
 
     const-string v0, "1"
 
     invoke-static {p1, v0}, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->tap(Landroid/view/View;Ljava/lang/String;)V
 
+    :goto_0
     return-void
 .end method
