@@ -24,6 +24,7 @@ final class PreviewPlayerControllerPlayAll {
         if (!(heroView instanceof ViewGroup)) return;
         final ViewGroup hero = (ViewGroup) heroView;
         float d = a.getResources().getDisplayMetrics().density;
+        shuffleOn = a.getSharedPreferences("melodix_playall", android.content.Context.MODE_PRIVATE).getBoolean("shuffle", false);
         // Spotify layout (user screenshot 1022381): a right-aligned row under the header info, shuffle then a big play.
         // User feedback (1022384): clearer labelled pills across the width: white "Lecture", glass "Aléatoire".
         android.widget.LinearLayout row = new android.widget.LinearLayout(a);
@@ -45,6 +46,7 @@ final class PreviewPlayerControllerPlayAll {
         shuffle.setOnClickListener(new View.OnClickListener() { public void onClick(View v) {
             // User report (1022387): turning shuffle on started a track at once; it only toggles now.
             shuffleOn = !shuffleOn; v.invalidate();
+            a.getSharedPreferences("melodix_playall", android.content.Context.MODE_PRIVATE).edit().putBoolean("shuffle", shuffleOn).apply();
         }});
         android.widget.LinearLayout.LayoutParams sl = new android.widget.LinearLayout.LayoutParams((int) (48 * d), (int) (48 * d)); sl.rightMargin = (int) (16 * d);
         row.addView(shuffle, sl); row.addView(play, new android.widget.LinearLayout.LayoutParams((int) (60 * d), (int) (60 * d)));
@@ -153,6 +155,10 @@ final class PreviewPlayerControllerPlayAll {
         android.widget.LinearLayout.LayoutParams ll = new android.widget.LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Math.max(1, (int) d)); ll.topMargin = ll.bottomMargin = (int) (14 * d); box.addView(line, ll);
         final String link = "https://open.spotify.com/track/" + trackUri(track).substring("spotify:track:".length());
         box.addView(item(a, "▶", "Lire", new Runnable() { public void run() { row.performClick(); } }, dlg));
+        // User request (1022395): Spotify's "go to artist" through the app's own search (rows carry no artist link).
+        final String who = artist(track).split(",")[0].trim(), what = title(track);
+        if (!who.isEmpty()) box.addView(item(a, "♪", "Voir l'artiste", new Runnable() { public void run() { search(a, who); } }, dlg));
+        if (!what.isEmpty()) box.addView(item(a, "⌕", "Rechercher ce titre", new Runnable() { public void run() { search(a, (what + " " + who).trim()); } }, dlg));
         box.addView(item(a, "↗", "Partager", new Runnable() { public void run() {
             android.content.Intent i = new android.content.Intent(android.content.Intent.ACTION_SEND); i.setType("text/plain");
             i.putExtra(android.content.Intent.EXTRA_TEXT, link); a.startActivity(android.content.Intent.createChooser(i, "Partager"));
@@ -191,6 +197,11 @@ final class PreviewPlayerControllerPlayAll {
         for (int i = 0; a != null && i < a.length(); i++) { Object x = a.opt(i); String n = x instanceof org.json.JSONObject ? ((org.json.JSONObject) x).optString("name", "") : String.valueOf(x);
             if (!n.isEmpty()) b.append(b.length() == 0 ? "" : ", ").append(n); }
         return b.toString();
+    }
+    // The app's own search entry (onNativeGenreClick: runs a live search with the view tag, then shows results).
+    static void search(Activity a, String q) {
+        try { View tag = new View(a); tag.setTag(q); a.getClass().getMethod("onNativeGenreClick", View.class).invoke(a, tag); }
+        catch (Exception e) { android.widget.Toast.makeText(a, "Recherche indisponible", android.widget.Toast.LENGTH_SHORT).show(); }
     }
     static boolean fresh0() { long now = android.os.SystemClock.uptimeMillis(); boolean f = now - lastAdd > 3000; lastAdd = now; return f; }
     static boolean shuffleOn;

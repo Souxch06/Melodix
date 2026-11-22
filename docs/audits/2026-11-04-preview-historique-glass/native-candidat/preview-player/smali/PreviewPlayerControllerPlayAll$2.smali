@@ -17,11 +17,22 @@
 .end annotation
 
 
-# direct methods
-.method constructor <init>()V
-    .locals 0
+# instance fields
+.field final synthetic val$a:Landroid/app/Activity;
 
-    .line 45
+
+# direct methods
+.method constructor <init>(Landroid/app/Activity;)V
+    .locals 0
+    .annotation system Ldalvik/annotation/Signature;
+        value = {
+            "()V"
+        }
+    .end annotation
+
+    .line 46
+    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$2;->val$a:Landroid/app/Activity;
+
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
     return-void
@@ -30,9 +41,9 @@
 
 # virtual methods
 .method public onClick(Landroid/view/View;)V
-    .locals 1
+    .locals 2
 
-    .line 47
+    .line 48
     sget-boolean v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->shuffleOn:Z
 
     xor-int/lit8 v0, v0, 0x1
@@ -41,6 +52,31 @@
 
     invoke-virtual {p1}, Landroid/view/View;->invalidate()V
 
-    .line 48
+    .line 49
+    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$2;->val$a:Landroid/app/Activity;
+
+    const-string v0, "melodix_playall"
+
+    const/4 v1, 0x0
+
+    invoke-virtual {p1, v0, v1}, Landroid/app/Activity;->getSharedPreferences(Ljava/lang/String;I)Landroid/content/SharedPreferences;
+
+    move-result-object p1
+
+    invoke-interface {p1}, Landroid/content/SharedPreferences;->edit()Landroid/content/SharedPreferences$Editor;
+
+    move-result-object p1
+
+    const-string v0, "shuffle"
+
+    sget-boolean v1, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->shuffleOn:Z
+
+    invoke-interface {p1, v0, v1}, Landroid/content/SharedPreferences$Editor;->putBoolean(Ljava/lang/String;Z)Landroid/content/SharedPreferences$Editor;
+
+    move-result-object p1
+
+    invoke-interface {p1}, Landroid/content/SharedPreferences$Editor;->apply()V
+
+    .line 50
     return-void
 .end method

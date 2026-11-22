@@ -20,11 +20,13 @@
 # instance fields
 .field final synthetic val$a:Landroid/app/Activity;
 
-.field final synthetic val$link:Ljava/lang/String;
+.field final synthetic val$what:Ljava/lang/String;
+
+.field final synthetic val$who:Ljava/lang/String;
 
 
 # direct methods
-.method constructor <init>(Landroid/app/Activity;Ljava/lang/String;)V
+.method constructor <init>(Landroid/app/Activity;Ljava/lang/String;Ljava/lang/String;)V
     .locals 0
     .annotation system Ldalvik/annotation/Signature;
         value = {
@@ -32,10 +34,12 @@
         }
     .end annotation
 
-    .line 160
+    .line 161
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$9;->val$a:Landroid/app/Activity;
 
-    iput-object p2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$9;->val$link:Ljava/lang/String;
+    iput-object p2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$9;->val$what:Ljava/lang/String;
+
+    iput-object p3, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$9;->val$who:Ljava/lang/String;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
@@ -50,37 +54,37 @@
     .line 161
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$9;->val$a:Landroid/app/Activity;
 
-    const-string v1, "clipboard"
+    new-instance v1, Ljava/lang/StringBuilder;
 
-    invoke-virtual {v0, v1}, Landroid/app/Activity;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
 
-    move-result-object v0
+    iget-object v2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$9;->val$what:Ljava/lang/String;
 
-    check-cast v0, Landroid/content/ClipboardManager;
-
-    const-string v1, "Lien"
-
-    iget-object v2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$9;->val$link:Ljava/lang/String;
-
-    invoke-static {v1, v2}, Landroid/content/ClipData;->newPlainText(Ljava/lang/CharSequence;Ljava/lang/CharSequence;)Landroid/content/ClipData;
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v1
 
-    invoke-virtual {v0, v1}, Landroid/content/ClipboardManager;->setPrimaryClip(Landroid/content/ClipData;)V
+    const-string v2, " "
 
-    .line 162
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$9;->val$a:Landroid/app/Activity;
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    const-string v1, "Lien copi\u00e9"
+    move-result-object v1
 
-    const/4 v2, 0x0
+    iget-object v2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$9;->val$who:Ljava/lang/String;
 
-    invoke-static {v0, v1, v2}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    move-result-object v0
+    move-result-object v1
 
-    invoke-virtual {v0}, Landroid/widget/Toast;->show()V
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
-    .line 163
+    move-result-object v1
+
+    invoke-virtual {v1}, Ljava/lang/String;->trim()Ljava/lang/String;
+
+    move-result-object v1
+
+    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->search(Landroid/app/Activity;Ljava/lang/String;)V
+
     return-void
 .end method

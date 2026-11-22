@@ -20,11 +20,11 @@
 # instance fields
 .field final synthetic val$a:Landroid/app/Activity;
 
-.field final synthetic val$link:Ljava/lang/String;
+.field final synthetic val$who:Ljava/lang/String;
 
 
 # direct methods
-.method constructor <init>(Ljava/lang/String;Landroid/app/Activity;)V
+.method constructor <init>(Landroid/app/Activity;Ljava/lang/String;)V
     .locals 0
     .annotation system Ldalvik/annotation/Signature;
         value = {
@@ -32,10 +32,10 @@
         }
     .end annotation
 
-    .line 156
-    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$8;->val$link:Ljava/lang/String;
+    .line 160
+    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$8;->val$a:Landroid/app/Activity;
 
-    iput-object p2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$8;->val$a:Landroid/app/Activity;
+    iput-object p2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$8;->val$who:Ljava/lang/String;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
@@ -45,36 +45,14 @@
 
 # virtual methods
 .method public run()V
-    .locals 3
+    .locals 2
 
-    .line 157
-    new-instance v0, Landroid/content/Intent;
+    .line 160
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$8;->val$a:Landroid/app/Activity;
 
-    const-string v1, "android.intent.action.SEND"
+    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$8;->val$who:Ljava/lang/String;
 
-    invoke-direct {v0, v1}, Landroid/content/Intent;-><init>(Ljava/lang/String;)V
+    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->search(Landroid/app/Activity;Ljava/lang/String;)V
 
-    const-string v1, "text/plain"
-
-    invoke-virtual {v0, v1}, Landroid/content/Intent;->setType(Ljava/lang/String;)Landroid/content/Intent;
-
-    .line 158
-    const-string v1, "android.intent.extra.TEXT"
-
-    iget-object v2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$8;->val$link:Ljava/lang/String;
-
-    invoke-virtual {v0, v1, v2}, Landroid/content/Intent;->putExtra(Ljava/lang/String;Ljava/lang/String;)Landroid/content/Intent;
-
-    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$8;->val$a:Landroid/app/Activity;
-
-    const-string v2, "Partager"
-
-    invoke-static {v0, v2}, Landroid/content/Intent;->createChooser(Landroid/content/Intent;Ljava/lang/CharSequence;)Landroid/content/Intent;
-
-    move-result-object v0
-
-    invoke-virtual {v1, v0}, Landroid/app/Activity;->startActivity(Landroid/content/Intent;)V
-
-    .line 159
     return-void
 .end method
