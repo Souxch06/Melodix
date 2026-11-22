@@ -64,6 +64,7 @@ public final class PreviewPlayerMode extends ImageButton {
     private static boolean shuffleLocked;
     // Repeat-one handled by the page script when Spotify greys its own repeat (user request 1022301).
     private static boolean appLoop;
+    private static boolean appLoopSeen; // Melodix owns repeat: off is a real state, not unknown (report 1022398)
     private static final String LOCKED = "Lecture aléatoire activée (imposée par Spotify)";
     private long generation, querySerial, lastTap = -1000, visibleSince, queryStarted;
     private static final long TAP_GUARD_MS = 400, CONFIRM_MS = 7000;
@@ -222,7 +223,7 @@ public final class PreviewPlayerMode extends ImageButton {
         if(i>=0){methods[i]="méthode="+(method.isEmpty()?"aucune":method)+", résultat="+result+", étapes="+clean(o.optString("journal",""));outcome[i]=result;}
         pending=false;generation++;querySerial++;queryInFlight=false;
         if(method.equals("app-loop")) {
-            appLoop=next.equals("true");reason="observed";paint();
+            appLoop=next.equals("true");appLoopSeen=true;reason="observed";paint();
             Toast.makeText(getContext(),appLoop?"Boucle du titre activée":"Boucle désactivée",Toast.LENGTH_SHORT).show();return;
         }
         if((result.equals("confirmed")||result.equals("read")) && !next.equals("unknown")) {
@@ -289,10 +290,12 @@ public final class PreviewPlayerMode extends ImageButton {
         if(kind.equals("shuffle") && known)shuffleLocked=false;
         boolean locked=kind.equals("shuffle") && shuffleLocked && !known && !pending;
         boolean looping=kind.equals("repeat") && appLoop && !pending;
+        boolean loopOff=kind.equals("repeat") && appLoopSeen && !appLoop && !known && !pending;
+        if(loopOff){desc="Répétition désactivée";if(drawable("repoff")!=0)setImageResource(drawable("repoff"));}
         if(looping){active=true;desc="Répéter le titre (boucle Melodix)";/* PreviewPlayerDecoration lights the icon from this prefix */if(drawable("repone")!=0)setImageResource(drawable("repone"));}
         if(locked){active=true;desc=LOCKED;if(drawable("shuffle")!=0)setImageResource(drawable("shuffle"));}
         setColorFilter(active?0xffffffff:0xffa1a1aa);setContentDescription(pending?desc+", en attente":desc);
-        if(locked||looping){setEnabled(true);setAlpha(1f);invalidate();return;}
+        if(locked||looping||loopOff){setEnabled(true);setAlpha(1f);invalidate();return;}
         setEnabled(known||tap||(kind.equals("like")&&running)); setAlpha(tap?(shuffleMissing()?0.5f:0.8f):kind.equals("like")?(pending?0.65f:known?1f:0.35f):!known?(loading?0.65f:0.35f):pending?0.65f:1.0f);invalidate();
     }
     private void sync() {
