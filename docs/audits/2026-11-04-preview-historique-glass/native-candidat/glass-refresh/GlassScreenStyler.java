@@ -88,7 +88,8 @@ public final class GlassScreenStyler implements Runnable, android.view.ViewTreeO
         // Liner: soft glow of the cover colour behind the header, fading out.
         hero.setBackground(glow(a,0));
         // Liner album header: cover on the left, eyebrow and title beside it.
-        LinearLayout artLine=new LinearLayout(a);artLine.setGravity(Gravity.CENTER);
+        // User request (1022388): Spotify playlist layout, big centred cover then the title and one meta line.
+        LinearLayout artLine=vertical(a);artLine.setGravity(Gravity.CENTER);
         final ImageView image=new ImageView(a);image.setScaleType(ImageView.ScaleType.CENTER_CROP);
         image.setBackground(glass(a,0x1fffffff,0x0fffffff,10,0));
         image.setClipToOutline(true); image.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
@@ -108,12 +109,9 @@ public final class GlassScreenStyler implements Runnable, android.view.ViewTreeO
                 hint.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);artBox.addView(hint);
             }
         }
-        artLine.addView(artBox,new LinearLayout.LayoutParams(dp(a,140),dp(a,140)));hero.addView(artLine);
-        LinearLayout side=vertical(a);side.setPadding(dp(a,16),0,0,0);artLine.addView(side,new LinearLayout.LayoutParams(-1,-2));
-        TextView eyebrow=text(a,isLiked?"VOTRE BIBLIOTHÈQUE":"PLAYLIST",12,0x99ffffff,false);eyebrow.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL),Typeface.NORMAL);eyebrow.setLetterSpacing(.12f);
-        side.addView(eyebrow,new LinearLayout.LayoutParams(-1,-2));
-        TextView name=text(a,title==null||title.trim().isEmpty()?(isLiked?"Titres likés":"Playlist"):title,26,0xfffafafa,false);
-        name.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL),Typeface.NORMAL);name.setLetterSpacing(-.01f);name.setLineSpacing(0,1.05f);
+        artLine.addView(artBox,new LinearLayout.LayoutParams(dp(a,240),dp(a,240)));hero.addView(artLine);
+        LinearLayout side=vertical(a);LinearLayout.LayoutParams sdp=new LinearLayout.LayoutParams(-1,-2);sdp.topMargin=dp(a,20);artLine.addView(side,sdp);
+        TextView name=text(a,title==null||title.trim().isEmpty()?(isLiked?"Titres likés":"Playlist"):title,28,0xfffafafa,true);name.setLetterSpacing(-.01f);name.setLineSpacing(0,1.05f);
         name.setMaxLines(3);name.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-1,-2);np.topMargin=dp(a,6);side.addView(name,np);
         // Liner hero meta: how many tracks are already shown (grows as the list completes).
@@ -130,18 +128,8 @@ public final class GlassScreenStyler implements Runnable, android.view.ViewTreeO
             if(secs>=60)info+=" · "+(secs>=3600?secs/3600+" h "+(secs%3600)/60+" min":secs/60+" min");
             TextView meta=text(a,info,13,0x99ffffff,false);meta.setTag("glass-playlist-count");
             LinearLayout.LayoutParams mp=new LinearLayout.LayoutParams(-1,-2);mp.topMargin=dp(a,8);side.addView(meta,mp);
-            if(!artists.isEmpty()){StringBuilder b=new StringBuilder("Avec ");int j=0;for(String n:artists){if(j++>0)b.append(", ");b.append(n);}
-                TextView with=text(a,b+(tracks>artists.size()?" et d'autres":""),12,0x99ffffff,false);with.setMaxLines(2);with.setEllipsize(TextUtils.TruncateAt.END);
-                LinearLayout.LayoutParams wp=new LinearLayout.LayoutParams(-1,-2);wp.topMargin=dp(a,4);side.addView(with,wp);}}
-        // Liner: no section title, a hairline separates the header from the tracks.
-        // Stats chips (artists, average length) and the most present artist, from the rows shown.
-        LinearLayout chips=new LinearLayout(a);chips.setTag("glass-playlist-stats");
-        if(seen.size()>1)chips.addView(chip(a,seen.size()+" artistes"));
-        if(timed>1)chips.addView(chip(a,"moy. "+(secs/timed)/60+":"+((secs/timed)%60<10?"0":"")+(secs/timed)%60));
-        if(chips.getChildCount()>0){LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,-2);cp.topMargin=dp(a,16);hero.addView(chips,cp);}
-        String top=null;int best=1;for(java.util.Map.Entry<String,Integer> e:seen.entrySet())if(e.getValue()>best){best=e.getValue();top=e.getKey();}
-        if(top!=null){TextView fav=text(a,"★  Le plus présent : "+top+" · "+best+" titres",12,0xb3ffffff,false);fav.setMaxLines(1);fav.setEllipsize(TextUtils.TruncateAt.END);
-            LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(-1,-2);fp.topMargin=dp(a,10);hero.addView(fav,fp);}
+        }
+        // User request (1022388): no artist list, stats chips or "most present" line (Spotify shows none).
         View line=new View(a);line.setBackgroundColor(0x14ffffff);
         LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(-1,Math.max(1,dp(a,.5f)));hp.topMargin=dp(a,20);hero.addView(line,hp);
         rows.addView(hero,0,new LinearLayout.LayoutParams(-1,-2));

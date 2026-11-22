@@ -21,7 +21,7 @@
 .method constructor <init>()V
     .locals 0
 
-    .line 41
+    .line 43
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
     return-void
@@ -32,7 +32,7 @@
 .method public onClick(Landroid/view/View;)V
     .locals 1
 
-    .line 43
+    .line 45
     sget-boolean v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->shuffleOn:Z
 
     xor-int/lit8 v0, v0, 0x1
@@ -41,6 +41,6 @@
 
     invoke-virtual {p1}, Landroid/view/View;->invalidate()V
 
-    .line 44
+    .line 46
     return-void
 .end method

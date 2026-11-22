@@ -30,7 +30,7 @@
         }
     .end annotation
 
-    .line 32
+    .line 34
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$1;->val$root:Landroid/view/View;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -43,7 +43,7 @@
 .method public onClick(Landroid/view/View;)V
     .locals 4
 
-    .line 34
+    .line 36
     invoke-static {}, Landroid/os/SystemClock;->uptimeMillis()J
 
     move-result-wide v0
@@ -56,7 +56,7 @@
 
     invoke-virtual {p1}, Landroid/view/View;->invalidate()V
 
-    .line 35
+    .line 37
     new-instance v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$1$1;
 
     invoke-direct {v0, p0, p1}, Lcom/melodix/music/PreviewPlayerControllerPlayAll$1$1;-><init>(Lcom/melodix/music/PreviewPlayerControllerPlayAll$1;Landroid/view/View;)V
@@ -65,7 +65,7 @@
 
     invoke-virtual {p1, v0, v1, v2}, Landroid/view/View;->postDelayed(Ljava/lang/Runnable;J)Z
 
-    .line 36
+    .line 38
     sget-boolean p1, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->shuffleOn:Z
 
     if-eqz p1, :cond_0
@@ -83,7 +83,7 @@
 
     invoke-static {p1, v0}, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->tap(Landroid/view/View;Ljava/lang/String;)V
 
-    .line 37
+    .line 39
     :goto_0
     return-void
 .end method

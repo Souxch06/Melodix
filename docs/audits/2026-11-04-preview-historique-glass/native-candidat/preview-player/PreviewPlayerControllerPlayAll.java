@@ -10,7 +10,7 @@ import android.widget.TextView;
 
 // User request (1022379): Spotify-like round play button in the playlist header (drawn in code, no resource).
 // It taps the first track row, so playback takes the same path as touching that track.
-// shortcut: the header is found by its "PLAYLIST" label and the first row by its "1" index; upgrade if the layout changes.
+// shortcut: the first row is found by its "1" index; upgrade if the row layout changes.
 final class PreviewPlayerControllerPlayAll {
     static final String TAG = "melodixPlayAll";
     private static long lastAdd = -100000;
@@ -19,8 +19,10 @@ final class PreviewPlayerControllerPlayAll {
         if (root == null) return;
         try { addMenus(a, root, new org.json.JSONArray(rows)); } catch (Exception ignored) { }
         if (root.findViewWithTag(TAG) != null) return;
-        TextView label = find(root, "PLAYLIST"); if (label == null) label = find(root, "VOTRE BIBLIOTHÈQUE");
-        if (label == null || !(label.getParent() instanceof ViewGroup)) return;
+        // User request (1022388): the header is the styled hero (tag set by GlassScreenStyler).
+        View heroView = root.findViewWithTag("glass-playlist-hero");
+        if (!(heroView instanceof ViewGroup)) return;
+        final ViewGroup hero = (ViewGroup) heroView;
         float d = a.getResources().getDisplayMetrics().density;
         // Spotify layout (user screenshot 1022381): a right-aligned row under the header info, shuffle then a big play.
         // User feedback (1022384): clearer labelled pills across the width: white "Lecture", glass "Aléatoire".
@@ -45,20 +47,11 @@ final class PreviewPlayerControllerPlayAll {
         android.widget.LinearLayout.LayoutParams pl = new android.widget.LinearLayout.LayoutParams(0, (int) (48 * d), 1f); pl.rightMargin = (int) (6 * d);
         android.widget.LinearLayout.LayoutParams sl = new android.widget.LinearLayout.LayoutParams(0, (int) (48 * d), 1f); sl.leftMargin = (int) (6 * d);
         row.addView(play, pl); row.addView(shuffle, sl);
-        // User screenshot (1022382): the row must close the header card. The card is the first vertical ancestor
-        // whose child holding the label is a horizontal row (cover | texts); the row goes at its end.
-        ViewGroup card = null;
-        for (View x = label; x.getParent() instanceof ViewGroup; x = (View) x.getParent()) {
-            ViewGroup g = (ViewGroup) x.getParent();
-            if (g instanceof android.widget.LinearLayout && ((android.widget.LinearLayout) g).getOrientation() == android.widget.LinearLayout.VERTICAL
-                && x instanceof android.widget.LinearLayout && ((android.widget.LinearLayout) x).getOrientation() == android.widget.LinearLayout.HORIZONTAL) { card = g; break; }
-            if (g == root) break;
-        }
-        if (card == null) card = (ViewGroup) label.getParent(); // layout not recognised: keep the button reachable
+        ViewGroup card = hero;
         // Fade in only on a fresh open: a list redraw rebuilds the header, and replaying it would flicker.
         long now = android.os.SystemClock.uptimeMillis(); boolean fresh = now - lastAdd > 3000; lastAdd = now;
         if (fresh) { row.setAlpha(0f); row.setTranslationY(8 * d); }
-        card.addView(row);
+        card.addView(row, Math.max(0, card.getChildCount() - 1)); // above the hairline
         if (fresh) row.animate().alpha(1f).translationY(0).setDuration(260).start();
     }
     // Drawn in code (no new resource): a rounded pill with an icon and a label.
