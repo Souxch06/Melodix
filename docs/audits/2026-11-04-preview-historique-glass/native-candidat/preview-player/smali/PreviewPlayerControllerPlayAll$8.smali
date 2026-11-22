@@ -20,7 +20,7 @@
 # instance fields
 .field final synthetic val$a:Landroid/app/Activity;
 
-.field final synthetic val$who:Ljava/lang/String;
+.field final synthetic val$id:Ljava/lang/String;
 
 
 # direct methods
@@ -35,7 +35,7 @@
     .line 164
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$8;->val$a:Landroid/app/Activity;
 
-    iput-object p2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$8;->val$who:Ljava/lang/String;
+    iput-object p2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$8;->val$id:Ljava/lang/String;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
@@ -45,14 +45,18 @@
 
 # virtual methods
 .method public run()V
-    .locals 2
+    .locals 4
 
-    .line 164
+    .line 165
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$8;->val$a:Landroid/app/Activity;
 
-    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$8;->val$who:Ljava/lang/String;
+    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$8;->val$id:Ljava/lang/String;
 
-    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->search(Landroid/app/Activity;Ljava/lang/String;)V
+    const-string v2, "Ajouter \u00e0 la file d\'attente|Add to queue"
+
+    const-string v3, "Ajout\u00e9 \u00e0 la file d\'attente"
+
+    invoke-static {v0, v1, v2, v3}, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->pageMenu(Landroid/app/Activity;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
 
     return-void
 .end method

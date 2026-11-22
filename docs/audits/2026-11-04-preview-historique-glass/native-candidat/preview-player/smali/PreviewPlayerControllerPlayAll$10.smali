@@ -3,12 +3,12 @@
 .source "PreviewPlayerControllerPlayAll.java"
 
 # interfaces
-.implements Landroid/view/View$OnClickListener;
+.implements Ljava/lang/Runnable;
 
 
 # annotations
 .annotation system Ldalvik/annotation/EnclosingMethod;
-    value = Lcom/melodix/music/PreviewPlayerControllerPlayAll;->item(Landroid/app/Activity;ILjava/lang/String;Ljava/lang/Runnable;Landroid/app/Dialog;)Landroid/view/View;
+    value = Lcom/melodix/music/PreviewPlayerControllerPlayAll;->sheet(Landroid/app/Activity;Lorg/json/JSONObject;Landroid/view/View;)V
 .end annotation
 
 .annotation system Ldalvik/annotation/InnerClass;
@@ -18,13 +18,15 @@
 
 
 # instance fields
-.field final synthetic val$action:Ljava/lang/Runnable;
+.field final synthetic val$a:Landroid/app/Activity;
 
-.field final synthetic val$dlg:Landroid/app/Dialog;
+.field final synthetic val$id:Ljava/lang/String;
+
+.field final synthetic val$track:Lorg/json/JSONObject;
 
 
 # direct methods
-.method constructor <init>(Landroid/app/Dialog;Ljava/lang/Runnable;)V
+.method constructor <init>(Landroid/app/Activity;Lorg/json/JSONObject;Ljava/lang/String;)V
     .locals 0
     .annotation system Ldalvik/annotation/Signature;
         value = {
@@ -32,10 +34,12 @@
         }
     .end annotation
 
-    .line 198
-    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$10;->val$dlg:Landroid/app/Dialog;
+    .line 168
+    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$10;->val$a:Landroid/app/Activity;
 
-    iput-object p2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$10;->val$action:Ljava/lang/Runnable;
+    iput-object p2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$10;->val$track:Lorg/json/JSONObject;
+
+    iput-object p3, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$10;->val$id:Ljava/lang/String;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
@@ -44,26 +48,55 @@
 
 
 # virtual methods
-.method public onClick(Landroid/view/View;)V
-    .locals 0
+.method public run()V
+    .locals 3
 
-    .line 198
-    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$10;->val$dlg:Landroid/app/Dialog;
+    .line 170
+    new-instance v0, Landroid/app/AlertDialog$Builder;
 
-    invoke-virtual {p1}, Landroid/app/Dialog;->dismiss()V
+    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$10;->val$a:Landroid/app/Activity;
 
-    :try_start_0
-    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$10;->val$action:Ljava/lang/Runnable;
+    invoke-direct {v0, v1}, Landroid/app/AlertDialog$Builder;-><init>(Landroid/content/Context;)V
 
-    invoke-interface {p1}, Ljava/lang/Runnable;->run()V
-    :try_end_0
-    .catch Ljava/lang/RuntimeException; {:try_start_0 .. :try_end_0} :catch_0
+    const-string v1, "Supprimer de cette playlist ?"
 
-    goto :goto_0
+    invoke-virtual {v0, v1}, Landroid/app/AlertDialog$Builder;->setTitle(Ljava/lang/CharSequence;)Landroid/app/AlertDialog$Builder;
 
-    :catch_0
-    move-exception p1
+    move-result-object v0
 
-    :goto_0
+    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$10;->val$track:Lorg/json/JSONObject;
+
+    invoke-static {v1}, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->title(Lorg/json/JSONObject;)Ljava/lang/String;
+
+    move-result-object v1
+
+    invoke-virtual {v0, v1}, Landroid/app/AlertDialog$Builder;->setMessage(Ljava/lang/CharSequence;)Landroid/app/AlertDialog$Builder;
+
+    move-result-object v0
+
+    .line 171
+    const-string v1, "Annuler"
+
+    const/4 v2, 0x0
+
+    invoke-virtual {v0, v1, v2}, Landroid/app/AlertDialog$Builder;->setNegativeButton(Ljava/lang/CharSequence;Landroid/content/DialogInterface$OnClickListener;)Landroid/app/AlertDialog$Builder;
+
+    move-result-object v0
+
+    new-instance v1, Lcom/melodix/music/PreviewPlayerControllerPlayAll$10$1;
+
+    invoke-direct {v1, p0}, Lcom/melodix/music/PreviewPlayerControllerPlayAll$10$1;-><init>(Lcom/melodix/music/PreviewPlayerControllerPlayAll$10;)V
+
+    .line 172
+    const-string v2, "Supprimer"
+
+    invoke-virtual {v0, v2, v1}, Landroid/app/AlertDialog$Builder;->setPositiveButton(Ljava/lang/CharSequence;Landroid/content/DialogInterface$OnClickListener;)Landroid/app/AlertDialog$Builder;
+
+    move-result-object v0
+
+    .line 173
+    invoke-virtual {v0}, Landroid/app/AlertDialog$Builder;->show()Landroid/app/AlertDialog;
+
+    .line 174
     return-void
 .end method

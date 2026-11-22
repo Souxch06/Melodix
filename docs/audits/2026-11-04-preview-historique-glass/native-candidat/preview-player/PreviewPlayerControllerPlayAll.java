@@ -160,12 +160,30 @@ final class PreviewPlayerControllerPlayAll {
             android.content.Intent i = new android.content.Intent(android.content.Intent.ACTION_SEND); i.setType("text/plain");
             i.putExtra(android.content.Intent.EXTRA_TEXT, link); a.startActivity(android.content.Intent.createChooser(i, "Partager"));
         } }, dlg));
+        final String id = trackUri(track).substring("spotify:track:".length());
+        box.addView(item(a, 2, "Ajouter à la file d'attente", new Runnable() { public void run() {
+            pageMenu(a, id, "Ajouter à la file d'attente|Add to queue", "Ajouté à la file d'attente"); } }, dlg));
         final String who = artist(track).split(",")[0].trim();
         if (!who.isEmpty()) box.addView(item(a, 1, "Accéder à l'artiste", new Runnable() { public void run() { search(a, who); } }, dlg));
+        box.addView(item(a, 3, "Supprimer de cette playlist", new Runnable() { public void run() {
+            // Account write: only after an explicit confirmation tap.
+            new android.app.AlertDialog.Builder(a).setTitle("Supprimer de cette playlist ?").setMessage(title(track))
+                .setNegativeButton("Annuler", null)
+                .setPositiveButton("Supprimer", new android.content.DialogInterface.OnClickListener() { public void onClick(android.content.DialogInterface x, int k) {
+                    pageMenu(a, id, "Supprimer de cette playlist|Remove from this playlist", "Supprimé de la playlist"); } }).show();
+        } }, dlg));
         dlg.setContentView(box);
-        android.view.Window w = dlg.getWindow();
+        final android.view.Window w = dlg.getWindow();
         if (w != null) { w.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(0)); w.setGravity(android.view.Gravity.BOTTOM);
-            w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT); w.setWindowAnimations(android.R.style.Animation_InputMethod); w.setDimAmount(0.6f); }
+            w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT); w.setWindowAnimations(0); w.setDimAmount(0f); }
+        // User request (1022397): slide up with a fading dim on open, slide down on close.
+        final View panel = box;
+        dlg.setOnShowListener(new android.content.DialogInterface.OnShowListener() { public void onShow(android.content.DialogInterface x) {
+            panel.setTranslationY(panel.getHeight() > 0 ? panel.getHeight() : 600 * d);
+            panel.animate().translationY(0).setDuration(280).setInterpolator(new android.view.animation.DecelerateInterpolator(2f)).start();
+            dim(w, 0f, 0.6f, 280);
+        }});
+        closer.put(dlg, panel);
         dlg.show();
     }
     static TextView text(Activity a, String s, int sp, int color, boolean bold) {
@@ -181,6 +199,8 @@ final class PreviewPlayerControllerPlayAll {
                 p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(1.8f * d); p.setColor(0xfff5f5f7); p.setStrokeCap(Paint.Cap.ROUND); p.setStrokeJoin(Paint.Join.ROUND);
                 float w = getWidth(), h = getHeight(), u = Math.min(w, h) / 24f; c.save(); c.translate((w - 24 * u) / 2f, (h - 24 * u) / 2f); c.scale(u, u); p.setStrokeWidth(1.8f * d / u);
                 if (kind == 0) { c.drawCircle(18, 5, 3, p); c.drawCircle(6, 12, 3, p); c.drawCircle(18, 19, 3, p); c.drawLine(8.6f, 10.5f, 15.4f, 6.5f, p); c.drawLine(8.6f, 13.5f, 15.4f, 17.5f, p); }
+                else if (kind == 2) { c.drawLine(3, 6, 9, 6, p); c.drawLine(6, 3, 6, 9, p); c.drawLine(12, 6, 21, 6, p); c.drawLine(3, 12, 21, 12, p); c.drawLine(3, 18, 21, 18, p); }
+                else if (kind == 3) { c.drawCircle(12, 12, 9, p); c.drawLine(8, 12, 16, 12, p); }
                 else { c.drawCircle(10, 7, 4, p); Path q = new Path(); q.moveTo(3, 21); q.cubicTo(3, 15.5f, 6.5f, 13, 10, 13); q.cubicTo(11.5f, 13, 12.7f, 13.4f, 13.6f, 14); c.drawPath(q, p);
                     c.drawCircle(18, 19, 2, p); c.drawLine(20, 19, 20, 12, p); c.drawLine(20, 12, 22.5f, 13, p); }
                 c.restore();
@@ -195,7 +215,7 @@ final class PreviewPlayerControllerPlayAll {
         if (a.getTheme().resolveAttribute(android.R.attr.selectableItemBackground, tv, true)) row.setBackgroundResource(tv.resourceId);
         row.addView(glyph(a, icon), new android.widget.LinearLayout.LayoutParams((int) (28 * d), (int) (28 * d)));
         TextView l = text(a, label, 17, 0xfff5f5f7, false); l.setPadding((int) (20 * d), 0, 0, 0); row.addView(l);
-        row.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { dlg.dismiss(); try { action.run(); } catch (RuntimeException ignored) { } } });
+        row.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { close(dlg, action); } });
         return row;
     }
     // User screenshot (1022391): rows from some paths carry the track link as "id", not "uri".
@@ -215,6 +235,39 @@ final class PreviewPlayerControllerPlayAll {
         catch (Exception e) { android.widget.Toast.makeText(a, "Recherche indisponible", android.widget.Toast.LENGTH_SHORT).show(); }
     }
     static boolean fresh0() { long now = android.os.SystemClock.uptimeMillis(); boolean f = now - lastAdd > 3000; lastAdd = now; return f; }
+    static final java.util.WeakHashMap<android.app.Dialog, View> closer = new java.util.WeakHashMap<android.app.Dialog, View>();
+    static void dim(final android.view.Window w, float from, float to, long ms) {
+        if (w == null) return;
+        android.animation.ValueAnimator va = android.animation.ValueAnimator.ofFloat(from, to); va.setDuration(ms);
+        va.addUpdateListener(new android.animation.ValueAnimator.AnimatorUpdateListener() { public void onAnimationUpdate(android.animation.ValueAnimator v) {
+            w.setDimAmount((Float) v.getAnimatedValue()); w.addFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND); } });
+        va.start();
+    }
+    static void close(final android.app.Dialog dlg, final Runnable then) {
+        View panel = closer.get(dlg);
+        if (panel == null || panel.getHeight() == 0) { dlg.dismiss(); if (then != null) try { then.run(); } catch (RuntimeException ignored) { } return; }
+        dim(dlg.getWindow(), 0.6f, 0f, 200);
+        panel.animate().translationY(panel.getHeight()).setDuration(200).setInterpolator(new android.view.animation.AccelerateInterpolator(2f)).withEndAction(new Runnable() { public void run() {
+            dlg.dismiss(); if (then != null) try { then.run(); } catch (RuntimeException ignored) { } } }).start();
+    }
+    // Spotify's own track menu in the hidden page (no token): right-click the track row, then click the entry.
+    // shortcut: works only if the track row is rendered in the page (Spotify draws only nearby rows); otherwise it says so.
+    static final String MENU_JOB = "(function(id,labels){try{var a=document.querySelector('a[href*=\"/track/'+id+'\"]');var row=a&&(a.closest('[data-testid=\"tracklist-row\"]')||a.closest('[role=\"row\"]'));if(!row)return 'absent';var r=row.getBoundingClientRect();row.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:r.left+20,clientY:r.top+10,button:2}));window.__sfMenuJob='open';setTimeout(function(){var want=labels.split('|');var items=document.querySelectorAll('[role=\"menu\"] button,[role=\"menu\"] [role=\"menuitem\"],#context-menu button');for(var i=0;i<items.length;i++){var t=(items[i].textContent||'').trim();for(var j=0;j<want.length;j++)if(t===want[j]||t.indexOf(want[j])===0){items[i].click();window.__sfMenuJob='done';return}}window.__sfMenuJob='missing';document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))},350);return 'started'}catch(e){return 'error'}})";
+    static void pageMenu(final Activity a, String id, String labels, final String ok) {
+        final android.webkit.WebView w = webView(a.getWindow().getDecorView());
+        if (w == null) { toast(a, "Page Spotify indisponible"); return; }
+        w.evaluateJavascript(MENU_JOB + "(" + org.json.JSONObject.quote(id) + "," + org.json.JSONObject.quote(labels) + ")", new android.webkit.ValueCallback<String>() { public void onReceiveValue(String v) {
+            if (!"\"started\"".equals(v)) { toast(a, "\"absent\"".equals(v) ? "Titre introuvable dans la page Spotify, réessaie" : "Action indisponible"); return; }
+            w.postDelayed(new Runnable() { public void run() { w.evaluateJavascript("window.__sfMenuJob", new android.webkit.ValueCallback<String>() { public void onReceiveValue(String r) {
+                toast(a, "\"done\"".equals(r) ? ok : "Action non trouvée dans le menu Spotify"); } }); } }, 700);
+        } });
+    }
+    static android.webkit.WebView webView(View v) {
+        if (v instanceof android.webkit.WebView) return (android.webkit.WebView) v;
+        if (v instanceof ViewGroup) { ViewGroup g = (ViewGroup) v; for (int i = 0; i < g.getChildCount(); i++) { android.webkit.WebView f = webView(g.getChildAt(i)); if (f != null) return f; } }
+        return null;
+    }
+    static void toast(Activity a, String m) { android.widget.Toast.makeText(a, m, android.widget.Toast.LENGTH_SHORT).show(); }
     static boolean shuffleOn;
     static long loadingUntil;
     static void random(View root) {
