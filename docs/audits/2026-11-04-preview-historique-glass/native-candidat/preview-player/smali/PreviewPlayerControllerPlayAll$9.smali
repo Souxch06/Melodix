@@ -32,7 +32,7 @@
         }
     .end annotation
 
-    .line 161
+    .line 160
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$9;->val$a:Landroid/app/Activity;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$9;->val$link:Ljava/lang/String;
@@ -47,7 +47,7 @@
 .method public run()V
     .locals 3
 
-    .line 162
+    .line 161
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$9;->val$a:Landroid/app/Activity;
 
     const-string v1, "clipboard"
@@ -68,7 +68,7 @@
 
     invoke-virtual {v0, v1}, Landroid/content/ClipboardManager;->setPrimaryClip(Landroid/content/ClipData;)V
 
-    .line 163
+    .line 162
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$9;->val$a:Landroid/app/Activity;
 
     const-string v1, "Lien copi\u00e9"
@@ -81,6 +81,6 @@
 
     invoke-virtual {v0}, Landroid/widget/Toast;->show()V
 
-    .line 164
+    .line 163
     return-void
 .end method

@@ -56,7 +56,6 @@ final class PreviewPlayerControllerPlayAll {
             row.addView(meta, 0, new android.widget.LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
             ((ViewGroup.MarginLayoutParams) row.getLayoutParams()).topMargin = (int) (6 * d);
             side.addView(row, at);
-            if (fresh0()) { row.setAlpha(0f); row.animate().alpha(1f).setDuration(260).start(); }
             return;
         }
         ViewGroup card = hero;

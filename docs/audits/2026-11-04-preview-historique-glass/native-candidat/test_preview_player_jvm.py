@@ -317,7 +317,7 @@ public class ControllerTest {
    hc.rowsPainted("detail","spotify:playlist:Hx","uri=spotify:track:H1;title=HiSong");
    eq(row.color,PreviewPlayerController.PLAYING_COLOR);eq(other.color,0xffffffff);eq(hmini.color,0xffffffff);
    hc.snapshot(sample("NextSong","Artist",1000,180000,"playing",""));eq(row.color,0xffffffff);}
-  {/* user request 1022379: the header play button is added after a playlist is shown, not on Home */
+  {/* user request 1022379: the header play button is added with the playlist rows (same pass, 1022393), not on Home */
    PreviewPlayerController pc=new PreviewPlayerController(new Activity());Handler.flush();int pb=PreviewPlayerControllerPlayAll.adds;
    pc.rowsPainted("home",null,"title=x");Handler.flush();eq(PreviewPlayerControllerPlayAll.adds,pb);
    pc.rowsPainted("detail","spotify:playlist:Pa","uri=spotify:track:P1;title=P");Handler.flush();eq(PreviewPlayerControllerPlayAll.adds,pb+1);}
