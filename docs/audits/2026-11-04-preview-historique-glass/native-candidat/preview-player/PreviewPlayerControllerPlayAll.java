@@ -21,20 +21,22 @@ final class PreviewPlayerControllerPlayAll {
         if (label == null || !(label.getParent() instanceof ViewGroup)) return;
         float d = a.getResources().getDisplayMetrics().density;
         // Spotify layout (user screenshot 1022381): a right-aligned row under the header info, shuffle then a big play.
+        // User feedback (1022384): clearer labelled pills across the width: white "Lecture", glass "Aléatoire".
         android.widget.LinearLayout row = new android.widget.LinearLayout(a);
-        row.setTag(TAG); row.setOrientation(android.widget.LinearLayout.HORIZONTAL); row.setGravity(android.view.Gravity.END | android.view.Gravity.CENTER_VERTICAL);
+        row.setTag(TAG); row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
         ViewGroup.MarginLayoutParams rl = new ViewGroup.MarginLayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        rl.topMargin = (int) (12 * d); row.setLayoutParams(rl);
+        rl.topMargin = (int) (14 * d); row.setLayoutParams(rl);
+        View play = icon(a, true); play.setContentDescription("Lire la playlist");
+        play.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { tap(root, "1"); } });
         View shuffle = icon(a, false); shuffle.setContentDescription("Lecture aléatoire");
-        android.widget.LinearLayout.LayoutParams sl = new android.widget.LinearLayout.LayoutParams((int) (46 * d), (int) (46 * d)); sl.rightMargin = (int) (14 * d);
         // shortcut: plays a random row (Spotify's shuffle mode needs the hidden player control); upgrade with a page shuffle command.
         shuffle.setOnClickListener(new View.OnClickListener() { public void onClick(View v) {
             int n = 0; while (find(root, String.valueOf(n + 1)) != null && n < 500) n++;
             if (n > 0) tap(root, String.valueOf(1 + new java.util.Random().nextInt(n)));
         }});
-        View play = icon(a, true); play.setContentDescription("Lire la playlist");
-        play.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { tap(root, "1"); } });
-        row.addView(shuffle, sl); row.addView(play, new android.widget.LinearLayout.LayoutParams((int) (56 * d), (int) (56 * d)));
+        android.widget.LinearLayout.LayoutParams pl = new android.widget.LinearLayout.LayoutParams(0, (int) (48 * d), 1f); pl.rightMargin = (int) (6 * d);
+        android.widget.LinearLayout.LayoutParams sl = new android.widget.LinearLayout.LayoutParams(0, (int) (48 * d), 1f); sl.leftMargin = (int) (6 * d);
+        row.addView(play, pl); row.addView(shuffle, sl);
         // User screenshot (1022382): the row must close the header card. The card is the first vertical ancestor
         // whose child holding the label is a horizontal row (cover | texts); the row goes at its end.
         ViewGroup card = null;
@@ -51,30 +53,33 @@ final class PreviewPlayerControllerPlayAll {
         card.addView(row);
         if (fresh) row.animate().alpha(1f).translationY(0).setDuration(260).start();
     }
-    // Drawn in code (no new resource): green disc with a black triangle, or Spotify's crossed shuffle arrows.
+    // Drawn in code (no new resource): a rounded pill with an icon and a label.
     static View icon(Activity a, final boolean play) {
+        final float d = a.getResources().getDisplayMetrics().density;
         View v = new View(a) {
             final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
             @Override protected void onDraw(Canvas c) {
-                float w = getWidth(), h = getHeight(), r = Math.min(w, h) / 2f, cx = w / 2f, cy = h / 2f;
-                if (play) {
-                    // Same look as the mini player's play button (white disc, dark triangle) to match the app.
-                    p.setStyle(Paint.Style.FILL); p.setColor(0xfff5f5f7); c.drawCircle(cx, cy, r, p);
-                    Path t = new Path(); t.moveTo(cx - r * 0.26f, cy - r * 0.38f); t.lineTo(cx + r * 0.42f, cy); t.lineTo(cx - r * 0.26f, cy + r * 0.38f); t.close();
-                    p.setColor(0xff111114); c.drawPath(t, p); return;
+                float w = getWidth(), h = getHeight(), r = h / 2f, cy = h / 2f;
+                android.graphics.RectF box = new android.graphics.RectF(1, 1, w - 1, h - 1);
+                p.setStyle(Paint.Style.FILL); p.setColor(play ? 0xfff5f5f7 : 0x26ffffff); c.drawRoundRect(box, r, r, p);
+                if (!play) { p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(d); p.setColor(0x40ffffff); c.drawRoundRect(box, r, r, p); }
+                int ink = play ? 0xff111114 : 0xfff5f5f7;
+                String label = play ? "Lecture" : "Aléatoire";
+                p.setStyle(Paint.Style.FILL); p.setTextSize(15 * d); p.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+                float tw = p.measureText(label), iw = 14 * d, gap = 8 * d, x = (w - iw - gap - tw) / 2f;
+                p.setColor(ink);
+                if (play) { Path t = new Path(); t.moveTo(x, cy - 7 * d); t.lineTo(x + iw, cy); t.lineTo(x, cy + 7 * d); t.close(); c.drawPath(t, p); }
+                else {
+                    p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(1.8f * d); p.setStrokeCap(Paint.Cap.ROUND); p.setStrokeJoin(Paint.Join.ROUND);
+                    float l = x, rr = x + iw, t = cy - 5 * d, b = cy + 5 * d, k = 3 * d; Path q = new Path();
+                    q.moveTo(l, b); q.cubicTo(l + iw * 0.45f, b, l + iw * 0.55f, t, rr, t);
+                    q.moveTo(l, t); q.cubicTo(l + iw * 0.45f, t, l + iw * 0.55f, b, rr, b);
+                    q.moveTo(rr - k, t - k); q.lineTo(rr, t); q.lineTo(rr - k, t + k);
+                    q.moveTo(rr - k, b - k); q.lineTo(rr, b); q.lineTo(rr - k, b + k);
+                    c.drawPath(q, p); p.setStyle(Paint.Style.FILL);
                 }
-                // Glass circle like the app's top buttons, then the arrows.
-                p.setStyle(Paint.Style.FILL); p.setColor(0x26ffffff); c.drawCircle(cx, cy, r - 1, p);
-                p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(Math.max(1f, r * 0.04f)); p.setColor(0x40ffffff); c.drawCircle(cx, cy, r - 1, p);
-                r *= 0.62f;
-                p.setStrokeWidth(r * 0.13f); p.setStrokeCap(Paint.Cap.ROUND); p.setStrokeJoin(Paint.Join.ROUND); p.setColor(0xfff5f5f7);
-                float l = cx - r * 0.62f, rr = cx + r * 0.55f, t = cy - r * 0.34f, b = cy + r * 0.34f, k = r * 0.2f;
-                Path q = new Path();
-                q.moveTo(l, b); q.cubicTo(cx - r * 0.1f, b, cx + r * 0.05f, t, rr, t);   // rising curve
-                q.moveTo(l, t); q.cubicTo(cx - r * 0.1f, t, cx + r * 0.05f, b, rr, b);   // falling curve
-                q.moveTo(rr - k, t - k); q.lineTo(rr, t); q.lineTo(rr - k, t + k);      // arrow heads
-                q.moveTo(rr - k, b - k); q.lineTo(rr, b); q.lineTo(rr - k, b + k);
-                c.drawPath(q, p);
+                Paint.FontMetrics fm = p.getFontMetrics();
+                c.drawText(label, x + iw + gap, cy - (fm.ascent + fm.descent) / 2f, p);
             }
         };
         v.setClickable(true);

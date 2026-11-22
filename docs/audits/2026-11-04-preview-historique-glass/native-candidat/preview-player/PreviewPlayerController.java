@@ -829,9 +829,10 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     // User diagnostic (1022374): the bridge that runs is the downloaded original one; it marks itself with
     // __spotiduck_bridge_applied and provides fetchMediaItems, never the __sfMelodixBridge* flags the playlist code
     // waits for. Once it is really applied, translate its own signal (the "bridge complete" rule stays).
+    // User report (1022384): playback started by itself at launch; the started flag ends the shell's pause hold, so only completed is set.
     private long bridgeMarkAt = -1;
     private int bridgeMarks;
-    static final String BRIDGE_MARK = "(function(w){if(w.__spotiduck_bridge_applied===true&&typeof w.fetchMediaItems==='function'&&w.__sfMelodixBridgeCompleted!==true){w.__sfMelodixBridgeStarted=true;w.__sfMelodixBridgeCompleted=true;return 1}return 0})(window)";
+    static final String BRIDGE_MARK = "(function(w){if(w.__spotiduck_bridge_applied===true&&typeof w.fetchMediaItems==='function'&&w.__sfMelodixBridgeCompleted!==true){w.__sfMelodixBridgeCompleted=true;return 1}return 0})(window)";
     private void markBridge() {
         WebView w = seekWeb.get(); long t = now();
         if (w == null || (bridgeMarkAt >= 0 && t - bridgeMarkAt < 250)) return;

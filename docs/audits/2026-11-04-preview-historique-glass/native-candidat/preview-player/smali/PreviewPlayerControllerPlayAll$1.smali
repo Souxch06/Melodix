@@ -30,7 +30,7 @@
         }
     .end annotation
 
-    .line 31
+    .line 30
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$1;->val$root:Landroid/view/View;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -41,57 +41,14 @@
 
 # virtual methods
 .method public onClick(Landroid/view/View;)V
-    .locals 3
+    .locals 1
 
-    .line 32
-    const/4 p1, 0x0
+    .line 30
+    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$1;->val$root:Landroid/view/View;
 
-    :goto_0
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$1;->val$root:Landroid/view/View;
+    const-string v0, "1"
 
-    add-int/lit8 v1, p1, 0x1
+    invoke-static {p1, v0}, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->tap(Landroid/view/View;Ljava/lang/String;)V
 
-    invoke-static {v1}, Ljava/lang/String;->valueOf(I)Ljava/lang/String;
-
-    move-result-object v2
-
-    invoke-static {v0, v2}, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->find(Landroid/view/View;Ljava/lang/String;)Landroid/widget/TextView;
-
-    move-result-object v0
-
-    if-eqz v0, :cond_0
-
-    const/16 v0, 0x1f4
-
-    if-ge p1, v0, :cond_0
-
-    move p1, v1
-
-    goto :goto_0
-
-    .line 33
-    :cond_0
-    if-lez p1, :cond_1
-
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$1;->val$root:Landroid/view/View;
-
-    new-instance v1, Ljava/util/Random;
-
-    invoke-direct {v1}, Ljava/util/Random;-><init>()V
-
-    invoke-virtual {v1, p1}, Ljava/util/Random;->nextInt(I)I
-
-    move-result p1
-
-    add-int/lit8 p1, p1, 0x1
-
-    invoke-static {p1}, Ljava/lang/String;->valueOf(I)Ljava/lang/String;
-
-    move-result-object p1
-
-    invoke-static {v0, p1}, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->tap(Landroid/view/View;Ljava/lang/String;)V
-
-    .line 34
-    :cond_1
     return-void
 .end method
