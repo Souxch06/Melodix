@@ -307,6 +307,11 @@ public class ControllerTest {
    if(ct.contains("secret")||ct.contains("page data")||!ct.contains("java.lang.RuntimeException")||!ct.contains("Cause : java.lang.IllegalStateException")||!ct.contains("  at "))throw new AssertionError("crash trace: classes and frames only");}
   if(!"__sfA,__sfB".equals(PreviewPlayerController.flagsSetTrue("window.__sfB=!0;window.__sfA = true;window.__sfC=false;window.__sfD=1;window.__sfB=true")))throw new AssertionError("flags set to true");
   if(!"aucun".equals(PreviewPlayerController.flagsSetTrue("var x=1")))throw new AssertionError("no flags");
+  {/* user request 1022378: play row copies the first track, added once, never stored */
+   String w=PreviewPlayerController.withPlayRow("title=Info|uri=spotify:track:F1;title=A|uri=spotify:track:F2;title=B");
+   org.json.JSONArray wa=new org.json.JSONArray(w);eq(wa.length(),4);yes(wa.optJSONObject(0).optString("uri","").equals("spotify:track:F1"));yes(wa.optJSONObject(0).optString("title","").contains("Lire la playlist"));
+   eq(new org.json.JSONArray(PreviewPlayerController.withPlayRow(w)).length(),4);eq(PreviewPlayerController.storableRows(wa).length(),2);
+   yes(PreviewPlayerController.withPlayRow("title=Info").equals("title=Info"));}
   System.out.println("Preview controller JVM simulation passed");
  }
 }''',

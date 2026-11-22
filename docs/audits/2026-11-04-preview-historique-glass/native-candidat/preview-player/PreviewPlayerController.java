@@ -475,7 +475,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             JSONObject row = data.optJSONObject(i); if (row == null) continue;
             String uri = row.optString("uri", row.optString("id", ""));
             if (uri.isEmpty() && row.optString("title", "").matches("Copie enregistrée|Aperçu préchargé")) return new JSONArray();
-            if (uri.matches("(?i)^spotify:track:[a-z0-9]+$") && keep.length() < 300) keep.put(row);
+            if (uri.matches("(?i)^spotify:track:[a-z0-9]+$") && !row.optBoolean("playAll", false) && keep.length() < 300) keep.put(row);
         }
         return keep;
     }
@@ -484,6 +484,23 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     // shortcut: limited to 2 min after opening, so tracks removed elsewhere show on the next visit.
     public String keepRows(String screen, String context, String rows) {
         if ("home".equals(screen)) return keepHome(rows);
+        return "detail".equals(screen) && !playlistKey(context).isEmpty() ? withPlayRow(keepDetail(screen, context, rows)) : keepDetail(screen, context, rows);
+    }
+    // User request (1022378): a play control at the top of a playlist, like Spotify. It is a copy of the first
+    // track row (same tap path, so the playlist plays from its first track), retitled and never stored.
+    static String withPlayRow(String rows) {
+        try {
+            JSONArray in = new JSONArray(rows), out = new JSONArray(); JSONObject first = null;
+            for (int i = 0; i < in.length(); i++) { JSONObject r = in.optJSONObject(i); if (r == null) continue; if (r.optBoolean("playAll", false)) return rows;
+                if (first == null && r.optString("uri", r.optString("id", "")).matches("(?i)^spotify:track:[a-z0-9]+$")) first = r; }
+            if (first == null) return rows;
+            JSONObject play = new JSONObject(first.toString());
+            play.put("title", "▶  Lire la playlist"); play.put("subtitle", "Depuis le premier titre"); play.put("playAll", true);
+            out.put(play); for (int i = 0; i < in.length(); i++) { JSONObject r = in.optJSONObject(i); if (r != null) out.put(r); }
+            return out.toString();
+        } catch (Exception e) { return rows; }
+    }
+    private String keepDetail(String screen, String context, String rows) {
         try {
             Activity a = activity.get(); String k = playlistKey(context);
             if (a == null || !"detail".equals(screen) || k.isEmpty() || !k.equals(pendingPlaylist) || playlistStart < 0 || now() - playlistStart > 120000) return rows;
