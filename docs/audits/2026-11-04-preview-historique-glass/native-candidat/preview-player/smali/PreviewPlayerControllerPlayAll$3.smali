@@ -26,14 +26,14 @@
 .method constructor <init>(Landroid/content/Context;ZF)V
     .locals 0
 
-    .line 62
+    .line 67
     iput-boolean p2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->val$play:Z
 
     iput p3, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->val$d:F
 
     invoke-direct {p0, p1}, Landroid/view/View;-><init>(Landroid/content/Context;)V
 
-    .line 63
+    .line 68
     new-instance p1, Landroid/graphics/Paint;
 
     const/4 p2, 0x1
@@ -50,7 +50,7 @@
 .method protected onDraw(Landroid/graphics/Canvas;)V
     .locals 21
 
-    .line 65
+    .line 70
     move-object/from16 v0, p0
 
     move-object/from16 v1, p1
@@ -71,7 +71,7 @@
 
     div-float v5, v3, v4
 
-    .line 66
+    .line 71
     new-instance v6, Landroid/graphics/RectF;
 
     const/high16 v7, 0x3f800000    # 1.0f
@@ -82,8 +82,12 @@
 
     invoke-direct {v6, v7, v7, v8, v9}, Landroid/graphics/RectF;-><init>(FFFF)V
 
-    .line 67
+    .line 72
     iget-boolean v7, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->val$play:Z
+
+    const/4 v8, 0x1
+
+    const/4 v9, 0x0
 
     if-nez v7, :cond_0
 
@@ -91,103 +95,103 @@
 
     if-eqz v7, :cond_0
 
-    const/4 v7, 0x1
+    move v7, v8
 
     goto :goto_0
 
     :cond_0
-    const/4 v7, 0x0
+    move v7, v9
 
-    .line 68
+    .line 73
     :goto_0
-    iget-object v8, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->p:Landroid/graphics/Paint;
+    iget-object v10, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->p:Landroid/graphics/Paint;
 
-    sget-object v9, Landroid/graphics/Paint$Style;->FILL:Landroid/graphics/Paint$Style;
+    sget-object v11, Landroid/graphics/Paint$Style;->FILL:Landroid/graphics/Paint$Style;
 
-    invoke-virtual {v8, v9}, Landroid/graphics/Paint;->setStyle(Landroid/graphics/Paint$Style;)V
+    invoke-virtual {v10, v11}, Landroid/graphics/Paint;->setStyle(Landroid/graphics/Paint$Style;)V
 
-    iget-object v8, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->p:Landroid/graphics/Paint;
+    iget-object v10, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->p:Landroid/graphics/Paint;
 
-    iget-boolean v9, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->val$play:Z
+    iget-boolean v11, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->val$play:Z
 
-    const v10, -0xa0a09
+    const v12, -0xa0a09
 
-    if-eqz v9, :cond_1
+    if-eqz v11, :cond_1
 
-    move v9, v10
+    move v11, v12
 
     goto :goto_1
 
     :cond_1
     if-eqz v7, :cond_2
 
-    const v9, 0x331ed760
+    const v11, 0x331ed760
 
     goto :goto_1
 
     :cond_2
-    const v9, 0x26ffffff
+    const v11, 0x26ffffff
 
     :goto_1
-    invoke-virtual {v8, v9}, Landroid/graphics/Paint;->setColor(I)V
+    invoke-virtual {v10, v11}, Landroid/graphics/Paint;->setColor(I)V
 
-    iget-object v8, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->p:Landroid/graphics/Paint;
+    iget-object v10, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->p:Landroid/graphics/Paint;
 
-    invoke-virtual {v1, v6, v5, v5, v8}, Landroid/graphics/Canvas;->drawRoundRect(Landroid/graphics/RectF;FFLandroid/graphics/Paint;)V
+    invoke-virtual {v1, v6, v5, v5, v10}, Landroid/graphics/Canvas;->drawRoundRect(Landroid/graphics/RectF;FFLandroid/graphics/Paint;)V
 
-    .line 69
-    iget-boolean v8, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->val$play:Z
+    .line 74
+    iget-boolean v10, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->val$play:Z
 
-    const v9, -0xe128a0
+    const v11, -0xe128a0
 
-    if-nez v8, :cond_4
+    if-nez v10, :cond_4
 
-    iget-object v8, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->p:Landroid/graphics/Paint;
+    iget-object v10, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->p:Landroid/graphics/Paint;
 
-    sget-object v11, Landroid/graphics/Paint$Style;->STROKE:Landroid/graphics/Paint$Style;
+    sget-object v13, Landroid/graphics/Paint$Style;->STROKE:Landroid/graphics/Paint$Style;
 
-    invoke-virtual {v8, v11}, Landroid/graphics/Paint;->setStyle(Landroid/graphics/Paint$Style;)V
+    invoke-virtual {v10, v13}, Landroid/graphics/Paint;->setStyle(Landroid/graphics/Paint$Style;)V
 
-    iget-object v8, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->p:Landroid/graphics/Paint;
+    iget-object v10, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->p:Landroid/graphics/Paint;
 
-    iget v11, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->val$d:F
+    iget v13, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->val$d:F
 
-    invoke-virtual {v8, v11}, Landroid/graphics/Paint;->setStrokeWidth(F)V
+    invoke-virtual {v10, v13}, Landroid/graphics/Paint;->setStrokeWidth(F)V
 
-    iget-object v8, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->p:Landroid/graphics/Paint;
+    iget-object v10, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->p:Landroid/graphics/Paint;
 
     if-eqz v7, :cond_3
 
-    move v11, v9
+    move v13, v11
 
     goto :goto_2
 
     :cond_3
-    const v11, 0x40ffffff    # 7.9999995f
+    const v13, 0x40ffffff    # 7.9999995f
 
     :goto_2
-    invoke-virtual {v8, v11}, Landroid/graphics/Paint;->setColor(I)V
+    invoke-virtual {v10, v13}, Landroid/graphics/Paint;->setColor(I)V
 
-    iget-object v8, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->p:Landroid/graphics/Paint;
+    iget-object v10, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->p:Landroid/graphics/Paint;
 
-    invoke-virtual {v1, v6, v5, v5, v8}, Landroid/graphics/Canvas;->drawRoundRect(Landroid/graphics/RectF;FFLandroid/graphics/Paint;)V
+    invoke-virtual {v1, v6, v5, v5, v10}, Landroid/graphics/Canvas;->drawRoundRect(Landroid/graphics/RectF;FFLandroid/graphics/Paint;)V
 
-    .line 70
+    .line 75
     :cond_4
     iget-boolean v6, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->val$play:Z
 
     if-eqz v6, :cond_5
 
-    const v10, -0xeeeeec
+    const v12, -0xeeeeec
 
     goto :goto_3
 
     :cond_5
     if-eqz v7, :cond_6
 
-    move v10, v9
+    move v12, v11
 
-    .line 71
+    .line 76
     :cond_6
     :goto_3
     if-eqz v7, :cond_7
@@ -200,41 +204,69 @@
 
     iget-object v6, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->p:Landroid/graphics/Paint;
 
-    invoke-virtual {v6, v9}, Landroid/graphics/Paint;->setColor(I)V
+    invoke-virtual {v6, v11}, Landroid/graphics/Paint;->setColor(I)V
 
     div-float v6, v2, v4
 
     const/high16 v7, 0x40c00000    # 6.0f
 
-    iget v8, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->val$d:F
+    iget v10, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->val$d:F
 
-    mul-float/2addr v8, v7
+    mul-float/2addr v10, v7
 
-    sub-float/2addr v3, v8
+    sub-float/2addr v3, v10
 
     iget v7, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->val$d:F
 
     mul-float/2addr v7, v4
 
-    iget-object v8, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->p:Landroid/graphics/Paint;
+    iget-object v10, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->p:Landroid/graphics/Paint;
 
-    invoke-virtual {v1, v6, v3, v7, v8}, Landroid/graphics/Canvas;->drawCircle(FFFLandroid/graphics/Paint;)V
+    invoke-virtual {v1, v6, v3, v7, v10}, Landroid/graphics/Canvas;->drawCircle(FFFLandroid/graphics/Paint;)V
 
-    .line 72
+    .line 77
     :cond_7
     iget-boolean v3, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->val$play:Z
 
     if-eqz v3, :cond_8
 
-    const-string v3, "Lecture"
+    invoke-static {}, Landroid/os/SystemClock;->uptimeMillis()J
+
+    move-result-wide v6
+
+    sget-wide v10, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->loadingUntil:J
+
+    cmp-long v3, v6, v10
+
+    if-gez v3, :cond_8
 
     goto :goto_4
 
     :cond_8
+    move v8, v9
+
+    .line 78
+    :goto_4
+    iget-boolean v3, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->val$play:Z
+
+    if-eqz v3, :cond_a
+
+    if-eqz v8, :cond_9
+
+    const-string v3, "Chargement\u2026"
+
+    goto :goto_5
+
+    :cond_9
+    const-string v3, "Lecture"
+
+    goto :goto_5
+
+    :cond_a
     const-string v3, "Al\u00e9atoire"
 
-    .line 73
-    :goto_4
+    .line 79
+    :goto_5
     iget-object v6, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->p:Landroid/graphics/Paint;
 
     sget-object v7, Landroid/graphics/Paint$Style;->FILL:Landroid/graphics/Paint$Style;
@@ -257,7 +289,7 @@
 
     invoke-virtual {v6, v7}, Landroid/graphics/Paint;->setTypeface(Landroid/graphics/Typeface;)Landroid/graphics/Typeface;
 
-    .line 74
+    .line 80
     iget-object v6, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->p:Landroid/graphics/Paint;
 
     invoke-virtual {v6, v3}, Landroid/graphics/Paint;->measureText(Ljava/lang/String;)F
@@ -284,15 +316,15 @@
 
     div-float/2addr v2, v4
 
-    .line 75
+    .line 81
     iget-object v6, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->p:Landroid/graphics/Paint;
 
-    invoke-virtual {v6, v10}, Landroid/graphics/Paint;->setColor(I)V
+    invoke-virtual {v6, v12}, Landroid/graphics/Paint;->setColor(I)V
 
-    .line 76
+    .line 82
     iget-boolean v6, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->val$play:Z
 
-    if-eqz v6, :cond_9
+    if-eqz v6, :cond_b
 
     new-instance v6, Landroid/graphics/Path;
 
@@ -326,10 +358,10 @@
 
     invoke-virtual {v1, v6, v7}, Landroid/graphics/Canvas;->drawPath(Landroid/graphics/Path;Landroid/graphics/Paint;)V
 
-    goto/16 :goto_5
+    goto/16 :goto_6
 
-    .line 78
-    :cond_9
+    .line 84
+    :cond_b
     iget-object v6, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->p:Landroid/graphics/Paint;
 
     sget-object v7, Landroid/graphics/Paint$Style;->STROKE:Landroid/graphics/Paint$Style;
@@ -358,7 +390,7 @@
 
     invoke-virtual {v6, v7}, Landroid/graphics/Paint;->setStrokeJoin(Landroid/graphics/Paint$Join;)V
 
-    .line 79
+    .line 85
     add-float v6, v2, v8
 
     iget v7, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->val$d:F
@@ -385,7 +417,7 @@
 
     invoke-direct {v14}, Landroid/graphics/Path;-><init>()V
 
-    .line 80
+    .line 86
     invoke-virtual {v14, v2, v15}, Landroid/graphics/Path;->moveTo(FF)V
 
     const v10, 0x3ee66666    # 0.45f
@@ -420,7 +452,7 @@
 
     invoke-virtual/range {v10 .. v16}, Landroid/graphics/Path;->cubicTo(FFFFFF)V
 
-    .line 81
+    .line 87
     invoke-virtual {v4, v2, v7}, Landroid/graphics/Path;->moveTo(FF)V
 
     move-object v10, v4
@@ -433,7 +465,7 @@
 
     invoke-virtual/range {v10 .. v16}, Landroid/graphics/Path;->cubicTo(FFFFFF)V
 
-    .line 82
+    .line 88
     sub-float v10, v6, v17
 
     sub-float v11, v7, v17
@@ -446,7 +478,7 @@
 
     invoke-virtual {v4, v10, v7}, Landroid/graphics/Path;->lineTo(FF)V
 
-    .line 83
+    .line 89
     move/from16 v11, v20
 
     sub-float v15, v11, v17
@@ -459,7 +491,7 @@
 
     invoke-virtual {v4, v10, v15}, Landroid/graphics/Path;->lineTo(FF)V
 
-    .line 84
+    .line 90
     iget-object v6, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->p:Landroid/graphics/Paint;
 
     invoke-virtual {v1, v4, v6}, Landroid/graphics/Canvas;->drawPath(Landroid/graphics/Path;Landroid/graphics/Paint;)V
@@ -470,15 +502,15 @@
 
     invoke-virtual {v4, v6}, Landroid/graphics/Paint;->setStyle(Landroid/graphics/Paint$Style;)V
 
-    .line 86
-    :goto_5
+    .line 92
+    :goto_6
     iget-object v4, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$3;->p:Landroid/graphics/Paint;
 
     invoke-virtual {v4}, Landroid/graphics/Paint;->getFontMetrics()Landroid/graphics/Paint$FontMetrics;
 
     move-result-object v4
 
-    .line 87
+    .line 93
     add-float/2addr v2, v8
 
     add-float/2addr v2, v9
@@ -499,6 +531,6 @@
 
     invoke-virtual {v1, v3, v2, v5, v4}, Landroid/graphics/Canvas;->drawText(Ljava/lang/String;FFLandroid/graphics/Paint;)V
 
-    .line 88
+    .line 94
     return-void
 .end method

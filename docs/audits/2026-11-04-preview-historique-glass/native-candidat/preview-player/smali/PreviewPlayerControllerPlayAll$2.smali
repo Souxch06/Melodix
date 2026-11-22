@@ -17,22 +17,11 @@
 .end annotation
 
 
-# instance fields
-.field final synthetic val$root:Landroid/view/View;
-
-
 # direct methods
-.method constructor <init>(Landroid/view/View;)V
+.method constructor <init>()V
     .locals 0
-    .annotation system Ldalvik/annotation/Signature;
-        value = {
-            "()V"
-        }
-    .end annotation
 
-    .line 36
-    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$2;->val$root:Landroid/view/View;
-
+    .line 41
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
     return-void
@@ -43,7 +32,7 @@
 .method public onClick(Landroid/view/View;)V
     .locals 1
 
-    .line 37
+    .line 43
     sget-boolean v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->shuffleOn:Z
 
     xor-int/lit8 v0, v0, 0x1
@@ -52,16 +41,6 @@
 
     invoke-virtual {p1}, Landroid/view/View;->invalidate()V
 
-    .line 38
-    sget-boolean p1, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->shuffleOn:Z
-
-    if-eqz p1, :cond_0
-
-    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$2;->val$root:Landroid/view/View;
-
-    invoke-static {p1}, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->random(Landroid/view/View;)V
-
-    .line 39
-    :cond_0
+    .line 44
     return-void
 .end method

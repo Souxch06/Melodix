@@ -29,13 +29,18 @@ final class PreviewPlayerControllerPlayAll {
         ViewGroup.MarginLayoutParams rl = new ViewGroup.MarginLayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         rl.topMargin = (int) (14 * d); row.setLayoutParams(rl);
         View play = icon(a, true); play.setContentDescription("Lire la playlist");
-        play.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { if (shuffleOn) random(root); else tap(root, "1"); } });
+        play.setOnClickListener(new View.OnClickListener() { public void onClick(final View v) {
+            // User report (1022387): Spotify takes a moment to start; show it instead of looking frozen.
+            loadingUntil = android.os.SystemClock.uptimeMillis() + 3000; v.invalidate();
+            v.postDelayed(new Runnable() { public void run() { v.invalidate(); } }, 3050);
+            if (shuffleOn) random(root); else tap(root, "1");
+        }});
         View shuffle = icon(a, false); shuffle.setContentDescription("Lecture aléatoire");
         // shortcut: plays a random row (Spotify's shuffle mode needs the hidden player control); upgrade with a page shuffle command.
         // User request (1022385): a visible on/off shuffle; when on, "Lecture" starts a random track.
         shuffle.setOnClickListener(new View.OnClickListener() { public void onClick(View v) {
+            // User report (1022387): turning shuffle on started a track at once; it only toggles now.
             shuffleOn = !shuffleOn; v.invalidate();
-            if (shuffleOn) random(root);
         }});
         android.widget.LinearLayout.LayoutParams pl = new android.widget.LinearLayout.LayoutParams(0, (int) (48 * d), 1f); pl.rightMargin = (int) (6 * d);
         android.widget.LinearLayout.LayoutParams sl = new android.widget.LinearLayout.LayoutParams(0, (int) (48 * d), 1f); sl.leftMargin = (int) (6 * d);
@@ -69,7 +74,8 @@ final class PreviewPlayerControllerPlayAll {
                 if (!play) { p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(d); p.setColor(on ? 0xff1ed760 : 0x40ffffff); c.drawRoundRect(box, r, r, p); }
                 int ink = play ? 0xff111114 : on ? 0xff1ed760 : 0xfff5f5f7;
                 if (on) { p.setStyle(Paint.Style.FILL); p.setColor(0xff1ed760); c.drawCircle(w / 2f, h - 6 * d, 2 * d, p); }
-                String label = play ? "Lecture" : "Aléatoire";
+                boolean loading = play && android.os.SystemClock.uptimeMillis() < loadingUntil;
+                String label = play ? (loading ? "Chargement…" : "Lecture") : "Aléatoire";
                 p.setStyle(Paint.Style.FILL); p.setTextSize(15 * d); p.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
                 float tw = p.measureText(label), iw = 14 * d, gap = 8 * d, x = (w - iw - gap - tw) / 2f;
                 p.setColor(ink);
@@ -170,6 +176,7 @@ final class PreviewPlayerControllerPlayAll {
         return row;
     }
     static boolean shuffleOn;
+    static long loadingUntil;
     static void random(View root) {
         int n = 0; while (find(root, String.valueOf(n + 1)) != null && n < 500) n++;
         if (n > 0) tap(root, String.valueOf(1 + new java.util.Random().nextInt(n)));

@@ -32,7 +32,7 @@
         }
     .end annotation
 
-    .line 144
+    .line 150
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$8;->val$link:Ljava/lang/String;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$8;->val$a:Landroid/app/Activity;
@@ -47,7 +47,7 @@
 .method public run()V
     .locals 3
 
-    .line 145
+    .line 151
     new-instance v0, Landroid/content/Intent;
 
     const-string v1, "android.intent.action.SEND"
@@ -58,7 +58,7 @@
 
     invoke-virtual {v0, v1}, Landroid/content/Intent;->setType(Ljava/lang/String;)Landroid/content/Intent;
 
-    .line 146
+    .line 152
     const-string v1, "android.intent.extra.TEXT"
 
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$8;->val$link:Ljava/lang/String;
@@ -75,6 +75,6 @@
 
     invoke-virtual {v1, v0}, Landroid/app/Activity;->startActivity(Landroid/content/Intent;)V
 
-    .line 147
+    .line 153
     return-void
 .end method

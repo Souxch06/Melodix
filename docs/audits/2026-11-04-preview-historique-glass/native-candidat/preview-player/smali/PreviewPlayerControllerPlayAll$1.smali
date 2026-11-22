@@ -41,9 +41,31 @@
 
 # virtual methods
 .method public onClick(Landroid/view/View;)V
-    .locals 1
+    .locals 4
 
-    .line 32
+    .line 34
+    invoke-static {}, Landroid/os/SystemClock;->uptimeMillis()J
+
+    move-result-wide v0
+
+    const-wide/16 v2, 0xbb8
+
+    add-long/2addr v0, v2
+
+    sput-wide v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->loadingUntil:J
+
+    invoke-virtual {p1}, Landroid/view/View;->invalidate()V
+
+    .line 35
+    new-instance v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$1$1;
+
+    invoke-direct {v0, p0, p1}, Lcom/melodix/music/PreviewPlayerControllerPlayAll$1$1;-><init>(Lcom/melodix/music/PreviewPlayerControllerPlayAll$1;Landroid/view/View;)V
+
+    const-wide/16 v1, 0xbea
+
+    invoke-virtual {p1, v0, v1, v2}, Landroid/view/View;->postDelayed(Ljava/lang/Runnable;J)Z
+
+    .line 36
     sget-boolean p1, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->shuffleOn:Z
 
     if-eqz p1, :cond_0
@@ -61,6 +83,7 @@
 
     invoke-static {p1, v0}, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->tap(Landroid/view/View;Ljava/lang/String;)V
 
+    .line 37
     :goto_0
     return-void
 .end method
