@@ -5,13 +5,14 @@ package com.melodix.music;
 // with repeat off / playlist / track (PreviewPlayerMode). Pure state; the controller plays the chosen track.
 final class PreviewPlayerControllerQueue {
     private static final java.util.ArrayList<String> uris = new java.util.ArrayList<String>();
+    private static final java.util.ArrayList<org.json.JSONObject> rowsKept = new java.util.ArrayList<org.json.JSONObject>();
     private static int[] order = new int[0];
     private static int at = -1;
     private static boolean shuffled;
     static java.util.Random random = new java.util.Random();
 
     static boolean isEmpty() { return at < 0 || order.length == 0; }
-    static void clear() { uris.clear(); order = new int[0]; at = -1; }
+    static void clear() { uris.clear(); rowsKept.clear(); order = new int[0]; at = -1; }
 
     static boolean start(org.json.JSONArray rows, String uri) {
         clear(); int first = -1;
@@ -20,7 +21,7 @@ final class PreviewPlayerControllerQueue {
             String u = o.optString("uri", ""); if (u.isEmpty()) u = o.optString("id", "");
             if (!u.startsWith("spotify:track:")) continue;
             if (first < 0 && u.equals(uri)) first = uris.size();
-            uris.add(u);
+            uris.add(u); rowsKept.add(o);
         }
         if (first < 0) { clear(); return false; }
         build(first); return true;
@@ -35,6 +36,9 @@ final class PreviewPlayerControllerQueue {
         for (int i = n - 1; i > 1; i--) { int j = 1 + random.nextInt(i); int x = order[i]; order[i] = order[j]; order[j] = x; }
         at = 0;
     }
+
+    // The row of a queued track (title, artist, cover) for an instant display before Spotify reports it.
+    static org.json.JSONObject row(String uri) { int i = uris.indexOf(uri); return i < 0 ? null : rowsKept.get(i); }
 
     static String current() { return isEmpty() ? "" : uris.get(order[at]); }
 

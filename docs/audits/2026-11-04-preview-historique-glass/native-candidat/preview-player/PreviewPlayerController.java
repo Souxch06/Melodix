@@ -809,6 +809,19 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             if (rows == null || !PreviewPlayerControllerQueue.start(new JSONArray(rows), uri)) PreviewPlayerControllerQueue.clear();
         } catch (Exception e) { PreviewPlayerControllerQueue.clear(); }
         queueCommandAt = now(); advancedFor = ""; queueLastPos = -1;
+        showQueued(uri);
+    }
+    // User report (1022403): zap/play felt slow. Spotify needs ~1-2 s to load and report the track; show the
+    // queued row's title, artist and cover at once. Spotify's next reading replaces it.
+    private void showQueued(String uri) {
+        try {
+            JSONObject r = PreviewPlayerControllerQueue.row(uri); Activity a = activity.get();
+            if (r == null || a == null) return;
+            JSONObject p = new JSONObject();
+            p.put("track", PreviewPlayerControllerPlayAll.title(r)); p.put("artist", PreviewPlayerControllerPlayAll.artist(r));
+            p.put("cover", r.optString("image", "")); p.put("playing", true);
+            a.getClass().getMethod("updateNativePlayer", String.class).invoke(a, p.toString());
+        } catch (Throwable ignored) { }
     }
     // Next/previous buttons: true when Melodix played the next/previous playlist track itself.
     public boolean queueSkip(boolean forward) {
@@ -829,6 +842,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         queueCommandAt = now(); advancedFor = ""; queueLastPos = -1;
         try { w.evaluateJavascript("(function(){if(typeof window.__sfNativeOpenUri==='function')window.__sfNativeOpenUri('" + u + "')})()", null); }
         catch (RuntimeException e) { return false; }
+        showQueued(u);
         return true;
     }
     // shortcut: the next track starts ~1.5 s before the end (readings are ~1 s apart); upgrade with a page "ended" event.
