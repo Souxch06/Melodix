@@ -61,6 +61,14 @@
         var id = b && b.getAttribute('aria-controls'), c = id ? document.getElementById(id) : null;
         if (c && c !== b && c.isConnected && !c.matches('button, [role="button"], [role="switch"]')) return c;
         if (spec.main) {
+            // User diagnostic (1022414): 79 lyric elements existed outside the main view (side panel).
+            // Use the smallest container holding every lyric line, wherever Spotify put it.
+            var ls = Array.from(document.querySelectorAll('[data-testid="fullscreen-lyric"], [data-testid^="lyrics-line"]')).filter(function(n) { return !hiddenBeforeTap(n); });
+            if (ls.length) {
+                var box = ls[0].parentElement;
+                while (box && box !== document.body && !ls.every(function(l) { return box.contains(l); })) box = box.parentElement;
+                if (box && box !== document.body) return box;
+            }
             // Desktop layout: lyrics replace the main view; use it only when it shows lyric lines.
             var main = document.querySelector('#main-view, main');
             // The lyrics route can load its lines after the click (user diagnostic 1022413).
@@ -265,6 +273,11 @@
                 log('path:' + (/^\/lyrics/.test(location.pathname) ? 'lyrics' : 'other'));
                 log('lt:' + Math.min(99, document.querySelectorAll('[data-testid*="lyric" i]').length));
                 log('mt:' + Math.min(99, mv ? mv.querySelectorAll('[data-testid]').length : 0));
+                log('ll:' + Math.min(99, document.querySelectorAll('[data-testid="fullscreen-lyric"], [data-testid^="lyrics-line"]').length));
+                // Kinds of lyric testids present (fixed vocabulary, counts only).
+                var kinds = {};
+                Array.from(document.querySelectorAll('[data-testid*="lyric" i]')).forEach(function(n) { var k = String(n.getAttribute('data-testid')).toLowerCase().replace(/[^a-z-]/g, '').slice(0, 30); kinds[k] = (kinds[k] || 0) + 1; });
+                Object.keys(kinds).slice(0, 6).forEach(function(k) { log('tid:' + k + ':' + Math.min(99, kinds[k])); });
             }
             if (!ready) { log(r ? 'rows:0' : 'panel:absent'); finish(false, rootAmbiguous ? 'ambiguous' : r ? 'empty' : 'panel'); return; }
             if (kind === 'lyrics') {
