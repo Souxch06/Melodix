@@ -42,7 +42,7 @@
         }
     .end annotation
 
-    .line 274
+    .line 276
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$10;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -63,7 +63,7 @@
         }
     .end annotation
 
-    .line 274
+    .line 276
     check-cast p1, Ljava/lang/String;
 
     invoke-virtual {p0, p1}, Lcom/melodix/music/PreviewPlayerTiles$10;->onReceiveValue(Ljava/lang/String;)V
@@ -74,7 +74,7 @@
 .method public onReceiveValue(Ljava/lang/String;)V
     .locals 4
 
-    .line 275
+    .line 277
     const/4 v0, -0x2
 
     :try_start_0
@@ -97,13 +97,34 @@
     :catch_0
     move-exception p1
 
+    sget p1, Lcom/melodix/music/PreviewPlayerTiles;->liveErrors:I
+
+    add-int/lit8 p1, p1, 0x1
+
+    sput p1, Lcom/melodix/music/PreviewPlayerTiles;->liveErrors:I
+
     move p1, v0
 
-    .line 276
+    .line 278
     :goto_0
+    sget v1, Lcom/melodix/music/PreviewPlayerTiles;->liveReads:I
+
+    add-int/lit8 v1, v1, 0x1
+
+    sput v1, Lcom/melodix/music/PreviewPlayerTiles;->liveReads:I
+
+    sput p1, Lcom/melodix/music/PreviewPlayerTiles;->liveLastIndex:I
+
+    .line 279
     const/4 v1, 0x0
 
     if-ne p1, v0, :cond_1
+
+    sget p1, Lcom/melodix/music/PreviewPlayerTiles;->liveNoLine:I
+
+    add-int/lit8 p1, p1, 0x1
+
+    sput p1, Lcom/melodix/music/PreviewPlayerTiles;->liveNoLine:I
 
     iget-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$10;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
@@ -140,7 +161,7 @@
     :cond_0
     return-void
 
-    .line 277
+    .line 280
     :cond_1
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$10;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
@@ -169,6 +190,12 @@
     goto :goto_3
 
     :cond_2
+    sget v0, Lcom/melodix/music/PreviewPlayerTiles;->liveChanges:I
+
+    add-int/lit8 v0, v0, 0x1
+
+    sput v0, Lcom/melodix/music/PreviewPlayerTiles;->liveChanges:I
+
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$10;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerTiles$10;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
@@ -183,7 +210,7 @@
 
     invoke-static {v0, p1}, Lcom/melodix/music/PreviewPlayerTiles;->access$2702(Lcom/melodix/music/PreviewPlayerTiles;I)I
 
-    .line 278
+    .line 281
     move v0, v1
 
     :goto_1
@@ -231,7 +258,7 @@
 
     goto :goto_1
 
-    .line 279
+    .line 282
     :cond_4
     if-ltz p1, :cond_5
 
@@ -281,11 +308,11 @@
 
     invoke-virtual {v0, v1, p1}, Landroid/widget/ScrollView;->smoothScrollTo(II)V
 
-    .line 280
+    .line 283
     :cond_5
     return-void
 
-    .line 277
+    .line 280
     :cond_6
     :goto_3
     return-void

@@ -59,7 +59,7 @@
         }
     .end annotation
 
-    .line 191
+    .line 193
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$6;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerTiles$6;->val$a:Landroid/app/Activity;
@@ -82,7 +82,7 @@
 .method public onClick(Landroid/view/View;)V
     .locals 7
 
-    .line 192
+    .line 194
     new-instance p1, Landroid/app/Dialog;
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$6;->val$a:Landroid/app/Activity;
@@ -129,7 +129,7 @@
 
     invoke-virtual {v0, v1, v3, v5, v4}, Landroid/widget/LinearLayout;->setPadding(IIII)V
 
-    .line 193
+    .line 195
     new-instance v1, Landroid/graphics/drawable/GradientDrawable;
 
     invoke-direct {v1}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
@@ -150,7 +150,7 @@
 
     invoke-virtual {v0, v1}, Landroid/widget/LinearLayout;->setBackground(Landroid/graphics/drawable/Drawable;)V
 
-    .line 194
+    .line 196
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerTiles$6;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerTiles$6;->val$a:Landroid/app/Activity;
@@ -173,7 +173,7 @@
 
     invoke-virtual {v0, v1, v2}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 195
+    .line 197
     new-instance v1, Landroid/widget/Button;
 
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerTiles$6;->val$a:Landroid/app/Activity;
@@ -190,7 +190,7 @@
 
     invoke-virtual {v1, v2}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
 
-    .line 198
+    .line 200
     new-instance v2, Landroid/widget/LinearLayout$LayoutParams;
 
     iget-object v3, p0, Lcom/melodix/music/PreviewPlayerTiles$6;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
@@ -205,7 +205,7 @@
 
     invoke-virtual {v0, v1, v2}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 199
+    .line 201
     new-instance v1, Landroid/widget/Button;
 
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerTiles$6;->val$a:Landroid/app/Activity;
@@ -222,7 +222,7 @@
 
     invoke-virtual {v1, v2}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
 
-    .line 200
+    .line 202
     new-instance v2, Landroid/widget/Button;
 
     iget-object v3, p0, Lcom/melodix/music/PreviewPlayerTiles$6;->val$a:Landroid/app/Activity;
@@ -239,7 +239,7 @@
 
     invoke-virtual {v2, v3}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
 
-    .line 203
+    .line 205
     new-instance v3, Landroid/widget/LinearLayout$LayoutParams;
 
     iget-object v6, p0, Lcom/melodix/music/PreviewPlayerTiles$6;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
@@ -264,7 +264,7 @@
 
     invoke-virtual {v0, v2, v1}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 204
+    .line 206
     invoke-virtual {p1, v0}, Landroid/app/Dialog;->setContentView(Landroid/view/View;)V
 
     invoke-virtual {p1}, Landroid/app/Dialog;->show()V

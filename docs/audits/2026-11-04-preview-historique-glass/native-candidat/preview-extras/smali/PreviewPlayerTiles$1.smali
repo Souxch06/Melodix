@@ -33,7 +33,7 @@
         }
     .end annotation
 
-    .line 55
+    .line 57
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$1;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -46,7 +46,7 @@
 .method public run()V
     .locals 3
 
-    .line 55
+    .line 57
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$1;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     invoke-virtual {v0}, Lcom/melodix/music/PreviewPlayerTiles;->isAttachedToWindow()Z

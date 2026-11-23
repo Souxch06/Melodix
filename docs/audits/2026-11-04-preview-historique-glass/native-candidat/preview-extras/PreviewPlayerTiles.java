@@ -50,7 +50,9 @@ public final class PreviewPlayerTiles extends LinearLayout {
     }
     private static final String[] observations={"non observée","non observée","non observée"};
     private static final long[] probeSerial={0,0,0};
-    public static String diagnosticReport(){return "\nStructure File : "+observations[0]+"\nStructure Paroles : "+observations[1]+"\nStructure Appareils : "+observations[2]+"\nFile (tiroir) : "+queueJournal+"\nParoles (tiroir) : "+panelJournals[0]+"\nAppareils (tiroir) : "+panelJournals[1]+"\nOuverture collection (compteurs, sans titre ni identifiant) : "+openTrace+displayReport+(traceAt<0?"":" ; relevé il y a "+((SystemClock.elapsedRealtime()-traceAt)/1000)+" s");}
+    // Live follow counters (1022425): what the 0.25 s read saw. Counts and one index only, never text.
+    static int liveReads, liveNoLine, liveErrors, liveLastIndex=-9, liveChanges;
+    public static String diagnosticReport(){return "\nSuivi paroles : relevés="+liveReads+" ; sans ligne="+liveNoLine+" ; erreurs="+liveErrors+" ; changements="+liveChanges+" ; dernière ligne="+liveLastIndex+"\nStructure File : "+observations[0]+"\nStructure Paroles : "+observations[1]+"\nStructure Appareils : "+observations[2]+"\nFile (tiroir) : "+queueJournal+"\nParoles (tiroir) : "+panelJournals[0]+"\nAppareils (tiroir) : "+panelJournals[1]+"\nOuverture collection (compteurs, sans titre ni identifiant) : "+openTrace+displayReport+(traceAt<0?"":" ; relevé il y a "+((SystemClock.elapsedRealtime()-traceAt)/1000)+" s");}
     private static long traceAt=-1;
     private final Runnable traceTick=new Runnable(){public void run(){if(!isAttachedToWindow())return;readTrace(activity());postDelayed(this,2000);}};
     // Counts, fixed phase codes and durations only, read from the page's own
@@ -272,9 +274,10 @@ public final class PreviewPlayerTiles extends LinearLayout {
         boolean playing=full!=null&&String.valueOf(full.getContentDescription()).startsWith("Mettre en pause");lyricsPlaying=playing;play.setContentDescription(playing?"Pause":"Lecture");play.invalidate();
         WebView w=web(a);
         if(w!=null&&!lyricViews.isEmpty())try{w.evaluateJavascript(LIVE_JS,new ValueCallback<String>(){public void onReceiveValue(String v){
-            int k=-2;try{k=Integer.parseInt(String.valueOf(v).trim());}catch(NumberFormatException ignored){}
-            if(k==-2){if(++liveMisses==5&&lyricsReload!=null){liveMisses=0;post(lyricsReload);}return;}
-            liveMisses=0;if(k==lyricsActive||k>=lyricViews.size())return;lineChanged(lyricsActive,k);lyricsActive=k;
+            int k=-2;try{k=Integer.parseInt(String.valueOf(v).trim());}catch(NumberFormatException ignored){liveErrors++;}
+            liveReads++;liveLastIndex=k;
+            if(k==-2){liveNoLine++;if(++liveMisses==5&&lyricsReload!=null){liveMisses=0;post(lyricsReload);}return;}
+            liveMisses=0;if(k==lyricsActive||k>=lyricViews.size())return;liveChanges++;lineChanged(lyricsActive,k);lyricsActive=k;
             for(int j=0;j<lyricViews.size();j++)lyricViews.get(j).setTextColor(j==k?Color.WHITE:lyricsPale); // whole line (user: word fill lagged, 1022419)
             if(k>=0&&lyricScroll!=null)lyricScroll.smoothScrollTo(0,Math.max(0,lyricViews.get(k).getTop()-dp(160)));
         }});}catch(RuntimeException ignored){}
