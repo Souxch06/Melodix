@@ -3,12 +3,12 @@
 .source "PreviewPlayerTiles.java"
 
 # interfaces
-.implements Ljava/lang/Runnable;
+.implements Landroid/view/View$OnClickListener;
 
 
 # annotations
 .annotation system Ldalvik/annotation/EnclosingMethod;
-    value = Lcom/melodix/music/PreviewPlayerTiles;->onWindowVisibilityChanged(I)V
+    value = Lcom/melodix/music/PreviewPlayerTiles;->activate(I)V
 .end annotation
 
 .annotation system Ldalvik/annotation/InnerClass;
@@ -20,21 +20,33 @@
 # instance fields
 .field final synthetic this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
+.field final synthetic val$dialog:Lcom/melodix/music/PreviewPlayerSheet;
+
 
 # direct methods
-.method constructor <init>(Lcom/melodix/music/PreviewPlayerTiles;)V
+.method constructor <init>(Lcom/melodix/music/PreviewPlayerTiles;Lcom/melodix/music/PreviewPlayerSheet;)V
     .locals 0
     .annotation system Ldalvik/annotation/MethodParameters;
         accessFlags = {
-            0x8010
+            0x8010,
+            0x1010
         }
         names = {
+            null,
             null
         }
     .end annotation
 
-    .line 422
+    .annotation system Ldalvik/annotation/Signature;
+        value = {
+            "()V"
+        }
+    .end annotation
+
+    .line 432
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$22;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
+
+    iput-object p2, p0, Lcom/melodix/music/PreviewPlayerTiles$22;->val$dialog:Lcom/melodix/music/PreviewPlayerSheet;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
@@ -43,13 +55,13 @@
 
 
 # virtual methods
-.method public run()V
-    .locals 1
+.method public onClick(Landroid/view/View;)V
+    .locals 0
 
-    .line 422
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$22;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
+    .line 432
+    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$22;->val$dialog:Lcom/melodix/music/PreviewPlayerSheet;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$4400(Lcom/melodix/music/PreviewPlayerTiles;)V
+    invoke-virtual {p1}, Lcom/melodix/music/PreviewPlayerSheet;->dismiss()V
 
     return-void
 .end method

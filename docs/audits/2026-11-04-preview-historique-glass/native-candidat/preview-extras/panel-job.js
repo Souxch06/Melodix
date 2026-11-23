@@ -120,6 +120,15 @@
             if (n.hasAttribute('data-start-time') || n.hasAttribute('data-time')) synced = true;
             lines.push(t);
         });
+        if (!synced) {
+            // User request (1022416): Spotify marks the sung line only by its look - sung and past lines share one
+            // colour/opacity, upcoming lines another. The active line is the last one before the upcoming look.
+            var looks = [];
+            nodes.slice(0, 200).forEach(function(n) { if (!lyricText(n)) return; var cs = window.getComputedStyle(n); looks.push(cs.color + '|' + cs.opacity); });
+            var future = looks[looks.length - 1], k = looks.length - 1;
+            while (k >= 0 && looks[k] === future) k--;
+            if (k >= 0 && k < looks.length - 1 && looks.slice(0, k + 1).every(function(l) { return l !== future; })) { active = k; activeCount = 1; synced = true; }
+        }
         return {lines: lines, active: synced && activeCount === 1 ? active : -1, synced: synced};
     }
     function trustedDevices(r) {
