@@ -456,10 +456,10 @@ test('queue: only an explicitly marked current row is shown as playing now',asyn
  run(dom,queue,'run');await settle(50);let r=run(dom,queue,'poll');assert.equal(r.ok,true);assert.equal(r.now,'B\t\t');assert.equal(r.next,'A\t\t');dom.window.close();
 });
 
-test('lyrics: result waits for verified close and never closes a replacement button',async()=>{
+test('lyrics: unverified close keeps the read lines and never closes a replacement button',async()=>{
  const dom=page('<button data-testid="lyrics-button" aria-pressed="false"></button><div id="slot"></div>');const d=dom.window.document,b=d.querySelector('button');let clicks=0;
  b.onclick=()=>{clicks++;b.setAttribute('aria-pressed','true');d.querySelector('#slot').innerHTML='<div data-testid="lyrics-container"><p>A private lyric</p></div>';const replacement=b.cloneNode(true);b.replaceWith(replacement);};
- run(dom,panel,'lyrics','run','');await settle(500);let out=run(dom,panel,'lyrics','poll');assert.equal(out.reason,'close-unverified');assert.equal(out.ok,false);assert.equal(clicks,1);assert.ok(!JSON.stringify(out.journal).includes('private'));dom.window.close();
+ run(dom,panel,'lyrics','run','');await settle(500);let out=run(dom,panel,'lyrics','poll');assert.equal(out.reason,'close-unverified');/* user choice (1022415): read lyrics are kept */assert.equal(out.ok,true);assert.equal(clicks,1);assert.ok(!JSON.stringify(out.journal).includes('private'));dom.window.close();
 });
 
 test('devices: a panel originally open is read without clicking or closing it',async()=>{

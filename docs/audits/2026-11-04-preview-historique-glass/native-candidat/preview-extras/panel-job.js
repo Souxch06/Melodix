@@ -206,7 +206,9 @@
         restoreSize();
         function done(closeOk) {
             if (openedHere) log(closeOk ? 'close:verified' : 'close:unverified');
-            job.status = 'done'; job.ok = ok && closeOk;
+            // User diagnostic (1022415): 74 lyric lines were read, then dropped because Spotify's side panel did not
+            // confirm closing. Reading lyrics changes nothing; keep the lines (the drawer stays flagged for recovery).
+            job.status = 'done'; job.ok = ok && (closeOk || kind === 'lyrics');
             job.reason = closeOk ? (reason || '') : 'close-unverified';
             if (!closeOk) W.__melodixDrawerUnsafe = true;
             if (W.__melodixDrawerLease === job) W.__melodixDrawerLease = null;
