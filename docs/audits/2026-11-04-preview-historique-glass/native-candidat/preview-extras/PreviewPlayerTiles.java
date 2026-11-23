@@ -163,7 +163,10 @@ public final class PreviewPlayerTiles extends LinearLayout {
         String[] f=raw.split("\t",-1);if(f.length==0||f[0].trim().isEmpty())return;
         String artist=f.length>1?f[1]:"", time=f.length>2?f[2]:"";
         String sub=artist+(!time.isEmpty()?(artist.isEmpty()?"":" · ")+time:"");
-        TextView t=line(a,f[0]+(sub.isEmpty()?"":"\n"+sub),Color.WHITE,15);t.setMaxLines(3);t.setPadding(0,dp(6),0,dp(6));list.addView(t,new LinearLayout.LayoutParams(-1,-2));
+        // Spotify queue rows: title in white, artist in soft white below (user request 1022419).
+        TextView t=line(a,f[0]+(sub.isEmpty()?"":"\n"+sub),Color.WHITE,16);t.setMaxLines(3);t.setPadding(0,dp(8),0,dp(8));
+        if(!sub.isEmpty()){android.text.SpannableString sp=new android.text.SpannableString(t.getText().toString());sp.setSpan(new android.text.style.ForegroundColorSpan(0xb3ffffff),f[0].length(),sp.length(),0);t.setText(sp);}
+        list.addView(t,new LinearLayout.LayoutParams(-1,-2));
     }
     private void renderQueue(Activity a,LinearLayout list,Button retry,JSONObject o){
         queueJournal=resultCode(o)+":"+clean(o.optString("journal",""));
@@ -172,8 +175,8 @@ public final class PreviewPlayerTiles extends LinearLayout {
             queueReason="empty";queueJournal="lecture=non-confirmee:motif=empty";queueFailed(a,list,retry);return;
         }
         settledSerial=queueSerial;queueJournal+=":rendu=natif";list.removeAllViews();String current=o.optString("now","");
-        if(!current.isEmpty()){list.addView(line(a,"En cours de lecture",0xffa78bfa,13),new LinearLayout.LayoutParams(-1,dp(32)));addRow(a,list,current);}
-        list.addView(line(a,current.isEmpty()?"Titres de la file":"À suivre",0xffa78bfa,13),new LinearLayout.LayoutParams(-1,dp(40)));
+        if(!current.isEmpty()){list.addView(line(a,"En cours de lecture",Color.WHITE,17),new LinearLayout.LayoutParams(-1,dp(36)));addRow(a,list,current);}
+        list.addView(line(a,current.isEmpty()?"Titres de la file":"À suivre",Color.WHITE,17),new LinearLayout.LayoutParams(-1,dp(44)));
         String next=o.optString("next","");
         if(next.isEmpty())list.addView(line(a,"Aucun titre à suivre",0xffc7bbdc,14),new LinearLayout.LayoutParams(-1,-2));
         else for(String r:next.split("\n"))addRow(a,list,r);
@@ -255,44 +258,21 @@ public final class PreviewPlayerTiles extends LinearLayout {
         for(int k=0;k<lines.length&&k<200;k++){TextView t=line(a,lines[k],lyricsPale,24);t.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);t.setPadding(0,dp(6),0,dp(6));list.addView(t,new LinearLayout.LayoutParams(-1,-2));lyricViews.add(t);}
         lyricScroll=list.getParent() instanceof ScrollView?(ScrollView)list.getParent():null;lyricsActive=-1;
     }
-    // "Mot par mot" (user request 1022418): the web player gives only the sung line, not word timings. The line fills
-    // in white word by word at the pace measured on the previous lines; each new line re-syncs it.
-    // shortcut: estimated pace, ahead/behind on rhythm changes; upgrade if Spotify exposes word timings.
-    private long lineStartAt=-1,paceMs,paceChars;private boolean lyricsPlaying;
-    private void lineChanged(int from,int to){
-        long now=SystemClock.elapsedRealtime();
-        if(from>=0&&from<lyricViews.size()&&lineStartAt>0){long d=now-lineStartAt;int n=String.valueOf(lyricViews.get(from).getText()).length();if(d>400&&d<15000&&n>0){paceMs+=d;paceChars+=n;}}
-        if(from>=0&&from<lyricViews.size()){TextView p=lyricViews.get(from);p.setText(String.valueOf(p.getText()));}
-        lineStartAt=to>=0?now:-1;
-    }
-    private void fillTick(final Dialog dialog){
-        if(webDialog!=dialog)return;
-        int k=lyricsActive;
-        if(!lyricsPlaying&&lineStartAt>0)lineStartAt+=120;
-        if(k>=0&&k<lyricViews.size()&&lineStartAt>0){
-            TextView t=lyricViews.get(k);String txt=String.valueOf(t.getText());
-            float rate=paceChars>0?paceMs/(float)paceChars:55f;
-            int n=Math.min(txt.length(),(int)((SystemClock.elapsedRealtime()-lineStartAt)/rate));
-            while(n>0&&n<txt.length()&&txt.charAt(n)!=' ')n++; // whole words
-            android.text.SpannableString sp=new android.text.SpannableString(txt);
-            if(n>0)sp.setSpan(new android.text.style.ForegroundColorSpan(Color.WHITE),0,n,0);
-            t.setTextColor(lyricsPale);t.setText(sp);
-        }
-        postDelayed(new Runnable(){public void run(){fillTick(dialog);}},120);
-    }
+    private boolean lyricsPlaying;
+    private void lineChanged(int from,int to){}
     private static final String LIVE_JS="(function(){try{var ls=Array.from(document.querySelectorAll('[data-testid=\"fullscreen-lyric\"],[data-testid^=\"lyrics-line\"]')).filter(function(n){return (n.textContent||'').trim()});if(!ls.length)return -2;for(var i=0;i<ls.length;i++)if(ls[i].getAttribute('aria-current')==='true'||ls[i].getAttribute('data-active')==='true')return i;var looks=ls.map(function(n){var c=getComputedStyle(n);return c.color+'|'+c.opacity});var f=looks[looks.length-1],k=looks.length-1;while(k>=0&&looks[k]===f)k--;return k}catch(e){return -2}})()";
     private void lyricsTick(final Activity a,final Dialog dialog,final View fill,final TextView pos,final TextView dur,final TextView play){
         if(webDialog!=dialog)return;
         View p=a.findViewById(0x7f09024a),d=a.findViewById(0x7f09024b),bar=a.findViewById(0x7f09023d),full=a.findViewById(0x7f09023e);
         if(p instanceof TextView)pos.setText(((TextView)p).getText());if(d instanceof TextView)dur.setText(((TextView)d).getText());
         if(bar instanceof android.widget.ProgressBar){android.widget.ProgressBar b=(android.widget.ProgressBar)bar;fill.setScaleX(b.getMax()>0?Math.max(0f,Math.min(1f,b.getProgress()/(float)b.getMax())):0f);}
-        boolean playing=full!=null&&String.valueOf(full.getContentDescription()).startsWith("Mettre en pause");play.setText(playing?"❚❚":"▶");lyricsPlaying=playing||full==null; // no button seen: never freeze the fill
+        boolean playing=full!=null&&String.valueOf(full.getContentDescription()).startsWith("Mettre en pause");lyricsPlaying=playing;play.setContentDescription(playing?"Pause":"Lecture");play.invalidate();
         WebView w=web(a);
         if(w!=null&&!lyricViews.isEmpty())try{w.evaluateJavascript(LIVE_JS,new ValueCallback<String>(){public void onReceiveValue(String v){
             int k=-2;try{k=Integer.parseInt(String.valueOf(v).trim());}catch(NumberFormatException ignored){}
             if(k==-2){if(++liveMisses==5&&lyricsReload!=null){liveMisses=0;post(lyricsReload);}return;}
             liveMisses=0;if(k==lyricsActive||k>=lyricViews.size())return;lineChanged(lyricsActive,k);lyricsActive=k;
-            for(int j=0;j<lyricViews.size();j++)lyricViews.get(j).setTextColor(lyricsPale);
+            for(int j=0;j<lyricViews.size();j++)lyricViews.get(j).setTextColor(j==k?Color.WHITE:lyricsPale); // whole line (user: word fill lagged, 1022419)
             if(k>=0&&lyricScroll!=null)lyricScroll.smoothScrollTo(0,Math.max(0,lyricViews.get(k).getTop()-dp(160)));
         }});}catch(RuntimeException ignored){}
         postDelayed(new Runnable(){public void run(){lyricsTick(a,dialog,fill,pos,dur,play);}},500);
@@ -305,19 +285,26 @@ public final class PreviewPlayerTiles extends LinearLayout {
         LinearLayout times=new LinearLayout(a);times.setOrientation(HORIZONTAL);
         final TextView pos=line(a,"-:--",0xccffffff,12),dur=line(a,"-:--",0xccffffff,12);dur.setGravity(Gravity.END);
         times.addView(pos,new LinearLayout.LayoutParams(0,dp(28),1));times.addView(dur,new LinearLayout.LayoutParams(0,dp(28),1));box.addView(times,new LinearLayout.LayoutParams(-1,-2));
-        final TextView play=line(a,"▶",0xff111114,24);play.setGravity(Gravity.CENTER);GradientDrawable pb=new GradientDrawable();pb.setColor(Color.WHITE);pb.setCornerRadius(dp(36));play.setBackground(pb);
+        // User feedback (1022419): a drawn white disc with a dark triangle / two bars, like Spotify.
+        final TextView play=new TextView(a){
+            final android.graphics.Paint p=new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+            @Override protected void onDraw(android.graphics.Canvas c){
+                float w=getWidth(),h=getHeight(),r=Math.min(w,h)/2f,cx=w/2f,cy=h/2f;
+                p.setColor(Color.WHITE);c.drawCircle(cx,cy,r,p);p.setColor(0xff111114);
+                if(lyricsPlaying){float bw=r*0.16f,bh=r*0.36f;c.drawRect(cx-r*0.24f,cy-bh,cx-r*0.24f+bw,cy+bh,p);c.drawRect(cx+r*0.24f-bw,cy-bh,cx+r*0.24f,cy+bh,p);}
+                else{android.graphics.Path t=new android.graphics.Path();t.moveTo(cx-r*0.22f,cy-r*0.36f);t.lineTo(cx+r*0.40f,cy);t.lineTo(cx-r*0.22f,cy+r*0.36f);t.close();c.drawPath(t,p);}
+            }};
         play.setContentDescription("Lecture ou pause");
         play.setOnClickListener(new View.OnClickListener(){public void onClick(View v){v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);View m=a.findViewById(0x7f090238);if(m!=null)m.performClick();}});
         LinearLayout.LayoutParams pl=new LinearLayout.LayoutParams(dp(72),dp(72));pl.gravity=Gravity.CENTER_HORIZONTAL;box.addView(play,pl);
         panel.addView(box,new LinearLayout.LayoutParams(-1,-2));
         lyricViews.clear();lyricsActive=-1;liveMisses=0;
         postDelayed(new Runnable(){public void run(){lyricsTick(a,dialog,fill,pos,dur,play);}},500);
-        lineStartAt=-1;paceMs=0;paceChars=0;postDelayed(new Runnable(){public void run(){fillTick(dialog);}},120);
     }
     // User screenshot (1022413): Spotify's lyrics screen - full height, the cover's colour as background, title and
     // artist centred on top, big bold lines in a pale tint of that colour, the sung line in white.
     private int lyricsPale=0xffb4d7f5;
-    private void lyricsLook(Activity a,LinearLayout panel,LinearLayout heading,TextView eyebrow,TextView title,TextView subtitle,ScrollView scroll){
+    private void lyricsLook(Activity a,LinearLayout panel,LinearLayout heading,TextView eyebrow,TextView title,TextView subtitle,ScrollView scroll,boolean lyrics){
         int c=0;try{java.lang.reflect.Field f=Class.forName("com.melodix.music.PreviewPlayerChrome").getDeclaredField("lastColor");f.setAccessible(true);c=f.getInt(null);}catch(Throwable ignored){}
         if(c==0)c=0xff1e3a5f;
         // Spotify-like: the cover's hue, saturated and deep for the background; a pale tint of it for the lines.
@@ -325,7 +312,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
         int bg=Color.HSVToColor(new float[]{hsv[0],Math.max(hsv[1],0.55f),0.33f});lyricsPale=Color.HSVToColor(new float[]{hsv[0],0.32f,0.97f});
         GradientDrawable g=new GradientDrawable();g.setColor(bg);panel.setBackground(g);panel.setPadding(dp(24),dp(28),dp(24),dp(24));
         View t=a.findViewById(0x7f09023b),ar=a.findViewById(0x7f09023c);
-        if(t instanceof TextView)title.setText(((TextView)t).getText());if(ar instanceof TextView)subtitle.setText(((TextView)ar).getText());
+        if(lyrics&&t instanceof TextView)title.setText(((TextView)t).getText());if(lyrics&&ar instanceof TextView)subtitle.setText(((TextView)ar).getText());
         eyebrow.setText("");title.setGravity(Gravity.CENTER);subtitle.setGravity(Gravity.CENTER);title.setTextSize(17);subtitle.setTextColor(0xe6ffffff);
         heading.setGravity(Gravity.CENTER_VERTICAL);scroll.setBackground(null);
     }
@@ -383,8 +370,8 @@ public final class PreviewPlayerTiles extends LinearLayout {
         for(String row:ordered){
             String[] f=row.split("\t",-1);if(f.length==0||f[0].trim().isEmpty())continue;
             final String name=f[0];final boolean current=f.length>2&&f[2].equals("1");String type=f.length>1?f[1]:"";
-            if(current&&!headed){headed=true;list.addView(line(a,"Appareil actuel",0xffb7aacd,13),new LinearLayout.LayoutParams(-1,dp(30)));}
-            if(!current&&!listed){listed=true;list.addView(line(a,"Sélectionner un appareil",0xffb7aacd,13),new LinearLayout.LayoutParams(-1,dp(40)));}
+            if(current&&!headed){headed=true;list.addView(line(a,"Appareil actuel",Color.WHITE,17),new LinearLayout.LayoutParams(-1,dp(30)));}
+            if(!current&&!listed){listed=true;list.addView(line(a,"Sélectionner un appareil",Color.WHITE,17),new LinearLayout.LayoutParams(-1,dp(40)));}
             Button b=new Button(a);b.setText(PreviewPanelIcon.label(a,name+(type.isEmpty()?"":"\n"+type)+(current?"\nActif · lecture en cours":""),current?PreviewPanelIcon.SPEAKER:PreviewPanelIcon.DEVICES,Color.WHITE));
             b.setTextColor(current?Color.WHITE:0xffded4ed);b.setAllCaps(false);b.setMinimumHeight(dp(64));b.setPadding(dp(16),dp(8),dp(16),dp(8));
             b.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);b.setBackgroundTintList(null);b.setBackground(PreviewPlayerSheet.actionBackground(a,current));
@@ -471,7 +458,8 @@ public final class PreviewPlayerTiles extends LinearLayout {
             final LinearLayout list=new LinearLayout(a);list.setOrientation(VERTICAL);list.setPadding(dp(16),dp(8),dp(16),dp(8));
             ScrollView scroll=new ScrollView(a);scroll.setBackground(PreviewPlayerSheet.surface(a,0x0cffffff,0x16ffffff,18));scroll.addView(list);
             int maxHeight=Math.max(dp(120),getResources().getDisplayMetrics().heightPixels-dp(220));
-            if(i==1)lyricsLook(a,panel,heading,eyebrow,title,subtitle,scroll);panel.addView(scroll,i==1?new LinearLayout.LayoutParams(-1,0,1):new LinearLayout.LayoutParams(-1,Math.min(dp(340),maxHeight))); // lyrics take the screen like Spotify
+            lyricsLook(a,panel,heading,eyebrow,title,subtitle,scroll,i==1); // Spotify look on all three (user request 1022419)
+            panel.addView(scroll,i==1?new LinearLayout.LayoutParams(-1,0,1):new LinearLayout.LayoutParams(-1,Math.min(dp(340),maxHeight))); // lyrics take the screen like Spotify
             final Button retry=new Button(a);retry.setText(PreviewPanelIcon.label(a,"Actualiser",PreviewPanelIcon.REFRESH,Color.WHITE));retry.setContentDescription("Actualiser "+names[i]);retry.setTextColor(Color.WHITE);retry.setAllCaps(false);retry.setGravity(Gravity.CENTER);retry.setMinimumHeight(dp(48));retry.setBackgroundTintList(null);retry.setBackground(PreviewPlayerSheet.actionBackground(a,false));
             dialog.setTitle(names[i]);dialog.setCanceledOnTouchOutside(true);
             dialog.setOnDismissListener(new DialogInterface.OnDismissListener(){public void onDismiss(DialogInterface ignored){
