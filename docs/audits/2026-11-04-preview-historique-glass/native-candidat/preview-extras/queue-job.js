@@ -347,6 +347,15 @@
                 log('links:' + Math.min(r ? r.querySelectorAll('a[href*="/track/"], a[href*="/episode/"]').length : 0, 99));
                 log('rowsdoc:' + Math.min(document.querySelectorAll('[data-testid="tracklist-row"], [role="row"]').length, 99));
                 if (r) { log(emptyShape(r, b)); log(emptyDetail(r)); log(semanticDetail(r)); }
+                // User diagnostic (1022421): rows:0 in the panel but 99 rows in the page.
+                (function(scope, re) {
+                    // Spotify's own element names (data-testid), never text: which shapes exist, to aim at next time.
+                    // Only names made of known structural words: never anything that could carry content.
+                    var VOCAB = /^(queue|row|rows|track|tracks|tracklist|list|item|items|device|devices|connect|picker|menu|popover|context|button|container|page|view|panel|name|title|entity|cell|grid|header|content|root|wrapper|cover|image|link|subtitle|now|playing|next|up|from|section|in|the|of|to|cast|speaker|icon|label|type|local|remote|available|current|active|select|selected|close|open|main|npv|sidebar|right|left|card|dialog|modal|tippy|option|options|aside|region|text|artist|album)$/;
+                    var kinds = {};
+                    Array.from(scope.querySelectorAll('[data-testid]')).forEach(function(n) { var k = String(n.getAttribute('data-testid')).toLowerCase().replace(/[^a-z-]/g, '').slice(0, 30); if (k && (!re || re.test(k)) && k.split('-').every(function(w) { return VOCAB.test(w); })) kinds[k] = (kinds[k] || 0) + 1; });
+                    Object.keys(kinds).slice(0, 10).forEach(function(k) { log('tid:' + k + ':' + Math.min(99, kinds[k])); });
+                })(r || document, r ? null : /queue|row|track|next/);
                 finish(false, rootAmbiguous ? 'ambiguous' : r ? 'empty' : 'panel');
             }
           } catch (_) { finish(false, 'error'); }

@@ -278,6 +278,18 @@
             var ready = r && (kind === 'lyrics' ? lyricLines(r).lines.length : deviceRows(r, action === 'transfer').length);
             if (!ready && r && !forced && Date.now() > end - 2000) { forced = true; giveSize(r); }
             if (!ready && Date.now() < end) { setTimeout(step, 150); return; }
+            if (!ready && kind === 'devices') {
+                // User diagnostic (1022421): the device picker was not found after the click.
+                log('dlg:' + Math.min(99, document.querySelectorAll('[role="dialog"], [data-tippy-root], [id^="tippy"], [role="menu"], [role="listbox"]').length));
+                (function(scope, re) {
+                    // Spotify's own element names (data-testid), never text: which shapes exist, to aim at next time.
+                    // Only names made of known structural words: never anything that could carry content.
+                    var VOCAB = /^(queue|row|rows|track|tracks|tracklist|list|item|items|device|devices|connect|picker|menu|popover|context|button|container|page|view|panel|name|title|entity|cell|grid|header|content|root|wrapper|cover|image|link|subtitle|now|playing|next|up|from|section|in|the|of|to|cast|speaker|icon|label|type|local|remote|available|current|active|select|selected|close|open|main|npv|sidebar|right|left|card|dialog|modal|tippy|option|options|aside|region|text|artist|album)$/;
+                    var kinds = {};
+                    Array.from(scope.querySelectorAll('[data-testid]')).forEach(function(n) { var k = String(n.getAttribute('data-testid')).toLowerCase().replace(/[^a-z-]/g, '').slice(0, 30); if (k && (!re || re.test(k)) && k.split('-').every(function(w) { return VOCAB.test(w); })) kinds[k] = (kinds[k] || 0) + 1; });
+                    Object.keys(kinds).slice(0, 10).forEach(function(k) { log('tid:' + k + ':' + Math.min(99, kinds[k])); });
+                })(document, /device|connect|picker|cast|speaker|popover|context|menu|list/);
+            }
             if (!ready && kind === 'lyrics') {
                 // Shape only, never text: where the page went and how many lyric-like elements exist.
                 var mv = document.querySelector('#main-view, main');
