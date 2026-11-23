@@ -244,6 +244,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
     private boolean lyricsLive;
     private void panelFailed(int i,Activity a,LinearLayout list,Button retry){
         if(lyricsLive){lyricsLive=false;panelReason="";retry.setEnabled(true);return;} // keep the lines shown; stop following
+        recovering=false;
         String why=panelReason;panelReason="";
         if(why.equals("absent")){panelMessage(a,list,retry,i==1?"Paroles non disponibles sur cette page Spotify":"Appareils non disponibles sur cette page Spotify","Le bouton correspondant est absent de la page.");return;}
         if(why.equals("disabled")){panelMessage(a,list,retry,i==1?"Spotify ne propose pas de paroles pour ce titre":"Appareils indisponibles pour le moment",i==1?"Le contrôle des paroles Spotify est désactivé ; aucune ligne n’est disponible.":"Le bouton Spotify est désactivé ; réessayez plus tard.");return;}
@@ -267,7 +268,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
         if(!o.optBoolean("ok",false)){panelReason=o.optString("reason","");panelFailed(i,a,list,retry);return;}
         String body=o.optString("body","");
         if(body.trim().isEmpty()){panelReason="empty";panelJournals[i-1]="lecture=non-confirmee:motif=empty";panelFailed(i,a,list,retry);return;}
-        panelSettled=panelSerial;panelJournals[i-1]+=":rendu=natif";list.removeAllViews();retry.setEnabled(true);
+        recovering=false;panelSettled=panelSerial;panelJournals[i-1]+=":rendu=natif";list.removeAllViews();retry.setEnabled(true);
         if(i==1){
             int active=-1;try{active=Integer.parseInt(o.optString("active","-1"));}catch(NumberFormatException ignored){}
             String[] lines=body.split("\n");
@@ -277,7 +278,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
             if(active>=0){
                 // Keep the current line in view, then read the page again in 1.5 s while this panel stays open.
                 list.post(new Runnable(){public void run(){if(current[0]!=null&&list.getParent() instanceof android.widget.ScrollView)((android.widget.ScrollView)list.getParent()).smoothScrollTo(0,Math.max(0,current[0].getTop()-dp(120)));}});
-                postDelayed(new Runnable(){public void run(){if(webDialog==dialog){lyricsLive=true;loadPanel(1,a,dialog,list,retry,"run","");}else lyricsLive=false;}},1500);
+                postDelayed(new Runnable(){public void run(){if(webDialog==dialog){lyricsLive=true;loadPanel(1,a,dialog,list,retry,"run","");}else lyricsLive=false;}},2500);
             } else lyricsLive=false;
             return;
         }
@@ -309,8 +310,19 @@ public final class PreviewPlayerTiles extends LinearLayout {
             if(serial!=panelSerial||webDialog!=dialog||panelSettled==serial)return;JSONObject o=parseObject(value);String st=o==null?"":o.optString("status","");
             String id=o==null?"":o.optString("id","");
             if(st.equals("started")&&validJobId(id)){panelJobId=id;panelJobPending=true;panelStep="demarre";pollPanel(i,a,dialog,list,retry,serial,0,action,kind);}
-            else{panelReason=st.equals("busy")?"busy":st.equals("blocked")?"close-unverified":"";panelJournals[i-1]=st.equals("busy")?"demarrage:occupe":st.equals("blocked")?"demarrage:fermeture-non-confirmee":"demarrage:refuse";panelFailed(i,a,list,retry);}
+            else if(st.equals("blocked")&&!action.equals("transfer")&&!recovering){recover(i,a,dialog,list,retry);}
+            else{recovering=false;panelReason=st.equals("busy")?"busy":st.equals("blocked")?"close-unverified":"";panelJournals[i-1]=st.equals("busy")?"demarrage:occupe":st.equals("blocked")?"demarrage:fermeture-non-confirmee":"demarrage:refuse";panelFailed(i,a,list,retry);}
         }});}catch(RuntimeException e){panelJournals[i-1]="demarrage:erreur";panelFailed(i,a,list,retry);}
+    }
+    // User diagnostic (1022412): one unverified close (lyrics view left open in the hidden page) blocked every
+    // drawer until restart. Close Spotify's lyrics view / device menu ourselves, clear the block, retry once.
+    private boolean recovering;
+    private static final String RECOVER="(function(){try{var b=document.querySelector('[data-testid=\"lyrics-button\"],[data-testid=\"control-button-lyrics\"]');if(b&&(b.getAttribute('aria-pressed')==='true'||b.getAttribute('data-active')==='true'))b.click();document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));window.__melodixDrawerUnsafe=false;window.__melodixDrawerLease=null;return 'ok'}catch(e){return 'error'}})()";
+    private void recover(final int i,final Activity a,final Dialog dialog,final LinearLayout list,final Button retry){
+        recovering=true;panelJournals[i-1]="demarrage:recuperation";
+        WebView w=web(a);if(w==null){recovering=false;panelFailed(i,a,list,retry);return;}
+        try{w.evaluateJavascript(RECOVER,null);}catch(RuntimeException e){recovering=false;panelFailed(i,a,list,retry);return;}
+        postDelayed(new Runnable(){public void run(){if(webDialog==dialog)loadPanel(i,a,dialog,list,retry,"run","");else recovering=false;}},500);
     }
     private void pollPanel(final int i,final Activity a,final Dialog dialog,final LinearLayout list,final Button retry,final long serial,final int n,final String action,final String kind){
         panelStep="demarre:lectures="+n;if(n>44)return;
