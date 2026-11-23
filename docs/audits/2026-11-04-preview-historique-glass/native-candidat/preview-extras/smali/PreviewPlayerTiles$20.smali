@@ -47,7 +47,7 @@
         }
     .end annotation
 
-    .line 370
+    .line 377
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$20;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iput p2, p0, Lcom/melodix/music/PreviewPlayerTiles$20;->val$i:I
@@ -64,7 +64,7 @@
 .method public onDismiss(Landroid/content/DialogInterface;)V
     .locals 8
 
-    .line 371
+    .line 378
     invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
 
     move-result-wide v0
@@ -121,7 +121,7 @@
 
     move-result-object p1
 
-    .line 372
+    .line 379
     iget v0, p0, Lcom/melodix/music/PreviewPlayerTiles$20;->val$i:I
 
     const-string v1, "ferme:avant-resultat:"
@@ -172,7 +172,7 @@
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$1402(Ljava/lang/String;)Ljava/lang/String;
 
-    .line 373
+    .line 380
     :cond_0
     iget v0, p0, Lcom/melodix/music/PreviewPlayerTiles$20;->val$i:I
 
@@ -230,7 +230,7 @@
 
     aput-object p1, v0, v2
 
-    .line 374
+    .line 381
     :cond_1
     iget p1, p0, Lcom/melodix/music/PreviewPlayerTiles$20;->val$i:I
 
@@ -274,7 +274,7 @@
     :goto_1
     move-object v6, v0
 
-    .line 375
+    .line 382
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$20;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     const/4 v1, 0x0
@@ -289,7 +289,7 @@
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$2808(Lcom/melodix/music/PreviewPlayerTiles;)J
 
-    .line 376
+    .line 383
     if-eqz p1, :cond_5
 
     invoke-static {v6}, Lcom/melodix/music/PreviewPlayerTiles;->access$1700(Ljava/lang/String;)Z

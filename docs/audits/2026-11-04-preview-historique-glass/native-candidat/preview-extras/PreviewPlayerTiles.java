@@ -272,7 +272,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
             int active=-1;try{active=Integer.parseInt(o.optString("active","-1"));}catch(NumberFormatException ignored){}
             String[] lines=body.split("\n");
             final TextView[] current={null};
-            for(int k=0;k<lines.length&&k<200;k++){TextView t=line(a,lines[k],k==active?0xffe0489e:(active>=0&&k<active?0x99ffffff:Color.WHITE),k==active?19:17);t.setPadding(0,dp(4),0,dp(4));list.addView(t,new LinearLayout.LayoutParams(-1,-2));if(k==active)current[0]=t;}
+            for(int k=0;k<lines.length&&k<200;k++){TextView t=line(a,lines[k],active<0||k==active?Color.WHITE:k<active?0xb3ffffff:0x59ffffff,22);t.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);t.setPadding(0,dp(6),0,dp(6));list.addView(t,new LinearLayout.LayoutParams(-1,-2));if(k==active)current[0]=t;}
             if(!lyricsLive)riseAll(list);
             if(active>=0){
                 // Keep the current line in view, then read the page again in 1.5 s while this panel stays open.
@@ -282,20 +282,27 @@ public final class PreviewPlayerTiles extends LinearLayout {
             return;
         }
         String[] rows=body.split("\n");
-        for(String row:rows){
+        // Spotify's device picker (user request 1022410): "Appareil actuel" first, then "Sélectionner un appareil".
+        java.util.ArrayList<String> ordered=new java.util.ArrayList<String>();
+        for(String row:rows){String[] f=row.split("\t",-1);if(f.length>2&&f[2].equals("1"))ordered.add(0,row);else ordered.add(row);}
+        boolean listed=false,headed=false;
+        for(String row:ordered){
             String[] f=row.split("\t",-1);if(f.length==0||f[0].trim().isEmpty())continue;
             final String name=f[0];final boolean current=f.length>2&&f[2].equals("1");String type=f.length>1?f[1]:"";
-            Button b=new Button(a);b.setText(name+(type.isEmpty()?"":"\n"+type)+(current?"\nActif":""));b.setTextColor(current?0xffe0489e:Color.WHITE);b.setAllCaps(false);b.setMinimumHeight(dp(56));
-            b.setGravity(Gravity.CENTER);b.setBackgroundTintList(null);b.setBackground(PreviewPlayerSheet.actionBackground(a,current));
+            if(current&&!headed){headed=true;list.addView(line(a,"Appareil actuel",0xffb7aacd,13),new LinearLayout.LayoutParams(-1,dp(30)));}
+            if(!current&&!listed){listed=true;list.addView(line(a,"Sélectionner un appareil",0xffb7aacd,13),new LinearLayout.LayoutParams(-1,dp(40)));}
+            Button b=new Button(a);b.setText(PreviewPanelIcon.label(a,name+(type.isEmpty()?"":"\n"+type)+(current?"\nActif · lecture en cours":""),current?PreviewPanelIcon.SPEAKER:PreviewPanelIcon.DEVICES,Color.WHITE));
+            b.setTextColor(current?Color.WHITE:0xffded4ed);b.setAllCaps(false);b.setMinimumHeight(dp(64));b.setPadding(dp(16),dp(8),dp(16),dp(8));
+            b.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);b.setBackgroundTintList(null);b.setBackground(PreviewPlayerSheet.actionBackground(a,current));
             b.setContentDescription(name+(current?", appareil actif":", transférer la lecture vers cet appareil"));
             if(!current)b.setOnClickListener(new View.OnClickListener(){public void onClick(View v){confirmTransfer(i,a,dialog,list,retry,name);}});
-            list.addView(b,new LinearLayout.LayoutParams(-1,-2));
+            LinearLayout.LayoutParams bl=new LinearLayout.LayoutParams(-1,-2);bl.bottomMargin=dp(8);list.addView(b,bl);
         }
         riseAll(list);
     }
     private void confirmTransfer(final int i,final Activity a,final Dialog dialog,final LinearLayout list,final Button retry,final String name){
         final Dialog ask=new Dialog(a);LinearLayout box=new LinearLayout(a);box.setOrientation(VERTICAL);box.setPadding(dp(20),dp(16),dp(20),dp(16));
-        GradientDrawable g=new GradientDrawable();g.setColor(0xf2170b33);g.setCornerRadius(dp(20));box.setBackground(g);
+        box.setBackground(PreviewPlayerSheet.background(a));
         box.addView(line(a,"Transférer la lecture vers « "+name+" » ?",Color.WHITE,17),new LinearLayout.LayoutParams(-1,-2));
         Button no=new Button(a);no.setText("Annuler");no.setMinimumHeight(dp(48));no.setOnClickListener(new View.OnClickListener(){public void onClick(View v){ask.dismiss();}});
         Button yes=new Button(a);yes.setText("Confirmer");yes.setContentDescription("Confirmer le transfert vers "+name);yes.setMinimumHeight(dp(48));yes.setOnClickListener(new View.OnClickListener(){public void onClick(View v){ask.dismiss();loadPanel(i,a,dialog,list,retry,"transfer",name);}});
@@ -364,7 +371,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
             close.setOnClickListener(new View.OnClickListener(){public void onClick(View v){dialog.dismiss();}});heading.addView(close,new LinearLayout.LayoutParams(dp(40),dp(48)));panel.addView(heading,new LinearLayout.LayoutParams(-1,-2));
             final LinearLayout list=new LinearLayout(a);list.setOrientation(VERTICAL);list.setPadding(dp(16),dp(8),dp(16),dp(8));
             ScrollView scroll=new ScrollView(a);scroll.setBackground(PreviewPlayerSheet.surface(a,0x0cffffff,0x16ffffff,18));scroll.addView(list);
-            int maxHeight=Math.max(dp(120),getResources().getDisplayMetrics().heightPixels-dp(220));panel.addView(scroll,new LinearLayout.LayoutParams(-1,Math.min(dp(i==1?460:340),maxHeight)));
+            int maxHeight=Math.max(dp(120),getResources().getDisplayMetrics().heightPixels-dp(220));panel.addView(scroll,new LinearLayout.LayoutParams(-1,i==1?maxHeight:Math.min(dp(340),maxHeight))); // lyrics take the screen like Spotify
             final Button retry=new Button(a);retry.setText(PreviewPanelIcon.label(a,"Actualiser",PreviewPanelIcon.REFRESH,Color.WHITE));retry.setContentDescription("Actualiser "+names[i]);retry.setTextColor(Color.WHITE);retry.setAllCaps(false);retry.setGravity(Gravity.CENTER);retry.setMinimumHeight(dp(48));retry.setBackgroundTintList(null);retry.setBackground(PreviewPlayerSheet.actionBackground(a,false));
             dialog.setTitle(names[i]);dialog.setCanceledOnTouchOutside(true);
             dialog.setOnDismissListener(new DialogInterface.OnDismissListener(){public void onDismiss(DialogInterface ignored){
