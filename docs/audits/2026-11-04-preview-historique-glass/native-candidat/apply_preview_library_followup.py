@@ -331,6 +331,23 @@ def apply(root):
     # Native rows guard: a cut or empty reply right after opening never replaces the kept rows.
     a,n=re.subn(r'(\.method public final renderNativeRows\(Ljava/lang/String;Ljava/lang/String;\)V\n    \.locals (?:[4-9]|\d\d)\n)', r'\1\n    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->previewPlayer()Lcom/melodix/music/PreviewPlayerController;\n    move-result-object v0\n    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;\n    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;\n    invoke-virtual {v0, v1, v2, p2}, Lcom/melodix/music/PreviewPlayerController;->keepRows(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;\n    move-result-object p2\n', a)
     if n!=1: raise ValueError('renderNativeRows anchor changed')
+    # User request (1022402, free account): a tapped playlist track starts Melodix's playlist order, and
+    # next/previous follow it (PreviewPlayerControllerQueue); Spotify's own skip stays the fallback.
+    a=one(a, """    const-string v1, "window.__sfNativeOpenUri"
+""", """    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->previewPlayer()Lcom/melodix/music/PreviewPlayerController;
+    move-result-object v1
+    invoke-virtual {v1, p1}, Lcom/melodix/music/PreviewPlayerController;->queueStart(Ljava/lang/String;)V
+    const-string v1, "window.__sfNativeOpenUri"
+""")
+    for name, flag in (('onNativePlayerNextClick', '0x1'), ('onNativePlayerPreviousClick', '0x0')):
+        head, body = a.split('.method public final ' + name + '(Landroid/view/View;)V\n', 1)
+        end = body.index('.end method')
+        label = ':preview_queue_' + name
+        body = one(body[:end], '    invoke-virtual {v0, v1}, Lcom/melodix/music/PreviewPlayerController;->begin(I)V\n',
+            '    invoke-virtual {v0, v1}, Lcom/melodix/music/PreviewPlayerController;->begin(I)V\n    const/4 v1, ' + flag + '\n'
+            '    invoke-virtual {v0, v1}, Lcom/melodix/music/PreviewPlayerController;->queueSkip(Z)Z\n    move-result v1\n'
+            '    if-eqz v1, ' + label + '\n    return-void\n    ' + label + '\n') + body[end:]
+        a = head + '.method public final ' + name + '(Landroid/view/View;)V\n' + body
     activity.write_text(a,encoding='utf8')
     rows=root/'smali/com/melodix/music/NativeUiRowFactory.smali'
     r=rows.read_text(encoding='utf8')

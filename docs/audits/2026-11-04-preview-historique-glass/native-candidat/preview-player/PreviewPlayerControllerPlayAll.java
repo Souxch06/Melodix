@@ -24,7 +24,8 @@ final class PreviewPlayerControllerPlayAll {
         if (!(heroView instanceof ViewGroup)) return;
         final ViewGroup hero = (ViewGroup) heroView;
         float d = a.getResources().getDisplayMetrics().density;
-        shuffleOn = a.getSharedPreferences("melodix_playall", android.content.Context.MODE_PRIVATE).getBoolean("shuffle", false);
+        // One shuffle state with the player button (PreviewPlayerMode, user request 1022402).
+        PreviewPlayerMode.shuffleMode = a.getSharedPreferences("melodix_playall", android.content.Context.MODE_PRIVATE).getBoolean("shuffle", PreviewPlayerMode.shuffleMode);
         // Spotify layout (user screenshot 1022381): a right-aligned row under the header info, shuffle then a big play.
         // User feedback (1022384): clearer labelled pills across the width: white "Lecture", glass "Aléatoire".
         android.widget.LinearLayout row = new android.widget.LinearLayout(a);
@@ -41,15 +42,15 @@ final class PreviewPlayerControllerPlayAll {
             // User report (1022387): Spotify takes a moment to start; show it instead of looking frozen.
             loadingUntil = android.os.SystemClock.uptimeMillis() + 3000; v.invalidate();
             v.postDelayed(new Runnable() { public void run() { v.invalidate(); } }, 3050);
-            if (shuffleOn) random(root); else tap(root, "1");
+            if (PreviewPlayerMode.shuffleMode) random(root); else tap(root, "1");
         }});
         View shuffle = icon(a, false); shuffle.setContentDescription("Lecture aléatoire");
         // shortcut: plays a random row (Spotify's shuffle mode needs the hidden player control); upgrade with a page shuffle command.
         // User request (1022385): a visible on/off shuffle; when on, "Lecture" starts a random track.
         shuffle.setOnClickListener(new View.OnClickListener() { public void onClick(View v) {
             // User report (1022387): turning shuffle on started a track at once; it only toggles now.
-            shuffleOn = !shuffleOn; v.invalidate();
-            a.getSharedPreferences("melodix_playall", android.content.Context.MODE_PRIVATE).edit().putBoolean("shuffle", shuffleOn).apply();
+            PreviewPlayerMode.shuffleMode = !PreviewPlayerMode.shuffleMode; v.invalidate();
+            a.getSharedPreferences("melodix_playall", android.content.Context.MODE_PRIVATE).edit().putBoolean("shuffle", PreviewPlayerMode.shuffleMode).apply();
         }});
         android.widget.LinearLayout.LayoutParams sl = new android.widget.LinearLayout.LayoutParams((int) (48 * d), (int) (48 * d)); sl.rightMargin = (int) (16 * d);
         row.addView(shuffle, sl); row.addView(play, new android.widget.LinearLayout.LayoutParams((int) (60 * d), (int) (60 * d)));
@@ -78,7 +79,7 @@ final class PreviewPlayerControllerPlayAll {
             @Override protected void onDraw(Canvas c) {
                 float w = getWidth(), h = getHeight(), r = Math.min(w, h) / 2f - d, cx = w / 2f, cy = h / 2f;
                 boolean pause = play && PreviewPlayerController.headerPlaying();
-                boolean on = !play && shuffleOn, loading = play && !pause && android.os.SystemClock.uptimeMillis() < loadingUntil;
+                boolean on = !play && PreviewPlayerMode.shuffleMode, loading = play && !pause && android.os.SystemClock.uptimeMillis() < loadingUntil;
                 p.setStyle(Paint.Style.FILL);
                 if (play || on) {
                     // Soft white halo, then the white disc (same look as the mini player's play button).
@@ -302,7 +303,6 @@ final class PreviewPlayerControllerPlayAll {
         return null;
     }
     static void toast(Activity a, String m) { android.widget.Toast.makeText(a, m, android.widget.Toast.LENGTH_SHORT).show(); }
-    static boolean shuffleOn;
     static long loadingUntil;
     static void random(View root) {
         int n = 0; while (find(root, String.valueOf(n + 1)) != null && n < 500) n++;

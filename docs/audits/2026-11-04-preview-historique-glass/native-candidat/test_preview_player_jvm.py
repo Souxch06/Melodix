@@ -20,7 +20,7 @@ STUBS = {
 'com/squareup/picasso/Picasso.java': 'package com.squareup.picasso; public class Picasso { public static Picasso get(){return new Picasso();} public RequestCreator load(String u){return new RequestCreator();} }',
 'com/squareup/picasso/RequestCreator.java': 'package com.squareup.picasso; public class RequestCreator { public RequestCreator noPlaceholder(){return this;} public RequestCreator resize(int a,int b){return this;} public RequestCreator centerCrop(){return this;} public void into(android.widget.ImageView v){} }',
 'com/melodix/music/NativeImageLoader.java': 'package com.melodix.music; public class NativeImageLoader { static int loads; public static void load(android.widget.ImageView v,String u,int s){loads++;} }',
-'com/melodix/music/PreviewPlayerMode.java': 'package com.melodix.music; public class PreviewPlayerMode { public static String diagnosticReport(){return "\\nControl diagnostic";} }',
+'com/melodix/music/PreviewPlayerMode.java': 'package com.melodix.music; public class PreviewPlayerMode { static int repeatMode; static boolean shuffleMode; public static String diagnosticReport(){return "\\nControl diagnostic";} }',
 'com/melodix/music/PreviewPlayerVolume.java': 'package com.melodix.music; public class PreviewPlayerVolume { public static String diagnosticReport(){return "\\nVolume diagnostic";} }',
 'com/melodix/music/PreviewPlayerTiles.java': 'package com.melodix.music; public class PreviewPlayerTiles { public static String diagnosticReport(){return "\\nPanels diagnostic";} }',
 'android/R.java': """package android; public final class R { public static final class id { public static final int progress=0x0102000d; } }""",
@@ -321,6 +321,19 @@ public class ControllerTest {
    PreviewPlayerController pc=new PreviewPlayerController(new Activity());Handler.flush();int pb=PreviewPlayerControllerPlayAll.adds;
    pc.rowsPainted("home",null,"title=x");Handler.flush();eq(PreviewPlayerControllerPlayAll.adds,pb);
    pc.rowsPainted("detail","spotify:playlist:Pa","uri=spotify:track:P1;title=P");Handler.flush();eq(PreviewPlayerControllerPlayAll.adds,pb+1);/* 1022401: header pause only while a row of this playlist is lit and playing; expect() is safe without a track */PreviewPlayerController.expect();Handler.flush();yes(!PreviewPlayerController.headerPlaying());}
+   { // User request (1022402, free account): Melodix plays the playlist order like Spotify.
+     PreviewPlayerMode.shuffleMode=false;PreviewPlayerMode.repeatMode=0;
+     org.json.JSONArray q=new org.json.JSONArray("uri=spotify:track:A;title=A|uri=spotify:track:B;title=B|uri=spotify:track:C;title=C");
+     yes(PreviewPlayerControllerQueue.start(q,"spotify:track:B"));yes(PreviewPlayerControllerQueue.current().equals("spotify:track:B"));
+     yes("spotify:track:C".equals(PreviewPlayerControllerQueue.step(true,false)));yes(PreviewPlayerControllerQueue.step(true,false)==null);
+     yes("spotify:track:A".equals(PreviewPlayerControllerQueue.step(true,true)));yes(PreviewPlayerControllerQueue.step(false,false)==null);
+     yes("spotify:track:C".equals(PreviewPlayerControllerQueue.step(false,true)));
+     PreviewPlayerMode.shuffleMode=true;yes(PreviewPlayerControllerQueue.start(q,"spotify:track:C"));yes(PreviewPlayerControllerQueue.current().equals("spotify:track:C"));
+     java.util.HashSet<String> rest=new java.util.HashSet<String>();rest.add(PreviewPlayerControllerQueue.step(true,false));rest.add(PreviewPlayerControllerQueue.step(true,false));
+     yes(rest.contains("spotify:track:A")&&rest.contains("spotify:track:B"));yes(PreviewPlayerControllerQueue.step(true,false)==null);
+     PreviewPlayerMode.shuffleMode=false;yes(PreviewPlayerControllerQueue.moveTo("spotify:track:C"));yes(PreviewPlayerControllerQueue.step(true,false)==null);// unshuffled: C is last
+     yes(!PreviewPlayerControllerQueue.start(q,"spotify:track:Z"));yes(PreviewPlayerControllerQueue.isEmpty());
+     PreviewPlayerControllerQueue.clear(); }
   System.out.println("Preview controller JVM simulation passed");
  }
 }''',
@@ -331,6 +344,7 @@ def main():
         root = Path(tmp); files = []
         for name, content in STUBS.items():
             p = root/name; p.parent.mkdir(parents=True, exist_ok=True); p.write_text(content, encoding='utf8'); files.append(str(p))
+        files.append(str(HERE / 'preview-player/PreviewPlayerControllerQueue.java'));
         files.append(str(SOURCE)); out = root/'classes'; out.mkdir()
         java = os.environ.get('PREVIEW_TEST_JAVA', 'java')
         ecj = os.environ.get('PREVIEW_TEST_ECJ')

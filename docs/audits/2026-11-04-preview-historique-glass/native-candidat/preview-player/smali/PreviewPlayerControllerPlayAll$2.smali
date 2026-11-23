@@ -30,7 +30,7 @@
         }
     .end annotation
 
-    .line 49
+    .line 50
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$2;->val$a:Landroid/app/Activity;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -43,16 +43,16 @@
 .method public onClick(Landroid/view/View;)V
     .locals 2
 
-    .line 51
-    sget-boolean v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->shuffleOn:Z
+    .line 52
+    sget-boolean v0, Lcom/melodix/music/PreviewPlayerMode;->shuffleMode:Z
 
     xor-int/lit8 v0, v0, 0x1
 
-    sput-boolean v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->shuffleOn:Z
+    sput-boolean v0, Lcom/melodix/music/PreviewPlayerMode;->shuffleMode:Z
 
     invoke-virtual {p1}, Landroid/view/View;->invalidate()V
 
-    .line 52
+    .line 53
     iget-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$2;->val$a:Landroid/app/Activity;
 
     const-string v0, "melodix_playall"
@@ -69,7 +69,7 @@
 
     const-string v0, "shuffle"
 
-    sget-boolean v1, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->shuffleOn:Z
+    sget-boolean v1, Lcom/melodix/music/PreviewPlayerMode;->shuffleMode:Z
 
     invoke-interface {p1, v0, v1}, Landroid/content/SharedPreferences$Editor;->putBoolean(Ljava/lang/String;Z)Landroid/content/SharedPreferences$Editor;
 
@@ -77,6 +77,6 @@
 
     invoke-interface {p1}, Landroid/content/SharedPreferences$Editor;->apply()V
 
-    .line 53
+    .line 54
     return-void
 .end method

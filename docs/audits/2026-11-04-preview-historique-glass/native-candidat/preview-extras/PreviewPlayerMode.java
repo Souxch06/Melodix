@@ -64,6 +64,28 @@ public final class PreviewPlayerMode extends ImageButton {
     private static boolean shuffleLocked;
     // Repeat-one handled by the page script when Spotify greys its own repeat (user request 1022301).
     private static boolean appLoop;
+    // User request (1022402, free account): Spotify greys repeat/shuffle on the web, so Melodix owns them like the
+    // Spotify app: repeat off -> playlist -> track, shuffle on/off. PreviewPlayerControllerQueue plays the order.
+    static boolean melodixOwned = true;
+    static int repeatMode; static boolean shuffleMode; private static boolean modeLoaded;
+    private boolean owned() { return melodixOwned && (kind.equals("repeat") || kind.equals("shuffle")); }
+    private void loadModes() {
+        if (modeLoaded) return; modeLoaded = true;
+        try { android.content.SharedPreferences p = getContext().getSharedPreferences("melodix_playall", Context.MODE_PRIVATE);
+            repeatMode = Math.max(0, Math.min(2, p.getInt("repeat", 0))); shuffleMode = p.getBoolean("shuffle", false); } catch (RuntimeException ignored) { }
+    }
+    private void saveModes() {
+        try { getContext().getSharedPreferences("melodix_playall", Context.MODE_PRIVATE).edit().putInt("repeat", repeatMode).putBoolean("shuffle", shuffleMode).apply(); } catch (RuntimeException ignored) { }
+    }
+    private void paintOwned() {
+        loadModes();
+        boolean on; String icon, desc;
+        if (kind.equals("repeat")) { on = repeatMode != 0; icon = repeatMode == 2 ? "repone" : on ? "repon" : "repoff";
+            desc = repeatMode == 2 ? "Répéter le titre" : on ? "Répéter la liste" : "Répétition désactivée"; }
+        else { on = shuffleMode; icon = "shuffle"; desc = on ? "Lecture aléatoire activée" : "Lecture aléatoire désactivée"; }
+        int id = drawable(icon); if (id != 0) setImageResource(id);
+        setColorFilter(on ? 0xffffffff : 0xffa1a1aa); setContentDescription(desc); setEnabled(true); setAlpha(1f); invalidate();
+    }
     private static boolean appLoopSeen; // Melodix owns repeat: off is a real state, not unknown (report 1022398)
     private static final String LOCKED = "Lecture aléatoire activée (imposée par Spotify)";
     private long generation, querySerial, lastTap = -1000, visibleSince, queryStarted;
@@ -77,7 +99,7 @@ public final class PreviewPlayerMode extends ImageButton {
     }
     private final Runnable tick = new Runnable() { public void run() {
         if (!running || !isShown() || getWindowVisibility()!=View.VISIBLE) return;
-        paint(); observe(); handler.postDelayed(this, 800);
+        paint(); if (!owned()) observe(); handler.postDelayed(this, 800);
     }};
 
     public PreviewPlayerMode(Context c, AttributeSet a) {
@@ -168,6 +190,13 @@ public final class PreviewPlayerMode extends ImageButton {
     }
     private void invoke() {
         long t=SystemClock.elapsedRealtime();
+        if (owned()) {
+            if (t - lastTap < 250) return; lastTap = t; loadModes();
+            if (kind.equals("repeat")) repeatMode = (repeatMode + 1) % 3; else shuffleMode = !shuffleMode;
+            saveModes(); performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+            setScaleX(0.8f); setScaleY(0.8f); animate().scaleX(1f).scaleY(1f).setDuration(220).start();
+            paintOwned(); return;
+        }
         if(!running || !isShown() || getWindowVisibility()!=View.VISIBLE || t-lastTap<TAP_GUARD_MS)return;
         // User report (1022375): a tap during the 7 s confirmation wait was dropped silently ("button does not react").
         // After 1.2 s a new explicit tap replaces the unconfirmed one; earlier it gets a visible "busy" feedback.
@@ -269,6 +298,7 @@ public final class PreviewPlayerMode extends ImageButton {
         animate().scaleX(p?0.86f:1f).scaleY(p?0.86f:1f).setDuration(p?90:220).setInterpolator(p?null:new android.view.animation.OvershootInterpolator(2f)).start();
     }
     private void paint() {
+        if (owned()) { paintOwned(); return; }
         boolean known=!state.equals("unknown");
         String shown=state;
         if((kind.equals("shuffle")||kind.equals("like")) && pending)shown=pendingState.equals("false")?"true":pendingState.equals("true")?"false":"unknown";

@@ -42,7 +42,7 @@
         }
     .end annotation
 
-    .line 295
+    .line 296
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$18$1$1;->this$1:Lcom/melodix/music/PreviewPlayerControllerPlayAll$18$1;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -63,7 +63,7 @@
         }
     .end annotation
 
-    .line 295
+    .line 296
     check-cast p1, Ljava/lang/String;
 
     invoke-virtual {p0, p1}, Lcom/melodix/music/PreviewPlayerControllerPlayAll$18$1$1;->onReceiveValue(Ljava/lang/String;)V
@@ -74,7 +74,7 @@
 .method public onReceiveValue(Ljava/lang/String;)V
     .locals 2
 
-    .line 296
+    .line 297
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$18$1$1;->this$1:Lcom/melodix/music/PreviewPlayerControllerPlayAll$18$1;
 
     iget-object v0, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$18$1;->this$0:Lcom/melodix/music/PreviewPlayerControllerPlayAll$18;

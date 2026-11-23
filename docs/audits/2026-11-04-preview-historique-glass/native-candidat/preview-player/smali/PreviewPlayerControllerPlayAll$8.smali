@@ -32,14 +32,14 @@
 .method constructor <init>(Landroid/content/Context;Landroid/app/Activity;Landroid/app/Dialog;)V
     .locals 0
 
-    .line 154
+    .line 155
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$8;->val$a:Landroid/app/Activity;
 
     iput-object p3, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$8;->val$dlg:Landroid/app/Dialog;
 
     invoke-direct {p0, p1}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
 
-    .line 155
+    .line 156
     iget-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$8;->val$a:Landroid/app/Activity;
 
     invoke-static {p1}, Landroid/view/ViewConfiguration;->get(Landroid/content/Context;)Landroid/view/ViewConfiguration;
@@ -60,7 +60,7 @@
 .method public onInterceptTouchEvent(Landroid/view/MotionEvent;)Z
     .locals 2
 
-    .line 157
+    .line 158
     invoke-virtual {p1}, Landroid/view/MotionEvent;->getActionMasked()I
 
     move-result v0
@@ -79,7 +79,7 @@
 
     goto :goto_0
 
-    .line 158
+    .line 159
     :cond_0
     invoke-virtual {p1}, Landroid/view/MotionEvent;->getActionMasked()I
 
@@ -109,7 +109,7 @@
 
     iput-boolean p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$8;->drag:Z
 
-    .line 159
+    .line 160
     :cond_1
     :goto_0
     iget-boolean p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$8;->drag:Z
@@ -120,12 +120,12 @@
 .method public onTouchEvent(Landroid/view/MotionEvent;)Z
     .locals 4
 
-    .line 162
+    .line 163
     invoke-virtual {p1}, Landroid/view/MotionEvent;->getActionMasked()I
 
     move-result v0
 
-    .line 163
+    .line 164
     const/4 v1, 0x1
 
     if-nez v0, :cond_0
@@ -138,7 +138,7 @@
 
     return v1
 
-    .line 164
+    .line 165
     :cond_0
     invoke-virtual {p1}, Landroid/view/MotionEvent;->getRawY()F
 
@@ -156,7 +156,7 @@
 
     iput p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$8;->dy:F
 
-    .line 165
+    .line 166
     const/4 p1, 0x2
 
     if-ne v0, p1, :cond_1
@@ -167,7 +167,7 @@
 
     return v1
 
-    .line 166
+    .line 167
     :cond_1
     if-eq v0, v1, :cond_3
 
@@ -177,11 +177,11 @@
 
     goto :goto_0
 
-    .line 171
+    .line 172
     :cond_2
     return v1
 
-    .line 167
+    .line 168
     :cond_3
     :goto_0
     iget p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$8;->dy:F
@@ -208,7 +208,7 @@
 
     goto :goto_1
 
-    .line 168
+    .line 169
     :cond_4
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerControllerPlayAll$8;->animate()Landroid/view/ViewPropertyAnimator;
 
@@ -234,7 +234,7 @@
 
     invoke-virtual {p1}, Landroid/view/ViewPropertyAnimator;->start()V
 
-    .line 169
+    .line 170
     :goto_1
     const/4 p1, 0x0
 

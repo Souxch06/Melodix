@@ -43,7 +43,7 @@
         }
     .end annotation
 
-    .line 187
+    .line 221
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerMode$5;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
     iput-wide p2, p0, Lcom/melodix/music/PreviewPlayerMode$5;->val$g:J
@@ -58,12 +58,12 @@
 .method public run()V
     .locals 4
 
-    .line 188
+    .line 222
     iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerMode$5;->val$g:J
 
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerMode$5;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
-    invoke-static {v2}, Lcom/melodix/music/PreviewPlayerMode;->access$500(Lcom/melodix/music/PreviewPlayerMode;)J
+    invoke-static {v2}, Lcom/melodix/music/PreviewPlayerMode;->access$600(Lcom/melodix/music/PreviewPlayerMode;)J
 
     move-result-wide v2
 
@@ -73,7 +73,7 @@
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode$5;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$1200(Lcom/melodix/music/PreviewPlayerMode;)Z
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$1300(Lcom/melodix/music/PreviewPlayerMode;)Z
 
     move-result v0
 
@@ -81,9 +81,9 @@
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode$5;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$2400(Lcom/melodix/music/PreviewPlayerMode;)V
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$2500(Lcom/melodix/music/PreviewPlayerMode;)V
 
-    .line 189
+    .line 223
     :cond_0
     return-void
 .end method

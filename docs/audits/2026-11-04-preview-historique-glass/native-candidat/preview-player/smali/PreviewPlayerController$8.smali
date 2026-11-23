@@ -43,7 +43,7 @@
         }
     .end annotation
 
-    .line 810
+    .line 867
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerController$8;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     iput-wide p2, p0, Lcom/melodix/music/PreviewPlayerController$8;->val$id:J
@@ -58,7 +58,7 @@
 .method public run()V
     .locals 4
 
-    .line 811
+    .line 868
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$8;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$4300(Lcom/melodix/music/PreviewPlayerController;)Z

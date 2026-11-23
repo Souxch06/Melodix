@@ -34,7 +34,7 @@
         }
     .end annotation
 
-    .line 200
+    .line 201
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$12;->val$a:Landroid/app/Activity;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$12;->val$track:Lorg/json/JSONObject;
@@ -51,7 +51,7 @@
 .method public run()V
     .locals 3
 
-    .line 202
+    .line 203
     new-instance v0, Landroid/app/AlertDialog$Builder;
 
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$12;->val$a:Landroid/app/Activity;
@@ -74,7 +74,7 @@
 
     move-result-object v0
 
-    .line 203
+    .line 204
     const-string v1, "Annuler"
 
     const/4 v2, 0x0
@@ -87,16 +87,16 @@
 
     invoke-direct {v1, p0}, Lcom/melodix/music/PreviewPlayerControllerPlayAll$12$1;-><init>(Lcom/melodix/music/PreviewPlayerControllerPlayAll$12;)V
 
-    .line 204
+    .line 205
     const-string v2, "Supprimer"
 
     invoke-virtual {v0, v2, v1}, Landroid/app/AlertDialog$Builder;->setPositiveButton(Ljava/lang/CharSequence;Landroid/content/DialogInterface$OnClickListener;)Landroid/app/AlertDialog$Builder;
 
     move-result-object v0
 
-    .line 205
+    .line 206
     invoke-virtual {v0}, Landroid/app/AlertDialog$Builder;->show()Landroid/app/AlertDialog;
 
-    .line 206
+    .line 207
     return-void
 .end method

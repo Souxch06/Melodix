@@ -34,7 +34,7 @@
         }
     .end annotation
 
-    .line 213
+    .line 214
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$13;->val$panel:Landroid/view/View;
 
     iput p2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$13;->val$d:F
@@ -51,7 +51,7 @@
 .method public onShow(Landroid/content/DialogInterface;)V
     .locals 5
 
-    .line 214
+    .line 215
     iget-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$13;->val$panel:Landroid/view/View;
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$13;->val$panel:Landroid/view/View;
@@ -82,7 +82,7 @@
     :goto_0
     invoke-virtual {p1, v0}, Landroid/view/View;->setTranslationY(F)V
 
-    .line 215
+    .line 216
     iget-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$13;->val$panel:Landroid/view/View;
 
     invoke-virtual {p1}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
@@ -113,13 +113,13 @@
 
     invoke-virtual {p1}, Landroid/view/ViewPropertyAnimator;->start()V
 
-    .line 216
+    .line 217
     iget-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$13;->val$w:Landroid/view/Window;
 
     const v3, 0x3f19999a    # 0.6f
 
     invoke-static {p1, v0, v3, v1, v2}, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->dim(Landroid/view/Window;FFJ)V
 
-    .line 217
+    .line 218
     return-void
 .end method

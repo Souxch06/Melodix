@@ -12,7 +12,8 @@ stubs={
 'android/util/AttributeSet.java':'package android.util; public interface AttributeSet {}',
 'android/util/DisplayMetrics.java':'package android.util; public class DisplayMetrics { public float density=1; }',
 'android/content/res/Resources.java':'package android.content.res; public class Resources { public int getIdentifier(String n,String t,String p){return 1;} public android.util.DisplayMetrics getDisplayMetrics(){return new android.util.DisplayMetrics();} }',
-'android/content/Context.java':'package android.content; public class Context { public String getPackageName(){return "preview";} public android.content.res.Resources getResources(){return new android.content.res.Resources();} }',
+'android/content/SharedPreferences.java':'package android.content; public class SharedPreferences { public static java.util.HashMap<String,Object> m=new java.util.HashMap<String,Object>(); public int getInt(String k,int d){Object v=m.get(k);return v==null?d:(Integer)v;} public boolean getBoolean(String k,boolean d){Object v=m.get(k);return v==null?d:(Boolean)v;} public Editor edit(){return new Editor();} public class Editor { public Editor putInt(String k,int v){m.put(k,v);return this;} public Editor putBoolean(String k,boolean v){m.put(k,v);return this;} public void apply(){} } }',
+'android/content/Context.java':'package android.content; public class Context { public static final int MODE_PRIVATE=0; public SharedPreferences getSharedPreferences(String n,int mode){return new SharedPreferences();} public String getPackageName(){return "preview";} public android.content.res.Resources getResources(){return new android.content.res.Resources();} }',
 'android/content/ContextWrapper.java':'package android.content; public class ContextWrapper extends Context { public Context getBaseContext(){return this;} }',
 'android/app/Activity.java':'package android.app; public class Activity extends android.content.ContextWrapper { public android.webkit.WebView G; public android.view.View title; public android.view.View findViewById(int id){return title;} }',
 'android/os/Looper.java':'package android.os; public class Looper { public static Looper getMainLooper(){return new Looper();} }',
@@ -33,6 +34,7 @@ stubs={
  static PreviewPlayerMode boot(Activity a,String kind){Handler.clear();Toast.count=0;PreviewPlayerMode m=new PreviewPlayerMode(a,null);m.setTag(kind);m.onAttachedToWindow();return m;}
  static Activity page(){Activity a=new Activity();a.G=new WebView(a);TextView title=new TextView(a);title.text="Titre";a.title=title;return a;}
  public static void main(String[] z) throws Exception {
+ PreviewPlayerMode.melodixOwned=false; // page-job path below; the Melodix-owned path is checked at the end
  for(String kind:new String[]{"like","shuffle","repeat"}){
   Activity a=page();PreviewPlayerMode m=boot(a,kind);ok(kind.equals("like")?m.enabled:!m.enabled);ok(m.description.startsWith("Chargement :"));
   // Control not recognised in the narrow bar: the button stays usable but neutral, never a fake state.
@@ -82,6 +84,15 @@ stubs={
  java.lang.reflect.Field pending=PreviewPlayerMode.class.getDeclaredField("pending");pending.setAccessible(true);ok(pending.getBoolean(like));
  ((TextView)t.title).text="Autre";Handler.advance(250);t.G.reply("status=done;outcome=confirmed;state=true;method=direct");
  java.lang.reflect.Field modeState=PreviewPlayerMode.class.getDeclaredField("state");modeState.setAccessible(true);ok(modeState.get(like).equals("unknown"));ok(Toast.message.contains("Réessayer"));ok(!PreviewPlayerMode.diagnosticReport().contains("track:abc"));like.onDetachedFromWindow();
+ // User request (1022402, free account): Melodix owns repeat (off -> playlist -> track) and shuffle, like Spotify; no page job.
+ PreviewPlayerMode.melodixOwned=true;
+ { Activity o=page();PreviewPlayerMode orp=boot(o,"repeat");Handler.step();Handler.advance(2500);ok(orp.enabled);ok(orp.description.equals("Répétition désactivée"));int c0=o.G.calls;
+   SystemClock.t+=401;orp.performClick();ok(orp.description.equals("Répéter la liste"));ok(PreviewPlayerMode.repeatMode==1);
+   SystemClock.t+=401;orp.performClick();ok(orp.description.equals("Répéter le titre"));ok(PreviewPlayerMode.repeatMode==2);
+   SystemClock.t+=401;orp.performClick();ok(orp.description.equals("Répétition désactivée"));ok(PreviewPlayerMode.repeatMode==0);ok(o.G.calls==c0);
+   PreviewPlayerMode osh=boot(o,"shuffle");Handler.step();Handler.advance(2500);ok(osh.description.equals("Lecture aléatoire désactivée"));
+   SystemClock.t+=401;osh.performClick();ok(PreviewPlayerMode.shuffleMode);ok(osh.description.equals("Lecture aléatoire activée"));ok(Boolean.TRUE.equals(android.content.SharedPreferences.m.get("shuffle")));ok(o.G.calls==c0);
+   PreviewPlayerMode.shuffleMode=false;orp.onDetachedFromWindow();osh.onDetachedFromWindow(); }
  System.out.println("Player mode JVM simulation passed"); }
 }'''
 }

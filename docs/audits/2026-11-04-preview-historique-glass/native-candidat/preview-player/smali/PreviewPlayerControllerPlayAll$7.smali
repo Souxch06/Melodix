@@ -18,7 +18,7 @@
 .method constructor <init>(Landroid/content/Context;)V
     .locals 0
 
-    .line 147
+    .line 148
     invoke-direct {p0, p1}, Landroid/app/Dialog;-><init>(Landroid/content/Context;)V
 
     return-void
@@ -29,7 +29,7 @@
 .method public onBackPressed()V
     .locals 1
 
-    .line 149
+    .line 150
     const/4 v0, 0x0
 
     invoke-static {p0, v0}, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->close(Landroid/app/Dialog;Ljava/lang/Runnable;)V
@@ -40,7 +40,7 @@
 .method public onTouchEvent(Landroid/view/MotionEvent;)Z
     .locals 1
 
-    .line 150
+    .line 151
     invoke-virtual {p1}, Landroid/view/MotionEvent;->getActionMasked()I
 
     move-result v0

@@ -32,7 +32,7 @@
         }
     .end annotation
 
-    .line 196
+    .line 197
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$10;->val$a:Landroid/app/Activity;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$10;->val$id:Ljava/lang/String;
@@ -47,7 +47,7 @@
 .method public run()V
     .locals 4
 
-    .line 197
+    .line 198
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$10;->val$a:Landroid/app/Activity;
 
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$10;->val$id:Ljava/lang/String;

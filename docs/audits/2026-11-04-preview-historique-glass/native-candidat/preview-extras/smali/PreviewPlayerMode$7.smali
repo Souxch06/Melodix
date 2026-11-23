@@ -47,7 +47,7 @@
         }
     .end annotation
 
-    .line 200
+    .line 234
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerMode$7;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
     iput-wide p2, p0, Lcom/melodix/music/PreviewPlayerMode$7;->val$g:J
@@ -64,12 +64,12 @@
 .method public run()V
     .locals 4
 
-    .line 201
+    .line 235
     iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerMode$7;->val$g:J
 
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerMode$7;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
-    invoke-static {v2}, Lcom/melodix/music/PreviewPlayerMode;->access$500(Lcom/melodix/music/PreviewPlayerMode;)J
+    invoke-static {v2}, Lcom/melodix/music/PreviewPlayerMode;->access$600(Lcom/melodix/music/PreviewPlayerMode;)J
 
     move-result-wide v2
 
@@ -79,7 +79,7 @@
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode$7;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$1200(Lcom/melodix/music/PreviewPlayerMode;)Z
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$1300(Lcom/melodix/music/PreviewPlayerMode;)Z
 
     move-result v0
 
@@ -87,11 +87,11 @@
 
     goto :goto_1
 
-    .line 202
+    .line 236
     :cond_0
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode$7;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$2600(Lcom/melodix/music/PreviewPlayerMode;)Landroid/webkit/WebView;
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$2700(Lcom/melodix/music/PreviewPlayerMode;)Landroid/webkit/WebView;
 
     move-result-object v0
 
@@ -99,11 +99,11 @@
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode$7;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$2400(Lcom/melodix/music/PreviewPlayerMode;)V
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$2500(Lcom/melodix/music/PreviewPlayerMode;)V
 
     return-void
 
-    .line 203
+    .line 237
     :cond_1
     :try_start_0
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerMode$7;->this$0:Lcom/melodix/music/PreviewPlayerMode;
@@ -112,11 +112,11 @@
 
     iget-object v3, p0, Lcom/melodix/music/PreviewPlayerMode$7;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
-    invoke-static {v3}, Lcom/melodix/music/PreviewPlayerMode;->access$1400(Lcom/melodix/music/PreviewPlayerMode;)Ljava/lang/String;
+    invoke-static {v3}, Lcom/melodix/music/PreviewPlayerMode;->access$1500(Lcom/melodix/music/PreviewPlayerMode;)Ljava/lang/String;
 
     move-result-object v3
 
-    invoke-static {v1, v2, v3}, Lcom/melodix/music/PreviewPlayerMode;->access$2700(Lcom/melodix/music/PreviewPlayerMode;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    invoke-static {v1, v2, v3}, Lcom/melodix/music/PreviewPlayerMode;->access$2800(Lcom/melodix/music/PreviewPlayerMode;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
 
     move-result-object v1
 
@@ -128,7 +128,7 @@
     :try_end_0
     .catch Ljava/lang/RuntimeException; {:try_start_0 .. :try_end_0} :catch_0
 
-    .line 209
+    .line 243
     goto :goto_0
 
     :catch_0
@@ -136,13 +136,13 @@
 
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerMode$7;->this$0:Lcom/melodix/music/PreviewPlayerMode;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$2400(Lcom/melodix/music/PreviewPlayerMode;)V
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerMode;->access$2500(Lcom/melodix/music/PreviewPlayerMode;)V
 
-    .line 210
+    .line 244
     :goto_0
     return-void
 
-    .line 201
+    .line 235
     :cond_2
     :goto_1
     return-void
