@@ -63,7 +63,7 @@
         }
     .end annotation
 
-    .line 298
+    .line 299
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iput p2, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$i:I
@@ -86,24 +86,30 @@
 
 # virtual methods
 .method public onClick(Landroid/view/View;)V
-    .locals 7
+    .locals 9
 
-    .line 298
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
+    .line 299
+    const/4 v0, 0x3
 
-    iget v1, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$i:I
+    invoke-virtual {p1, v0}, Landroid/view/View;->performHapticFeedback(I)Z
 
-    iget-object v2, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$a:Landroid/app/Activity;
+    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-    iget-object v3, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$dialog:Landroid/app/Dialog;
+    iget v2, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$i:I
 
-    iget-object v4, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$list:Landroid/widget/LinearLayout;
+    iget-object v3, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$a:Landroid/app/Activity;
 
-    iget-object v5, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$retry:Landroid/widget/Button;
+    iget-object v4, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$dialog:Landroid/app/Dialog;
 
-    iget-object v6, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$name:Ljava/lang/String;
+    iget-object v5, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$list:Landroid/widget/LinearLayout;
 
-    invoke-static/range {v0 .. v6}, Lcom/melodix/music/PreviewPlayerTiles;->access$2700(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;)V
+    iget-object v6, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$retry:Landroid/widget/Button;
+
+    const-string v7, "transfer"
+
+    iget-object v8, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$name:Ljava/lang/String;
+
+    invoke-static/range {v1 .. v8}, Lcom/melodix/music/PreviewPlayerTiles;->access$2600(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
 
     return-void
 .end method

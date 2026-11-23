@@ -68,18 +68,17 @@ stubs.update({
   ok(((TextView)ll.children.get(0)).text.equals("Ligne un")&&((TextView)ll.children.get(1)).text.equals("Ligne deux"));ok(PreviewPlayerTiles.diagnosticReport().contains("lines:2:sync"));
   ((Button)ls.children.get(3)).performClick();c.G.reply("status=started;id=100:1");Handler.advance(250);c.G.reply("status=done;id=100:1;ok=false;reason=panel");ok(((TextView)ll.children.get(0)).text.contains("Paroles indisponibles"));
   View handle=ls.children.get(0);handle.touch.onTouch(handle,new MotionEvent(0,100));handle.touch.onTouch(handle,new MotionEvent(2,400));handle.touch.onTouch(handle,new MotionEvent(1,400));ok(!lyricsDialog.shown);
-  // Devices: list with active device; a transfer needs an explicit confirmation.
+  // Devices: list with active device; one tap transfers, like Spotify (user choice 1022411).
   Handler.advance(401);int dc=c.G.calls;t.children.get(2).performClick();Dialog devicesDialog=Dialog.last;ok(c.G.calls==dc+2);ok(c.root.getVisibility()==original);
   LinearLayout ds=(LinearLayout)devicesDialog.content;LinearLayout dl=(LinearLayout)((ScrollView)ds.children.get(2)).child;
   c.G.replyCall(dc+1,"status=started;id=100:1");Handler.advance(250);c.G.reply("status=done;id=100:1;ok=true;body=Salon\\tEnceinte\\t\\nCe navigateur\\t\\t1;journal=opened>devices:2>closed");
   Button salon=device(dl,"Salon"),self=device(dl,"Ce navigateur");ok(String.valueOf(salon.text).contains("Salon\\nEnceinte"));ok(String.valueOf(self.text).contains("Actif"));
   /* Spotify order (1022410): the current device first, under "Appareil actuel" */ok(dl.children.indexOf(self)<dl.children.indexOf(salon));ok(((TextView)dl.children.get(0)).text.equals("Appareil actuel"));
-  int before=c.G.calls;salon.performClick();ok(c.G.calls==before);Dialog ask=Dialog.last;ok(ask!=devicesDialog&&ask.shown);
-  LinearLayout box=(LinearLayout)ask.content;((Button)box.children.get(2)).performClick();ok(c.G.calls==before+1);ok(c.G.js.contains("\\"transfer\\"")&&c.G.js.contains("\\"Salon\\""));
+  int before=c.G.calls;salon.performClick();ok(Dialog.last==devicesDialog);ok(c.G.calls==before+1);ok(c.G.js.contains("\\"transfer\\"")&&c.G.js.contains("\\"Salon\\""));
   c.G.reply("status=started;id=100:1");Handler.advance(250);c.G.reply("status=done;id=100:1;ok=true;transferred=true");ok(Toast.message.contains("transférée (vérifié)"));
   // Re-read devices, then separate transfer confirmation from uncertain cleanup.
   c.G.reply("status=started;id=100:2");Handler.advance(250);c.G.reply("status=done;id=100:2;ok=true;body=Salon\\tEnceinte\\t\\nCe navigateur\\t\\t1;journal=opened>devices:2>closed");
-  device(dl,"Salon").performClick();ask=Dialog.last;box=(LinearLayout)ask.content;((Button)box.children.get(2)).performClick();
+  device(dl,"Salon").performClick();
   c.G.reply("status=started;id=100:3");Handler.advance(250);int beforeCloseWarning=c.G.calls;
   c.G.reply("status=done;id=100:3;ok=false;transferred=true;reason=close-unverified;journal=transfer:verified>close:unverified");
   ok(Toast.message.contains("Transfert confirmé")&&Toast.message.contains("fermeture non confirmée"));ok(c.G.calls==beforeCloseWarning);ok(((TextView)dl.children.get(0)).text.contains("Fermeture"));

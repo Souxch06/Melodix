@@ -3,12 +3,12 @@
 .source "PreviewPlayerTiles.java"
 
 # interfaces
-.implements Ljava/lang/Runnable;
+.implements Landroid/view/View$OnClickListener;
 
 
 # annotations
 .annotation system Ldalvik/annotation/EnclosingMethod;
-    value = Lcom/melodix/music/PreviewPlayerTiles;->onVisibilityChanged(Landroid/view/View;I)V
+    value = Lcom/melodix/music/PreviewPlayerTiles;-><init>(Landroid/content/Context;Landroid/util/AttributeSet;)V
 .end annotation
 
 .annotation system Ldalvik/annotation/InnerClass;
@@ -20,21 +20,33 @@
 # instance fields
 .field final synthetic this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
+.field final synthetic val$n:I
+
 
 # direct methods
-.method constructor <init>(Lcom/melodix/music/PreviewPlayerTiles;)V
+.method constructor <init>(Lcom/melodix/music/PreviewPlayerTiles;I)V
     .locals 0
     .annotation system Ldalvik/annotation/MethodParameters;
         accessFlags = {
-            0x8010
+            0x8010,
+            0x1010
         }
         names = {
+            null,
             null
         }
     .end annotation
 
-    .line 399
+    .annotation system Ldalvik/annotation/Signature;
+        value = {
+            "()V"
+        }
+    .end annotation
+
+    .line 407
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$22;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
+
+    iput p2, p0, Lcom/melodix/music/PreviewPlayerTiles$22;->val$n:I
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
@@ -43,13 +55,15 @@
 
 
 # virtual methods
-.method public run()V
+.method public onClick(Landroid/view/View;)V
     .locals 1
 
-    .line 399
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$22;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
+    .line 407
+    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$22;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$4300(Lcom/melodix/music/PreviewPlayerTiles;)V
+    iget v0, p0, Lcom/melodix/music/PreviewPlayerTiles$22;->val$n:I
+
+    invoke-static {p1, v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$4300(Lcom/melodix/music/PreviewPlayerTiles;I)V
 
     return-void
 .end method

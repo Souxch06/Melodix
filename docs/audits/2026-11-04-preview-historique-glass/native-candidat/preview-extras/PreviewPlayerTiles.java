@@ -295,19 +295,11 @@ public final class PreviewPlayerTiles extends LinearLayout {
             b.setTextColor(current?Color.WHITE:0xffded4ed);b.setAllCaps(false);b.setMinimumHeight(dp(64));b.setPadding(dp(16),dp(8),dp(16),dp(8));
             b.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);b.setBackgroundTintList(null);b.setBackground(PreviewPlayerSheet.actionBackground(a,current));
             b.setContentDescription(name+(current?", appareil actif":", transférer la lecture vers cet appareil"));
-            if(!current)b.setOnClickListener(new View.OnClickListener(){public void onClick(View v){confirmTransfer(i,a,dialog,list,retry,name);}});
+            // Like Spotify (user choice 1022411): one tap on a device transfers playback, no confirmation.
+            if(!current)b.setOnClickListener(new View.OnClickListener(){public void onClick(View v){v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);loadPanel(i,a,dialog,list,retry,"transfer",name);}});
             LinearLayout.LayoutParams bl=new LinearLayout.LayoutParams(-1,-2);bl.bottomMargin=dp(8);list.addView(b,bl);
         }
         riseAll(list);
-    }
-    private void confirmTransfer(final int i,final Activity a,final Dialog dialog,final LinearLayout list,final Button retry,final String name){
-        final Dialog ask=new Dialog(a);LinearLayout box=new LinearLayout(a);box.setOrientation(VERTICAL);box.setPadding(dp(20),dp(16),dp(20),dp(16));
-        box.setBackground(PreviewPlayerSheet.background(a));
-        box.addView(line(a,"Transférer la lecture vers « "+name+" » ?",Color.WHITE,17),new LinearLayout.LayoutParams(-1,-2));
-        Button no=new Button(a);no.setText("Annuler");no.setMinimumHeight(dp(48));no.setOnClickListener(new View.OnClickListener(){public void onClick(View v){ask.dismiss();}});
-        Button yes=new Button(a);yes.setText("Confirmer");yes.setContentDescription("Confirmer le transfert vers "+name);yes.setMinimumHeight(dp(48));yes.setOnClickListener(new View.OnClickListener(){public void onClick(View v){ask.dismiss();loadPanel(i,a,dialog,list,retry,"transfer",name);}});
-        box.addView(no,new LinearLayout.LayoutParams(-1,dp(48)));box.addView(yes,new LinearLayout.LayoutParams(-1,dp(48)));
-        ask.setContentView(box);ask.show();Window w=ask.getWindow();if(w!=null)w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
     }
     private void loadPanel(final int i,final Activity a,final Dialog dialog,final LinearLayout list,final Button retry,final String action,final String target){
         final long serial=++panelSerial;panelJobId="";panelJobPending=false;if(!lyricsLive)skeleton(a,list);retry.setEnabled(false);final String kind=i==1?"lyrics":"devices";
