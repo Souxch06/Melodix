@@ -47,7 +47,7 @@
         }
     .end annotation
 
-    .line 360
+    .line 363
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$15;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerTiles$15;->val$current:[Landroid/widget/TextView;
@@ -64,7 +64,7 @@
 .method public run()V
     .locals 5
 
-    .line 360
+    .line 363
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$15;->val$current:[Landroid/widget/TextView;
 
     const/4 v1, 0x0

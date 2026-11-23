@@ -80,9 +80,9 @@ stubs.update({
   Handler.advance(401);int rc=c.G.calls;t.children.get(1).performClick();Dialog rd=Dialog.last;c.G.replyCall(rc+1,"status=blocked");ok(c.G.js.contains("__melodixDrawerUnsafe=false"));
   int afterRecover=c.G.calls;Handler.advance(500);ok(c.G.calls>afterRecover);ok(c.G.js.contains("\\"lyrics\\""));int retried=c.G.calls;c.G.reply("status=blocked");ok(c.G.calls==retried);/* one retry only */rd.dismiss();
   // Devices: list with active device; one tap transfers, like Spotify (user choice 1022411).
-  Handler.advance(401);int dc=c.G.calls;t.children.get(2).performClick();Dialog devicesDialog=Dialog.last;ok(c.G.calls==dc+2);ok(c.root.getVisibility()==original);
+  Handler.advance(401);int dc=c.G.calls;t.children.get(2).performClick();Dialog devicesDialog=Dialog.last;/* probe, lyrics cleanup (1022420), job */ok(c.G.calls==dc+3);ok(c.G.callbacks.size()>dc+2);ok(c.root.getVisibility()==original);
   LinearLayout ds=(LinearLayout)devicesDialog.content;LinearLayout dl=(LinearLayout)((ScrollView)ds.children.get(2)).child;
-  c.G.replyCall(dc+1,"status=started;id=100:1");Handler.advance(250);c.G.reply("status=done;id=100:1;ok=true;body=Salon\\tEnceinte\\t\\nCe navigateur\\t\\t1;journal=opened>devices:2>closed");
+  c.G.replyCall(dc+2,"status=started;id=100:1");Handler.advance(250);c.G.reply("status=done;id=100:1;ok=true;body=Salon\\tEnceinte\\t\\nCe navigateur\\t\\t1;journal=opened>devices:2>closed");
   Button salon=device(dl,"Salon"),self=device(dl,"Ce navigateur");ok(String.valueOf(salon.text).contains("Salon\\nEnceinte"));ok(String.valueOf(self.text).contains("Actif"));
   /* Spotify order (1022410): the current device first, under "Appareil actuel" */ok(dl.children.indexOf(self)<dl.children.indexOf(salon));ok(((TextView)dl.children.get(0)).text.equals("Appareil actuel"));
   int before=c.G.calls;salon.performClick();ok(Dialog.last==devicesDialog);ok(c.G.calls==before+1);ok(c.G.js.contains("\\"transfer\\"")&&c.G.js.contains("\\"Salon\\""));
@@ -95,9 +95,9 @@ stubs.update({
   ok(Toast.message.contains("Transfert confirmé")&&Toast.message.contains("fermeture non confirmée"));ok(c.G.calls==beforeCloseWarning);ok(((TextView)dl.children.get(0)).text.contains("Fermeture"));
   devicesDialog.dismiss();
   // Queue: skeleton, one page job, polling, then now-playing and up-next rows.
-  Handler.advance(401);int calls=c.G.calls;t.children.get(0).performClick();ok(Dialog.last.shown);ok(c.root.getVisibility()==original);ok(c.G.calls==calls+2);ok(c.G.js.contains("\\"run\\""));
+  Handler.advance(401);int calls=c.G.calls;t.children.get(0).performClick();ok(Dialog.last.shown);ok(c.root.getVisibility()==original);/* probe, lyrics cleanup (1022420), job */ok(c.G.calls==calls+3);ok(c.G.js.contains("\\"run\\""));
   LinearLayout sheet=(LinearLayout)Dialog.last.content;LinearLayout list=(LinearLayout)((ScrollView)sheet.children.get(2)).child;Button retry=(Button)sheet.children.get(3);
-  ok(list.children.size()==4&&!retry.enabled);c.G.replyCall(calls+1,"status=started;id=100:1");Handler.advance(250);ok(c.G.js.contains("\\"poll\\""));c.G.reply("status=running;id=100:1");Handler.advance(250);
+  ok(list.children.size()==4&&!retry.enabled);c.G.replyCall(calls+2,"status=started;id=100:1");Handler.advance(250);ok(c.G.js.contains("\\"poll\\""));c.G.reply("status=running;id=100:1");Handler.advance(250);
   c.G.reply("status=done;id=100:1;ok=true;now=Titre A\\tArtiste A\\t3:21;next=Titre B\\tArtiste B\\t\\nTitre C\\t\\t1:00:00;journal=opened>rows:3>closed");
   ok(((TextView)list.children.get(0)).text.equals("En cours de lecture"));ok(((TextView)list.children.get(1)).text.equals("Titre A\\nArtiste A · 3:21"));ok(((TextView)list.children.get(2)).text.equals("À suivre"));
   ok(((TextView)list.children.get(3)).text.equals("Titre B\\nArtiste B"));ok(((TextView)list.children.get(4)).text.equals("Titre C\\n1:00:00"));ok(retry.enabled);

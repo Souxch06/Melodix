@@ -215,6 +215,9 @@ public final class PreviewPlayerTiles extends LinearLayout {
         final long serial=++queueSerial;queueJobId="";queueJobPending=false;skeleton(a,list);retry.setEnabled(false);
         postDelayed(new Runnable(){public void run(){if(serial==queueSerial&&webDialog==dialog&&settledSerial!=serial){queueJournal="delai";queueFailed(a,list,retry);}}},8000);
         WebView w=web(a);if(w==null){queueJournal="page:inaccessible";queueFailed(a,list,retry);return;}
+        // User diagnostic (1022420): the lyrics view left open in the page blocked the queue/devices drawers.
+        // Close it and clear the block first; evaluateJavascript runs in order, before the job below.
+        try{w.evaluateJavascript(RECOVER,null);}catch(RuntimeException ignored){}
         try{w.evaluateJavascript("("+QUEUE_JOB+")(\"run\");",new ValueCallback<String>(){public void onReceiveValue(String value){
             if(serial!=queueSerial||webDialog!=dialog||settledSerial==serial)return;JSONObject o=parseObject(value);String st=o==null?"":o.optString("status","");
             String id=o==null?"":o.optString("id","");
@@ -275,7 +278,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
             for(int j=0;j<lyricViews.size();j++)lyricViews.get(j).setTextColor(j==k?Color.WHITE:lyricsPale); // whole line (user: word fill lagged, 1022419)
             if(k>=0&&lyricScroll!=null)lyricScroll.smoothScrollTo(0,Math.max(0,lyricViews.get(k).getTop()-dp(160)));
         }});}catch(RuntimeException ignored){}
-        postDelayed(new Runnable(){public void run(){lyricsTick(a,dialog,fill,pos,dur,play);}},500);
+        postDelayed(new Runnable(){public void run(){lyricsTick(a,dialog,fill,pos,dur,play);}},250); // user: lyrics lagged the sound (1022420)
     }
     private void lyricsControls(final Activity a,LinearLayout panel,final Dialog dialog){
         LinearLayout box=new LinearLayout(a);box.setOrientation(VERTICAL);box.setPadding(0,dp(12),0,0);
@@ -388,6 +391,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
         final long serial=++panelSerial;panelJobId="";panelJobPending=false;if(kept!=null)showKept(a,list,kept);else if(!lyricsLive)skeleton(a,list);retry.setEnabled(false);final String kind=i==1?"lyrics":"devices";
         postDelayed(new Runnable(){public void run(){if(serial==panelSerial&&webDialog==dialog&&panelSettled!=serial){panelJournals[i-1]="delai";if(action.equals("transfer"))panelMessage(a,list,retry,"Transfert non vérifié","Résultat incertain. Vérifiez l’appareil actif avant toute nouvelle tentative.");else panelFailed(i,a,list,retry);}}},action.equals("transfer")?11000:8000);
         WebView w=web(a);if(w==null){panelJournals[i-1]="page:inaccessible";panelFailed(i,a,list,retry);return;}
+        if(i==2&&action.equals("run"))try{w.evaluateJavascript(RECOVER,null);}catch(RuntimeException ignored){} // same as the queue
         try{w.evaluateJavascript("("+PANEL_JOB+")("+JSONObject.quote(kind)+","+JSONObject.quote(action)+","+JSONObject.quote(target)+");",new ValueCallback<String>(){public void onReceiveValue(String value){
             if(serial!=panelSerial||webDialog!=dialog||panelSettled==serial)return;JSONObject o=parseObject(value);String st=o==null?"":o.optString("status","");
             String id=o==null?"":o.optString("id","");
