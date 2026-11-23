@@ -138,6 +138,18 @@
             var marked = Array.from(scope.querySelectorAll('li, [role="listitem"], [data-encore-id="listRow"]')).filter(function(n) { return !hiddenBeforeTap(n) && !n.closest('#history-panel') && (!!semanticTitle(n) || !!titleFallback(n)); });
             list = marked.filter(function(n) { return !marked.some(function(other) { return other !== n && n.contains(other); }); });
         }
+        var byImage = false;
+        if (!list.length) {
+            // User diagnostic (1022422): the queue panel held 50 entity-image elements and no row/track markers.
+            // One row per image: climb while the parent still holds only this image.
+            var imgs = Array.from(scope.querySelectorAll('[data-testid="entity-image"]')).filter(function(i) { return !hiddenBeforeTap(i) && !i.closest('#history-panel'); });
+            imgs.forEach(function(img) {
+                var row = img;
+                while (row.parentElement && row.parentElement !== scope && row.parentElement.querySelectorAll('[data-testid="entity-image"]').length === 1) row = row.parentElement;
+                if (row !== img && list.indexOf(row) < 0) list.push(row);
+            });
+            byImage = list.length > 0;
+        }
         // Scan beyond invalid/placeholder rows, but cap the work. Only the
         // first 40 validated rows are ultimately returned.
         var output = [];
@@ -149,6 +161,16 @@
             var semantic = !t ? semanticTitle(n) : null;
             if (!t) t = semantic;
             if (!t && queueScope(r)) t = titleFallback(n);
+            if (!t && byImage) {
+                // Visible leaf texts of the row, in order: title, then artist (controls and durations excluded).
+                var leaves = [];
+                Array.from(n.querySelectorAll('*')).forEach(function(e) {
+                    if (e.children.length || hiddenBeforeTap(e) || e.closest('button, [role="button"]')) return;
+                    var v = text(e); if (v && !/^\d{1,2}:\d{2}(:\d{2})?$/.test(v) && leaves.indexOf(v) < 0) leaves.push(v);
+                });
+                if (leaves.length) { output.push({title: leaves[0].slice(0, 200), artist: (leaves[1] || '').slice(0, 200), duration: '', current: output.length === 0 && byImage}); }
+                return output.length >= 40;
+            }
             var artistRoot = semantic ? n.querySelector('[data-encore-id="listRowSubtitle"]') : n;
             var artists = artistRoot ? Array.from(artistRoot.querySelectorAll('a[href*="/artist/"], a[href*="/show/"]')).filter(function(el) { return !hiddenBeforeTap(el); }).map(text).filter(Boolean) : [];
             if (!artists.length) { var a = n.querySelector('[data-testid="track-artist"], [data-testid="context-item-info-artist"]'); if (a) artists.push(text(a)); }

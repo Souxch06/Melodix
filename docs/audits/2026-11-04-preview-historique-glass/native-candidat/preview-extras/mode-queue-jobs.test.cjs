@@ -762,3 +762,21 @@ test('repeat greyed by Spotify: app loop seeks back to 0 near the end, second ta
   run(dom, mode, 'repeat', 'run', 'true', ''); await settle(40);
   assert.equal(run(dom, mode, 'repeat', 'poll').state, 'false'); const n = seeks.length; await settle(600); assert.equal(seeks.length, n);
 });
+
+// User diagnostic (1022422): the queue panel had only entity-image elements, no row markers or track links.
+test('queue: rows found from entity images; first one is now playing', async () => {
+  const dom = page(`<button data-testid="control-button-queue" aria-label="File d’attente" aria-pressed="false">q</button><div id="slot"></div>`);
+  const doc = dom.window.document, b = doc.querySelector('button');
+  b.addEventListener('click', () => {
+    if (b.getAttribute('aria-pressed') === 'false') {
+      b.setAttribute('aria-pressed', 'true');
+      doc.getElementById('slot').innerHTML = `<aside aria-label="File d’attente"><div>
+        <div><div><img data-testid="entity-image"></div><div><span>Titre A</span><span>Artiste A</span></div><button>…</button></div>
+        <div><div><img data-testid="entity-image"></div><div><span>Titre B</span><span>Artiste B</span></div></div>
+        <div><div><img data-testid="entity-image"></div><div><span>Titre C</span><span>Artiste C</span><span>3:10</span></div></div></div></aside>`;
+    } else { b.setAttribute('aria-pressed', 'false'); doc.getElementById('slot').innerHTML = ''; }
+  });
+  assert.equal(run(dom, queue, 'run').status, 'started'); await settle(500);
+  const out = run(dom, queue, 'poll');
+  assert.equal(out.ok, true, JSON.stringify(out)); assert.equal(out.now, 'Titre A\tArtiste A\t'); assert.equal(out.next, 'Titre B\tArtiste B\t\nTitre C\tArtiste C\t');
+});
