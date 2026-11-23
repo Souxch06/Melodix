@@ -185,6 +185,9 @@ public final class PreviewPlayerTiles extends LinearLayout {
     private long queueSerial, settledSerial=-1;
     private JSONObject parseObject(String value){try{Object d=new JSONTokener(value).nextValue();return d instanceof String?new JSONObject((String)d):null;}catch(Exception ignored){return null;}}
     private void loadQueue(final Activity a,final Dialog dialog,final LinearLayout list,final Button retry){
+        // User request (1022404): Melodix plays the order itself on a free account; show that queue (Spotify's page has none).
+        try{java.lang.reflect.Method m=Class.forName("com.melodix.music.PreviewPlayerControllerQueue").getDeclaredMethod("snapshot");m.setAccessible(true);Object q=m.invoke(null);
+            if(q instanceof String){++queueSerial;queueJobId="";queueJobPending=false;renderQueue(a,list,retry,new JSONObject((String)q));return;}}catch(Throwable ignored){}
         final long serial=++queueSerial;queueJobId="";queueJobPending=false;skeleton(a,list);retry.setEnabled(false);
         postDelayed(new Runnable(){public void run(){if(serial==queueSerial&&webDialog==dialog&&settledSerial!=serial){queueJournal="delai";queueFailed(a,list,retry);}}},8000);
         WebView w=web(a);if(w==null){queueJournal="page:inaccessible";queueFailed(a,list,retry);return;}

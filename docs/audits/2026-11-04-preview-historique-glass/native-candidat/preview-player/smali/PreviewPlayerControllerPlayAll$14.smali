@@ -26,14 +26,14 @@
 .method constructor <init>(Landroid/content/Context;FI)V
     .locals 0
 
-    .line 229
+    .line 231
     iput p2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$14;->val$d:F
 
     iput p3, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$14;->val$kind:I
 
     invoke-direct {p0, p1}, Landroid/view/View;-><init>(Landroid/content/Context;)V
 
-    .line 230
+    .line 232
     new-instance p1, Landroid/graphics/Paint;
 
     const/4 p2, 0x1
@@ -50,7 +50,7 @@
 .method protected onDraw(Landroid/graphics/Canvas;)V
     .locals 17
 
-    .line 232
+    .line 234
     move-object/from16 v0, p0
 
     move-object/from16 v7, p1
@@ -89,7 +89,7 @@
 
     invoke-virtual {v1, v2}, Landroid/graphics/Paint;->setStrokeJoin(Landroid/graphics/Paint$Join;)V
 
-    .line 233
+    .line 235
     invoke-virtual/range {p0 .. p0}, Lcom/melodix/music/PreviewPlayerControllerPlayAll$14;->getWidth()I
 
     move-result v1
@@ -138,7 +138,7 @@
 
     invoke-virtual {v1, v2}, Landroid/graphics/Paint;->setStrokeWidth(F)V
 
-    .line 234
+    .line 236
     iget v1, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$14;->val$kind:I
 
     const/high16 v2, 0x41980000    # 19.0f
@@ -191,7 +191,7 @@
 
     goto/16 :goto_0
 
-    .line 235
+    .line 237
     :cond_0
     iget v1, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$14;->val$kind:I
 
@@ -257,7 +257,7 @@
 
     goto/16 :goto_0
 
-    .line 236
+    .line 238
     :cond_1
     iget v1, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$14;->val$kind:I
 
@@ -287,7 +287,7 @@
 
     goto :goto_0
 
-    .line 237
+    .line 239
     :cond_2
     const/high16 v1, 0x40800000    # 4.0f
 
@@ -341,7 +341,7 @@
 
     invoke-virtual {v7, v1, v3}, Landroid/graphics/Canvas;->drawPath(Landroid/graphics/Path;Landroid/graphics/Paint;)V
 
-    .line 238
+    .line 240
     iget-object v1, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$14;->p:Landroid/graphics/Paint;
 
     invoke-virtual {v7, v4, v2, v6, v1}, Landroid/graphics/Canvas;->drawCircle(FFFLandroid/graphics/Paint;)V
@@ -370,10 +370,10 @@
 
     invoke-virtual/range {v1 .. v6}, Landroid/graphics/Canvas;->drawLine(FFFFLandroid/graphics/Paint;)V
 
-    .line 239
+    .line 241
     :goto_0
     invoke-virtual/range {p1 .. p1}, Landroid/graphics/Canvas;->restore()V
 
-    .line 240
+    .line 242
     return-void
 .end method

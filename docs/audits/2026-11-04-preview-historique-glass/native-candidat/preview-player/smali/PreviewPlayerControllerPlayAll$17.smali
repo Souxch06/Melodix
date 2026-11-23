@@ -32,7 +32,7 @@
         }
     .end annotation
 
-    .line 285
+    .line 287
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$17;->val$dlg:Landroid/app/Dialog;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$17;->val$then:Ljava/lang/Runnable;
@@ -47,7 +47,7 @@
 .method public run()V
     .locals 1
 
-    .line 286
+    .line 288
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$17;->val$dlg:Landroid/app/Dialog;
 
     invoke-virtual {v0}, Landroid/app/Dialog;->dismiss()V

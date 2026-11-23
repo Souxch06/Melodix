@@ -195,6 +195,8 @@ final class PreviewPlayerControllerPlayAll {
         } }, dlg));
         final String id = trackUri(track).substring("spotify:track:".length());
         box.addView(item(a, 2, "Ajouter à la file d'attente", new Runnable() { public void run() {
+            // Melodix plays the order itself (1022402): add after the current track, like Spotify's queue.
+            if (PreviewPlayerControllerQueue.addNext(trackUri(track), track)) { toast(a, "Ajouté à la file d'attente"); return; }
             pageMenu(a, id, "Ajouter à la file d'attente|Add to queue", "Ajouté à la file d'attente"); } }, dlg));
         final String who = artist(track).split(",")[0].trim();
         if (!who.isEmpty()) box.addView(item(a, 1, "Accéder à l'artiste", new Runnable() { public void run() { search(a, who); } }, dlg));

@@ -334,6 +334,12 @@ public class ControllerTest {
      PreviewPlayerMode.shuffleMode=false;yes(PreviewPlayerControllerQueue.moveTo("spotify:track:C"));yes(PreviewPlayerControllerQueue.step(true,false)==null);// unshuffled: C is last
      yes(!PreviewPlayerControllerQueue.start(q,"spotify:track:Z"));yes(PreviewPlayerControllerQueue.isEmpty());
      yes(PreviewPlayerControllerQueue.start(q,"spotify:track:A"));yes("B".equals(PreviewPlayerControllerQueue.row("spotify:track:B").optString("title","")));yes(PreviewPlayerControllerQueue.row("spotify:track:Z")==null);
+     // "Ajouter à la file d'attente": right after the current track, in the order added (Spotify).
+     PreviewPlayerMode.shuffleMode=false;yes(PreviewPlayerControllerQueue.start(q,"spotify:track:A"));
+     yes(PreviewPlayerControllerQueue.addNext("spotify:track:X",new org.json.JSONObject("uri=spotify:track:X;title=X")));yes(PreviewPlayerControllerQueue.addNext("spotify:track:Y",new org.json.JSONObject("uri=spotify:track:Y;title=Y")));
+     yes("spotify:track:X".equals(PreviewPlayerControllerQueue.step(true,false)));yes("spotify:track:Y".equals(PreviewPlayerControllerQueue.step(true,false)));yes("spotify:track:B".equals(PreviewPlayerControllerQueue.step(true,false)));
+     yes(PreviewPlayerControllerQueue.addNext("spotify:track:Z",new org.json.JSONObject("uri=spotify:track:Z;title=Z")));yes("spotify:track:Z".equals(PreviewPlayerControllerQueue.step(true,false)));yes("spotify:track:C".equals(PreviewPlayerControllerQueue.step(true,false)));
+     yes(PreviewPlayerControllerQueue.snapshot()!=null);PreviewPlayerControllerQueue.clear();yes(PreviewPlayerControllerQueue.snapshot()==null);
      PreviewPlayerControllerQueue.clear(); }
   System.out.println("Preview controller JVM simulation passed");
  }

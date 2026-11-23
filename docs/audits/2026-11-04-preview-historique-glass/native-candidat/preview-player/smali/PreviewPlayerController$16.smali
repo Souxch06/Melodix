@@ -47,7 +47,7 @@
         }
     .end annotation
 
-    .line 1346
+    .line 1350
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerController$16;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     iput p2, p0, Lcom/melodix/music/PreviewPlayerController$16;->val$seq:I
@@ -64,7 +64,7 @@
 .method public run()V
     .locals 4
 
-    .line 1347
+    .line 1351
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$16;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$4900(Lcom/melodix/music/PreviewPlayerController;)I
@@ -99,12 +99,12 @@
 
     return-void
 
-    .line 1348
+    .line 1352
     :cond_0
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerController$16;->this$0:Lcom/melodix/music/PreviewPlayerController;
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerController;->access$5200(Lcom/melodix/music/PreviewPlayerController;)V
 
-    .line 1349
+    .line 1353
     return-void
 .end method

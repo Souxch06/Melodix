@@ -30,7 +30,7 @@
         }
     .end annotation
 
-    .line 275
+    .line 277
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$16;->val$w:Landroid/view/Window;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -43,7 +43,7 @@
 .method public onAnimationUpdate(Landroid/animation/ValueAnimator;)V
     .locals 1
 
-    .line 276
+    .line 278
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$16;->val$w:Landroid/view/Window;
 
     invoke-virtual {p1}, Landroid/animation/ValueAnimator;->getAnimatedValue()Ljava/lang/Object;

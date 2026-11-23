@@ -564,6 +564,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 while (it.hasNext()) b.append(b.length() == 0 ? "" : ",").append(it.next()); rowKeys = b.toString(); break; } } } catch (Exception ignored) { }
         live = new WeakReference<PreviewPlayerController>(this);
         if ("detail".equals(screen)) detailKey = playlistKey(context);
+        try { if (storableRows(new JSONArray(rows)).length() > 0) shownRows = rows; } catch (Exception ignored) { }
         onDetail = "detail".equals(screen); try { highlightPlaying(true); } catch (RuntimeException ignored) { }
         // User screenshot (1022390): no ⋮ appeared; the painted rows may not carry the tracks, so fall back to the
         // playlist's kept copy (same fields: title, subtitle, uri, image).
@@ -799,14 +800,16 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     };
     // User request (1022402, free account): Spotify plays a tapped track alone. Melodix plays the playlist order
     // (PreviewPlayerControllerQueue) with repeat off/playlist/track and shuffle, like the Spotify app.
-    private String detailKey = "", advancedFor = "", queueTrack = "";
+    private String detailKey = "", advancedFor = "", queueTrack = "", shownRows;
     private long queueCommandAt = -100000, queueLastPos = -1, queueLastDur = -1, queueLastAt = -100000;
     public void queueStart(String uri) {
         try {
             if (uri == null || !uri.startsWith("spotify:track:")) return;
             Activity a = activity.get();
             String rows = a != null && onDetail && !detailKey.isEmpty() ? a.getSharedPreferences(PLAYLIST_STORE, Context.MODE_PRIVATE).getString(detailKey, null) : null;
-            if (rows == null || !PreviewPlayerControllerQueue.start(new JSONArray(rows), uri)) PreviewPlayerControllerQueue.clear();
+            // Albums, Liked Songs, search results...: the list on screen is the context (user request 1022404).
+            if (rows == null || !PreviewPlayerControllerQueue.start(new JSONArray(rows), uri))
+                if (shownRows == null || !PreviewPlayerControllerQueue.start(new JSONArray(shownRows), uri)) PreviewPlayerControllerQueue.clear();
         } catch (Exception e) { PreviewPlayerControllerQueue.clear(); }
         queueCommandAt = now(); advancedFor = ""; queueLastPos = -1;
         showQueued(uri);
@@ -845,7 +848,8 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         showQueued(u);
         return true;
     }
-    // shortcut: the next track starts ~1.5 s before the end (readings are ~1 s apart); upgrade with a page "ended" event.
+    // shortcut: the next track starts in the last 0.4 s, or right after Spotify ends/moves on (readings are ~1 s apart);
+    // upgrade with a page "ended" event.
     void queueTick(String uri, long pos, long dur) {
         if (PreviewPlayerControllerQueue.isEmpty() || uri.isEmpty()) return;
         long t = now(); String cur = PreviewPlayerControllerQueue.current();
@@ -861,7 +865,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         if (dur <= 0 || pos < 0) return;
         queueLastPos = pos; queueLastDur = dur; queueLastAt = t;
         if (pos < dur - 5000) advancedFor = "";
-        if (pos >= dur - 1500 && !advancedFor.equals(uri)) {
+        if (pos >= dur - 400 && !advancedFor.equals(uri)) {
             advancedFor = uri;
             String n = PreviewPlayerMode.repeatMode == 2 ? uri : PreviewPlayerControllerQueue.step(true, PreviewPlayerMode.repeatMode == 1);
             if (n != null) queuePlay(n);
