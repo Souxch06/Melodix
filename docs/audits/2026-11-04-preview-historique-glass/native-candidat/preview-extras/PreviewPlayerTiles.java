@@ -188,7 +188,11 @@ public final class PreviewPlayerTiles extends LinearLayout {
             row.setOnClickListener(new View.OnClickListener(){public void onClick(View v){
                 final Dialog ask=new Dialog(a);LinearLayout box=new LinearLayout(a);box.setOrientation(VERTICAL);box.setPadding(dp(20),dp(16),dp(20),dp(16));
                 GradientDrawable g=new GradientDrawable();g.setColor(0xf21f1f22);g.setCornerRadius(dp(20));box.setBackground(g);
-                box.addView(line(a,"Retirer ce titre de la file d’attente ?",Color.WHITE,17),new LinearLayout.LayoutParams(-1,-2));
+                box.addView(line(a,"Ce titre dans la file d’attente",Color.WHITE,17),new LinearLayout.LayoutParams(-1,-2));
+                Button next=new Button(a);next.setText("Lire ensuite");next.setOnClickListener(new View.OnClickListener(){public void onClick(View x){ask.dismiss();
+                    try{java.lang.reflect.Method m=Class.forName("com.melodix.music.PreviewPlayerControllerQueue").getDeclaredMethod("playNext",int.class);m.setAccessible(true);m.invoke(null,index);}catch(Throwable ignored){}
+                    loadQueue(a,dialog,list,retry);}});
+                box.addView(next,new LinearLayout.LayoutParams(-1,dp(48)));
                 Button no=new Button(a);no.setText("Annuler");no.setOnClickListener(new View.OnClickListener(){public void onClick(View x){ask.dismiss();}});
                 Button yes=new Button(a);yes.setText("Retirer");yes.setOnClickListener(new View.OnClickListener(){public void onClick(View x){ask.dismiss();
                     try{java.lang.reflect.Method m=Class.forName("com.melodix.music.PreviewPlayerControllerQueue").getDeclaredMethod("removeUpcoming",int.class);m.setAccessible(true);m.invoke(null,index);}catch(Throwable ignored){}

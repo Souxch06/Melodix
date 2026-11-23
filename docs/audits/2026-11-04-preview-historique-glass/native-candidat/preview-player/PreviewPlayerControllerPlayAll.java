@@ -204,7 +204,10 @@ final class PreviewPlayerControllerPlayAll {
         box.addView(item(a, 2, "Ajouter à une playlist", new Runnable() { public void run() { addToPlaylist(a, id); } }, dlg));
         box.addView(item(a, 5, "Minuterie de veille", new Runnable() { public void run() { sleepTimer(a); } }, dlg));
         final String who = artist(track).split(",")[0].trim();
-        if (!who.isEmpty()) box.addView(item(a, 1, "Accéder à l'artiste", new Runnable() { public void run() { search(a, who); } }, dlg));
+        // Spotify's menu (user request 1022407): open the track's artist/album natively from the row's own links.
+        box.addView(item(a, 1, "Accéder à l'artiste", new Runnable() { public void run() { openLink(a, id, "artist", who); } }, dlg));
+        box.addView(item(a, 6, "Accéder à l'album", new Runnable() { public void run() { openLink(a, id, "album", null); } }, dlg));
+        box.addView(item(a, 7, "Accéder à la radio du titre", new Runnable() { public void run() { radio(a, id); } }, dlg));
         box.addView(item(a, 3, "Supprimer de cette playlist", new Runnable() { public void run() {
             // Account write: only after an explicit confirmation tap.
             new android.app.AlertDialog.Builder(a).setTitle("Supprimer de cette playlist ?").setMessage(title(track))
@@ -242,6 +245,8 @@ final class PreviewPlayerControllerPlayAll {
                 else if (kind == 2) { c.drawLine(3, 6, 9, 6, p); c.drawLine(6, 3, 6, 9, p); c.drawLine(12, 6, 21, 6, p); c.drawLine(3, 12, 21, 12, p); c.drawLine(3, 18, 21, 18, p); }
                 else if (kind == 3) { c.drawCircle(12, 12, 9, p); c.drawLine(8, 12, 16, 12, p); }
                 else if (kind == 4) { Path q = new Path(); q.moveTo(12, 20); q.cubicTo(4, 14, 2, 10, 4.5f, 6.5f); q.cubicTo(7, 3.5f, 10.5f, 4.5f, 12, 7.5f); q.cubicTo(13.5f, 4.5f, 17, 3.5f, 19.5f, 6.5f); q.cubicTo(22, 10, 20, 14, 12, 20); c.drawPath(q, p); }
+                else if (kind == 6) { c.drawCircle(12, 12, 9, p); c.drawCircle(12, 12, 2.5f, p); }
+                else if (kind == 7) { c.drawCircle(12, 13, 2, p); Path q = new Path(); q.moveTo(7.5f, 17.5f); q.cubicTo(5, 15, 5, 11, 7.5f, 8.5f); q.moveTo(16.5f, 8.5f); q.cubicTo(19, 11, 19, 15, 16.5f, 17.5f); q.moveTo(4.5f, 20.5f); q.cubicTo(0.5f, 16.5f, 0.5f, 9.5f, 4.5f, 5.5f); q.moveTo(19.5f, 5.5f); q.cubicTo(23.5f, 9.5f, 23.5f, 16.5f, 19.5f, 20.5f); c.drawPath(q, p); }
                 else if (kind == 5) { Path q = new Path(); q.moveTo(19, 14.5f); q.cubicTo(14, 17, 7.5f, 13, 9.5f, 4); q.cubicTo(4, 6, 3, 13, 7, 17.5f); q.cubicTo(11, 21.5f, 17, 20, 19, 14.5f); c.drawPath(q, p); }
                 else { c.drawCircle(10, 7, 4, p); Path q = new Path(); q.moveTo(3, 21); q.cubicTo(3, 15.5f, 6.5f, 13, 10, 13); q.cubicTo(11.5f, 13, 12.7f, 13.4f, 13.6f, 14); c.drawPath(q, p);
                     c.drawCircle(18, 19, 2, p); c.drawLine(20, 19, 20, 12, p); c.drawLine(20, 12, 22.5f, 13, p); }
@@ -328,6 +333,33 @@ final class PreviewPlayerControllerPlayAll {
                     .setOnCancelListener(new android.content.DialogInterface.OnCancelListener() { public void onCancel(android.content.DialogInterface x) {
                         w.evaluateJavascript("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))", null); } }).show();
             } }); } }, 1000);
+        } });
+    }
+    static final String LINK_JOB = "(function(id,kind){try{var a=document.querySelector('a[href*=\"/track/'+id+'\"]');var row=a&&(a.closest('[data-testid=\"tracklist-row\"]')||a.closest('[role=\"row\"]'));var l=row&&row.querySelector('a[href*=\"/'+kind+'/\"]');var m=l&&(l.getAttribute('href')||'').match(/\\/(album|artist)\\/([A-Za-z0-9]+)/);return m?'spotify:'+m[1]+':'+m[2]+'\\t'+(l.textContent||'').trim():''}catch(e){return ''}})";
+    static void openNative(Activity a, String uri, String title) {
+        try { a.getClass().getMethod("openNativeRow", String.class, String.class).invoke(a, uri, title); }
+        catch (Exception e) { toast(a, "Ouverture indisponible"); }
+    }
+    static void openLink(final Activity a, String id, String kind, final String fallbackSearch) {
+        android.webkit.WebView w = webView(a.getWindow().getDecorView());
+        if (w == null) { if (fallbackSearch != null && !fallbackSearch.isEmpty()) search(a, fallbackSearch); else toast(a, "Page Spotify indisponible"); return; }
+        w.evaluateJavascript(LINK_JOB + "(" + org.json.JSONObject.quote(id) + "," + org.json.JSONObject.quote(kind) + ")", new android.webkit.ValueCallback<String>() { public void onReceiveValue(String v) {
+            String r = ""; try { Object o = new org.json.JSONTokener(v).nextValue(); if (o instanceof String) r = (String) o; } catch (Exception ignored) { }
+            int tab = r.indexOf('\t');
+            if (r.matches("spotify:(album|artist):[A-Za-z0-9]+\t.*")) openNative(a, r.substring(0, tab), r.substring(tab + 1));
+            else if (fallbackSearch != null && !fallbackSearch.isEmpty()) search(a, fallbackSearch);
+            else toast(a, "Lien introuvable dans la page Spotify, réessaie");
+        } });
+    }
+    // Spotify's "Go to song radio" opens a radio playlist in the page; Melodix then opens that playlist natively.
+    static void radio(final Activity a, String id) {
+        final android.webkit.WebView w = webView(a.getWindow().getDecorView());
+        if (w == null) { toast(a, "Page Spotify indisponible"); return; }
+        w.evaluateJavascript(MENU_JOB + "(" + org.json.JSONObject.quote(id) + "," + org.json.JSONObject.quote("Accéder à la radio du titre|Go to song radio|Radio du titre") + ")", new android.webkit.ValueCallback<String>() { public void onReceiveValue(String v) {
+            if (!"\"started\"".equals(v)) { toast(a, "Titre introuvable dans la page Spotify, réessaie"); return; }
+            w.postDelayed(new Runnable() { public void run() { w.evaluateJavascript("(window.__sfMenuJob==='done'?location.pathname:'')", new android.webkit.ValueCallback<String>() { public void onReceiveValue(String r) {
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("/playlist/([A-Za-z0-9]+)").matcher(r == null ? "" : r);
+                if (m.find()) openNative(a, "spotify:playlist:" + m.group(1), "Radio du titre"); else toast(a, "Radio non trouvée dans le menu Spotify"); } }); } }, 2000);
         } });
     }
     static android.webkit.WebView webView(View v) {

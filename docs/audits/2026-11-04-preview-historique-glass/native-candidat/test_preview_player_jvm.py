@@ -340,6 +340,7 @@ public class ControllerTest {
      yes("spotify:track:X".equals(PreviewPlayerControllerQueue.step(true,false)));yes("spotify:track:Y".equals(PreviewPlayerControllerQueue.step(true,false)));yes("spotify:track:B".equals(PreviewPlayerControllerQueue.step(true,false)));
      yes(PreviewPlayerControllerQueue.addNext("spotify:track:Z",new org.json.JSONObject("uri=spotify:track:Z;title=Z")));yes("spotify:track:Z".equals(PreviewPlayerControllerQueue.step(true,false)));yes("spotify:track:C".equals(PreviewPlayerControllerQueue.step(true,false)));
      yes(PreviewPlayerControllerQueue.start(q,"spotify:track:A"));yes(PreviewPlayerControllerQueue.removeUpcoming(0));yes("spotify:track:C".equals(PreviewPlayerControllerQueue.step(true,false)));yes(!PreviewPlayerControllerQueue.removeUpcoming(5));
+     yes(PreviewPlayerControllerQueue.start(q,"spotify:track:A"));yes(PreviewPlayerControllerQueue.playNext(1));yes("spotify:track:C".equals(PreviewPlayerControllerQueue.step(true,false)));yes("spotify:track:B".equals(PreviewPlayerControllerQueue.step(true,false)));
      yes(PreviewPlayerControllerQueue.snapshot()!=null);PreviewPlayerControllerQueue.clear();yes(PreviewPlayerControllerQueue.snapshot()==null);
      PreviewPlayerControllerQueue.clear(); }
   System.out.println("Preview controller JVM simulation passed");

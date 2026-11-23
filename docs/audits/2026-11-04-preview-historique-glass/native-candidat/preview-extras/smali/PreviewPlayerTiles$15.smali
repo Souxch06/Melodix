@@ -75,7 +75,7 @@
         }
     .end annotation
 
-    .line 304
+    .line 308
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$15;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iput-wide p2, p0, Lcom/melodix/music/PreviewPlayerTiles$15;->val$serial:J
@@ -106,7 +106,7 @@
 .method public run()V
     .locals 5
 
-    .line 305
+    .line 309
     iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles$15;->val$serial:J
 
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerTiles$15;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
@@ -168,7 +168,7 @@
 
     return-void
 
-    .line 306
+    .line 310
     :cond_1
     :try_start_0
     new-instance v1, Ljava/lang/StringBuilder;
@@ -209,7 +209,7 @@
     :try_end_0
     .catch Ljava/lang/RuntimeException; {:try_start_0 .. :try_end_0} :catch_0
 
-    .line 312
+    .line 316
     goto :goto_0
 
     :catch_0
@@ -227,11 +227,11 @@
 
     invoke-static {v0, v1, v2, v3, v4}, Lcom/melodix/music/PreviewPlayerTiles;->access$3100(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
 
-    .line 313
+    .line 317
     :goto_0
     return-void
 
-    .line 305
+    .line 309
     :cond_2
     :goto_1
     return-void

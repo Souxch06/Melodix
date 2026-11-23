@@ -89,6 +89,12 @@ final class PreviewPlayerControllerQueue {
         order = o; return true;
     }
 
+    // Queue panel "Lire ensuite": move the k-th upcoming track right after the current one.
+    static boolean playNext(int k) {
+        int pos = at + 1 + k; if (isEmpty() || k <= 0 || pos >= order.length) return false;
+        int x = order[pos]; for (int i = pos; i > at + 1; i--) order[i] = order[i - 1]; order[at + 1] = x; return true;
+    }
+
     static boolean moveTo(String uri) {
         for (int k = 0; k < order.length; k++) if (uris.get(order[k]).equals(uri)) { at = k; return true; }
         return false;

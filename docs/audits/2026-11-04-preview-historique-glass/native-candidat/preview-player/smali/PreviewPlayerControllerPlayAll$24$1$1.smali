@@ -1,4 +1,4 @@
-.class Lcom/melodix/music/PreviewPlayerControllerPlayAll$22$1$1;
+.class Lcom/melodix/music/PreviewPlayerControllerPlayAll$24$1$1;
 .super Ljava/lang/Object;
 .source "PreviewPlayerControllerPlayAll.java"
 
@@ -8,7 +8,7 @@
 
 # annotations
 .annotation system Ldalvik/annotation/EnclosingMethod;
-    value = Lcom/melodix/music/PreviewPlayerControllerPlayAll$22$1;->run()V
+    value = Lcom/melodix/music/PreviewPlayerControllerPlayAll$24$1;->run()V
 .end annotation
 
 .annotation system Ldalvik/annotation/InnerClass;
@@ -27,11 +27,11 @@
 
 
 # instance fields
-.field final synthetic this$1:Lcom/melodix/music/PreviewPlayerControllerPlayAll$22$1;
+.field final synthetic this$1:Lcom/melodix/music/PreviewPlayerControllerPlayAll$24$1;
 
 
 # direct methods
-.method constructor <init>(Lcom/melodix/music/PreviewPlayerControllerPlayAll$22$1;)V
+.method constructor <init>(Lcom/melodix/music/PreviewPlayerControllerPlayAll$24$1;)V
     .locals 0
     .annotation system Ldalvik/annotation/MethodParameters;
         accessFlags = {
@@ -42,8 +42,8 @@
         }
     .end annotation
 
-    .line 319
-    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$22$1$1;->this$1:Lcom/melodix/music/PreviewPlayerControllerPlayAll$22$1;
+    .line 324
+    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$24$1$1;->this$1:Lcom/melodix/music/PreviewPlayerControllerPlayAll$24$1;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
@@ -63,10 +63,10 @@
         }
     .end annotation
 
-    .line 319
+    .line 324
     check-cast p1, Ljava/lang/String;
 
-    invoke-virtual {p0, p1}, Lcom/melodix/music/PreviewPlayerControllerPlayAll$22$1$1;->onReceiveValue(Ljava/lang/String;)V
+    invoke-virtual {p0, p1}, Lcom/melodix/music/PreviewPlayerControllerPlayAll$24$1$1;->onReceiveValue(Ljava/lang/String;)V
 
     return-void
 .end method
@@ -74,12 +74,12 @@
 .method public onReceiveValue(Ljava/lang/String;)V
     .locals 6
 
-    .line 320
+    .line 325
     new-instance v0, Ljava/util/ArrayList;
 
     invoke-direct {v0}, Ljava/util/ArrayList;-><init>()V
 
-    .line 321
+    .line 326
     const/4 v1, 0x0
 
     const/4 v2, 0x0
@@ -108,7 +108,7 @@
     :cond_0
     move-object v3, v1
 
-    .line 322
+    .line 327
     :goto_0
     move p1, v2
 
@@ -153,7 +153,7 @@
     :catch_0
     move-exception p1
 
-    .line 323
+    .line 328
     :cond_2
     invoke-virtual {v0}, Ljava/util/ArrayList;->isEmpty()Z
 
@@ -161,21 +161,21 @@
 
     if-eqz p1, :cond_3
 
-    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$22$1$1;->this$1:Lcom/melodix/music/PreviewPlayerControllerPlayAll$22$1;
+    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$24$1$1;->this$1:Lcom/melodix/music/PreviewPlayerControllerPlayAll$24$1;
 
-    iget-object p1, p1, Lcom/melodix/music/PreviewPlayerControllerPlayAll$22$1;->this$0:Lcom/melodix/music/PreviewPlayerControllerPlayAll$22;
+    iget-object p1, p1, Lcom/melodix/music/PreviewPlayerControllerPlayAll$24$1;->this$0:Lcom/melodix/music/PreviewPlayerControllerPlayAll$24;
 
-    iget-object p1, p1, Lcom/melodix/music/PreviewPlayerControllerPlayAll$22;->val$a:Landroid/app/Activity;
+    iget-object p1, p1, Lcom/melodix/music/PreviewPlayerControllerPlayAll$24;->val$a:Landroid/app/Activity;
 
     const-string v0, "Liste des playlists introuvable dans le menu Spotify"
 
     invoke-static {p1, v0}, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->toast(Landroid/app/Activity;Ljava/lang/String;)V
 
-    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$22$1$1;->this$1:Lcom/melodix/music/PreviewPlayerControllerPlayAll$22$1;
+    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$24$1$1;->this$1:Lcom/melodix/music/PreviewPlayerControllerPlayAll$24$1;
 
-    iget-object p1, p1, Lcom/melodix/music/PreviewPlayerControllerPlayAll$22$1;->this$0:Lcom/melodix/music/PreviewPlayerControllerPlayAll$22;
+    iget-object p1, p1, Lcom/melodix/music/PreviewPlayerControllerPlayAll$24$1;->this$0:Lcom/melodix/music/PreviewPlayerControllerPlayAll$24;
 
-    iget-object p1, p1, Lcom/melodix/music/PreviewPlayerControllerPlayAll$22;->val$w:Landroid/webkit/WebView;
+    iget-object p1, p1, Lcom/melodix/music/PreviewPlayerControllerPlayAll$24;->val$w:Landroid/webkit/WebView;
 
     const-string v0, "document.dispatchEvent(new KeyboardEvent(\'keydown\',{key:\'Escape\',bubbles:true}))"
 
@@ -183,15 +183,15 @@
 
     return-void
 
-    .line 324
+    .line 329
     :cond_3
     new-instance p1, Landroid/app/AlertDialog$Builder;
 
-    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$22$1$1;->this$1:Lcom/melodix/music/PreviewPlayerControllerPlayAll$22$1;
+    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$24$1$1;->this$1:Lcom/melodix/music/PreviewPlayerControllerPlayAll$24$1;
 
-    iget-object v1, v1, Lcom/melodix/music/PreviewPlayerControllerPlayAll$22$1;->this$0:Lcom/melodix/music/PreviewPlayerControllerPlayAll$22;
+    iget-object v1, v1, Lcom/melodix/music/PreviewPlayerControllerPlayAll$24$1;->this$0:Lcom/melodix/music/PreviewPlayerControllerPlayAll$24;
 
-    iget-object v1, v1, Lcom/melodix/music/PreviewPlayerControllerPlayAll$22;->val$a:Landroid/app/Activity;
+    iget-object v1, v1, Lcom/melodix/music/PreviewPlayerControllerPlayAll$24;->val$a:Landroid/app/Activity;
 
     invoke-direct {p1, v1}, Landroid/app/AlertDialog$Builder;-><init>(Landroid/content/Context;)V
 
@@ -209,26 +209,26 @@
 
     check-cast v1, [Ljava/lang/CharSequence;
 
-    new-instance v2, Lcom/melodix/music/PreviewPlayerControllerPlayAll$22$1$1$2;
+    new-instance v2, Lcom/melodix/music/PreviewPlayerControllerPlayAll$24$1$1$2;
 
-    invoke-direct {v2, p0, v0}, Lcom/melodix/music/PreviewPlayerControllerPlayAll$22$1$1$2;-><init>(Lcom/melodix/music/PreviewPlayerControllerPlayAll$22$1$1;Ljava/util/ArrayList;)V
+    invoke-direct {v2, p0, v0}, Lcom/melodix/music/PreviewPlayerControllerPlayAll$24$1$1$2;-><init>(Lcom/melodix/music/PreviewPlayerControllerPlayAll$24$1$1;Ljava/util/ArrayList;)V
 
     invoke-virtual {p1, v1, v2}, Landroid/app/AlertDialog$Builder;->setItems([Ljava/lang/CharSequence;Landroid/content/DialogInterface$OnClickListener;)Landroid/app/AlertDialog$Builder;
 
     move-result-object p1
 
-    new-instance v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$22$1$1$1;
+    new-instance v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$24$1$1$1;
 
-    invoke-direct {v0, p0}, Lcom/melodix/music/PreviewPlayerControllerPlayAll$22$1$1$1;-><init>(Lcom/melodix/music/PreviewPlayerControllerPlayAll$22$1$1;)V
+    invoke-direct {v0, p0}, Lcom/melodix/music/PreviewPlayerControllerPlayAll$24$1$1$1;-><init>(Lcom/melodix/music/PreviewPlayerControllerPlayAll$24$1$1;)V
 
-    .line 328
+    .line 333
     invoke-virtual {p1, v0}, Landroid/app/AlertDialog$Builder;->setOnCancelListener(Landroid/content/DialogInterface$OnCancelListener;)Landroid/app/AlertDialog$Builder;
 
     move-result-object p1
 
-    .line 329
+    .line 334
     invoke-virtual {p1}, Landroid/app/AlertDialog$Builder;->show()Landroid/app/AlertDialog;
 
-    .line 330
+    .line 335
     return-void
 .end method

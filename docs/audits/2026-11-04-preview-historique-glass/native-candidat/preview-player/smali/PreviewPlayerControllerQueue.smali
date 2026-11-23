@@ -459,7 +459,7 @@
 .method static moveTo(Ljava/lang/String;)Z
     .locals 4
 
-    .line 93
+    .line 99
     const/4 v0, 0x0
 
     move v1, v0
@@ -500,9 +500,83 @@
 
     goto :goto_0
 
-    .line 94
+    .line 100
     :cond_1
     return v0
+.end method
+
+.method static playNext(I)Z
+    .locals 5
+
+    .line 94
+    sget v0, Lcom/melodix/music/PreviewPlayerControllerQueue;->at:I
+
+    const/4 v1, 0x1
+
+    add-int/2addr v0, v1
+
+    add-int/2addr v0, p0
+
+    invoke-static {}, Lcom/melodix/music/PreviewPlayerControllerQueue;->isEmpty()Z
+
+    move-result v2
+
+    if-nez v2, :cond_2
+
+    if-lez p0, :cond_2
+
+    sget-object p0, Lcom/melodix/music/PreviewPlayerControllerQueue;->order:[I
+
+    array-length p0, p0
+
+    if-lt v0, p0, :cond_0
+
+    goto :goto_1
+
+    .line 95
+    :cond_0
+    sget-object p0, Lcom/melodix/music/PreviewPlayerControllerQueue;->order:[I
+
+    aget p0, p0, v0
+
+    :goto_0
+    sget v2, Lcom/melodix/music/PreviewPlayerControllerQueue;->at:I
+
+    add-int/2addr v2, v1
+
+    if-le v0, v2, :cond_1
+
+    sget-object v2, Lcom/melodix/music/PreviewPlayerControllerQueue;->order:[I
+
+    sget-object v3, Lcom/melodix/music/PreviewPlayerControllerQueue;->order:[I
+
+    add-int/lit8 v4, v0, -0x1
+
+    aget v3, v3, v4
+
+    aput v3, v2, v0
+
+    add-int/lit8 v0, v0, -0x1
+
+    goto :goto_0
+
+    :cond_1
+    sget-object v0, Lcom/melodix/music/PreviewPlayerControllerQueue;->order:[I
+
+    sget v2, Lcom/melodix/music/PreviewPlayerControllerQueue;->at:I
+
+    add-int/2addr v2, v1
+
+    aput p0, v0, v2
+
+    return v1
+
+    .line 94
+    :cond_2
+    :goto_1
+    const/4 p0, 0x0
+
+    return p0
 .end method
 
 .method static removeUpcoming(I)Z
