@@ -27,7 +27,7 @@ STUBS={
 'android/widget/ImageView.java':'''package android.widget;import android.content.Context;import android.view.View;public class ImageView extends View{public enum ScaleType{CENTER_CROP}public ImageView(Context c){super(c);}public void setScaleType(ScaleType t){}public android.graphics.drawable.Drawable drawable;public android.graphics.drawable.Drawable getDrawable(){return drawable;}public void setImageDrawable(android.graphics.drawable.Drawable d){drawable=d;}}''',
 'org/json/JSONArray.java':'''package org.json;public class JSONArray{String[] a;public JSONArray(String s){a=s.equals("[]")?new String[0]:s.split("\\\\|");}public int length(){return a.length;}public JSONObject optJSONObject(int i){return new JSONObject(a[i]);}}''',
 'org/json/JSONObject.java':'''package org.json;import java.util.*;public class JSONObject{Map<String,String> m=new HashMap<String,String>();public JSONObject(String s){for(String x:s.split(";")){int i=x.indexOf('=');if(i>0)m.put(x.substring(0,i),x.substring(i+1));}}public String optString(String k,String d){return m.containsKey(k)?m.get(k):d;}}''',
-'com/melodix/music/GlassLikedMotion.java':'''package com.melodix.music;public class GlassLikedMotion{public static void bind(android.app.Activity a,android.widget.LinearLayout v,String s,String u){}}''',
+'com/melodix/music/GlassLikedMotion.java':'''package com.melodix.music;public class GlassLikedMotion{public static int entrances;public static void bind(android.app.Activity a,android.widget.LinearLayout v,String s,String u){}public static void entrance(android.widget.LinearLayout c){entrances++;}public static void pressable(android.view.View v,int d){}}''',
 'com/melodix/music/NativeImageLoader.java':'''package com.melodix.music;public class NativeImageLoader{public static String url="";public static int calls=0;public static void load(android.widget.ImageView v,String u,int size){url=u;calls++;}}''',
 'com/melodix/music/RefreshTest.java':r'''package com.melodix.music;
 import android.app.Activity;import android.view.*;import android.widget.*;
@@ -99,6 +99,11 @@ public class RefreshTest{
   HomeAct next=new HomeAct();GlassScreenStyler.restoreHome(next);yes("[{\"title\":\"Flex\"}]".equals(next.applied));
   HomeAct ready=new HomeAct();ready.nativeHomeJson="[]";GlassScreenStyler.restoreHome(ready);yes(ready.applied==null);
   GlassScreenStyler.forgetHome(next);HomeAct after=new HomeAct();GlassScreenStyler.restoreHome(after);yes(after.applied==null);
+  { // User request (1022424): one entrance per screen change, never on a redraw of the same screen; playlists excluded.
+    GlassScreenStyler.style(a,new LinearLayout(a),"detail","spotify:playlist:Y","P");int e0=GlassLikedMotion.entrances;LinearLayout h=new LinearLayout(a);
+    GlassScreenStyler.style(a,h,"home","","Accueil");GlassScreenStyler.style(a,h,"home","","Accueil");yes(GlassLikedMotion.entrances==e0+1);
+    GlassScreenStyler.style(a,h,"search","","Recherche");yes(GlassLikedMotion.entrances==e0+2);
+    GlassScreenStyler.style(a,new LinearLayout(a),"detail","spotify:playlist:Z","P");yes(GlassLikedMotion.entrances==e0+2); }
   System.out.println("Glass screen JVM simulation passed");
  }
 }'''

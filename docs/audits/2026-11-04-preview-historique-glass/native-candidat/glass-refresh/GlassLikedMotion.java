@@ -20,7 +20,7 @@ import java.util.Set;
 import java.util.WeakHashMap;
 
 /** Presentation only: no touch interception, navigation, playback or metadata. */
-public final class GlassLikedMotion implements ViewTreeObserver.OnScrollChangedListener,
+public final class GlassLikedMotion implements View.OnTouchListener, ViewTreeObserver.OnScrollChangedListener,
         ViewTreeObserver.OnGlobalLayoutListener, View.OnAttachStateChangeListener, Runnable {
     private static final WeakHashMap<ScrollView,WeakReference<GlassLikedMotion>> INSTANCES = new WeakHashMap<ScrollView,WeakReference<GlassLikedMotion>>();
     private final ScrollView scroll;
@@ -38,7 +38,8 @@ public final class GlassLikedMotion implements ViewTreeObserver.OnScrollChangedL
     private final Rect bounds = new Rect();
 
     private GlassLikedMotion(ScrollView view) {
-        scroll=view; view.addOnAttachStateChangeListener(this); listen();
+        scroll=view; if(view==null)return; // null: the shared press listener only
+        view.addOnAttachStateChangeListener(this); listen();
     }
     public static void bind(Activity a,LinearLayout content,String screen,String uri) {
         if(a==null)return;
@@ -173,4 +174,37 @@ public final class GlassLikedMotion implements ViewTreeObserver.OnScrollChangedL
     @Override public void onGlobalLayout(){schedule();}
     @Override public void onViewAttachedToWindow(View v){listen();schedule();}
     @Override public void onViewDetachedFromWindow(View v){dispose();}
+    // Shared screen motion (user request 1022424), called by GlassScreenStyler for every screen.
+    static boolean motionOn(View v){
+        if(android.os.Build.VERSION.SDK_INT>=26)return android.animation.ValueAnimator.areAnimatorsEnabled();
+        try{return android.provider.Settings.Global.getFloat(v.getContext().getContentResolver(),"animator_duration_scale",1f)!=0f;}catch(RuntimeException e){return false;}
+    }
+    public static void entrance(LinearLayout content){
+        if(content.getChildCount()==0||!motionOn(content))return;
+        ViewGroup rows=content.getChildCount()==1&&content.getChildAt(0) instanceof ViewGroup?(ViewGroup)content.getChildAt(0):content;
+        float d=content.getResources().getDisplayMetrics().density;
+        for(int i=0;i<rows.getChildCount()&&i<14;i++){
+            View v=rows.getChildAt(i);if(v.getVisibility()!=View.VISIBLE)continue;
+            v.animate().cancel();v.setAlpha(0f);v.setTranslationY(18*d);
+            v.animate().alpha(1f).translationY(0f).setStartDelay(i*40L).setDuration(320).setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
+        }
+    }
+    // Press feedback on every tappable row/card: a soft shrink while held, spring back on release.
+    private static final WeakHashMap<View,Boolean> PRESSED=new WeakHashMap<View,Boolean>();
+    // One shared listener, no extra class (the build ships only GlassLikedMotion.smali).
+    private static final GlassLikedMotion PRESS=new GlassLikedMotion(null);
+    @Override public boolean onTouch(View x,android.view.MotionEvent e){
+        int m=e.getActionMasked();
+        if(m==android.view.MotionEvent.ACTION_DOWN)x.animate().scaleX(0.97f).scaleY(0.97f).setDuration(90).start();
+        else if(m==android.view.MotionEvent.ACTION_UP||m==android.view.MotionEvent.ACTION_CANCEL)x.animate().scaleX(1f).scaleY(1f).setDuration(220).setInterpolator(new android.view.animation.OvershootInterpolator(2f)).start();
+        return false;
+    }
+    public static void pressable(View v,int depth){
+        if(v==null||depth>4)return;
+        if(v.isClickable()&&!PRESSED.containsKey(v)&&!(v instanceof TextView)){
+            PRESSED.put(v,Boolean.TRUE);
+            v.setOnTouchListener(PRESS);
+        }
+        if(v instanceof ViewGroup){ViewGroup g=(ViewGroup)v;for(int i=0;i<g.getChildCount()&&i<400;i++)pressable(g.getChildAt(i),depth+1);}
+    }
 }

@@ -70,7 +70,16 @@ public final class GlassScreenStyler implements Runnable, android.view.ViewTreeO
         else if("detail".equals(screen)&&playlist(uri))playlist(a,content,uri,title);
         else if("detail".equals(screen)&&liked(uri))playlist(a,content,uri,title);
         GlassLikedMotion.bind(a,content,screen,uri);
+        // User request (1022424): a modern entrance on every screen. Playlists and Liked Songs already animate their
+        // rows on scroll (GlassLikedMotion); every other screen gets a staggered rise once per screen change only,
+        // never on a redraw of the same screen (a replayed fade read as flicker, 1022393).
+        String key=String.valueOf(screen)+"|"+uri;
+        boolean motion=!("detail".equals(screen)&&(playlist(uri)||liked(uri)));
+        if(!key.equals(lastEntrance)){lastEntrance=key;if(motion)GlassLikedMotion.entrance(content);}
+        GlassLikedMotion.pressable(content,0);
     }
+    private static String lastEntrance;
+
     private static LinearLayout rowContainer(LinearLayout content) {
         if(content.getChildCount()==1 && content.getChildAt(0) instanceof LinearLayout)
             return (LinearLayout)content.getChildAt(0);
