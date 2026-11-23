@@ -61,6 +61,11 @@ public class MotionTest {
   content.addView(new TextView(a));GlassLikedMotion.bind(a,content,"detail","spotify:collection:tracks");content.removeViewAt(1);
   LinearLayout repaint=new LinearLayout(a);repaint.addView(row(a,0));content.removeView(again);content.addView(repaint);
   GlassLikedMotion.bind(a,content,"detail","spotify:collection:tracks");s.flush();yes(first==1&&image(repaint,0).starts==0,"same list repaint keeps rows still");
+  { // User report (1022418): rows numbered before the cover (40f96f4) still get the entrance.
+    Activity na=new Activity();ScrollView ns=new ScrollView(na);na.scroll=ns;LinearLayout nc=new LinearLayout(na),nr=new LinearLayout(na);nc.addView(nr);
+    for(int i=0;i<8;i++){LinearLayout r=new LinearLayout(na);r.top=i*10;r.bottom=r.top+10;r.addView(new TextView(na));ImageView im=new ImageView(na);r.addView(im);LinearLayout l=new LinearLayout(na);l.addView(new TextView(na));r.addView(l);nr.addView(r);}
+    View.clipTop=0;View.clipBottom=40;GlassLikedMotion.bind(na,nc,"detail","spotify:playlist:N");ns.flush();
+    yes(((ImageView)((ViewGroup)nr.getChildAt(0)).getChildAt(1)).starts==1,"numbered row entrance"); }
   System.out.println("Glass liked motion JVM simulation passed (10,000 rows)");
  }
 }'''

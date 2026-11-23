@@ -801,7 +801,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     };
     // User request (1022402, free account): Spotify plays a tapped track alone. Melodix plays the playlist order
     // (PreviewPlayerControllerQueue) with repeat off/playlist/track and shuffle, like the Spotify app.
-    private String detailKey = "", advancedFor = "", queueTrack = "", shownRows;
+    private String detailKey = "", advancedFor = "", queueTrack = "", shownRows, queueAlias = "";
     private long queueCommandAt = -100000, queueLastPos = -1, queueLastDur = -1, queueLastAt = -100000;
     // true when Melodix started it itself (podcast episode): the caller must not navigate the page to it.
     public boolean queueStart(String uri) {
@@ -813,7 +813,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             if (rows == null || !PreviewPlayerControllerQueue.start(new JSONArray(rows), uri))
                 if (shownRows == null || !PreviewPlayerControllerQueue.start(new JSONArray(shownRows), uri)) PreviewPlayerControllerQueue.clear();
         } catch (Exception e) { PreviewPlayerControllerQueue.clear(); }
-        queueCommandAt = now(); advancedFor = ""; queueLastPos = -1;
+        queueCommandAt = now(); advancedFor = ""; queueLastPos = -1; queueAlias = "";
         // User request (1022409): the page only plays tracks directly; an episode tap navigated the hidden page
         // instead of playing it. Play it like a track.
         if (uri.startsWith("spotify:episode:")) return queuePlay(uri);
@@ -848,7 +848,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     private boolean queuePlay(String u) {
         WebView w = seekWeb.get();
         if (w == null || !PreviewPlayerControllerQueue.playable(u)) return false;
-        queueCommandAt = now(); advancedFor = ""; queueLastPos = -1;
+        queueCommandAt = now(); advancedFor = ""; queueLastPos = -1; queueAlias = "";
         try { w.evaluateJavascript("(function(u){if(/^spotify:episode:/.test(u)&&typeof window.playFromUri==='function'){window.playFromUri(u);return}if(typeof window.__sfNativeOpenUri==='function')window.__sfNativeOpenUri(u)})('" + u + "')", null); }
         catch (RuntimeException e) { return false; }
         showQueued(u);
@@ -874,12 +874,18 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         if (PreviewPlayerControllerQueue.isEmpty() || uri.isEmpty()) return;
         long t = now(); String cur = PreviewPlayerControllerQueue.current();
         if (t - queueCommandAt < 4000) return; // our command is not reflected yet
+        if (uri.equals(queueAlias)) uri = cur;
         if (!uri.equals(cur)) {
             if (PreviewPlayerControllerQueue.moveTo(uri)) { advancedFor = ""; queueLastPos = -1; return; }
+            // Spotify may report the track we just started under another (relinked) id: adopt it as the current one.
+            if (t - queueCommandAt < 15000) { queueAlias = uri; return; }
             // Spotify moved on by itself just after our track ended (a missed end reading): continue the playlist.
             boolean endedJustNow = queueLastDur > 0 && queueLastPos >= queueLastDur - 8000 && t - queueLastAt < 12000;
             String n = !endedJustNow ? null : PreviewPlayerMode.repeatMode == 2 ? cur : PreviewPlayerControllerQueue.step(true, PreviewPlayerMode.repeatMode == 1);
-            if (n != null) queuePlay(n); else PreviewPlayerControllerQueue.clear(); // something else plays: Spotify's choice
+            // User report (1022418): after leaving and coming back, a zap played a random track - the queue had been
+            // dropped on an unknown/relinked track id or a stale background reading. Keep it: only a new tap on a
+            // track (queueStart) replaces the playlist order, like Spotify keeps its context.
+            if (n != null) queuePlay(n);
             return;
         }
         if (dur <= 0 || pos < 0) return;

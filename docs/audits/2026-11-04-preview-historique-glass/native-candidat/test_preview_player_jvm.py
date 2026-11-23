@@ -343,6 +343,8 @@ public class ControllerTest {
      yes(PreviewPlayerControllerQueue.start(q,"spotify:track:A"));yes(PreviewPlayerControllerQueue.playNext(1));yes("spotify:track:C".equals(PreviewPlayerControllerQueue.step(true,false)));yes("spotify:track:B".equals(PreviewPlayerControllerQueue.step(true,false)));
      yes(PreviewPlayerControllerQueue.start(new org.json.JSONArray("uri=spotify:episode:E1;title=E1|uri=spotify:episode:E2;title=E2"),"spotify:episode:E1"));yes("spotify:episode:E2".equals(PreviewPlayerControllerQueue.step(true,false)));
      yes(PreviewPlayerControllerQueue.start(q,"spotify:track:A"));
+     // User report (1022418): an unknown/stale track reading must not drop the playlist order (zap stayed random).
+     { PreviewPlayerController qc=new PreviewPlayerController(new Activity());yes(PreviewPlayerControllerQueue.start(q,"spotify:track:A"));qc.queueTick("spotify:track:Z",1000,200000);yes(!PreviewPlayerControllerQueue.isEmpty());yes("spotify:track:A".equals(PreviewPlayerControllerQueue.current())); }
      yes(PreviewPlayerControllerQueue.snapshot()!=null);PreviewPlayerControllerQueue.clear();yes(PreviewPlayerControllerQueue.snapshot()==null);
      PreviewPlayerControllerQueue.clear(); }
   System.out.println("Preview controller JVM simulation passed");

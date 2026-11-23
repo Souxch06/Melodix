@@ -246,19 +246,53 @@ public final class PreviewPlayerTiles extends LinearLayout {
     // recolour and scroll; the progress, times and play button mirror the player.
     private final java.util.ArrayList<TextView> lyricViews=new java.util.ArrayList<TextView>();
     private ScrollView lyricScroll;private int lyricsActive=-1,liveMisses;private Runnable lyricsReload;
+    private static final java.util.HashMap<String,String> lyricsCache=new java.util.HashMap<String,String>();
+    private boolean cachedShown;
+    private static String nowTitle(Activity a){View t=a.findViewById(0x7f09023b),ar=a.findViewById(0x7f09023c);return (t instanceof TextView?String.valueOf(((TextView)t).getText()):"")+"\t"+(ar instanceof TextView?String.valueOf(((TextView)ar).getText()):"");}
+    private void showKept(Activity a,LinearLayout list,String body){
+        list.removeAllViews();lyricViews.clear();cachedShown=true;
+        String[] lines=body.split("\n");
+        for(int k=0;k<lines.length&&k<200;k++){TextView t=line(a,lines[k],lyricsPale,24);t.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);t.setPadding(0,dp(6),0,dp(6));list.addView(t,new LinearLayout.LayoutParams(-1,-2));lyricViews.add(t);}
+        lyricScroll=list.getParent() instanceof ScrollView?(ScrollView)list.getParent():null;lyricsActive=-1;
+    }
+    // "Mot par mot" (user request 1022418): the web player gives only the sung line, not word timings. The line fills
+    // in white word by word at the pace measured on the previous lines; each new line re-syncs it.
+    // shortcut: estimated pace, ahead/behind on rhythm changes; upgrade if Spotify exposes word timings.
+    private long lineStartAt=-1,paceMs,paceChars;private boolean lyricsPlaying;
+    private void lineChanged(int from,int to){
+        long now=SystemClock.elapsedRealtime();
+        if(from>=0&&from<lyricViews.size()&&lineStartAt>0){long d=now-lineStartAt;int n=String.valueOf(lyricViews.get(from).getText()).length();if(d>400&&d<15000&&n>0){paceMs+=d;paceChars+=n;}}
+        if(from>=0&&from<lyricViews.size()){TextView p=lyricViews.get(from);p.setText(String.valueOf(p.getText()));}
+        lineStartAt=to>=0?now:-1;
+    }
+    private void fillTick(final Dialog dialog){
+        if(webDialog!=dialog)return;
+        int k=lyricsActive;
+        if(!lyricsPlaying&&lineStartAt>0)lineStartAt+=120;
+        if(k>=0&&k<lyricViews.size()&&lineStartAt>0){
+            TextView t=lyricViews.get(k);String txt=String.valueOf(t.getText());
+            float rate=paceChars>0?paceMs/(float)paceChars:55f;
+            int n=Math.min(txt.length(),(int)((SystemClock.elapsedRealtime()-lineStartAt)/rate));
+            while(n>0&&n<txt.length()&&txt.charAt(n)!=' ')n++; // whole words
+            android.text.SpannableString sp=new android.text.SpannableString(txt);
+            if(n>0)sp.setSpan(new android.text.style.ForegroundColorSpan(Color.WHITE),0,n,0);
+            t.setTextColor(lyricsPale);t.setText(sp);
+        }
+        postDelayed(new Runnable(){public void run(){fillTick(dialog);}},120);
+    }
     private static final String LIVE_JS="(function(){try{var ls=Array.from(document.querySelectorAll('[data-testid=\"fullscreen-lyric\"],[data-testid^=\"lyrics-line\"]')).filter(function(n){return (n.textContent||'').trim()});if(!ls.length)return -2;for(var i=0;i<ls.length;i++)if(ls[i].getAttribute('aria-current')==='true'||ls[i].getAttribute('data-active')==='true')return i;var looks=ls.map(function(n){var c=getComputedStyle(n);return c.color+'|'+c.opacity});var f=looks[looks.length-1],k=looks.length-1;while(k>=0&&looks[k]===f)k--;return k}catch(e){return -2}})()";
     private void lyricsTick(final Activity a,final Dialog dialog,final View fill,final TextView pos,final TextView dur,final TextView play){
         if(webDialog!=dialog)return;
         View p=a.findViewById(0x7f09024a),d=a.findViewById(0x7f09024b),bar=a.findViewById(0x7f09023d),full=a.findViewById(0x7f09023e);
         if(p instanceof TextView)pos.setText(((TextView)p).getText());if(d instanceof TextView)dur.setText(((TextView)d).getText());
         if(bar instanceof android.widget.ProgressBar){android.widget.ProgressBar b=(android.widget.ProgressBar)bar;fill.setScaleX(b.getMax()>0?Math.max(0f,Math.min(1f,b.getProgress()/(float)b.getMax())):0f);}
-        boolean playing=full!=null&&String.valueOf(full.getContentDescription()).startsWith("Mettre en pause");play.setText(playing?"❚❚":"▶");
+        boolean playing=full!=null&&String.valueOf(full.getContentDescription()).startsWith("Mettre en pause");play.setText(playing?"❚❚":"▶");lyricsPlaying=playing||full==null; // no button seen: never freeze the fill
         WebView w=web(a);
         if(w!=null&&!lyricViews.isEmpty())try{w.evaluateJavascript(LIVE_JS,new ValueCallback<String>(){public void onReceiveValue(String v){
             int k=-2;try{k=Integer.parseInt(String.valueOf(v).trim());}catch(NumberFormatException ignored){}
             if(k==-2){if(++liveMisses==5&&lyricsReload!=null){liveMisses=0;post(lyricsReload);}return;}
-            liveMisses=0;if(k==lyricsActive||k>=lyricViews.size())return;lyricsActive=k;
-            for(int j=0;j<lyricViews.size();j++)lyricViews.get(j).setTextColor(k<0?lyricsPale:j==k?Color.WHITE:lyricsPale);
+            liveMisses=0;if(k==lyricsActive||k>=lyricViews.size())return;lineChanged(lyricsActive,k);lyricsActive=k;
+            for(int j=0;j<lyricViews.size();j++)lyricViews.get(j).setTextColor(lyricsPale);
             if(k>=0&&lyricScroll!=null)lyricScroll.smoothScrollTo(0,Math.max(0,lyricViews.get(k).getTop()-dp(160)));
         }});}catch(RuntimeException ignored){}
         postDelayed(new Runnable(){public void run(){lyricsTick(a,dialog,fill,pos,dur,play);}},500);
@@ -278,6 +312,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
         panel.addView(box,new LinearLayout.LayoutParams(-1,-2));
         lyricViews.clear();lyricsActive=-1;liveMisses=0;
         postDelayed(new Runnable(){public void run(){lyricsTick(a,dialog,fill,pos,dur,play);}},500);
+        lineStartAt=-1;paceMs=0;paceChars=0;postDelayed(new Runnable(){public void run(){fillTick(dialog);}},120);
     }
     // User screenshot (1022413): Spotify's lyrics screen - full height, the cover's colour as background, title and
     // artist centred on top, big bold lines in a pale tint of that colour, the sung line in white.
@@ -328,10 +363,11 @@ public final class PreviewPlayerTiles extends LinearLayout {
         if(i==1){
             int active=-1;try{active=Integer.parseInt(o.optString("active","-1"));}catch(NumberFormatException ignored){}
             String[] lines=body.split("\n");
+            String key=nowTitle(a);if(!key.isEmpty()){if(lyricsCache.size()>30)lyricsCache.clear();lyricsCache.put(key,body);}
             final TextView[] current={null};lyricViews.clear();
             for(int k=0;k<lines.length&&k<200;k++){TextView t=line(a,lines[k],active<0?lyricsPale:k==active?Color.WHITE:lyricsPale,24);t.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);t.setPadding(0,dp(6),0,dp(6));list.addView(t,new LinearLayout.LayoutParams(-1,-2));lyricViews.add(t);if(k==active)current[0]=t;}
             lyricScroll=list.getParent() instanceof ScrollView?(ScrollView)list.getParent():null;lyricsActive=active;
-            if(!lyricsLive)riseAll(list);
+            if(!lyricsLive&&!cachedShown)riseAll(list);cachedShown=false;
             if(active>=0){
                 // Keep the current line in view, then read the page again in 1.5 s while this panel stays open.
                 list.post(new Runnable(){public void run(){if(current[0]!=null&&list.getParent() instanceof android.widget.ScrollView)((android.widget.ScrollView)list.getParent()).smoothScrollTo(0,Math.max(0,current[0].getTop()-dp(120)));}});
@@ -360,7 +396,9 @@ public final class PreviewPlayerTiles extends LinearLayout {
         riseAll(list);
     }
     private void loadPanel(final int i,final Activity a,final Dialog dialog,final LinearLayout list,final Button retry,final String action,final String target){
-        final long serial=++panelSerial;panelJobId="";panelJobPending=false;if(!lyricsLive)skeleton(a,list);retry.setEnabled(false);final String kind=i==1?"lyrics":"devices";
+        // Faster lyrics (user request 1022418): show the lines kept for this track at once while Spotify reloads.
+        String kept=i==1&&!lyricsLive?lyricsCache.get(nowTitle(a)):null;
+        final long serial=++panelSerial;panelJobId="";panelJobPending=false;if(kept!=null)showKept(a,list,kept);else if(!lyricsLive)skeleton(a,list);retry.setEnabled(false);final String kind=i==1?"lyrics":"devices";
         postDelayed(new Runnable(){public void run(){if(serial==panelSerial&&webDialog==dialog&&panelSettled!=serial){panelJournals[i-1]="delai";if(action.equals("transfer"))panelMessage(a,list,retry,"Transfert non vérifié","Résultat incertain. Vérifiez l’appareil actif avant toute nouvelle tentative.");else panelFailed(i,a,list,retry);}}},action.equals("transfer")?11000:8000);
         WebView w=web(a);if(w==null){panelJournals[i-1]="page:inaccessible";panelFailed(i,a,list,retry);return;}
         try{w.evaluateJavascript("("+PANEL_JOB+")("+JSONObject.quote(kind)+","+JSONObject.quote(action)+","+JSONObject.quote(target)+");",new ValueCallback<String>(){public void onReceiveValue(String value){

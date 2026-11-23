@@ -86,10 +86,15 @@ public final class GlassLikedMotion implements ViewTreeObserver.OnScrollChangedL
         try {return Settings.Global.getFloat(scroll.getContext().getContentResolver(), "animator_duration_scale", 1f)==0f;}
         catch (RuntimeException ignored) {return true;}
     }
+    // User report (1022418): rows start with the track number since 40f96f4, so the cover is no longer child 0.
+    // Find the cover wherever it is; the labels are the group right after it.
+    private static int cover(ViewGroup g) {
+        for(int i=0;i+1<g.getChildCount() && i<3;i++)if(g.getChildAt(i) instanceof ImageView && g.getChildAt(i+1) instanceof ViewGroup)return i;
+        return -1;
+    }
     private static boolean parts(View row) {
         if(!(row instanceof ViewGroup) || "glass-playlist-hero".equals(row.getTag()))return false;
-        ViewGroup g=(ViewGroup)row;
-        return g.getChildCount()>=2 && g.getChildAt(0) instanceof ImageView && g.getChildAt(1) instanceof ViewGroup;
+        return cover((ViewGroup)row)>=0;
     }
     private void part(View v, int vertical, int delay) {
         if(v==null || v.getVisibility()!=View.VISIBLE)return;
@@ -100,14 +105,14 @@ public final class GlassLikedMotion implements ViewTreeObserver.OnScrollChangedL
     }
     private void animateRow(View row,int direction) {
         if(!parts(row))return;
-        ViewGroup g=(ViewGroup)row;part(g.getChildAt(0),direction,0);
-        ViewGroup labels=(ViewGroup)g.getChildAt(1);
+        ViewGroup g=(ViewGroup)row;int c=cover(g);for(int i=0;i<=c;i++)part(g.getChildAt(i),direction,0);
+        ViewGroup labels=(ViewGroup)g.getChildAt(c+1);
         for(int i=0;i<labels.getChildCount() && i<2;i++)if(labels.getChildAt(i) instanceof TextView)part(labels.getChildAt(i),direction,30+i*25);
     }
     private static void reset(View v) {v.animate().cancel();v.setAlpha(1f);v.setTranslationX(0f);v.setTranslationY(0f);}
     private static void resetRow(View row) {
         if(!parts(row))return;
-        ViewGroup g=(ViewGroup)row;reset(g.getChildAt(0));ViewGroup labels=(ViewGroup)g.getChildAt(1);
+        ViewGroup g=(ViewGroup)row;int c=cover(g);for(int i=0;i<=c;i++)reset(g.getChildAt(i));ViewGroup labels=(ViewGroup)g.getChildAt(c+1);
         for(int i=0;i<labels.getChildCount() && i<2;i++)if(labels.getChildAt(i) instanceof TextView)reset(labels.getChildAt(i));
     }
     private void resetAll() {

@@ -144,9 +144,9 @@
 .end method
 
 .method private animateRow(Landroid/view/View;I)V
-    .locals 3
+    .locals 4
 
-    .line 102
+    .line 107
     invoke-static {p1}, Lcom/melodix/music/GlassLikedMotion;->parts(Landroid/view/View;)Z
 
     move-result v0
@@ -155,66 +155,80 @@
 
     return-void
 
-    .line 103
+    .line 108
     :cond_0
     check-cast p1, Landroid/view/ViewGroup;
 
-    const/4 v0, 0x0
+    invoke-static {p1}, Lcom/melodix/music/GlassLikedMotion;->cover(Landroid/view/ViewGroup;)I
+
+    move-result v0
+
+    const/4 v1, 0x0
+
+    move v2, v1
+
+    :goto_0
+    if-gt v2, v0, :cond_1
+
+    invoke-virtual {p1, v2}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
+
+    move-result-object v3
+
+    invoke-direct {p0, v3, p2, v1}, Lcom/melodix/music/GlassLikedMotion;->part(Landroid/view/View;II)V
+
+    add-int/lit8 v2, v2, 0x1
+
+    goto :goto_0
+
+    .line 109
+    :cond_1
+    add-int/lit8 v0, v0, 0x1
 
     invoke-virtual {p1, v0}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
-
-    move-result-object v1
-
-    invoke-direct {p0, v1, p2, v0}, Lcom/melodix/music/GlassLikedMotion;->part(Landroid/view/View;II)V
-
-    .line 104
-    const/4 v1, 0x1
-
-    invoke-virtual {p1, v1}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
 
     move-result-object p1
 
     check-cast p1, Landroid/view/ViewGroup;
 
-    .line 105
+    .line 110
     nop
 
-    :goto_0
+    :goto_1
     invoke-virtual {p1}, Landroid/view/ViewGroup;->getChildCount()I
 
-    move-result v1
+    move-result v0
 
-    if-ge v0, v1, :cond_2
+    if-ge v1, v0, :cond_3
 
-    const/4 v1, 0x2
+    const/4 v0, 0x2
 
-    if-ge v0, v1, :cond_2
+    if-ge v1, v0, :cond_3
 
-    invoke-virtual {p1, v0}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
+    invoke-virtual {p1, v1}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
 
-    move-result-object v1
+    move-result-object v0
 
-    instance-of v1, v1, Landroid/widget/TextView;
+    instance-of v0, v0, Landroid/widget/TextView;
 
-    if-eqz v1, :cond_1
+    if-eqz v0, :cond_2
 
-    invoke-virtual {p1, v0}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
+    invoke-virtual {p1, v1}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
 
-    move-result-object v1
+    move-result-object v0
 
-    mul-int/lit8 v2, v0, 0x19
+    mul-int/lit8 v2, v1, 0x19
 
     add-int/lit8 v2, v2, 0x1e
 
-    invoke-direct {p0, v1, p2, v2}, Lcom/melodix/music/GlassLikedMotion;->part(Landroid/view/View;II)V
+    invoke-direct {p0, v0, p2, v2}, Lcom/melodix/music/GlassLikedMotion;->part(Landroid/view/View;II)V
 
-    :cond_1
-    add-int/lit8 v0, v0, 0x1
-
-    goto :goto_0
-
-    .line 106
     :cond_2
+    add-int/lit8 v1, v1, 0x1
+
+    goto :goto_1
+
+    .line 111
+    :cond_3
     return-void
 .end method
 
@@ -388,10 +402,59 @@
     return-void
 .end method
 
+.method private static cover(Landroid/view/ViewGroup;)I
+    .locals 3
+
+    .line 92
+    const/4 v0, 0x0
+
+    :goto_0
+    add-int/lit8 v1, v0, 0x1
+
+    invoke-virtual {p0}, Landroid/view/ViewGroup;->getChildCount()I
+
+    move-result v2
+
+    if-ge v1, v2, :cond_1
+
+    const/4 v2, 0x3
+
+    if-ge v0, v2, :cond_1
+
+    invoke-virtual {p0, v0}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
+
+    move-result-object v2
+
+    instance-of v2, v2, Landroid/widget/ImageView;
+
+    if-eqz v2, :cond_0
+
+    invoke-virtual {p0, v1}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
+
+    move-result-object v2
+
+    instance-of v2, v2, Landroid/view/ViewGroup;
+
+    if-eqz v2, :cond_0
+
+    return v0
+
+    :cond_0
+    move v0, v1
+
+    goto :goto_0
+
+    .line 93
+    :cond_1
+    const/4 p0, -0x1
+
+    return p0
+.end method
+
 .method private dispose()V
     .locals 2
 
-    .line 164
+    .line 169
     const/4 v0, 0x0
 
     iput-boolean v0, p0, Lcom/melodix/music/GlassLikedMotion;->enabled:Z
@@ -410,7 +473,7 @@
 
     invoke-direct {p0}, Lcom/melodix/music/GlassLikedMotion;->unlisten()V
 
-    .line 165
+    .line 170
     iget-object v0, p0, Lcom/melodix/music/GlassLikedMotion;->scroll:Landroid/widget/ScrollView;
 
     invoke-virtual {v0, p0}, Landroid/widget/ScrollView;->removeOnAttachStateChangeListener(Landroid/view/View$OnAttachStateChangeListener;)V
@@ -431,19 +494,19 @@
 
     iput-object v0, p0, Lcom/melodix/music/GlassLikedMotion;->collection:Ljava/lang/String;
 
-    .line 166
+    .line 171
     return-void
 .end method
 
 .method private hero(I)V
     .locals 7
 
-    .line 118
+    .line 123
     new-instance v0, Ljava/util/HashMap;
 
     invoke-direct {v0}, Ljava/util/HashMap;-><init>()V
 
-    .line 119
+    .line 124
     iget-object v1, p0, Lcom/melodix/music/GlassLikedMotion;->rows:Landroid/view/ViewGroup;
 
     invoke-virtual {v1}, Landroid/view/ViewGroup;->getChildCount()I
@@ -466,7 +529,7 @@
 
     iget-object v1, p0, Lcom/melodix/music/GlassLikedMotion;->rows:Landroid/view/ViewGroup;
 
-    .line 120
+    .line 125
     invoke-virtual {v1, v2}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
 
     move-result-object v1
@@ -483,7 +546,7 @@
 
     if-eqz v1, :cond_1
 
-    .line 121
+    .line 126
     iget-object v1, p0, Lcom/melodix/music/GlassLikedMotion;->rows:Landroid/view/ViewGroup;
 
     invoke-virtual {v1, v2}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
@@ -492,7 +555,7 @@
 
     check-cast v1, Landroid/view/ViewGroup;
 
-    .line 122
+    .line 127
     nop
 
     :goto_0
@@ -506,7 +569,7 @@
 
     if-ge v2, v3, :cond_1
 
-    .line 123
+    .line 128
     invoke-virtual {v1, v2}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
 
     move-result-object v3
@@ -517,7 +580,7 @@
 
     rsub-int/lit8 v5, v2, -0x1
 
-    .line 124
+    .line 129
     invoke-virtual {v3, v4}, Landroid/view/View;->getGlobalVisibleRect(Landroid/graphics/Rect;)Z
 
     move-result v6
@@ -530,14 +593,14 @@
 
     if-lez v4, :cond_0
 
-    .line 125
+    .line 130
     invoke-static {v5}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
 
     move-result-object v4
 
     invoke-virtual {v0, v3, v4}, Ljava/util/HashMap;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
 
-    .line 126
+    .line 131
     iget-object v4, p0, Lcom/melodix/music/GlassLikedMotion;->heroVisible:Ljava/util/HashMap;
 
     invoke-virtual {v4, v3}, Ljava/util/HashMap;->containsKey(Ljava/lang/Object;)Z
@@ -562,13 +625,13 @@
 
     invoke-direct {p0, v3, p1, v4}, Lcom/melodix/music/GlassLikedMotion;->part(Landroid/view/View;II)V
 
-    .line 122
+    .line 127
     :cond_0
     add-int/lit8 v2, v2, 0x1
 
     goto :goto_0
 
-    .line 130
+    .line 135
     :cond_1
     iget-object p1, p0, Lcom/melodix/music/GlassLikedMotion;->heroVisible:Ljava/util/HashMap;
 
@@ -604,7 +667,7 @@
 
     goto :goto_1
 
-    .line 131
+    .line 136
     :cond_3
     iget-object p1, p0, Lcom/melodix/music/GlassLikedMotion;->heroVisible:Ljava/util/HashMap;
 
@@ -614,7 +677,7 @@
 
     invoke-virtual {p1, v0}, Ljava/util/HashMap;->putAll(Ljava/util/Map;)V
 
-    .line 132
+    .line 137
     return-void
 .end method
 
@@ -686,7 +749,7 @@
 .method private markVisible()V
     .locals 6
 
-    .line 157
+    .line 162
     iget-object v0, p0, Lcom/melodix/music/GlassLikedMotion;->visible:Ljava/util/HashMap;
 
     invoke-virtual {v0}, Ljava/util/HashMap;->clear()V
@@ -699,7 +762,7 @@
 
     invoke-interface {v0}, Ljava/util/Set;->clear()V
 
-    .line 158
+    .line 163
     iget-object v0, p0, Lcom/melodix/music/GlassLikedMotion;->rows:Landroid/view/ViewGroup;
 
     invoke-virtual {v0}, Landroid/view/ViewGroup;->getChildCount()I
@@ -738,7 +801,7 @@
 
     if-eqz v0, :cond_0
 
-    .line 159
+    .line 164
     iget-object v0, p0, Lcom/melodix/music/GlassLikedMotion;->rows:Landroid/view/ViewGroup;
 
     invoke-virtual {v0, v1}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
@@ -778,7 +841,7 @@
 
     goto :goto_0
 
-    .line 161
+    .line 166
     :cond_0
     nop
 
@@ -839,7 +902,7 @@
 
     goto :goto_1
 
-    .line 162
+    .line 167
     :cond_3
     :goto_2
     return-void
@@ -912,7 +975,7 @@
 .method private part(Landroid/view/View;II)V
     .locals 2
 
-    .line 95
+    .line 100
     if-eqz p1, :cond_1
 
     invoke-virtual {p1}, Landroid/view/View;->getVisibility()I
@@ -923,7 +986,7 @@
 
     goto :goto_0
 
-    .line 96
+    .line 101
     :cond_0
     invoke-virtual {p1}, Landroid/view/View;->getResources()Landroid/content/res/Resources;
 
@@ -935,7 +998,7 @@
 
     iget v0, v0, Landroid/util/DisplayMetrics;->density:F
 
-    .line 97
+    .line 102
     invoke-virtual {p1}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
 
     move-result-object v1
@@ -960,7 +1023,7 @@
 
     invoke-virtual {p1, v0}, Landroid/view/View;->setTranslationX(F)V
 
-    .line 98
+    .line 103
     invoke-virtual {p1}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
 
     move-result-object p1
@@ -999,17 +1062,17 @@
 
     invoke-direct {p2, p3}, Landroid/view/animation/DecelerateInterpolator;-><init>(F)V
 
-    .line 99
+    .line 104
     invoke-virtual {p1, p2}, Landroid/view/ViewPropertyAnimator;->setInterpolator(Landroid/animation/TimeInterpolator;)Landroid/view/ViewPropertyAnimator;
 
     move-result-object p1
 
     invoke-virtual {p1}, Landroid/view/ViewPropertyAnimator;->start()V
 
-    .line 100
+    .line 105
     return-void
 
-    .line 95
+    .line 100
     :cond_1
     :goto_0
     return-void
@@ -1018,7 +1081,7 @@
 .method private static parts(Landroid/view/View;)Z
     .locals 3
 
-    .line 90
+    .line 96
     instance-of v0, p0, Landroid/view/ViewGroup;
 
     const/4 v1, 0x0
@@ -1039,43 +1102,22 @@
 
     goto :goto_0
 
-    .line 91
+    .line 97
     :cond_0
     check-cast p0, Landroid/view/ViewGroup;
 
-    .line 92
-    invoke-virtual {p0}, Landroid/view/ViewGroup;->getChildCount()I
+    invoke-static {p0}, Lcom/melodix/music/GlassLikedMotion;->cover(Landroid/view/ViewGroup;)I
 
-    move-result v0
+    move-result p0
 
-    const/4 v2, 0x2
+    if-ltz p0, :cond_1
 
-    if-lt v0, v2, :cond_1
-
-    invoke-virtual {p0, v1}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
-
-    move-result-object v0
-
-    instance-of v0, v0, Landroid/widget/ImageView;
-
-    if-eqz v0, :cond_1
-
-    const/4 v0, 0x1
-
-    invoke-virtual {p0, v0}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
-
-    move-result-object p0
-
-    instance-of p0, p0, Landroid/view/ViewGroup;
-
-    if-eqz p0, :cond_1
-
-    move v1, v0
+    const/4 v1, 0x1
 
     :cond_1
     return v1
 
-    .line 90
+    .line 96
     :cond_2
     :goto_0
     return v1
@@ -1084,7 +1126,7 @@
 .method private static reset(Landroid/view/View;)V
     .locals 1
 
-    .line 107
+    .line 112
     invoke-virtual {p0}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
 
     move-result-object v0
@@ -1107,7 +1149,7 @@
 .method private resetAll()V
     .locals 2
 
-    .line 114
+    .line 119
     iget-object v0, p0, Lcom/melodix/music/GlassLikedMotion;->visible:Ljava/util/HashMap;
 
     invoke-virtual {v0}, Ljava/util/HashMap;->keySet()Ljava/util/Set;
@@ -1140,7 +1182,7 @@
 
     invoke-virtual {v0}, Ljava/util/HashMap;->clear()V
 
-    .line 115
+    .line 120
     iget-object v0, p0, Lcom/melodix/music/GlassLikedMotion;->heroVisible:Ljava/util/HashMap;
 
     invoke-virtual {v0}, Ljava/util/HashMap;->keySet()Ljava/util/Set;
@@ -1173,14 +1215,14 @@
 
     invoke-virtual {v0}, Ljava/util/HashMap;->clear()V
 
-    .line 116
+    .line 121
     return-void
 .end method
 
 .method private static resetRow(Landroid/view/View;)V
-    .locals 2
+    .locals 4
 
-    .line 109
+    .line 114
     invoke-static {p0}, Lcom/melodix/music/GlassLikedMotion;->parts(Landroid/view/View;)Z
 
     move-result v0
@@ -1189,61 +1231,75 @@
 
     return-void
 
-    .line 110
+    .line 115
     :cond_0
     check-cast p0, Landroid/view/ViewGroup;
 
-    const/4 v0, 0x0
+    invoke-static {p0}, Lcom/melodix/music/GlassLikedMotion;->cover(Landroid/view/ViewGroup;)I
+
+    move-result v0
+
+    const/4 v1, 0x0
+
+    move v2, v1
+
+    :goto_0
+    if-gt v2, v0, :cond_1
+
+    invoke-virtual {p0, v2}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
+
+    move-result-object v3
+
+    invoke-static {v3}, Lcom/melodix/music/GlassLikedMotion;->reset(Landroid/view/View;)V
+
+    add-int/lit8 v2, v2, 0x1
+
+    goto :goto_0
+
+    :cond_1
+    add-int/lit8 v0, v0, 0x1
 
     invoke-virtual {p0, v0}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
-
-    move-result-object v1
-
-    invoke-static {v1}, Lcom/melodix/music/GlassLikedMotion;->reset(Landroid/view/View;)V
-
-    const/4 v1, 0x1
-
-    invoke-virtual {p0, v1}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
 
     move-result-object p0
 
     check-cast p0, Landroid/view/ViewGroup;
 
-    .line 111
+    .line 116
     nop
 
-    :goto_0
+    :goto_1
     invoke-virtual {p0}, Landroid/view/ViewGroup;->getChildCount()I
 
-    move-result v1
+    move-result v0
 
-    if-ge v0, v1, :cond_2
+    if-ge v1, v0, :cond_3
 
-    const/4 v1, 0x2
+    const/4 v0, 0x2
 
-    if-ge v0, v1, :cond_2
+    if-ge v1, v0, :cond_3
 
-    invoke-virtual {p0, v0}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
+    invoke-virtual {p0, v1}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
 
-    move-result-object v1
+    move-result-object v0
 
-    instance-of v1, v1, Landroid/widget/TextView;
+    instance-of v0, v0, Landroid/widget/TextView;
 
-    if-eqz v1, :cond_1
+    if-eqz v0, :cond_2
 
-    invoke-virtual {p0, v0}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
+    invoke-virtual {p0, v1}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
 
-    move-result-object v1
+    move-result-object v0
 
-    invoke-static {v1}, Lcom/melodix/music/GlassLikedMotion;->reset(Landroid/view/View;)V
+    invoke-static {v0}, Lcom/melodix/music/GlassLikedMotion;->reset(Landroid/view/View;)V
 
-    :cond_1
-    add-int/lit8 v0, v0, 0x1
-
-    goto :goto_0
-
-    .line 112
     :cond_2
+    add-int/lit8 v1, v1, 0x1
+
+    goto :goto_1
+
+    .line 117
+    :cond_3
     return-void
 .end method
 
@@ -1442,7 +1498,7 @@
 .method public onGlobalLayout()V
     .locals 0
 
-    .line 168
+    .line 173
     invoke-direct {p0}, Lcom/melodix/music/GlassLikedMotion;->schedule()V
 
     return-void
@@ -1451,7 +1507,7 @@
 .method public onScrollChanged()V
     .locals 0
 
-    .line 167
+    .line 172
     invoke-direct {p0}, Lcom/melodix/music/GlassLikedMotion;->schedule()V
 
     return-void
@@ -1460,7 +1516,7 @@
 .method public onViewAttachedToWindow(Landroid/view/View;)V
     .locals 0
 
-    .line 169
+    .line 174
     invoke-direct {p0}, Lcom/melodix/music/GlassLikedMotion;->listen()V
 
     invoke-direct {p0}, Lcom/melodix/music/GlassLikedMotion;->schedule()V
@@ -1471,7 +1527,7 @@
 .method public onViewDetachedFromWindow(Landroid/view/View;)V
     .locals 0
 
-    .line 170
+    .line 175
     invoke-direct {p0}, Lcom/melodix/music/GlassLikedMotion;->dispose()V
 
     return-void
@@ -1480,12 +1536,12 @@
 .method public run()V
     .locals 8
 
-    .line 134
+    .line 139
     const/4 v0, 0x0
 
     iput-boolean v0, p0, Lcom/melodix/music/GlassLikedMotion;->scheduled:Z
 
-    .line 135
+    .line 140
     iget-boolean v1, p0, Lcom/melodix/music/GlassLikedMotion;->enabled:Z
 
     if-eqz v1, :cond_11
@@ -1500,7 +1556,7 @@
 
     goto/16 :goto_9
 
-    .line 136
+    .line 141
     :cond_0
     iget-object v1, p0, Lcom/melodix/music/GlassLikedMotion;->rows:Landroid/view/ViewGroup;
 
@@ -1522,7 +1578,7 @@
 
     goto/16 :goto_7
 
-    .line 137
+    .line 142
     :cond_1
     invoke-direct {p0}, Lcom/melodix/music/GlassLikedMotion;->motionOff()Z
 
@@ -1538,7 +1594,7 @@
 
     return-void
 
-    .line 138
+    .line 143
     :cond_2
     iget-object v1, p0, Lcom/melodix/music/GlassLikedMotion;->rows:Landroid/view/ViewGroup;
 
@@ -1560,7 +1616,7 @@
 
     goto/16 :goto_6
 
-    .line 139
+    .line 144
     :cond_3
     iget-object v1, p0, Lcom/melodix/music/GlassLikedMotion;->scroll:Landroid/widget/ScrollView;
 
@@ -1584,7 +1640,7 @@
     :goto_0
     iput v1, p0, Lcom/melodix/music/GlassLikedMotion;->lastY:I
 
-    .line 140
+    .line 145
     iget-boolean v1, p0, Lcom/melodix/music/GlassLikedMotion;->quiet:Z
 
     if-eqz v1, :cond_5
@@ -1595,11 +1651,11 @@
 
     return-void
 
-    .line 141
+    .line 146
     :cond_5
     invoke-direct {p0, v2}, Lcom/melodix/music/GlassLikedMotion;->hero(I)V
 
-    .line 142
+    .line 147
     iget-object v1, p0, Lcom/melodix/music/GlassLikedMotion;->rows:Landroid/view/ViewGroup;
 
     invoke-virtual {v1}, Landroid/view/ViewGroup;->getChildCount()I
@@ -1608,7 +1664,7 @@
 
     move v4, v1
 
-    .line 145
+    .line 150
     :goto_1
     if-ge v0, v4, :cond_7
 
@@ -1643,19 +1699,19 @@
 
     goto :goto_1
 
-    .line 146
+    .line 151
     :cond_7
     new-instance v3, Ljava/util/HashMap;
 
     invoke-direct {v3}, Ljava/util/HashMap;-><init>()V
 
-    .line 147
+    .line 152
     nop
 
     :goto_2
     if-ge v0, v1, :cond_b
 
-    .line 148
+    .line 153
     iget-object v4, p0, Lcom/melodix/music/GlassLikedMotion;->rows:Landroid/view/ViewGroup;
 
     invoke-virtual {v4, v0}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
@@ -1674,7 +1730,7 @@
 
     goto :goto_4
 
-    .line 149
+    .line 154
     :cond_8
     invoke-static {v4}, Lcom/melodix/music/GlassLikedMotion;->parts(Landroid/view/View;)Z
 
@@ -1691,7 +1747,7 @@
 
     invoke-virtual {v3, v4, v5}, Ljava/util/HashMap;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
 
-    .line 150
+    .line 155
     iget-object v5, p0, Lcom/melodix/music/GlassLikedMotion;->visible:Ljava/util/HashMap;
 
     invoke-virtual {v5, v4}, Ljava/util/HashMap;->containsKey(Ljava/lang/Object;)Z
@@ -1714,14 +1770,14 @@
 
     invoke-direct {p0, v4, v2}, Lcom/melodix/music/GlassLikedMotion;->animateRow(Landroid/view/View;I)V
 
-    .line 147
+    .line 152
     :cond_a
     :goto_3
     add-int/lit8 v0, v0, 0x1
 
     goto :goto_2
 
-    .line 152
+    .line 157
     :cond_b
     :goto_4
     iget-object v0, p0, Lcom/melodix/music/GlassLikedMotion;->visible:Ljava/util/HashMap;
@@ -1758,7 +1814,7 @@
 
     goto :goto_5
 
-    .line 153
+    .line 158
     :cond_d
     iget-object v0, p0, Lcom/melodix/music/GlassLikedMotion;->visible:Ljava/util/HashMap;
 
@@ -1772,10 +1828,10 @@
 
     invoke-interface {v0}, Ljava/util/Set;->clear()V
 
-    .line 154
+    .line 159
     return-void
 
-    .line 138
+    .line 143
     :cond_e
     :goto_6
     invoke-direct {p0}, Lcom/melodix/music/GlassLikedMotion;->resetAll()V
@@ -1786,7 +1842,7 @@
 
     return-void
 
-    .line 136
+    .line 141
     :cond_f
     :goto_7
     iget-object v0, p0, Lcom/melodix/music/GlassLikedMotion;->scroll:Landroid/widget/ScrollView;
@@ -1811,7 +1867,7 @@
 
     return-void
 
-    .line 135
+    .line 140
     :cond_11
     :goto_9
     return-void
