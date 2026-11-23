@@ -68,13 +68,11 @@ public class MotionTest {
     for(int i=0;i<8;i++){LinearLayout r=new LinearLayout(na);r.top=i*10;r.bottom=r.top+10;r.addView(new TextView(na));ImageView im=new ImageView(na);r.addView(im);LinearLayout l=new LinearLayout(na);l.addView(new TextView(na));r.addView(l);nr.addView(r);}
     View.clipTop=0;View.clipBottom=40;GlassLikedMotion.bind(na,nc,"detail","spotify:playlist:N");ns.flush();
     yes(((ImageView)((ViewGroup)nr.getChildAt(0)).getChildAt(1)).starts==1,"numbered row entrance"); }
-  { // User request (1022424): every screen rises once on entry; rows shrink when pressed.
+  { // User request (1022424): every screen rises once on entry.
     Activity ea=new Activity();LinearLayout ec=new LinearLayout(ea),er=new LinearLayout(ea);ec.addView(er);
     for(int i=0;i<20;i++){LinearLayout r=new LinearLayout(ea);r.clickable=true;er.addView(r);}
     GlassLikedMotion.entrance(ec);yes(((View)er.getChildAt(0)).starts==1&&((View)er.getChildAt(13)).starts==1&&((View)er.getChildAt(14)).starts==0,"staggered entrance, first 14 only");
-    GlassLikedMotion.pressable(ec,0);yes(((View)er.getChildAt(0)).touch!=null,"press feedback");
-    android.view.View.OnTouchListener firstTouch=((View)er.getChildAt(0)).touch;GlassLikedMotion.pressable(ec,0);yes(((View)er.getChildAt(0)).touch==firstTouch,"bound once");
-    yes(!firstTouch.onTouch(er.getChildAt(0),new android.view.MotionEvent(0)),"never consumes the tap");
+    yes(((View)er.getChildAt(0)).touch==null,"no touch handling (presentation only)");
     ValueAnimator.enabled=false;LinearLayout off=new LinearLayout(ea),offr=new LinearLayout(ea);off.addView(offr);offr.addView(new LinearLayout(ea));GlassLikedMotion.entrance(off);yes(((View)offr.getChildAt(0)).starts==0,"no entrance when animations are off");ValueAnimator.enabled=true; }
   System.out.println("Glass liked motion JVM simulation passed (10,000 rows)");
  }

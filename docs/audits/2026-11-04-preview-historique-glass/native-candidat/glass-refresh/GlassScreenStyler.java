@@ -76,7 +76,6 @@ public final class GlassScreenStyler implements Runnable, android.view.ViewTreeO
         String key=String.valueOf(screen)+"|"+uri;
         boolean motion=!("detail".equals(screen)&&(playlist(uri)||liked(uri)));
         if(!key.equals(lastEntrance)){lastEntrance=key;if(motion)GlassLikedMotion.entrance(content);}
-        GlassLikedMotion.pressable(content,0);
     }
     private static String lastEntrance;
 

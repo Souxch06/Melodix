@@ -10,13 +10,13 @@ HERE=Path(__file__).resolve().parent
 ACTIVITY='smali/com/melodix/music/MainActivity.smali'
 HELPER='smali/com/melodix/music/GlassScreenStyler.smali'
 MOTION='smali/com/melodix/music/GlassLikedMotion.smali'
-MOTION_SOURCE_SHA='78829d2089c58ade512be68249e2073bc3571ea8f522693d7f1dd68e6c8e1727'
-MOTION_HELPER_SHA='02f20f451b001a4a1d2cb3ad3be8e33f91130cd9f919e2868684c6835cf0c161'
+MOTION_SOURCE_SHA='6276b88995a33eda1cf92bcf9b49cee6e9406a94a1858b47a2a3eaf10ebb3ba8'
+MOTION_HELPER_SHA='3a0928e2b7ca922132b36642b219ec9001b3aef939acf62e34ce712bb059c9df'
 RETRY='smali/com/melodix/music/NativeHomeRetryRunnable.smali'
 RETRY_SHA='95c78f85877e64c390743dcb77fcd4ff98541638fad8c8d3c85904ef3fd5b703'
 EXPECTED='197e84fa4374e28dccad1ea0ef7b58f085c5230167237edbe81d4a9bd4cfe6d8'
-SOURCE_SHA='e3cc044344ea67b9c0556df62add3787ed58eafc5bf98d7f3c8a6edd1806d555'
-HELPER_SHA='f4cc1c1d3c1eaa1d8bcd8c4ac82db4a878034889e0f7d303bd98aa5f21886a0c'
+SOURCE_SHA='458f935fa6579ecb1e3b52de47e88cec5142621a1e88dc0b4e900babc598102e'
+HELPER_SHA='65e5e76b0a34d13bb31b18709f6888bb6ac3c1498c8bf44bb077a2218a78b6c5'
 def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 def replace(s,a,b):
     if s.count(a)!=1:raise ValueError('unexpected anchor '+repr(a[:100]))
