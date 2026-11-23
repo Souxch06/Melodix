@@ -43,7 +43,7 @@
         }
     .end annotation
 
-    .line 375
+    .line 392
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$18;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerTiles$18;->val$dialog:Lcom/melodix/music/PreviewPlayerSheet;
@@ -58,7 +58,7 @@
 .method public onClick(Landroid/view/View;)V
     .locals 0
 
-    .line 375
+    .line 392
     iget-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$18;->val$dialog:Lcom/melodix/music/PreviewPlayerSheet;
 
     invoke-virtual {p1}, Lcom/melodix/music/PreviewPlayerSheet;->dismiss()V

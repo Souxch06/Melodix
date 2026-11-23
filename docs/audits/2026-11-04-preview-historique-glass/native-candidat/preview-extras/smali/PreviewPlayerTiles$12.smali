@@ -63,7 +63,7 @@
         }
     .end annotation
 
-    .line 300
+    .line 317
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iput p2, p0, Lcom/melodix/music/PreviewPlayerTiles$12;->val$i:I
@@ -88,7 +88,7 @@
 .method public onClick(Landroid/view/View;)V
     .locals 9
 
-    .line 300
+    .line 317
     const/4 v0, 0x3
 
     invoke-virtual {p1, v0}, Landroid/view/View;->performHapticFeedback(I)Z

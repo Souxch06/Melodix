@@ -254,6 +254,7 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
     }
     static String state="non affiché";
     private static String tintInfo="—", sizeInfo="—";
+    static int lastColor;
     public static String report(){return "\nAffichage lecteur : "+state+" ; fond : "+tintInfo+" ; pochette : "+sizeInfo;}
     private float artScale=1f;
     private GradientDrawable tintLayer, scrim;
@@ -286,7 +287,7 @@ public final class PreviewPlayerChrome extends View implements ViewTreeObserver.
         View v=a.findViewById(0x7f090245);if(!(v instanceof ImageView))return;
         Drawable d=((ImageView)v).getDrawable();if(d==tintSource)return;tintSource=d;
         Bitmap small=shrink(d,12);
-        int c=dominant(small);
+        int c=dominant(small);lastColor=c; // read by the lyrics panel (PreviewPlayerTiles, user request 1022413)
         tintInfo=(d==null?"aucune image":d.getClass().getSimpleName())+(small==null?", échantillon impossible":c==0?", couleur nulle":String.format(", teinte #%06x",c&0xffffff));
         // Light tint: violet stays the base; the cover colour only washes the top.
         tintLayer.setColors(new int[]{0,0});

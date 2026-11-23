@@ -59,7 +59,7 @@
         }
     .end annotation
 
-    .line 389
+    .line 407
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$20;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iput p2, p0, Lcom/melodix/music/PreviewPlayerTiles$20;->val$i:I
@@ -82,7 +82,7 @@
 .method public onClick(Landroid/view/View;)V
     .locals 12
 
-    .line 389
+    .line 407
     iget p1, p0, Lcom/melodix/music/PreviewPlayerTiles$20;->val$i:I
 
     if-nez p1, :cond_0

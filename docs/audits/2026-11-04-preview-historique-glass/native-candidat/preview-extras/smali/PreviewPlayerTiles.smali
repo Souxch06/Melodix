@@ -4,7 +4,7 @@
 
 
 # static fields
-.field private static final PANEL_JOB:Ljava/lang/String; = "(function(kind, action, wanted) {\n    \'use strict\';\n    // Lyrics and devices drawers. One explicit tap = open the page panel in the\n    // hidden page, read it, close it if it was closed. A device transfer is a\n    // separate, explicitly confirmed action, verified by re-reading the list.\n    // No scrolling, navigation, storage, cookies, tokens or network.\n    var W = window, jobs = W.__melodixPanelJobs = W.__melodixPanelJobs || {};\n    if (kind !== \'lyrics\' && kind !== \'devices\') return JSON.stringify({status: \'done\', ok: false, reason: \'kind\'});\n    if (action === \'poll\') return JSON.stringify(jobs[kind] || {status: \'none\'});\n    if (action !== \'run\' && action !== \'transfer\') return JSON.stringify({status: \'none\'});\n    if (W.__melodixDrawerUnsafe) return JSON.stringify({status: \'blocked\'});\n    if (W.__melodixDrawerLease && W.__melodixDrawerLease.status === \'running\') return JSON.stringify({status: \'busy\'});\n    var counter = Number(W.__melodixDrawerCounter);\n    W.__melodixDrawerCounter = isFinite(counter) && counter >= 0 && counter < 999999999 ? Math.floor(counter) + 1 : 1;\n    var job = jobs[kind] = {status: \'running\', started: Date.now(), id: String(Date.now()) + \':\' + W.__melodixDrawerCounter, ok: false, reason: \'\', body: \'\', active: -1, synced: false, transferred: false, journal: []};\n    W.__melodixDrawerLease = job;\n    function log(c) { if (job.journal.length < 12) job.journal.push(c); }\n    function text(n) { return String(n && n.textContent || \'\').replace(/\\s+/g, \' \').trim().slice(0, 300); }\n    var specs = {\n        lyrics: {\n            ids: /^(lyrics-button|control-button-lyrics)$/i,\n            label: /^(lyrics|show lyrics|paroles|afficher les paroles|songtext|letras|letra)$/i,\n            main: true,\n            roots: \'[data-testid=\"lyrics-container\"], [data-testid=\"lyrics-page\"], [data-testid=\"lyrics-lyricsContent\"]\'\n        },\n        devices: {\n            ids: /^(control-button-connect|connect-device-picker|device-picker|connect-button)$/i,\n            label: /^(connect to a device|connect to a device\\.\\.\\.|se connecter \u00e0 un appareil|connecter \u00e0 un appareil|appareils disponibles|mit einem ger\u00e4t verbinden|conectar a un dispositivo|conectar a um dispositivo)$/i,\n            roots: \'[data-testid=\"device-picker\"], [data-testid=\"connect-device-list\"], [data-testid=\"connect-device-picker\"], [role=\"dialog\"][aria-label*=\"appareil\" i], [role=\"dialog\"][aria-label*=\"device\" i]\'\n        }\n    };\n    var spec = specs[kind], found = 0, rootAmbiguous = false;\n    // Several copies of a control can exist (player bar and full view). Prefer\n    // the one in the player bar, then the only visible one; otherwise refuse.\n    function pickOne(list) {\n        if (list.length <= 1) return list[0] || null;\n        var bar = list.filter(function(b) { return !!b.closest(\'[data-testid=\"now-playing-bar\"]\'); });\n        if (bar.length === 1) return bar[0];\n        var shown = (bar.length ? bar : list).filter(function(b) { return b.getClientRects().length > 0; });\n        return shown.length === 1 ? shown[0] : null;\n    }\n    function button() {\n        var list = Array.from(document.querySelectorAll(\'button, [role=\"button\"]\')).filter(function(b) {\n            return b.isConnected && (spec.ids.test(String(b.getAttribute(\'data-testid\') || \'\')) || spec.label.test(String(b.getAttribute(\'aria-label\') || \'\').trim()));\n        });\n        found = list.length;\n        return pickOne(list);\n    }\n    function isOpen(b) { return b.getAttribute(\'aria-pressed\') === \'true\' || b.getAttribute(\'aria-expanded\') === \'true\' || b.getAttribute(\'data-active\') === \'true\'; }\n    function root(b) {\n        var hits = Array.from(document.querySelectorAll(spec.roots)).filter(function(n) {\n            // Spotify may give the trigger itself a device-picker testid.\n            // A button is not its own content panel and must not imply open.\n            return n.isConnected && n !== b && !n.matches(\'button, [role=\"button\"], [role=\"switch\"]\');\n        });\n        // Nested wrappers can describe the same panel; unrelated roots are\n        // ambiguous and must never be treated as the current content.\n        hits = hits.filter(function(n) { return !hits.some(function(other) { return other !== n && n.contains(other); }); });\n        if (hits.length === 1) return hits[0];\n        if (hits.length > 1) { rootAmbiguous = true; return null; }\n        var id = b && b.getAttribute(\'aria-controls\'), c = id ? document.getElementById(id) : null;\n        if (c && c !== b && c.isConnected && !c.matches(\'button, [role=\"button\"], [role=\"switch\"]\')) return c;\n        if (spec.main) {\n            // Desktop layout: lyrics replace the main view; use it only when it shows lyric lines.\n            var main = document.querySelector(\'#main-view, main\');\n            return main && main.querySelector(\'[data-testid*=\"lyric\" i]\') ? main : null;\n        }\n        // Device picker opens as a popover/dialog mentioning devices.\n        var pops = Array.from(document.querySelectorAll(\'[role=\"dialog\"], [data-tippy-root], [id^=\"tippy\"]\')).filter(function(n) {\n            return n.isConnected && n !== b && /appareil|device|dispositivo|ger\u00e4t/i.test(String(n.getAttribute(\'aria-label\') || \'\'));\n        });\n        if (pops.length > 1) rootAmbiguous = true;\n        return pops.length === 1 ? pops[0] : null;\n    }\n    // Exclude hidden descendants and embedded controls rather than treating\n    // all textContent inside a visible lyric element as a line.\n    function lyricText(n) {\n        if (!n || hiddenBeforeTap(n)) return \'\';\n        var parts = [], visited = 0;\n        function walk(node) {\n            if (++visited > 1000) return;\n            if (node.nodeType === 3) { parts.push(node.nodeValue || \'\'); return; }\n            if (node.nodeType !== 1) return;\n            if (node !== n) {\n                if (node.matches(\'button, [role=\"button\"], [role=\"switch\"]\') || node.hasAttribute(\'hidden\') || node.getAttribute(\'aria-hidden\') === \'true\') return;\n                var cs = window.getComputedStyle(node);\n                if (cs.display === \'none\' || cs.visibility === \'hidden\') return;\n            }\n            if (node.tagName === \'BR\') parts.push(\' \');\n            for (var child = node.firstChild; child; child = child.nextSibling) walk(child);\n        }\n        walk(n);\n        return parts.join(\'\').replace(/\\s+/g, \' \').trim().slice(0, 300);\n    }\n    function lyricLines(r) {\n        // aria-controls by itself may point at unrelated content. Require a\n        // lyrics-specific root or a lyrics-specific line marker, not just <p>.\n        if (!r.matches(spec.roots) && !r.querySelector(\'[data-testid=\"fullscreen-lyric\"], [data-testid^=\"lyrics-line\"]\')) return {lines: [], active: -1, synced: false};\n        var nodes = Array.from(r.querySelectorAll(\'[data-testid=\"fullscreen-lyric\"], [data-testid=\"lyrics-line\"]\'));\n        if (!nodes.length) nodes = Array.from(r.querySelectorAll(\'[data-testid*=\"lyric\" i]\')).filter(function(n) {\n            // A button such as lyrics-close-button is a control, not a lyric\n            // line. Ignoring it lets the paragraph fallback read real lines.\n            return !n.closest(\'button, [role=\"button\"], [role=\"switch\"]\') && (!n.children.length || !n.querySelector(\'[data-testid*=\"lyric\" i]\'));\n        });\n        if (!nodes.length && r.matches(spec.roots)) nodes = Array.from(r.querySelectorAll(\'p\'));\n        nodes = nodes.filter(function(n) { return !hiddenBeforeTap(n) && !n.closest(\'button, [role=\"button\"], [role=\"switch\"]\'); });\n        var lines = [], active = -1, activeCount = 0, synced = false;\n        nodes.slice(0, 200).forEach(function(n) {\n            var t = lyricText(n); if (!t) return;\n            if (n.getAttribute(\'aria-current\') === \'true\' || n.getAttribute(\'data-active\') === \'true\') { active = lines.length; activeCount++; synced = true; }\n            if (n.hasAttribute(\'data-start-time\') || n.hasAttribute(\'data-time\')) synced = true;\n            lines.push(t);\n        });\n        return {lines: lines, active: synced && activeCount === 1 ? active : -1, synced: synced};\n    }\n    function trustedDevices(r) {\n        // A trigger\'s aria-controls alone does not prove the target is Spotify\'s\n        // device picker; never send a transfer into an arbitrary region.\n        return !!r && r.matches(spec.roots);\n    }\n    function deviceRows(r, includeHidden) {\n        var nodes = Array.from(r.querySelectorAll(\'[data-testid=\"device-list-item\"], [data-testid=\"device-picker-row\"], [role=\"option\"], li button\'));\n        var seen = [];\n        nodes = nodes.filter(function(n) { if (seen.indexOf(n) >= 0) return false; seen.push(n); return includeHidden || !hiddenBeforeTap(n); });\n        // Limit display only. Transfer ambiguity must consider every matching\n        // element, including hidden items beyond the first page of results.\n        if (!includeHidden) nodes = nodes.slice(0, 30);\n        return nodes.map(function(n) {\n            var nameNode = n.querySelector(\'[data-testid=\"device-name\"], [data-encore-id=\"text\"]\');\n            var name = text(nameNode || n).slice(0, 80);\n            var typeNode = n.querySelector(\'[data-testid=\"device-type\"]\');\n            var current = n.getAttribute(\'aria-selected\') === \'true\' || n.getAttribute(\'aria-current\') === \'true\' || n.getAttribute(\'aria-checked\') === \'true\';\n            return {node: n, name: name, type: typeNode ? text(typeNode).slice(0, 40) : \'\', current: current};\n        }).filter(function(d) { return d.name; });\n    }\n    // Temporarily size zero-height containers. Restore only properties that\n    // still have our value, preserving concurrent changes made by Spotify.\n    var sized = [];\n    function giveSize(r) {\n        var h = 0;\n        try { h = Math.round(r.getBoundingClientRect().height); } catch (_) {}\n        for (var n = r; n && n !== document.body && sized.length < 12; n = n.parentElement) {\n            var cs = window.getComputedStyle(n), small = false;\n            try { small = n.getBoundingClientRect().height < 2; } catch (_) {}\n            if (cs.display !== \'none\' && cs.visibility !== \'hidden\' && !small) continue;\n            var entry = {node:n, hadStyle:n.hasAttribute(\'style\'), props:[]};\n            sized.push(entry);\n            function set(prop, value) {\n                entry.props.push([prop, n.style.getPropertyValue(prop), n.style.getPropertyPriority(prop), value]);\n                n.style.setProperty(prop, value, \'important\');\n            }\n            if (cs.display === \'none\') set(\'display\', \'block\');\n            if (cs.visibility === \'hidden\') set(\'visibility\', \'visible\');\n            if (small) set(\'min-height\', \'640px\');\n        }\n        log(\'sized:\' + sized.length + \',h:\' + Math.min(h, 9999));\n    }\n    function restoreSize() {\n        sized.forEach(function(e) { try {\n            e.props.forEach(function(p) {\n                if (e.node.style.getPropertyValue(p[0]) !== p[3] || e.node.style.getPropertyPriority(p[0]) !== \'important\') return;\n                if (p[1]) e.node.style.setProperty(p[0], p[1], p[2]); else e.node.style.removeProperty(p[0]);\n            });\n            if (!e.hadStyle && !e.node.style.length) e.node.removeAttribute(\'style\');\n        } catch (_) {} });\n        sized = [];\n    }\n    // Close only a unique, panel-specific control inside the recognised\n    // panel. An ambiguous or generic close button is never used.\n    function explicitCloser(r, trigger) {\n        if (!r || rootAmbiguous) return null;\n        var candidates = Array.from(r.querySelectorAll(\'button, [role=\"button\"]\')).filter(function(n) {\n            var id=String(n.getAttribute(\'data-testid\')||\'\').toLowerCase(), label=String(n.getAttribute(\'aria-label\')||\'\').trim();\n            var known = kind===\'lyrics\' ? /^(lyrics-close-button|close-lyrics-button)$/.test(id) || /^(close lyrics|hide lyrics|fermer les paroles|masquer les paroles)$/i.test(label) :\n                /^(devices-close-button|close-devices-button)$/.test(id) || /^(close devices|close device picker|fermer les appareils|fermer la liste des appareils)$/i.test(label);\n            return known && n.isConnected && n!==trigger && !n.disabled && !n.matches(\':disabled\') && n.getAttribute(\'aria-disabled\')!==\'true\' &&\n                !n.closest(\'[aria-disabled=\"true\"]\') && !hiddenBeforeTap(n);\n        });\n        return candidates.length===1 ? candidates[0] : null;\n    }\n    // A connected but hidden panel is not evidence that it was open before\n    // this tap; it can be a stale, pre-rendered, collapsed Spotify container.\n    function hiddenBeforeTap(n) {\n        if (!n) return false;\n        try {\n            for (var el=n; el && el !== document.body; el=el.parentElement) {\n                var cs=window.getComputedStyle(el);\n                if (el.hasAttribute(\'hidden\') || el.getAttribute(\'aria-hidden\')===\'true\' || cs.display===\'none\' || cs.visibility===\'hidden\') return true;\n            }\n            return false;\n        } catch (e) { throw e; }\n    }\n    var b = null, wasOpen = true, openedHere = false, finishing = false;\n    function finish(ok, reason) {\n        if (finishing) return;\n        finishing = true;\n        restoreSize();\n        function done(closeOk) {\n            if (openedHere) log(closeOk ? \'close:verified\' : \'close:unverified\');\n            job.status = \'done\'; job.ok = ok && closeOk;\n            job.reason = closeOk ? (reason || \'\') : \'close-unverified\';\n            if (!closeOk) W.__melodixDrawerUnsafe = true;\n            if (W.__melodixDrawerLease === job) W.__melodixDrawerLease = null;\n        }\n        if (!openedHere) { done(true); return; }\n        // Prefer the exact open trigger; otherwise use only a unique explicit\n        // close control scoped to this recognised panel. Never guess history.\n        var closeAttempted = false;\n        try {\n            if (b && b.isConnected && button() === b && isOpen(b) && !hiddenBeforeTap(b) && !b.disabled && !b.matches(\':disabled\') && !b.closest(\'[aria-disabled=\"true\"]\')) {\n                b.click(); closeAttempted = true; log(\'closed\');\n            } else {\n                var currentRoot = root(b), closer = explicitCloser(currentRoot, b);\n                if (closer) { closer.click(); closeAttempted = true; log(\'close:button\'); }\n            }\n        } catch (_) { log(\'close-error\'); }\n        // The close animation and the aria state can settle asynchronously.\n        // Inspect for a bounded interval; never send a second close click.\n        // If the same unique trigger has no state attributes, a successful\n        // panel-specific close plus disappearance of the recognised root is\n        // evidence of closure. A replacement trigger, a new visible root, or\n        // an ambiguous root is never accepted as confirmation.\n        if (!closeAttempted) { done(false); return; }\n        var closeDeadline = Date.now() + 900;\n        (function verifyClose() {\n            setTimeout(function() {\n                try {\n                    var remains = root(b), hidden = remains && hiddenBeforeTap(remains);\n                    var after = button();\n                    if (rootAmbiguous || after !== b || !b.isConnected) { done(false); return; }\n                    var explicitlyClosed = after && (after.getAttribute(\'aria-pressed\') === \'false\' || after.getAttribute(\'aria-expanded\') === \'false\' || after.getAttribute(\'data-active\') === \'false\') && !isOpen(after);\n                    var noState = after && !after.hasAttribute(\'aria-pressed\') && !after.hasAttribute(\'aria-expanded\') && !after.hasAttribute(\'data-active\');\n                    var clearlyClosed = closeAttempted && !rootAmbiguous && after === b && b.isConnected && !isOpen(b) && (explicitlyClosed || noState) && (!remains || !!hidden);\n                    if (clearlyClosed) { done(true); return; }\n                    if (Date.now() < closeDeadline) { verifyClose(); return; }\n                    done(false);\n                } catch (_) { done(false); }\n            }, 150);\n        })();\n    }\n    try {\n        b = button(); var already = root(b);\n        if (already && hiddenBeforeTap(already)) already = null;\n        if (rootAmbiguous) { log(\'root:ambiguous\'); finish(false, \'ambiguous\'); return JSON.stringify({status: \'started\', id: job.id}); }\n        if (b && (b.disabled || b.matches(\':disabled\') || b.closest(\'[aria-disabled=\"true\"]\')) && !already) { log(\'button:disabled\'); finish(false, \'disabled\'); return JSON.stringify({status: \'started\', id: job.id}); }\n        if (!b && !already) { log(found > 1 ? \'button:ambiguous:\' + Math.min(found, 9) : \'button:absent\'); finish(false, found > 1 ? \'ambiguous\' : \'absent\'); return JSON.stringify({status: \'started\', id: job.id}); }\n        if (b && !already && hiddenBeforeTap(b)) { log(\'button:absent\'); finish(false, \'absent\'); return JSON.stringify({status: \'started\', id: job.id}); }\n        wasOpen = !!already || (b && isOpen(b));\n        if (!wasOpen) { try { openedHere = true; b.click(); log(\'opened\'); } catch (_) { log(\'open-error\'); finish(false, \'command\'); return JSON.stringify({status: \'started\', id: job.id}); } }\n        else log(\'already-open\');\n        var end = Date.now() + 4000, forced = false;\n        (function step() {\n          try {\n            var r = null;\n            r = root(button() || b); if (r && hiddenBeforeTap(r)) r = null;\n            if (kind === \'devices\' && action === \'transfer\' && r && !trustedDevices(r)) { log(\'target:absent\'); finish(false, \'target\'); return; }\n            var ready = r && (kind === \'lyrics\' ? lyricLines(r).lines.length : deviceRows(r, action === \'transfer\').length);\n            if (!ready && r && !forced && Date.now() > end - 2000) { forced = true; giveSize(r); }\n            if (!ready && Date.now() < end) { setTimeout(step, 150); return; }\n            if (!ready) { log(r ? \'rows:0\' : \'panel:absent\'); finish(false, rootAmbiguous ? \'ambiguous\' : r ? \'empty\' : \'panel\'); return; }\n            if (kind === \'lyrics\') {\n                var l = lyricLines(r);\n                job.body = l.lines.join(\'\\n\'); job.active = l.active; job.synced = l.synced;\n                log(\'lines:\' + Math.min(l.lines.length, 200) + (l.synced ? \':sync\' : \'\'));\n                finish(true, \'\'); return;\n            }\n            var rows = deviceRows(r, action === \'transfer\');\n            if (action === \'transfer\') {\n                var target = rows.filter(function(d) { return d.name === wanted; });\n                if (target.length !== 1) { log(\'target:\' + (target.length ? \'ambiguous\' : \'absent\')); finish(false, \'target\'); return; }\n                var targetNode = target[0].node;\n                if (targetNode.disabled || targetNode.matches(\':disabled\') || targetNode.closest(\'[aria-disabled=\"true\"]\') || hiddenBeforeTap(targetNode)) {\n                    log(\'target:disabled\'); finish(false, \'target\'); return;\n                }\n                if (rows.filter(function(d) { return d.current; }).length > 1) { log(\'target:ambiguous\'); finish(false, \'target\'); return; }\n                if (target[0].current) { log(\'target:already-active\'); job.transferred = true; finish(true, \'\'); return; }\n                try { targetNode.click(); log(\'transfer:click\'); } catch (_) { log(\'transfer:error\'); finish(false, \'command\'); return; }\n                var until = Date.now() + 3000;\n                (function verify() {\n                  try {\n                    var again = null;\n                    try {\n                        var r2 = root(button() || b), all = r2 === r && trustedDevices(r2) ? deviceRows(r2, true) : [];\n                        var matches = all.filter(function(d) { return d.name === wanted; });\n                        var activeCount = all.filter(function(d) { return d.current; }).length;\n                        // A duplicate, replacement, changed panel or conflicting\n                        // active states do not prove the original target is active.\n                        again = activeCount === 1 && matches.length === 1 && matches[0].node === targetNode && targetNode.isConnected && !targetNode.disabled && !targetNode.matches(\':disabled\') && !targetNode.closest(\'[aria-disabled=\"true\"]\') && !hiddenBeforeTap(targetNode) ? matches[0] : null;\n                    } catch (_) { again = null; }\n                    if (again && again.current) { log(\'transfer:verified\'); job.transferred = true; finish(true, \'\'); return; }\n                    if (Date.now() < until) { setTimeout(verify, 200); return; }\n                    log(\'transfer:unverified\'); finish(false, \'unverified\');\n                  } catch (_) { finish(false, \'error\'); }\n                })();\n                return;\n            }\n            job.body = rows.map(function(d) { return [d.name, d.type, d.current ? \'1\' : \'\'].join(\'\\t\'); }).join(\'\\n\');\n            log(\'devices:\' + rows.length);\n            finish(true, \'\');\n          } catch (_) { finish(false, \'error\'); }\n        })();\n        return JSON.stringify({status: \'started\', id: job.id});\n    } catch (_) {\n        finish(false, \'error\');\n        return JSON.stringify({status: \'started\', id: job.id});\n    }\n})\n"
+.field private static final PANEL_JOB:Ljava/lang/String; = "(function(kind, action, wanted) {\n    \'use strict\';\n    // Lyrics and devices drawers. One explicit tap = open the page panel in the\n    // hidden page, read it, close it if it was closed. A device transfer is a\n    // separate, explicitly confirmed action, verified by re-reading the list.\n    // No scrolling, navigation, storage, cookies, tokens or network.\n    var W = window, jobs = W.__melodixPanelJobs = W.__melodixPanelJobs || {};\n    if (kind !== \'lyrics\' && kind !== \'devices\') return JSON.stringify({status: \'done\', ok: false, reason: \'kind\'});\n    if (action === \'poll\') return JSON.stringify(jobs[kind] || {status: \'none\'});\n    if (action !== \'run\' && action !== \'transfer\') return JSON.stringify({status: \'none\'});\n    if (W.__melodixDrawerUnsafe) return JSON.stringify({status: \'blocked\'});\n    if (W.__melodixDrawerLease && W.__melodixDrawerLease.status === \'running\') return JSON.stringify({status: \'busy\'});\n    var counter = Number(W.__melodixDrawerCounter);\n    W.__melodixDrawerCounter = isFinite(counter) && counter >= 0 && counter < 999999999 ? Math.floor(counter) + 1 : 1;\n    var job = jobs[kind] = {status: \'running\', started: Date.now(), id: String(Date.now()) + \':\' + W.__melodixDrawerCounter, ok: false, reason: \'\', body: \'\', active: -1, synced: false, transferred: false, journal: []};\n    W.__melodixDrawerLease = job;\n    function log(c) { if (job.journal.length < 12) job.journal.push(c); }\n    function text(n) { return String(n && n.textContent || \'\').replace(/\\s+/g, \' \').trim().slice(0, 300); }\n    var specs = {\n        lyrics: {\n            ids: /^(lyrics-button|control-button-lyrics)$/i,\n            label: /^(lyrics|show lyrics|paroles|afficher les paroles|songtext|letras|letra)$/i,\n            main: true,\n            roots: \'[data-testid=\"lyrics-container\"], [data-testid=\"lyrics-page\"], [data-testid=\"lyrics-lyricsContent\"]\'\n        },\n        devices: {\n            ids: /^(control-button-connect|connect-device-picker|device-picker|connect-button)$/i,\n            label: /^(connect to a device|connect to a device\\.\\.\\.|se connecter \u00e0 un appareil|connecter \u00e0 un appareil|appareils disponibles|mit einem ger\u00e4t verbinden|conectar a un dispositivo|conectar a um dispositivo)$/i,\n            roots: \'[data-testid=\"device-picker\"], [data-testid=\"connect-device-list\"], [data-testid=\"connect-device-picker\"], [role=\"dialog\"][aria-label*=\"appareil\" i], [role=\"dialog\"][aria-label*=\"device\" i]\'\n        }\n    };\n    var spec = specs[kind], found = 0, rootAmbiguous = false;\n    // Several copies of a control can exist (player bar and full view). Prefer\n    // the one in the player bar, then the only visible one; otherwise refuse.\n    function pickOne(list) {\n        if (list.length <= 1) return list[0] || null;\n        var bar = list.filter(function(b) { return !!b.closest(\'[data-testid=\"now-playing-bar\"]\'); });\n        if (bar.length === 1) return bar[0];\n        var shown = (bar.length ? bar : list).filter(function(b) { return b.getClientRects().length > 0; });\n        return shown.length === 1 ? shown[0] : null;\n    }\n    function button() {\n        var list = Array.from(document.querySelectorAll(\'button, [role=\"button\"]\')).filter(function(b) {\n            return b.isConnected && (spec.ids.test(String(b.getAttribute(\'data-testid\') || \'\')) || spec.label.test(String(b.getAttribute(\'aria-label\') || \'\').trim()));\n        });\n        found = list.length;\n        return pickOne(list);\n    }\n    function isOpen(b) { return b.getAttribute(\'aria-pressed\') === \'true\' || b.getAttribute(\'aria-expanded\') === \'true\' || b.getAttribute(\'data-active\') === \'true\'; }\n    function root(b) {\n        var hits = Array.from(document.querySelectorAll(spec.roots)).filter(function(n) {\n            // Spotify may give the trigger itself a device-picker testid.\n            // A button is not its own content panel and must not imply open.\n            return n.isConnected && n !== b && !n.matches(\'button, [role=\"button\"], [role=\"switch\"]\');\n        });\n        // Nested wrappers can describe the same panel; unrelated roots are\n        // ambiguous and must never be treated as the current content.\n        hits = hits.filter(function(n) { return !hits.some(function(other) { return other !== n && n.contains(other); }); });\n        if (hits.length === 1) return hits[0];\n        if (hits.length > 1) { rootAmbiguous = true; return null; }\n        var id = b && b.getAttribute(\'aria-controls\'), c = id ? document.getElementById(id) : null;\n        if (c && c !== b && c.isConnected && !c.matches(\'button, [role=\"button\"], [role=\"switch\"]\')) return c;\n        if (spec.main) {\n            // Desktop layout: lyrics replace the main view; use it only when it shows lyric lines.\n            var main = document.querySelector(\'#main-view, main\');\n            // The lyrics route can load its lines after the click (user diagnostic 1022413).\n            return main && (main.querySelector(\'[data-testid*=\"lyric\" i]\') || /^\\/lyrics/.test(location.pathname)) ? main : null;\n        }\n        // Device picker opens as a popover/dialog mentioning devices.\n        var pops = Array.from(document.querySelectorAll(\'[role=\"dialog\"], [data-tippy-root], [id^=\"tippy\"]\')).filter(function(n) {\n            return n.isConnected && n !== b && /appareil|device|dispositivo|ger\u00e4t/i.test(String(n.getAttribute(\'aria-label\') || \'\'));\n        });\n        if (pops.length > 1) rootAmbiguous = true;\n        return pops.length === 1 ? pops[0] : null;\n    }\n    // Exclude hidden descendants and embedded controls rather than treating\n    // all textContent inside a visible lyric element as a line.\n    function lyricText(n) {\n        if (!n || hiddenBeforeTap(n)) return \'\';\n        var parts = [], visited = 0;\n        function walk(node) {\n            if (++visited > 1000) return;\n            if (node.nodeType === 3) { parts.push(node.nodeValue || \'\'); return; }\n            if (node.nodeType !== 1) return;\n            if (node !== n) {\n                if (node.matches(\'button, [role=\"button\"], [role=\"switch\"]\') || node.hasAttribute(\'hidden\') || node.getAttribute(\'aria-hidden\') === \'true\') return;\n                var cs = window.getComputedStyle(node);\n                if (cs.display === \'none\' || cs.visibility === \'hidden\') return;\n            }\n            if (node.tagName === \'BR\') parts.push(\' \');\n            for (var child = node.firstChild; child; child = child.nextSibling) walk(child);\n        }\n        walk(n);\n        return parts.join(\'\').replace(/\\s+/g, \' \').trim().slice(0, 300);\n    }\n    function lyricLines(r) {\n        // aria-controls by itself may point at unrelated content. Require a\n        // lyrics-specific root or a lyrics-specific line marker, not just <p>.\n        if (!r.matches(spec.roots) && !r.querySelector(\'[data-testid=\"fullscreen-lyric\"], [data-testid^=\"lyrics-line\"]\')) return {lines: [], active: -1, synced: false};\n        var nodes = Array.from(r.querySelectorAll(\'[data-testid=\"fullscreen-lyric\"], [data-testid=\"lyrics-line\"]\'));\n        if (!nodes.length) nodes = Array.from(r.querySelectorAll(\'[data-testid*=\"lyric\" i]\')).filter(function(n) {\n            // A button such as lyrics-close-button is a control, not a lyric\n            // line. Ignoring it lets the paragraph fallback read real lines.\n            return !n.closest(\'button, [role=\"button\"], [role=\"switch\"]\') && (!n.children.length || !n.querySelector(\'[data-testid*=\"lyric\" i]\'));\n        });\n        if (!nodes.length && r.matches(spec.roots)) nodes = Array.from(r.querySelectorAll(\'p\'));\n        nodes = nodes.filter(function(n) { return !hiddenBeforeTap(n) && !n.closest(\'button, [role=\"button\"], [role=\"switch\"]\'); });\n        var lines = [], active = -1, activeCount = 0, synced = false;\n        nodes.slice(0, 200).forEach(function(n) {\n            var t = lyricText(n); if (!t) return;\n            if (n.getAttribute(\'aria-current\') === \'true\' || n.getAttribute(\'data-active\') === \'true\') { active = lines.length; activeCount++; synced = true; }\n            if (n.hasAttribute(\'data-start-time\') || n.hasAttribute(\'data-time\')) synced = true;\n            lines.push(t);\n        });\n        return {lines: lines, active: synced && activeCount === 1 ? active : -1, synced: synced};\n    }\n    function trustedDevices(r) {\n        // A trigger\'s aria-controls alone does not prove the target is Spotify\'s\n        // device picker; never send a transfer into an arbitrary region.\n        return !!r && r.matches(spec.roots);\n    }\n    function deviceRows(r, includeHidden) {\n        var nodes = Array.from(r.querySelectorAll(\'[data-testid=\"device-list-item\"], [data-testid=\"device-picker-row\"], [role=\"option\"], li button\'));\n        var seen = [];\n        nodes = nodes.filter(function(n) { if (seen.indexOf(n) >= 0) return false; seen.push(n); return includeHidden || !hiddenBeforeTap(n); });\n        // Limit display only. Transfer ambiguity must consider every matching\n        // element, including hidden items beyond the first page of results.\n        if (!includeHidden) nodes = nodes.slice(0, 30);\n        return nodes.map(function(n) {\n            var nameNode = n.querySelector(\'[data-testid=\"device-name\"], [data-encore-id=\"text\"]\');\n            var name = text(nameNode || n).slice(0, 80);\n            var typeNode = n.querySelector(\'[data-testid=\"device-type\"]\');\n            var current = n.getAttribute(\'aria-selected\') === \'true\' || n.getAttribute(\'aria-current\') === \'true\' || n.getAttribute(\'aria-checked\') === \'true\';\n            return {node: n, name: name, type: typeNode ? text(typeNode).slice(0, 40) : \'\', current: current};\n        }).filter(function(d) { return d.name; });\n    }\n    // Temporarily size zero-height containers. Restore only properties that\n    // still have our value, preserving concurrent changes made by Spotify.\n    var sized = [];\n    function giveSize(r) {\n        var h = 0;\n        try { h = Math.round(r.getBoundingClientRect().height); } catch (_) {}\n        for (var n = r; n && n !== document.body && sized.length < 12; n = n.parentElement) {\n            var cs = window.getComputedStyle(n), small = false;\n            try { small = n.getBoundingClientRect().height < 2; } catch (_) {}\n            if (cs.display !== \'none\' && cs.visibility !== \'hidden\' && !small) continue;\n            var entry = {node:n, hadStyle:n.hasAttribute(\'style\'), props:[]};\n            sized.push(entry);\n            function set(prop, value) {\n                entry.props.push([prop, n.style.getPropertyValue(prop), n.style.getPropertyPriority(prop), value]);\n                n.style.setProperty(prop, value, \'important\');\n            }\n            if (cs.display === \'none\') set(\'display\', \'block\');\n            if (cs.visibility === \'hidden\') set(\'visibility\', \'visible\');\n            if (small) set(\'min-height\', \'640px\');\n        }\n        log(\'sized:\' + sized.length + \',h:\' + Math.min(h, 9999));\n    }\n    function restoreSize() {\n        sized.forEach(function(e) { try {\n            e.props.forEach(function(p) {\n                if (e.node.style.getPropertyValue(p[0]) !== p[3] || e.node.style.getPropertyPriority(p[0]) !== \'important\') return;\n                if (p[1]) e.node.style.setProperty(p[0], p[1], p[2]); else e.node.style.removeProperty(p[0]);\n            });\n            if (!e.hadStyle && !e.node.style.length) e.node.removeAttribute(\'style\');\n        } catch (_) {} });\n        sized = [];\n    }\n    // Close only a unique, panel-specific control inside the recognised\n    // panel. An ambiguous or generic close button is never used.\n    function explicitCloser(r, trigger) {\n        if (!r || rootAmbiguous) return null;\n        var candidates = Array.from(r.querySelectorAll(\'button, [role=\"button\"]\')).filter(function(n) {\n            var id=String(n.getAttribute(\'data-testid\')||\'\').toLowerCase(), label=String(n.getAttribute(\'aria-label\')||\'\').trim();\n            var known = kind===\'lyrics\' ? /^(lyrics-close-button|close-lyrics-button)$/.test(id) || /^(close lyrics|hide lyrics|fermer les paroles|masquer les paroles)$/i.test(label) :\n                /^(devices-close-button|close-devices-button)$/.test(id) || /^(close devices|close device picker|fermer les appareils|fermer la liste des appareils)$/i.test(label);\n            return known && n.isConnected && n!==trigger && !n.disabled && !n.matches(\':disabled\') && n.getAttribute(\'aria-disabled\')!==\'true\' &&\n                !n.closest(\'[aria-disabled=\"true\"]\') && !hiddenBeforeTap(n);\n        });\n        return candidates.length===1 ? candidates[0] : null;\n    }\n    // A connected but hidden panel is not evidence that it was open before\n    // this tap; it can be a stale, pre-rendered, collapsed Spotify container.\n    function hiddenBeforeTap(n) {\n        if (!n) return false;\n        try {\n            for (var el=n; el && el !== document.body; el=el.parentElement) {\n                var cs=window.getComputedStyle(el);\n                if (el.hasAttribute(\'hidden\') || el.getAttribute(\'aria-hidden\')===\'true\' || cs.display===\'none\' || cs.visibility===\'hidden\') return true;\n            }\n            return false;\n        } catch (e) { throw e; }\n    }\n    var b = null, wasOpen = true, openedHere = false, finishing = false;\n    function finish(ok, reason) {\n        if (finishing) return;\n        finishing = true;\n        restoreSize();\n        function done(closeOk) {\n            if (openedHere) log(closeOk ? \'close:verified\' : \'close:unverified\');\n            job.status = \'done\'; job.ok = ok && closeOk;\n            job.reason = closeOk ? (reason || \'\') : \'close-unverified\';\n            if (!closeOk) W.__melodixDrawerUnsafe = true;\n            if (W.__melodixDrawerLease === job) W.__melodixDrawerLease = null;\n        }\n        if (!openedHere) { done(true); return; }\n        // Prefer the exact open trigger; otherwise use only a unique explicit\n        // close control scoped to this recognised panel. Never guess history.\n        var closeAttempted = false;\n        try {\n            if (b && b.isConnected && button() === b && isOpen(b) && !hiddenBeforeTap(b) && !b.disabled && !b.matches(\':disabled\') && !b.closest(\'[aria-disabled=\"true\"]\')) {\n                b.click(); closeAttempted = true; log(\'closed\');\n            } else {\n                var currentRoot = root(b), closer = explicitCloser(currentRoot, b);\n                if (closer) { closer.click(); closeAttempted = true; log(\'close:button\'); }\n            }\n        } catch (_) { log(\'close-error\'); }\n        // The close animation and the aria state can settle asynchronously.\n        // Inspect for a bounded interval; never send a second close click.\n        // If the same unique trigger has no state attributes, a successful\n        // panel-specific close plus disappearance of the recognised root is\n        // evidence of closure. A replacement trigger, a new visible root, or\n        // an ambiguous root is never accepted as confirmation.\n        if (!closeAttempted) { done(false); return; }\n        var closeDeadline = Date.now() + 900;\n        (function verifyClose() {\n            setTimeout(function() {\n                try {\n                    var remains = root(b), hidden = remains && hiddenBeforeTap(remains);\n                    var after = button();\n                    if (rootAmbiguous || after !== b || !b.isConnected) { done(false); return; }\n                    var explicitlyClosed = after && (after.getAttribute(\'aria-pressed\') === \'false\' || after.getAttribute(\'aria-expanded\') === \'false\' || after.getAttribute(\'data-active\') === \'false\') && !isOpen(after);\n                    var noState = after && !after.hasAttribute(\'aria-pressed\') && !after.hasAttribute(\'aria-expanded\') && !after.hasAttribute(\'data-active\');\n                    var clearlyClosed = closeAttempted && !rootAmbiguous && after === b && b.isConnected && !isOpen(b) && (explicitlyClosed || noState) && (!remains || !!hidden);\n                    if (clearlyClosed) { done(true); return; }\n                    if (Date.now() < closeDeadline) { verifyClose(); return; }\n                    done(false);\n                } catch (_) { done(false); }\n            }, 150);\n        })();\n    }\n    try {\n        b = button(); var already = root(b);\n        if (already && hiddenBeforeTap(already)) already = null;\n        if (rootAmbiguous) { log(\'root:ambiguous\'); finish(false, \'ambiguous\'); return JSON.stringify({status: \'started\', id: job.id}); }\n        if (b && (b.disabled || b.matches(\':disabled\') || b.closest(\'[aria-disabled=\"true\"]\')) && !already) { log(\'button:disabled\'); finish(false, \'disabled\'); return JSON.stringify({status: \'started\', id: job.id}); }\n        if (!b && !already) { log(found > 1 ? \'button:ambiguous:\' + Math.min(found, 9) : \'button:absent\'); finish(false, found > 1 ? \'ambiguous\' : \'absent\'); return JSON.stringify({status: \'started\', id: job.id}); }\n        if (b && !already && hiddenBeforeTap(b)) { log(\'button:absent\'); finish(false, \'absent\'); return JSON.stringify({status: \'started\', id: job.id}); }\n        wasOpen = !!already || (b && isOpen(b));\n        if (!wasOpen) { try { openedHere = true; b.click(); log(\'opened\'); } catch (_) { log(\'open-error\'); finish(false, \'command\'); return JSON.stringify({status: \'started\', id: job.id}); } }\n        else log(\'already-open\');\n        // Lyrics load over the network after the click: wait longer for them (user diagnostic 1022413).\n        var end = Date.now() + (kind === \'lyrics\' ? 8000 : 4000), forced = false;\n        (function step() {\n          try {\n            var r = null;\n            r = root(button() || b); if (r && hiddenBeforeTap(r)) r = null;\n            if (kind === \'devices\' && action === \'transfer\' && r && !trustedDevices(r)) { log(\'target:absent\'); finish(false, \'target\'); return; }\n            var ready = r && (kind === \'lyrics\' ? lyricLines(r).lines.length : deviceRows(r, action === \'transfer\').length);\n            if (!ready && r && !forced && Date.now() > end - 2000) { forced = true; giveSize(r); }\n            if (!ready && Date.now() < end) { setTimeout(step, 150); return; }\n            if (!ready && kind === \'lyrics\') {\n                // Shape only, never text: where the page went and how many lyric-like elements exist.\n                var mv = document.querySelector(\'#main-view, main\');\n                log(\'path:\' + (/^\\/lyrics/.test(location.pathname) ? \'lyrics\' : \'other\'));\n                log(\'lt:\' + Math.min(99, document.querySelectorAll(\'[data-testid*=\"lyric\" i]\').length));\n                log(\'mt:\' + Math.min(99, mv ? mv.querySelectorAll(\'[data-testid]\').length : 0));\n            }\n            if (!ready) { log(r ? \'rows:0\' : \'panel:absent\'); finish(false, rootAmbiguous ? \'ambiguous\' : r ? \'empty\' : \'panel\'); return; }\n            if (kind === \'lyrics\') {\n                var l = lyricLines(r);\n                job.body = l.lines.join(\'\\n\'); job.active = l.active; job.synced = l.synced;\n                log(\'lines:\' + Math.min(l.lines.length, 200) + (l.synced ? \':sync\' : \'\'));\n                finish(true, \'\'); return;\n            }\n            var rows = deviceRows(r, action === \'transfer\');\n            if (action === \'transfer\') {\n                var target = rows.filter(function(d) { return d.name === wanted; });\n                if (target.length !== 1) { log(\'target:\' + (target.length ? \'ambiguous\' : \'absent\')); finish(false, \'target\'); return; }\n                var targetNode = target[0].node;\n                if (targetNode.disabled || targetNode.matches(\':disabled\') || targetNode.closest(\'[aria-disabled=\"true\"]\') || hiddenBeforeTap(targetNode)) {\n                    log(\'target:disabled\'); finish(false, \'target\'); return;\n                }\n                if (rows.filter(function(d) { return d.current; }).length > 1) { log(\'target:ambiguous\'); finish(false, \'target\'); return; }\n                if (target[0].current) { log(\'target:already-active\'); job.transferred = true; finish(true, \'\'); return; }\n                try { targetNode.click(); log(\'transfer:click\'); } catch (_) { log(\'transfer:error\'); finish(false, \'command\'); return; }\n                var until = Date.now() + 3000;\n                (function verify() {\n                  try {\n                    var again = null;\n                    try {\n                        var r2 = root(button() || b), all = r2 === r && trustedDevices(r2) ? deviceRows(r2, true) : [];\n                        var matches = all.filter(function(d) { return d.name === wanted; });\n                        var activeCount = all.filter(function(d) { return d.current; }).length;\n                        // A duplicate, replacement, changed panel or conflicting\n                        // active states do not prove the original target is active.\n                        again = activeCount === 1 && matches.length === 1 && matches[0].node === targetNode && targetNode.isConnected && !targetNode.disabled && !targetNode.matches(\':disabled\') && !targetNode.closest(\'[aria-disabled=\"true\"]\') && !hiddenBeforeTap(targetNode) ? matches[0] : null;\n                    } catch (_) { again = null; }\n                    if (again && again.current) { log(\'transfer:verified\'); job.transferred = true; finish(true, \'\'); return; }\n                    if (Date.now() < until) { setTimeout(verify, 200); return; }\n                    log(\'transfer:unverified\'); finish(false, \'unverified\');\n                  } catch (_) { finish(false, \'error\'); }\n                })();\n                return;\n            }\n            job.body = rows.map(function(d) { return [d.name, d.type, d.current ? \'1\' : \'\'].join(\'\\t\'); }).join(\'\\n\');\n            log(\'devices:\' + rows.length);\n            finish(true, \'\');\n          } catch (_) { finish(false, \'error\'); }\n        })();\n        return JSON.stringify({status: \'started\', id: job.id});\n    } catch (_) {\n        finish(false, \'error\');\n        return JSON.stringify({status: \'started\', id: job.id});\n    }\n})\n"
 
 .field private static final PANEL_PROBE:Ljava/lang/String; = "(function(kind) {\n    \'use strict\';\n    // Observation only. Never open a panel, navigate, click, or read its text.\n    // Fixed categories and bounded counts only; no arbitrary testids or labels.\n    var selectors={\n        queue:\'[data-testid=\"queue-page\"], [data-testid=\"queue-view\"]\',\n        lyrics:\'[data-testid=\"lyrics-page\"], [data-testid=\"lyrics-lyricsContent\"], [data-testid=\"lyrics-container\"]\',\n        devices:\'[data-testid=\"device-picker\"], [data-testid=\"connect-device-list\"], [data-testid=\"connect-device-picker\"]\'\n    };\n    if(!Object.prototype.hasOwnProperty.call(selectors,kind))return JSON.stringify({reason:\'kind\',roots:0,rows:0,buttons:0,roles:0,testids:0});\n    var roots=Array.from(document.querySelectorAll(selectors[kind])).filter(function(n){return n.isConnected && !n.matches(\'button, [role=\"button\"], [role=\"switch\"]\');});\n    var controls={\n        queue:/^(control-button-queue|queue-button)$/i,\n        lyrics:/^(lyrics-button|control-button-lyrics)$/i,\n        devices:/^(control-button-connect|connect-device-picker|device-picker|connect-button)$/i\n    };\n    var labels={\n        queue:/^(queue|play queue|file d[\'\u2019]attente|file de lecture|warteschlange|cola( de reproducci\u00f3n)?|fila( de reprodu\u00e7\u00e3o)?)$/i,\n        lyrics:/^(lyrics|show lyrics|paroles|afficher les paroles|songtext|letras|letra)$/i,\n        devices:/^(connect to a device|connect to a device\\.\\.\\.|se connecter \u00e0 un appareil|connecter \u00e0 un appareil|appareils disponibles|mit einem ger\u00e4t verbinden|conectar a un dispositivo|conectar a um dispositivo)$/i\n    };\n    var triggers=Array.from(document.querySelectorAll(\'button,[role=\"button\"]\')).filter(function(b){\n        return b.isConnected && (controls[kind].test(String(b.getAttribute(\'data-testid\')||\'\')) || labels[kind].test(String(b.getAttribute(\'aria-label\')||\'\').trim()));\n    });\n    var nodes=[];roots.forEach(function(r){Array.from(r.querySelectorAll(\'[role], [data-testid], button\')).forEach(function(n){if(nodes.indexOf(n)<0)nodes.push(n);});});\n    function count(test){return Math.min(99,nodes.filter(test).length);}\n    return JSON.stringify({reason:roots.length?\'observed\':\'absent\',roots:Math.min(roots.length,99),\n        rows:count(function(n){return n.getAttribute(\'role\')===\'listitem\'||/^(queue-tracklist-row|device-list-item|lyrics-line)$/.test(n.getAttribute(\'data-testid\')||\'\');}),\n        controls:Math.min(triggers.length,99), buttons:count(function(n){return n.tagName===\'BUTTON\'||n.getAttribute(\'role\')===\'button\';}),\n        roles:count(function(n){return n.hasAttribute(\'role\');}),testids:count(function(n){return n.hasAttribute(\'data-testid\');})});\n})\n"
 
@@ -39,6 +39,8 @@
 .field private lastAction:J
 
 .field private lyricsLive:Z
+
+.field private lyricsPale:I
 
 .field private melodixQueue:Z
 
@@ -145,7 +147,7 @@
 .method public constructor <init>(Landroid/content/Context;Landroid/util/AttributeSet;)V
     .locals 13
 
-    .line 406
+    .line 424
     invoke-direct {p0, p1, p2}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;Landroid/util/AttributeSet;)V
 
     .line 55
@@ -219,7 +221,12 @@
     .line 242
     iput-object v6, p0, Lcom/melodix/music/PreviewPlayerTiles;->panelReason:Ljava/lang/String;
 
-    .line 406
+    .line 247
+    const v6, -0x4b280b
+
+    iput v6, p0, Lcom/melodix/music/PreviewPlayerTiles;->lyricsPale:I
+
+    .line 424
     const/4 v6, 0x0
 
     invoke-virtual {p0, v6}, Lcom/melodix/music/PreviewPlayerTiles;->setOrientation(I)V
@@ -228,27 +235,27 @@
 
     invoke-virtual {p0, v7}, Lcom/melodix/music/PreviewPlayerTiles;->setGravity(I)V
 
-    .line 407
+    .line 425
     const-string v7, "Volume"
 
     filled-new-array {p2, v0, v1, v7}, [Ljava/lang/String;
 
     move-result-object p2
 
-    .line 408
+    .line 426
     const/4 v0, 0x1
 
     filled-new-array {v2, v3, v4, v0}, [I
 
     move-result-object v1
 
-    .line 409
+    .line 427
     move v3, v6
 
     :goto_0
     if-ge v3, v2, :cond_7
 
-    .line 410
+    .line 428
     if-ne v3, v5, :cond_0
 
     new-instance v4, Lcom/melodix/music/PreviewPlayerVolume;
@@ -262,7 +269,7 @@
 
     invoke-direct {v4, p1}, Landroid/widget/Button;-><init>(Landroid/content/Context;)V
 
-    .line 411
+    .line 429
     :goto_1
     aget-object v7, p2, v3
 
@@ -282,7 +289,7 @@
 
     invoke-virtual {v4, v9}, Landroid/widget/Button;->setTextColor(I)V
 
-    .line 412
+    .line 430
     invoke-virtual {v4, v6}, Landroid/widget/Button;->setAllCaps(Z)V
 
     invoke-virtual {v4, v6}, Landroid/widget/Button;->setSingleLine(Z)V
@@ -323,7 +330,7 @@
 
     invoke-virtual {v4, v8}, Landroid/widget/Button;->setMinimumHeight(I)V
 
-    .line 413
+    .line 431
     new-instance v8, Landroid/graphics/drawable/GradientDrawable;
 
     invoke-direct {v8}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
@@ -352,7 +359,7 @@
 
     invoke-virtual {v8, v10, v11}, Landroid/graphics/drawable/GradientDrawable;->setStroke(II)V
 
-    .line 414
+    .line 432
     const/4 v10, 0x0
 
     invoke-virtual {v4, v10}, Landroid/widget/Button;->setBackgroundTintList(Landroid/content/res/ColorStateList;)V
@@ -367,7 +374,7 @@
 
     invoke-virtual {v4, v10}, Landroid/widget/Button;->setForeground(Landroid/graphics/drawable/Drawable;)V
 
-    .line 415
+    .line 433
     new-instance v11, Landroid/graphics/drawable/RippleDrawable;
 
     const v12, 0x447b3fe4
@@ -380,7 +387,7 @@
 
     invoke-virtual {v4, v11}, Landroid/widget/Button;->setBackground(Landroid/graphics/drawable/Drawable;)V
 
-    .line 416
+    .line 434
     if-ne v3, v5, :cond_1
 
     const-string v8, "Volume du lecteur indisponible"
@@ -413,7 +420,7 @@
     :goto_2
     invoke-virtual {v4, v8}, Landroid/widget/Button;->setContentDescription(Ljava/lang/CharSequence;)V
 
-    .line 417
+    .line 435
     if-ge v3, v5, :cond_2
 
     invoke-virtual {v4, v0}, Landroid/widget/Button;->setEnabled(Z)V
@@ -435,7 +442,7 @@
 
     invoke-virtual {v4, v6}, Landroid/widget/Button;->setActivated(Z)V
 
-    .line 418
+    .line 436
     new-instance v8, Landroid/widget/LinearLayout$LayoutParams;
 
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerTiles;->getResources()Landroid/content/res/Resources;
@@ -479,7 +486,7 @@
     :cond_5
     invoke-virtual {p0, v4, v8}, Lcom/melodix/music/PreviewPlayerTiles;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 419
+    .line 437
     if-ge v3, v5, :cond_6
 
     iget-object v7, p0, Lcom/melodix/music/PreviewPlayerTiles;->controls:[Landroid/widget/Button;
@@ -492,13 +499,13 @@
 
     invoke-virtual {v4, v7}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
 
-    .line 409
+    .line 427
     :cond_6
     add-int/lit8 v3, v3, 0x1
 
     goto/16 :goto_0
 
-    .line 422
+    .line 440
     :cond_7
     return-void
 .end method
@@ -1062,525 +1069,333 @@
 .end method
 
 .method private activate(I)V
-    .locals 17
+    .locals 21
 
-    .line 360
+    .line 377
     move-object/from16 v9, p0
 
     move/from16 v0, p1
 
-    const-string v1, "envoi"
+    const-string v10, "envoi"
 
     invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
 
-    move-result-wide v2
+    move-result-wide v1
 
     invoke-direct/range {p0 .. p0}, Lcom/melodix/music/PreviewPlayerTiles;->activity()Landroid/app/Activity;
 
-    move-result-object v8
+    move-result-object v11
 
-    .line 361
-    iget-boolean v4, v9, Lcom/melodix/music/PreviewPlayerTiles;->volumeRunning:Z
+    .line 378
+    iget-boolean v3, v9, Lcom/melodix/music/PreviewPlayerTiles;->volumeRunning:Z
 
-    if-eqz v4, :cond_7
+    if-eqz v3, :cond_9
 
     invoke-virtual/range {p0 .. p0}, Lcom/melodix/music/PreviewPlayerTiles;->isShown()Z
 
-    move-result v4
+    move-result v3
 
-    if-eqz v4, :cond_7
+    if-eqz v3, :cond_9
 
     invoke-virtual/range {p0 .. p0}, Lcom/melodix/music/PreviewPlayerTiles;->getWindowVisibility()I
 
-    move-result v4
+    move-result v3
 
-    if-nez v4, :cond_7
+    if-nez v3, :cond_9
 
-    if-eqz v8, :cond_7
+    if-eqz v11, :cond_9
 
-    invoke-virtual {v8}, Landroid/app/Activity;->isFinishing()Z
+    invoke-virtual {v11}, Landroid/app/Activity;->isFinishing()Z
 
-    move-result v4
+    move-result v3
 
-    if-nez v4, :cond_7
+    if-nez v3, :cond_9
 
-    invoke-virtual {v8}, Landroid/app/Activity;->isDestroyed()Z
+    invoke-virtual {v11}, Landroid/app/Activity;->isDestroyed()Z
 
-    move-result v4
+    move-result v3
 
-    if-nez v4, :cond_7
+    if-nez v3, :cond_9
 
-    iget-object v4, v9, Lcom/melodix/music/PreviewPlayerTiles;->webDialog:Lcom/melodix/music/PreviewPlayerSheet;
+    iget-object v3, v9, Lcom/melodix/music/PreviewPlayerTiles;->webDialog:Lcom/melodix/music/PreviewPlayerSheet;
 
-    if-nez v4, :cond_7
+    if-nez v3, :cond_9
 
-    iget-wide v4, v9, Lcom/melodix/music/PreviewPlayerTiles;->lastAction:J
+    iget-wide v3, v9, Lcom/melodix/music/PreviewPlayerTiles;->lastAction:J
 
-    sub-long v4, v2, v4
+    sub-long v3, v1, v3
 
-    const-wide/16 v6, 0x190
+    const-wide/16 v5, 0x190
 
-    cmp-long v4, v4, v6
+    cmp-long v3, v3, v5
 
-    if-gez v4, :cond_0
+    if-gez v3, :cond_0
 
-    goto/16 :goto_6
+    goto/16 :goto_7
 
-    .line 362
+    .line 379
     :cond_0
-    iput-wide v2, v9, Lcom/melodix/music/PreviewPlayerTiles;->lastAction:J
+    iput-wide v1, v9, Lcom/melodix/music/PreviewPlayerTiles;->lastAction:J
 
-    iget-object v2, v9, Lcom/melodix/music/PreviewPlayerTiles;->controls:[Landroid/widget/Button;
+    iget-object v1, v9, Lcom/melodix/music/PreviewPlayerTiles;->controls:[Landroid/widget/Button;
 
-    aget-object v2, v2, v0
+    aget-object v1, v1, v0
 
-    const/4 v3, 0x3
+    const/4 v2, 0x3
 
-    invoke-virtual {v2, v3}, Landroid/widget/Button;->performHapticFeedback(I)Z
+    invoke-virtual {v1, v2}, Landroid/widget/Button;->performHapticFeedback(I)Z
 
-    invoke-direct {v9, v0, v8}, Lcom/melodix/music/PreviewPlayerTiles;->probe(ILandroid/app/Activity;)V
+    invoke-direct {v9, v0, v11}, Lcom/melodix/music/PreviewPlayerTiles;->probe(ILandroid/app/Activity;)V
 
-    .line 364
+    .line 381
     :try_start_0
-    new-instance v11, Lcom/melodix/music/PreviewPlayerSheet;
+    new-instance v13, Lcom/melodix/music/PreviewPlayerSheet;
 
-    invoke-direct {v11, v8}, Lcom/melodix/music/PreviewPlayerSheet;-><init>(Landroid/app/Activity;)V
+    invoke-direct {v13, v11}, Lcom/melodix/music/PreviewPlayerSheet;-><init>(Landroid/app/Activity;)V
 
-    .line 365
-    new-instance v12, Landroid/widget/LinearLayout;
+    .line 382
+    new-instance v14, Landroid/widget/LinearLayout;
 
-    invoke-direct {v12, v8}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
+    invoke-direct {v14, v11}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
 
-    const/4 v2, 0x1
+    const/4 v15, 0x1
 
-    invoke-virtual {v12, v2}, Landroid/widget/LinearLayout;->setOrientation(I)V
+    invoke-virtual {v14, v15}, Landroid/widget/LinearLayout;->setOrientation(I)V
 
-    const/high16 v4, 0x41b00000    # 22.0f
+    const/high16 v1, 0x41b00000    # 22.0f
 
-    invoke-direct {v9, v4}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+    invoke-direct {v9, v1}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
 
-    move-result v5
+    move-result v3
+
+    invoke-direct {v9, v1}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v1
+
+    const/high16 v4, 0x41c00000    # 24.0f
 
     invoke-direct {v9, v4}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
 
     move-result v4
 
-    const/high16 v6, 0x41c00000    # 24.0f
+    const/4 v8, 0x0
+
+    invoke-virtual {v14, v3, v8, v1, v4}, Landroid/widget/LinearLayout;->setPadding(IIII)V
+
+    invoke-static {v11}, Lcom/melodix/music/PreviewPlayerSheet;->background(Landroid/content/Context;)Landroid/graphics/drawable/GradientDrawable;
+
+    move-result-object v1
+
+    invoke-virtual {v14, v1}, Landroid/widget/LinearLayout;->setBackground(Landroid/graphics/drawable/Drawable;)V
+
+    .line 383
+    invoke-virtual {v13}, Lcom/melodix/music/PreviewPlayerSheet;->dragListener()Landroid/view/View$OnTouchListener;
+
+    move-result-object v1
+
+    .line 384
+    new-instance v3, Landroid/widget/LinearLayout;
+
+    invoke-direct {v3, v11}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
+
+    const/16 v7, 0x11
+
+    invoke-virtual {v3, v7}, Landroid/widget/LinearLayout;->setGravity(I)V
+
+    const-string v4, "Glisser vers le bas pour fermer"
+
+    invoke-virtual {v3, v4}, Landroid/widget/LinearLayout;->setContentDescription(Ljava/lang/CharSequence;)V
+
+    .line 385
+    new-instance v4, Landroid/view/View;
+
+    invoke-direct {v4, v11}, Landroid/view/View;-><init>(Landroid/content/Context;)V
+
+    const v5, 0xffffff
+
+    const v6, 0x4479c000    # 999.0f
+
+    const v12, 0x66ffffff
+
+    invoke-static {v11, v12, v5, v6}, Lcom/melodix/music/PreviewPlayerSheet;->surface(Landroid/content/Context;IIF)Landroid/graphics/drawable/GradientDrawable;
+
+    move-result-object v5
+
+    invoke-virtual {v4, v5}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
+
+    new-instance v5, Landroid/widget/LinearLayout$LayoutParams;
+
+    const/high16 v6, 0x42100000    # 36.0f
 
     invoke-direct {v9, v6}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
 
     move-result v6
 
-    const/4 v13, 0x0
+    const/high16 v12, 0x40800000    # 4.0f
 
-    invoke-virtual {v12, v5, v13, v4, v6}, Landroid/widget/LinearLayout;->setPadding(IIII)V
+    invoke-direct {v9, v12}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
 
-    invoke-static {v8}, Lcom/melodix/music/PreviewPlayerSheet;->background(Landroid/content/Context;)Landroid/graphics/drawable/GradientDrawable;
+    move-result v12
 
-    move-result-object v4
+    invoke-direct {v5, v6, v12}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
 
-    invoke-virtual {v12, v4}, Landroid/widget/LinearLayout;->setBackground(Landroid/graphics/drawable/Drawable;)V
+    invoke-virtual {v3, v4, v5}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 366
-    invoke-virtual {v11}, Lcom/melodix/music/PreviewPlayerSheet;->dragListener()Landroid/view/View$OnTouchListener;
-
-    move-result-object v4
-
-    .line 367
-    new-instance v5, Landroid/widget/LinearLayout;
-
-    invoke-direct {v5, v8}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
-
-    const/16 v6, 0x11
-
-    invoke-virtual {v5, v6}, Landroid/widget/LinearLayout;->setGravity(I)V
-
-    const-string v7, "Glisser vers le bas pour fermer"
-
-    invoke-virtual {v5, v7}, Landroid/widget/LinearLayout;->setContentDescription(Ljava/lang/CharSequence;)V
-
-    .line 368
-    new-instance v7, Landroid/view/View;
-
-    invoke-direct {v7, v8}, Landroid/view/View;-><init>(Landroid/content/Context;)V
-
-    const v14, 0xffffff
-
-    const v15, 0x4479c000    # 999.0f
-
-    const v10, 0x66ffffff
-
-    invoke-static {v8, v10, v14, v15}, Lcom/melodix/music/PreviewPlayerSheet;->surface(Landroid/content/Context;IIF)Landroid/graphics/drawable/GradientDrawable;
-
-    move-result-object v10
-
-    invoke-virtual {v7, v10}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
-
-    new-instance v10, Landroid/widget/LinearLayout$LayoutParams;
-
-    const/high16 v14, 0x42100000    # 36.0f
-
-    invoke-direct {v9, v14}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v14
-
-    const/high16 v15, 0x40800000    # 4.0f
-
-    invoke-direct {v9, v15}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v15
-
-    invoke-direct {v10, v14, v15}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-
-    invoke-virtual {v5, v7, v10}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
-
-    invoke-virtual {v5, v4}, Landroid/widget/LinearLayout;->setOnTouchListener(Landroid/view/View$OnTouchListener;)V
-
-    new-instance v7, Landroid/widget/LinearLayout$LayoutParams;
-
-    const/high16 v10, 0x42000000    # 32.0f
-
-    invoke-direct {v9, v10}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v14
-
-    const/4 v15, -0x1
-
-    invoke-direct {v7, v15, v14}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-
-    invoke-virtual {v12, v5, v7}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
-
-    .line 369
-    new-instance v5, Landroid/widget/LinearLayout;
-
-    invoke-direct {v5, v8}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
-
-    invoke-virtual {v5, v13}, Landroid/widget/LinearLayout;->setOrientation(I)V
-
-    const/16 v7, 0x10
-
-    invoke-virtual {v5, v7}, Landroid/widget/LinearLayout;->setGravity(I)V
-
-    .line 370
-    new-instance v7, Landroid/widget/LinearLayout;
-
-    invoke-direct {v7, v8}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
-
-    invoke-virtual {v7, v2}, Landroid/widget/LinearLayout;->setOrientation(I)V
-
-    invoke-virtual {v7, v4}, Landroid/widget/LinearLayout;->setOnTouchListener(Landroid/view/View$OnTouchListener;)V
-
-    .line 371
-    const-string v4, "LECTEUR"
-
-    const v14, -0x4a5c2e
-
-    const/high16 v2, 0x41200000    # 10.0f
-
-    invoke-direct {v9, v8, v4, v14, v2}, Lcom/melodix/music/PreviewPlayerTiles;->line(Landroid/app/Activity;Ljava/lang/String;IF)Landroid/widget/TextView;
-
-    move-result-object v2
+    invoke-virtual {v3, v1}, Landroid/widget/LinearLayout;->setOnTouchListener(Landroid/view/View$OnTouchListener;)V
 
     new-instance v4, Landroid/widget/LinearLayout$LayoutParams;
 
-    const/high16 v14, 0x41900000    # 18.0f
+    const/high16 v5, 0x42000000    # 32.0f
 
-    invoke-direct {v9, v14}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+    invoke-direct {v9, v5}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
 
     move-result v6
 
-    invoke-direct {v4, v15, v6}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    const/4 v12, -0x1
 
-    invoke-virtual {v7, v2, v4}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    invoke-direct {v4, v12, v6}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
 
-    .line 372
+    invoke-virtual {v14, v3, v4}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    .line 386
+    new-instance v4, Landroid/widget/LinearLayout;
+
+    invoke-direct {v4, v11}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
+
+    invoke-virtual {v4, v8}, Landroid/widget/LinearLayout;->setOrientation(I)V
+
+    const/16 v3, 0x10
+
+    invoke-virtual {v4, v3}, Landroid/widget/LinearLayout;->setGravity(I)V
+
+    .line 387
+    new-instance v3, Landroid/widget/LinearLayout;
+
+    invoke-direct {v3, v11}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
+
+    invoke-virtual {v3, v15}, Landroid/widget/LinearLayout;->setOrientation(I)V
+
+    invoke-virtual {v3, v1}, Landroid/widget/LinearLayout;->setOnTouchListener(Landroid/view/View$OnTouchListener;)V
+
+    .line 388
+    const-string v1, "LECTEUR"
+
+    const v6, -0x4a5c2e
+
+    const/high16 v15, 0x41200000    # 10.0f
+
+    invoke-direct {v9, v11, v1, v6, v15}, Lcom/melodix/music/PreviewPlayerTiles;->line(Landroid/app/Activity;Ljava/lang/String;IF)Landroid/widget/TextView;
+
+    move-result-object v6
+
+    new-instance v1, Landroid/widget/LinearLayout$LayoutParams;
+
+    const/high16 v15, 0x41900000    # 18.0f
+
+    invoke-direct {v9, v15}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v7
+
+    invoke-direct {v1, v12, v7}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+
+    invoke-virtual {v3, v6, v1}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    .line 389
     if-nez v0, :cond_1
 
-    const-string v2, "File d\u2019attente"
+    const-string v1, "File d\u2019attente"
 
     goto :goto_0
 
     :cond_1
-    iget-object v2, v9, Lcom/melodix/music/PreviewPlayerTiles;->names:[Ljava/lang/String;
+    iget-object v1, v9, Lcom/melodix/music/PreviewPlayerTiles;->names:[Ljava/lang/String;
 
-    aget-object v2, v2, v0
+    aget-object v1, v1, v0
 
     :goto_0
-    const/high16 v4, 0x41a00000    # 20.0f
+    const/high16 v7, 0x41a00000    # 20.0f
 
-    invoke-direct {v9, v8, v2, v15, v4}, Lcom/melodix/music/PreviewPlayerTiles;->line(Landroid/app/Activity;Ljava/lang/String;IF)Landroid/widget/TextView;
+    invoke-direct {v9, v11, v1, v12, v7}, Lcom/melodix/music/PreviewPlayerTiles;->line(Landroid/app/Activity;Ljava/lang/String;IF)Landroid/widget/TextView;
 
-    move-result-object v2
+    move-result-object v7
 
-    sget-object v4, Landroid/graphics/Typeface;->DEFAULT_BOLD:Landroid/graphics/Typeface;
+    sget-object v1, Landroid/graphics/Typeface;->DEFAULT_BOLD:Landroid/graphics/Typeface;
 
-    invoke-virtual {v2, v4}, Landroid/widget/TextView;->setTypeface(Landroid/graphics/Typeface;)V
+    invoke-virtual {v7, v1}, Landroid/widget/TextView;->setTypeface(Landroid/graphics/Typeface;)V
 
-    new-instance v4, Landroid/widget/LinearLayout$LayoutParams;
+    new-instance v1, Landroid/widget/LinearLayout$LayoutParams;
 
-    const/4 v6, -0x2
+    const/4 v15, -0x2
 
-    invoke-direct {v4, v15, v6}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    invoke-direct {v1, v12, v15}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
 
-    invoke-virtual {v7, v2, v4}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    invoke-virtual {v3, v7, v1}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 373
-    const/4 v2, 0x2
+    .line 390
+    const/4 v1, 0x2
 
-    if-ne v0, v2, :cond_2
+    if-ne v0, v1, :cond_2
 
-    const-string v4, "Appareils disponibles"
+    const-string v17, "Appareils disponibles"
 
     goto :goto_1
 
     :cond_2
-    const-string v4, "Contenu du lecteur"
+    const-string v17, "Contenu du lecteur"
 
     :goto_1
+    move-object/from16 v1, v17
+
     const v2, -0x485533
 
-    const/high16 v14, 0x41500000    # 13.0f
+    const/high16 v8, 0x41500000    # 13.0f
 
-    invoke-direct {v9, v8, v4, v2, v14}, Lcom/melodix/music/PreviewPlayerTiles;->line(Landroid/app/Activity;Ljava/lang/String;IF)Landroid/widget/TextView;
+    invoke-direct {v9, v11, v1, v2, v8}, Lcom/melodix/music/PreviewPlayerTiles;->line(Landroid/app/Activity;Ljava/lang/String;IF)Landroid/widget/TextView;
 
-    move-result-object v2
+    move-result-object v8
 
-    new-instance v4, Landroid/widget/LinearLayout$LayoutParams;
+    new-instance v1, Landroid/widget/LinearLayout$LayoutParams;
 
-    invoke-direct {v9, v10}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v10
-
-    invoke-direct {v4, v15, v10}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-
-    invoke-virtual {v7, v2, v4}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
-
-    new-instance v2, Landroid/widget/LinearLayout$LayoutParams;
-
-    const/high16 v4, 0x3f800000    # 1.0f
-
-    invoke-direct {v2, v13, v6, v4}, Landroid/widget/LinearLayout$LayoutParams;-><init>(IIF)V
-
-    invoke-virtual {v5, v7, v2}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
-
-    .line 374
-    new-instance v2, Landroid/widget/Button;
-
-    invoke-direct {v2, v8}, Landroid/widget/Button;-><init>(Landroid/content/Context;)V
-
-    const-string v4, ""
-
-    const v7, -0x212b13
-
-    invoke-static {v8, v4, v3, v7}, Lcom/melodix/music/PreviewPanelIcon;->label(Landroid/content/Context;Ljava/lang/String;II)Ljava/lang/CharSequence;
-
-    move-result-object v3
-
-    invoke-virtual {v2, v3}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
-
-    new-instance v3, Ljava/lang/StringBuilder;
-
-    invoke-direct {v3}, Ljava/lang/StringBuilder;-><init>()V
-
-    const-string v4, "Fermer "
-
-    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v3
-
-    iget-object v4, v9, Lcom/melodix/music/PreviewPlayerTiles;->names:[Ljava/lang/String;
-
-    aget-object v4, v4, v0
-
-    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v3
-
-    invoke-virtual {v3}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-
-    move-result-object v3
-
-    invoke-virtual {v2, v3}, Landroid/widget/Button;->setContentDescription(Ljava/lang/CharSequence;)V
-
-    const/16 v3, 0x11
-
-    invoke-virtual {v2, v3}, Landroid/widget/Button;->setGravity(I)V
-
-    invoke-virtual {v2, v13}, Landroid/widget/Button;->setAllCaps(Z)V
-
-    invoke-virtual {v2, v13}, Landroid/widget/Button;->setMinWidth(I)V
-
-    invoke-virtual {v2, v13}, Landroid/widget/Button;->setMinimumWidth(I)V
-
-    const/high16 v10, 0x42400000    # 48.0f
-
-    invoke-direct {v9, v10}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v3
-
-    invoke-virtual {v2, v3}, Landroid/widget/Button;->setMinHeight(I)V
-
-    const/4 v3, 0x0
-
-    invoke-virtual {v2, v3}, Landroid/widget/Button;->setBackgroundTintList(Landroid/content/res/ColorStateList;)V
-
-    invoke-virtual {v2, v3}, Landroid/widget/Button;->setBackground(Landroid/graphics/drawable/Drawable;)V
-
-    .line 375
-    new-instance v3, Lcom/melodix/music/PreviewPlayerTiles$18;
-
-    invoke-direct {v3, v9, v11}, Lcom/melodix/music/PreviewPlayerTiles$18;-><init>(Lcom/melodix/music/PreviewPlayerTiles;Lcom/melodix/music/PreviewPlayerSheet;)V
-
-    invoke-virtual {v2, v3}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
-
-    new-instance v3, Landroid/widget/LinearLayout$LayoutParams;
-
-    const/high16 v4, 0x42200000    # 40.0f
-
-    invoke-direct {v9, v4}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v4
-
-    invoke-direct {v9, v10}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v7
-
-    invoke-direct {v3, v4, v7}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-
-    invoke-virtual {v5, v2, v3}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
-
-    new-instance v2, Landroid/widget/LinearLayout$LayoutParams;
-
-    invoke-direct {v2, v15, v6}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-
-    invoke-virtual {v12, v5, v2}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
-
-    .line 376
-    new-instance v14, Landroid/widget/LinearLayout;
-
-    invoke-direct {v14, v8}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
-
-    const/4 v2, 0x1
-
-    invoke-virtual {v14, v2}, Landroid/widget/LinearLayout;->setOrientation(I)V
-
-    const/high16 v2, 0x41800000    # 16.0f
-
-    invoke-direct {v9, v2}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v3
-
-    const/high16 v4, 0x41000000    # 8.0f
-
-    invoke-direct {v9, v4}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v5
-
-    invoke-direct {v9, v2}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+    invoke-direct {v9, v5}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
 
     move-result v2
 
-    invoke-direct {v9, v4}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+    invoke-direct {v1, v12, v2}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
 
-    move-result v4
+    invoke-virtual {v3, v8, v1}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    invoke-virtual {v14, v3, v5, v2, v4}, Landroid/widget/LinearLayout;->setPadding(IIII)V
+    new-instance v1, Landroid/widget/LinearLayout$LayoutParams;
 
-    .line 377
-    new-instance v2, Landroid/widget/ScrollView;
+    const/high16 v5, 0x3f800000    # 1.0f
 
-    invoke-direct {v2, v8}, Landroid/widget/ScrollView;-><init>(Landroid/content/Context;)V
+    const/4 v2, 0x0
 
-    const v3, 0xcffffff
+    invoke-direct {v1, v2, v15, v5}, Landroid/widget/LinearLayout$LayoutParams;-><init>(IIF)V
 
-    const v4, 0x16ffffff
+    invoke-virtual {v4, v3, v1}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    const/high16 v5, 0x41900000    # 18.0f
+    .line 391
+    new-instance v1, Landroid/widget/Button;
 
-    invoke-static {v8, v3, v4, v5}, Lcom/melodix/music/PreviewPlayerSheet;->surface(Landroid/content/Context;IIF)Landroid/graphics/drawable/GradientDrawable;
+    invoke-direct {v1, v11}, Landroid/widget/Button;-><init>(Landroid/content/Context;)V
 
-    move-result-object v3
+    const-string v2, ""
 
-    invoke-virtual {v2, v3}, Landroid/widget/ScrollView;->setBackground(Landroid/graphics/drawable/Drawable;)V
+    const v3, -0x212b13
 
-    invoke-virtual {v2, v14}, Landroid/widget/ScrollView;->addView(Landroid/view/View;)V
+    const/4 v5, 0x3
 
-    .line 378
-    const/high16 v3, 0x42f00000    # 120.0f
-
-    invoke-direct {v9, v3}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v3
-
-    invoke-virtual/range {p0 .. p0}, Lcom/melodix/music/PreviewPlayerTiles;->getResources()Landroid/content/res/Resources;
-
-    move-result-object v4
-
-    invoke-virtual {v4}, Landroid/content/res/Resources;->getDisplayMetrics()Landroid/util/DisplayMetrics;
-
-    move-result-object v4
-
-    iget v4, v4, Landroid/util/DisplayMetrics;->heightPixels:I
-
-    const/high16 v5, 0x435c0000    # 220.0f
-
-    invoke-direct {v9, v5}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v5
-
-    sub-int/2addr v4, v5
-
-    invoke-static {v3, v4}, Ljava/lang/Math;->max(II)I
-
-    move-result v3
-
-    new-instance v4, Landroid/widget/LinearLayout$LayoutParams;
-
-    const/4 v5, 0x1
-
-    if-ne v0, v5, :cond_3
-
-    :goto_2
-    goto :goto_3
-
-    :cond_3
-    const/high16 v5, 0x43aa0000    # 340.0f
-
-    invoke-direct {v9, v5}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
-
-    move-result v5
-
-    invoke-static {v5, v3}, Ljava/lang/Math;->min(II)I
-
-    move-result v3
-
-    goto :goto_2
-
-    :goto_3
-    invoke-direct {v4, v15, v3}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-
-    invoke-virtual {v12, v2, v4}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
-
-    .line 379
-    new-instance v7, Landroid/widget/Button;
-
-    invoke-direct {v7, v8}, Landroid/widget/Button;-><init>(Landroid/content/Context;)V
-
-    const-string v2, "Actualiser"
-
-    const/4 v3, 0x2
-
-    invoke-static {v8, v2, v3, v15}, Lcom/melodix/music/PreviewPanelIcon;->label(Landroid/content/Context;Ljava/lang/String;II)Ljava/lang/CharSequence;
+    invoke-static {v11, v2, v5, v3}, Lcom/melodix/music/PreviewPanelIcon;->label(Landroid/content/Context;Ljava/lang/String;II)Ljava/lang/CharSequence;
 
     move-result-object v2
 
-    invoke-virtual {v7, v2}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
+    invoke-virtual {v1, v2}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
 
     new-instance v2, Ljava/lang/StringBuilder;
 
     invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
 
-    const-string v3, "Actualiser "
+    const-string v3, "Fermer "
 
     invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
@@ -1598,96 +1413,368 @@
 
     move-result-object v2
 
-    invoke-virtual {v7, v2}, Landroid/widget/Button;->setContentDescription(Ljava/lang/CharSequence;)V
+    invoke-virtual {v1, v2}, Landroid/widget/Button;->setContentDescription(Ljava/lang/CharSequence;)V
 
-    invoke-virtual {v7, v15}, Landroid/widget/Button;->setTextColor(I)V
+    const/16 v5, 0x11
 
-    invoke-virtual {v7, v13}, Landroid/widget/Button;->setAllCaps(Z)V
+    invoke-virtual {v1, v5}, Landroid/widget/Button;->setGravity(I)V
 
-    const/16 v2, 0x11
+    const/4 v3, 0x0
 
-    invoke-virtual {v7, v2}, Landroid/widget/Button;->setGravity(I)V
+    invoke-virtual {v1, v3}, Landroid/widget/Button;->setAllCaps(Z)V
 
-    invoke-direct {v9, v10}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+    invoke-virtual {v1, v3}, Landroid/widget/Button;->setMinWidth(I)V
+
+    invoke-virtual {v1, v3}, Landroid/widget/Button;->setMinimumWidth(I)V
+
+    const/high16 v2, 0x42400000    # 48.0f
+
+    invoke-direct {v9, v2}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v3
+
+    invoke-virtual {v1, v3}, Landroid/widget/Button;->setMinHeight(I)V
+
+    const/4 v3, 0x0
+
+    invoke-virtual {v1, v3}, Landroid/widget/Button;->setBackgroundTintList(Landroid/content/res/ColorStateList;)V
+
+    invoke-virtual {v1, v3}, Landroid/widget/Button;->setBackground(Landroid/graphics/drawable/Drawable;)V
+
+    .line 392
+    new-instance v3, Lcom/melodix/music/PreviewPlayerTiles$18;
+
+    invoke-direct {v3, v9, v13}, Lcom/melodix/music/PreviewPlayerTiles$18;-><init>(Lcom/melodix/music/PreviewPlayerTiles;Lcom/melodix/music/PreviewPlayerSheet;)V
+
+    invoke-virtual {v1, v3}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
+
+    new-instance v3, Landroid/widget/LinearLayout$LayoutParams;
+
+    const/high16 v5, 0x42200000    # 40.0f
+
+    invoke-direct {v9, v5}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v5
+
+    invoke-direct {v9, v2}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v12
+
+    invoke-direct {v3, v5, v12}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+
+    invoke-virtual {v4, v1, v3}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    new-instance v1, Landroid/widget/LinearLayout$LayoutParams;
+
+    const/4 v3, -0x1
+
+    invoke-direct {v1, v3, v15}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+
+    invoke-virtual {v14, v4, v1}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    .line 393
+    new-instance v12, Landroid/widget/LinearLayout;
+
+    invoke-direct {v12, v11}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
+
+    const/4 v1, 0x1
+
+    invoke-virtual {v12, v1}, Landroid/widget/LinearLayout;->setOrientation(I)V
+
+    const/high16 v1, 0x41800000    # 16.0f
+
+    invoke-direct {v9, v1}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v3
+
+    const/high16 v5, 0x41000000    # 8.0f
+
+    invoke-direct {v9, v5}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
 
     move-result v2
 
-    invoke-virtual {v7, v2}, Landroid/widget/Button;->setMinimumHeight(I)V
+    invoke-direct {v9, v1}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
 
-    const/4 v2, 0x0
+    move-result v1
 
-    invoke-virtual {v7, v2}, Landroid/widget/Button;->setBackgroundTintList(Landroid/content/res/ColorStateList;)V
+    invoke-direct {v9, v5}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
 
-    invoke-static {v8, v13}, Lcom/melodix/music/PreviewPlayerSheet;->actionBackground(Landroid/content/Context;Z)Landroid/graphics/drawable/GradientDrawable;
+    move-result v5
+
+    invoke-virtual {v12, v3, v2, v1, v5}, Landroid/widget/LinearLayout;->setPadding(IIII)V
+
+    .line 394
+    new-instance v5, Landroid/widget/ScrollView;
+
+    invoke-direct {v5, v11}, Landroid/widget/ScrollView;-><init>(Landroid/content/Context;)V
+
+    const v1, 0xcffffff
+
+    const v2, 0x16ffffff
+
+    const/high16 v3, 0x41900000    # 18.0f
+
+    invoke-static {v11, v1, v2, v3}, Lcom/melodix/music/PreviewPlayerSheet;->surface(Landroid/content/Context;IIF)Landroid/graphics/drawable/GradientDrawable;
+
+    move-result-object v1
+
+    invoke-virtual {v5, v1}, Landroid/widget/ScrollView;->setBackground(Landroid/graphics/drawable/Drawable;)V
+
+    invoke-virtual {v5, v12}, Landroid/widget/ScrollView;->addView(Landroid/view/View;)V
+
+    .line 395
+    const/high16 v1, 0x42f00000    # 120.0f
+
+    invoke-direct {v9, v1}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v1
+
+    invoke-virtual/range {p0 .. p0}, Lcom/melodix/music/PreviewPlayerTiles;->getResources()Landroid/content/res/Resources;
 
     move-result-object v2
 
-    invoke-virtual {v7, v2}, Landroid/widget/Button;->setBackground(Landroid/graphics/drawable/Drawable;)V
+    invoke-virtual {v2}, Landroid/content/res/Resources;->getDisplayMetrics()Landroid/util/DisplayMetrics;
 
-    .line 380
+    move-result-object v2
+
+    iget v2, v2, Landroid/util/DisplayMetrics;->heightPixels:I
+
+    const/high16 v3, 0x435c0000    # 220.0f
+
+    invoke-direct {v9, v3}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v3
+
+    sub-int/2addr v2, v3
+
+    invoke-static {v1, v2}, Ljava/lang/Math;->max(II)I
+
+    move-result v3
+
+    .line 396
+    const/4 v1, 0x1
+
+    if-ne v0, v1, :cond_3
+
+    const/4 v2, 0x2
+
+    move-object/from16 v1, p0
+
+    move v15, v2
+
+    move-object v2, v11
+
+    move v15, v3
+
+    const/16 v18, 0x0
+
+    move-object v3, v14
+
+    move-object/from16 v20, v5
+
+    move-object/from16 v16, v12
+
+    const/high16 v12, 0x3f800000    # 1.0f
+
+    const/16 v19, 0x11
+
+    move-object v5, v6
+
+    move-object v6, v7
+
+    move-object v7, v8
+
+    move-object/from16 v19, v10
+
+    move/from16 v10, v18
+
+    move-object/from16 v8, v20
+
+    invoke-direct/range {v1 .. v8}, Lcom/melodix/music/PreviewPlayerTiles;->lyricsLook(Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/LinearLayout;Landroid/widget/TextView;Landroid/widget/TextView;Landroid/widget/TextView;Landroid/widget/ScrollView;)V
+
+    goto :goto_2
+
+    :cond_3
+    move v15, v3
+
+    move-object/from16 v20, v5
+
+    move-object/from16 v19, v10
+
+    move-object/from16 v16, v12
+
+    const/4 v10, 0x0
+
+    const/high16 v12, 0x3f800000    # 1.0f
+
+    :goto_2
+    const/4 v1, 0x1
+
+    if-ne v0, v1, :cond_4
+
+    new-instance v1, Landroid/widget/LinearLayout$LayoutParams;
+
+    const/4 v2, -0x1
+
+    invoke-direct {v1, v2, v10, v12}, Landroid/widget/LinearLayout$LayoutParams;-><init>(IIF)V
+
+    goto :goto_3
+
+    :cond_4
+    new-instance v1, Landroid/widget/LinearLayout$LayoutParams;
+
+    const/high16 v2, 0x43aa0000    # 340.0f
+
+    invoke-direct {v9, v2}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v2
+
+    invoke-static {v2, v15}, Ljava/lang/Math;->min(II)I
+
+    move-result v2
+
+    const/4 v3, -0x1
+
+    invoke-direct {v1, v3, v2}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+
+    :goto_3
+    move-object/from16 v2, v20
+
+    invoke-virtual {v14, v2, v1}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    .line 397
+    new-instance v8, Landroid/widget/Button;
+
+    invoke-direct {v8, v11}, Landroid/widget/Button;-><init>(Landroid/content/Context;)V
+
+    const-string v1, "Actualiser"
+
+    const/4 v2, 0x2
+
+    const/4 v3, -0x1
+
+    invoke-static {v11, v1, v2, v3}, Lcom/melodix/music/PreviewPanelIcon;->label(Landroid/content/Context;Ljava/lang/String;II)Ljava/lang/CharSequence;
+
+    move-result-object v1
+
+    invoke-virtual {v8, v1}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
+
+    new-instance v1, Ljava/lang/StringBuilder;
+
+    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
+
+    const-string v2, "Actualiser "
+
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v1
+
     iget-object v2, v9, Lcom/melodix/music/PreviewPlayerTiles;->names:[Ljava/lang/String;
 
     aget-object v2, v2, v0
 
-    invoke-virtual {v11, v2}, Lcom/melodix/music/PreviewPlayerSheet;->setTitle(Ljava/lang/CharSequence;)V
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    const/4 v2, 0x1
+    move-result-object v1
 
-    invoke-virtual {v11, v2}, Lcom/melodix/music/PreviewPlayerSheet;->setCanceledOnTouchOutside(Z)V
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
-    .line 381
-    new-instance v2, Lcom/melodix/music/PreviewPlayerTiles$19;
+    move-result-object v1
 
-    invoke-direct {v2, v9, v0, v8}, Lcom/melodix/music/PreviewPlayerTiles$19;-><init>(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;)V
+    invoke-virtual {v8, v1}, Landroid/widget/Button;->setContentDescription(Ljava/lang/CharSequence;)V
 
-    invoke-virtual {v11, v2}, Lcom/melodix/music/PreviewPlayerSheet;->setOnDismissListener(Landroid/content/DialogInterface$OnDismissListener;)V
+    const/4 v1, -0x1
 
-    .line 388
-    iput-object v11, v9, Lcom/melodix/music/PreviewPlayerTiles;->webDialog:Lcom/melodix/music/PreviewPlayerSheet;
+    invoke-virtual {v8, v1}, Landroid/widget/Button;->setTextColor(I)V
+
+    invoke-virtual {v8, v10}, Landroid/widget/Button;->setAllCaps(Z)V
+
+    const/16 v1, 0x11
+
+    invoke-virtual {v8, v1}, Landroid/widget/Button;->setGravity(I)V
+
+    const/high16 v12, 0x42400000    # 48.0f
+
+    invoke-direct {v9, v12}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v1
+
+    invoke-virtual {v8, v1}, Landroid/widget/Button;->setMinimumHeight(I)V
+
+    const/4 v1, 0x0
+
+    invoke-virtual {v8, v1}, Landroid/widget/Button;->setBackgroundTintList(Landroid/content/res/ColorStateList;)V
+
+    invoke-static {v11, v10}, Lcom/melodix/music/PreviewPlayerSheet;->actionBackground(Landroid/content/Context;Z)Landroid/graphics/drawable/GradientDrawable;
+
+    move-result-object v1
+
+    invoke-virtual {v8, v1}, Landroid/widget/Button;->setBackground(Landroid/graphics/drawable/Drawable;)V
+
+    .line 398
+    iget-object v1, v9, Lcom/melodix/music/PreviewPlayerTiles;->names:[Ljava/lang/String;
+
+    aget-object v1, v1, v0
+
+    invoke-virtual {v13, v1}, Lcom/melodix/music/PreviewPlayerSheet;->setTitle(Ljava/lang/CharSequence;)V
+
+    const/4 v1, 0x1
+
+    invoke-virtual {v13, v1}, Lcom/melodix/music/PreviewPlayerSheet;->setCanceledOnTouchOutside(Z)V
+
+    .line 399
+    new-instance v1, Lcom/melodix/music/PreviewPlayerTiles$19;
+
+    invoke-direct {v1, v9, v0, v11}, Lcom/melodix/music/PreviewPlayerTiles$19;-><init>(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;)V
+
+    invoke-virtual {v13, v1}, Lcom/melodix/music/PreviewPlayerSheet;->setOnDismissListener(Landroid/content/DialogInterface$OnDismissListener;)V
+
+    .line 406
+    iput-object v13, v9, Lcom/melodix/music/PreviewPlayerTiles;->webDialog:Lcom/melodix/music/PreviewPlayerSheet;
 
     invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
 
-    move-result-wide v2
+    move-result-wide v1
 
-    iput-wide v2, v9, Lcom/melodix/music/PreviewPlayerTiles;->openedAt:J
+    iput-wide v1, v9, Lcom/melodix/music/PreviewPlayerTiles;->openedAt:J
+
+    move-object/from16 v1, v19
 
     iput-object v1, v9, Lcom/melodix/music/PreviewPlayerTiles;->queueStep:Ljava/lang/String;
 
     iput-object v1, v9, Lcom/melodix/music/PreviewPlayerTiles;->panelStep:Ljava/lang/String;
 
-    .line 389
-    new-instance v5, Lcom/melodix/music/PreviewPlayerTiles$20;
+    .line 407
+    new-instance v15, Lcom/melodix/music/PreviewPlayerTiles$20;
 
-    move-object v1, v5
+    move-object v1, v15
 
     move-object/from16 v2, p0
 
     move/from16 v3, p1
 
-    move-object v4, v8
+    move-object v4, v11
 
-    move-object v13, v5
-
-    move-object v5, v11
-
-    move-object v6, v14
-
-    move-object/from16 v16, v7
-
-    invoke-direct/range {v1 .. v7}, Lcom/melodix/music/PreviewPlayerTiles$20;-><init>(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Lcom/melodix/music/PreviewPlayerSheet;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
+    move-object v5, v13
 
     move-object/from16 v6, v16
 
-    invoke-virtual {v6, v13}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
+    move-object v7, v8
 
-    .line 390
+    invoke-direct/range {v1 .. v7}, Lcom/melodix/music/PreviewPlayerTiles$20;-><init>(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Lcom/melodix/music/PreviewPlayerSheet;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
+
+    invoke-virtual {v8, v15}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
+
+    .line 408
     new-instance v1, Landroid/widget/LinearLayout$LayoutParams;
 
-    invoke-direct {v9, v10}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+    invoke-direct {v9, v12}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
 
     move-result v2
 
-    invoke-direct {v1, v15, v2}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    const/4 v3, -0x1
+
+    invoke-direct {v1, v3, v2}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
 
     const/high16 v2, 0x41600000    # 14.0f
 
@@ -1697,28 +1784,26 @@
 
     iput v2, v1, Landroid/widget/LinearLayout$LayoutParams;->topMargin:I
 
-    invoke-virtual {v12, v6, v1}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    invoke-virtual {v14, v8, v1}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 391
-    invoke-virtual {v11, v12}, Lcom/melodix/music/PreviewPlayerSheet;->showSheet(Landroid/view/View;)V
+    .line 409
+    invoke-virtual {v13, v14}, Lcom/melodix/music/PreviewPlayerSheet;->showSheet(Landroid/view/View;)V
 
-    invoke-virtual {v11}, Lcom/melodix/music/PreviewPlayerSheet;->getWindow()Landroid/view/Window;
+    invoke-virtual {v13}, Lcom/melodix/music/PreviewPlayerSheet;->getWindow()Landroid/view/Window;
 
     move-result-object v1
 
-    if-nez v1, :cond_4
+    if-nez v1, :cond_5
 
-    invoke-virtual {v11}, Lcom/melodix/music/PreviewPlayerSheet;->dismissImmediately()V
+    invoke-virtual {v13}, Lcom/melodix/music/PreviewPlayerSheet;->dismissImmediately()V
 
     return-void
 
-    .line 392
-    :cond_4
+    .line 410
+    :cond_5
     new-instance v2, Landroid/graphics/drawable/ColorDrawable;
 
-    const/4 v3, 0x0
-
-    invoke-direct {v2, v3}, Landroid/graphics/drawable/ColorDrawable;-><init>(I)V
+    invoke-direct {v2, v10}, Landroid/graphics/drawable/ColorDrawable;-><init>(I)V
 
     invoke-virtual {v1, v2}, Landroid/view/Window;->setBackgroundDrawable(Landroid/graphics/drawable/Drawable;)V
 
@@ -1726,18 +1811,34 @@
 
     invoke-virtual {v1, v2}, Landroid/view/Window;->setGravity(I)V
 
-    const/4 v2, -0x2
+    const/4 v2, 0x1
 
-    invoke-virtual {v1, v15, v2}, Landroid/view/Window;->setLayout(II)V
+    if-ne v0, v2, :cond_6
 
-    .line 393
-    if-nez v0, :cond_5
-
-    invoke-direct {v9, v8, v11, v14, v6}, Lcom/melodix/music/PreviewPlayerTiles;->loadQueue(Landroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
+    const/4 v15, -0x1
 
     goto :goto_4
 
-    :cond_5
+    :cond_6
+    const/4 v15, -0x2
+
+    :goto_4
+    const/4 v2, -0x1
+
+    invoke-virtual {v1, v2, v15}, Landroid/view/Window;->setLayout(II)V
+
+    .line 411
+    if-nez v0, :cond_7
+
+    move-object/from16 v5, v16
+
+    invoke-direct {v9, v11, v13, v5, v8}, Lcom/melodix/music/PreviewPlayerTiles;->loadQueue(Landroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
+
+    goto :goto_5
+
+    :cond_7
+    move-object/from16 v5, v16
+
     const-string v7, "run"
 
     const-string v10, ""
@@ -1746,11 +1847,11 @@
 
     move/from16 v2, p1
 
-    move-object v3, v8
+    move-object v3, v11
 
-    move-object v4, v11
+    move-object v4, v13
 
-    move-object v5, v14
+    move-object v6, v8
 
     move-object v8, v10
 
@@ -1758,16 +1859,16 @@
     :try_end_0
     .catch Ljava/lang/RuntimeException; {:try_start_0 .. :try_end_0} :catch_0
 
-    .line 394
-    :goto_4
-    goto :goto_5
+    .line 412
+    :goto_5
+    goto :goto_6
 
     :catch_0
     move-exception v0
 
     iget-object v0, v9, Lcom/melodix/music/PreviewPlayerTiles;->webDialog:Lcom/melodix/music/PreviewPlayerSheet;
 
-    if-eqz v0, :cond_6
+    if-eqz v0, :cond_8
 
     iget-object v0, v9, Lcom/melodix/music/PreviewPlayerTiles;->webDialog:Lcom/melodix/music/PreviewPlayerSheet;
 
@@ -1777,18 +1878,18 @@
 
     iput-object v1, v9, Lcom/melodix/music/PreviewPlayerTiles;->webDialog:Lcom/melodix/music/PreviewPlayerSheet;
 
-    :cond_6
+    :cond_8
     const-string v0, "Indisponible dans cette version"
 
     invoke-direct {v9, v0}, Lcom/melodix/music/PreviewPlayerTiles;->message(Ljava/lang/String;)V
 
-    .line 395
-    :goto_5
+    .line 413
+    :goto_6
     return-void
 
-    .line 361
-    :cond_7
-    :goto_6
+    .line 378
+    :cond_9
+    :goto_7
     return-void
 .end method
 
@@ -2094,7 +2195,7 @@
     aget-object v3, p0, v2
 
     .line 46
-    const-string v4, "(opened|already-open|open-error|closed|close-error|panel:absent|root:ambiguous|button:absent|button:disabled|button:ambiguous:[0-9]{1,2}|rows:[0-9]{1,2}|lines:[0-9]{1,3}(:sync)?|devices:[0-9]{1,2}|sized:[0-9]{1,2}|h:[0-9]{1,4}|path:(queue|other)|links:[0-9]{1,2}|rowsdoc:[0-9]{1,2}|shape:[0-9]{14}|detail:[0-9]{9}|sem:[0-9]{5}|target:(ambiguous|absent|already-active)|transfer:(click|error|verified|unverified)|close:(verified|unverified|button))"
+    const-string v4, "(opened|already-open|open-error|closed|close-error|panel:absent|root:ambiguous|button:absent|button:disabled|button:ambiguous:[0-9]{1,2}|rows:[0-9]{1,2}|lines:[0-9]{1,3}(:sync)?|devices:[0-9]{1,2}|sized:[0-9]{1,2}|h:[0-9]{1,4}|path:(queue|other|lyrics)|lt:[0-9]{1,2}|mt:[0-9]{1,2}|links:[0-9]{1,2}|rowsdoc:[0-9]{1,2}|shape:[0-9]{14}|detail:[0-9]{9}|sem:[0-9]{5}|target:(ambiguous|absent|already-active)|transfer:(click|error|verified|unverified)|close:(verified|unverified|button))"
 
     invoke-virtual {v3, v4}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
 
@@ -2359,7 +2460,7 @@
 .method private dp(F)I
     .locals 1
 
-    .line 423
+    .line 441
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerTiles;->getResources()Landroid/content/res/Resources;
 
     move-result-object v0
@@ -2693,7 +2794,7 @@
 .method private loadPanel(ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
     .locals 20
 
-    .line 306
+    .line 323
     move-object/from16 v12, p0
 
     move/from16 v13, p1
@@ -2745,7 +2846,7 @@
     :goto_0
     move-object/from16 v16, v1
 
-    .line 307
+    .line 324
     new-instance v8, Lcom/melodix/music/PreviewPlayerTiles$13;
 
     move-object v1, v8
@@ -2794,7 +2895,7 @@
     :goto_1
     invoke-virtual {v12, v0, v1, v2}, Lcom/melodix/music/PreviewPlayerTiles;->postDelayed(Ljava/lang/Runnable;J)Z
 
-    .line 308
+    .line 325
     invoke-direct {v12, v14}, Lcom/melodix/music/PreviewPlayerTiles;->web(Landroid/app/Activity;)Landroid/webkit/WebView;
 
     move-result-object v0
@@ -2813,14 +2914,14 @@
 
     return-void
 
-    .line 309
+    .line 326
     :cond_3
     :try_start_0
     new-instance v1, Ljava/lang/StringBuilder;
 
     invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
 
-    const-string v2, "((function(kind, action, wanted) {\n    \'use strict\';\n    // Lyrics and devices drawers. One explicit tap = open the page panel in the\n    // hidden page, read it, close it if it was closed. A device transfer is a\n    // separate, explicitly confirmed action, verified by re-reading the list.\n    // No scrolling, navigation, storage, cookies, tokens or network.\n    var W = window, jobs = W.__melodixPanelJobs = W.__melodixPanelJobs || {};\n    if (kind !== \'lyrics\' && kind !== \'devices\') return JSON.stringify({status: \'done\', ok: false, reason: \'kind\'});\n    if (action === \'poll\') return JSON.stringify(jobs[kind] || {status: \'none\'});\n    if (action !== \'run\' && action !== \'transfer\') return JSON.stringify({status: \'none\'});\n    if (W.__melodixDrawerUnsafe) return JSON.stringify({status: \'blocked\'});\n    if (W.__melodixDrawerLease && W.__melodixDrawerLease.status === \'running\') return JSON.stringify({status: \'busy\'});\n    var counter = Number(W.__melodixDrawerCounter);\n    W.__melodixDrawerCounter = isFinite(counter) && counter >= 0 && counter < 999999999 ? Math.floor(counter) + 1 : 1;\n    var job = jobs[kind] = {status: \'running\', started: Date.now(), id: String(Date.now()) + \':\' + W.__melodixDrawerCounter, ok: false, reason: \'\', body: \'\', active: -1, synced: false, transferred: false, journal: []};\n    W.__melodixDrawerLease = job;\n    function log(c) { if (job.journal.length < 12) job.journal.push(c); }\n    function text(n) { return String(n && n.textContent || \'\').replace(/\\s+/g, \' \').trim().slice(0, 300); }\n    var specs = {\n        lyrics: {\n            ids: /^(lyrics-button|control-button-lyrics)$/i,\n            label: /^(lyrics|show lyrics|paroles|afficher les paroles|songtext|letras|letra)$/i,\n            main: true,\n            roots: \'[data-testid=\"lyrics-container\"], [data-testid=\"lyrics-page\"], [data-testid=\"lyrics-lyricsContent\"]\'\n        },\n        devices: {\n            ids: /^(control-button-connect|connect-device-picker|device-picker|connect-button)$/i,\n            label: /^(connect to a device|connect to a device\\.\\.\\.|se connecter \u00e0 un appareil|connecter \u00e0 un appareil|appareils disponibles|mit einem ger\u00e4t verbinden|conectar a un dispositivo|conectar a um dispositivo)$/i,\n            roots: \'[data-testid=\"device-picker\"], [data-testid=\"connect-device-list\"], [data-testid=\"connect-device-picker\"], [role=\"dialog\"][aria-label*=\"appareil\" i], [role=\"dialog\"][aria-label*=\"device\" i]\'\n        }\n    };\n    var spec = specs[kind], found = 0, rootAmbiguous = false;\n    // Several copies of a control can exist (player bar and full view). Prefer\n    // the one in the player bar, then the only visible one; otherwise refuse.\n    function pickOne(list) {\n        if (list.length <= 1) return list[0] || null;\n        var bar = list.filter(function(b) { return !!b.closest(\'[data-testid=\"now-playing-bar\"]\'); });\n        if (bar.length === 1) return bar[0];\n        var shown = (bar.length ? bar : list).filter(function(b) { return b.getClientRects().length > 0; });\n        return shown.length === 1 ? shown[0] : null;\n    }\n    function button() {\n        var list = Array.from(document.querySelectorAll(\'button, [role=\"button\"]\')).filter(function(b) {\n            return b.isConnected && (spec.ids.test(String(b.getAttribute(\'data-testid\') || \'\')) || spec.label.test(String(b.getAttribute(\'aria-label\') || \'\').trim()));\n        });\n        found = list.length;\n        return pickOne(list);\n    }\n    function isOpen(b) { return b.getAttribute(\'aria-pressed\') === \'true\' || b.getAttribute(\'aria-expanded\') === \'true\' || b.getAttribute(\'data-active\') === \'true\'; }\n    function root(b) {\n        var hits = Array.from(document.querySelectorAll(spec.roots)).filter(function(n) {\n            // Spotify may give the trigger itself a device-picker testid.\n            // A button is not its own content panel and must not imply open.\n            return n.isConnected && n !== b && !n.matches(\'button, [role=\"button\"], [role=\"switch\"]\');\n        });\n        // Nested wrappers can describe the same panel; unrelated roots are\n        // ambiguous and must never be treated as the current content.\n        hits = hits.filter(function(n) { return !hits.some(function(other) { return other !== n && n.contains(other); }); });\n        if (hits.length === 1) return hits[0];\n        if (hits.length > 1) { rootAmbiguous = true; return null; }\n        var id = b && b.getAttribute(\'aria-controls\'), c = id ? document.getElementById(id) : null;\n        if (c && c !== b && c.isConnected && !c.matches(\'button, [role=\"button\"], [role=\"switch\"]\')) return c;\n        if (spec.main) {\n            // Desktop layout: lyrics replace the main view; use it only when it shows lyric lines.\n            var main = document.querySelector(\'#main-view, main\');\n            return main && main.querySelector(\'[data-testid*=\"lyric\" i]\') ? main : null;\n        }\n        // Device picker opens as a popover/dialog mentioning devices.\n        var pops = Array.from(document.querySelectorAll(\'[role=\"dialog\"], [data-tippy-root], [id^=\"tippy\"]\')).filter(function(n) {\n            return n.isConnected && n !== b && /appareil|device|dispositivo|ger\u00e4t/i.test(String(n.getAttribute(\'aria-label\') || \'\'));\n        });\n        if (pops.length > 1) rootAmbiguous = true;\n        return pops.length === 1 ? pops[0] : null;\n    }\n    // Exclude hidden descendants and embedded controls rather than treating\n    // all textContent inside a visible lyric element as a line.\n    function lyricText(n) {\n        if (!n || hiddenBeforeTap(n)) return \'\';\n        var parts = [], visited = 0;\n        function walk(node) {\n            if (++visited > 1000) return;\n            if (node.nodeType === 3) { parts.push(node.nodeValue || \'\'); return; }\n            if (node.nodeType !== 1) return;\n            if (node !== n) {\n                if (node.matches(\'button, [role=\"button\"], [role=\"switch\"]\') || node.hasAttribute(\'hidden\') || node.getAttribute(\'aria-hidden\') === \'true\') return;\n                var cs = window.getComputedStyle(node);\n                if (cs.display === \'none\' || cs.visibility === \'hidden\') return;\n            }\n            if (node.tagName === \'BR\') parts.push(\' \');\n            for (var child = node.firstChild; child; child = child.nextSibling) walk(child);\n        }\n        walk(n);\n        return parts.join(\'\').replace(/\\s+/g, \' \').trim().slice(0, 300);\n    }\n    function lyricLines(r) {\n        // aria-controls by itself may point at unrelated content. Require a\n        // lyrics-specific root or a lyrics-specific line marker, not just <p>.\n        if (!r.matches(spec.roots) && !r.querySelector(\'[data-testid=\"fullscreen-lyric\"], [data-testid^=\"lyrics-line\"]\')) return {lines: [], active: -1, synced: false};\n        var nodes = Array.from(r.querySelectorAll(\'[data-testid=\"fullscreen-lyric\"], [data-testid=\"lyrics-line\"]\'));\n        if (!nodes.length) nodes = Array.from(r.querySelectorAll(\'[data-testid*=\"lyric\" i]\')).filter(function(n) {\n            // A button such as lyrics-close-button is a control, not a lyric\n            // line. Ignoring it lets the paragraph fallback read real lines.\n            return !n.closest(\'button, [role=\"button\"], [role=\"switch\"]\') && (!n.children.length || !n.querySelector(\'[data-testid*=\"lyric\" i]\'));\n        });\n        if (!nodes.length && r.matches(spec.roots)) nodes = Array.from(r.querySelectorAll(\'p\'));\n        nodes = nodes.filter(function(n) { return !hiddenBeforeTap(n) && !n.closest(\'button, [role=\"button\"], [role=\"switch\"]\'); });\n        var lines = [], active = -1, activeCount = 0, synced = false;\n        nodes.slice(0, 200).forEach(function(n) {\n            var t = lyricText(n); if (!t) return;\n            if (n.getAttribute(\'aria-current\') === \'true\' || n.getAttribute(\'data-active\') === \'true\') { active = lines.length; activeCount++; synced = true; }\n            if (n.hasAttribute(\'data-start-time\') || n.hasAttribute(\'data-time\')) synced = true;\n            lines.push(t);\n        });\n        return {lines: lines, active: synced && activeCount === 1 ? active : -1, synced: synced};\n    }\n    function trustedDevices(r) {\n        // A trigger\'s aria-controls alone does not prove the target is Spotify\'s\n        // device picker; never send a transfer into an arbitrary region.\n        return !!r && r.matches(spec.roots);\n    }\n    function deviceRows(r, includeHidden) {\n        var nodes = Array.from(r.querySelectorAll(\'[data-testid=\"device-list-item\"], [data-testid=\"device-picker-row\"], [role=\"option\"], li button\'));\n        var seen = [];\n        nodes = nodes.filter(function(n) { if (seen.indexOf(n) >= 0) return false; seen.push(n); return includeHidden || !hiddenBeforeTap(n); });\n        // Limit display only. Transfer ambiguity must consider every matching\n        // element, including hidden items beyond the first page of results.\n        if (!includeHidden) nodes = nodes.slice(0, 30);\n        return nodes.map(function(n) {\n            var nameNode = n.querySelector(\'[data-testid=\"device-name\"], [data-encore-id=\"text\"]\');\n            var name = text(nameNode || n).slice(0, 80);\n            var typeNode = n.querySelector(\'[data-testid=\"device-type\"]\');\n            var current = n.getAttribute(\'aria-selected\') === \'true\' || n.getAttribute(\'aria-current\') === \'true\' || n.getAttribute(\'aria-checked\') === \'true\';\n            return {node: n, name: name, type: typeNode ? text(typeNode).slice(0, 40) : \'\', current: current};\n        }).filter(function(d) { return d.name; });\n    }\n    // Temporarily size zero-height containers. Restore only properties that\n    // still have our value, preserving concurrent changes made by Spotify.\n    var sized = [];\n    function giveSize(r) {\n        var h = 0;\n        try { h = Math.round(r.getBoundingClientRect().height); } catch (_) {}\n        for (var n = r; n && n !== document.body && sized.length < 12; n = n.parentElement) {\n            var cs = window.getComputedStyle(n), small = false;\n            try { small = n.getBoundingClientRect().height < 2; } catch (_) {}\n            if (cs.display !== \'none\' && cs.visibility !== \'hidden\' && !small) continue;\n            var entry = {node:n, hadStyle:n.hasAttribute(\'style\'), props:[]};\n            sized.push(entry);\n            function set(prop, value) {\n                entry.props.push([prop, n.style.getPropertyValue(prop), n.style.getPropertyPriority(prop), value]);\n                n.style.setProperty(prop, value, \'important\');\n            }\n            if (cs.display === \'none\') set(\'display\', \'block\');\n            if (cs.visibility === \'hidden\') set(\'visibility\', \'visible\');\n            if (small) set(\'min-height\', \'640px\');\n        }\n        log(\'sized:\' + sized.length + \',h:\' + Math.min(h, 9999));\n    }\n    function restoreSize() {\n        sized.forEach(function(e) { try {\n            e.props.forEach(function(p) {\n                if (e.node.style.getPropertyValue(p[0]) !== p[3] || e.node.style.getPropertyPriority(p[0]) !== \'important\') return;\n                if (p[1]) e.node.style.setProperty(p[0], p[1], p[2]); else e.node.style.removeProperty(p[0]);\n            });\n            if (!e.hadStyle && !e.node.style.length) e.node.removeAttribute(\'style\');\n        } catch (_) {} });\n        sized = [];\n    }\n    // Close only a unique, panel-specific control inside the recognised\n    // panel. An ambiguous or generic close button is never used.\n    function explicitCloser(r, trigger) {\n        if (!r || rootAmbiguous) return null;\n        var candidates = Array.from(r.querySelectorAll(\'button, [role=\"button\"]\')).filter(function(n) {\n            var id=String(n.getAttribute(\'data-testid\')||\'\').toLowerCase(), label=String(n.getAttribute(\'aria-label\')||\'\').trim();\n            var known = kind===\'lyrics\' ? /^(lyrics-close-button|close-lyrics-button)$/.test(id) || /^(close lyrics|hide lyrics|fermer les paroles|masquer les paroles)$/i.test(label) :\n                /^(devices-close-button|close-devices-button)$/.test(id) || /^(close devices|close device picker|fermer les appareils|fermer la liste des appareils)$/i.test(label);\n            return known && n.isConnected && n!==trigger && !n.disabled && !n.matches(\':disabled\') && n.getAttribute(\'aria-disabled\')!==\'true\' &&\n                !n.closest(\'[aria-disabled=\"true\"]\') && !hiddenBeforeTap(n);\n        });\n        return candidates.length===1 ? candidates[0] : null;\n    }\n    // A connected but hidden panel is not evidence that it was open before\n    // this tap; it can be a stale, pre-rendered, collapsed Spotify container.\n    function hiddenBeforeTap(n) {\n        if (!n) return false;\n        try {\n            for (var el=n; el && el !== document.body; el=el.parentElement) {\n                var cs=window.getComputedStyle(el);\n                if (el.hasAttribute(\'hidden\') || el.getAttribute(\'aria-hidden\')===\'true\' || cs.display===\'none\' || cs.visibility===\'hidden\') return true;\n            }\n            return false;\n        } catch (e) { throw e; }\n    }\n    var b = null, wasOpen = true, openedHere = false, finishing = false;\n    function finish(ok, reason) {\n        if (finishing) return;\n        finishing = true;\n        restoreSize();\n        function done(closeOk) {\n            if (openedHere) log(closeOk ? \'close:verified\' : \'close:unverified\');\n            job.status = \'done\'; job.ok = ok && closeOk;\n            job.reason = closeOk ? (reason || \'\') : \'close-unverified\';\n            if (!closeOk) W.__melodixDrawerUnsafe = true;\n            if (W.__melodixDrawerLease === job) W.__melodixDrawerLease = null;\n        }\n        if (!openedHere) { done(true); return; }\n        // Prefer the exact open trigger; otherwise use only a unique explicit\n        // close control scoped to this recognised panel. Never guess history.\n        var closeAttempted = false;\n        try {\n            if (b && b.isConnected && button() === b && isOpen(b) && !hiddenBeforeTap(b) && !b.disabled && !b.matches(\':disabled\') && !b.closest(\'[aria-disabled=\"true\"]\')) {\n                b.click(); closeAttempted = true; log(\'closed\');\n            } else {\n                var currentRoot = root(b), closer = explicitCloser(currentRoot, b);\n                if (closer) { closer.click(); closeAttempted = true; log(\'close:button\'); }\n            }\n        } catch (_) { log(\'close-error\'); }\n        // The close animation and the aria state can settle asynchronously.\n        // Inspect for a bounded interval; never send a second close click.\n        // If the same unique trigger has no state attributes, a successful\n        // panel-specific close plus disappearance of the recognised root is\n        // evidence of closure. A replacement trigger, a new visible root, or\n        // an ambiguous root is never accepted as confirmation.\n        if (!closeAttempted) { done(false); return; }\n        var closeDeadline = Date.now() + 900;\n        (function verifyClose() {\n            setTimeout(function() {\n                try {\n                    var remains = root(b), hidden = remains && hiddenBeforeTap(remains);\n                    var after = button();\n                    if (rootAmbiguous || after !== b || !b.isConnected) { done(false); return; }\n                    var explicitlyClosed = after && (after.getAttribute(\'aria-pressed\') === \'false\' || after.getAttribute(\'aria-expanded\') === \'false\' || after.getAttribute(\'data-active\') === \'false\') && !isOpen(after);\n                    var noState = after && !after.hasAttribute(\'aria-pressed\') && !after.hasAttribute(\'aria-expanded\') && !after.hasAttribute(\'data-active\');\n                    var clearlyClosed = closeAttempted && !rootAmbiguous && after === b && b.isConnected && !isOpen(b) && (explicitlyClosed || noState) && (!remains || !!hidden);\n                    if (clearlyClosed) { done(true); return; }\n                    if (Date.now() < closeDeadline) { verifyClose(); return; }\n                    done(false);\n                } catch (_) { done(false); }\n            }, 150);\n        })();\n    }\n    try {\n        b = button(); var already = root(b);\n        if (already && hiddenBeforeTap(already)) already = null;\n        if (rootAmbiguous) { log(\'root:ambiguous\'); finish(false, \'ambiguous\'); return JSON.stringify({status: \'started\', id: job.id}); }\n        if (b && (b.disabled || b.matches(\':disabled\') || b.closest(\'[aria-disabled=\"true\"]\')) && !already) { log(\'button:disabled\'); finish(false, \'disabled\'); return JSON.stringify({status: \'started\', id: job.id}); }\n        if (!b && !already) { log(found > 1 ? \'button:ambiguous:\' + Math.min(found, 9) : \'button:absent\'); finish(false, found > 1 ? \'ambiguous\' : \'absent\'); return JSON.stringify({status: \'started\', id: job.id}); }\n        if (b && !already && hiddenBeforeTap(b)) { log(\'button:absent\'); finish(false, \'absent\'); return JSON.stringify({status: \'started\', id: job.id}); }\n        wasOpen = !!already || (b && isOpen(b));\n        if (!wasOpen) { try { openedHere = true; b.click(); log(\'opened\'); } catch (_) { log(\'open-error\'); finish(false, \'command\'); return JSON.stringify({status: \'started\', id: job.id}); } }\n        else log(\'already-open\');\n        var end = Date.now() + 4000, forced = false;\n        (function step() {\n          try {\n            var r = null;\n            r = root(button() || b); if (r && hiddenBeforeTap(r)) r = null;\n            if (kind === \'devices\' && action === \'transfer\' && r && !trustedDevices(r)) { log(\'target:absent\'); finish(false, \'target\'); return; }\n            var ready = r && (kind === \'lyrics\' ? lyricLines(r).lines.length : deviceRows(r, action === \'transfer\').length);\n            if (!ready && r && !forced && Date.now() > end - 2000) { forced = true; giveSize(r); }\n            if (!ready && Date.now() < end) { setTimeout(step, 150); return; }\n            if (!ready) { log(r ? \'rows:0\' : \'panel:absent\'); finish(false, rootAmbiguous ? \'ambiguous\' : r ? \'empty\' : \'panel\'); return; }\n            if (kind === \'lyrics\') {\n                var l = lyricLines(r);\n                job.body = l.lines.join(\'\\n\'); job.active = l.active; job.synced = l.synced;\n                log(\'lines:\' + Math.min(l.lines.length, 200) + (l.synced ? \':sync\' : \'\'));\n                finish(true, \'\'); return;\n            }\n            var rows = deviceRows(r, action === \'transfer\');\n            if (action === \'transfer\') {\n                var target = rows.filter(function(d) { return d.name === wanted; });\n                if (target.length !== 1) { log(\'target:\' + (target.length ? \'ambiguous\' : \'absent\')); finish(false, \'target\'); return; }\n                var targetNode = target[0].node;\n                if (targetNode.disabled || targetNode.matches(\':disabled\') || targetNode.closest(\'[aria-disabled=\"true\"]\') || hiddenBeforeTap(targetNode)) {\n                    log(\'target:disabled\'); finish(false, \'target\'); return;\n                }\n                if (rows.filter(function(d) { return d.current; }).length > 1) { log(\'target:ambiguous\'); finish(false, \'target\'); return; }\n                if (target[0].current) { log(\'target:already-active\'); job.transferred = true; finish(true, \'\'); return; }\n                try { targetNode.click(); log(\'transfer:click\'); } catch (_) { log(\'transfer:error\'); finish(false, \'command\'); return; }\n                var until = Date.now() + 3000;\n                (function verify() {\n                  try {\n                    var again = null;\n                    try {\n                        var r2 = root(button() || b), all = r2 === r && trustedDevices(r2) ? deviceRows(r2, true) : [];\n                        var matches = all.filter(function(d) { return d.name === wanted; });\n                        var activeCount = all.filter(function(d) { return d.current; }).length;\n                        // A duplicate, replacement, changed panel or conflicting\n                        // active states do not prove the original target is active.\n                        again = activeCount === 1 && matches.length === 1 && matches[0].node === targetNode && targetNode.isConnected && !targetNode.disabled && !targetNode.matches(\':disabled\') && !targetNode.closest(\'[aria-disabled=\"true\"]\') && !hiddenBeforeTap(targetNode) ? matches[0] : null;\n                    } catch (_) { again = null; }\n                    if (again && again.current) { log(\'transfer:verified\'); job.transferred = true; finish(true, \'\'); return; }\n                    if (Date.now() < until) { setTimeout(verify, 200); return; }\n                    log(\'transfer:unverified\'); finish(false, \'unverified\');\n                  } catch (_) { finish(false, \'error\'); }\n                })();\n                return;\n            }\n            job.body = rows.map(function(d) { return [d.name, d.type, d.current ? \'1\' : \'\'].join(\'\\t\'); }).join(\'\\n\');\n            log(\'devices:\' + rows.length);\n            finish(true, \'\');\n          } catch (_) { finish(false, \'error\'); }\n        })();\n        return JSON.stringify({status: \'started\', id: job.id});\n    } catch (_) {\n        finish(false, \'error\');\n        return JSON.stringify({status: \'started\', id: job.id});\n    }\n})\n)("
+    const-string v2, "((function(kind, action, wanted) {\n    \'use strict\';\n    // Lyrics and devices drawers. One explicit tap = open the page panel in the\n    // hidden page, read it, close it if it was closed. A device transfer is a\n    // separate, explicitly confirmed action, verified by re-reading the list.\n    // No scrolling, navigation, storage, cookies, tokens or network.\n    var W = window, jobs = W.__melodixPanelJobs = W.__melodixPanelJobs || {};\n    if (kind !== \'lyrics\' && kind !== \'devices\') return JSON.stringify({status: \'done\', ok: false, reason: \'kind\'});\n    if (action === \'poll\') return JSON.stringify(jobs[kind] || {status: \'none\'});\n    if (action !== \'run\' && action !== \'transfer\') return JSON.stringify({status: \'none\'});\n    if (W.__melodixDrawerUnsafe) return JSON.stringify({status: \'blocked\'});\n    if (W.__melodixDrawerLease && W.__melodixDrawerLease.status === \'running\') return JSON.stringify({status: \'busy\'});\n    var counter = Number(W.__melodixDrawerCounter);\n    W.__melodixDrawerCounter = isFinite(counter) && counter >= 0 && counter < 999999999 ? Math.floor(counter) + 1 : 1;\n    var job = jobs[kind] = {status: \'running\', started: Date.now(), id: String(Date.now()) + \':\' + W.__melodixDrawerCounter, ok: false, reason: \'\', body: \'\', active: -1, synced: false, transferred: false, journal: []};\n    W.__melodixDrawerLease = job;\n    function log(c) { if (job.journal.length < 12) job.journal.push(c); }\n    function text(n) { return String(n && n.textContent || \'\').replace(/\\s+/g, \' \').trim().slice(0, 300); }\n    var specs = {\n        lyrics: {\n            ids: /^(lyrics-button|control-button-lyrics)$/i,\n            label: /^(lyrics|show lyrics|paroles|afficher les paroles|songtext|letras|letra)$/i,\n            main: true,\n            roots: \'[data-testid=\"lyrics-container\"], [data-testid=\"lyrics-page\"], [data-testid=\"lyrics-lyricsContent\"]\'\n        },\n        devices: {\n            ids: /^(control-button-connect|connect-device-picker|device-picker|connect-button)$/i,\n            label: /^(connect to a device|connect to a device\\.\\.\\.|se connecter \u00e0 un appareil|connecter \u00e0 un appareil|appareils disponibles|mit einem ger\u00e4t verbinden|conectar a un dispositivo|conectar a um dispositivo)$/i,\n            roots: \'[data-testid=\"device-picker\"], [data-testid=\"connect-device-list\"], [data-testid=\"connect-device-picker\"], [role=\"dialog\"][aria-label*=\"appareil\" i], [role=\"dialog\"][aria-label*=\"device\" i]\'\n        }\n    };\n    var spec = specs[kind], found = 0, rootAmbiguous = false;\n    // Several copies of a control can exist (player bar and full view). Prefer\n    // the one in the player bar, then the only visible one; otherwise refuse.\n    function pickOne(list) {\n        if (list.length <= 1) return list[0] || null;\n        var bar = list.filter(function(b) { return !!b.closest(\'[data-testid=\"now-playing-bar\"]\'); });\n        if (bar.length === 1) return bar[0];\n        var shown = (bar.length ? bar : list).filter(function(b) { return b.getClientRects().length > 0; });\n        return shown.length === 1 ? shown[0] : null;\n    }\n    function button() {\n        var list = Array.from(document.querySelectorAll(\'button, [role=\"button\"]\')).filter(function(b) {\n            return b.isConnected && (spec.ids.test(String(b.getAttribute(\'data-testid\') || \'\')) || spec.label.test(String(b.getAttribute(\'aria-label\') || \'\').trim()));\n        });\n        found = list.length;\n        return pickOne(list);\n    }\n    function isOpen(b) { return b.getAttribute(\'aria-pressed\') === \'true\' || b.getAttribute(\'aria-expanded\') === \'true\' || b.getAttribute(\'data-active\') === \'true\'; }\n    function root(b) {\n        var hits = Array.from(document.querySelectorAll(spec.roots)).filter(function(n) {\n            // Spotify may give the trigger itself a device-picker testid.\n            // A button is not its own content panel and must not imply open.\n            return n.isConnected && n !== b && !n.matches(\'button, [role=\"button\"], [role=\"switch\"]\');\n        });\n        // Nested wrappers can describe the same panel; unrelated roots are\n        // ambiguous and must never be treated as the current content.\n        hits = hits.filter(function(n) { return !hits.some(function(other) { return other !== n && n.contains(other); }); });\n        if (hits.length === 1) return hits[0];\n        if (hits.length > 1) { rootAmbiguous = true; return null; }\n        var id = b && b.getAttribute(\'aria-controls\'), c = id ? document.getElementById(id) : null;\n        if (c && c !== b && c.isConnected && !c.matches(\'button, [role=\"button\"], [role=\"switch\"]\')) return c;\n        if (spec.main) {\n            // Desktop layout: lyrics replace the main view; use it only when it shows lyric lines.\n            var main = document.querySelector(\'#main-view, main\');\n            // The lyrics route can load its lines after the click (user diagnostic 1022413).\n            return main && (main.querySelector(\'[data-testid*=\"lyric\" i]\') || /^\\/lyrics/.test(location.pathname)) ? main : null;\n        }\n        // Device picker opens as a popover/dialog mentioning devices.\n        var pops = Array.from(document.querySelectorAll(\'[role=\"dialog\"], [data-tippy-root], [id^=\"tippy\"]\')).filter(function(n) {\n            return n.isConnected && n !== b && /appareil|device|dispositivo|ger\u00e4t/i.test(String(n.getAttribute(\'aria-label\') || \'\'));\n        });\n        if (pops.length > 1) rootAmbiguous = true;\n        return pops.length === 1 ? pops[0] : null;\n    }\n    // Exclude hidden descendants and embedded controls rather than treating\n    // all textContent inside a visible lyric element as a line.\n    function lyricText(n) {\n        if (!n || hiddenBeforeTap(n)) return \'\';\n        var parts = [], visited = 0;\n        function walk(node) {\n            if (++visited > 1000) return;\n            if (node.nodeType === 3) { parts.push(node.nodeValue || \'\'); return; }\n            if (node.nodeType !== 1) return;\n            if (node !== n) {\n                if (node.matches(\'button, [role=\"button\"], [role=\"switch\"]\') || node.hasAttribute(\'hidden\') || node.getAttribute(\'aria-hidden\') === \'true\') return;\n                var cs = window.getComputedStyle(node);\n                if (cs.display === \'none\' || cs.visibility === \'hidden\') return;\n            }\n            if (node.tagName === \'BR\') parts.push(\' \');\n            for (var child = node.firstChild; child; child = child.nextSibling) walk(child);\n        }\n        walk(n);\n        return parts.join(\'\').replace(/\\s+/g, \' \').trim().slice(0, 300);\n    }\n    function lyricLines(r) {\n        // aria-controls by itself may point at unrelated content. Require a\n        // lyrics-specific root or a lyrics-specific line marker, not just <p>.\n        if (!r.matches(spec.roots) && !r.querySelector(\'[data-testid=\"fullscreen-lyric\"], [data-testid^=\"lyrics-line\"]\')) return {lines: [], active: -1, synced: false};\n        var nodes = Array.from(r.querySelectorAll(\'[data-testid=\"fullscreen-lyric\"], [data-testid=\"lyrics-line\"]\'));\n        if (!nodes.length) nodes = Array.from(r.querySelectorAll(\'[data-testid*=\"lyric\" i]\')).filter(function(n) {\n            // A button such as lyrics-close-button is a control, not a lyric\n            // line. Ignoring it lets the paragraph fallback read real lines.\n            return !n.closest(\'button, [role=\"button\"], [role=\"switch\"]\') && (!n.children.length || !n.querySelector(\'[data-testid*=\"lyric\" i]\'));\n        });\n        if (!nodes.length && r.matches(spec.roots)) nodes = Array.from(r.querySelectorAll(\'p\'));\n        nodes = nodes.filter(function(n) { return !hiddenBeforeTap(n) && !n.closest(\'button, [role=\"button\"], [role=\"switch\"]\'); });\n        var lines = [], active = -1, activeCount = 0, synced = false;\n        nodes.slice(0, 200).forEach(function(n) {\n            var t = lyricText(n); if (!t) return;\n            if (n.getAttribute(\'aria-current\') === \'true\' || n.getAttribute(\'data-active\') === \'true\') { active = lines.length; activeCount++; synced = true; }\n            if (n.hasAttribute(\'data-start-time\') || n.hasAttribute(\'data-time\')) synced = true;\n            lines.push(t);\n        });\n        return {lines: lines, active: synced && activeCount === 1 ? active : -1, synced: synced};\n    }\n    function trustedDevices(r) {\n        // A trigger\'s aria-controls alone does not prove the target is Spotify\'s\n        // device picker; never send a transfer into an arbitrary region.\n        return !!r && r.matches(spec.roots);\n    }\n    function deviceRows(r, includeHidden) {\n        var nodes = Array.from(r.querySelectorAll(\'[data-testid=\"device-list-item\"], [data-testid=\"device-picker-row\"], [role=\"option\"], li button\'));\n        var seen = [];\n        nodes = nodes.filter(function(n) { if (seen.indexOf(n) >= 0) return false; seen.push(n); return includeHidden || !hiddenBeforeTap(n); });\n        // Limit display only. Transfer ambiguity must consider every matching\n        // element, including hidden items beyond the first page of results.\n        if (!includeHidden) nodes = nodes.slice(0, 30);\n        return nodes.map(function(n) {\n            var nameNode = n.querySelector(\'[data-testid=\"device-name\"], [data-encore-id=\"text\"]\');\n            var name = text(nameNode || n).slice(0, 80);\n            var typeNode = n.querySelector(\'[data-testid=\"device-type\"]\');\n            var current = n.getAttribute(\'aria-selected\') === \'true\' || n.getAttribute(\'aria-current\') === \'true\' || n.getAttribute(\'aria-checked\') === \'true\';\n            return {node: n, name: name, type: typeNode ? text(typeNode).slice(0, 40) : \'\', current: current};\n        }).filter(function(d) { return d.name; });\n    }\n    // Temporarily size zero-height containers. Restore only properties that\n    // still have our value, preserving concurrent changes made by Spotify.\n    var sized = [];\n    function giveSize(r) {\n        var h = 0;\n        try { h = Math.round(r.getBoundingClientRect().height); } catch (_) {}\n        for (var n = r; n && n !== document.body && sized.length < 12; n = n.parentElement) {\n            var cs = window.getComputedStyle(n), small = false;\n            try { small = n.getBoundingClientRect().height < 2; } catch (_) {}\n            if (cs.display !== \'none\' && cs.visibility !== \'hidden\' && !small) continue;\n            var entry = {node:n, hadStyle:n.hasAttribute(\'style\'), props:[]};\n            sized.push(entry);\n            function set(prop, value) {\n                entry.props.push([prop, n.style.getPropertyValue(prop), n.style.getPropertyPriority(prop), value]);\n                n.style.setProperty(prop, value, \'important\');\n            }\n            if (cs.display === \'none\') set(\'display\', \'block\');\n            if (cs.visibility === \'hidden\') set(\'visibility\', \'visible\');\n            if (small) set(\'min-height\', \'640px\');\n        }\n        log(\'sized:\' + sized.length + \',h:\' + Math.min(h, 9999));\n    }\n    function restoreSize() {\n        sized.forEach(function(e) { try {\n            e.props.forEach(function(p) {\n                if (e.node.style.getPropertyValue(p[0]) !== p[3] || e.node.style.getPropertyPriority(p[0]) !== \'important\') return;\n                if (p[1]) e.node.style.setProperty(p[0], p[1], p[2]); else e.node.style.removeProperty(p[0]);\n            });\n            if (!e.hadStyle && !e.node.style.length) e.node.removeAttribute(\'style\');\n        } catch (_) {} });\n        sized = [];\n    }\n    // Close only a unique, panel-specific control inside the recognised\n    // panel. An ambiguous or generic close button is never used.\n    function explicitCloser(r, trigger) {\n        if (!r || rootAmbiguous) return null;\n        var candidates = Array.from(r.querySelectorAll(\'button, [role=\"button\"]\')).filter(function(n) {\n            var id=String(n.getAttribute(\'data-testid\')||\'\').toLowerCase(), label=String(n.getAttribute(\'aria-label\')||\'\').trim();\n            var known = kind===\'lyrics\' ? /^(lyrics-close-button|close-lyrics-button)$/.test(id) || /^(close lyrics|hide lyrics|fermer les paroles|masquer les paroles)$/i.test(label) :\n                /^(devices-close-button|close-devices-button)$/.test(id) || /^(close devices|close device picker|fermer les appareils|fermer la liste des appareils)$/i.test(label);\n            return known && n.isConnected && n!==trigger && !n.disabled && !n.matches(\':disabled\') && n.getAttribute(\'aria-disabled\')!==\'true\' &&\n                !n.closest(\'[aria-disabled=\"true\"]\') && !hiddenBeforeTap(n);\n        });\n        return candidates.length===1 ? candidates[0] : null;\n    }\n    // A connected but hidden panel is not evidence that it was open before\n    // this tap; it can be a stale, pre-rendered, collapsed Spotify container.\n    function hiddenBeforeTap(n) {\n        if (!n) return false;\n        try {\n            for (var el=n; el && el !== document.body; el=el.parentElement) {\n                var cs=window.getComputedStyle(el);\n                if (el.hasAttribute(\'hidden\') || el.getAttribute(\'aria-hidden\')===\'true\' || cs.display===\'none\' || cs.visibility===\'hidden\') return true;\n            }\n            return false;\n        } catch (e) { throw e; }\n    }\n    var b = null, wasOpen = true, openedHere = false, finishing = false;\n    function finish(ok, reason) {\n        if (finishing) return;\n        finishing = true;\n        restoreSize();\n        function done(closeOk) {\n            if (openedHere) log(closeOk ? \'close:verified\' : \'close:unverified\');\n            job.status = \'done\'; job.ok = ok && closeOk;\n            job.reason = closeOk ? (reason || \'\') : \'close-unverified\';\n            if (!closeOk) W.__melodixDrawerUnsafe = true;\n            if (W.__melodixDrawerLease === job) W.__melodixDrawerLease = null;\n        }\n        if (!openedHere) { done(true); return; }\n        // Prefer the exact open trigger; otherwise use only a unique explicit\n        // close control scoped to this recognised panel. Never guess history.\n        var closeAttempted = false;\n        try {\n            if (b && b.isConnected && button() === b && isOpen(b) && !hiddenBeforeTap(b) && !b.disabled && !b.matches(\':disabled\') && !b.closest(\'[aria-disabled=\"true\"]\')) {\n                b.click(); closeAttempted = true; log(\'closed\');\n            } else {\n                var currentRoot = root(b), closer = explicitCloser(currentRoot, b);\n                if (closer) { closer.click(); closeAttempted = true; log(\'close:button\'); }\n            }\n        } catch (_) { log(\'close-error\'); }\n        // The close animation and the aria state can settle asynchronously.\n        // Inspect for a bounded interval; never send a second close click.\n        // If the same unique trigger has no state attributes, a successful\n        // panel-specific close plus disappearance of the recognised root is\n        // evidence of closure. A replacement trigger, a new visible root, or\n        // an ambiguous root is never accepted as confirmation.\n        if (!closeAttempted) { done(false); return; }\n        var closeDeadline = Date.now() + 900;\n        (function verifyClose() {\n            setTimeout(function() {\n                try {\n                    var remains = root(b), hidden = remains && hiddenBeforeTap(remains);\n                    var after = button();\n                    if (rootAmbiguous || after !== b || !b.isConnected) { done(false); return; }\n                    var explicitlyClosed = after && (after.getAttribute(\'aria-pressed\') === \'false\' || after.getAttribute(\'aria-expanded\') === \'false\' || after.getAttribute(\'data-active\') === \'false\') && !isOpen(after);\n                    var noState = after && !after.hasAttribute(\'aria-pressed\') && !after.hasAttribute(\'aria-expanded\') && !after.hasAttribute(\'data-active\');\n                    var clearlyClosed = closeAttempted && !rootAmbiguous && after === b && b.isConnected && !isOpen(b) && (explicitlyClosed || noState) && (!remains || !!hidden);\n                    if (clearlyClosed) { done(true); return; }\n                    if (Date.now() < closeDeadline) { verifyClose(); return; }\n                    done(false);\n                } catch (_) { done(false); }\n            }, 150);\n        })();\n    }\n    try {\n        b = button(); var already = root(b);\n        if (already && hiddenBeforeTap(already)) already = null;\n        if (rootAmbiguous) { log(\'root:ambiguous\'); finish(false, \'ambiguous\'); return JSON.stringify({status: \'started\', id: job.id}); }\n        if (b && (b.disabled || b.matches(\':disabled\') || b.closest(\'[aria-disabled=\"true\"]\')) && !already) { log(\'button:disabled\'); finish(false, \'disabled\'); return JSON.stringify({status: \'started\', id: job.id}); }\n        if (!b && !already) { log(found > 1 ? \'button:ambiguous:\' + Math.min(found, 9) : \'button:absent\'); finish(false, found > 1 ? \'ambiguous\' : \'absent\'); return JSON.stringify({status: \'started\', id: job.id}); }\n        if (b && !already && hiddenBeforeTap(b)) { log(\'button:absent\'); finish(false, \'absent\'); return JSON.stringify({status: \'started\', id: job.id}); }\n        wasOpen = !!already || (b && isOpen(b));\n        if (!wasOpen) { try { openedHere = true; b.click(); log(\'opened\'); } catch (_) { log(\'open-error\'); finish(false, \'command\'); return JSON.stringify({status: \'started\', id: job.id}); } }\n        else log(\'already-open\');\n        // Lyrics load over the network after the click: wait longer for them (user diagnostic 1022413).\n        var end = Date.now() + (kind === \'lyrics\' ? 8000 : 4000), forced = false;\n        (function step() {\n          try {\n            var r = null;\n            r = root(button() || b); if (r && hiddenBeforeTap(r)) r = null;\n            if (kind === \'devices\' && action === \'transfer\' && r && !trustedDevices(r)) { log(\'target:absent\'); finish(false, \'target\'); return; }\n            var ready = r && (kind === \'lyrics\' ? lyricLines(r).lines.length : deviceRows(r, action === \'transfer\').length);\n            if (!ready && r && !forced && Date.now() > end - 2000) { forced = true; giveSize(r); }\n            if (!ready && Date.now() < end) { setTimeout(step, 150); return; }\n            if (!ready && kind === \'lyrics\') {\n                // Shape only, never text: where the page went and how many lyric-like elements exist.\n                var mv = document.querySelector(\'#main-view, main\');\n                log(\'path:\' + (/^\\/lyrics/.test(location.pathname) ? \'lyrics\' : \'other\'));\n                log(\'lt:\' + Math.min(99, document.querySelectorAll(\'[data-testid*=\"lyric\" i]\').length));\n                log(\'mt:\' + Math.min(99, mv ? mv.querySelectorAll(\'[data-testid]\').length : 0));\n            }\n            if (!ready) { log(r ? \'rows:0\' : \'panel:absent\'); finish(false, rootAmbiguous ? \'ambiguous\' : r ? \'empty\' : \'panel\'); return; }\n            if (kind === \'lyrics\') {\n                var l = lyricLines(r);\n                job.body = l.lines.join(\'\\n\'); job.active = l.active; job.synced = l.synced;\n                log(\'lines:\' + Math.min(l.lines.length, 200) + (l.synced ? \':sync\' : \'\'));\n                finish(true, \'\'); return;\n            }\n            var rows = deviceRows(r, action === \'transfer\');\n            if (action === \'transfer\') {\n                var target = rows.filter(function(d) { return d.name === wanted; });\n                if (target.length !== 1) { log(\'target:\' + (target.length ? \'ambiguous\' : \'absent\')); finish(false, \'target\'); return; }\n                var targetNode = target[0].node;\n                if (targetNode.disabled || targetNode.matches(\':disabled\') || targetNode.closest(\'[aria-disabled=\"true\"]\') || hiddenBeforeTap(targetNode)) {\n                    log(\'target:disabled\'); finish(false, \'target\'); return;\n                }\n                if (rows.filter(function(d) { return d.current; }).length > 1) { log(\'target:ambiguous\'); finish(false, \'target\'); return; }\n                if (target[0].current) { log(\'target:already-active\'); job.transferred = true; finish(true, \'\'); return; }\n                try { targetNode.click(); log(\'transfer:click\'); } catch (_) { log(\'transfer:error\'); finish(false, \'command\'); return; }\n                var until = Date.now() + 3000;\n                (function verify() {\n                  try {\n                    var again = null;\n                    try {\n                        var r2 = root(button() || b), all = r2 === r && trustedDevices(r2) ? deviceRows(r2, true) : [];\n                        var matches = all.filter(function(d) { return d.name === wanted; });\n                        var activeCount = all.filter(function(d) { return d.current; }).length;\n                        // A duplicate, replacement, changed panel or conflicting\n                        // active states do not prove the original target is active.\n                        again = activeCount === 1 && matches.length === 1 && matches[0].node === targetNode && targetNode.isConnected && !targetNode.disabled && !targetNode.matches(\':disabled\') && !targetNode.closest(\'[aria-disabled=\"true\"]\') && !hiddenBeforeTap(targetNode) ? matches[0] : null;\n                    } catch (_) { again = null; }\n                    if (again && again.current) { log(\'transfer:verified\'); job.transferred = true; finish(true, \'\'); return; }\n                    if (Date.now() < until) { setTimeout(verify, 200); return; }\n                    log(\'transfer:unverified\'); finish(false, \'unverified\');\n                  } catch (_) { finish(false, \'error\'); }\n                })();\n                return;\n            }\n            job.body = rows.map(function(d) { return [d.name, d.type, d.current ? \'1\' : \'\'].join(\'\\t\'); }).join(\'\\n\');\n            log(\'devices:\' + rows.length);\n            finish(true, \'\');\n          } catch (_) { finish(false, \'error\'); }\n        })();\n        return JSON.stringify({status: \'started\', id: job.id});\n    } catch (_) {\n        finish(false, \'error\');\n        return JSON.stringify({status: \'started\', id: job.id});\n    }\n})\n)("
 
     invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
@@ -2902,7 +3003,7 @@
     :try_end_0
     .catch Ljava/lang/RuntimeException; {:try_start_0 .. :try_end_0} :catch_0
 
-    .line 315
+    .line 332
     move-object/from16 v1, p0
 
     goto :goto_2
@@ -2926,7 +3027,7 @@
 
     invoke-direct {v1, v13, v2, v15, v3}, Lcom/melodix/music/PreviewPlayerTiles;->panelFailed(ILandroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
 
-    .line 316
+    .line 333
     :goto_2
     return-void
 .end method
@@ -3112,6 +3213,169 @@
     return-void
 .end method
 
+.method private lyricsLook(Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/LinearLayout;Landroid/widget/TextView;Landroid/widget/TextView;Landroid/widget/TextView;Landroid/widget/ScrollView;)V
+    .locals 5
+
+    .line 249
+    const/4 v0, 0x0
+
+    :try_start_0
+    const-string v1, "com.melodix.music.PreviewPlayerChrome"
+
+    invoke-static {v1}, Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;
+
+    move-result-object v1
+
+    const-string v2, "lastColor"
+
+    invoke-virtual {v1, v2}, Ljava/lang/Class;->getDeclaredField(Ljava/lang/String;)Ljava/lang/reflect/Field;
+
+    move-result-object v1
+
+    const/4 v2, 0x1
+
+    invoke-virtual {v1, v2}, Ljava/lang/reflect/Field;->setAccessible(Z)V
+
+    invoke-virtual {v1, v0}, Ljava/lang/reflect/Field;->getInt(Ljava/lang/Object;)I
+
+    move-result v1
+    :try_end_0
+    .catchall {:try_start_0 .. :try_end_0} :catchall_0
+
+    goto :goto_0
+
+    :catchall_0
+    move-exception v1
+
+    const/4 v1, 0x0
+
+    .line 250
+    :goto_0
+    if-nez v1, :cond_0
+
+    const v1, -0xe1c5a1
+
+    .line 251
+    :cond_0
+    const/high16 v2, -0x1000000
+
+    const v3, 0x3ec28f5c    # 0.38f
+
+    invoke-static {v1, v2, v3}, Lcom/melodix/music/PreviewPlayerTiles;->mix(IIF)I
+
+    move-result v2
+
+    const/4 v3, -0x1
+
+    const v4, 0x3f1eb852    # 0.62f
+
+    invoke-static {v1, v3, v4}, Lcom/melodix/music/PreviewPlayerTiles;->mix(IIF)I
+
+    move-result v1
+
+    iput v1, p0, Lcom/melodix/music/PreviewPlayerTiles;->lyricsPale:I
+
+    .line 252
+    new-instance v1, Landroid/graphics/drawable/GradientDrawable;
+
+    invoke-direct {v1}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
+
+    invoke-virtual {v1, v2}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
+
+    invoke-virtual {p2, v1}, Landroid/widget/LinearLayout;->setBackground(Landroid/graphics/drawable/Drawable;)V
+
+    const/high16 v1, 0x41c00000    # 24.0f
+
+    invoke-direct {p0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v2
+
+    const/high16 v3, 0x41e00000    # 28.0f
+
+    invoke-direct {p0, v3}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v3
+
+    invoke-direct {p0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v4
+
+    invoke-direct {p0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->dp(F)I
+
+    move-result v1
+
+    invoke-virtual {p2, v2, v3, v4, v1}, Landroid/widget/LinearLayout;->setPadding(IIII)V
+
+    .line 253
+    const p2, 0x7f09023b
+
+    invoke-virtual {p1, p2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+
+    move-result-object p2
+
+    const v1, 0x7f09023c
+
+    invoke-virtual {p1, v1}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+
+    move-result-object p1
+
+    .line 254
+    instance-of v1, p2, Landroid/widget/TextView;
+
+    if-eqz v1, :cond_1
+
+    check-cast p2, Landroid/widget/TextView;
+
+    invoke-virtual {p2}, Landroid/widget/TextView;->getText()Ljava/lang/CharSequence;
+
+    move-result-object p2
+
+    invoke-virtual {p5, p2}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+
+    :cond_1
+    instance-of p2, p1, Landroid/widget/TextView;
+
+    if-eqz p2, :cond_2
+
+    check-cast p1, Landroid/widget/TextView;
+
+    invoke-virtual {p1}, Landroid/widget/TextView;->getText()Ljava/lang/CharSequence;
+
+    move-result-object p1
+
+    invoke-virtual {p6, p1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+
+    .line 255
+    :cond_2
+    const-string p1, ""
+
+    invoke-virtual {p4, p1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+
+    const/16 p1, 0x11
+
+    invoke-virtual {p5, p1}, Landroid/widget/TextView;->setGravity(I)V
+
+    invoke-virtual {p6, p1}, Landroid/widget/TextView;->setGravity(I)V
+
+    const/high16 p1, 0x41880000    # 17.0f
+
+    invoke-virtual {p5, p1}, Landroid/widget/TextView;->setTextSize(F)V
+
+    const p1, -0x19000001
+
+    invoke-virtual {p6, p1}, Landroid/widget/TextView;->setTextColor(I)V
+
+    .line 256
+    const/16 p1, 0x10
+
+    invoke-virtual {p3, p1}, Landroid/widget/LinearLayout;->setGravity(I)V
+
+    invoke-virtual {p7, v0}, Landroid/widget/ScrollView;->setBackground(Landroid/graphics/drawable/Drawable;)V
+
+    .line 257
+    return-void
+.end method
+
 .method private message(Ljava/lang/String;)V
     .locals 2
 
@@ -3140,6 +3404,82 @@
 
     :cond_0
     return-void
+.end method
+
+.method private static mix(IIF)I
+    .locals 5
+
+    .line 259
+    shr-int/lit8 v0, p0, 0x10
+
+    and-int/lit16 v0, v0, 0xff
+
+    shr-int/lit8 v1, p0, 0x8
+
+    and-int/lit16 v1, v1, 0xff
+
+    and-int/lit16 p0, p0, 0xff
+
+    shr-int/lit8 v2, p1, 0x10
+
+    and-int/lit16 v2, v2, 0xff
+
+    shr-int/lit8 v3, p1, 0x8
+
+    and-int/lit16 v3, v3, 0xff
+
+    and-int/lit16 p1, p1, 0xff
+
+    .line 260
+    int-to-float v4, v0
+
+    sub-int/2addr v2, v0
+
+    int-to-float v0, v2
+
+    mul-float/2addr v0, p2
+
+    add-float/2addr v4, v0
+
+    float-to-int v0, v4
+
+    shl-int/lit8 v0, v0, 0x10
+
+    const/high16 v2, -0x1000000
+
+    or-int/2addr v0, v2
+
+    int-to-float v2, v1
+
+    sub-int/2addr v3, v1
+
+    int-to-float v1, v3
+
+    mul-float/2addr v1, p2
+
+    add-float/2addr v2, v1
+
+    float-to-int v1, v2
+
+    shl-int/lit8 v1, v1, 0x8
+
+    or-int/2addr v0, v1
+
+    int-to-float v1, p0
+
+    sub-int/2addr p1, p0
+
+    int-to-float p0, p1
+
+    mul-float/2addr p0, p2
+
+    add-float/2addr v1, p0
+
+    float-to-int p0, v1
+
+    or-int/2addr p0, v0
+
+    return p0
 .end method
 
 .method private paintControls()V
@@ -3232,7 +3572,7 @@
 .method private panelFailed(ILandroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
     .locals 10
 
-    .line 246
+    .line 263
     iget-boolean v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->lyricsLive:Z
 
     const-string v1, ""
@@ -3251,16 +3591,16 @@
 
     return-void
 
-    .line 247
+    .line 264
     :cond_0
     iput-boolean v2, p0, Lcom/melodix/music/PreviewPlayerTiles;->recovering:Z
 
-    .line 248
+    .line 265
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->panelReason:Ljava/lang/String;
 
     iput-object v1, p0, Lcom/melodix/music/PreviewPlayerTiles;->panelReason:Ljava/lang/String;
 
-    .line 249
+    .line 266
     const-string v1, "absent"
 
     invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
@@ -3295,7 +3635,7 @@
 
     return-void
 
-    .line 250
+    .line 267
     :cond_2
     const-string v1, "disabled"
 
@@ -3341,7 +3681,7 @@
 
     return-void
 
-    .line 251
+    .line 268
     :cond_5
     const-string v1, "busy"
 
@@ -3367,7 +3707,7 @@
 
     return-void
 
-    .line 252
+    .line 269
     :cond_6
     const-string v1, "close-unverified"
 
@@ -3393,7 +3733,7 @@
 
     return-void
 
-    .line 253
+    .line 270
     :cond_7
     const-string v1, "ambiguous"
 
@@ -3419,7 +3759,7 @@
 
     return-void
 
-    .line 254
+    .line 271
     :cond_8
     if-ne p1, v3, :cond_9
 
@@ -3455,7 +3795,7 @@
 
     invoke-direct/range {v4 .. v9}, Lcom/melodix/music/PreviewPlayerTiles;->panelMessage(Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
 
-    .line 255
+    .line 272
     return-void
 .end method
 
@@ -3556,7 +3896,7 @@
 .method private pollClosed(ILandroid/app/Activity;JLjava/lang/String;I)V
     .locals 9
 
-    .line 343
+    .line 360
     const/16 v0, 0x2c
 
     if-gt p6, v0, :cond_2
@@ -3579,7 +3919,7 @@
 
     if-nez v0, :cond_2
 
-    .line 344
+    .line 361
     if-nez p1, :cond_0
 
     iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->queueSerial:J
@@ -3602,7 +3942,7 @@
 
     goto :goto_1
 
-    .line 345
+    .line 362
     :cond_1
     new-instance v0, Lcom/melodix/music/PreviewPlayerTiles$17;
 
@@ -3626,10 +3966,10 @@
 
     invoke-virtual {p0, v0, p1, p2}, Lcom/melodix/music/PreviewPlayerTiles;->postDelayed(Ljava/lang/Runnable;J)Z
 
-    .line 358
+    .line 375
     return-void
 
-    .line 344
+    .line 361
     :cond_2
     :goto_1
     return-void
@@ -3638,7 +3978,7 @@
 .method private pollPanel(ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;JILjava/lang/String;Ljava/lang/String;)V
     .locals 14
 
-    .line 328
+    .line 345
     move-object v12, p0
 
     move/from16 v10, p8
@@ -3669,7 +4009,7 @@
 
     return-void
 
-    .line 329
+    .line 346
     :cond_0
     new-instance v13, Lcom/melodix/music/PreviewPlayerTiles$16;
 
@@ -3701,7 +4041,7 @@
 
     invoke-virtual {p0, v13, v0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->postDelayed(Ljava/lang/Runnable;J)Z
 
-    .line 339
+    .line 356
     return-void
 .end method
 
@@ -4260,7 +4600,7 @@
 .method private recover(ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
     .locals 8
 
-    .line 322
+    .line 339
     const/4 v0, 0x1
 
     iput-boolean v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->recovering:Z
@@ -4273,7 +4613,7 @@
 
     aput-object v2, v0, v1
 
-    .line 323
+    .line 340
     invoke-direct {p0, p2}, Lcom/melodix/music/PreviewPlayerTiles;->web(Landroid/app/Activity;)Landroid/webkit/WebView;
 
     move-result-object v0
@@ -4288,7 +4628,7 @@
 
     return-void
 
-    .line 324
+    .line 341
     :cond_0
     :try_start_0
     const-string v2, "(function(){try{var b=document.querySelector(\'[data-testid=\"lyrics-button\"],[data-testid=\"control-button-lyrics\"]\');if(b&&(b.getAttribute(\'aria-pressed\')===\'true\'||b.getAttribute(\'data-active\')===\'true\'))b.click();document.dispatchEvent(new KeyboardEvent(\'keydown\',{key:\'Escape\',bubbles:true}));window.__melodixDrawerUnsafe=false;window.__melodixDrawerLease=null;return \'ok\'}catch(e){return \'error\'}})()"
@@ -4299,7 +4639,7 @@
     :try_end_0
     .catch Ljava/lang/RuntimeException; {:try_start_0 .. :try_end_0} :catch_0
 
-    .line 325
+    .line 342
     new-instance v0, Lcom/melodix/music/PreviewPlayerTiles$15;
 
     move-object v1, v0
@@ -4322,10 +4662,10 @@
 
     invoke-virtual {p0, v0, v1, v2}, Lcom/melodix/music/PreviewPlayerTiles;->postDelayed(Ljava/lang/Runnable;J)Z
 
-    .line 326
+    .line 343
     return-void
 
-    .line 324
+    .line 341
     :catch_0
     move-exception v0
 
@@ -4446,7 +4786,7 @@
 .method private renderPanel(ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Lorg/json/JSONObject;Ljava/lang/String;)V
     .locals 22
 
-    .line 257
+    .line 274
     move-object/from16 v9, p0
 
     move/from16 v0, p1
@@ -4503,7 +4843,7 @@
 
     aput-object v4, v2, v3
 
-    .line 258
+    .line 275
     const-string v2, "transfer"
 
     move-object/from16 v4, p7
@@ -4522,7 +4862,7 @@
 
     if-eqz v2, :cond_3
 
-    .line 259
+    .line 276
     const-string v2, "transferred"
 
     invoke-virtual {v1, v2, v14}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;Z)Z
@@ -4533,7 +4873,7 @@
 
     move-result v5
 
-    .line 260
+    .line 277
     if-eqz v2, :cond_0
 
     invoke-virtual {v1, v4, v13}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
@@ -4548,7 +4888,7 @@
 
     if-eqz v1, :cond_0
 
-    .line 261
+    .line 278
     invoke-virtual/range {p0 .. p0}, Lcom/melodix/music/PreviewPlayerTiles;->getContext()Landroid/content/Context;
 
     move-result-object v1
@@ -4561,14 +4901,14 @@
 
     invoke-virtual {v1}, Landroid/widget/Toast;->show()V
 
-    .line 262
+    .line 279
     iput-object v4, v9, Lcom/melodix/music/PreviewPlayerTiles;->panelReason:Ljava/lang/String;
 
     invoke-direct {v9, v0, v10, v11, v12}, Lcom/melodix/music/PreviewPlayerTiles;->panelFailed(ILandroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
 
     return-void
 
-    .line 264
+    .line 281
     :cond_0
     sget-object v1, Lcom/melodix/music/PreviewPlayerTiles;->panelJournals:[Ljava/lang/String;
 
@@ -4580,7 +4920,7 @@
 
     move-result v1
 
-    .line 265
+    .line 282
     invoke-virtual/range {p0 .. p0}, Lcom/melodix/music/PreviewPlayerTiles;->getContext()Landroid/content/Context;
 
     move-result-object v3
@@ -4610,7 +4950,7 @@
 
     invoke-virtual {v1}, Landroid/widget/Toast;->show()V
 
-    .line 266
+    .line 283
     const-string v7, "run"
 
     const-string v8, ""
@@ -4631,7 +4971,7 @@
 
     return-void
 
-    .line 268
+    .line 285
     :cond_3
     invoke-virtual {v1, v5, v14}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;Z)Z
 
@@ -4649,7 +4989,7 @@
 
     return-void
 
-    .line 269
+    .line 286
     :cond_4
     const-string v2, "body"
 
@@ -4657,7 +4997,7 @@
 
     move-result-object v2
 
-    .line 270
+    .line 287
     invoke-virtual {v2}, Ljava/lang/String;->trim()Ljava/lang/String;
 
     move-result-object v4
@@ -4682,7 +5022,7 @@
 
     return-void
 
-    .line 271
+    .line 288
     :cond_5
     iput-boolean v14, v9, Lcom/melodix/music/PreviewPlayerTiles;->recovering:Z
 
@@ -4718,7 +5058,7 @@
 
     invoke-virtual {v12, v15}, Landroid/widget/Button;->setEnabled(Z)V
 
-    .line 272
+    .line 289
     const/4 v8, -0x2
 
     const/4 v7, 0x0
@@ -4727,9 +5067,9 @@
 
     const/4 v5, -0x1
 
-    if-ne v0, v15, :cond_d
+    if-ne v0, v15, :cond_c
 
-    .line 273
+    .line 290
     :try_start_0
     const-string v0, "active"
 
@@ -4752,55 +5092,45 @@
 
     move v0, v5
 
-    .line 274
+    .line 291
     :goto_1
     invoke-virtual {v2, v6}, Ljava/lang/String;->split(Ljava/lang/String;)[Ljava/lang/String;
 
     move-result-object v1
 
-    .line 275
+    .line 292
     new-array v2, v15, [Landroid/widget/TextView;
 
     aput-object v7, v2, v14
 
-    .line 276
+    .line 293
     move v3, v14
 
     :goto_2
     array-length v4, v1
 
-    if-ge v3, v4, :cond_a
+    if-ge v3, v4, :cond_9
 
     const/16 v4, 0xc8
 
-    if-ge v3, v4, :cond_a
+    if-ge v3, v4, :cond_9
 
     aget-object v4, v1, v3
 
-    if-ltz v0, :cond_8
+    if-gez v0, :cond_7
 
-    if-ne v3, v0, :cond_6
+    :cond_6
+    iget v6, v9, Lcom/melodix/music/PreviewPlayerTiles;->lyricsPale:I
 
     goto :goto_3
 
-    :cond_6
-    if-ge v3, v0, :cond_7
-
-    const v6, -0x4c000001
-
-    goto :goto_4
-
     :cond_7
-    const v6, 0x59ffffff
+    if-ne v3, v0, :cond_6
 
-    goto :goto_4
-
-    :cond_8
-    :goto_3
     move v6, v5
 
-    :goto_4
-    const/high16 v7, 0x41b00000    # 22.0f
+    :goto_3
+    const/high16 v7, 0x41c00000    # 24.0f
 
     invoke-direct {v9, v10, v4, v6, v7}, Lcom/melodix/music/PreviewPlayerTiles;->line(Landroid/app/Activity;Ljava/lang/String;IF)Landroid/widget/TextView;
 
@@ -4828,35 +5158,35 @@
 
     invoke-virtual {v11, v4, v6}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    if-ne v3, v0, :cond_9
+    if-ne v3, v0, :cond_8
 
     aput-object v4, v2, v14
 
-    :cond_9
+    :cond_8
     add-int/lit8 v3, v3, 0x1
 
     goto :goto_2
 
-    .line 277
-    :cond_a
+    .line 294
+    :cond_9
     iget-boolean v1, v9, Lcom/melodix/music/PreviewPlayerTiles;->lyricsLive:Z
 
-    if-nez v1, :cond_b
+    if-nez v1, :cond_a
 
     invoke-direct {v9, v11}, Lcom/melodix/music/PreviewPlayerTiles;->riseAll(Landroid/widget/LinearLayout;)V
 
-    .line 278
-    :cond_b
-    if-ltz v0, :cond_c
+    .line 295
+    :cond_a
+    if-ltz v0, :cond_b
 
-    .line 280
+    .line 297
     new-instance v0, Lcom/melodix/music/PreviewPlayerTiles$10;
 
     invoke-direct {v0, v9, v2, v11}, Lcom/melodix/music/PreviewPlayerTiles$10;-><init>(Lcom/melodix/music/PreviewPlayerTiles;[Landroid/widget/TextView;Landroid/widget/LinearLayout;)V
 
     invoke-virtual {v11, v0}, Landroid/widget/LinearLayout;->post(Ljava/lang/Runnable;)Z
 
-    .line 281
+    .line 298
     new-instance v0, Lcom/melodix/music/PreviewPlayerTiles$11;
 
     move-object v1, v0
@@ -4877,40 +5207,40 @@
 
     invoke-virtual {v9, v0, v1, v2}, Lcom/melodix/music/PreviewPlayerTiles;->postDelayed(Ljava/lang/Runnable;J)Z
 
-    goto :goto_5
+    goto :goto_4
 
-    .line 282
-    :cond_c
+    .line 299
+    :cond_b
     iput-boolean v14, v9, Lcom/melodix/music/PreviewPlayerTiles;->lyricsLive:Z
 
-    .line 283
-    :goto_5
+    .line 300
+    :goto_4
     return-void
 
-    .line 285
-    :cond_d
+    .line 302
+    :cond_c
     invoke-virtual {v2, v6}, Ljava/lang/String;->split(Ljava/lang/String;)[Ljava/lang/String;
 
     move-result-object v1
 
-    .line 287
+    .line 304
     new-instance v2, Ljava/util/ArrayList;
 
     invoke-direct {v2}, Ljava/util/ArrayList;-><init>()V
 
-    .line 288
+    .line 305
     array-length v3, v1
 
     move v4, v14
 
-    :goto_6
+    :goto_5
     const-string v7, "1"
 
     const-string v15, "\t"
 
     const/4 v14, 0x2
 
-    if-ge v4, v3, :cond_f
+    if-ge v4, v3, :cond_e
 
     aget-object v8, v1, v4
 
@@ -4920,7 +5250,7 @@
 
     array-length v5, v15
 
-    if-le v5, v14, :cond_e
+    if-le v5, v14, :cond_d
 
     aget-object v5, v15, v14
 
@@ -4928,18 +5258,18 @@
 
     move-result v5
 
-    if-eqz v5, :cond_e
+    if-eqz v5, :cond_d
 
     const/4 v5, 0x0
 
     invoke-virtual {v2, v5, v8}, Ljava/util/ArrayList;->add(ILjava/lang/Object;)V
 
-    goto :goto_7
+    goto :goto_6
 
-    :cond_e
+    :cond_d
     invoke-virtual {v2, v8}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
 
-    :goto_7
+    :goto_6
     add-int/lit8 v4, v4, 0x1
 
     const/4 v5, -0x1
@@ -4952,13 +5282,13 @@
 
     const/4 v15, 0x1
 
-    goto :goto_6
+    goto :goto_5
 
-    .line 289
-    :cond_f
+    .line 306
+    :cond_e
     nop
 
-    .line 290
+    .line 307
     invoke-virtual {v2}, Ljava/util/ArrayList;->iterator()Ljava/util/Iterator;
 
     move-result-object v18
@@ -4967,12 +5297,12 @@
 
     const/4 v5, 0x0
 
-    :goto_8
+    :goto_7
     invoke-interface/range {v18 .. v18}, Ljava/util/Iterator;->hasNext()Z
 
     move-result v2
 
-    if-eqz v2, :cond_1c
+    if-eqz v2, :cond_1b
 
     invoke-interface/range {v18 .. v18}, Ljava/util/Iterator;->next()Ljava/lang/Object;
 
@@ -4980,7 +5310,7 @@
 
     check-cast v2, Ljava/lang/String;
 
-    .line 291
+    .line 308
     const/4 v3, -0x1
 
     invoke-virtual {v2, v15, v3}, Ljava/lang/String;->split(Ljava/lang/String;I)[Ljava/lang/String;
@@ -4989,7 +5319,7 @@
 
     array-length v3, v2
 
-    if-eqz v3, :cond_1b
+    if-eqz v3, :cond_1a
 
     const/4 v3, 0x0
 
@@ -5003,7 +5333,7 @@
 
     move-result v4
 
-    if-eqz v4, :cond_10
+    if-eqz v4, :cond_f
 
     move/from16 v16, v3
 
@@ -5017,15 +5347,15 @@
 
     const/16 v17, 0x0
 
-    goto/16 :goto_13
+    goto/16 :goto_12
 
-    .line 292
-    :cond_10
+    .line 309
+    :cond_f
     aget-object v8, v2, v3
 
     array-length v3, v2
 
-    if-le v3, v14, :cond_11
+    if-le v3, v14, :cond_10
 
     aget-object v3, v2, v14
 
@@ -5033,38 +5363,38 @@
 
     move-result v3
 
-    if-eqz v3, :cond_11
+    if-eqz v3, :cond_10
 
     const/4 v3, 0x1
 
-    goto :goto_9
+    goto :goto_8
 
-    :cond_11
+    :cond_10
     const/4 v3, 0x0
 
-    :goto_9
+    :goto_8
     array-length v4, v2
 
     const/4 v14, 0x1
 
-    if-le v4, v14, :cond_12
+    if-le v4, v14, :cond_11
 
     aget-object v2, v2, v14
 
-    goto :goto_a
+    goto :goto_9
 
-    :cond_12
+    :cond_11
     move-object v2, v13
 
-    .line 293
-    :goto_a
+    .line 310
+    :goto_9
     const/high16 v4, 0x41500000    # 13.0f
 
     const v14, -0x485533
 
-    if-eqz v3, :cond_13
+    if-eqz v3, :cond_12
 
-    if-nez v5, :cond_13
+    if-nez v5, :cond_12
 
     const-string v5, "Appareil actuel"
 
@@ -5090,18 +5420,18 @@
 
     const/4 v14, 0x1
 
-    goto :goto_b
+    goto :goto_a
 
-    :cond_13
+    :cond_12
     move-object/from16 v21, v7
 
-    .line 294
+    .line 311
     move v14, v5
 
-    :goto_b
-    if-nez v3, :cond_14
+    :goto_a
+    if-nez v3, :cond_13
 
-    if-nez v1, :cond_14
+    if-nez v1, :cond_13
 
     const-string v1, "S\u00e9lectionner un appareil"
 
@@ -5129,13 +5459,13 @@
 
     const/16 v19, 0x1
 
-    goto :goto_c
+    goto :goto_b
 
-    .line 295
-    :cond_14
+    .line 312
+    :cond_13
     move/from16 v19, v1
 
-    :goto_c
+    :goto_b
     new-instance v7, Landroid/widget/Button;
 
     invoke-direct {v7, v10}, Landroid/widget/Button;-><init>(Landroid/content/Context;)V
@@ -5152,13 +5482,13 @@
 
     move-result v4
 
-    if-eqz v4, :cond_15
+    if-eqz v4, :cond_14
 
     move-object v2, v13
 
-    goto :goto_d
+    goto :goto_c
 
-    :cond_15
+    :cond_14
     new-instance v4, Ljava/lang/StringBuilder;
 
     invoke-direct {v4}, Ljava/lang/StringBuilder;-><init>()V
@@ -5175,21 +5505,21 @@
 
     move-result-object v2
 
-    :goto_d
+    :goto_c
     invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v1
 
-    if-eqz v3, :cond_16
+    if-eqz v3, :cond_15
 
     const-string v2, "\nActif \u00b7 lecture en cours"
 
-    goto :goto_e
+    goto :goto_d
 
-    :cond_16
+    :cond_15
     move-object v2, v13
 
-    :goto_e
+    :goto_d
     invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v1
@@ -5198,16 +5528,16 @@
 
     move-result-object v1
 
-    if-eqz v3, :cond_17
+    if-eqz v3, :cond_16
 
     const/4 v2, 0x1
 
-    goto :goto_f
+    goto :goto_e
 
-    :cond_17
+    :cond_16
     const/4 v2, 0x6
 
-    :goto_f
+    :goto_e
     const/4 v5, -0x1
 
     invoke-static {v10, v1, v2, v5}, Lcom/melodix/music/PreviewPanelIcon;->label(Landroid/content/Context;Ljava/lang/String;II)Ljava/lang/CharSequence;
@@ -5216,17 +5546,17 @@
 
     invoke-virtual {v7, v1}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
 
-    .line 296
-    if-eqz v3, :cond_18
+    .line 313
+    if-eqz v3, :cond_17
 
     move v1, v5
 
-    goto :goto_10
+    goto :goto_f
 
-    :cond_18
+    :cond_17
     const v1, -0x212b13
 
-    :goto_10
+    :goto_f
     invoke-virtual {v7, v1}, Landroid/widget/Button;->setTextColor(I)V
 
     const/4 v4, 0x0
@@ -5263,7 +5593,7 @@
 
     invoke-virtual {v7, v2, v4, v1, v5}, Landroid/widget/Button;->setPadding(IIII)V
 
-    .line 297
+    .line 314
     const v1, 0x800013
 
     invoke-virtual {v7, v1}, Landroid/widget/Button;->setGravity(I)V
@@ -5278,7 +5608,7 @@
 
     invoke-virtual {v7, v1}, Landroid/widget/Button;->setBackground(Landroid/graphics/drawable/Drawable;)V
 
-    .line 298
+    .line 315
     new-instance v1, Ljava/lang/StringBuilder;
 
     invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
@@ -5287,16 +5617,16 @@
 
     move-result-object v1
 
-    if-eqz v3, :cond_19
+    if-eqz v3, :cond_18
 
     const-string v2, ", appareil actif"
 
-    goto :goto_11
+    goto :goto_10
 
-    :cond_19
+    :cond_18
     const-string v2, ", transf\u00e9rer la lecture vers cet appareil"
 
-    :goto_11
+    :goto_10
     invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v1
@@ -5307,8 +5637,8 @@
 
     invoke-virtual {v7, v1}, Landroid/widget/Button;->setContentDescription(Ljava/lang/CharSequence;)V
 
-    .line 300
-    if-nez v3, :cond_1a
+    .line 317
+    if-nez v3, :cond_19
 
     new-instance v4, Lcom/melodix/music/PreviewPlayerTiles$12;
 
@@ -5344,9 +5674,9 @@
 
     invoke-virtual {v10, v0}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
 
-    goto :goto_12
+    goto :goto_11
 
-    :cond_1a
+    :cond_19
     move-object/from16 v17, v5
 
     move-object/from16 v20, v6
@@ -5357,8 +5687,8 @@
 
     const/16 v16, 0x0
 
-    .line 301
-    :goto_12
+    .line 318
+    :goto_11
     new-instance v0, Landroid/widget/LinearLayout$LayoutParams;
 
     const/4 v2, -0x1
@@ -5375,7 +5705,7 @@
 
     invoke-virtual {v11, v10, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    .line 302
+    .line 319
     move/from16 v0, p1
 
     move-object/from16 v10, p2
@@ -5392,10 +5722,10 @@
 
     const/4 v14, 0x2
 
-    goto/16 :goto_8
+    goto/16 :goto_7
 
-    .line 291
-    :cond_1b
+    .line 308
+    :cond_1a
     move-object/from16 v20, v6
 
     move-object/from16 v21, v7
@@ -5408,8 +5738,8 @@
 
     const/16 v17, 0x0
 
-    .line 290
-    :goto_13
+    .line 307
+    :goto_12
     move/from16 v0, p1
 
     move-object/from16 v10, p2
@@ -5422,13 +5752,13 @@
 
     const/4 v14, 0x2
 
-    goto/16 :goto_8
+    goto/16 :goto_7
 
-    .line 303
-    :cond_1c
+    .line 320
+    :cond_1b
     invoke-direct {v9, v11}, Lcom/melodix/music/PreviewPlayerTiles;->riseAll(Landroid/widget/LinearLayout;)V
 
-    .line 304
+    .line 321
     return-void
 .end method
 
@@ -5858,7 +6188,7 @@
 .method private syncVolume()V
     .locals 2
 
-    .line 397
+    .line 415
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerTiles;->isAttachedToWindow()Z
 
     move-result v0
@@ -5884,7 +6214,7 @@
     :cond_0
     const/4 v0, 0x0
 
-    .line 398
+    .line 416
     :goto_0
     if-eqz v0, :cond_1
 
@@ -5898,7 +6228,7 @@
 
     invoke-direct {p0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->readTrace(Landroid/app/Activity;)V
 
-    .line 399
+    .line 417
     :cond_1
     iput-boolean v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->volumeRunning:Z
 
@@ -5915,7 +6245,7 @@
     :cond_2
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerTiles;->paintControls()V
 
-    .line 400
+    .line 418
     return-void
 .end method
 
@@ -5977,7 +6307,7 @@
 .method protected onAttachedToWindow()V
     .locals 3
 
-    .line 401
+    .line 419
     invoke-super {p0}, Landroid/widget/LinearLayout;->onAttachedToWindow()V
 
     invoke-direct {p0}, Lcom/melodix/music/PreviewPlayerTiles;->syncVolume()V
@@ -5998,7 +6328,7 @@
 .method protected onDetachedFromWindow()V
     .locals 1
 
-    .line 402
+    .line 420
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->traceTick:Ljava/lang/Runnable;
 
     invoke-virtual {p0, v0}, Lcom/melodix/music/PreviewPlayerTiles;->removeCallbacks(Ljava/lang/Runnable;)Z
@@ -6024,7 +6354,7 @@
 .method protected onVisibilityChanged(Landroid/view/View;I)V
     .locals 0
 
-    .line 403
+    .line 421
     invoke-super {p0, p1, p2}, Landroid/widget/LinearLayout;->onVisibilityChanged(Landroid/view/View;I)V
 
     iget-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles;->controls:[Landroid/widget/Button;
@@ -6044,7 +6374,7 @@
 .method protected onWindowVisibilityChanged(I)V
     .locals 0
 
-    .line 404
+    .line 422
     invoke-super {p0, p1}, Landroid/widget/LinearLayout;->onWindowVisibilityChanged(I)V
 
     iget-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles;->controls:[Landroid/widget/Button;

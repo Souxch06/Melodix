@@ -41,7 +41,7 @@
         }
     .end annotation
 
-    .line 455
+    .line 456
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerChrome$DismissGesture;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -52,7 +52,7 @@
 .method synthetic constructor <init>(Lcom/melodix/music/PreviewPlayerChrome;Lcom/melodix/music/PreviewPlayerChrome$1;)V
     .locals 0
 
-    .line 455
+    .line 456
     invoke-direct {p0, p1}, Lcom/melodix/music/PreviewPlayerChrome$DismissGesture;-><init>(Lcom/melodix/music/PreviewPlayerChrome;)V
 
     return-void
@@ -63,7 +63,7 @@
 .method public onTouch(Landroid/view/View;Landroid/view/MotionEvent;)Z
     .locals 8
 
-    .line 458
+    .line 459
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerChrome$DismissGesture;->this$0:Lcom/melodix/music/PreviewPlayerChrome;
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerChrome;->access$200(Lcom/melodix/music/PreviewPlayerChrome;)Landroid/app/Activity;
@@ -89,7 +89,7 @@
 
     move-result-object v0
 
-    .line 459
+    .line 460
     :goto_0
     const/4 v1, 0x0
 
@@ -105,18 +105,18 @@
 
     goto/16 :goto_4
 
-    .line 460
+    .line 461
     :cond_1
     invoke-virtual {p2}, Landroid/view/MotionEvent;->getActionMasked()I
 
     move-result v2
 
-    .line 461
+    .line 462
     const/4 v3, 0x1
 
     if-nez v2, :cond_3
 
-    .line 462
+    .line 463
     invoke-virtual {p2}, Landroid/view/MotionEvent;->getRawX()F
 
     move-result v2
@@ -133,7 +133,7 @@
 
     iput-boolean v1, p0, Lcom/melodix/music/PreviewPlayerChrome$DismissGesture;->rejected:Z
 
-    .line 463
+    .line 464
     invoke-virtual {p1}, Landroid/view/View;->getParent()Landroid/view/ViewParent;
 
     move-result-object p2
@@ -155,7 +155,7 @@
 
     return v3
 
-    .line 465
+    .line 466
     :cond_3
     const/4 v4, 0x5
 
@@ -179,7 +179,7 @@
 
     return v3
 
-    .line 466
+    .line 467
     :cond_4
     invoke-virtual {p2}, Landroid/view/MotionEvent;->getRawX()F
 
@@ -197,12 +197,12 @@
 
     sub-float/2addr p2, v7
 
-    .line 467
+    .line 468
     const/4 v7, 0x2
 
     if-ne v2, v7, :cond_9
 
-    .line 468
+    .line 469
     iget-boolean p1, p0, Lcom/melodix/music/PreviewPlayerChrome$DismissGesture;->vertical:Z
 
     if-nez p1, :cond_7
@@ -245,7 +245,7 @@
 
     if-lez p1, :cond_7
 
-    .line 469
+    .line 470
     :cond_5
     cmpl-float p1, p2, v6
 
@@ -270,7 +270,7 @@
     :cond_6
     iput-boolean v3, p0, Lcom/melodix/music/PreviewPlayerChrome$DismissGesture;->rejected:Z
 
-    .line 471
+    .line 472
     :cond_7
     :goto_1
     iget-boolean p1, p0, Lcom/melodix/music/PreviewPlayerChrome$DismissGesture;->vertical:Z
@@ -289,11 +289,11 @@
 
     invoke-static {p2, p1}, Lcom/melodix/music/PreviewPlayerChrome;->access$1200(Lcom/melodix/music/PreviewPlayerChrome;F)V
 
-    .line 472
+    .line 473
     :cond_8
     return v3
 
-    .line 474
+    .line 475
     :cond_9
     if-eq v2, v3, :cond_b
 
@@ -303,11 +303,11 @@
 
     goto :goto_2
 
-    .line 481
+    .line 482
     :cond_a
     return v3
 
-    .line 475
+    .line 476
     :cond_b
     :goto_2
     invoke-virtual {p1}, Landroid/view/View;->getParent()Landroid/view/ViewParent;
@@ -322,7 +322,7 @@
 
     invoke-interface {p1, v1}, Landroid/view/ViewParent;->requestDisallowInterceptTouchEvent(Z)V
 
-    .line 476
+    .line 477
     :cond_c
     if-ne v2, v3, :cond_d
 
@@ -364,7 +364,7 @@
 
     goto :goto_3
 
-    .line 477
+    .line 478
     :cond_d
     sget p1, Landroid/os/Build$VERSION;->SDK_INT:I
 
@@ -388,7 +388,7 @@
 
     goto :goto_3
 
-    .line 478
+    .line 479
     :cond_e
     invoke-virtual {v0}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
 
@@ -436,13 +436,13 @@
 
     invoke-virtual {p1}, Landroid/view/ViewPropertyAnimator;->start()V
 
-    .line 479
+    .line 480
     :goto_3
     iput-boolean v1, p0, Lcom/melodix/music/PreviewPlayerChrome$DismissGesture;->vertical:Z
 
     return v3
 
-    .line 459
+    .line 460
     :cond_f
     :goto_4
     return v1

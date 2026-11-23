@@ -63,7 +63,8 @@
         if (spec.main) {
             // Desktop layout: lyrics replace the main view; use it only when it shows lyric lines.
             var main = document.querySelector('#main-view, main');
-            return main && main.querySelector('[data-testid*="lyric" i]') ? main : null;
+            // The lyrics route can load its lines after the click (user diagnostic 1022413).
+            return main && (main.querySelector('[data-testid*="lyric" i]') || /^\/lyrics/.test(location.pathname)) ? main : null;
         }
         // Device picker opens as a popover/dialog mentioning devices.
         var pops = Array.from(document.querySelectorAll('[role="dialog"], [data-tippy-root], [id^="tippy"]')).filter(function(n) {
@@ -248,7 +249,8 @@
         wasOpen = !!already || (b && isOpen(b));
         if (!wasOpen) { try { openedHere = true; b.click(); log('opened'); } catch (_) { log('open-error'); finish(false, 'command'); return JSON.stringify({status: 'started', id: job.id}); } }
         else log('already-open');
-        var end = Date.now() + 4000, forced = false;
+        // Lyrics load over the network after the click: wait longer for them (user diagnostic 1022413).
+        var end = Date.now() + (kind === 'lyrics' ? 8000 : 4000), forced = false;
         (function step() {
           try {
             var r = null;
@@ -257,6 +259,13 @@
             var ready = r && (kind === 'lyrics' ? lyricLines(r).lines.length : deviceRows(r, action === 'transfer').length);
             if (!ready && r && !forced && Date.now() > end - 2000) { forced = true; giveSize(r); }
             if (!ready && Date.now() < end) { setTimeout(step, 150); return; }
+            if (!ready && kind === 'lyrics') {
+                // Shape only, never text: where the page went and how many lyric-like elements exist.
+                var mv = document.querySelector('#main-view, main');
+                log('path:' + (/^\/lyrics/.test(location.pathname) ? 'lyrics' : 'other'));
+                log('lt:' + Math.min(99, document.querySelectorAll('[data-testid*="lyric" i]').length));
+                log('mt:' + Math.min(99, mv ? mv.querySelectorAll('[data-testid]').length : 0));
+            }
             if (!ready) { log(r ? 'rows:0' : 'panel:absent'); finish(false, rootAmbiguous ? 'ambiguous' : r ? 'empty' : 'panel'); return; }
             if (kind === 'lyrics') {
                 var l = lyricLines(r);
