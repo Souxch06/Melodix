@@ -80,6 +80,15 @@ final class PreviewPlayerControllerQueue {
         return PreviewPlayerControllerPlayAll.title(r).replace('\t', ' ').replace('\n', ' ') + "\t" + PreviewPlayerControllerPlayAll.artist(r).replace('\t', ' ').replace('\n', ' ');
     }
 
+    // Queue panel: remove the k-th upcoming track (0 = next).
+    static boolean removeUpcoming(int k) {
+        int pos = at + 1 + k; if (isEmpty() || k < 0 || pos >= order.length) return false;
+        int[] o = new int[order.length - 1];
+        for (int i = 0, j = 0; i < order.length; i++) if (i != pos) o[j++] = order[i];
+        if (k < added) added--;
+        order = o; return true;
+    }
+
     static boolean moveTo(String uri) {
         for (int k = 0; k < order.length; k++) if (uris.get(order[k]).equals(uri)) { at = k; return true; }
         return false;

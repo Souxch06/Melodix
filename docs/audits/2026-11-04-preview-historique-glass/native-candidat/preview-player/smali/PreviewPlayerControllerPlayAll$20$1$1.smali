@@ -1,4 +1,4 @@
-.class Lcom/melodix/music/PreviewPlayerControllerPlayAll$18$1$1;
+.class Lcom/melodix/music/PreviewPlayerControllerPlayAll$20$1$1;
 .super Ljava/lang/Object;
 .source "PreviewPlayerControllerPlayAll.java"
 
@@ -8,7 +8,7 @@
 
 # annotations
 .annotation system Ldalvik/annotation/EnclosingMethod;
-    value = Lcom/melodix/music/PreviewPlayerControllerPlayAll$18$1;->run()V
+    value = Lcom/melodix/music/PreviewPlayerControllerPlayAll$20$1;->run()V
 .end annotation
 
 .annotation system Ldalvik/annotation/InnerClass;
@@ -27,11 +27,11 @@
 
 
 # instance fields
-.field final synthetic this$1:Lcom/melodix/music/PreviewPlayerControllerPlayAll$18$1;
+.field final synthetic this$1:Lcom/melodix/music/PreviewPlayerControllerPlayAll$20$1;
 
 
 # direct methods
-.method constructor <init>(Lcom/melodix/music/PreviewPlayerControllerPlayAll$18$1;)V
+.method constructor <init>(Lcom/melodix/music/PreviewPlayerControllerPlayAll$20$1;)V
     .locals 0
     .annotation system Ldalvik/annotation/MethodParameters;
         accessFlags = {
@@ -42,8 +42,8 @@
         }
     .end annotation
 
-    .line 298
-    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$18$1$1;->this$1:Lcom/melodix/music/PreviewPlayerControllerPlayAll$18$1;
+    .line 304
+    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$20$1$1;->this$1:Lcom/melodix/music/PreviewPlayerControllerPlayAll$20$1;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
@@ -63,10 +63,10 @@
         }
     .end annotation
 
-    .line 298
+    .line 304
     check-cast p1, Ljava/lang/String;
 
-    invoke-virtual {p0, p1}, Lcom/melodix/music/PreviewPlayerControllerPlayAll$18$1$1;->onReceiveValue(Ljava/lang/String;)V
+    invoke-virtual {p0, p1}, Lcom/melodix/music/PreviewPlayerControllerPlayAll$20$1$1;->onReceiveValue(Ljava/lang/String;)V
 
     return-void
 .end method
@@ -74,12 +74,12 @@
 .method public onReceiveValue(Ljava/lang/String;)V
     .locals 2
 
-    .line 299
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$18$1$1;->this$1:Lcom/melodix/music/PreviewPlayerControllerPlayAll$18$1;
+    .line 305
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$20$1$1;->this$1:Lcom/melodix/music/PreviewPlayerControllerPlayAll$20$1;
 
-    iget-object v0, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$18$1;->this$0:Lcom/melodix/music/PreviewPlayerControllerPlayAll$18;
+    iget-object v0, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$20$1;->this$0:Lcom/melodix/music/PreviewPlayerControllerPlayAll$20;
 
-    iget-object v0, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$18;->val$a:Landroid/app/Activity;
+    iget-object v0, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$20;->val$a:Landroid/app/Activity;
 
     const-string v1, "\"done\""
 
@@ -89,11 +89,11 @@
 
     if-eqz p1, :cond_0
 
-    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$18$1$1;->this$1:Lcom/melodix/music/PreviewPlayerControllerPlayAll$18$1;
+    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$20$1$1;->this$1:Lcom/melodix/music/PreviewPlayerControllerPlayAll$20$1;
 
-    iget-object p1, p1, Lcom/melodix/music/PreviewPlayerControllerPlayAll$18$1;->this$0:Lcom/melodix/music/PreviewPlayerControllerPlayAll$18;
+    iget-object p1, p1, Lcom/melodix/music/PreviewPlayerControllerPlayAll$20$1;->this$0:Lcom/melodix/music/PreviewPlayerControllerPlayAll$20;
 
-    iget-object p1, p1, Lcom/melodix/music/PreviewPlayerControllerPlayAll$18;->val$ok:Ljava/lang/String;
+    iget-object p1, p1, Lcom/melodix/music/PreviewPlayerControllerPlayAll$20;->val$ok:Ljava/lang/String;
 
     goto :goto_0
 

@@ -850,7 +850,21 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     }
     // shortcut: the next track starts in the last 0.4 s, or right after Spotify ends/moves on (readings are ~1 s apart);
     // upgrade with a page "ended" event.
+    // Sleep timer (user request 1022405): minutes > 0 pauses later, -1 at the end of the track, 0 cancels.
+    static long sleepAt = -1; static boolean sleepEnd;
+    private static final android.os.Handler sleepHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private static final Runnable sleepRun = new Runnable() { public void run() {
+        sleepAt = -1; PreviewPlayerController c = live == null ? null : live.get(); Activity a = c == null ? null : c.activity.get();
+        if (a != null && playingNow) togglePlayback(a); } };
+    static void sleep(Activity a, long minutes) {
+        sleepHandler.removeCallbacks(sleepRun); sleepAt = -1; sleepEnd = minutes < 0;
+        if (minutes > 0) { sleepAt = SystemClock.elapsedRealtime() + minutes * 60000; sleepHandler.postDelayed(sleepRun, minutes * 60000); }
+    }
     void queueTick(String uri, long pos, long dur) {
+        if (sleepEnd && dur > 0 && pos >= dur - 1500) {
+            sleepEnd = false; Activity a = activity.get(); if (a != null && playingNow) togglePlayback(a);
+            advancedFor = uri; return;
+        }
         if (PreviewPlayerControllerQueue.isEmpty() || uri.isEmpty()) return;
         long t = now(); String cur = PreviewPlayerControllerQueue.current();
         if (t - queueCommandAt < 4000) return; // our command is not reflected yet

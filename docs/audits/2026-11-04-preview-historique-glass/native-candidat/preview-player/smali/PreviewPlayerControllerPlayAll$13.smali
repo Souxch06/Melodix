@@ -3,7 +3,7 @@
 .source "PreviewPlayerControllerPlayAll.java"
 
 # interfaces
-.implements Landroid/content/DialogInterface$OnShowListener;
+.implements Ljava/lang/Runnable;
 
 
 # annotations
@@ -18,15 +18,13 @@
 
 
 # instance fields
-.field final synthetic val$d:F
+.field final synthetic val$a:Landroid/app/Activity;
 
-.field final synthetic val$panel:Landroid/view/View;
-
-.field final synthetic val$w:Landroid/view/Window;
+.field final synthetic val$who:Ljava/lang/String;
 
 
 # direct methods
-.method constructor <init>(Landroid/view/View;FLandroid/view/Window;)V
+.method constructor <init>(Landroid/app/Activity;Ljava/lang/String;)V
     .locals 0
     .annotation system Ldalvik/annotation/Signature;
         value = {
@@ -34,12 +32,10 @@
         }
     .end annotation
 
-    .line 216
-    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$13;->val$panel:Landroid/view/View;
+    .line 206
+    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$13;->val$a:Landroid/app/Activity;
 
-    iput p2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$13;->val$d:F
-
-    iput-object p3, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$13;->val$w:Landroid/view/Window;
+    iput-object p2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$13;->val$who:Ljava/lang/String;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
@@ -48,78 +44,15 @@
 
 
 # virtual methods
-.method public onShow(Landroid/content/DialogInterface;)V
-    .locals 5
+.method public run()V
+    .locals 2
 
-    .line 217
-    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$13;->val$panel:Landroid/view/View;
+    .line 206
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$13;->val$a:Landroid/app/Activity;
 
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$13;->val$panel:Landroid/view/View;
+    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$13;->val$who:Ljava/lang/String;
 
-    invoke-virtual {v0}, Landroid/view/View;->getHeight()I
+    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->search(Landroid/app/Activity;Ljava/lang/String;)V
 
-    move-result v0
-
-    if-lez v0, :cond_0
-
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$13;->val$panel:Landroid/view/View;
-
-    invoke-virtual {v0}, Landroid/view/View;->getHeight()I
-
-    move-result v0
-
-    int-to-float v0, v0
-
-    goto :goto_0
-
-    :cond_0
-    const/high16 v0, 0x44160000    # 600.0f
-
-    iget v1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$13;->val$d:F
-
-    mul-float/2addr v0, v1
-
-    :goto_0
-    invoke-virtual {p1, v0}, Landroid/view/View;->setTranslationY(F)V
-
-    .line 218
-    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$13;->val$panel:Landroid/view/View;
-
-    invoke-virtual {p1}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
-
-    move-result-object p1
-
-    const/4 v0, 0x0
-
-    invoke-virtual {p1, v0}, Landroid/view/ViewPropertyAnimator;->translationY(F)Landroid/view/ViewPropertyAnimator;
-
-    move-result-object p1
-
-    const-wide/16 v1, 0x118
-
-    invoke-virtual {p1, v1, v2}, Landroid/view/ViewPropertyAnimator;->setDuration(J)Landroid/view/ViewPropertyAnimator;
-
-    move-result-object p1
-
-    new-instance v3, Landroid/view/animation/DecelerateInterpolator;
-
-    const/high16 v4, 0x40000000    # 2.0f
-
-    invoke-direct {v3, v4}, Landroid/view/animation/DecelerateInterpolator;-><init>(F)V
-
-    invoke-virtual {p1, v3}, Landroid/view/ViewPropertyAnimator;->setInterpolator(Landroid/animation/TimeInterpolator;)Landroid/view/ViewPropertyAnimator;
-
-    move-result-object p1
-
-    invoke-virtual {p1}, Landroid/view/ViewPropertyAnimator;->start()V
-
-    .line 219
-    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$13;->val$w:Landroid/view/Window;
-
-    const v3, 0x3f19999a    # 0.6f
-
-    invoke-static {p1, v0, v3, v1, v2}, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->dim(Landroid/view/Window;FFJ)V
-
-    .line 220
     return-void
 .end method

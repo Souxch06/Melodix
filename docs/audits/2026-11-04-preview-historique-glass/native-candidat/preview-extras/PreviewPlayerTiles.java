@@ -179,6 +179,23 @@ public final class PreviewPlayerTiles extends LinearLayout {
         else for(String r:next.split("\n"))addRow(a,list,r);
         retry.setEnabled(true);riseAll(list);
     }
+    private boolean melodixQueue;
+    // Spotify's queue lets you remove what is next (user request 1022405): tap an upcoming row, confirm, it is removed.
+    private void removable(final Activity a,final Dialog dialog,final LinearLayout list,final Button retry){
+        int first=-1;for(int k=0;k<list.getChildCount();k++){View v=list.getChildAt(k);if(v instanceof TextView&&"À suivre".contentEquals(((TextView)v).getText())){first=k+1;break;}}
+        if(first<0)return;
+        for(int k=first;k<list.getChildCount();k++){final int index=k-first;View row=list.getChildAt(k);row.setClickable(true);
+            row.setOnClickListener(new View.OnClickListener(){public void onClick(View v){
+                final Dialog ask=new Dialog(a);LinearLayout box=new LinearLayout(a);box.setOrientation(VERTICAL);box.setPadding(dp(20),dp(16),dp(20),dp(16));
+                GradientDrawable g=new GradientDrawable();g.setColor(0xf21f1f22);g.setCornerRadius(dp(20));box.setBackground(g);
+                box.addView(line(a,"Retirer ce titre de la file d’attente ?",Color.WHITE,17),new LinearLayout.LayoutParams(-1,-2));
+                Button no=new Button(a);no.setText("Annuler");no.setOnClickListener(new View.OnClickListener(){public void onClick(View x){ask.dismiss();}});
+                Button yes=new Button(a);yes.setText("Retirer");yes.setOnClickListener(new View.OnClickListener(){public void onClick(View x){ask.dismiss();
+                    try{java.lang.reflect.Method m=Class.forName("com.melodix.music.PreviewPlayerControllerQueue").getDeclaredMethod("removeUpcoming",int.class);m.setAccessible(true);m.invoke(null,index);}catch(Throwable ignored){}
+                    loadQueue(a,dialog,list,retry);}});
+                box.addView(no,new LinearLayout.LayoutParams(-1,dp(48)));box.addView(yes,new LinearLayout.LayoutParams(-1,dp(48)));
+                ask.setContentView(box);ask.show();Window w=ask.getWindow();if(w!=null)w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));}});}
+    }
     private void riseAll(LinearLayout list){for(int k=0;k<list.getChildCount()&&k<14;k++)PreviewUiRestyle.rise(list.getChildAt(k),k);}
     // Once a request has settled (including a timeout), its late callbacks must
     // not render content or launch further page actions. New retries get a new serial.
@@ -187,7 +204,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
     private void loadQueue(final Activity a,final Dialog dialog,final LinearLayout list,final Button retry){
         // User request (1022404): Melodix plays the order itself on a free account; show that queue (Spotify's page has none).
         try{java.lang.reflect.Method m=Class.forName("com.melodix.music.PreviewPlayerControllerQueue").getDeclaredMethod("snapshot");m.setAccessible(true);Object q=m.invoke(null);
-            if(q instanceof String){++queueSerial;queueJobId="";queueJobPending=false;renderQueue(a,list,retry,new JSONObject((String)q));return;}}catch(Throwable ignored){}
+            if(q instanceof String){++queueSerial;queueJobId="";queueJobPending=false;melodixQueue=true;renderQueue(a,list,retry,new JSONObject((String)q));melodixQueue=false;removable(a,dialog,list,retry);return;}}catch(Throwable ignored){}
         final long serial=++queueSerial;queueJobId="";queueJobPending=false;skeleton(a,list);retry.setEnabled(false);
         postDelayed(new Runnable(){public void run(){if(serial==queueSerial&&webDialog==dialog&&settledSerial!=serial){queueJournal="delai";queueFailed(a,list,retry);}}},8000);
         WebView w=web(a);if(w==null){queueJournal="page:inaccessible";queueFailed(a,list,retry);return;}

@@ -198,6 +198,10 @@ final class PreviewPlayerControllerPlayAll {
             // Melodix plays the order itself (1022402): add after the current track, like Spotify's queue.
             if (PreviewPlayerControllerQueue.addNext(trackUri(track), track)) { toast(a, "Ajouté à la file d'attente"); return; }
             pageMenu(a, id, "Ajouter à la file d'attente|Add to queue", "Ajouté à la file d'attente"); } }, dlg));
+        // Spotify's track menu (user request 1022405): like through the page's own menu, on an explicit tap.
+        box.addView(item(a, 4, "Ajouter aux Titres likés", new Runnable() { public void run() {
+            pageMenu(a, id, "Ajouter aux Titres likés|Enregistrer dans vos Titres likés|Save to your Liked Songs|Ajouter à Titres likés", "Ajouté aux Titres likés"); } }, dlg));
+        box.addView(item(a, 5, "Minuterie de veille", new Runnable() { public void run() { sleepTimer(a); } }, dlg));
         final String who = artist(track).split(",")[0].trim();
         if (!who.isEmpty()) box.addView(item(a, 1, "Accéder à l'artiste", new Runnable() { public void run() { search(a, who); } }, dlg));
         box.addView(item(a, 3, "Supprimer de cette playlist", new Runnable() { public void run() {
@@ -236,6 +240,8 @@ final class PreviewPlayerControllerPlayAll {
                 if (kind == 0) { c.drawCircle(18, 5, 3, p); c.drawCircle(6, 12, 3, p); c.drawCircle(18, 19, 3, p); c.drawLine(8.6f, 10.5f, 15.4f, 6.5f, p); c.drawLine(8.6f, 13.5f, 15.4f, 17.5f, p); }
                 else if (kind == 2) { c.drawLine(3, 6, 9, 6, p); c.drawLine(6, 3, 6, 9, p); c.drawLine(12, 6, 21, 6, p); c.drawLine(3, 12, 21, 12, p); c.drawLine(3, 18, 21, 18, p); }
                 else if (kind == 3) { c.drawCircle(12, 12, 9, p); c.drawLine(8, 12, 16, 12, p); }
+                else if (kind == 4) { Path q = new Path(); q.moveTo(12, 20); q.cubicTo(4, 14, 2, 10, 4.5f, 6.5f); q.cubicTo(7, 3.5f, 10.5f, 4.5f, 12, 7.5f); q.cubicTo(13.5f, 4.5f, 17, 3.5f, 19.5f, 6.5f); q.cubicTo(22, 10, 20, 14, 12, 20); c.drawPath(q, p); }
+                else if (kind == 5) { Path q = new Path(); q.moveTo(19, 14.5f); q.cubicTo(14, 17, 7.5f, 13, 9.5f, 4); q.cubicTo(4, 6, 3, 13, 7, 17.5f); q.cubicTo(11, 21.5f, 17, 20, 19, 14.5f); c.drawPath(q, p); }
                 else { c.drawCircle(10, 7, 4, p); Path q = new Path(); q.moveTo(3, 21); q.cubicTo(3, 15.5f, 6.5f, 13, 10, 13); q.cubicTo(11.5f, 13, 12.7f, 13.4f, 13.6f, 14); c.drawPath(q, p);
                     c.drawCircle(18, 19, 2, p); c.drawLine(20, 19, 20, 12, p); c.drawLine(20, 12, 22.5f, 13, p); }
                 c.restore();
@@ -303,6 +309,16 @@ final class PreviewPlayerControllerPlayAll {
         if (v instanceof android.webkit.WebView) return (android.webkit.WebView) v;
         if (v instanceof ViewGroup) { ViewGroup g = (ViewGroup) v; for (int i = 0; i < g.getChildCount(); i++) { android.webkit.WebView f = webView(g.getChildAt(i)); if (f != null) return f; } }
         return null;
+    }
+    // Spotify's sleep timer: pause after a delay or at the end of the track.
+    static void sleepTimer(final Activity a) {
+        final String[] labels = {"5 minutes", "15 minutes", "30 minutes", "45 minutes", "1 heure", "Fin du titre", "Désactiver la minuterie"};
+        final long[] mins = {5, 15, 30, 45, 60, -1, 0};
+        new android.app.AlertDialog.Builder(a).setTitle("Minuterie de veille").setItems(labels, new android.content.DialogInterface.OnClickListener() {
+            public void onClick(android.content.DialogInterface x, int i) {
+                PreviewPlayerController.sleep(a, mins[i]);
+                toast(a, mins[i] == 0 ? "Minuterie désactivée" : mins[i] < 0 ? "Pause à la fin du titre" : "Pause dans " + labels[i]);
+            } }).show();
     }
     static void toast(Activity a, String m) { android.widget.Toast.makeText(a, m, android.widget.Toast.LENGTH_SHORT).show(); }
     static long loadingUntil;
