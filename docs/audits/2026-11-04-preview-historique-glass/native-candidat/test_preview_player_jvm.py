@@ -297,7 +297,7 @@ public class ControllerTest {
   {android.content.Context cx=new android.content.Context();
    yes(PreviewPlayerController.cachedRows(cx,"spotify:playlist:Ab1","SK").equals("SK"));
    yes(PreviewPlayerController.playlistKey("https://open.spotify.com/playlist/Ab1?si=x").equals("spotify:playlist:Ab1"));yes(PreviewPlayerController.playlistKey("spotify:collection:tracks").equals("spotify:collection:tracks"));yes(PreviewPlayerController.playlistKey("spotify:album:X").isEmpty());
-   org.json.JSONArray kept=PreviewPlayerController.storableRows(new org.json.JSONArray("uri=spotify:track:T1;title=A|title=Info|uri=spotify:track:T2;title=B"));eq(kept.length(),2);
+   org.json.JSONArray kept=PreviewPlayerController.storableRows(new org.json.JSONArray("uri=spotify:track:T1;title=A|title=Info|uri=spotify:track:T2;title=B"));eq(kept.length(),2);eq(PreviewPlayerController.storableRows(new org.json.JSONArray("uri=spotify:episode:E1;title=E")).length(),1);
    eq(PreviewPlayerController.storableRows(new org.json.JSONArray("uri=spotify:track:T1|title=Copie enregistrée")).length(),0);
    cx.prefs.m.put("spotify:playlist:Ab1",kept.toString());String shown=PreviewPlayerController.cachedRows(cx,"/playlist/Ab1","SK");
    yes(shown.contains("T2")&&shown.contains("Copie enregistrée"));}
@@ -341,6 +341,8 @@ public class ControllerTest {
      yes(PreviewPlayerControllerQueue.addNext("spotify:track:Z",new org.json.JSONObject("uri=spotify:track:Z;title=Z")));yes("spotify:track:Z".equals(PreviewPlayerControllerQueue.step(true,false)));yes("spotify:track:C".equals(PreviewPlayerControllerQueue.step(true,false)));
      yes(PreviewPlayerControllerQueue.start(q,"spotify:track:A"));yes(PreviewPlayerControllerQueue.removeUpcoming(0));yes("spotify:track:C".equals(PreviewPlayerControllerQueue.step(true,false)));yes(!PreviewPlayerControllerQueue.removeUpcoming(5));
      yes(PreviewPlayerControllerQueue.start(q,"spotify:track:A"));yes(PreviewPlayerControllerQueue.playNext(1));yes("spotify:track:C".equals(PreviewPlayerControllerQueue.step(true,false)));yes("spotify:track:B".equals(PreviewPlayerControllerQueue.step(true,false)));
+     yes(PreviewPlayerControllerQueue.start(new org.json.JSONArray("uri=spotify:episode:E1;title=E1|uri=spotify:episode:E2;title=E2"),"spotify:episode:E1"));yes("spotify:episode:E2".equals(PreviewPlayerControllerQueue.step(true,false)));
+     yes(PreviewPlayerControllerQueue.start(q,"spotify:track:A"));
      yes(PreviewPlayerControllerQueue.snapshot()!=null);PreviewPlayerControllerQueue.clear();yes(PreviewPlayerControllerQueue.snapshot()==null);
      PreviewPlayerControllerQueue.clear(); }
   System.out.println("Preview controller JVM simulation passed");

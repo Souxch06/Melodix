@@ -336,7 +336,11 @@ def apply(root):
     a=one(a, """    const-string v1, "window.__sfNativeOpenUri"
 """, """    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->previewPlayer()Lcom/melodix/music/PreviewPlayerController;
     move-result-object v1
-    invoke-virtual {v1, p1}, Lcom/melodix/music/PreviewPlayerController;->queueStart(Ljava/lang/String;)V
+    invoke-virtual {v1, p1}, Lcom/melodix/music/PreviewPlayerController;->queueStart(Ljava/lang/String;)Z
+    move-result v1
+    if-eqz v1, :preview_queue_open_uri
+    return-void
+    :preview_queue_open_uri
     const-string v1, "window.__sfNativeOpenUri"
 """)
     for name, flag in (('onNativePlayerNextClick', '0x1'), ('onNativePlayerPreviousClick', '0x0')):

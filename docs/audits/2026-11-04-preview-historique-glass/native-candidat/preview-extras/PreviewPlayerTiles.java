@@ -240,7 +240,10 @@ public final class PreviewPlayerTiles extends LinearLayout {
         if(!detail.isEmpty())list.addView(line(a,detail,0xffc7bbdc,14),new LinearLayout.LayoutParams(-1,-2));retry.setEnabled(true);
     }
     private String panelReason="";
+    // User request (1022409): synced lyrics follow the song while the panel is open, like Spotify.
+    private boolean lyricsLive;
     private void panelFailed(int i,Activity a,LinearLayout list,Button retry){
+        if(lyricsLive){lyricsLive=false;panelReason="";retry.setEnabled(true);return;} // keep the lines shown; stop following
         String why=panelReason;panelReason="";
         if(why.equals("absent")){panelMessage(a,list,retry,i==1?"Paroles non disponibles sur cette page Spotify":"Appareils non disponibles sur cette page Spotify","Le bouton correspondant est absent de la page.");return;}
         if(why.equals("disabled")){panelMessage(a,list,retry,i==1?"Spotify ne propose pas de paroles pour ce titre":"Appareils indisponibles pour le moment",i==1?"Le contrôle des paroles Spotify est désactivé ; aucune ligne n’est disponible.":"Le bouton Spotify est désactivé ; réessayez plus tard.");return;}
@@ -268,8 +271,15 @@ public final class PreviewPlayerTiles extends LinearLayout {
         if(i==1){
             int active=-1;try{active=Integer.parseInt(o.optString("active","-1"));}catch(NumberFormatException ignored){}
             String[] lines=body.split("\n");
-            for(int k=0;k<lines.length&&k<200;k++){TextView t=line(a,lines[k],k==active?0xffe0489e:Color.WHITE,k==active?19:17);t.setPadding(0,dp(4),0,dp(4));list.addView(t,new LinearLayout.LayoutParams(-1,-2));}
-            riseAll(list);return;
+            final TextView[] current={null};
+            for(int k=0;k<lines.length&&k<200;k++){TextView t=line(a,lines[k],k==active?0xffe0489e:(active>=0&&k<active?0x99ffffff:Color.WHITE),k==active?19:17);t.setPadding(0,dp(4),0,dp(4));list.addView(t,new LinearLayout.LayoutParams(-1,-2));if(k==active)current[0]=t;}
+            if(!lyricsLive)riseAll(list);
+            if(active>=0){
+                // Keep the current line in view, then read the page again in 1.5 s while this panel stays open.
+                list.post(new Runnable(){public void run(){if(current[0]!=null&&list.getParent() instanceof android.widget.ScrollView)((android.widget.ScrollView)list.getParent()).smoothScrollTo(0,Math.max(0,current[0].getTop()-dp(120)));}});
+                postDelayed(new Runnable(){public void run(){if(webDialog==dialog){lyricsLive=true;loadPanel(1,a,dialog,list,retry,"run","");}else lyricsLive=false;}},1500);
+            } else lyricsLive=false;
+            return;
         }
         String[] rows=body.split("\n");
         for(String row:rows){
@@ -293,7 +303,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
         ask.setContentView(box);ask.show();Window w=ask.getWindow();if(w!=null)w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
     }
     private void loadPanel(final int i,final Activity a,final Dialog dialog,final LinearLayout list,final Button retry,final String action,final String target){
-        final long serial=++panelSerial;panelJobId="";panelJobPending=false;skeleton(a,list);retry.setEnabled(false);final String kind=i==1?"lyrics":"devices";
+        final long serial=++panelSerial;panelJobId="";panelJobPending=false;if(!lyricsLive)skeleton(a,list);retry.setEnabled(false);final String kind=i==1?"lyrics":"devices";
         postDelayed(new Runnable(){public void run(){if(serial==panelSerial&&webDialog==dialog&&panelSettled!=serial){panelJournals[i-1]="delai";if(action.equals("transfer"))panelMessage(a,list,retry,"Transfert non vérifié","Résultat incertain. Vérifiez l’appareil actif avant toute nouvelle tentative.");else panelFailed(i,a,list,retry);}}},action.equals("transfer")?11000:8000);
         WebView w=web(a);if(w==null){panelJournals[i-1]="page:inaccessible";panelFailed(i,a,list,retry);return;}
         try{w.evaluateJavascript("("+PANEL_JOB+")("+JSONObject.quote(kind)+","+JSONObject.quote(action)+","+JSONObject.quote(target)+");",new ValueCallback<String>(){public void onReceiveValue(String value){

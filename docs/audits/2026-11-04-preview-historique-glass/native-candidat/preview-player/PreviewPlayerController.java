@@ -475,7 +475,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
             JSONObject row = data.optJSONObject(i); if (row == null) continue;
             String uri = row.optString("uri", row.optString("id", ""));
             if (uri.isEmpty() && row.optString("title", "").matches("Copie enregistrée|Aperçu préchargé")) return new JSONArray();
-            if (uri.matches("(?i)^spotify:track:[a-z0-9]+$") && keep.length() < 300) keep.put(row);
+            if (uri.matches("(?i)^spotify:(track|episode):[a-z0-9]+$") && keep.length() < 300) keep.put(row);
         }
         return keep;
     }
@@ -803,9 +803,10 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     // (PreviewPlayerControllerQueue) with repeat off/playlist/track and shuffle, like the Spotify app.
     private String detailKey = "", advancedFor = "", queueTrack = "", shownRows;
     private long queueCommandAt = -100000, queueLastPos = -1, queueLastDur = -1, queueLastAt = -100000;
-    public void queueStart(String uri) {
+    // true when Melodix started it itself (podcast episode): the caller must not navigate the page to it.
+    public boolean queueStart(String uri) {
+        if (!PreviewPlayerControllerQueue.playable(uri)) return false;
         try {
-            if (uri == null || !uri.startsWith("spotify:track:")) return;
             Activity a = activity.get();
             String rows = a != null && onDetail && !detailKey.isEmpty() ? a.getSharedPreferences(PLAYLIST_STORE, Context.MODE_PRIVATE).getString(detailKey, null) : null;
             // Albums, Liked Songs, search results...: the list on screen is the context (user request 1022404).
@@ -813,7 +814,11 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 if (shownRows == null || !PreviewPlayerControllerQueue.start(new JSONArray(shownRows), uri)) PreviewPlayerControllerQueue.clear();
         } catch (Exception e) { PreviewPlayerControllerQueue.clear(); }
         queueCommandAt = now(); advancedFor = ""; queueLastPos = -1;
+        // User request (1022409): the page only plays tracks directly; an episode tap navigated the hidden page
+        // instead of playing it. Play it like a track.
+        if (uri.startsWith("spotify:episode:")) return queuePlay(uri);
         showQueued(uri);
+        return false;
     }
     // User report (1022403): zap/play felt slow. Spotify needs ~1-2 s to load and report the track; show the
     // queued row's title, artist and cover at once. Spotify's next reading replaces it.
@@ -842,9 +847,9 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     }
     private boolean queuePlay(String u) {
         WebView w = seekWeb.get();
-        if (w == null || u == null || !u.matches("spotify:track:[A-Za-z0-9]+")) return false;
+        if (w == null || !PreviewPlayerControllerQueue.playable(u)) return false;
         queueCommandAt = now(); advancedFor = ""; queueLastPos = -1;
-        try { w.evaluateJavascript("(function(){if(typeof window.__sfNativeOpenUri==='function')window.__sfNativeOpenUri('" + u + "')})()", null); }
+        try { w.evaluateJavascript("(function(u){if(/^spotify:episode:/.test(u)&&typeof window.playFromUri==='function'){window.playFromUri(u);return}if(typeof window.__sfNativeOpenUri==='function')window.__sfNativeOpenUri(u)})('" + u + "')", null); }
         catch (RuntimeException e) { return false; }
         showQueued(u);
         return true;

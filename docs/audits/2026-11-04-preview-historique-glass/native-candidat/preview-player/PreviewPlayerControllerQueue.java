@@ -12,6 +12,8 @@ final class PreviewPlayerControllerQueue {
     private static int added; // tracks added with "Ajouter à la file d'attente" waiting after the current one
     static java.util.Random random = new java.util.Random();
 
+    // Tracks and podcast episodes (user request 1022409).
+    static boolean playable(String u) { return u != null && u.matches("spotify:(track|episode):[A-Za-z0-9]+"); }
     static boolean isEmpty() { return at < 0 || order.length == 0; }
     static void clear() { uris.clear(); rowsKept.clear(); order = new int[0]; at = -1; added = 0; }
 
@@ -20,7 +22,7 @@ final class PreviewPlayerControllerQueue {
         for (int i = 0; i < rows.length(); i++) {
             org.json.JSONObject o = rows.optJSONObject(i); if (o == null) continue;
             String u = o.optString("uri", ""); if (u.isEmpty()) u = o.optString("id", "");
-            if (!u.startsWith("spotify:track:")) continue;
+            if (!playable(u)) continue;
             if (first < 0 && u.equals(uri)) first = uris.size();
             uris.add(u); rowsKept.add(o);
         }
@@ -58,7 +60,7 @@ final class PreviewPlayerControllerQueue {
 
     // Spotify: queued tracks play right after the current one, in the order they were added.
     static boolean addNext(String uri, org.json.JSONObject row) {
-        if (isEmpty() || uri == null || !uri.startsWith("spotify:track:")) return false;
+        if (isEmpty() || !playable(uri)) return false;
         uris.add(uri); rowsKept.add(row);
         int pos = Math.min(order.length, at + 1 + added), n = order.length;
         int[] o = new int[n + 1];

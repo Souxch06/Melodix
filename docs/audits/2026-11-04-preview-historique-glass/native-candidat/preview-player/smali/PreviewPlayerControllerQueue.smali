@@ -87,7 +87,7 @@
 .method static addNext(Ljava/lang/String;Lorg/json/JSONObject;)Z
     .locals 6
 
-    .line 61
+    .line 63
     invoke-static {}, Lcom/melodix/music/PreviewPlayerControllerQueue;->isEmpty()Z
 
     move-result v0
@@ -96,11 +96,7 @@
 
     if-nez v0, :cond_3
 
-    if-eqz p0, :cond_3
-
-    const-string v0, "spotify:track:"
-
-    invoke-virtual {p0, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    invoke-static {p0}, Lcom/melodix/music/PreviewPlayerControllerQueue;->playable(Ljava/lang/String;)Z
 
     move-result v0
 
@@ -108,7 +104,7 @@
 
     goto :goto_2
 
-    .line 62
+    .line 64
     :cond_0
     sget-object v0, Lcom/melodix/music/PreviewPlayerControllerQueue;->uris:Ljava/util/ArrayList;
 
@@ -118,7 +114,7 @@
 
     invoke-virtual {p0, p1}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
 
-    .line 63
+    .line 65
     sget-object p0, Lcom/melodix/music/PreviewPlayerControllerQueue;->order:[I
 
     array-length p0, p0
@@ -141,12 +137,12 @@
 
     array-length p1, p1
 
-    .line 64
+    .line 66
     add-int/lit8 v2, p1, 0x1
 
     new-array v2, v2, [I
 
-    .line 65
+    .line 67
     move v3, v1
 
     :goto_0
@@ -180,7 +176,7 @@
 
     goto :goto_0
 
-    .line 66
+    .line 68
     :cond_2
     sput-object v2, Lcom/melodix/music/PreviewPlayerControllerQueue;->order:[I
 
@@ -192,7 +188,7 @@
 
     return v0
 
-    .line 61
+    .line 63
     :cond_3
     :goto_2
     return v1
@@ -201,7 +197,7 @@
 .method private static build(I)V
     .locals 6
 
-    .line 33
+    .line 35
     sget-boolean v0, Lcom/melodix/music/PreviewPlayerMode;->shuffleMode:Z
 
     sput-boolean v0, Lcom/melodix/music/PreviewPlayerControllerQueue;->shuffled:Z
@@ -216,7 +212,7 @@
 
     sput-object v1, Lcom/melodix/music/PreviewPlayerControllerQueue;->order:[I
 
-    .line 34
+    .line 36
     const/4 v1, 0x0
 
     move v2, v1
@@ -232,11 +228,11 @@
 
     goto :goto_0
 
-    .line 35
+    .line 37
     :cond_0
     sput v1, Lcom/melodix/music/PreviewPlayerControllerQueue;->added:I
 
-    .line 36
+    .line 38
     sget-boolean v2, Lcom/melodix/music/PreviewPlayerControllerQueue;->shuffled:Z
 
     if-nez v2, :cond_1
@@ -245,7 +241,7 @@
 
     return-void
 
-    .line 37
+    .line 39
     :cond_1
     sget-object v2, Lcom/melodix/music/PreviewPlayerControllerQueue;->order:[I
 
@@ -255,7 +251,7 @@
 
     aput v1, v2, p0
 
-    .line 38
+    .line 40
     const/4 p0, 0x1
 
     sub-int/2addr v0, p0
@@ -291,18 +287,18 @@
 
     goto :goto_1
 
-    .line 39
+    .line 41
     :cond_2
     sput v1, Lcom/melodix/music/PreviewPlayerControllerQueue;->at:I
 
-    .line 40
+    .line 42
     return-void
 .end method
 
 .method static clear()V
     .locals 2
 
-    .line 16
+    .line 18
     sget-object v0, Lcom/melodix/music/PreviewPlayerControllerQueue;->uris:Ljava/util/ArrayList;
 
     invoke-virtual {v0}, Ljava/util/ArrayList;->clear()V
@@ -329,7 +325,7 @@
 .method static current()Ljava/lang/String;
     .locals 3
 
-    .line 45
+    .line 47
     invoke-static {}, Lcom/melodix/music/PreviewPlayerControllerQueue;->isEmpty()Z
 
     move-result v0
@@ -362,7 +358,7 @@
 .method static isEmpty()Z
     .locals 1
 
-    .line 15
+    .line 17
     sget v0, Lcom/melodix/music/PreviewPlayerControllerQueue;->at:I
 
     if-ltz v0, :cond_1
@@ -391,7 +387,7 @@
 .method private static line(I)Ljava/lang/String;
     .locals 5
 
-    .line 79
+    .line 81
     sget-object v0, Lcom/melodix/music/PreviewPlayerControllerQueue;->rowsKept:Ljava/util/ArrayList;
 
     invoke-virtual {v0, p0}, Ljava/util/ArrayList;->get(I)Ljava/lang/Object;
@@ -400,7 +396,7 @@
 
     check-cast p0, Lorg/json/JSONObject;
 
-    .line 80
+    .line 82
     new-instance v0, Ljava/lang/StringBuilder;
 
     invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
@@ -459,7 +455,7 @@
 .method static moveTo(Ljava/lang/String;)Z
     .locals 4
 
-    .line 99
+    .line 101
     const/4 v0, 0x0
 
     move v1, v0
@@ -500,7 +496,7 @@
 
     goto :goto_0
 
-    .line 100
+    .line 102
     :cond_1
     return v0
 .end method
@@ -508,7 +504,7 @@
 .method static playNext(I)Z
     .locals 5
 
-    .line 94
+    .line 96
     sget v0, Lcom/melodix/music/PreviewPlayerControllerQueue;->at:I
 
     const/4 v1, 0x1
@@ -533,7 +529,7 @@
 
     goto :goto_1
 
-    .line 95
+    .line 97
     :cond_0
     sget-object p0, Lcom/melodix/music/PreviewPlayerControllerQueue;->order:[I
 
@@ -571,7 +567,7 @@
 
     return v1
 
-    .line 94
+    .line 96
     :cond_2
     :goto_1
     const/4 p0, 0x0
@@ -579,10 +575,35 @@
     return p0
 .end method
 
+.method static playable(Ljava/lang/String;)Z
+    .locals 1
+
+    .line 16
+    if-eqz p0, :cond_0
+
+    const-string v0, "spotify:(track|episode):[A-Za-z0-9]+"
+
+    invoke-virtual {p0, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+
+    move-result p0
+
+    if-eqz p0, :cond_0
+
+    const/4 p0, 0x1
+
+    goto :goto_0
+
+    :cond_0
+    const/4 p0, 0x0
+
+    :goto_0
+    return p0
+.end method
+
 .method static removeUpcoming(I)Z
     .locals 7
 
-    .line 85
+    .line 87
     sget v0, Lcom/melodix/music/PreviewPlayerControllerQueue;->at:I
 
     const/4 v1, 0x1
@@ -609,7 +630,7 @@
 
     goto :goto_1
 
-    .line 86
+    .line 88
     :cond_0
     sget-object v2, Lcom/melodix/music/PreviewPlayerControllerQueue;->order:[I
 
@@ -619,7 +640,7 @@
 
     new-array v2, v2, [I
 
-    .line 87
+    .line 89
     move v4, v3
 
     :goto_0
@@ -646,7 +667,7 @@
 
     goto :goto_0
 
-    .line 88
+    .line 90
     :cond_2
     sget v0, Lcom/melodix/music/PreviewPlayerControllerQueue;->added:I
 
@@ -658,13 +679,13 @@
 
     sput p0, Lcom/melodix/music/PreviewPlayerControllerQueue;->added:I
 
-    .line 89
+    .line 91
     :cond_3
     sput-object v2, Lcom/melodix/music/PreviewPlayerControllerQueue;->order:[I
 
     return v1
 
-    .line 85
+    .line 87
     :cond_4
     :goto_1
     return v3
@@ -673,7 +694,7 @@
 .method static row(Ljava/lang/String;)Lorg/json/JSONObject;
     .locals 1
 
-    .line 43
+    .line 45
     sget-object v0, Lcom/melodix/music/PreviewPlayerControllerQueue;->uris:Ljava/util/ArrayList;
 
     invoke-virtual {v0, p0}, Ljava/util/ArrayList;->indexOf(Ljava/lang/Object;)I
@@ -702,7 +723,7 @@
 .method static snapshot()Ljava/lang/String;
     .locals 7
 
-    .line 71
+    .line 73
     invoke-static {}, Lcom/melodix/music/PreviewPlayerControllerQueue;->isEmpty()Z
 
     move-result v0
@@ -713,7 +734,7 @@
 
     return-object v1
 
-    .line 73
+    .line 75
     :cond_0
     :try_start_0
     new-instance v0, Lorg/json/JSONObject;
@@ -724,7 +745,7 @@
 
     invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
 
-    .line 74
+    .line 76
     sget v3, Lcom/melodix/music/PreviewPlayerControllerQueue;->at:I
 
     const/4 v4, 0x1
@@ -776,7 +797,7 @@
 
     goto :goto_0
 
-    .line 75
+    .line 77
     :cond_2
     const-string v3, "ok"
 
@@ -812,7 +833,7 @@
 
     return-object v0
 
-    .line 76
+    .line 78
     :catch_0
     move-exception v0
 
@@ -822,10 +843,10 @@
 .method static start(Lorg/json/JSONArray;Ljava/lang/String;)Z
     .locals 7
 
-    .line 19
+    .line 21
     invoke-static {}, Lcom/melodix/music/PreviewPlayerControllerQueue;->clear()V
 
-    .line 20
+    .line 22
     const/4 v0, -0x1
 
     const/4 v1, 0x0
@@ -839,7 +860,7 @@
 
     if-ge v2, v3, :cond_4
 
-    .line 21
+    .line 23
     invoke-virtual {p0, v2}, Lorg/json/JSONArray;->optJSONObject(I)Lorg/json/JSONObject;
 
     move-result-object v3
@@ -848,7 +869,7 @@
 
     goto :goto_1
 
-    .line 22
+    .line 24
     :cond_0
     const-string v4, "uri"
 
@@ -870,11 +891,9 @@
 
     move-result-object v4
 
-    .line 23
+    .line 25
     :cond_1
-    const-string v5, "spotify:track:"
-
-    invoke-virtual {v4, v5}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    invoke-static {v4}, Lcom/melodix/music/PreviewPlayerControllerQueue;->playable(Ljava/lang/String;)Z
 
     move-result v5
 
@@ -882,7 +901,7 @@
 
     goto :goto_1
 
-    .line 24
+    .line 26
     :cond_2
     if-gez v0, :cond_3
 
@@ -898,7 +917,7 @@
 
     move-result v0
 
-    .line 25
+    .line 27
     :cond_3
     sget-object v5, Lcom/melodix/music/PreviewPlayerControllerQueue;->uris:Ljava/util/ArrayList;
 
@@ -908,13 +927,13 @@
 
     invoke-virtual {v4, v3}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
 
-    .line 20
+    .line 22
     :goto_1
     add-int/lit8 v2, v2, 0x1
 
     goto :goto_0
 
-    .line 27
+    .line 29
     :cond_4
     if-gez v0, :cond_5
 
@@ -922,7 +941,7 @@
 
     return v1
 
-    .line 28
+    .line 30
     :cond_5
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerControllerQueue;->build(I)V
 
@@ -934,7 +953,7 @@
 .method static step(ZZ)Ljava/lang/String;
     .locals 4
 
-    .line 52
+    .line 54
     invoke-static {}, Lcom/melodix/music/PreviewPlayerControllerQueue;->isEmpty()Z
 
     move-result v0
@@ -948,7 +967,7 @@
     :cond_0
     invoke-static {}, Lcom/melodix/music/PreviewPlayerControllerQueue;->sync()V
 
-    .line 53
+    .line 55
     sget v0, Lcom/melodix/music/PreviewPlayerControllerQueue;->at:I
 
     const/4 v2, 0x1
@@ -965,7 +984,7 @@
     :goto_0
     add-int/2addr v0, v3
 
-    .line 54
+    .line 56
     if-ltz v0, :cond_2
 
     sget-object v3, Lcom/melodix/music/PreviewPlayerControllerQueue;->order:[I
@@ -996,7 +1015,7 @@
     :goto_1
     move v0, p1
 
-    .line 55
+    .line 57
     :cond_5
     if-eqz p0, :cond_6
 
@@ -1016,7 +1035,7 @@
 
     sput p0, Lcom/melodix/music/PreviewPlayerControllerQueue;->added:I
 
-    .line 56
+    .line 58
     :cond_6
     sput v0, Lcom/melodix/music/PreviewPlayerControllerQueue;->at:I
 
@@ -1030,7 +1049,7 @@
 .method static sync()V
     .locals 2
 
-    .line 48
+    .line 50
     invoke-static {}, Lcom/melodix/music/PreviewPlayerControllerQueue;->isEmpty()Z
 
     move-result v0

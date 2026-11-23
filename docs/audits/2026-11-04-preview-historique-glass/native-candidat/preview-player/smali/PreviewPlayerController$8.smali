@@ -21,7 +21,7 @@
 .method constructor <init>()V
     .locals 0
 
-    .line 857
+    .line 862
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
     return-void
@@ -32,7 +32,7 @@
 .method public run()V
     .locals 2
 
-    .line 858
+    .line 863
     const-wide/16 v0, -0x1
 
     sput-wide v0, Lcom/melodix/music/PreviewPlayerController;->sleepAt:J
@@ -74,7 +74,7 @@
 
     check-cast v1, Landroid/app/Activity;
 
-    .line 859
+    .line 864
     :goto_1
     if-eqz v1, :cond_2
 
