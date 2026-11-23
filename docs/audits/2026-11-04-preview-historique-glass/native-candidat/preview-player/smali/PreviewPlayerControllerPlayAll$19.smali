@@ -3,12 +3,12 @@
 .source "PreviewPlayerControllerPlayAll.java"
 
 # interfaces
-.implements Ljava/lang/Runnable;
+.implements Landroid/animation/ValueAnimator$AnimatorUpdateListener;
 
 
 # annotations
 .annotation system Ldalvik/annotation/EnclosingMethod;
-    value = Lcom/melodix/music/PreviewPlayerControllerPlayAll;->close(Landroid/app/Dialog;Ljava/lang/Runnable;)V
+    value = Lcom/melodix/music/PreviewPlayerControllerPlayAll;->dim(Landroid/view/Window;FFJ)V
 .end annotation
 
 .annotation system Ldalvik/annotation/InnerClass;
@@ -18,13 +18,11 @@
 
 
 # instance fields
-.field final synthetic val$dlg:Landroid/app/Dialog;
-
-.field final synthetic val$then:Ljava/lang/Runnable;
+.field final synthetic val$w:Landroid/view/Window;
 
 
 # direct methods
-.method constructor <init>(Landroid/app/Dialog;Ljava/lang/Runnable;)V
+.method constructor <init>(Landroid/view/Window;)V
     .locals 0
     .annotation system Ldalvik/annotation/Signature;
         value = {
@@ -32,10 +30,8 @@
         }
     .end annotation
 
-    .line 293
-    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$19;->val$dlg:Landroid/app/Dialog;
-
-    iput-object p2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$19;->val$then:Ljava/lang/Runnable;
+    .line 284
+    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$19;->val$w:Landroid/view/Window;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
@@ -44,31 +40,29 @@
 
 
 # virtual methods
-.method public run()V
+.method public onAnimationUpdate(Landroid/animation/ValueAnimator;)V
     .locals 1
 
-    .line 294
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$19;->val$dlg:Landroid/app/Dialog;
+    .line 285
+    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$19;->val$w:Landroid/view/Window;
 
-    invoke-virtual {v0}, Landroid/app/Dialog;->dismiss()V
+    invoke-virtual {p1}, Landroid/animation/ValueAnimator;->getAnimatedValue()Ljava/lang/Object;
 
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$19;->val$then:Ljava/lang/Runnable;
+    move-result-object p1
 
-    if-eqz v0, :cond_0
+    check-cast p1, Ljava/lang/Float;
 
-    :try_start_0
-    iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$19;->val$then:Ljava/lang/Runnable;
+    invoke-virtual {p1}, Ljava/lang/Float;->floatValue()F
 
-    invoke-interface {v0}, Ljava/lang/Runnable;->run()V
-    :try_end_0
-    .catch Ljava/lang/RuntimeException; {:try_start_0 .. :try_end_0} :catch_0
+    move-result p1
 
-    goto :goto_0
+    invoke-virtual {v0, p1}, Landroid/view/Window;->setDimAmount(F)V
 
-    :catch_0
-    move-exception v0
+    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$19;->val$w:Landroid/view/Window;
 
-    :cond_0
-    :goto_0
+    const/4 v0, 0x2
+
+    invoke-virtual {p1, v0}, Landroid/view/Window;->addFlags(I)V
+
     return-void
 .end method

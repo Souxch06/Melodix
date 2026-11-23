@@ -20,11 +20,9 @@
 # instance fields
 .field final synthetic val$a:Landroid/app/Activity;
 
-.field final synthetic val$who:Ljava/lang/String;
-
 
 # direct methods
-.method constructor <init>(Landroid/app/Activity;Ljava/lang/String;)V
+.method constructor <init>(Landroid/app/Activity;)V
     .locals 0
     .annotation system Ldalvik/annotation/Signature;
         value = {
@@ -32,10 +30,8 @@
         }
     .end annotation
 
-    .line 206
+    .line 205
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$13;->val$a:Landroid/app/Activity;
-
-    iput-object p2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$13;->val$who:Ljava/lang/String;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
@@ -45,14 +41,12 @@
 
 # virtual methods
 .method public run()V
-    .locals 2
+    .locals 1
 
-    .line 206
+    .line 205
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$13;->val$a:Landroid/app/Activity;
 
-    iget-object v1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$13;->val$who:Ljava/lang/String;
-
-    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->search(Landroid/app/Activity;Ljava/lang/String;)V
+    invoke-static {v0}, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->sleepTimer(Landroid/app/Activity;)V
 
     return-void
 .end method

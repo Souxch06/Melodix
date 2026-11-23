@@ -201,6 +201,7 @@ final class PreviewPlayerControllerPlayAll {
         // Spotify's track menu (user request 1022405): like through the page's own menu, on an explicit tap.
         box.addView(item(a, 4, "Ajouter aux Titres likés", new Runnable() { public void run() {
             pageMenu(a, id, "Ajouter aux Titres likés|Enregistrer dans vos Titres likés|Save to your Liked Songs|Ajouter à Titres likés", "Ajouté aux Titres likés"); } }, dlg));
+        box.addView(item(a, 2, "Ajouter à une playlist", new Runnable() { public void run() { addToPlaylist(a, id); } }, dlg));
         box.addView(item(a, 5, "Minuterie de veille", new Runnable() { public void run() { sleepTimer(a); } }, dlg));
         final String who = artist(track).split(",")[0].trim();
         if (!who.isEmpty()) box.addView(item(a, 1, "Accéder à l'artiste", new Runnable() { public void run() { search(a, who); } }, dlg));
@@ -303,6 +304,30 @@ final class PreviewPlayerControllerPlayAll {
             if (!"\"started\"".equals(v)) { toast(a, "\"absent\"".equals(v) ? "Titre introuvable dans la page Spotify, réessaie" : "Action indisponible"); return; }
             w.postDelayed(new Runnable() { public void run() { w.evaluateJavascript("window.__sfMenuJob", new android.webkit.ValueCallback<String>() { public void onReceiveValue(String r) {
                 toast(a, "\"done\"".equals(r) ? ok : "Action non trouvée dans le menu Spotify"); } }); } }, 700);
+        } });
+    }
+    // "Ajouter à une playlist" (user request 1022406): Spotify's own submenu in the hidden page lists the user's
+    // playlists; Melodix shows them natively, then clicks the chosen one. Account write only on that explicit pick.
+    // shortcut: label/role matching of Spotify's menu; upgrade if Spotify renames it (the toast says so).
+    static final String PL_LIST = "(function(id){try{var a=document.querySelector('a[href*=\"/track/'+id+'\"]');var row=a&&(a.closest('[data-testid=\"tracklist-row\"]')||a.closest('[role=\"row\"]'));if(!row)return 'absent';var r=row.getBoundingClientRect();window.__sfPlNames=null;row.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:r.left+20,clientY:r.top+10,button:2}));setTimeout(function(){var items=document.querySelectorAll('[role=\"menu\"] button,[role=\"menu\"] [role=\"menuitem\"]');var hit=null;for(var i=0;i<items.length;i++){var t=(items[i].textContent||'').trim();if(/^(Ajouter (\u00e0|a) (la|une) playlist|Add to playlist)/i.test(t)){hit=items[i];break}}if(!hit){window.__sfPlNames=[];return}hit.dispatchEvent(new MouseEvent('mouseover',{bubbles:true}));hit.click();setTimeout(function(){var menus=document.querySelectorAll('[role=\"menu\"]');var m=menus[menus.length-1];var out=[];if(m&&menus.length>1){var b=m.querySelectorAll('button,[role=\"menuitem\"]');for(var j=0;j<b.length&&out.length<80;j++){var n=(b[j].textContent||'').trim();if(n&&n.length<120&&out.indexOf(n)<0)out.push(n)}}window.__sfPlNames=out},450)},350);return 'started'}catch(e){return 'error'}})";
+    static final String PL_PICK = "(function(name){var menus=document.querySelectorAll('[role=\"menu\"]');var m=menus[menus.length-1];var b=m?m.querySelectorAll('button,[role=\"menuitem\"]'):[];window.__sfMenuJob='missing';for(var j=0;j<b.length;j++)if((b[j].textContent||'').trim()===name){b[j].click();window.__sfMenuJob='done';break}setTimeout(function(){document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))},300);return window.__sfMenuJob})";
+    static void addToPlaylist(final Activity a, String id) {
+        final android.webkit.WebView w = webView(a.getWindow().getDecorView());
+        if (w == null) { toast(a, "Page Spotify indisponible"); return; }
+        w.evaluateJavascript(PL_LIST + "(" + org.json.JSONObject.quote(id) + ")", new android.webkit.ValueCallback<String>() { public void onReceiveValue(String v) {
+            if (!"\"started\"".equals(v)) { toast(a, "\"absent\"".equals(v) ? "Titre introuvable dans la page Spotify, réessaie" : "Action indisponible"); return; }
+            w.postDelayed(new Runnable() { public void run() { w.evaluateJavascript("JSON.stringify(window.__sfPlNames||null)", new android.webkit.ValueCallback<String>() { public void onReceiveValue(String r) {
+                final java.util.ArrayList<String> names = new java.util.ArrayList<String>();
+                try { Object o = new org.json.JSONTokener(r).nextValue(); org.json.JSONArray arr = o instanceof String ? new org.json.JSONArray((String) o) : null;
+                    for (int i = 0; arr != null && i < arr.length(); i++) { String n = arr.optString(i, ""); if (!n.isEmpty() && !n.matches("(?i)^(rechercher|search|cr\u00e9er|create|nouvelle playlist|new playlist).*")) names.add(n); } } catch (Exception ignored) { }
+                if (names.isEmpty()) { toast(a, "Liste des playlists introuvable dans le menu Spotify"); w.evaluateJavascript("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))", null); return; }
+                new android.app.AlertDialog.Builder(a).setTitle("Ajouter à une playlist").setItems(names.toArray(new String[0]), new android.content.DialogInterface.OnClickListener() {
+                    public void onClick(android.content.DialogInterface x, int i) { final String name = names.get(i);
+                        w.evaluateJavascript(PL_PICK + "(" + org.json.JSONObject.quote(name) + ")", new android.webkit.ValueCallback<String>() { public void onReceiveValue(String done) {
+                            toast(a, "\"done\"".equals(done) ? "Ajouté à « " + name + " »" : "Playlist introuvable, réessaie"); } }); } })
+                    .setOnCancelListener(new android.content.DialogInterface.OnCancelListener() { public void onCancel(android.content.DialogInterface x) {
+                        w.evaluateJavascript("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))", null); } }).show();
+            } }); } }, 1000);
         } });
     }
     static android.webkit.WebView webView(View v) {

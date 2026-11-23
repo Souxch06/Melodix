@@ -1,4 +1,4 @@
-.class Lcom/melodix/music/PreviewPlayerControllerPlayAll$14$1;
+.class Lcom/melodix/music/PreviewPlayerControllerPlayAll$15$1;
 .super Ljava/lang/Object;
 .source "PreviewPlayerControllerPlayAll.java"
 
@@ -8,7 +8,7 @@
 
 # annotations
 .annotation system Ldalvik/annotation/EnclosingMethod;
-    value = Lcom/melodix/music/PreviewPlayerControllerPlayAll$14;->run()V
+    value = Lcom/melodix/music/PreviewPlayerControllerPlayAll$15;->run()V
 .end annotation
 
 .annotation system Ldalvik/annotation/InnerClass;
@@ -18,11 +18,11 @@
 
 
 # instance fields
-.field final synthetic this$0:Lcom/melodix/music/PreviewPlayerControllerPlayAll$14;
+.field final synthetic this$0:Lcom/melodix/music/PreviewPlayerControllerPlayAll$15;
 
 
 # direct methods
-.method constructor <init>(Lcom/melodix/music/PreviewPlayerControllerPlayAll$14;)V
+.method constructor <init>(Lcom/melodix/music/PreviewPlayerControllerPlayAll$15;)V
     .locals 0
     .annotation system Ldalvik/annotation/MethodParameters;
         accessFlags = {
@@ -33,8 +33,8 @@
         }
     .end annotation
 
-    .line 211
-    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$14$1;->this$0:Lcom/melodix/music/PreviewPlayerControllerPlayAll$14;
+    .line 212
+    iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$15$1;->this$0:Lcom/melodix/music/PreviewPlayerControllerPlayAll$15;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
@@ -46,14 +46,14 @@
 .method public onClick(Landroid/content/DialogInterface;I)V
     .locals 2
 
-    .line 212
-    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$14$1;->this$0:Lcom/melodix/music/PreviewPlayerControllerPlayAll$14;
+    .line 213
+    iget-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$15$1;->this$0:Lcom/melodix/music/PreviewPlayerControllerPlayAll$15;
 
-    iget-object p1, p1, Lcom/melodix/music/PreviewPlayerControllerPlayAll$14;->val$a:Landroid/app/Activity;
+    iget-object p1, p1, Lcom/melodix/music/PreviewPlayerControllerPlayAll$15;->val$a:Landroid/app/Activity;
 
-    iget-object p2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$14$1;->this$0:Lcom/melodix/music/PreviewPlayerControllerPlayAll$14;
+    iget-object p2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$15$1;->this$0:Lcom/melodix/music/PreviewPlayerControllerPlayAll$15;
 
-    iget-object p2, p2, Lcom/melodix/music/PreviewPlayerControllerPlayAll$14;->val$id:Ljava/lang/String;
+    iget-object p2, p2, Lcom/melodix/music/PreviewPlayerControllerPlayAll$15;->val$id:Ljava/lang/String;
 
     const-string v0, "Supprimer de cette playlist|Remove from this playlist"
 
