@@ -79,7 +79,15 @@
             return n.isConnected && n !== b && /appareil|device|dispositivo|gerät/i.test(String(n.getAttribute('aria-label') || ''));
         });
         if (pops.length > 1) rootAmbiguous = true;
-        return pops.length === 1 ? pops[0] : null;
+        if (pops.length === 1) return pops[0];
+        // User diagnostic (1022423): the picker is an unlabelled popover holding a device-icon and list-row-title rows.
+        // Use the popover/dialog that contains the device icon.
+        var icon = Array.from(document.querySelectorAll('[data-testid="device-icon"]')).filter(function(n) { return !hiddenBeforeTap(n); });
+        if (icon.length === 1) {
+            var box = icon[0].closest('[role="dialog"], [data-tippy-root], [id^="tippy"], [role="menu"], [role="listbox"]');
+            if (box && box !== b && box.querySelector('[data-testid="list-row-title"]')) return box;
+        }
+        return null;
     }
     // Exclude hidden descendants and embedded controls rather than treating
     // all textContent inside a visible lyric element as a line.
@@ -138,16 +146,23 @@
     }
     function deviceRows(r, includeHidden) {
         var nodes = Array.from(r.querySelectorAll('[data-testid="device-list-item"], [data-testid="device-picker-row"], [role="option"], li button'));
+        if (!nodes.length) {
+            // Newer picker (1022423): one row per list-row-title; the row is its closest clickable ancestor.
+            Array.from(r.querySelectorAll('[data-testid="list-row-title"]')).forEach(function(t) {
+                var row = t.closest('button, [role="button"], [role="menuitem"], [role="menuitemradio"], li') || t.parentElement;
+                if (row && r.contains(row) && nodes.indexOf(row) < 0) nodes.push(row);
+            });
+        }
         var seen = [];
         nodes = nodes.filter(function(n) { if (seen.indexOf(n) >= 0) return false; seen.push(n); return includeHidden || !hiddenBeforeTap(n); });
         // Limit display only. Transfer ambiguity must consider every matching
         // element, including hidden items beyond the first page of results.
         if (!includeHidden) nodes = nodes.slice(0, 30);
         return nodes.map(function(n) {
-            var nameNode = n.querySelector('[data-testid="device-name"], [data-encore-id="text"]');
+            var nameNode = n.querySelector('[data-testid="device-name"], [data-testid="list-row-title"], [data-encore-id="text"]');
             var name = text(nameNode || n).slice(0, 80);
             var typeNode = n.querySelector('[data-testid="device-type"]');
-            var current = n.getAttribute('aria-selected') === 'true' || n.getAttribute('aria-current') === 'true' || n.getAttribute('aria-checked') === 'true';
+            var current = n.getAttribute('aria-selected') === 'true' || n.getAttribute('aria-current') === 'true' || n.getAttribute('aria-checked') === 'true' || !!n.querySelector('[data-testid="device-icon"]');
             return {node: n, name: name, type: typeNode ? text(typeNode).slice(0, 40) : '', current: current};
         }).filter(function(d) { return d.name; });
     }
