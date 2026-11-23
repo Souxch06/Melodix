@@ -67,11 +67,14 @@ stubs.update({
   c.G.replyCall(lc,"reason=observed;roots=1;rows=2;buttons=1;roles=2;testids=3");ok(PreviewPlayerTiles.diagnosticReport().contains("lignes=2"));
   c.G.replyCall(lc+1,"status=started;id=100:1");Handler.advance(250);c.G.reply("status=done;id=100:1;ok=true;body=Ligne un\\nLigne deux;active=1;journal=opened>lines:2:sync>closed");
   ok(((TextView)ll.children.get(0)).text.equals("Ligne un")&&((TextView)ll.children.get(1)).text.equals("Ligne deux"));ok(PreviewPlayerTiles.diagnosticReport().contains("lines:2:sync"));
-  ((Button)ls.children.get(3)).performClick();c.G.reply("status=started;id=100:1");Handler.advance(250);c.G.reply("status=done;id=100:1;ok=false;reason=panel");ok(((TextView)ll.children.get(0)).text.contains("Paroles indisponibles"));
+  /* Spotify lyrics (1022416): playback controls instead of a refresh button */ok(!(ls.children.get(3) instanceof Button));
   View handle=ls.children.get(0);handle.touch.onTouch(handle,new MotionEvent(0,100));handle.touch.onTouch(handle,new MotionEvent(2,400));handle.touch.onTouch(handle,new MotionEvent(1,400));ok(!lyricsDialog.shown);
+  // A failed read still explains itself (reopen instead of the removed refresh button).
+  Handler.advance(401);int lc2=c.G.calls;t.children.get(1).performClick();Dialog ld2=Dialog.last;LinearLayout ll2=(LinearLayout)((ScrollView)((LinearLayout)ld2.content).children.get(2)).child;
+  c.G.replyCall(lc2+1,"status=started;id=100:2");Handler.advance(250);c.G.reply("status=done;id=100:2;ok=false;reason=panel");ok(((TextView)ll2.children.get(0)).text.contains("Paroles indisponibles"));ld2.dismiss();
   // User diagnostic (1022412): a blocked drawer (unverified earlier close) recovers once by itself, then reports.
   Handler.advance(401);int rc=c.G.calls;t.children.get(1).performClick();Dialog rd=Dialog.last;c.G.replyCall(rc+1,"status=blocked");ok(c.G.js.contains("__melodixDrawerUnsafe=false"));
-  int afterRecover=c.G.calls;Handler.advance(500);ok(c.G.calls==afterRecover+1);ok(c.G.js.contains("\\"lyrics\\""));c.G.reply("status=blocked");ok(c.G.calls==afterRecover+1);rd.dismiss();
+  int afterRecover=c.G.calls;Handler.advance(500);ok(c.G.calls>afterRecover);ok(c.G.js.contains("\\"lyrics\\""));int retried=c.G.calls;c.G.reply("status=blocked");ok(c.G.calls==retried);/* one retry only */rd.dismiss();
   // Devices: list with active device; one tap transfers, like Spotify (user choice 1022411).
   Handler.advance(401);int dc=c.G.calls;t.children.get(2).performClick();Dialog devicesDialog=Dialog.last;ok(c.G.calls==dc+2);ok(c.root.getVisibility()==original);
   LinearLayout ds=(LinearLayout)devicesDialog.content;LinearLayout dl=(LinearLayout)((ScrollView)ds.children.get(2)).child;

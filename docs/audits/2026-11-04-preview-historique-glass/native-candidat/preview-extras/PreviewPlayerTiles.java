@@ -445,8 +445,9 @@ public final class PreviewPlayerTiles extends LinearLayout {
                 if(pending && validJobId(id))pollClosed(i,a,i==0?queueSerial:panelSerial,id,0);}});
             webDialog=dialog;openedAt=SystemClock.elapsedRealtime();queueStep="envoi";panelStep="envoi";
             retry.setOnClickListener(new View.OnClickListener(){public void onClick(View v){if(i==0)loadQueue(a,dialog,list,retry);else loadPanel(i,a,dialog,list,retry,"run","");}});
-            LinearLayout.LayoutParams retryParams=new LinearLayout.LayoutParams(-1,dp(48));retryParams.topMargin=dp(14);panel.addView(retry,retryParams);
-            if(i==1){retry.setVisibility(View.GONE);lyricsControls(a,panel,dialog);}
+            LinearLayout.LayoutParams retryParams=new LinearLayout.LayoutParams(-1,dp(48));retryParams.topMargin=dp(14);
+            // Lyrics: Spotify's playback controls instead of the refresh button (user request 1022416).
+            if(i==1)lyricsControls(a,panel,dialog);else panel.addView(retry,retryParams);
             dialog.showSheet(panel);Window w=dialog.getWindow();if(w==null){dialog.dismissImmediately();return;}
             w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));w.setGravity(Gravity.BOTTOM);w.setLayout(-1,i==1?-1:-2);
             if(i==0)loadQueue(a,dialog,list,retry);else loadPanel(i,a,dialog,list,retry,"run","");
