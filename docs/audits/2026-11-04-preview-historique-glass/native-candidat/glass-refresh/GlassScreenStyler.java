@@ -213,12 +213,13 @@ public final class GlassScreenStyler implements Runnable, android.view.ViewTreeO
 
     /** Shared Spotify-like list row (Library, Search). Returns true for a clickable row. */
     private static boolean listRow(Activity a,View c){
-        if(c instanceof TextView){heading((TextView)c);((TextView)c).setTextSize(18);return false;}
+        if(c instanceof TextView){heading((TextView)c);((TextView)c).setTextSize(20);c.setPadding(c.getPaddingLeft(),dp(a,20),c.getPaddingRight(),dp(a,8));return false;}
         if(!c.isClickable())return false;
-        GradientDrawable mask=glass(a,0xffffffff,0xffffffff,10,0);
+        GradientDrawable mask=glass(a,0xffffffff,0xffffffff,14,0);
+        c.setPadding(c.getPaddingLeft(),Math.max(c.getPaddingTop(),dp(a,6)),c.getPaddingRight(),Math.max(c.getPaddingBottom(),dp(a,6)));
         c.setForeground(new RippleDrawable(ColorStateList.valueOf(0x1fffffff),null,mask));
         ImageView cover=c instanceof ViewGroup&&((ViewGroup)c).getChildCount()>0&&((ViewGroup)c).getChildAt(0) instanceof ImageView?(ImageView)((ViewGroup)c).getChildAt(0):null;
-        if(cover!=null){if(cover.getBackground()==null)cover.setBackground(glass(a,0xff2a2a2e,0xff18181b,6,0));cover.setClipToOutline(true);}
+        if(cover!=null){if(cover.getBackground()==null)cover.setBackground(glass(a,0xff2a2a2e,0xff18181b,10,0));cover.setClipToOutline(true);}
         track(a,c);return true;
     }
     /** User report (1022316): the "Pop" chip searched the word, so it listed titles starting with "pop".
@@ -321,7 +322,8 @@ public final class GlassScreenStyler implements Runnable, android.view.ViewTreeO
     }
     // UI UX Pro Max (after 1022340): 8dp rhythm (16/24 insets) and no text under 12sp.
     private static void eyebrow(TextView t){t.setBackground(null);t.setTextSize(12);t.setTextColor(0x8cffffff);t.setLetterSpacing(.14f);t.setText(String.valueOf(t.getText()).toUpperCase(Locale.FRENCH));}
-    private static void heading(TextView t){t.setTextSize(22);t.setTextColor(0xfffafafa);t.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL),Typeface.BOLD);}
+    // User request (1022427, modern look): bigger, bolder section titles with slightly tighter tracking.
+    private static void heading(TextView t){t.setTextSize(24);t.setTextColor(0xffffffff);t.setLetterSpacing(-.01f);t.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL),Typeface.BOLD);}
     private static GradientDrawable glow(Context c,int color) {
         int base=color==0?0xffffff:color&0xffffff;
         GradientDrawable g=new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,new int[]{(color==0?0x12:0x66)<<24|base,(color==0?0x05:0x1f)<<24|base,0});
