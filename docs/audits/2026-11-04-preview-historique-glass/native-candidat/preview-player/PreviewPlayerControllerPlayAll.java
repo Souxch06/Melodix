@@ -324,7 +324,9 @@ final class PreviewPlayerControllerPlayAll {
             w.postDelayed(new Runnable() { public void run() { w.evaluateJavascript("JSON.stringify(window.__sfPlNames||null)", new android.webkit.ValueCallback<String>() { public void onReceiveValue(String r) {
                 final java.util.ArrayList<String> names = new java.util.ArrayList<String>();
                 try { Object o = new org.json.JSONTokener(r).nextValue(); org.json.JSONArray arr = o instanceof String ? new org.json.JSONArray((String) o) : null;
-                    for (int i = 0; arr != null && i < arr.length(); i++) { String n = arr.optString(i, ""); if (!n.isEmpty() && !n.matches("(?i)^(rechercher|search|cr\u00e9er|create|nouvelle playlist|new playlist).*")) names.add(n); } } catch (Exception ignored) { }
+                    for (int i = 0; arr != null && i < arr.length(); i++) { String n = arr.optString(i, ""); if (n.isEmpty() || n.matches("(?i)^(rechercher|search).*")) continue;
+                        // Spotify's "Créer une playlist" entry creates a new playlist holding the track (user request 1022408).
+                        if (n.matches("(?i)^(cr\u00e9er|create|nouvelle playlist|new playlist).*")) names.add(0, n); else names.add(n); } } catch (Exception ignored) { }
                 if (names.isEmpty()) { toast(a, "Liste des playlists introuvable dans le menu Spotify"); w.evaluateJavascript("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))", null); return; }
                 new android.app.AlertDialog.Builder(a).setTitle("Ajouter à une playlist").setItems(names.toArray(new String[0]), new android.content.DialogInterface.OnClickListener() {
                     public void onClick(android.content.DialogInterface x, int i) { final String name = names.get(i);
@@ -361,6 +363,31 @@ final class PreviewPlayerControllerPlayAll {
                 java.util.regex.Matcher m = java.util.regex.Pattern.compile("/playlist/([A-Za-z0-9]+)").matcher(r == null ? "" : r);
                 if (m.find()) openNative(a, "spotify:playlist:" + m.group(1), "Radio du titre"); else toast(a, "Radio non trouvée dans le menu Spotify"); } }); } }, 2000);
         } });
+    }
+    // Artist screens (user request 1022408): Spotify's "Suivre" button, toggled in the hidden artist page on a tap.
+    static final String FOLLOW_JOB = "(function(act){try{var bs=document.querySelectorAll('main button,[data-testid=\"action-bar-row\"] button');var b=null;for(var i=0;i<bs.length;i++){var t=(bs[i].textContent||'').trim();if(/^(Suivre|Abonn\u00e9\u00b7?e?|Abonn\u00e9|Follow|Following|S'abonner|Se d\u00e9sabonner)$/i.test(t)){b=bs[i];break}}if(!b)return 'absent';var on=/^(Abonn|Following|Se d\u00e9sabonner)/i.test((b.textContent||'').trim());if(act==='tap'){b.click();return on?'off':'on'}return on?'on':'off'}catch(e){return 'error'}})";
+    static void addFollow(final Activity a) {
+        final View root = a.findViewById(0x7f09022f); if (root == null || root.findViewWithTag("melodixFollow") != null) return;
+        // Artist screens have no styled hero: the button goes on top of the list.
+        View heroView = root.findViewWithTag("glass-playlist-hero"); int at = -1;
+        if (!(heroView instanceof ViewGroup)) { heroView = root instanceof ViewGroup && ((ViewGroup) root).getChildCount() > 0 && ((ViewGroup) root).getChildAt(0) instanceof android.widget.LinearLayout ? ((ViewGroup) root).getChildAt(0) : null; at = 0; }
+        if (!(heroView instanceof ViewGroup)) return;
+        float d = a.getResources().getDisplayMetrics().density;
+        final TextView b = text(a, "Suivre", 14, 0xfff5f5f7, true); b.setTag("melodixFollow"); b.setGravity(android.view.Gravity.CENTER);
+        b.setPadding((int) (18 * d), (int) (8 * d), (int) (18 * d), (int) (8 * d));
+        android.graphics.drawable.GradientDrawable g = new android.graphics.drawable.GradientDrawable(); g.setCornerRadius(20 * d); g.setStroke(Math.max(1, (int) d), 0x99ffffff); b.setBackground(g);
+        ViewGroup.MarginLayoutParams lp = new ViewGroup.MarginLayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT); lp.topMargin = (int) (12 * d);
+        lp.leftMargin = (int) (16 * d); lp.bottomMargin = (int) (8 * d);
+        if (heroView instanceof android.widget.LinearLayout) { android.widget.LinearLayout.LayoutParams ll = new android.widget.LinearLayout.LayoutParams(lp.width, lp.height); ll.setMargins(lp.leftMargin, lp.topMargin, 0, lp.bottomMargin); ll.gravity = android.view.Gravity.START; ((ViewGroup) heroView).addView(b, at, ll); }
+        else ((ViewGroup) heroView).addView(b, at, lp);
+        final android.webkit.WebView w = webView(a.getWindow().getDecorView()); if (w == null) { b.setVisibility(View.GONE); return; }
+        final android.webkit.ValueCallback<String> show = new android.webkit.ValueCallback<String>() { public void onReceiveValue(String v) {
+            if ("\"absent\"".equals(v) || "\"error\"".equals(v)) { b.setVisibility(View.GONE); return; }
+            b.setVisibility(View.VISIBLE); b.setText("\"on\"".equals(v) ? "Abonné" : "Suivre"); } };
+        w.postDelayed(new Runnable() { public void run() { w.evaluateJavascript(FOLLOW_JOB + "('read')", show); } }, 1200);
+        b.setOnClickListener(new View.OnClickListener() { public void onClick(View v) {
+            w.evaluateJavascript(FOLLOW_JOB + "('tap')", show);
+            w.postDelayed(new Runnable() { public void run() { w.evaluateJavascript(FOLLOW_JOB + "('read')", show); } }, 1500); } });
     }
     static android.webkit.WebView webView(View v) {
         if (v instanceof android.webkit.WebView) return (android.webkit.WebView) v;

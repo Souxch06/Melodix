@@ -113,13 +113,13 @@
     move p1, v2
 
     :goto_1
-    if-eqz v3, :cond_2
+    if-eqz v3, :cond_4
 
     invoke-virtual {v3}, Lorg/json/JSONArray;->length()I
 
     move-result v4
 
-    if-ge p1, v4, :cond_2
+    if-ge p1, v4, :cond_4
 
     const-string v4, ""
 
@@ -131,35 +131,57 @@
 
     move-result v5
 
-    if-nez v5, :cond_1
+    if-nez v5, :cond_3
 
-    const-string v5, "(?i)^(rechercher|search|cr\u00e9er|create|nouvelle playlist|new playlist).*"
+    const-string v5, "(?i)^(rechercher|search).*"
 
     invoke-virtual {v4, v5}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
 
     move-result v5
 
-    if-nez v5, :cond_1
+    if-eqz v5, :cond_1
 
+    goto :goto_2
+
+    .line 329
+    :cond_1
+    const-string v5, "(?i)^(cr\u00e9er|create|nouvelle playlist|new playlist).*"
+
+    invoke-virtual {v4, v5}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+
+    move-result v5
+
+    if-eqz v5, :cond_2
+
+    invoke-virtual {v0, v2, v4}, Ljava/util/ArrayList;->add(ILjava/lang/Object;)V
+
+    goto :goto_2
+
+    :cond_2
     invoke-virtual {v0, v4}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
     :try_end_0
     .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
 
-    :cond_1
+    .line 327
+    :cond_3
+    :goto_2
     add-int/lit8 p1, p1, 0x1
 
     goto :goto_1
 
+    .line 329
     :catch_0
     move-exception p1
 
-    .line 328
-    :cond_2
+    :cond_4
+    nop
+
+    .line 330
     invoke-virtual {v0}, Ljava/util/ArrayList;->isEmpty()Z
 
     move-result p1
 
-    if-eqz p1, :cond_3
+    if-eqz p1, :cond_5
 
     iget-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$24$1$1;->this$1:Lcom/melodix/music/PreviewPlayerControllerPlayAll$24$1;
 
@@ -183,8 +205,8 @@
 
     return-void
 
-    .line 329
-    :cond_3
+    .line 331
+    :cond_5
     new-instance p1, Landroid/app/AlertDialog$Builder;
 
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$24$1$1;->this$1:Lcom/melodix/music/PreviewPlayerControllerPlayAll$24$1;
@@ -221,14 +243,14 @@
 
     invoke-direct {v0, p0}, Lcom/melodix/music/PreviewPlayerControllerPlayAll$24$1$1$1;-><init>(Lcom/melodix/music/PreviewPlayerControllerPlayAll$24$1$1;)V
 
-    .line 333
+    .line 335
     invoke-virtual {p1, v0}, Landroid/app/AlertDialog$Builder;->setOnCancelListener(Landroid/content/DialogInterface$OnCancelListener;)Landroid/app/AlertDialog$Builder;
 
     move-result-object p1
 
-    .line 334
+    .line 336
     invoke-virtual {p1}, Landroid/app/AlertDialog$Builder;->show()Landroid/app/AlertDialog;
 
-    .line 335
+    .line 337
     return-void
 .end method

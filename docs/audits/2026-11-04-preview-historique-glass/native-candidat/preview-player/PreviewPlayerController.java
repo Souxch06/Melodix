@@ -574,6 +574,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         // User report (1022393): the header jumped; it is rebuilt on each redraw and the buttons/⋮ came one frame
         // later (posted). Add them in the same pass so the frame never shows the header without them.
         if (onDetail && !playlistKey(context).isEmpty()) { Activity pa = activity.get(); if (pa != null) try { PreviewPlayerControllerPlayAll.add(pa, rowsForMenu); } catch (RuntimeException ignored) { } }
+        else if (onDetail && context != null && (context.contains(":artist:") || context.contains("/artist/"))) { Activity pa = activity.get(); if (pa != null) try { PreviewPlayerControllerPlayAll.addFollow(pa); } catch (RuntimeException ignored) { } }
         if ("home".equals(screen) && firstCreateAt >= 0 && firstHomeFrameMs < 0) measureHomeFrame = true;
         if ("detail".equals(screen) && context != null) { try { storeRows(context, new JSONArray(rows)); } catch (Exception ignored) { } }
         if ("detail".equals(screen) && playlistStart >= 0 && pendingPlaylist.equals(playlistKey(context))) {

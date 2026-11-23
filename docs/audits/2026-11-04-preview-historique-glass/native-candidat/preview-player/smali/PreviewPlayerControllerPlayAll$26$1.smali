@@ -33,7 +33,7 @@
         }
     .end annotation
 
-    .line 360
+    .line 362
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$26$1;->this$0:Lcom/melodix/music/PreviewPlayerControllerPlayAll$26;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -46,7 +46,7 @@
 .method public run()V
     .locals 3
 
-    .line 360
+    .line 362
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$26$1;->this$0:Lcom/melodix/music/PreviewPlayerControllerPlayAll$26;
 
     iget-object v0, v0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$26;->val$w:Landroid/webkit/WebView;
@@ -59,6 +59,6 @@
 
     invoke-virtual {v0, v2, v1}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
 
-    .line 362
+    .line 364
     return-void
 .end method

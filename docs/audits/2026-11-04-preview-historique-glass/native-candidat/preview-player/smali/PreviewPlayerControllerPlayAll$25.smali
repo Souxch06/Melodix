@@ -41,7 +41,7 @@
         }
     .end annotation
 
-    .line 346
+    .line 348
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$25;->val$a:Landroid/app/Activity;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$25;->val$fallbackSearch:Ljava/lang/String;
@@ -64,7 +64,7 @@
         }
     .end annotation
 
-    .line 346
+    .line 348
     check-cast p1, Ljava/lang/String;
 
     invoke-virtual {p0, p1}, Lcom/melodix/music/PreviewPlayerControllerPlayAll$25;->onReceiveValue(Ljava/lang/String;)V
@@ -75,7 +75,7 @@
 .method public onReceiveValue(Ljava/lang/String;)V
     .locals 3
 
-    .line 347
+    .line 349
     const-string v0, ""
 
     :try_start_0
@@ -102,7 +102,7 @@
     :catch_0
     move-exception p1
 
-    .line 348
+    .line 350
     :cond_0
     :goto_0
     const/16 p1, 0x9
@@ -111,7 +111,7 @@
 
     move-result p1
 
-    .line 349
+    .line 351
     const-string v1, "spotify:(album|artist):[A-Za-z0-9]+\t.*"
 
     invoke-virtual {v0, v1}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
@@ -138,7 +138,7 @@
 
     goto :goto_1
 
-    .line 350
+    .line 352
     :cond_1
     iget-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$25;->val$fallbackSearch:Ljava/lang/String;
 
@@ -160,7 +160,7 @@
 
     goto :goto_1
 
-    .line 351
+    .line 353
     :cond_2
     iget-object p1, p0, Lcom/melodix/music/PreviewPlayerControllerPlayAll$25;->val$a:Landroid/app/Activity;
 
@@ -168,7 +168,7 @@
 
     invoke-static {p1, v0}, Lcom/melodix/music/PreviewPlayerControllerPlayAll;->toast(Landroid/app/Activity;Ljava/lang/String;)V
 
-    .line 352
+    .line 354
     :goto_1
     return-void
 .end method
