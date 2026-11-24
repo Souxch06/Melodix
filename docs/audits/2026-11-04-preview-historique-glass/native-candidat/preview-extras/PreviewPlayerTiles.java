@@ -304,7 +304,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
             for(int j=0;j<lyricViews.size();j++)lyricViews.get(j).setTextColor(lyricsPale);
             if(k>=0&&lyricScroll!=null)lyricScroll.smoothScrollTo(0,Math.max(0,lyricViews.get(k).getTop()-dp(160)));
         }});}catch(RuntimeException ignored){}
-        postDelayed(new Runnable(){public void run(){lyricsTick(a,dialog,fill,pos,dur,play);}},250);
+        postDelayed(new Runnable(){public void run(){lyricsTick(a,dialog,fill,pos,dur,play);}},120);
     }
     private void lyricsControls(final Activity a,LinearLayout panel,final Dialog dialog){
         LinearLayout box=new LinearLayout(a);box.setOrientation(VERTICAL);box.setPadding(0,dp(12),0,0);
