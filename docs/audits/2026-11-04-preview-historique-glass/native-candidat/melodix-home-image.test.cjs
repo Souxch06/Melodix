@@ -22,3 +22,17 @@ test('a valid currentSrc still wins first',()=>{
 test('nothing usable returns an empty string',()=>{
   assert.equal(pick('<img src="data:image/gif;base64,AA">'),'');
 });
+
+// Late images: Spotify often sets src/srcset on an existing <img>. Those are attribute changes, not new nodes,
+// so the home observer must watch them (debounced by scheduleMelodixHomeUpdate, so it does not re-render per change).
+test('the home observer also watches late src and srcset changes',()=>{
+  const seen={};
+  const d=new JSDOM('<!doctype html><body></body>',{url:'https://open.spotify.com/',runScripts:'outside-only'});
+  d.window.MutationObserver=function(cb){this.observe=(node,opts)=>{seen.opts=opts;seen.node=node;};};
+  d.window.setTimeout=()=>0;
+  d.window.eval('var window=globalThis;');
+  d.window.eval(fn('scheduleMelodixHomeUpdate')+';'+fn('observeMelodixHomeDom')+';globalThis.run=observeMelodixHomeDom;');
+  d.window.run();
+  assert.equal(seen.opts.attributes,true);
+  assert.deepEqual([...seen.opts.attributeFilter].sort(),['data-src','src','srcset']);
+});
