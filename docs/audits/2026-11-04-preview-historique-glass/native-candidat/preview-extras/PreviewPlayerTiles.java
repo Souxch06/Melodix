@@ -299,7 +299,9 @@ public final class PreviewPlayerTiles extends LinearLayout {
         if(w!=null&&!lyricViews.isEmpty())try{w.evaluateJavascript(LIVE_JS,new ValueCallback<String>(){public void onReceiveValue(String v){
             String t="";try{Object d=new JSONTokener(String.valueOf(v)).nextValue();if(d instanceof String)t=((String)d).trim();}catch(Exception ignored){}
             if(t.isEmpty())return; // paused or no sung line: keep the line shown, never reload (a reload restarts at the top)
-            int k=-1;for(int j=0;j<lyricViews.size();j++)if(lyricViews.get(j).getText().toString().trim().equals(t)){k=j;break;}
+            // A repeated line (chorus) matches several rows: take the first one after the line shown, not the first in the list.
+            int k=-1,size=lyricViews.size(),from=Math.max(0,lyricsActive);
+            for(int d=0;d<size&&k<0;d++){int j=(from+d)%size;if(lyricViews.get(j).getText().toString().trim().equals(t))k=j;}
             liveMisses=0;if(k<0||k==lyricsActive)return;lineChanged(lyricsActive,k);lyricsActive=k;
             for(int j=0;j<lyricViews.size();j++)lyricViews.get(j).setTextColor(lyricsPale);
             if(k>=0&&lyricScroll!=null)lyricScroll.smoothScrollTo(0,Math.max(0,lyricViews.get(k).getTop()-dp(160)));
