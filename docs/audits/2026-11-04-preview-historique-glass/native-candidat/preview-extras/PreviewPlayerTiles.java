@@ -264,7 +264,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
         boolean playing=full!=null&&String.valueOf(full.getContentDescription()).startsWith("Mettre en pause");lyricsPlaying=playing;play.setContentDescription(playing?"Pause":"Lecture");play.invalidate();
         WebView w=web(a);
         if(w!=null&&!lyricViews.isEmpty())try{w.evaluateJavascript(LIVE_JS,new ValueCallback<String>(){public void onReceiveValue(String v){
-            String t="";try{Object d=new JSONTokener(String.valueOf(v)).nextValue();if(d instanceof String)t=((String)d).trim();}catch(RuntimeException ignored){}
+            String t="";try{Object d=new JSONTokener(String.valueOf(v)).nextValue();if(d instanceof String)t=((String)d).trim();}catch(Exception ignored){}
             if(t.isEmpty()){if(++liveMisses==5&&lyricsReload!=null){liveMisses=0;post(lyricsReload);}return;}
             int k=-1;for(int j=0;j<lyricViews.size();j++)if(lyricViews.get(j).getText().toString().trim().equals(t)){k=j;break;}
             liveMisses=0;if(k<0||k==lyricsActive)return;lyricsActive=k;
