@@ -140,7 +140,7 @@
     <!-- strokes and technical masks -->
     <color name="mel_stroke">#24FFFFFF</color>
     <color name="mel_stroke_accent">#2ea78bfa</color>
-    <color name="mel_mask">#ffffffff</color>
+    <color name="mel_mask">#8cffffff</color>
     <!-- MEL-BUG-039: glass palette (Apple-like translucent surfaces + hairline strokes) -->
     <color name="mel_glass_fill">#12FFFFFF</color>
     <color name="mel_glass_stroke">#24FFFFFF</color>
@@ -181,8 +181,8 @@
     <!-- Veil over an unavailable tile; keeps the hue readable but clearly inert. -->
     <color name="mel_tile_unavailable_veil">#bf10161a</color>
     <!-- Browse tile depth. Kept in the palette so drawables carry no hex. -->
-    <color name="mel_tile_shade_bottom">#ffb0b0b0</color>
-    <color name="mel_tile_edge">#1f000000</color>
+    <color name="mel_tile_shade_bottom">#a6b0b0b0</color>
+    <color name="mel_tile_edge">#33ffffff</color>
     <color name="mel_tile_press">#4dffffff</color>
     <color name="mel_tile_label_shadow">#59000000</color>
     <!-- Inert transport control. Nothing drives this yet: no code calls
