@@ -319,7 +319,11 @@
         if (!b && !already) { log(found > 1 ? 'button:ambiguous:' + Math.min(found, 9) : 'button:absent'); finish(false, found > 1 ? 'ambiguous' : 'absent'); return JSON.stringify({status: 'started', id: job.id}); }
         if (b && !already && hiddenBeforeTap(b)) { log('button:absent'); finish(false, 'absent'); return JSON.stringify({status: 'started', id: job.id}); }
         wasOpen = !!already || (b && isOpen(b));
-        if (!wasOpen) { try { openedHere = true; b.click(); log('opened'); } catch (_) { log('open-error'); finish(false, 'command'); return JSON.stringify({status: 'started', id: job.id}); } }
+        // Spotify's lyrics view left open in the hidden page keeps only a few lines drawn: close it and open it again,
+        // so it draws every line (the way it does on a fresh open). The job then closes it as usual.
+        var freshen = kind === 'lyrics' && wasOpen && !!b;
+        if (freshen) { try { b.click(); log('fresh'); } catch (_) {} openedHere = true; wasOpen = false; job.freshWait = Date.now() + 1200; setTimeout(function() { try { b.click(); } catch (_) {} }, 700); }
+        else if (!wasOpen) { try { openedHere = true; b.click(); log('opened'); } catch (_) { log('open-error'); finish(false, 'command'); return JSON.stringify({status: 'started', id: job.id}); } }
         else log('already-open');
         // Lyrics load over the network after the click: wait longer for them (user diagnostic 1022413).
         var end = Date.now() + (kind === 'lyrics' ? 8000 : 4000), forced = false;
@@ -329,6 +333,7 @@
             r = root(button() || b); if (r && hiddenBeforeTap(r)) r = null;
             if (kind === 'devices' && action === 'transfer' && r && !trustedDevices(r)) { log('target:absent'); finish(false, 'target'); return; }
             var ready = r && (kind === 'lyrics' ? lyricLines(r).lines.length : deviceRows(r, action === 'transfer').length);
+            if (ready && job.freshWait && Date.now() < job.freshWait) ready = 0; // the closing view still shows its old lines
             if (!ready && r && !forced && Date.now() > end - 2000) { forced = true; giveSize(r); }
             if (!ready && Date.now() < end) { setTimeout(step, 150); return; }
             if (!ready && kind === 'devices') {
