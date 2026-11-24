@@ -298,7 +298,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
         WebView w=web(a);
         if(w!=null&&!lyricViews.isEmpty())try{w.evaluateJavascript(LIVE_JS,new ValueCallback<String>(){public void onReceiveValue(String v){
             String t="";try{Object d=new JSONTokener(String.valueOf(v)).nextValue();if(d instanceof String)t=((String)d).trim();}catch(Exception ignored){}
-            if(t.isEmpty()){if(++liveMisses==5&&lyricsReload!=null){liveMisses=0;post(lyricsReload);}return;}
+            if(t.isEmpty())return; // paused or no sung line: keep the line shown, never reload (a reload restarts at the top)
             int k=-1;for(int j=0;j<lyricViews.size();j++)if(lyricViews.get(j).getText().toString().trim().equals(t)){k=j;break;}
             liveMisses=0;if(k<0||k==lyricsActive)return;lineChanged(lyricsActive,k);lyricsActive=k;
             for(int j=0;j<lyricViews.size();j++)lyricViews.get(j).setTextColor(lyricsPale);

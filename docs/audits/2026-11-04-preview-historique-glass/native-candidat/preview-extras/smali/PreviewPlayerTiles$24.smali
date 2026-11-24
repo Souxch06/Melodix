@@ -108,7 +108,7 @@
     :cond_0
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerTiles$24;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-    invoke-static {v2}, Lcom/melodix/music/PreviewPlayerTiles;->access$3700(Lcom/melodix/music/PreviewPlayerTiles;)J
+    invoke-static {v2}, Lcom/melodix/music/PreviewPlayerTiles;->access$3600(Lcom/melodix/music/PreviewPlayerTiles;)J
 
     move-result-wide v2
 

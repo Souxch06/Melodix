@@ -818,38 +818,7 @@
     return-void
 .end method
 
-.method static synthetic access$2602(Lcom/melodix/music/PreviewPlayerTiles;I)I
-    .locals 0
-
-    .line 30
-    iput p1, p0, Lcom/melodix/music/PreviewPlayerTiles;->liveMisses:I
-
-    return p1
-.end method
-
-.method static synthetic access$2604(Lcom/melodix/music/PreviewPlayerTiles;)I
-    .locals 1
-
-    .line 30
-    iget v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->liveMisses:I
-
-    add-int/lit8 v0, v0, 0x1
-
-    iput v0, p0, Lcom/melodix/music/PreviewPlayerTiles;->liveMisses:I
-
-    return v0
-.end method
-
-.method static synthetic access$2700(Lcom/melodix/music/PreviewPlayerTiles;)Ljava/lang/Runnable;
-    .locals 0
-
-    .line 30
-    iget-object p0, p0, Lcom/melodix/music/PreviewPlayerTiles;->lyricsReload:Ljava/lang/Runnable;
-
-    return-object p0
-.end method
-
-.method static synthetic access$2800(Lcom/melodix/music/PreviewPlayerTiles;)Ljava/util/ArrayList;
+.method static synthetic access$2600(Lcom/melodix/music/PreviewPlayerTiles;)Ljava/util/ArrayList;
     .locals 0
 
     .line 30
@@ -858,7 +827,16 @@
     return-object p0
 .end method
 
-.method static synthetic access$2900(Lcom/melodix/music/PreviewPlayerTiles;)I
+.method static synthetic access$2702(Lcom/melodix/music/PreviewPlayerTiles;I)I
+    .locals 0
+
+    .line 30
+    iput p1, p0, Lcom/melodix/music/PreviewPlayerTiles;->liveMisses:I
+
+    return p1
+.end method
+
+.method static synthetic access$2800(Lcom/melodix/music/PreviewPlayerTiles;)I
     .locals 0
 
     .line 30
@@ -867,7 +845,7 @@
     return p0
 .end method
 
-.method static synthetic access$2902(Lcom/melodix/music/PreviewPlayerTiles;I)I
+.method static synthetic access$2802(Lcom/melodix/music/PreviewPlayerTiles;I)I
     .locals 0
 
     .line 30
@@ -876,13 +854,22 @@
     return p1
 .end method
 
-.method static synthetic access$3000(Lcom/melodix/music/PreviewPlayerTiles;II)V
+.method static synthetic access$2900(Lcom/melodix/music/PreviewPlayerTiles;II)V
     .locals 0
 
     .line 30
     invoke-direct {p0, p1, p2}, Lcom/melodix/music/PreviewPlayerTiles;->lineChanged(II)V
 
     return-void
+.end method
+
+.method static synthetic access$3000(Lcom/melodix/music/PreviewPlayerTiles;)I
+    .locals 0
+
+    .line 30
+    iget p0, p0, Lcom/melodix/music/PreviewPlayerTiles;->lyricsPale:I
+
+    return p0
 .end method
 
 .method static synthetic access$302(J)J
@@ -894,16 +881,7 @@
     return-wide p0
 .end method
 
-.method static synthetic access$3100(Lcom/melodix/music/PreviewPlayerTiles;)I
-    .locals 0
-
-    .line 30
-    iget p0, p0, Lcom/melodix/music/PreviewPlayerTiles;->lyricsPale:I
-
-    return p0
-.end method
-
-.method static synthetic access$3200(Lcom/melodix/music/PreviewPlayerTiles;)Landroid/widget/ScrollView;
+.method static synthetic access$3100(Lcom/melodix/music/PreviewPlayerTiles;)Landroid/widget/ScrollView;
     .locals 0
 
     .line 30
@@ -912,7 +890,7 @@
     return-object p0
 .end method
 
-.method static synthetic access$3300(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Activity;Landroid/app/Dialog;Landroid/view/View;Landroid/widget/TextView;Landroid/widget/TextView;Landroid/widget/TextView;)V
+.method static synthetic access$3200(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Activity;Landroid/app/Dialog;Landroid/view/View;Landroid/widget/TextView;Landroid/widget/TextView;Landroid/widget/TextView;)V
     .locals 0
 
     .line 30
@@ -921,7 +899,7 @@
     return-void
 .end method
 
-.method static synthetic access$3400(Lcom/melodix/music/PreviewPlayerTiles;)Z
+.method static synthetic access$3300(Lcom/melodix/music/PreviewPlayerTiles;)Z
     .locals 0
 
     .line 30
@@ -930,7 +908,7 @@
     return p0
 .end method
 
-.method static synthetic access$3502(Lcom/melodix/music/PreviewPlayerTiles;Z)Z
+.method static synthetic access$3402(Lcom/melodix/music/PreviewPlayerTiles;Z)Z
     .locals 0
 
     .line 30
@@ -939,7 +917,7 @@
     return p1
 .end method
 
-.method static synthetic access$3600(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
+.method static synthetic access$3500(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
     .locals 0
 
     .line 30
@@ -948,7 +926,7 @@
     return-void
 .end method
 
-.method static synthetic access$3700(Lcom/melodix/music/PreviewPlayerTiles;)J
+.method static synthetic access$3600(Lcom/melodix/music/PreviewPlayerTiles;)J
     .locals 2
 
     .line 30
@@ -957,7 +935,7 @@
     return-wide v0
 .end method
 
-.method static synthetic access$3708(Lcom/melodix/music/PreviewPlayerTiles;)J
+.method static synthetic access$3608(Lcom/melodix/music/PreviewPlayerTiles;)J
     .locals 4
 
     .line 30
@@ -972,7 +950,7 @@
     return-wide v0
 .end method
 
-.method static synthetic access$3800(Lcom/melodix/music/PreviewPlayerTiles;)J
+.method static synthetic access$3700(Lcom/melodix/music/PreviewPlayerTiles;)J
     .locals 2
 
     .line 30
@@ -981,13 +959,22 @@
     return-wide v0
 .end method
 
-.method static synthetic access$3900()[Ljava/lang/String;
+.method static synthetic access$3800()[Ljava/lang/String;
     .locals 1
 
     .line 30
     sget-object v0, Lcom/melodix/music/PreviewPlayerTiles;->panelJournals:[Ljava/lang/String;
 
     return-object v0
+.end method
+
+.method static synthetic access$3900(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
+    .locals 0
+
+    .line 30
+    invoke-direct/range {p0 .. p5}, Lcom/melodix/music/PreviewPlayerTiles;->panelMessage(Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
+
+    return-void
 .end method
 
 .method static synthetic access$400()[J
@@ -999,16 +986,7 @@
     return-object v0
 .end method
 
-.method static synthetic access$4000(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
-    .locals 0
-
-    .line 30
-    invoke-direct/range {p0 .. p5}, Lcom/melodix/music/PreviewPlayerTiles;->panelMessage(Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
-
-    return-void
-.end method
-
-.method static synthetic access$4100(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
+.method static synthetic access$4000(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
     .locals 0
 
     .line 30
@@ -1017,7 +995,7 @@
     return-void
 .end method
 
-.method static synthetic access$4200(Lcom/melodix/music/PreviewPlayerTiles;)Ljava/lang/String;
+.method static synthetic access$4100(Lcom/melodix/music/PreviewPlayerTiles;)Ljava/lang/String;
     .locals 0
 
     .line 30
@@ -1026,7 +1004,7 @@
     return-object p0
 .end method
 
-.method static synthetic access$4202(Lcom/melodix/music/PreviewPlayerTiles;Ljava/lang/String;)Ljava/lang/String;
+.method static synthetic access$4102(Lcom/melodix/music/PreviewPlayerTiles;Ljava/lang/String;)Ljava/lang/String;
     .locals 0
 
     .line 30
@@ -1035,7 +1013,7 @@
     return-object p1
 .end method
 
-.method static synthetic access$4300(Lcom/melodix/music/PreviewPlayerTiles;)Z
+.method static synthetic access$4200(Lcom/melodix/music/PreviewPlayerTiles;)Z
     .locals 0
 
     .line 30
@@ -1044,7 +1022,7 @@
     return p0
 .end method
 
-.method static synthetic access$4302(Lcom/melodix/music/PreviewPlayerTiles;Z)Z
+.method static synthetic access$4202(Lcom/melodix/music/PreviewPlayerTiles;Z)Z
     .locals 0
 
     .line 30
@@ -1053,7 +1031,7 @@
     return p1
 .end method
 
-.method static synthetic access$4400(Lcom/melodix/music/PreviewPlayerTiles;)Ljava/lang/String;
+.method static synthetic access$4300(Lcom/melodix/music/PreviewPlayerTiles;)Ljava/lang/String;
     .locals 0
 
     .line 30
@@ -1062,7 +1040,7 @@
     return-object p0
 .end method
 
-.method static synthetic access$4402(Lcom/melodix/music/PreviewPlayerTiles;Ljava/lang/String;)Ljava/lang/String;
+.method static synthetic access$4302(Lcom/melodix/music/PreviewPlayerTiles;Ljava/lang/String;)Ljava/lang/String;
     .locals 0
 
     .line 30
@@ -1071,7 +1049,7 @@
     return-object p1
 .end method
 
-.method static synthetic access$4500(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;JILjava/lang/String;Ljava/lang/String;)V
+.method static synthetic access$4400(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;JILjava/lang/String;Ljava/lang/String;)V
     .locals 0
 
     .line 30
@@ -1080,7 +1058,7 @@
     return-void
 .end method
 
-.method static synthetic access$4600(Lcom/melodix/music/PreviewPlayerTiles;)Z
+.method static synthetic access$4500(Lcom/melodix/music/PreviewPlayerTiles;)Z
     .locals 0
 
     .line 30
@@ -1089,7 +1067,7 @@
     return p0
 .end method
 
-.method static synthetic access$4602(Lcom/melodix/music/PreviewPlayerTiles;Z)Z
+.method static synthetic access$4502(Lcom/melodix/music/PreviewPlayerTiles;Z)Z
     .locals 0
 
     .line 30
@@ -1098,7 +1076,7 @@
     return p1
 .end method
 
-.method static synthetic access$4700(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
+.method static synthetic access$4600(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
     .locals 0
 
     .line 30
@@ -1107,7 +1085,7 @@
     return-void
 .end method
 
-.method static synthetic access$4802(Lcom/melodix/music/PreviewPlayerTiles;Ljava/lang/String;)Ljava/lang/String;
+.method static synthetic access$4702(Lcom/melodix/music/PreviewPlayerTiles;Ljava/lang/String;)Ljava/lang/String;
     .locals 0
 
     .line 30
@@ -1116,11 +1094,20 @@
     return-object p1
 .end method
 
-.method static synthetic access$4900(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Lorg/json/JSONObject;Ljava/lang/String;)V
+.method static synthetic access$4800(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Lorg/json/JSONObject;Ljava/lang/String;)V
     .locals 0
 
     .line 30
     invoke-direct/range {p0 .. p7}, Lcom/melodix/music/PreviewPlayerTiles;->renderPanel(ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Lorg/json/JSONObject;Ljava/lang/String;)V
+
+    return-void
+.end method
+
+.method static synthetic access$4900(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;JLjava/lang/String;I)V
+    .locals 0
+
+    .line 30
+    invoke-direct/range {p0 .. p6}, Lcom/melodix/music/PreviewPlayerTiles;->pollClosed(ILandroid/app/Activity;JLjava/lang/String;I)V
 
     return-void
 .end method
@@ -1134,16 +1121,7 @@
     return-object v0
 .end method
 
-.method static synthetic access$5000(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;JLjava/lang/String;I)V
-    .locals 0
-
-    .line 30
-    invoke-direct/range {p0 .. p6}, Lcom/melodix/music/PreviewPlayerTiles;->pollClosed(ILandroid/app/Activity;JLjava/lang/String;I)V
-
-    return-void
-.end method
-
-.method static synthetic access$5100(Lorg/json/JSONObject;)Ljava/lang/String;
+.method static synthetic access$5000(Lorg/json/JSONObject;)Ljava/lang/String;
     .locals 0
 
     .line 30
@@ -1154,7 +1132,7 @@
     return-object p0
 .end method
 
-.method static synthetic access$5200(Ljava/lang/String;)Ljava/lang/String;
+.method static synthetic access$5100(Ljava/lang/String;)Ljava/lang/String;
     .locals 0
 
     .line 30
@@ -1165,7 +1143,7 @@
     return-object p0
 .end method
 
-.method static synthetic access$5300(Lcom/melodix/music/PreviewPlayerTiles;)J
+.method static synthetic access$5200(Lcom/melodix/music/PreviewPlayerTiles;)J
     .locals 2
 
     .line 30
@@ -1174,7 +1152,7 @@
     return-wide v0
 .end method
 
-.method static synthetic access$5400(Lcom/melodix/music/PreviewPlayerTiles;)V
+.method static synthetic access$5300(Lcom/melodix/music/PreviewPlayerTiles;)V
     .locals 0
 
     .line 30
@@ -1183,7 +1161,7 @@
     return-void
 .end method
 
-.method static synthetic access$5500(Lcom/melodix/music/PreviewPlayerTiles;I)V
+.method static synthetic access$5400(Lcom/melodix/music/PreviewPlayerTiles;I)V
     .locals 0
 
     .line 30

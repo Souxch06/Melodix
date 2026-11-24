@@ -63,7 +63,7 @@
 
     iget v0, p0, Lcom/melodix/music/PreviewPlayerTiles$30;->val$n:I
 
-    invoke-static {p1, v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$5500(Lcom/melodix/music/PreviewPlayerTiles;I)V
+    invoke-static {p1, v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$5400(Lcom/melodix/music/PreviewPlayerTiles;I)V
 
     return-void
 .end method

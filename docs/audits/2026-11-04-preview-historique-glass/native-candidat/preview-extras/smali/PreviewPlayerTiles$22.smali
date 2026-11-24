@@ -109,7 +109,7 @@
 
     const-string v9, ""
 
-    invoke-static/range {v2 .. v9}, Lcom/melodix/music/PreviewPlayerTiles;->access$3600(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
+    invoke-static/range {v2 .. v9}, Lcom/melodix/music/PreviewPlayerTiles;->access$3500(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
 
     goto :goto_0
 
@@ -118,7 +118,7 @@
 
     const/4 v1, 0x0
 
-    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->access$4602(Lcom/melodix/music/PreviewPlayerTiles;Z)Z
+    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->access$4502(Lcom/melodix/music/PreviewPlayerTiles;Z)Z
 
     :goto_0
     return-void

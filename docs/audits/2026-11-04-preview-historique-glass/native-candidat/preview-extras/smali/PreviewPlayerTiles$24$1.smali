@@ -110,7 +110,7 @@
 
     iget-object v2, v2, Lcom/melodix/music/PreviewPlayerTiles$24;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-    invoke-static {v2}, Lcom/melodix/music/PreviewPlayerTiles;->access$3700(Lcom/melodix/music/PreviewPlayerTiles;)J
+    invoke-static {v2}, Lcom/melodix/music/PreviewPlayerTiles;->access$3600(Lcom/melodix/music/PreviewPlayerTiles;)J
 
     move-result-wide v2
 
@@ -196,7 +196,7 @@
 
     add-int/lit8 v6, p1, 0x1
 
-    invoke-static/range {v0 .. v6}, Lcom/melodix/music/PreviewPlayerTiles;->access$5000(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;JLjava/lang/String;I)V
+    invoke-static/range {v0 .. v6}, Lcom/melodix/music/PreviewPlayerTiles;->access$4900(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;JLjava/lang/String;I)V
 
     return-void
 
@@ -212,7 +212,7 @@
 
     move-result-object v0
 
-    invoke-static {p1}, Lcom/melodix/music/PreviewPlayerTiles;->access$5100(Lorg/json/JSONObject;)Ljava/lang/String;
+    invoke-static {p1}, Lcom/melodix/music/PreviewPlayerTiles;->access$5000(Lorg/json/JSONObject;)Ljava/lang/String;
 
     move-result-object v1
 
@@ -232,7 +232,7 @@
 
     move-result-object p1
 
-    invoke-static {p1}, Lcom/melodix/music/PreviewPlayerTiles;->access$5200(Ljava/lang/String;)Ljava/lang/String;
+    invoke-static {p1}, Lcom/melodix/music/PreviewPlayerTiles;->access$5100(Ljava/lang/String;)Ljava/lang/String;
 
     move-result-object p1
 
@@ -270,7 +270,7 @@
     goto :goto_1
 
     :cond_4
-    invoke-static {}, Lcom/melodix/music/PreviewPlayerTiles;->access$3900()[Ljava/lang/String;
+    invoke-static {}, Lcom/melodix/music/PreviewPlayerTiles;->access$3800()[Ljava/lang/String;
 
     move-result-object v0
 
@@ -286,7 +286,7 @@
 
     iget-object p1, p1, Lcom/melodix/music/PreviewPlayerTiles$24;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-    invoke-static {p1, v1}, Lcom/melodix/music/PreviewPlayerTiles;->access$4302(Lcom/melodix/music/PreviewPlayerTiles;Z)Z
+    invoke-static {p1, v1}, Lcom/melodix/music/PreviewPlayerTiles;->access$4202(Lcom/melodix/music/PreviewPlayerTiles;Z)Z
 
     .line 468
     :goto_1
