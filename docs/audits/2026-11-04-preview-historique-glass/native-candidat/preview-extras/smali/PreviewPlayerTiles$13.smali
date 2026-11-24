@@ -34,12 +34,12 @@
         }
     .end annotation
 
-    .line 331
+    .line 338
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$13;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     invoke-direct {p0, p2}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
 
-    .line 332
+    .line 339
     new-instance p1, Landroid/graphics/Paint;
 
     const/4 p2, 0x1
@@ -56,7 +56,7 @@
 .method protected onDraw(Landroid/graphics/Canvas;)V
     .locals 13
 
-    .line 334
+    .line 341
     invoke-virtual {p0}, Lcom/melodix/music/PreviewPlayerTiles$13;->getWidth()I
 
     move-result v0
@@ -81,7 +81,7 @@
 
     div-float/2addr v1, v3
 
-    .line 335
+    .line 342
     iget-object v3, p0, Lcom/melodix/music/PreviewPlayerTiles$13;->p:Landroid/graphics/Paint;
 
     const/4 v4, -0x1
@@ -98,7 +98,7 @@
 
     invoke-virtual {v3, v4}, Landroid/graphics/Paint;->setColor(I)V
 
-    .line 336
+    .line 343
     iget-object v3, p0, Lcom/melodix/music/PreviewPlayerTiles$13;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     invoke-static {v3}, Lcom/melodix/music/PreviewPlayerTiles;->access$3300(Lcom/melodix/music/PreviewPlayerTiles;)Z
@@ -153,7 +153,7 @@
 
     goto :goto_0
 
-    .line 337
+    .line 344
     :cond_0
     new-instance v3, Landroid/graphics/Path;
 
@@ -189,7 +189,7 @@
 
     invoke-virtual {p1, v3, v0}, Landroid/graphics/Canvas;->drawPath(Landroid/graphics/Path;Landroid/graphics/Paint;)V
 
-    .line 338
+    .line 345
     :goto_0
     return-void
 .end method

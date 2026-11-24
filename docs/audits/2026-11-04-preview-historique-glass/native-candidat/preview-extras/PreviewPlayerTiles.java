@@ -148,6 +148,13 @@ public final class PreviewPlayerTiles extends LinearLayout {
     private void message(String text){if(volumeRunning && isShown())Toast.makeText(getContext(),text,Toast.LENGTH_SHORT).show();}
     private WebView web(Activity a){try{Object v=a.getClass().getField("G").get(a);return v instanceof WebView?(WebView)v:null;}catch(Exception ignored){return null;}}
     private TextView line(Activity a,String text,int color,float size){TextView t=new TextView(a);t.setText(text);t.setTextColor(color);t.setTextSize(size);return t;}
+    // Empty state: a title and one quiet line, centred, the same type scale as the other glass lists.
+    private LinearLayout emptyState(Activity a,String title,String detail){
+        LinearLayout box=new LinearLayout(a);box.setOrientation(LinearLayout.VERTICAL);box.setGravity(Gravity.CENTER);box.setPadding(dp(16),dp(32),dp(16),dp(32));
+        TextView t=line(a,title,Color.WHITE,17);t.setGravity(Gravity.CENTER);t.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);box.addView(t,new LinearLayout.LayoutParams(-1,-2));
+        TextView d=line(a,detail,0x99ffffff,13);d.setGravity(Gravity.CENTER);d.setPadding(0,dp(6),0,0);box.addView(d,new LinearLayout.LayoutParams(-1,-2));
+        return box;
+    }
     // Loading rows drawn like the cover and two text lines they stand for (Melodix glass, from the catalogue's skeleton card).
     private GradientDrawable skeletonBar(int radiusDp,int color){GradientDrawable g=new GradientDrawable();g.setCornerRadius(dp(radiusDp));g.setColor(color);return g;}
     private void skeleton(Activity a,LinearLayout list){
@@ -191,7 +198,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
         if(!current.isEmpty()){list.addView(line(a,"En cours de lecture",Color.WHITE,17),new LinearLayout.LayoutParams(-1,dp(36)));addRow(a,list,current);}
         list.addView(line(a,current.isEmpty()?"Titres de la file":"À suivre",Color.WHITE,17),new LinearLayout.LayoutParams(-1,dp(44)));
         String next=o.optString("next","");
-        if(next.isEmpty())list.addView(line(a,"Aucun titre à suivre",0xffc7bbdc,14),new LinearLayout.LayoutParams(-1,-2));
+        if(next.isEmpty())list.addView(emptyState(a,"Aucun titre à suivre","Ajoute des titres à la file pour les voir ici."),new LinearLayout.LayoutParams(-1,-2));
         else for(String r:next.split("\n"))addRow(a,list,r);
         retry.setEnabled(true);riseAll(list);
     }

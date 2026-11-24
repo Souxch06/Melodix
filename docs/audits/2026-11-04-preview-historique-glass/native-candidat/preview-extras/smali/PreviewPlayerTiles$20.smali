@@ -67,7 +67,7 @@
         }
     .end annotation
 
-    .line 431
+    .line 438
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$20;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iput-wide p2, p0, Lcom/melodix/music/PreviewPlayerTiles$20;->val$serial:J
@@ -94,7 +94,7 @@
 .method public run()V
     .locals 7
 
-    .line 431
+    .line 438
     iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles$20;->val$serial:J
 
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerTiles$20;->this$0:Lcom/melodix/music/PreviewPlayerTiles;

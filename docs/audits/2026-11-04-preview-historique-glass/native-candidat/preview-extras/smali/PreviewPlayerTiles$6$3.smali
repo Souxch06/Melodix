@@ -43,7 +43,7 @@
         }
     .end annotation
 
-    .line 213
+    .line 220
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$6$3;->this$1:Lcom/melodix/music/PreviewPlayerTiles$6;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerTiles$6$3;->val$ask:Landroid/app/Dialog;
@@ -58,12 +58,12 @@
 .method public onClick(Landroid/view/View;)V
     .locals 4
 
-    .line 213
+    .line 220
     iget-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$6$3;->val$ask:Landroid/app/Dialog;
 
     invoke-virtual {p1}, Landroid/app/Dialog;->dismiss()V
 
-    .line 214
+    .line 221
     :try_start_0
     const-string p1, "com.melodix.music.PreviewPlayerControllerQueue"
 
@@ -110,7 +110,7 @@
     :catchall_0
     move-exception p1
 
-    .line 215
+    .line 222
     :goto_0
     iget-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$6$3;->this$1:Lcom/melodix/music/PreviewPlayerTiles$6;
 
