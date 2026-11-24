@@ -146,7 +146,7 @@
         var sc = r;
         while (sc && sc !== document.body && sc.scrollHeight <= sc.clientHeight + 4) sc = sc.parentElement;
         if (!sc || sc === document.body) { var one = lyricLines(r); return cb(one.lines, one.active); }
-        var all = [], activeText = '', top0 = sc.scrollTop, steps = 0, until = Date.now() + 6000, moves = [];
+        var all = [], activeText = '', top0 = sc.scrollTop, steps = 0, until = Date.now() + 9000, moves = [], rounds = 0;
         function merge(win) {
             if (!all.length) { all.push.apply(all, win); return; }
             for (var m = Math.min(win.length, all.length); m > 0; m--) {
@@ -160,6 +160,10 @@
             merge(w.lines);
             if (w.active >= 0 && w.lines[w.active] !== undefined) activeText = w.lines[w.active];
             var atEnd = sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 2;
+            if (atEnd && rounds < 2 && Date.now() < until) {
+                // Spotify may render its lines late (page just shown again): wait, then read the whole list once more.
+                rounds++; sc.scrollTop = 0; setTimeout(pass, 1200); return;
+            }
             if (atEnd || ++steps > 80 || Date.now() > until) { sc.scrollTop = top0; log('pass:' + Math.min(steps, 99)); log('mv:' + (moves.indexOf(1) >= 0 ? 1 : 0)); return cb(all, activeText ? all.indexOf(activeText) : -1); }
             var before = sc.scrollTop;
             sc.scrollTop = sc.scrollTop + Math.max(60, sc.clientHeight * 0.6);
