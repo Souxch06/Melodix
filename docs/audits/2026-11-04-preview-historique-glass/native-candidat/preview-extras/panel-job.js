@@ -170,7 +170,7 @@
                 sc.dispatchEvent(new Event('scroll'));
             }
             moves.push(sc.scrollTop !== before ? 1 : 0);
-            setTimeout(pass, 150);
+            setTimeout(pass, 80);
         })();
     }
     function trustedDevices(r) {
@@ -318,7 +318,7 @@
         // Spotify's lyrics view left open in the hidden page keeps only a few lines drawn: close it and open it again,
         // so it draws every line (the way it does on a fresh open). The job then closes it as usual.
         var freshen = kind === 'lyrics' && wasOpen && !!b;
-        if (freshen) { try { b.click(); log('fresh'); } catch (_) {} openedHere = true; wasOpen = false; job.freshWait = Date.now() + 1200; setTimeout(function() { try { b.click(); } catch (_) {} }, 700); }
+        if (freshen) { try { b.click(); log('fresh'); } catch (_) {} openedHere = true; wasOpen = false; job.freshWait = Date.now() + 500; setTimeout(function() { try { b.click(); } catch (_) {} }, 300); }
         else if (!wasOpen) { try { openedHere = true; b.click(); log('opened'); } catch (_) { log('open-error'); finish(false, 'command'); return JSON.stringify({status: 'started', id: job.id}); } }
         else log('already-open');
         // Lyrics load over the network after the click: wait longer for them (user diagnostic 1022413).
