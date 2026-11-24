@@ -322,6 +322,10 @@
                 var l = lyricLines(r);
                 job.body = l.lines.join('\n'); job.active = l.active; job.synced = l.synced;
                 log('lines:' + Math.min(l.lines.length, 200) + (l.synced ? ':sync' : ''));
+                // Shape only (names, counts, no text): how Spotify renders the lines, to fix the missing lines and the follow.
+                var ln = r.querySelector('[data-testid^="lyrics-line"], [data-testid="fullscreen-lyric"]');
+                if (ln) log('at:' + Array.from(ln.attributes).map(function(a) { return a.name; }).join(',').slice(0, 160));
+                log('ch:' + Math.min(99, r.querySelectorAll('*').length) + (r.scrollHeight > r.clientHeight + 4 ? ':scroll' : ''));
                 finish(true, ''); return;
             }
             var rows = deviceRows(r, action === 'transfer');
