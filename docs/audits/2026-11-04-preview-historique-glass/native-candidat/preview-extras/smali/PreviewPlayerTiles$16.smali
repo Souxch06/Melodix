@@ -43,7 +43,7 @@
         }
     .end annotation
 
-    .line 334
+    .line 345
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$16;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerTiles$16;->val$dialog:Landroid/app/Dialog;
@@ -58,7 +58,7 @@
 .method public run()V
     .locals 2
 
-    .line 334
+    .line 345
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$16;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerTiles$16;->val$dialog:Landroid/app/Dialog;

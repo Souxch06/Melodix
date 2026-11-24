@@ -148,9 +148,20 @@ public final class PreviewPlayerTiles extends LinearLayout {
     private void message(String text){if(volumeRunning && isShown())Toast.makeText(getContext(),text,Toast.LENGTH_SHORT).show();}
     private WebView web(Activity a){try{Object v=a.getClass().getField("G").get(a);return v instanceof WebView?(WebView)v:null;}catch(Exception ignored){return null;}}
     private TextView line(Activity a,String text,int color,float size){TextView t=new TextView(a);t.setText(text);t.setTextColor(color);t.setTextSize(size);return t;}
+    // Loading rows drawn like the cover and two text lines they stand for (Melodix glass, from the catalogue's skeleton card).
+    private GradientDrawable skeletonBar(int radiusDp,int color){GradientDrawable g=new GradientDrawable();g.setCornerRadius(dp(radiusDp));g.setColor(color);return g;}
     private void skeleton(Activity a,LinearLayout list){
         list.removeAllViews();
-        for(int k=0;k<4;k++){TextView t=line(a,"▬▬▬▬▬▬▬▬▬▬▬▬\n▬▬▬▬▬▬",0x40ffffff,14);t.setContentDescription("Chargement de la file");list.addView(t,new LinearLayout.LayoutParams(-1,dp(56)));}
+        for(int k=0;k<4;k++){
+            LinearLayout row=new LinearLayout(a);row.setOrientation(LinearLayout.HORIZONTAL);row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding(0,dp(6),0,dp(6));row.setContentDescription("Chargement de la file");
+            View cover=new View(a);cover.setBackground(skeletonBar(10,0x26ffffff));row.addView(cover,new LinearLayout.LayoutParams(dp(52),dp(52)));
+            LinearLayout texts=new LinearLayout(a);texts.setOrientation(LinearLayout.VERTICAL);texts.setPadding(dp(12),0,0,0);
+            View title=new View(a);title.setBackground(skeletonBar(6,0x33ffffff));texts.addView(title,new LinearLayout.LayoutParams(dp(150-k*14),dp(13)));
+            View artist=new View(a);artist.setBackground(skeletonBar(6,0x1affffff));LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(dp(96-k*6),dp(10));ap.topMargin=dp(8);texts.addView(artist,ap);
+            row.addView(texts,new LinearLayout.LayoutParams(0,-2,1f));
+            list.addView(row,new LinearLayout.LayoutParams(-1,-2));
+        }
     }
     private String queueReason="", queueStep="envoi", panelStep="envoi", queueJobId="", panelJobId="";
     private boolean queueJobPending, panelJobPending;

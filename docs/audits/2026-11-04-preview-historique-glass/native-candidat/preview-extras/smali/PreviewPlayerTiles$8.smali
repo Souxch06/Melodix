@@ -68,7 +68,7 @@
         }
     .end annotation
 
-    .line 223
+    .line 234
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$8;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iput-wide p2, p0, Lcom/melodix/music/PreviewPlayerTiles$8;->val$serial:J
@@ -99,7 +99,7 @@
         }
     .end annotation
 
-    .line 223
+    .line 234
     check-cast p1, Ljava/lang/String;
 
     invoke-virtual {p0, p1}, Lcom/melodix/music/PreviewPlayerTiles$8;->onReceiveValue(Ljava/lang/String;)V
@@ -110,7 +110,7 @@
 .method public onReceiveValue(Ljava/lang/String;)V
     .locals 9
 
-    .line 224
+    .line 235
     iget-wide v0, p0, Lcom/melodix/music/PreviewPlayerTiles$8;->val$serial:J
 
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerTiles$8;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
@@ -169,7 +169,7 @@
 
     move-result-object v1
 
-    .line 225
+    .line 236
     :goto_0
     if-nez p1, :cond_2
 
@@ -184,7 +184,7 @@
 
     move-result-object p1
 
-    .line 226
+    .line 237
     :goto_1
     const-string v2, "started"
 
@@ -234,7 +234,7 @@
 
     goto :goto_4
 
-    .line 227
+    .line 238
     :cond_3
     iget-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$8;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
@@ -302,11 +302,11 @@
 
     invoke-static {p1, v0, v1, v2}, Lcom/melodix/music/PreviewPlayerTiles;->access$1500(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Activity;Landroid/widget/LinearLayout;Landroid/widget/Button;)V
 
-    .line 228
+    .line 239
     :goto_4
     return-void
 
-    .line 224
+    .line 235
     :cond_8
     :goto_5
     return-void
