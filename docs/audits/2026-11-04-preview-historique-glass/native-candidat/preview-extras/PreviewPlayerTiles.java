@@ -253,7 +253,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
     // Real-time follow (user request 1022416): every 0.5 s read only which line Spotify sings (no panel open/close),
     // recolour and scroll; the progress, times and play button mirror the player.
     private final java.util.ArrayList<TextView> lyricViews=new java.util.ArrayList<TextView>();
-    private ScrollView lyricScroll;private int lyricsActive=-1,liveMisses;private Runnable lyricsReload;
+    private ScrollView lyricScroll;private int lyricsActive=-1,liveMisses;private Runnable lyricsReload;private long lastLiveReload;
     private static final java.util.HashMap<String,String> lyricsCache=new java.util.HashMap<String,String>();
     private boolean cachedShown;
     private static String nowTitle(Activity a){View t=a.findViewById(0x7f09023b),ar=a.findViewById(0x7f09023c);return (t instanceof TextView?String.valueOf(((TextView)t).getText()):"")+"\t"+(ar instanceof TextView?String.valueOf(((TextView)ar).getText()):"");}
@@ -265,7 +265,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
     }
     private boolean lyricsPlaying;
     private void lineChanged(int from,int to){}
-    private static final String LIVE_JS="(function(){try{var ls=Array.from(document.querySelectorAll('[data-testid=\"fullscreen-lyric\"],[data-testid^=\"lyrics-line\"]')).filter(function(n){return (n.textContent||'').trim()});if(!ls.length)return -2;for(var i=0;i<ls.length;i++)if(ls[i].getAttribute('aria-current')==='true'||ls[i].getAttribute('data-active')==='true')return i;var looks=ls.map(function(n){var c=getComputedStyle(n);return c.color+'|'+c.opacity});var f=looks[looks.length-1],k=looks.length-1;while(k>=0&&looks[k]===f)k--;return k}catch(e){return -2}})()";
+    private static final String LIVE_JS="(function(){try{var ls=Array.from(document.querySelectorAll('[data-testid=\"fullscreen-lyric\"],[data-testid^=\"lyrics-line\"]')).filter(function(n){return (n.textContent||'').trim()});if(!ls.length)return '-2|0';for(var i=0;i<ls.length;i++)if(ls[i].getAttribute('aria-current')==='true'||ls[i].getAttribute('data-active')==='true')return i+'|'+ls.length;var looks=ls.map(function(n){var c=getComputedStyle(n);return c.color+'|'+c.opacity});var f=looks[looks.length-1],k=looks.length-1;while(k>=0&&looks[k]===f)k--;return k+'|'+ls.length}catch(e){return '-2|0'}})()";
     private void lyricsTick(final Activity a,final Dialog dialog,final View fill,final TextView pos,final TextView dur,final TextView play){
         if(webDialog!=dialog)return;
         View p=a.findViewById(0x7f09024a),d=a.findViewById(0x7f09024b),bar=a.findViewById(0x7f09023d),full=a.findViewById(0x7f09023e);
@@ -274,8 +274,12 @@ public final class PreviewPlayerTiles extends LinearLayout {
         boolean playing=full!=null&&String.valueOf(full.getContentDescription()).startsWith("Mettre en pause");lyricsPlaying=playing;play.setContentDescription(playing?"Pause":"Lecture");play.invalidate();
         WebView w=web(a);
         if(w!=null&&!lyricViews.isEmpty())try{w.evaluateJavascript(LIVE_JS,new ValueCallback<String>(){public void onReceiveValue(String v){
-            int k=-2;try{k=Integer.parseInt(String.valueOf(v).trim());}catch(NumberFormatException ignored){liveErrors++;}
+            // "index|count": the page's current line index and how many lines it has rendered now (1022431).
+            int k=-2,n=0;try{String[] parts=String.valueOf(v).replace("\"","").trim().split("\\|");k=Integer.parseInt(parts[0]);n=Integer.parseInt(parts[1]);}catch(RuntimeException ignored){liveErrors++;}
             liveReads++;liveLastIndex=k;
+            // The page can show more or fewer lines than the copy we drew (lines load late or are virtualised):
+            // then the indices do not match, so redraw the panel from the page, at most every 3 s.
+            if(n>0&&n!=lyricViews.size()&&lyricsReload!=null&&SystemClock.elapsedRealtime()-lastLiveReload>3000){lastLiveReload=SystemClock.elapsedRealtime();post(lyricsReload);return;}
             if(k==-2){liveNoLine++;if(++liveMisses==5&&lyricsReload!=null){liveMisses=0;post(lyricsReload);}return;}
             liveMisses=0;if(k==lyricsActive||k>=lyricViews.size())return;liveChanges++;lineChanged(lyricsActive,k);lyricsActive=k;
             for(int j=0;j<lyricViews.size();j++)lyricViews.get(j).setTextColor(j==k?Color.WHITE:lyricsPale); // whole line (user: word fill lagged, 1022419)

@@ -59,7 +59,7 @@
         }
     .end annotation
 
-    .line 480
+    .line 484
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$25;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iput p2, p0, Lcom/melodix/music/PreviewPlayerTiles$25;->val$i:I
@@ -82,7 +82,7 @@
 .method public onClick(Landroid/view/View;)V
     .locals 12
 
-    .line 480
+    .line 484
     iget p1, p0, Lcom/melodix/music/PreviewPlayerTiles$25;->val$i:I
 
     if-nez p1, :cond_0
@@ -118,7 +118,7 @@
 
     const-string v11, ""
 
-    invoke-static/range {v4 .. v11}, Lcom/melodix/music/PreviewPlayerTiles;->access$3500(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
+    invoke-static/range {v4 .. v11}, Lcom/melodix/music/PreviewPlayerTiles;->access$3600(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
 
     :goto_0
     return-void

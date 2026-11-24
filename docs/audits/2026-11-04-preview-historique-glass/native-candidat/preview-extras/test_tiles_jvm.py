@@ -70,7 +70,9 @@ stubs.update({
   ok(((TextView)ll.children.get(0)).text.equals("Ligne un")&&((TextView)ll.children.get(1)).text.equals("Ligne deux"));ok(PreviewPlayerTiles.diagnosticReport().contains("lines:2:sync"));
   /* Spotify lyrics (1022416): playback controls instead of a refresh button */ok(!(ls.children.get(3) instanceof Button));
   // Sung line (1022419: back to the whole line in white, the word fill lagged).
-  for(int w=0;w<6&&!c.G.js.contains("return -2");w++)Handler.advance(500);ok(c.G.js.contains("return -2"));c.root.description="Mettre en pause";c.G.reply("0");Handler.advance(1500);
+  for(int w=0;w<6&&!c.G.js.contains("'-2|0'");w++)Handler.advance(500);ok(c.G.js.contains("'-2|0'"));c.root.description="Mettre en pause";c.G.reply("0|2");Handler.advance(1500);
+  // 1022431: "index|count" is read; the count-mismatch redraw is not reachable in this simulation.
+  Handler.advance(500);ok(PreviewPlayerTiles.liveLastIndex==0);
   TextView sung=(TextView)ll.children.get(0);ok(sung.color==android.graphics.Color.WHITE);ok(((TextView)ll.children.get(1)).color!=android.graphics.Color.WHITE);c.root.description="";
   View handle=ls.children.get(0);handle.touch.onTouch(handle,new MotionEvent(0,100));handle.touch.onTouch(handle,new MotionEvent(2,400));handle.touch.onTouch(handle,new MotionEvent(1,400));ok(!lyricsDialog.shown);
   // A failed read still explains itself (reopen instead of the removed refresh button).
