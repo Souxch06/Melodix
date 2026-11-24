@@ -699,6 +699,18 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         String before = playbackState;
         double current = positionUnderlying(t);
         if (!Double.isNaN(current)) { frozenPosition = current; base = current; anchor = t; correction = 0; }
+        // Keep the position where the sound stopped: background observations are not saved, so the last
+        // saved position could be old and the next launch would show (and resume from) that old point.
+        try {
+            Activity fa = activity.get();
+            if (!Double.isNaN(current) && fa != null && identityTitle != null && identityArtist != null && identityDuration > 0) {
+                PreviewLastTrackStore.Record fr = new PreviewLastTrackStore.Record();
+                fr.title = identityTitle; fr.artist = identityArtist; fr.state = "paused";
+                fr.duration = identityDuration; fr.position = Math.max(0, Math.min(identityDuration, Math.round(current)));
+                fr.observed = System.currentTimeMillis();
+                if (PreviewLastTrackStore.valid(fr, System.currentTimeMillis())) PreviewLastTrackStore.save(fa, fr, null);
+            }
+        } catch (RuntimeException ignored) { }
         absenceAt = t; interrupted = true; resyncing = false; moving = false; foreground = false;
         playbackState = "interrupted"; realPlaying = false; shownPlaying = false; pending = false; serial++;
         resetDivergence();
