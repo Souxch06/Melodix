@@ -59,7 +59,7 @@
         }
     .end annotation
 
-    .line 438
+    .line 420
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$22;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iput-wide p2, p0, Lcom/melodix/music/PreviewPlayerTiles$22;->val$serial:J
@@ -82,7 +82,7 @@
 .method public run()V
     .locals 4
 
-    .line 439
+    .line 421
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$22;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$800(Lcom/melodix/music/PreviewPlayerTiles;)Lcom/melodix/music/PreviewPlayerSheet;
@@ -108,7 +108,7 @@
     :cond_0
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerTiles$22;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
-    invoke-static {v2}, Lcom/melodix/music/PreviewPlayerTiles;->access$3700(Lcom/melodix/music/PreviewPlayerTiles;)J
+    invoke-static {v2}, Lcom/melodix/music/PreviewPlayerTiles;->access$3500(Lcom/melodix/music/PreviewPlayerTiles;)J
 
     move-result-wide v2
 
@@ -135,7 +135,7 @@
 
     goto :goto_4
 
-    .line 440
+    .line 422
     :cond_1
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$22;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
@@ -149,7 +149,7 @@
 
     return-void
 
-    .line 441
+    .line 423
     :cond_2
     iget v1, p0, Lcom/melodix/music/PreviewPlayerTiles$22;->val$i:I
 
@@ -202,7 +202,7 @@
 
     move-result-object v1
 
-    .line 442
+    .line 424
     :goto_2
     :try_start_0
     new-instance v2, Lcom/melodix/music/PreviewPlayerTiles$22$1;
@@ -215,17 +215,17 @@
 
     goto :goto_3
 
-    .line 449
+    .line 431
     :catch_0
     move-exception v0
 
     :goto_3
     nop
 
-    .line 450
+    .line 432
     return-void
 
-    .line 439
+    .line 421
     :cond_5
     :goto_4
     return-void

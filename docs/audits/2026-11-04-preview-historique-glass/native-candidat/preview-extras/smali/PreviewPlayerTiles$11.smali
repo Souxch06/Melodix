@@ -63,7 +63,7 @@
         }
     .end annotation
 
-    .line 288
+    .line 273
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$11;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerTiles$11;->val$a:Landroid/app/Activity;
@@ -88,7 +88,7 @@
 .method public run()V
     .locals 7
 
-    .line 288
+    .line 273
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$11;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iget-object v1, p0, Lcom/melodix/music/PreviewPlayerTiles$11;->val$a:Landroid/app/Activity;
@@ -103,7 +103,7 @@
 
     iget-object v6, p0, Lcom/melodix/music/PreviewPlayerTiles$11;->val$play:Landroid/widget/TextView;
 
-    invoke-static/range {v0 .. v6}, Lcom/melodix/music/PreviewPlayerTiles;->access$3300(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Activity;Landroid/app/Dialog;Landroid/view/View;Landroid/widget/TextView;Landroid/widget/TextView;Landroid/widget/TextView;)V
+    invoke-static/range {v0 .. v6}, Lcom/melodix/music/PreviewPlayerTiles;->access$3100(Lcom/melodix/music/PreviewPlayerTiles;Landroid/app/Activity;Landroid/app/Dialog;Landroid/view/View;Landroid/widget/TextView;Landroid/widget/TextView;Landroid/widget/TextView;)V
 
     return-void
 .end method

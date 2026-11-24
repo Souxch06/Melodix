@@ -253,19 +253,9 @@ public final class PreviewPlayerTiles extends LinearLayout {
     // Real-time follow (user request 1022416): every 0.5 s read only which line Spotify sings (no panel open/close),
     // recolour and scroll; the progress, times and play button mirror the player.
     private final java.util.ArrayList<TextView> lyricViews=new java.util.ArrayList<TextView>();
-    private ScrollView lyricScroll;private int lyricsActive=-1,liveMisses;private Runnable lyricsReload;private long lastLiveReload;
-    private static final java.util.HashMap<String,String> lyricsCache=new java.util.HashMap<String,String>();
-    private boolean cachedShown;
-    private static String nowTitle(Activity a){View t=a.findViewById(0x7f09023b),ar=a.findViewById(0x7f09023c);return (t instanceof TextView?String.valueOf(((TextView)t).getText()):"")+"\t"+(ar instanceof TextView?String.valueOf(((TextView)ar).getText()):"");}
-    private void showKept(Activity a,LinearLayout list,String body){
-        list.removeAllViews();lyricViews.clear();cachedShown=true;
-        String[] lines=body.split("\n");
-        for(int k=0;k<lines.length&&k<200;k++){TextView t=line(a,lines[k],lyricsPale,24);t.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);t.setPadding(0,dp(6),0,dp(6));list.addView(t,new LinearLayout.LayoutParams(-1,-2));lyricViews.add(t);}
-        lyricScroll=list.getParent() instanceof ScrollView?(ScrollView)list.getParent():null;lyricsActive=-1;
-    }
+    private ScrollView lyricScroll;private int lyricsActive=-1,liveMisses;private Runnable lyricsReload;
+    private static final String LIVE_JS="(function(){try{var ls=Array.from(document.querySelectorAll('[data-testid=\"fullscreen-lyric\"],[data-testid^=\"lyrics-line\"]')).filter(function(n){return (n.textContent||'').trim()});if(!ls.length)return -2;for(var i=0;i<ls.length;i++)if(ls[i].getAttribute('aria-current')==='true'||ls[i].getAttribute('data-active')==='true')return i;var looks=ls.map(function(n){var c=getComputedStyle(n);return c.color+'|'+c.opacity});var f=looks[looks.length-1],k=looks.length-1;while(k>=0&&looks[k]===f)k--;return k}catch(e){return -2}})()";
     private boolean lyricsPlaying;
-    private void lineChanged(int from,int to){}
-    private static final String LIVE_JS="(function(){try{var ls=Array.from(document.querySelectorAll('[data-testid=\"fullscreen-lyric\"],[data-testid^=\"lyrics-line\"]')).filter(function(n){return (n.textContent||'').trim()});if(!ls.length)return '-2|0';for(var i=0;i<ls.length;i++)if(ls[i].getAttribute('aria-current')==='true'||ls[i].getAttribute('data-active')==='true')return i+'|'+ls.length;var looks=ls.map(function(n){var c=getComputedStyle(n);return c.color+'|'+c.opacity});var f=looks[looks.length-1],k=looks.length-1;while(k>=0&&looks[k]===f)k--;return k+'|'+ls.length}catch(e){return '-2|0'}})()";
     private void lyricsTick(final Activity a,final Dialog dialog,final View fill,final TextView pos,final TextView dur,final TextView play){
         if(webDialog!=dialog)return;
         View p=a.findViewById(0x7f09024a),d=a.findViewById(0x7f09024b),bar=a.findViewById(0x7f09023d),full=a.findViewById(0x7f09023e);
@@ -274,18 +264,13 @@ public final class PreviewPlayerTiles extends LinearLayout {
         boolean playing=full!=null&&String.valueOf(full.getContentDescription()).startsWith("Mettre en pause");lyricsPlaying=playing;play.setContentDescription(playing?"Pause":"Lecture");play.invalidate();
         WebView w=web(a);
         if(w!=null&&!lyricViews.isEmpty())try{w.evaluateJavascript(LIVE_JS,new ValueCallback<String>(){public void onReceiveValue(String v){
-            // "index|count": the page's current line index and how many lines it has rendered now (1022431).
-            int k=-2,n=0;try{String[] parts=String.valueOf(v).replace("\"","").trim().split("\\|");k=Integer.parseInt(parts[0]);n=Integer.parseInt(parts[1]);}catch(RuntimeException ignored){liveErrors++;}
-            liveReads++;liveLastIndex=k;
-            // The page can show more or fewer lines than the copy we drew (lines load late or are virtualised):
-            // then the indices do not match, so redraw the panel from the page, at most every 3 s.
-            if(n>0&&n!=lyricViews.size()&&lyricsReload!=null&&SystemClock.elapsedRealtime()-lastLiveReload>3000){lastLiveReload=SystemClock.elapsedRealtime();post(lyricsReload);return;}
-            if(k==-2){liveNoLine++;if(++liveMisses==5&&lyricsReload!=null){liveMisses=0;post(lyricsReload);}return;}
-            liveMisses=0;if(k==lyricsActive||k>=lyricViews.size())return;liveChanges++;lineChanged(lyricsActive,k);lyricsActive=k;
-            for(int j=0;j<lyricViews.size();j++)lyricViews.get(j).setTextColor(j==k?Color.WHITE:lyricsPale); // whole line (user: word fill lagged, 1022419)
+            int k=-2;try{k=Integer.parseInt(String.valueOf(v).trim());}catch(NumberFormatException ignored){}
+            if(k==-2){if(++liveMisses==5&&lyricsReload!=null){liveMisses=0;post(lyricsReload);}return;}
+            liveMisses=0;if(k==lyricsActive||k>=lyricViews.size())return;lyricsActive=k;
+            for(int j=0;j<lyricViews.size();j++)lyricViews.get(j).setTextColor(k<0?lyricsPale:j==k?Color.WHITE:lyricsPale);
             if(k>=0&&lyricScroll!=null)lyricScroll.smoothScrollTo(0,Math.max(0,lyricViews.get(k).getTop()-dp(160)));
         }});}catch(RuntimeException ignored){}
-        postDelayed(new Runnable(){public void run(){lyricsTick(a,dialog,fill,pos,dur,play);}},250); // user: lyrics lagged the sound (1022420)
+        postDelayed(new Runnable(){public void run(){lyricsTick(a,dialog,fill,pos,dur,play);}},500);
     }
     private void lyricsControls(final Activity a,LinearLayout panel,final Dialog dialog){
         LinearLayout box=new LinearLayout(a);box.setOrientation(VERTICAL);box.setPadding(0,dp(12),0,0);
@@ -360,11 +345,10 @@ public final class PreviewPlayerTiles extends LinearLayout {
         if(i==1){
             int active=-1;try{active=Integer.parseInt(o.optString("active","-1"));}catch(NumberFormatException ignored){}
             String[] lines=body.split("\n");
-            String key=nowTitle(a);if(!key.isEmpty()){if(lyricsCache.size()>30)lyricsCache.clear();lyricsCache.put(key,body);}
             final TextView[] current={null};lyricViews.clear();
             for(int k=0;k<lines.length&&k<200;k++){TextView t=line(a,lines[k],active<0?lyricsPale:k==active?Color.WHITE:lyricsPale,24);t.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);t.setPadding(0,dp(6),0,dp(6));list.addView(t,new LinearLayout.LayoutParams(-1,-2));lyricViews.add(t);if(k==active)current[0]=t;}
             lyricScroll=list.getParent() instanceof ScrollView?(ScrollView)list.getParent():null;lyricsActive=active;
-            if(!lyricsLive&&!cachedShown)riseAll(list);cachedShown=false;
+            if(!lyricsLive)riseAll(list);
             if(active>=0){
                 // Keep the current line in view, then read the page again in 1.5 s while this panel stays open.
                 list.post(new Runnable(){public void run(){if(current[0]!=null&&list.getParent() instanceof android.widget.ScrollView)((android.widget.ScrollView)list.getParent()).smoothScrollTo(0,Math.max(0,current[0].getTop()-dp(120)));}});
@@ -393,9 +377,7 @@ public final class PreviewPlayerTiles extends LinearLayout {
         riseAll(list);
     }
     private void loadPanel(final int i,final Activity a,final Dialog dialog,final LinearLayout list,final Button retry,final String action,final String target){
-        // Faster lyrics (user request 1022418): show the lines kept for this track at once while Spotify reloads.
-        String kept=i==1&&!lyricsLive?lyricsCache.get(nowTitle(a)):null;
-        final long serial=++panelSerial;panelJobId="";panelJobPending=false;if(kept!=null)showKept(a,list,kept);else if(!lyricsLive)skeleton(a,list);retry.setEnabled(false);final String kind=i==1?"lyrics":"devices";
+                final long serial=++panelSerial;panelJobId="";panelJobPending=false;if(!lyricsLive)skeleton(a,list);retry.setEnabled(false);final String kind=i==1?"lyrics":"devices";
         postDelayed(new Runnable(){public void run(){if(serial==panelSerial&&webDialog==dialog&&panelSettled!=serial){panelJournals[i-1]="delai";if(action.equals("transfer"))panelMessage(a,list,retry,"Transfert non vérifié","Résultat incertain. Vérifiez l’appareil actif avant toute nouvelle tentative.");else panelFailed(i,a,list,retry);}}},action.equals("transfer")?11000:8000);
         WebView w=web(a);if(w==null){panelJournals[i-1]="page:inaccessible";panelFailed(i,a,list,retry);return;}
         if(i==2&&action.equals("run"))try{w.evaluateJavascript(RECOVER,null);}catch(RuntimeException ignored){} // same as the queue

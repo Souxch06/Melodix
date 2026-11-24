@@ -55,7 +55,7 @@
         }
     .end annotation
 
-    .line 371
+    .line 355
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$16;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iput-object p2, p0, Lcom/melodix/music/PreviewPlayerTiles$16;->val$dialog:Landroid/app/Dialog;
@@ -76,7 +76,7 @@
 .method public run()V
     .locals 10
 
-    .line 371
+    .line 355
     iget-object v0, p0, Lcom/melodix/music/PreviewPlayerTiles$16;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     invoke-static {v0}, Lcom/melodix/music/PreviewPlayerTiles;->access$800(Lcom/melodix/music/PreviewPlayerTiles;)Lcom/melodix/music/PreviewPlayerSheet;
@@ -91,7 +91,7 @@
 
     const/4 v1, 0x1
 
-    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->access$3502(Lcom/melodix/music/PreviewPlayerTiles;Z)Z
+    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->access$3302(Lcom/melodix/music/PreviewPlayerTiles;Z)Z
 
     iget-object v2, p0, Lcom/melodix/music/PreviewPlayerTiles$16;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
@@ -109,7 +109,7 @@
 
     const/4 v3, 0x1
 
-    invoke-static/range {v2 .. v9}, Lcom/melodix/music/PreviewPlayerTiles;->access$3600(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
+    invoke-static/range {v2 .. v9}, Lcom/melodix/music/PreviewPlayerTiles;->access$3400(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
 
     goto :goto_0
 
@@ -118,7 +118,7 @@
 
     const/4 v1, 0x0
 
-    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->access$3502(Lcom/melodix/music/PreviewPlayerTiles;Z)Z
+    invoke-static {v0, v1}, Lcom/melodix/music/PreviewPlayerTiles;->access$3302(Lcom/melodix/music/PreviewPlayerTiles;Z)Z
 
     :goto_0
     return-void

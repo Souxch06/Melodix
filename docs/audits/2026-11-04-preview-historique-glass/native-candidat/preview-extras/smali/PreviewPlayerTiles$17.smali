@@ -63,7 +63,7 @@
         }
     .end annotation
 
-    .line 390
+    .line 374
     iput-object p1, p0, Lcom/melodix/music/PreviewPlayerTiles$17;->this$0:Lcom/melodix/music/PreviewPlayerTiles;
 
     iput p2, p0, Lcom/melodix/music/PreviewPlayerTiles$17;->val$i:I
@@ -88,7 +88,7 @@
 .method public onClick(Landroid/view/View;)V
     .locals 9
 
-    .line 390
+    .line 374
     const/4 v0, 0x3
 
     invoke-virtual {p1, v0}, Landroid/view/View;->performHapticFeedback(I)Z
@@ -109,7 +109,7 @@
 
     iget-object v8, p0, Lcom/melodix/music/PreviewPlayerTiles$17;->val$name:Ljava/lang/String;
 
-    invoke-static/range {v1 .. v8}, Lcom/melodix/music/PreviewPlayerTiles;->access$3600(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
+    invoke-static/range {v1 .. v8}, Lcom/melodix/music/PreviewPlayerTiles;->access$3400(Lcom/melodix/music/PreviewPlayerTiles;ILandroid/app/Activity;Landroid/app/Dialog;Landroid/widget/LinearLayout;Landroid/widget/Button;Ljava/lang/String;Ljava/lang/String;)V
 
     return-void
 .end method
