@@ -70,10 +70,10 @@ stubs.update({
   ok(((TextView)ll.children.get(0)).text.equals("Ligne un")&&((TextView)ll.children.get(1)).text.equals("Ligne deux"));ok(PreviewPlayerTiles.diagnosticReport().contains("lines:2:sync"));
   /* Spotify lyrics (1022416): playback controls instead of a refresh button */ok(!(ls.children.get(3) instanceof Button));
   // Sung line (1022419: back to the whole line in white, the word fill lagged).
-  for(int w=0;w<6&&!c.G.js.contains("return -2;");w++)Handler.advance(500);ok(c.G.js.contains("return -2;"));c.root.description="Mettre en pause";c.G.reply("0");Handler.advance(1500);
-  // Pre-word-by-word live reader (restored): plain index, whole-line highlight.
+  for(int w=0;w<6&&!c.G.js.contains("return '';");w++)Handler.advance(500);ok(c.G.js.contains("return '';"));c.root.description="Mettre en pause";c.G.reply("\\"Ligne deux\\"");Handler.advance(1500);
+  // Live follow matches the sung text to the drawn lines (whole line, white).
   Handler.advance(500);
-  TextView sung=(TextView)ll.children.get(0);ok(sung.color==android.graphics.Color.WHITE);ok(((TextView)ll.children.get(1)).color!=android.graphics.Color.WHITE);c.root.description="";
+  TextView sung=(TextView)ll.children.get(1);ok(sung.color==android.graphics.Color.WHITE);ok(((TextView)ll.children.get(0)).color!=android.graphics.Color.WHITE);c.root.description="";
   View handle=ls.children.get(0);handle.touch.onTouch(handle,new MotionEvent(0,100));handle.touch.onTouch(handle,new MotionEvent(2,400));handle.touch.onTouch(handle,new MotionEvent(1,400));ok(!lyricsDialog.shown);
   // A failed read still explains itself (reopen instead of the removed refresh button).
   Handler.advance(401);int lc2=c.G.calls;t.children.get(1).performClick();Dialog ld2=Dialog.last;LinearLayout ll2=(LinearLayout)((ScrollView)((LinearLayout)ld2.content).children.get(2)).child;

@@ -114,7 +114,7 @@ EXTRAS = {
     'panel-read.js': 'e00691f3abe98da90b181e5755cb3674581b14a4f3199bbe23ba1459a2e53368',
     'mode-job.js': '1520fdf81946d802991aecc67df91e90fae3d691a88628062253e9db8c7183c0',
     'queue-job.js': '7fb05c212754d4706f071f40fdd5f80373273f06b199ddf13021ec8165f21239',
-    'panel-job.js': '08eca9d957c6f8087c3d42904fb3bf4a3cd4a968898774af6b0778a71ab6187e',
+    'panel-job.js': '78577abb12c01aea1bfee153939170b31d4b06d1836a163307276eabd5500578',
     'PreviewPlayerSheet.java': '9eb4bfe97b4efa4073b2f4a96a9c810951ce1c227da4f2d5db1bcfc252adc24e',
     'PreviewPanelIcon.java': '3d88ddf6ae86740688aa0e9fd6132271ea8fa975e3a134a67821447d5cc715c8',
     'smali/PreviewPanelIcon.smali': 'bce9635589dec66eb924da9cdefdc4698f7195a2a310690a58b6462203094251',

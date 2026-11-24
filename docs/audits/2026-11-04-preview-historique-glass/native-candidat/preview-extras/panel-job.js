@@ -139,6 +139,32 @@
         }
         return {lines: lines, active: synced && activeCount === 1 ? active : -1, synced: synced};
     }
+    // Spotify draws only a window of the lyric lines (a virtual list). Scroll the list from top to end and join the
+    // windows by their overlap, so every line is read, not only the first screenful.
+    // shortcut: a repeated line that does not overlap a window may be joined in the wrong place.
+    function collectLyrics(r, cb) {
+        var sc = r;
+        while (sc && sc !== document.body && sc.scrollHeight <= sc.clientHeight + 4) sc = sc.parentElement;
+        if (!sc || sc === document.body) { var one = lyricLines(r); return cb(one.lines, one.active); }
+        var all = [], activeText = '', top0 = sc.scrollTop, steps = 0, until = Date.now() + 6000;
+        function merge(win) {
+            if (!all.length) { all.push.apply(all, win); return; }
+            for (var m = Math.min(win.length, all.length); m > 0; m--) {
+                if (all.slice(all.length - m).join('\n') === win.slice(0, m).join('\n')) { all.push.apply(all, win.slice(m)); return; }
+            }
+            all.push.apply(all, win);
+        }
+        sc.scrollTop = 0;
+        (function pass() {
+            var w = lyricLines(r);
+            merge(w.lines);
+            if (w.active >= 0 && w.lines[w.active] !== undefined) activeText = w.lines[w.active];
+            var atEnd = sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 2;
+            if (atEnd || ++steps > 80 || Date.now() > until) { sc.scrollTop = top0; return cb(all, activeText ? all.indexOf(activeText) : -1); }
+            sc.scrollTop = sc.scrollTop + Math.max(60, sc.clientHeight * 0.6);
+            setTimeout(pass, 250);
+        })();
+    }
     function trustedDevices(r) {
         // A trigger's aria-controls alone does not prove the target is Spotify's
         // device picker; never send a transfer into an arbitrary region.
@@ -320,13 +346,16 @@
             if (!ready) { log(r ? 'rows:0' : 'panel:absent'); finish(false, rootAmbiguous ? 'ambiguous' : r ? 'empty' : 'panel'); return; }
             if (kind === 'lyrics') {
                 var l = lyricLines(r);
-                job.body = l.lines.join('\n'); job.active = l.active; job.synced = l.synced;
-                log('lines:' + Math.min(l.lines.length, 200) + (l.synced ? ':sync' : ''));
-                // Shape only (names, counts, no text): how Spotify renders the lines, to fix the missing lines and the follow.
+                // Shape only (names, counts, no text): how Spotify renders the lines.
                 var ln = r.querySelector('[data-testid^="lyrics-line"], [data-testid="fullscreen-lyric"]');
                 if (ln) Array.from(ln.attributes).slice(0, 4).forEach(function(a) { log('at:' + a.name.replace(/[^a-z-]/g, '').slice(0, 30)); });
                 log('ch:' + Math.min(99, r.querySelectorAll('*').length) + (r.scrollHeight > r.clientHeight + 4 ? ':scroll' : ''));
-                finish(true, ''); return;
+                collectLyrics(r, function(all, active) {
+                    job.body = all.join('\n'); job.active = active; job.synced = l.synced;
+                    log('lines:' + Math.min(all.length, 200) + (l.synced ? ':sync' : ''));
+                    finish(true, ''); 
+                });
+                return;
             }
             var rows = deviceRows(r, action === 'transfer');
             if (action === 'transfer') {
