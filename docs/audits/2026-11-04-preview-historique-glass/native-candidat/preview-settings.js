@@ -75,12 +75,7 @@
     }
     window.setTimeout(function() {
         var origToggle = window.__sfToggleSpotifySetting, origOpen = window.__sfNativeSettingsRequest;
-        window.__sfNativeSettingsRequest = function() {
-            msSet.want = true;
-            // Spotify's settings that never arrive: after 12 s show the failure instead of a loading line forever.
-            if (!msSet.list || !msSet.list.length) window.setTimeout(function() { if (!msSet.list || !msSet.list.length) { msSet.failed = true; msSend(); } }, 12000);
-            return origOpen.apply(this, arguments);
-        };
+        window.__sfNativeSettingsRequest = function() { msSet.want = true; return origOpen.apply(this, arguments); };
         window.__sfRequestSpotifySettings = function() {
             var sent = msSend();
             // Only when the Settings screen opens: a refresh elsewhere must never move the page (playlist rows vanished).
