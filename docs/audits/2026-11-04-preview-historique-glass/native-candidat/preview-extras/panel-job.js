@@ -146,7 +146,7 @@
         var sc = r;
         while (sc && sc !== document.body && sc.scrollHeight <= sc.clientHeight + 4) sc = sc.parentElement;
         if (!sc || sc === document.body) { var one = lyricLines(r); return cb(one.lines, one.active); }
-        var all = [], activeText = '', top0 = sc.scrollTop, steps = 0, until = Date.now() + 6000;
+        var all = [], activeText = '', top0 = sc.scrollTop, steps = 0, until = Date.now() + 6000, moves = [];
         function merge(win) {
             if (!all.length) { all.push.apply(all, win); return; }
             for (var m = Math.min(win.length, all.length); m > 0; m--) {
@@ -160,8 +160,16 @@
             merge(w.lines);
             if (w.active >= 0 && w.lines[w.active] !== undefined) activeText = w.lines[w.active];
             var atEnd = sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 2;
-            if (atEnd || ++steps > 80 || Date.now() > until) { sc.scrollTop = top0; return cb(all, activeText ? all.indexOf(activeText) : -1); }
+            if (atEnd || ++steps > 80 || Date.now() > until) { sc.scrollTop = top0; log('pass:' + Math.min(steps, 99)); log('mv:' + (moves.indexOf(1) >= 0 ? 1 : 0)); return cb(all, activeText ? all.indexOf(activeText) : -1); }
+            var before = sc.scrollTop;
             sc.scrollTop = sc.scrollTop + Math.max(60, sc.clientHeight * 0.6);
+            // shortcut: a list that ignores scrollTop is moved by scrolling its last line into view instead.
+            if (sc.scrollTop === before) {
+                var last = r.querySelectorAll('[data-testid="fullscreen-lyric"], [data-testid^="lyrics-line"]');
+                if (last.length) last[last.length - 1].scrollIntoView({block: 'end'});
+                sc.dispatchEvent(new Event('scroll'));
+            }
+            moves.push(sc.scrollTop !== before ? 1 : 0);
             setTimeout(pass, 250);
         })();
     }
