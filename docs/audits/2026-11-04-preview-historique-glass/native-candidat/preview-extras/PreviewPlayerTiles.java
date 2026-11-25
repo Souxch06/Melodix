@@ -372,6 +372,8 @@ public final class PreviewPlayerTiles extends LinearLayout {
     }
     private void panelFailed(int i,Activity a,LinearLayout list,Button retry){
         if(lyricsLive){lyricsLive=false;panelReason="";retry.setEnabled(true);return;} // keep the lines shown; stop following
+        // Stable lyrics: when the fresh read fails, keep showing the lines already read for this track.
+        if(i==1){String kept=lyricsCache.get(nowTitle(a));if(kept!=null&&!kept.isEmpty()){recovering=false;panelReason="";showKept(a,list,kept);retry.setEnabled(true);return;}}
         recovering=false;
         String why=panelReason;panelReason="";
         if(why.equals("absent")){panelMessage(a,list,retry,i==1?"Paroles non disponibles sur cette page Spotify":"Appareils non disponibles sur cette page Spotify","Le bouton correspondant est absent de la page.");return;}
