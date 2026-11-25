@@ -8,7 +8,8 @@
     if (kind !== 'lyrics' && kind !== 'devices') return JSON.stringify({status: 'done', ok: false, reason: 'kind'});
     if (action === 'poll') return JSON.stringify(jobs[kind] || {status: 'none'});
     if (action !== 'run' && action !== 'transfer') return JSON.stringify({status: 'none'});
-    if (W.__melodixDrawerUnsafe) return JSON.stringify({status: 'blocked'});
+    // The flag names the drawer that could not close. A lyrics view left open must not block lyrics again.
+    if (W.__melodixDrawerUnsafe && W.__melodixDrawerUnsafe !== kind) return JSON.stringify({status: 'blocked'});
     if (W.__melodixDrawerLease && W.__melodixDrawerLease.status === 'running') return JSON.stringify({status: 'busy'});
     var counter = Number(W.__melodixDrawerCounter);
     W.__melodixDrawerCounter = isFinite(counter) && counter >= 0 && counter < 999999999 ? Math.floor(counter) + 1 : 1;
@@ -268,7 +269,7 @@
             // confirm closing. Reading lyrics changes nothing; keep the lines (the drawer stays flagged for recovery).
             job.status = 'done'; job.ok = ok && (closeOk || kind === 'lyrics');
             job.reason = closeOk ? (reason || '') : 'close-unverified';
-            if (!closeOk) W.__melodixDrawerUnsafe = true;
+            if (!closeOk) W.__melodixDrawerUnsafe = kind;
             if (W.__melodixDrawerLease === job) W.__melodixDrawerLease = null;
         }
         if (!openedHere) { done(true); return; }
