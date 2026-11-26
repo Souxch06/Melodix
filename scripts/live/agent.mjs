@@ -45,6 +45,26 @@ http.createServer(async (req, res) => {
       case '/text': { const t = String(b.text || '').slice(0, 500); if (/[^\x20-\x7e]/.test(t)) return j(res, 400, { error: 'ASCII only' });
         for (const chunk of t.match(/[\s\S]{1,60}/g) || []) await run(['shell', 'input', 'text', esc(chunk)]); return j(res, 200, { ok: true }); }
       case '/key': { const k = KEYS[b.key]; if (!k) return j(res, 400, { error: 'unknown key' }); await run(['shell', 'input', 'keyevent', String(k)]); return j(res, 200, { ok: true }); }
+      case '/cdp': { // admin only: one DevTools command on Melodix's WebView (Runtime.evaluate by default)
+        if (s !== 'admin') return j(res, 403, { error: 'forbidden' });
+        const base = process.env.CDP_BASE || 'http://127.0.0.1:9222';
+        if (!process.env.CDP_BASE) {
+          const pid = ((await run(['shell', 'pidof', 'com.melodix.music.preview'])).stdout || '').trim().split(/\s+/)[0];
+          if (!pid) return j(res, 404, { error: 'app not running' });
+          await run(['forward', 'tcp:9222', 'localabstract:webview_devtools_remote_' + pid]);
+        }
+        const page = (await (await fetch(base + '/json')).json()).find((t) => t.type === 'page');
+        if (!page) return j(res, 404, { error: 'no page target' });
+        const method = b.method || 'Runtime.evaluate';
+        const params = b.method ? (b.params || {}) : { expression: String(b.expression), returnByValue: true, awaitPromise: !!b.await, timeout: 10000 };
+        const out = await new Promise((resolve) => {
+          const ws = new WebSocket(page.webSocketDebuggerUrl); const timer = setTimeout(() => { try { ws.close(); } catch {} resolve({ error: 'timeout' }); }, 20000);
+          ws.onopen = () => ws.send(JSON.stringify({ id: 1, method, params }));
+          ws.onmessage = (m) => { const r = JSON.parse(m.data); if (r.id === 1) { clearTimeout(timer); ws.close(); resolve(r); } };
+          ws.onerror = () => { clearTimeout(timer); resolve({ error: 'ws error' }); };
+        });
+        return j(res, 200, out);
+      }
       case '/adb': if (s !== 'admin') return j(res, 403, { error: 'forbidden' });
         if (!Array.isArray(b.args)) return j(res, 400, { error: 'args' }); return j(res, 200, await run(b.args.map(String), Math.min(Number(b.timeout) || 60, 600)));
       case '/stop': if (s !== 'admin') return j(res, 403, { error: 'forbidden' }); (await import('node:fs')).writeFileSync('/tmp/live-stop', '1'); return j(res, 200, { ok: true });
