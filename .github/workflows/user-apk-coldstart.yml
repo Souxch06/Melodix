@@ -8,6 +8,12 @@ permissions:
 jobs:
   coldstart:
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {name: original, apk: diagnostics/user-apk/Melodix-Preview-1022454.apk, sha: 2cde36585b4cf37fe104d4d82e1d29592bcba1b0dca235005d97b350db7e4c88}
+          - {name: cssfix, apk: diagnostics/user-apk/Melodix-Preview-1022454-cssfix-testkey.apk, sha: cefe109bf518e17f880453939eb2b2f8b0af3fa019b7661775472407dca22d92}
     steps:
       - uses: actions/checkout@v4
       - run: sudo chmod 666 /dev/kvm
@@ -19,9 +25,9 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
-          script: bash scripts/user_apk_coldstart.sh
+          script: bash scripts/user_apk_coldstart.sh ${{ matrix.apk }} ${{ matrix.sha }}
       - if: always()
         uses: actions/upload-artifact@v4.6.2
         with:
-          name: user-apk-coldstart
+          name: user-apk-coldstart-${{ matrix.name }}
           path: user-apk-evidence

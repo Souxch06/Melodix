@@ -15,7 +15,7 @@ EXPECTED = {
     "assets/spotify_bridge.js": "0681f77be1cfe480b87a859b54e3865c3975577478d45469a72265878bdb4395",
     "assets/native_ui_shell.js": "a6bea27c1b715b02f50e9a5b68e58a751f4d896a65e6c32057798aed47930906",
 }
-CSS_SHA = "0d1ab6aa71f6978c5b5e1268566306d2811dfcf30c83831027293d36c38ab2f3"
+CSS_SHA = "5f3bdb4851f03dd9d0ef599992f0e55a2c713bedafbade1a55d3aa7c7686c0ea"
 
 def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()

@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Cold start of the exact user-supplied APK on a fresh emulator: screenshots + logcat only.
 set -u
-apk=diagnostics/user-apk/Melodix-Preview-1022454.apk
+apk=${1:-diagnostics/user-apk/Melodix-Preview-1022454.apk}
+sum=${2:-2cde36585b4cf37fe104d4d82e1d29592bcba1b0dca235005d97b350db7e4c88}
 out=user-apk-evidence; mkdir -p "$out"
-echo "2cde36585b4cf37fe104d4d82e1d29592bcba1b0dca235005d97b350db7e4c88  $apk" | sha256sum -c - || exit 1
+echo "$sum  $apk" | sha256sum -c - || exit 1
 adb install -r -g "$apk" || exit 1
 pkg=com.melodix.music.preview
 

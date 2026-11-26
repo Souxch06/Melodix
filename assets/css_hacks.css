@@ -2192,7 +2192,8 @@ body.sf-melodix-home-style-probe #sf-melodix-home {
 
 /* ===== MEL-BUG-068: polish pass (visual only, no behaviour change) ===== */
 /* Login page: centered glass feel on accounts.spotify.com */
-body.login-page, body:has(form[action*="login"]) {
+/* Spotify login forms may have no action attribute (seen on relaunch): also match Melodix's own classic-login link. */
+body.login-page, body:has(form[action*="login"]), body:has(a.fuckd) {
     background: radial-gradient(1200px 600px at 50% -10%, var(--mel-accent-wash-14), transparent 60%),
                 linear-gradient(180deg, var(--mel-bg-2) 0%, var(--mel-bg) 100%) !important;
 }

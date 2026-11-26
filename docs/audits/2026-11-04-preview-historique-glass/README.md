@@ -2,7 +2,7 @@
 
 ## Portée et choix
 
-À la demande explicite de l'utilisateur : base entière `d0f206b08b3db7c2d41a1e844f6dd4abf196a5f6`, parent de `9435c8a8` ; **ancienne connexion comprise**. Le seul remplacement fonctionnel voulu est `assets/css_hacks.css`, par [le CSS Glass complet](css_hacks_glass_complet.css) (SHA-256 `0d1ab6aa71f6978c5b5e1268566306d2811dfcf30c83831027293d36c38ab2f3`, y compris section 9). Source du CSS : `docs/audits/2026-11-04-hypothese-css-section9/css_hacks_original.css` à `7fd27944`.
+À la demande explicite de l'utilisateur : base entière `d0f206b08b3db7c2d41a1e844f6dd4abf196a5f6`, parent de `9435c8a8` ; **ancienne connexion comprise**. Le seul remplacement fonctionnel voulu est `assets/css_hacks.css`, par [le CSS Glass complet](css_hacks_glass_complet.css) (SHA-256 `5f3bdb4851f03dd9d0ef599992f0e55a2c713bedafbade1a55d3aa7c7686c0ea`, y compris section 9). Source du CSS : `docs/audits/2026-11-04-hypothese-css-section9/css_hacks_original.css` à `7fd27944`.
 
 La préparation opère **uniquement sur une copie temporaire** : identifiant, autorités/permissions et actions PIP adaptés au package `com.melodix.music.preview`, certificat Preview épinglé, numéro et provenance de build. Aucune modification de l'application normale ni de sa clé. Les JS historiques `spotify_bridge.js` et `native_ui_shell.js` sont contrôlés par SHA-256 avant/après, sans modification des en-têtes, notamment `spotify-app-version` d'origine `1.2.40.0`. Les autres fichiers du projet restent ceux de la base, hors ces adaptations Preview et CSS. La restauration annule aussi de fait les correctifs ultérieurs test9000/9001/9002 dans cette variante ; elle ne les intègre pas.
 
