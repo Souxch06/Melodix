@@ -20,9 +20,23 @@ for m in re.finditer(r'<node [^>]*>', x):
 adb logcat -c
 adb shell am start -W -n "$pkg/com.melodix.music.MainActivity" > /dev/null; sleep 8
 shot 00-before-login
-timeout 200 python3 scripts/ui_login.py "$out" > "$out/login-result.txt" 2>&1; echo "login exit $?" >> "$out/login-result.txt"
+# DevTools answered only after a relaunch in earlier runs.
+adb shell am force-stop "$pkg"; sleep 2
+adb shell am start -W -n "$pkg/com.melodix.music.MainActivity" > /dev/null; sleep 20
+shot 00b-relaunched
+pid=$(adb shell pidof "$pkg" | tr -d '\r')
+# S0: the DevTools socket must be Melodix's own WebView (socket name carries the app pid).
+{ echo "S0 melodix_pid=$pid sockets=$(adb shell cat /proc/net/unix | grep -o 'webview_devtools_remote_[0-9]*' | sort -u | tr '\n' ' ')"; } > "$out/login-result.txt"
+adb shell cat /proc/net/unix | grep -q "webview_devtools_remote_$pid" || echo "S0 STOP no-devtools-socket-for-melodix-pid" >> "$out/login-result.txt"
+fwd; timeout 150 node scripts/devtools_login.js >> "$out/login-result.txt" 2>&1; echo "login exit $?" >> "$out/login-result.txt"
+sleep 10; shot 01a-after-login
+# Melodix side: relaunch so the app re-reads its own session state, then look at what it shows.
+adb shell am force-stop "$pkg"; sleep 2
+adb shell am start -W -n "$pkg/com.melodix.music.MainActivity" > /dev/null
 sleep 20; shot 01-after-login-20s
+fwd; timeout 20 node scripts/devtools_eval.js session > "$out/session-after-relaunch.json" 2>&1
 sleep 20; shot 02-home-40s
+fwd; timeout 20 node scripts/devtools_eval.js session > "$out/session-40s.json" 2>&1
 tap_text "Rechercher"; sleep 6; shot 03-search
 tap_text "Bibliothèque"; sleep 8; shot 04-library
 tap_text "Titres likés"; sleep 8; shot 05-liked

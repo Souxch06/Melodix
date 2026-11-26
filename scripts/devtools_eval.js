@@ -1,5 +1,10 @@
 // Evaluate one read-only DOM probe on the first WebView page via DevTools (Node 22 global WebSocket).
-const expr = `JSON.stringify({customStyle: !!document.getElementById('sf-custom-style'),
+const SESSION = `JSON.stringify({host: location.host,
+  userWidget: !!document.querySelector('[data-testid="user-widget-link"],[data-testid="user-widget-avatar"]'),
+  loginButton: !!document.querySelector('[data-testid="login-button"]'),
+  libraryRows: document.querySelectorAll('[data-testid="rootlist-item"],[role="row"][aria-labelledby*="listrow"]').length,
+  melodixHome: !!document.getElementById('sf-melodix-home')})`;
+const expr = process.argv[2] === 'session' ? SESSION : `JSON.stringify({customStyle: !!document.getElementById('sf-custom-style'),
   customStyleLen: (document.getElementById('sf-custom-style')||{textContent:''}).textContent.length,
   loginFixed: !!document.getElementById('sf-login-fixed-style'),
   classicButton: !!document.querySelector('a.fuckd'),
