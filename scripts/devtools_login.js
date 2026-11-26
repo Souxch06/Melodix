@@ -1,6 +1,9 @@
 // Staged DevTools login on Melodix's own WebView. Logs stages and timings only:
 // never the email, password, cookie values or tokens. Stops if Spotify asks for a human.
-const email = process.env.SPOTIFY_TEST_EMAIL, password = process.env.SPOTIFY_TEST_PASSWORD;
+const rawEmail = process.env.SPOTIFY_TEST_EMAIL || '', rawPassword = process.env.SPOTIFY_TEST_PASSWORD || '';
+// Pasted secrets often carry a trailing newline/space; trim and report only booleans.
+const email = rawEmail.trim(), password = rawPassword.replace(/^[\r\n]+|[\r\n]+$/g, '');
+const secretShape = `emailHasAt=${email.includes('@')} emailTrimmed=${email !== rawEmail} passwordNewlineTrimmed=${password !== rawPassword} passwordEdgeSpace=${/^\s|\s$/.test(password)}`;
 const t0 = Date.now(); const log = s => console.log(`[${((Date.now() - t0) / 1000).toFixed(1)}s] ${s}`);
 setTimeout(() => { log('STOP global-timeout'); process.exit(6); }, 140000);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -25,6 +28,7 @@ async function attach(stage) {
 const HUMAN = "(()=>{const t=(document.body&&document.body.innerText||'').toLowerCase();const f=[...document.querySelectorAll('iframe')].map(i=>i.src||'');return {captcha: f.some(s=>/recaptcha\\/.*(bframe|challenge)|hcaptcha|arkose|funcaptcha/.test(s)) || /i.m not a robot|verify you are human|prove you.re human/.test(t), code: /enter the code|we sent (a|you a) code|6-digit|verification code|check your email|confirm it.s you/.test(t)};})()";
 (async () => {
   if (!email || !password) { log('STOP missing-secrets'); process.exit(2); }
+  log('S0b secret-shape ' + secretShape);
   let c = await attach('S1');
   const t = Date.now(); log(`S2 ping=${await val(c, '1+1')} in ${Date.now() - t}ms`);
   log(`S3 page=${await val(c, 'location.host+location.pathname')} classicLink=${await val(c, "!!document.querySelector('a.fuckd')")} passwordField=${await val(c, "!!document.querySelector(PASS)")}`);
@@ -38,7 +42,7 @@ const HUMAN = "(()=>{const t=(document.body&&document.body.innerText||'').toLowe
   }
   let h = await val(c, HUMAN); log(`S5 human-check captcha=${h?.captcha} code=${h?.code}`);
   if (h?.captcha || h?.code) { log('STOP human-intervention-required (before submit)'); process.exit(7); }
-  const fill = "(function(sel,v){const el=document.querySelector(sel);const set=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;set.call(el,v);el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));return el.value.length>0;})";
+  const fill = "(function(sel,v){const el=document.querySelector(sel);const set=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;set.call(el,v);el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));return el.value.length===v.length;})";
   log(`S6 filled user=${await val(c, `${fill}(USER,${JSON.stringify(email)})`)} pass=${await val(c, `${fill}(PASS,${JSON.stringify(password)})`)}`);
   if (process.env.LOGIN_DRY_RUN === '1') { log('DRY-RUN stop before submit'); process.exit(0); }
   log('S6 submit=' + await val(c, "(()=>{const b=document.querySelector('#login-button')||document.querySelector('button[type=submit]')||[...document.querySelectorAll('button')].find(x=>/^log ?in$/i.test(x.innerText.trim()));if(!b)return false;b.click();return true;})()"));
