@@ -13,7 +13,7 @@ jobs:
       matrix:
         include:
           - {name: original, apk: diagnostics/user-apk/Melodix-Preview-1022454.apk, sha: 2cde36585b4cf37fe104d4d82e1d29592bcba1b0dca235005d97b350db7e4c88}
-          - {name: fixed, apk: diagnostics/user-apk/Melodix-Preview-1022454-fixed-testkey.apk, sha: c65ee8919b904bfbd58316fe416d977c088a3a17ea4842b12b5c2fb971c4ee19}
+          - {name: fixed, apk: diagnostics/user-apk/Melodix-Preview-1022459-glass-a9fix.apk, sha: ddd53125ce82272de248a4957cd02e48b0059fb1a5b4aa8c460696f0f3e30ef9, base: diagnostics/user-apk/Melodix-Preview-1022454.apk}
     steps:
       - uses: actions/checkout@v4
       - run: sudo chmod 666 /dev/kvm
@@ -25,7 +25,7 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
-          script: bash scripts/user_apk_coldstart.sh ${{ matrix.apk }} ${{ matrix.sha }}
+          script: bash scripts/user_apk_coldstart.sh ${{ matrix.apk }} ${{ matrix.sha }} ${{ matrix.base }}
       - if: always()
         uses: actions/upload-artifact@v4.6.2
         with:

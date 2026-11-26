@@ -5,7 +5,12 @@ apk=${1:-diagnostics/user-apk/Melodix-Preview-1022454.apk}
 sum=${2:-2cde36585b4cf37fe104d4d82e1d29592bcba1b0dca235005d97b350db7e4c88}
 out=user-apk-evidence; mkdir -p "$out"
 echo "$sum  $apk" | sha256sum -c - || exit 1
-adb install -r -g "$apk" || exit 1
+base=${3:-}
+if [ -n "$base" ]; then  # update path: the user's installed APK first, then this one over it
+  adb install -r -g "$base" > "$out/install-base.txt" 2>&1 || exit 1
+fi
+adb install -r -g "$apk" > "$out/install.txt" 2>&1 || { cat "$out/install.txt"; exit 1; }
+adb shell dumpsys package com.melodix.music.preview | grep -E 'versionCode|versionName' | head -2 > "$out/installed-version.txt"
 pkg=com.melodix.music.preview
 
 probe() { # $1 = label: page URL(s) seen by the WebView DevTools endpoint
@@ -34,6 +39,7 @@ adb exec-out uiautomator dump /dev/tty > "$out/ui-relaunch.xml" 2>/dev/null || t
 adb shell input tap 540 1296; sleep 15
 adb exec-out screencap -p > "$out/classic-15s.png"
 probe classic-15s
+sleep 165; adb exec-out screencap -p > "$out/classic-180s.png"; probe classic-180s
 pid=$(adb shell pidof "$pkg" | tr -d '\r')
 adb logcat -d > "$out/logcat-all.txt"
 grep -E "MelodixWeb|chromium|Console|CONSOLE" "$out/logcat-all.txt" > "$out/logcat-web.txt" || true
