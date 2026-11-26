@@ -1,18 +1,20 @@
 // Classic Spotify login inside the app WebView via DevTools. Credentials come only from env; never printed.
 const email = process.env.SPOTIFY_TEST_EMAIL, password = process.env.SPOTIFY_TEST_PASSWORD;
 if (!email || !password) { console.log('missing-secrets'); process.exit(2); }
+setTimeout(() => { console.log('timeout-global'); process.exit(6); }, 120000).unref?.();
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function page() { return (await (await fetch('http://127.0.0.1:9222/json')).json()).find(p => p.type === 'page'); }
 function cdp(url) {
   const ws = new WebSocket(url); let id = 0; const wait = {};
   ws.onmessage = m => { const r = JSON.parse(m.data); if (wait[r.id]) { wait[r.id](r); delete wait[r.id]; } };
-  const ready = new Promise(r => ws.onopen = r);
-  return { ready, close: () => ws.close(), send: (method, params = {}) => new Promise(r => { const i = ++id; wait[i] = r; ws.send(JSON.stringify({ id: i, method, params })); }) };
+  const ready = new Promise(r => { ws.onopen = r; setTimeout(r, 10000); });
+  return { ready, close: () => ws.close(), send: (method, params = {}) => new Promise(r => { const i = ++id; wait[i] = r; ws.send(JSON.stringify({ id: i, method, params })); setTimeout(() => r({}), 10000); }) };
 }
 const evalJs = async (c, expression) => (await c.send('Runtime.evaluate', { expression, returnByValue: true })).result?.result?.value;
 (async () => {
   let c = cdp((await page()).webSocketDebuggerUrl); await c.ready;
   await c.send('Page.navigate', { url: 'https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&allow_password=1' });
+  c.close(); await sleep(3000); c = cdp((await page()).webSocketDebuggerUrl); await c.ready;
   let ok = false;
   for (let i = 0; i < 30 && !ok; i++) { await sleep(1000); ok = await evalJs(c, "!!document.querySelector('#login-username') && !!document.querySelector('#login-password')"); }
   if (!ok) { console.log('form-not-found url=' + (await evalJs(c, 'location.host+location.pathname'))); process.exit(3); }

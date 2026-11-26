@@ -6,9 +6,9 @@ out=connected-evidence; mkdir -p "$out"
 echo "$sum  $apk" | sha256sum -c - || exit 1
 adb install -r -g "$apk" || exit 1
 fwd() { local pid; pid=$(adb shell pidof "$pkg" | tr -d '\r'); adb forward tcp:9222 localabstract:webview_devtools_remote_"$pid" >/dev/null; }
-shot() { adb exec-out screencap -p > "$out/$1.png"; adb exec-out uiautomator dump /dev/tty > "$out/$1.xml" 2>/dev/null || true; }
+shot() { adb exec-out screencap -p > "$out/$1.png"; timeout 30 adb exec-out uiautomator dump /dev/tty > "$out/$1.xml" 2>/dev/null || true; }
 tap_text() { # tap the first node whose text or content-desc equals $1
-  local xml; xml=$(adb exec-out uiautomator dump /dev/tty 2>/dev/null)
+  local xml; xml=$(timeout 30 adb exec-out uiautomator dump /dev/tty 2>/dev/null)
   local b; b=$(printf '%s' "$xml" | python3 -c "
 import re,sys; x=sys.stdin.read(); t=sys.argv[1]
 for m in re.finditer(r'<node [^>]*>', x):
@@ -20,7 +20,7 @@ for m in re.finditer(r'<node [^>]*>', x):
 adb logcat -c
 adb shell am start -W -n "$pkg/com.melodix.music.MainActivity" > /dev/null; sleep 8
 shot 00-before-login
-fwd; node scripts/devtools_login.js > "$out/login-result.txt" 2>&1; echo "login exit $?" >> "$out/login-result.txt"
+fwd; timeout 150 node scripts/devtools_login.js > "$out/login-result.txt" 2>&1; echo "login exit $?" >> "$out/login-result.txt"
 sleep 20; shot 01-after-login-20s
 sleep 20; shot 02-home-40s
 tap_text "Rechercher"; sleep 6; shot 03-search
