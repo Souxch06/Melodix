@@ -1,0 +1,62 @@
+name: Live emulator for human Spotify login
+# Started by pushing a new session public key (scripts/live/session.pub). One run = one device.
+on:
+  push:
+    branches: [claude/melodix-native-login-visibility-xfjyai]
+    paths: [scripts/live/session.pub]
+permissions:
+  contents: read
+concurrency: { group: live-emulator, cancel-in-progress: true }
+jobs:
+  device:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    env:
+      APK: diagnostics/user-apk/Melodix-Preview-glass-a098738.apk
+      APK_SHA256: 23a0b3e71ebfd8ec02dc10cefd41f5214c4e18afe965136e06551c9fe6334626
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check APK
+        run: echo "$APK_SHA256  $APK" | sha256sum -c -
+      - name: KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - name: Emulator
+        run: |
+          SDKM=$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager
+          yes | $SDKM --licenses > /dev/null || true
+          $SDKM --install emulator platform-tools "system-images;android-36;google_apis;x86_64" > /dev/null
+          echo no | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd -n live -k "system-images;android-36;google_apis;x86_64" -d pixel_6 --force
+          echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
+          export PATH=$ANDROID_HOME/platform-tools:$PATH
+          nohup $ANDROID_HOME/emulator/emulator -avd live -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -memory 4096 > /tmp/emu.log 2>&1 &
+          timeout 600 bash -c 'until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = 1 ]; do sleep 3; done' || { tail -50 /tmp/emu.log; exit 1; }
+          for s in window_animation_scale transition_animation_scale animator_duration_scale; do adb shell settings put global $s 0; done
+          adb shell input keyevent 82; sleep 15; adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS > /dev/null
+      - name: Install and open Melodix (Spotify login page)
+        run: |
+          adb install -r -g "$APK"
+          adb shell am start -W -n com.melodix.music.preview/com.melodix.music.MainActivity
+      - name: Agent + tunnel, publish encrypted access
+        run: |
+          VIEW=$(openssl rand -hex 32); ADMIN=$(openssl rand -hex 32)
+          VIEW_TOKEN=$VIEW ADMIN_TOKEN=$ADMIN nohup node scripts/live/agent.mjs > /dev/null 2>&1 &
+          curl -fsSL -o /tmp/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 && chmod +x /tmp/cloudflared
+          for a in 1 2 3; do
+            nohup /tmp/cloudflared tunnel --no-autoupdate --url http://127.0.0.1:8080 > /tmp/cf.log 2>&1 &
+            for i in $(seq 45); do URL=$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' /tmp/cf.log | head -1); [ -n "$URL" ] && break; sleep 2; done
+            [ -n "$URL" ] && break; pkill cloudflared || true
+          done
+          [ -n "$URL" ] || { echo tunnel failed; exit 1; }
+          for i in $(seq 60); do curl -fs -o /dev/null -H "x-token: $ADMIN" "$URL/screen" && break; sleep 2; done
+          mkdir -p /tmp/out
+          printf '{"url":"%s","view":"%s","admin":"%s"}' "$URL" "$VIEW" "$ADMIN" \
+            | openssl pkeyutl -encrypt -pubin -inkey scripts/live/session.pub -pkeyopt rsa_padding_mode:oaep -pkeyopt rsa_oaep_md:sha256 -pkeyopt rsa_mgf1_md:sha256 \
+            | base64 -w0 > /tmp/out/access.enc
+          echo "Device ready; access encrypted for the session key."
+      - uses: actions/upload-artifact@v4.6.2
+        with: { name: live-access, path: /tmp/out/access.enc, retention-days: 1 }
+      - name: Keep device alive (stop file or 330 min)
+        run: |
+          END=$((SECONDS + 330*60)); while [ ! -f /tmp/live-stop ] && [ $SECONDS -lt $END ]; do sleep 5; done; echo ended

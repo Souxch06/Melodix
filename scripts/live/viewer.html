@@ -1,0 +1,25 @@
+<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer"><title>Melodix - émulateur</title>
+<style>body{margin:0;background:#0d0b16;color:#ddd;font:15px system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;gap:8px;padding:8px}
+#s{max-height:78vh;max-width:96vw;border-radius:14px;touch-action:none;cursor:pointer;user-select:none;-webkit-user-drag:none}
+.bar{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:96vw}input{font-size:16px;padding:8px;border-radius:8px;border:1px solid #555;background:#1b1830;color:#fff;width:min(60vw,320px)}
+button{font-size:15px;padding:8px 12px;border-radius:8px;border:0;background:#6d3df5;color:#fff}button.g{background:#333}#m{font-size:12px;color:#888}</style>
+<img id="s" alt="Écran de l'émulateur"><div id="m">connexion…</div>
+<div class="bar"><input id="t" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Texte à taper dans le champ sélectionné"><button id="send">Taper</button><button class="g" id="show">👁</button></div>
+<div class="bar"><button class="g" data-k="Backspace">⌫ Effacer</button><button class="g" data-k="Enter">⏎ Entrée</button><button class="g" data-k="Tab">Tab</button><button class="g" data-k="Back">◀ Retour</button></div>
+<script>
+const T=location.hash.slice(1), H={'x-token':T,'content-type':'application/json'}, img=document.getElementById('s'), m=document.getElementById('m'), t=document.getElementById('t');
+const post=(p,o)=>fetch(p,{method:'POST',headers:H,body:JSON.stringify(o)});
+async function loop(){try{const r=await fetch('/screen',{headers:{'x-token':T},cache:'no-store'});if(r.ok){const o=img.src;img.src=URL.createObjectURL(await r.blob());if(o)URL.revokeObjectURL(o);m.textContent='en direct · touchez l’écran, tapez au clavier'}else m.textContent=r.status===401?'lien invalide ou expiré':'erreur '+r.status}catch(e){m.textContent='déconnecté'}setTimeout(loop,400)}loop();
+const pt=e=>{const b=img.getBoundingClientRect();return{x:(e.clientX-b.left)*img.naturalWidth/b.width,y:(e.clientY-b.top)*img.naturalHeight/b.height}};
+let d=null;img.addEventListener('pointerdown',e=>{d={...pt(e),t:Date.now()};e.preventDefault()});
+img.addEventListener('pointerup',e=>{if(!d)return;const u=pt(e),ms=Date.now()-d.t;if(Math.hypot(u.x-d.x,u.y-d.y)<25)post('/tap',{x:d.x,y:d.y});else post('/swipe',{x1:d.x,y1:d.y,x2:u.x,y2:u.y,ms:Math.max(120,Math.min(ms,1500))});d=null});
+document.getElementById('send').onclick=()=>{if(t.value){post('/text',{text:t.value});t.value=''}};
+t.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();document.getElementById('send').click()}});
+document.getElementById('show').onclick=()=>{t.type=t.type==='password'?'text':'password'};
+document.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>post('/key',{key:b.dataset.k}));
+// Physical keyboard straight to the device when the text box is not focused (desktop).
+let buf='',tm=null;document.addEventListener('keydown',e=>{if(document.activeElement===t||e.ctrlKey||e.metaKey||e.altKey)return;
+ if(e.key.length===1){buf+=e.key;clearTimeout(tm);tm=setTimeout(()=>{post('/text',{text:buf});buf=''},120);e.preventDefault()}
+ else if(['Backspace','Enter','Tab','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Delete','Escape'].includes(e.key)){post('/key',{key:e.key});e.preventDefault()}});
+</script></html>
