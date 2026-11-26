@@ -30,8 +30,13 @@ adb exec-out screencap -p > "$out/relaunch-12s.png"
 probe relaunch-12s
 sleep 15; adb exec-out screencap -p > "$out/relaunch-27s.png"; probe relaunch-27s
 adb exec-out uiautomator dump /dev/tty > "$out/ui-relaunch.xml" 2>/dev/null || true
+# No credentials: does the official classic (allow_password) page render inside Melodix?
+adb shell input tap 540 1296; sleep 15
+adb exec-out screencap -p > "$out/classic-15s.png"
+probe classic-15s
 pid=$(adb shell pidof "$pkg" | tr -d '\r')
 adb logcat -d > "$out/logcat-all.txt"
+grep -E "MelodixWeb|chromium|Console|CONSOLE" "$out/logcat-all.txt" > "$out/logcat-web.txt" || true
 adb logcat -d -b crash > "$out/crash.txt"
 [ -n "$pid" ] && adb logcat -d --pid="$pid" > "$out/logcat-app.txt"
 true
