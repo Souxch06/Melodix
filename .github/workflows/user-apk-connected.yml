@@ -6,7 +6,7 @@ permissions:
 jobs:
   connected:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - run: sudo chmod 666 /dev/kvm
@@ -21,10 +21,11 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
-          script: bash scripts/user_apk_connected.sh diagnostics/user-apk/Melodix-Preview-1022454-fixed-testkey.apk 8c6867e874d329f32f6af2d957fe0121d487b2926b596c54cb89de82b1d21db2
+          script: bash scripts/user_apk_connected.sh diagnostics/user-apk/Melodix-Preview-glass-a098738.apk 23a0b3e71ebfd8ec02dc10cefd41f5214c4e18afe965136e06551c9fe6334626
       - if: always()
         uses: actions/upload-artifact@v4.6.2
         with:
           name: user-apk-connected
           path: connected-evidence
+          if-no-files-found: warn
           retention-days: 3

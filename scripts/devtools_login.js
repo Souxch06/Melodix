@@ -13,7 +13,8 @@ function cdp(url) {
     close: () => ws.close(),
     send: (method, params = {}) => withTimeout(new Promise(r => { const i = ++id; wait[i] = r; ws.send(JSON.stringify({ id: i, method, params })); }), 8000, method) };
 }
-const val = async (c, expression) => (await c.send('Runtime.evaluate', { expression, returnByValue: true })).result?.result?.value;
+const SEL = "var USER='#login-username,input[autocomplete=username],input[type=email],input[name=username]',PASS='input[type=password]';";
+const val = async (c, expression) => (await c.send('Runtime.evaluate', { expression: SEL + expression, returnByValue: true })).result?.result?.value;
 const host = u => { try { const x = new URL(u); return x.host + x.pathname; } catch { return String(u).slice(0, 40); } };
 async function attach(stage) {
   const ts = await targets();
@@ -26,20 +27,21 @@ const HUMAN = "(()=>{const t=(document.body&&document.body.innerText||'').toLowe
   if (!email || !password) { log('STOP missing-secrets'); process.exit(2); }
   let c = await attach('S1');
   const t = Date.now(); log(`S2 ping=${await val(c, '1+1')} in ${Date.now() - t}ms`);
-  log(`S3 page=${await val(c, 'location.host+location.pathname')} classicLink=${await val(c, "!!document.querySelector('a.fuckd')")} usernameField=${await val(c, "!!document.querySelector('#login-username')")}`);
-  if (!(await val(c, "!!document.querySelector('#login-password')"))) {
+  log(`S3 page=${await val(c, 'location.host+location.pathname')} classicLink=${await val(c, "!!document.querySelector('a.fuckd')")} passwordField=${await val(c, "!!document.querySelector(PASS)")}`);
+  if (!(await val(c, "!!document.querySelector(PASS)"))) {
     if (!(await val(c, "!!document.querySelector('a.fuckd')"))) { log('STOP classic-link-absent-from-DOM'); process.exit(3); }
     log('S4 click classic link -> ' + await val(c, "(()=>{const a=document.querySelector('a.fuckd');const h=new URL(a.href);a.click();return h.host+h.pathname+(h.search.includes('allow_password')?' allow_password':'');})()"));
     c.close(); await sleep(6000);
     let ok = false;
-    for (let i = 0; i < 10 && !ok; i++) { try { c = await attach('S4b'); ok = await val(c, "!!document.querySelector('#login-username')&&!!document.querySelector('#login-password')"); if (!ok) { c.close(); await sleep(2000); } } catch (e) { log('S4b ' + e.message); await sleep(2000); } }
+    for (let i = 0; i < 10 && !ok; i++) { try { c = await attach('S4b'); ok = await val(c, "!!document.querySelector(USER)&&!!document.querySelector(PASS)"); if (!ok) { c.close(); await sleep(2000); } } catch (e) { log('S4b ' + e.message); await sleep(2000); } }
     if (!ok) { log('STOP password-form-not-found'); process.exit(4); }
   }
   let h = await val(c, HUMAN); log(`S5 human-check captcha=${h?.captcha} code=${h?.code}`);
   if (h?.captcha || h?.code) { log('STOP human-intervention-required (before submit)'); process.exit(7); }
   const fill = "(function(sel,v){const el=document.querySelector(sel);const set=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;set.call(el,v);el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));return el.value.length>0;})";
-  log(`S6 filled user=${await val(c, `${fill}('#login-username',${JSON.stringify(email)})`)} pass=${await val(c, `${fill}('#login-password',${JSON.stringify(password)})`)}`);
-  log('S6 submit=' + await val(c, "(()=>{const b=document.querySelector('#login-button')||document.querySelector('button[type=submit]');if(!b)return false;b.click();return true;})()"));
+  log(`S6 filled user=${await val(c, `${fill}(USER,${JSON.stringify(email)})`)} pass=${await val(c, `${fill}(PASS,${JSON.stringify(password)})`)}`);
+  if (process.env.LOGIN_DRY_RUN === '1') { log('DRY-RUN stop before submit'); process.exit(0); }
+  log('S6 submit=' + await val(c, "(()=>{const b=document.querySelector('#login-button')||document.querySelector('button[type=submit]')||[...document.querySelectorAll('button')].find(x=>/^log ?in$/i.test(x.innerText.trim()));if(!b)return false;b.click();return true;})()"));
   c.close();
   for (let i = 0; i < 20; i++) {
     await sleep(3000);
