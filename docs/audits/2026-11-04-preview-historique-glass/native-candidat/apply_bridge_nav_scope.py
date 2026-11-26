@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Keep spotify_bridge.js's body observer off pages other than open.spotify.com.
+"""Stop spotify_bridge.js freezing any page (login and open.spotify.com) and keep its dock off Spotify's own pages.
 
 On accounts.spotify.com the bridge's body MutationObserver re-ran
 syncMobileNavigation -> updateMelodixHome -> deactivateMelodixHome, whose
@@ -17,11 +17,17 @@ import sys
 from pathlib import Path
 SOURCE = 'smali/c91.smali'
 OLD = " dockLeftSidebar: %b, touchInput: %b };\"\n"
-# Outside open.spotify.com: no body observer, and a hidden placeholder #sf-mobile-nav so the
-# bridge does not build its Melodix dock over the Spotify page (seen on the login page).
-GUARD_JS = ("if (location.hostname !== 'open.spotify.com') { if (!window._sfMobileNavObserver) window._sfMobileNavObserver = true;"
-            " if (document.body && !document.getElementById('sf-mobile-nav')) { var n = document.createElement('nav'); n.id = 'sf-mobile-nav';"
-            " n.style.setProperty('display', 'none', 'important'); document.body.appendChild(n); } }")
+# 1) Every page (open.spotify.com included): classList.remove() of an absent class still rewrites the class
+#    attribute, which re-fires the bridge's body observer without end (renderer at 100 % CPU, native shell empty).
+#    Making that call a no-op when nothing is removed leaves every real removal untouched.
+# 2) Outside open.spotify.com: no body observer and a hidden #sf-mobile-nav placeholder, so the bridge does not
+#    draw its Melodix dock over Spotify's own pages (seen on the login page).
+SAFE_REMOVE_JS = ("(function(){ if (window.__sfSafeClassRemove) return; window.__sfSafeClassRemove = true; var r = DOMTokenList.prototype.remove;"
+                  " DOMTokenList.prototype.remove = function(){ for (var i = 0; i < arguments.length; i++) if (this.contains(arguments[i])) return r.apply(this, arguments); }; })();")
+HOST_GUARD_JS = ("if (location.hostname !== 'open.spotify.com') { if (!window._sfMobileNavObserver) window._sfMobileNavObserver = true;"
+                 " if (document.body && !document.getElementById('sf-mobile-nav')) { var n = document.createElement('nav'); n.id = 'sf-mobile-nav';"
+                 " n.style.setProperty('display', 'none', 'important'); document.body.appendChild(n); } }")
+GUARD_JS = SAFE_REMOVE_JS + " " + HOST_GUARD_JS
 NEW = " dockLeftSidebar: %b, touchInput: %b }; " + GUARD_JS.replace("'", "\\'") + "\"\n"
 def prepare(root):
     text = (root/SOURCE).read_text(encoding='utf8')

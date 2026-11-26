@@ -8,16 +8,16 @@ spec = importlib.util.spec_from_file_location('apply', HERE / 'apply_bridge_nav_
 ROOT = Path(sys.argv.pop(1)) if len(sys.argv) > 1 else None
 JS = r"""
 const { JSDOM } = require('jsdom'); const fs = require('fs');
-const dom = new JSDOM('<html><head></head><body><div id="root"></div></body></html>', { url: 'https://accounts.spotify.com/en/login', runScripts: 'outside-only', pretendToBeVisual: true });
-const w = dom.window; w.SF_CONFIG = { guiMode: 'csshack', touchInput: true };
+const dom = new JSDOM('<html><head></head><body><div id="root"></div></body></html>', { url: process.argv[3] || 'https://accounts.spotify.com/en/login', runScripts: 'outside-only', pretendToBeVisual: true });
+const w = dom.window; w.SF_CONFIG = { guiMode: 'csshack', touchInput: true }; w.__sfNativeUiShellReady = true;
 if (process.argv[2]) w.eval(process.argv[2]);
 try { w.eval(fs.readFileSync(process.argv[1], 'utf8')); } catch (e) {}
 w.setTimeout(() => { const navs = [...w.document.querySelectorAll('#sf-mobile-nav')]; console.log(navs.length === 1 && navs[0].style.display === 'none' && !w.document.querySelector('[data-sf-mobile-action]') ? 'alive-no-dock' : 'alive-with-dock'); process.exit(0); }, 200);
 """
-def alive(guard):
+def alive(guard, url='https://accounts.spotify.com/en/login'):
     env = dict(os.environ, NODE_PATH=os.environ.get('NODE_PATH') or str(REPO / 'node_modules'))
     try:
-        return subprocess.run(['node', '-e', JS, str(ROOT / 'assets/spotify_bridge.js'), guard], capture_output=True, text=True, timeout=20, env=env).stdout.strip()
+        return subprocess.run(['node', '-e', JS, str(ROOT / 'assets/spotify_bridge.js'), guard, url], capture_output=True, text=True, timeout=20, env=env).stdout.strip()
     except subprocess.TimeoutExpired:
         return ''
 class T(unittest.TestCase):
@@ -25,6 +25,11 @@ class T(unittest.TestCase):
     def test_shipped_bridge_freezes_login_page_without_guard(self): self.assertEqual(alive(''), '')  # frozen: no output before the timeout
     @unittest.skipIf(ROOT is None, 'needs the project root')
     def test_shipped_bridge_stays_responsive_with_guard(self): self.assertEqual(alive(apply.GUARD_JS), 'alive-no-dock')
+    @unittest.skipIf(ROOT is None, 'needs the project root')
+    def test_open_spotify_freezes_without_guard_and_stays_alive_with_it(self):
+        u = 'https://open.spotify.com/'
+        self.assertEqual(alive('', u), '')
+        self.assertTrue(alive(apply.GUARD_JS, u).startswith('alive'))
     def test_smali_guard_matches_tested_js(self):
         self.assertEqual(apply.NEW.split('}; ', 1)[1].rsplit('"', 1)[0].replace("\\'", "'"), apply.GUARD_JS)
     def test_applies_once(self):
