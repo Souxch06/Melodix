@@ -11,6 +11,7 @@ probe() { # $1 = label: page URL(s) seen by the WebView DevTools endpoint
   local pid; pid=$(adb shell pidof "$pkg" | tr -d '\r')
   adb forward tcp:9222 localabstract:webview_devtools_remote_"$pid" >/dev/null 2>&1 || true
   curl -s --max-time 5 http://127.0.0.1:9222/json > "$out/devtools-$1.json" || echo "devtools unavailable" > "$out/devtools-$1.json"
+  node scripts/devtools_eval.js > "$out/dom-$1.json" 2>&1 || true
   adb forward --remove tcp:9222 >/dev/null 2>&1 || true
 }
 adb logcat -c
