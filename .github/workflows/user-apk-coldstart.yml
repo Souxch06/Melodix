@@ -13,7 +13,7 @@ jobs:
       matrix:
         include:
           - {name: original, apk: diagnostics/user-apk/Melodix-Preview-1022454.apk, sha: 2cde36585b4cf37fe104d4d82e1d29592bcba1b0dca235005d97b350db7e4c88}
-          - {name: cssfix, apk: diagnostics/user-apk/Melodix-Preview-1022454-cssfix-testkey.apk, sha: cefe109bf518e17f880453939eb2b2f8b0af3fa019b7661775472407dca22d92}
+          - {name: fixed, apk: diagnostics/user-apk/Melodix-Preview-1022454-fixed-testkey.apk, sha: 8c6867e874d329f32f6af2d957fe0121d487b2926b596c54cb89de82b1d21db2}
     steps:
       - uses: actions/checkout@v4
       - run: sudo chmod 666 /dev/kvm
