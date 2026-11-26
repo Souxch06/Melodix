@@ -673,13 +673,12 @@ function melodixHomeImage(card, anchor) {
     const image = (anchor && anchor.querySelector && anchor.querySelector('img')) ||
         (card && card.querySelector && card.querySelector('img'));
     if (image) {
-        let raw = image.currentSrc || image.getAttribute('src') || image.getAttribute('data-src') || image.src || '';
-        if (!raw) {
-            const srcset = image.getAttribute('srcset') || '';
-            raw = (String(srcset).split(',')[0] || '').trim().split(/\s+/)[0] || '';
+        // First usable candidate, not the first non-empty one: a data: placeholder in src must not hide data-src or srcset.
+        const srcset = String(image.getAttribute('srcset') || '').split(',')[0].trim().split(/\s+/)[0] || '';
+        for (const raw of [image.currentSrc, image.getAttribute('src'), image.getAttribute('data-src'), srcset, image.src]) {
+            const safe = safeMelodixHomeImage(raw);
+            if (safe) return safe;
         }
-        const safe = safeMelodixHomeImage(raw);
-        if (safe) return safe;
     }
     const backgroundNode = card && card.querySelector
         ? card.querySelector('[style*="background-image"]')
@@ -875,7 +874,7 @@ function observeMelodixHomeDom() {
     window._sfMelodixHomeObserver = new MutationObserver(scheduleMelodixHomeUpdate);
     // Keep watching the body, not only the first #main-view instance: the
     // Spotify SPA can replace that node during a route transition.
-    window._sfMelodixHomeObserver.observe(document.body, { childList: true, subtree: true });
+    window._sfMelodixHomeObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['src', 'srcset', 'data-src'] });
 }
 
 function observeMelodixHomeStyles() {
