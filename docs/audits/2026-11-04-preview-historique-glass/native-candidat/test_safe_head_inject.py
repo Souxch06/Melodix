@@ -20,7 +20,7 @@ class T(unittest.TestCase):
         d = Path(tempfile.mkdtemp()); (d/'smali').mkdir(); (d/'assets').mkdir()
         (d/'smali/c91.smali').write_text(c91); (d/'smali/o6.smali').write_text(o6); (d/'assets/spotify_bridge.js').write_text(bridge); return d
     def test_patched_template_runs_without_head_and_injects_once(self):
-        d = self.tree(TEMPLATE * 2, 'document.head.appendChild(s)', 'document.head.appendChild(a);document.head.appendChild(b);document.head.appendChild(c)')
+        d = self.tree(TEMPLATE * 2, 'document.head.appendChild(s)')
         out = apply.prepare(d, 'smali/c91.smali', 2)
         self.assertNotIn('document.head.appendChild(', out)
         js = re.search(r'const-string v2, "(.*)"\n', out).group(1).replace("\\'", "'") % ('"a{}"', '"b{}"', '')

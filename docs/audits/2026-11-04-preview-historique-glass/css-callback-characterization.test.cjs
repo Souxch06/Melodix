@@ -12,7 +12,7 @@ const css=fs.readFileSync(path.join(root,'assets/css_hacks.css'),'utf8');
 function allRules(rules){return Array.from(rules).flatMap(rule=>[rule,...(rule.cssRules?allRules(rule.cssRules):[])]);}
 
 test('Glass CSS bytes match published full stylesheet',()=>{
-    assert.equal(crypto.createHash('sha256').update(css).digest('hex'),'0d1ab6aa71f6978c5b5e1268566306d2811dfcf30c83831027293d36c38ab2f3');
+    assert.equal(crypto.createHash('sha256').update(css).digest('hex'),'5f3bdb4851f03dd9d0ef599992f0e55a2c713bedafbade1a55d3aa7c7686c0ea');
     assert.equal(css,fs.readFileSync(path.join(__dirname,'css_hacks_glass_complet.css'),'utf8'));
 });
 test('rrweb-cssom parses Glass stylesheet and retains representative rules',()=>{
