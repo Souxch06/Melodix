@@ -12,19 +12,19 @@ const dom = new JSDOM('<html><head></head><body><div id="root"></div></body></ht
 const w = dom.window; w.SF_CONFIG = { guiMode: 'csshack', touchInput: true };
 if (process.argv[2]) w.eval(process.argv[2]);
 try { w.eval(fs.readFileSync(process.argv[1], 'utf8')); } catch (e) {}
-w.setTimeout(() => { console.log('alive'); process.exit(0); }, 200);
+w.setTimeout(() => { const navs = [...w.document.querySelectorAll('#sf-mobile-nav')]; console.log(navs.length === 1 && navs[0].style.display === 'none' && !w.document.querySelector('[data-sf-mobile-action]') ? 'alive-no-dock' : 'alive-with-dock'); process.exit(0); }, 200);
 """
 def alive(guard):
     env = dict(os.environ, NODE_PATH=os.environ.get('NODE_PATH') or str(REPO / 'node_modules'))
     try:
-        return subprocess.run(['node', '-e', JS, str(ROOT / 'assets/spotify_bridge.js'), guard], capture_output=True, text=True, timeout=20, env=env).stdout.strip() == 'alive'
+        return subprocess.run(['node', '-e', JS, str(ROOT / 'assets/spotify_bridge.js'), guard], capture_output=True, text=True, timeout=20, env=env).stdout.strip()
     except subprocess.TimeoutExpired:
-        return False
+        return ''
 class T(unittest.TestCase):
     @unittest.skipIf(ROOT is None, 'needs the project root')
-    def test_shipped_bridge_freezes_login_page_without_guard(self): self.assertFalse(alive(''))
+    def test_shipped_bridge_freezes_login_page_without_guard(self): self.assertEqual(alive(''), '')  # frozen: no output before the timeout
     @unittest.skipIf(ROOT is None, 'needs the project root')
-    def test_shipped_bridge_stays_responsive_with_guard(self): self.assertTrue(alive(apply.GUARD_JS))
+    def test_shipped_bridge_stays_responsive_with_guard(self): self.assertEqual(alive(apply.GUARD_JS), 'alive-no-dock')
     def test_smali_guard_matches_tested_js(self):
         self.assertEqual(apply.NEW.split('}; ', 1)[1].rsplit('"', 1)[0].replace("\\'", "'"), apply.GUARD_JS)
     def test_applies_once(self):
