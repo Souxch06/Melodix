@@ -268,7 +268,8 @@ public final class SessionGateInstrumentation extends Instrumentation {
                 check(rootRect.width()>0 && rootRect.height()>0);
                 View splash=activity().findViewById(activity().getResources().getIdentifier("splashOverlay","id",PACKAGE));
                 check(splash!=null && !splash.isShown());
-                View status=findText(root,"Bibliothèque Spotify indisponible");
+                // First launch has no cookie (state 1): the limited Home names that cause.
+                View status=findText(root,"Connexion à Spotify requise");
                 if(status==null) status=findText(root,"Vérification de la bibliothèque…");
                 check(status!=null && status.isShown());
                 Rect statusRect=new Rect(); check(status.getGlobalVisibleRect(statusRect));
