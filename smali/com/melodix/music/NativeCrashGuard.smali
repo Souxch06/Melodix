@@ -241,7 +241,10 @@
 
     move-result-object v2
 
-    if-eqz v1, :toast_stage
+    if-nez v1, :toast_stage
+
+    # No recorded report: nothing to announce (previously printed "Melodix a plante : null").
+    goto :toast_alive
 
     new-instance v3, Ljava/lang/StringBuilder;
 
@@ -272,7 +275,7 @@
 
     move-result v1
 
-    if-nez v1, :toast_alive
+    if-eqz v1, :toast_alive
 
     new-instance v1, Ljava/lang/StringBuilder;
 
