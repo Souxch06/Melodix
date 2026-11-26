@@ -638,6 +638,17 @@
     const-string v1, "{\"state\":\"loading\",\"title\":\"Vérification de la bibliothèque…\",\"subtitle\":\"Les playlists restent masquées pendant la vérification.\",\"section\":\"Vos playlists\"}"
     goto :render_status
     :error
+    # No-session and expired are established causes: say so instead of "cause not established".
+    const/4 v2, 0x1
+    if-ne v0, v2, :check_expired
+    const-string v1, "{\"state\":\"error\",\"title\":\"Connexion à Spotify requise\",\"subtitle\":\"Aucune session Spotify n’est ouverte sur cet appareil. Connectez-vous pour afficher vos playlists.\",\"section\":\"Vos playlists\"}"
+    goto :render_status
+    :check_expired
+    const/4 v2, 0x2
+    if-ne v0, v2, :generic_error
+    const-string v1, "{\"state\":\"error\",\"title\":\"Session Spotify expirée\",\"subtitle\":\"Reconnectez-vous à Spotify pour afficher vos playlists.\",\"section\":\"Vos playlists\"}"
+    goto :render_status
+    :generic_error
     const-string v1, "{\"state\":\"error\",\"title\":\"Bibliothèque Spotify indisponible\",\"subtitle\":\"Spotify n’a pas confirmé l’accès à la bibliothèque. La cause n’est pas établie.\",\"section\":\"Vos playlists\"}"
     sget v0, Lcom/melodix/music/NativeSessionGate;->libraryHttp:I
     const/16 v2, 0x191

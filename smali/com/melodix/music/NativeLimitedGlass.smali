@@ -154,6 +154,15 @@
     invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextColor(I)V
     const-string v1, "native_button_dark"
     const-string v2, "melodix:action:retry-library"
+    # Without a session (1) or after expiry (2) the useful primary action is login, not retry.
+    sget v3, Lcom/melodix/music/NativeSessionGate;->state:I
+    const/4 v4, 0x1
+    if-eq v3, v4, :primary_login
+    const/4 v4, 0x2
+    if-ne v3, v4, :primary_ready
+    :primary_login
+    const-string v2, "melodix:action:open-login"
+    :primary_ready
     invoke-virtual {v2, p3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v2
     if-eqz v2, :button_style

@@ -75,3 +75,13 @@ test('network error and a queued legacy animation cannot cover limited Glass',()
   assert.match(animate,/:pswitch_0[\s\S]*?NativeLimitedGlass;->available\(\)Z[\s\S]*?if-eqz v0, :legacy_error_animation[\s\S]*?NativeSessionGate;->paint[\s\S]*?return-void[\s\S]*?:legacy_error_animation[\s\S]*?->setVisibility/);
   assert.doesNotMatch(network.slice(0,network.indexOf(':legacy_network_surface')),/removeAllCookies|NativeSessionStore;->recordVerified|sput.*state:I/);
 });
+
+test('no-session and expired Home name their cause and put login first (emulator run 300 showed "cause not established" on a fresh install)',()=>{
+  const status=method(renderer,'.method public static renderLimitedHomeStatus(');
+  assert.match(status,/:error[\s\S]*?if-ne v0, v2, :check_expired[\s\S]*?Connexion à Spotify requise[\s\S]*?goto :render_status[\s\S]*?:check_expired[\s\S]*?if-ne v0, v2, :generic_error[\s\S]*?Session Spotify expirée[\s\S]*?:generic_error[\s\S]*?La cause n’est pas établie/);
+  // State 4 (verification error) keeps the HTTP-specific texts the instrumentation checks.
+  assert.match(status,/:generic_error[\s\S]*?HTTP 401[\s\S]*?HTTP 403/);
+  assert.doesNotMatch(status,/sput.*state:I|recordVerified|Cookie/);
+  const action=method(limited,'.method private static action(');
+  assert.match(action,/state:I[\s\S]*?if-eq v3, v4, :primary_login[\s\S]*?if-ne v3, v4, :primary_ready[\s\S]*?:primary_login\s+const-string v2, "melodix:action:open-login"[\s\S]*?:primary_ready\s+invoke-virtual \{v2, p3\}[\s\S]*?native_button_green/);
+});
