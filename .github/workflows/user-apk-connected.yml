@@ -1,0 +1,31 @@
+name: User APK connected walk (test account)
+on:
+  push:
+    branches: [claude/melodix-native-login-visibility-xfjyai]
+    paths: [scripts/user_apk_connected.sh, scripts/devtools_login.js, .github/workflows/user-apk-connected.yml]
+permissions:
+  contents: read
+jobs:
+  connected:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo chmod 666 /dev/kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        env:
+          SPOTIFY_TEST_EMAIL: ${{ secrets.SPOTIFY_TEST_EMAIL }}
+          SPOTIFY_TEST_PASSWORD: ${{ secrets.SPOTIFY_TEST_PASSWORD }}
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: '-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot'
+          script: bash scripts/user_apk_connected.sh diagnostics/user-apk/Melodix-Preview-1022454-fixed-testkey.apk 8c6867e874d329f32f6af2d957fe0121d487b2926b596c54cb89de82b1d21db2
+      - if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: user-apk-connected
+          path: connected-evidence
+          retention-days: 3
