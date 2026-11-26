@@ -999,6 +999,8 @@ jobs:
           phase="inject Melodix styles even before <head> exists"
           python3 "$audit/native-candidat/test_safe_head_inject.py"
           python3 "$audit/native-candidat/apply_safe_head_inject.py" "$work"
+          phase="stop the bridge body-observer loop on non-Home pages"
+          python3 "$audit/native-candidat/apply_bridge_observer_loop.py" "$work"
           phase="build unsigned APK"
           java -jar "$RUNNER_TEMP/apktool.jar" b "$work" -p "$RUNNER_TEMP/framework" -o "$RUNNER_TEMP/unsigned.apk" --force-all
           # Check the actual compiled dex (decoded back to Smali), not just source.
