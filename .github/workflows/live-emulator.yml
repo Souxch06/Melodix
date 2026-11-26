@@ -12,8 +12,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 350
     env:
-      APK: diagnostics/user-apk/Melodix-Preview-glass-a098738.apk
-      APK_SHA256: 23a0b3e71ebfd8ec02dc10cefd41f5214c4e18afe965136e06551c9fe6334626
+      APK: diagnostics/user-apk/Melodix-Preview-glass-uafix-testkey.apk
+      APK_SHA256: 171f5ac99326c930904277276e8e368830175430186d106134fc71ab24b2c6aa
       ANDROID_AVD_HOME: /home/runner/.android/avd
     steps:
       - uses: actions/checkout@v4

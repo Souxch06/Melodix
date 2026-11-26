@@ -31,6 +31,12 @@ http.createServer(async (req, res) => {
       if (r.code) return j(res, 500, { error: 'screencap failed' });
       res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'no-store' }); return res.end(r.stdout);
     }
+    if (req.method === 'POST' && p === '/install') {
+      if (s !== 'admin') return j(res, 403, { error: 'forbidden' });
+      const { mkdtempSync, createWriteStream } = await import('node:fs'); const { pipeline } = await import('node:stream/promises');
+      const f = mkdtempSync('/tmp/apk-') + '/app.apk'; await pipeline(req, createWriteStream(f));
+      return j(res, 200, await run(['install', '-r', '-d', '-g', f], 300));
+    }
     if (req.method !== 'POST') return j(res, 404, { error: 'not found' });
     const b = await body(req);
     switch (p) {
