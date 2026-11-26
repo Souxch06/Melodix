@@ -13,7 +13,7 @@ eval(process.argv[1]);
 setTimeout(() => console.log(JSON.stringify(calls)), 50);
 """
 def observer_calls(line):
-    env = dict(os.environ, NODE_PATH=str(REPO / 'node_modules'))
+    env = dict(os.environ, NODE_PATH=os.environ.get('NODE_PATH') or str(REPO / 'node_modules'))  # CI sets NODE_PATH
     return json.loads(subprocess.run(['node', '-e', JS, line], capture_output=True, text=True, check=True, env=env).stdout)
 class T(unittest.TestCase):
     def test_original_removal_retriggers_observer(self):
