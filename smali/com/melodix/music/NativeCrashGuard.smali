@@ -241,7 +241,7 @@
 
     move-result-object v2
 
-    if-nez v1, :toast_stage
+    if-eqz v1, :toast_stage
 
     new-instance v3, Ljava/lang/StringBuilder;
 
@@ -272,7 +272,7 @@
 
     move-result v1
 
-    if-eqz v1, :toast_alive
+    if-nez v1, :toast_alive
 
     new-instance v1, Ljava/lang/StringBuilder;
 
