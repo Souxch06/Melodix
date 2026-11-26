@@ -2,7 +2,7 @@ name: User APK connected walk (test account)
 on:
   push:
     branches: [claude/melodix-native-login-visibility-xfjyai]
-    paths: [scripts/user_apk_connected.sh, scripts/devtools_login.js, .github/workflows/user-apk-connected.yml]
+    paths: [scripts/user_apk_connected.sh, scripts/ui_login.py, scripts/devtools_login.js, .github/workflows/user-apk-connected.yml]
 permissions:
   contents: read
 jobs:

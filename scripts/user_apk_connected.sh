@@ -20,7 +20,7 @@ for m in re.finditer(r'<node [^>]*>', x):
 adb logcat -c
 adb shell am start -W -n "$pkg/com.melodix.music.MainActivity" > /dev/null; sleep 8
 shot 00-before-login
-fwd; timeout 150 node scripts/devtools_login.js > "$out/login-result.txt" 2>&1; echo "login exit $?" >> "$out/login-result.txt"
+timeout 200 python3 scripts/ui_login.py > "$out/login-result.txt" 2>&1; echo "login exit $?" >> "$out/login-result.txt"
 sleep 20; shot 01-after-login-20s
 sleep 20; shot 02-home-40s
 tap_text "Rechercher"; sleep 6; shot 03-search
