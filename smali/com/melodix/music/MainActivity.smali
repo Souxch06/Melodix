@@ -8811,7 +8811,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 .end method
 
 .method public final showNativeUiFrom(Ljava/lang/String;Ljava/lang/String;)V
-    .locals 5
+    .locals 7
 
     invoke-static {p0}, Lcom/melodix/music/NativeSessionGate;->blocked(Lcom/melodix/music/MainActivity;)Z
     move-result v0
@@ -8983,6 +8983,9 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     const/4 v4, 0x1
     const/4 v2, 0x0
     invoke-virtual {v1, v2}, Landroid/view/View;->setVisibility(I)V
+    const-string v5, "MDXTRACE"
+    const-string v6, "native-root-set-visible"
+    invoke-static {v5, v6}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
     iget-object v2, p0, Lcom/melodix/music/MainActivity;->N:Landroid/widget/FrameLayout;
     if-eqz v2, :native_webview_kept_mounted
     const/4 v3, 0x0
