@@ -14,6 +14,7 @@ jobs:
     env:
       APK: diagnostics/user-apk/Melodix-Preview-glass-a098738.apk
       APK_SHA256: 23a0b3e71ebfd8ec02dc10cefd41f5214c4e18afe965136e06551c9fe6334626
+      ANDROID_AVD_HOME: /home/runner/.android/avd
     steps:
       - uses: actions/checkout@v4
       - name: Check APK
@@ -24,6 +25,7 @@ jobs:
           sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
       - name: Emulator
         run: |
+          mkdir -p $ANDROID_AVD_HOME
           SDKM=$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager
           yes | $SDKM --licenses > /dev/null || true
           $SDKM --install emulator platform-tools "system-images;android-36;google_apis;x86_64" > /dev/null
