@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Standalone diagnostic: no INTERNET permission, so it cannot send anything anywhere. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.melodix.diag">
+    <application
+        android:label="Melodix Diag"
+        android:allowBackup="false"
+        android:supportsRtl="false">
+        <activity
+            android:name="com.melodix.diag.DiagActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <service
+            android:name="com.melodix.diag.DiagListenerService"
+            android:exported="true"
+            android:label="Melodix Diag"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+    </application>
+</manifest>
