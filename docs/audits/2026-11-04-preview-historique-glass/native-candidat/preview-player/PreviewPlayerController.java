@@ -980,7 +980,21 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
         bridgeMarkAt = t;
         try { w.evaluateJavascript(BRIDGE_MARK, new ValueCallback<String>() { public void onReceiveValue(String v) { if ("1".equals(v)) bridgeMarks++; } }); } catch (Throwable e) { }
     }
+    // Spotify's page clock can restart at 0 after the app returns (same track, still playing).
+    // shortcut: a manual drag back to the start is held until the page passes the old position, upgrade: detect user drags.
+    private String guardPageClockReset(String json) {
+        try {
+            JSONObject o = new JSONObject(json);
+            if (seekPending || !"playing".equals(o.optString("previewPlaybackState", "")) || !o.optString("track", "").equals(identityTitle)) return json;
+            long pos = o.optLong("previewPositionMs", -1), dur = o.optLong("previewDurationMs", -1);
+            if (pos < 0) return json;
+            double prev = positionUnderlying(now());
+            if (!(prev > 10000 && prev < dur - 3000 && pos < prev - 5000)) return json;
+            return o.put("previewProgressValid", false).toString();
+        } catch (Exception e) { return json; }
+    }
     public void snapshot(String json) {
+        json = guardPageClockReset(json);
         markBridge();
         try {
             JSONObject o = new JSONObject(json);

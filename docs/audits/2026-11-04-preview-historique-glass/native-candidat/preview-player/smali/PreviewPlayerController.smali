@@ -12984,8 +12984,91 @@
     return-void
 .end method
 
+.method private guardPageClockReset(Ljava/lang/String;)Ljava/lang/String;
+    .locals 20
+    .param p1, "json"
+
+    move-object/from16 v19, p0
+    move-object/from16 v18, p1
+
+    :try_start_guard
+    new-instance v0, Lorg/json/JSONObject;
+    invoke-direct {v0, v18}, Lorg/json/JSONObject;-><init>(Ljava/lang/String;)V
+
+    iget-boolean v1, v19, Lcom/melodix/music/PreviewPlayerController;->seekPending:Z
+    if-nez v1, :keep_guard
+
+    const-string v1, "previewPlaybackState"
+    const-string v2, ""
+    invoke-virtual {v0, v1, v2}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v1
+    const-string v2, "playing"
+    invoke-virtual {v2, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :keep_guard
+
+    const-string v1, "track"
+    const-string v2, ""
+    invoke-virtual {v0, v1, v2}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v1
+    iget-object v2, v19, Lcom/melodix/music/PreviewPlayerController;->identityTitle:Ljava/lang/String;
+    invoke-virtual {v1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :keep_guard
+
+    const-string v1, "previewPositionMs"
+    const-wide/16 v2, -0x1
+    invoke-virtual {v0, v1, v2, v3}, Lorg/json/JSONObject;->optLong(Ljava/lang/String;J)J
+    move-result-wide v2
+    const-wide/16 v4, 0x0
+    cmp-long v1, v2, v4
+    if-ltz v1, :keep_guard
+
+    invoke-direct {v19}, Lcom/melodix/music/PreviewPlayerController;->now()J
+    move-result-wide v4
+    invoke-direct {v19, v4, v5}, Lcom/melodix/music/PreviewPlayerController;->positionUnderlying(J)D
+    move-result-wide v6
+
+    const-string v1, "previewDurationMs"
+    const-wide/16 v8, -0x1
+    invoke-virtual {v0, v1, v8, v9}, Lorg/json/JSONObject;->optLong(Ljava/lang/String;J)J
+    move-result-wide v8
+
+    const-wide v14, 0x40c3880000000000L
+    cmpl-double v1, v6, v14
+    if-lez v1, :keep_guard
+
+    long-to-double v12, v8
+    const-wide v14, 0x40a7700000000000L
+    sub-double v12, v12, v14
+    cmpg-double v1, v6, v12
+    if-gez v1, :keep_guard
+
+    long-to-double v12, v2
+    const-wide v14, 0x40b3880000000000L
+    sub-double v14, v6, v14
+    cmpg-double v1, v12, v14
+    if-gez v1, :keep_guard
+
+    const-string v1, "previewProgressValid"
+    const/4 v10, 0x0
+    invoke-virtual {v0, v1, v10}, Lorg/json/JSONObject;->put(Ljava/lang/String;Z)Lorg/json/JSONObject;
+    invoke-virtual {v0}, Lorg/json/JSONObject;->toString()Ljava/lang/String;
+    move-result-object v1
+    return-object v1
+
+    :try_end_guard
+    .catch Lorg/json/JSONException; {:try_start_guard .. :try_end_guard} :keep_guard
+
+    :keep_guard
+    return-object p1
+.end method
+
 .method public snapshot(Ljava/lang/String;)V
     .locals 53
+
+    invoke-direct/range {p0 .. p1}, Lcom/melodix/music/PreviewPlayerController;->guardPageClockReset(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object p1
 
     .line 984
     move-object/from16 v11, p0

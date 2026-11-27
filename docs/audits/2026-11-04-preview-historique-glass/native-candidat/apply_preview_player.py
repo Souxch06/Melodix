@@ -22,7 +22,7 @@ EXPECTED = {
     'res/layout-w600dp/activity_main.xml': '4d110f1df062fdf7676b9aa5e70146dd7ec148da3c0c614a553b5586ad5af8fe',
     'res/drawable/widget_progress_drawable.xml': '3a5f8f51ea984c7a8226d5acd69bf6b20383ca9622843d617b055c9fe18d772f',
 }
-SOURCE_SHA = 'daf921af266eb3f94c70634e3d7434a005542f173a18f088219c60000fb13198'
+SOURCE_SHA = '6ce8c803ea29e66b42c1d0980f5f5b48d1db3adf9c7ba0de7f51774240ffef0f'
 HELPER_SHA = {
     'PreviewPlayerController$1.smali': '04b724419c430be5f4ebacc3a1d443d30f480de152d809128c94ac4f13f4296c',
     'PreviewPlayerController$2.smali': 'ff9f8f02b423a2b9de58a5fb8ed5244f555f3bf9478776834d9e5bcb3616d39e',
@@ -87,7 +87,7 @@ HELPER_SHA = {
     'PreviewPlayerControllerPlayAll$29$1.smali': 'c22928e05317817133e47bd26847e906eb474be399990f75dcf57128d28e5f2a',
     'PreviewPlayerControllerPlayAll$29.smali': 'd92f608ea512a88110a777099b3c62f1236081158c516f536f9e229567ef97f9',
     'PreviewPlayerControllerPlayAll$30.smali': '264d7752d61e7369677d28cea8a67ea34ae651da11c37f6521b803b9b5de0f94',
-    'PreviewPlayerController.smali': 'fe463f82acc19cc6f4cf6a19361ce07ded8d1404cacf3e58c1b3df5b748fd8ac',
+    'PreviewPlayerController.smali': '43c94f8e8b784afa8084cc150c0883e8772808361b441c31c6991be69fb9e3b0',
     'PreviewLastTrackStore$1$1.smali': '945ee7420a49b41550b889369932b30e3f0f43943fdb46700d0dbfaf550792dc',
     'PreviewLastTrackStore$1.smali': '8f54f12ff47b7a995072f2255a1c28ffa996e311e8865cd8550330758557ace2',
     'PreviewLastTrackStore$2.smali': '1e3ffc3af8858e6b6f609c18bdf689f5d00d0aaf1c592a201844e24fb91c5aaa',
@@ -339,21 +339,12 @@ def prepare(root):
         var playing = playbackSnapshot().playing;
         var at = window.performance && typeof window.performance.now === 'function' ? window.performance.now() : Date.now();
         var valid = info.previewDurationMs > 0 && info.previewPositionMs >= 0 && info.previewPositionMs <= info.previewDurationMs;
-        // Spotify's page clock can restart at 0 after the app returns (same track, still playing).
-        // Keep the last good position until the clock passes it again; the native bar keeps its own timer.
-        // Not near the end of a track, where a restart is a real repeat.
-        // shortcut: a manual drag back to the start is held until the page passes the old position, upgrade: detect user drags.
-        var clockReset = valid && playing && !!info.previewTrackUri && info.previewTrackUri === previewLastTrack && previewLastPosition > 10000 &&
-            previewLastPosition < info.previewDurationMs - 3000 && info.previewPositionMs < previewLastPosition - 2000;
-        if (clockReset) valid = false;
         var advancing = valid && playing && !!info.previewTrackUri && info.previewTrackUri === previewLastTrack && info.previewProgressSource === previewLastSource &&
             previewLastPosition >= 0 && info.previewPositionMs > previewLastPosition &&
             at >= previewLastObservation && at - previewLastObservation <= 5000;
-        if (!clockReset) {
-            previewLastTrack = valid ? info.previewTrackUri : '';
-            previewLastSource = valid ? info.previewProgressSource : 'none';
-            previewLastPosition = valid ? info.previewPositionMs : -1;
-        }
+        previewLastTrack = valid ? info.previewTrackUri : '';
+        previewLastSource = valid ? info.previewProgressSource : 'none';
+        previewLastPosition = valid ? info.previewPositionMs : -1;
         previewLastObservation = at;
         return {''')
     s = replace(s, '''            playing: playbackSnapshot().playing,
