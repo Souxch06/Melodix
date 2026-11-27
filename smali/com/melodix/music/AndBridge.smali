@@ -3237,9 +3237,8 @@
     move-result v5
     and-int/2addr v4, v5
     if-nez v4, :skip_meta
-    const-string v4, "playing"
-    invoke-virtual {p0, v4}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;)Z
-    move-result v4
+    # zi1.b(false) builds and publishes the metadata; zi1.b(true) skips it (same value the service uses at creation).
+    const/4 v4, 0x0
     invoke-static {v4}, Lzi1;->b(Z)V
     :skip_meta
     .line 42

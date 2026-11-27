@@ -17,5 +17,5 @@ assert '.locals 8' in body, 'registers for the new code must be declared'
 assert 'PreviewPlayerController;->artistFor(Ljava/lang/String;)' in body, 'artist substitution missing'
 assert body.index('artistFor') < body.index('WebService;->u:Ljava/lang/String;\n    # Republish'), 'artist must be set before the republish check'
 assert 'Lzi1;->b(Z)V' in body and body.rindex(':skip_meta') > body.index('Lzi1;->b(Z)V'), 'republish guard missing'
-assert 'and-int/2addr v4, v5' in body and 'if-nez v4, :skip_meta' in body, 'unchanged-metadata skip missing'
+assert 'const/4 v4, 0x0' in body and 'and-int/2addr v4, v5' in body and 'if-nez v4, :skip_meta' in body, 'unchanged-metadata skip missing'
 print('notification metadata smali structure: OK')
