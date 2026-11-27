@@ -3184,7 +3184,7 @@
 .end method
 
 .method public final recMediaStatus(Ljava/lang/String;)V
-    .locals 4
+    .locals 8
     .annotation runtime Landroid/webkit/JavascriptInterface;
     .end annotation
     invoke-virtual {p1}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
@@ -3211,6 +3211,7 @@
     move-result v0
     if-nez v0, :cond_4
     .line 25
+    sget-object v4, Lcom/melodix/music/WebService;->v:Ljava/lang/String;
     invoke-virtual {p1}, Ljava/lang/Object;->toString()Ljava/lang/String;
     .line 27
     move-result-object p1
@@ -3223,9 +3224,24 @@
     move-result-object p1
     invoke-virtual {p1}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
     .line 39
+    sget-object v5, Lcom/melodix/music/WebService;->u:Ljava/lang/String;
     invoke-static {p1}, Lcom/melodix/music/PreviewPlayerController;->artistFor(Ljava/lang/String;)Ljava/lang/String;
     move-result-object p1
     sput-object p1, Lcom/melodix/music/WebService;->u:Ljava/lang/String;
+    # Republish the native session metadata only when the title or artist changed.
+    sget-object v6, Lcom/melodix/music/WebService;->v:Ljava/lang/String;
+    sget-object v7, Lcom/melodix/music/WebService;->u:Ljava/lang/String;
+    invoke-virtual {v6, v4}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v4
+    invoke-virtual {v7, v5}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v5
+    and-int/2addr v4, v5
+    if-nez v4, :skip_meta
+    const-string v4, "playing"
+    invoke-virtual {p0, v4}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;)Z
+    move-result v4
+    invoke-static {v4}, Lzi1;->b(Z)V
+    :skip_meta
     .line 42
     const-string p1, "position"
     .line 44
