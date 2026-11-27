@@ -1017,7 +1017,7 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 !sameArtists(identityArtist, artist) || identityDuration != dur);
             if (skipUntil > t) {
                 // Until the new track shows up, the old one must not pull the bar back.
-                if (changed) { skipUntil = -1; handler.removeCallbacks(undim); dimTrack(1f); }
+                if (changed) { skipUntil = -1; handler.removeCallbacks(undim); dimTrack(1f); pos = Math.min(pos, t - tapAt); /* new track cannot be past the skip tap */ }
                 else if (identified) return;
             }
             double previous = positionUnderlying(t);
@@ -1139,9 +1139,11 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
                 } else if (resumeReady && !seekPending) {
                     // Small discrepancies reconcile at <=1.25x; larger ones
                     // jump. Neither is evidence that background audio played.
+                    // A page clock frozen in the background reads late on return: never pull the bar back while playing.
+                    if (real && pos < previous) { base = previous; anchor = t; correction = 0; recordReturn("retour : mesure en retard ignorée"); } else {
                     boolean jump = !real || Math.abs(pos - previous) >= 3000;
                     base = jump ? pos : previous; anchor = t; correction = jump ? 0 : pos - previous;
-                    recordReturn(jump ? "retour : saut" : "retour : correction <=1,25x");
+                    recordReturn(jump ? "retour : saut" : "retour : correction <=1,25x"); }
                 } else if (seekConfirmed && !real) {
                     base = Math.max(0, Math.min(dur, previous)); anchor = t; correction = pos - previous;
                 } else if (changedMeasure && !real && !freezePendingPause) {

@@ -13480,6 +13480,17 @@
 
     invoke-direct {v11, v7}, Lcom/melodix/music/PreviewPlayerController;->dimTrack(F)V
 
+    iget-wide v7, v11, Lcom/melodix/music/PreviewPlayerController;->tapAt:J
+
+    sub-long v7, v5, v7
+
+    cmp-long v29, v13, v7
+
+    if-lez v29, :melodix_skip_pos_ok
+
+    move-wide v13, v7
+
+    :melodix_skip_pos_ok
     goto :goto_9
 
     .line 1021
@@ -15313,6 +15324,29 @@
     if-nez v1, :cond_57
 
     .line 1142
+    if-eqz v15, :melodix_ret_nolate
+
+    long-to-double v1, v11
+
+    cmpg-double v1, v1, v33
+
+    if-gez v1, :melodix_ret_nolate
+
+    move-wide/from16 v2, v33
+
+    iput-wide v2, v8, Lcom/melodix/music/PreviewPlayerController;->base:D
+
+    iput-wide v6, v8, Lcom/melodix/music/PreviewPlayerController;->anchor:J
+
+    const-wide/16 v2, 0x0
+
+    iput-wide v2, v8, Lcom/melodix/music/PreviewPlayerController;->correction:D
+
+    const-string v1, "retour : mesure en retard ignor\u00e9e"
+
+    goto :goto_35
+
+    :melodix_ret_nolate
     if-eqz v15, :cond_53
 
     long-to-double v1, v11
