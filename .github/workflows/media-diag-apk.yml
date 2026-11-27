@@ -3,6 +3,8 @@ name: Build Melodix media diagnostic APK
 # Dedicated diagnostic build. Manual trigger only; not a Melodix Preview.
 on:
   workflow_dispatch:
+  push:
+    branches: [diag/media-sessions]
 
 permissions:
   contents: read
