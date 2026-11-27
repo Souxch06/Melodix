@@ -12985,17 +12985,17 @@
 .end method
 
 .method private guardPageClockReset(Ljava/lang/String;)Ljava/lang/String;
-    .locals 20
+    .locals 16
     .param p1, "json"
 
-    move-object/from16 v19, p0
-    move-object/from16 v18, p1
+    move-object/from16 v11, p0
+    move-object/from16 v10, p1
 
     :try_start_guard
     new-instance v0, Lorg/json/JSONObject;
-    invoke-direct {v0, v18}, Lorg/json/JSONObject;-><init>(Ljava/lang/String;)V
+    invoke-direct {v0, v10}, Lorg/json/JSONObject;-><init>(Ljava/lang/String;)V
 
-    iget-boolean v1, v19, Lcom/melodix/music/PreviewPlayerController;->seekPending:Z
+    iget-boolean v1, v11, Lcom/melodix/music/PreviewPlayerController;->seekPending:Z
     if-nez v1, :keep_guard
 
     const-string v1, "previewPlaybackState"
@@ -13011,7 +13011,7 @@
     const-string v2, ""
     invoke-virtual {v0, v1, v2}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
     move-result-object v1
-    iget-object v2, v19, Lcom/melodix/music/PreviewPlayerController;->identityTitle:Ljava/lang/String;
+    iget-object v2, v11, Lcom/melodix/music/PreviewPlayerController;->identityTitle:Ljava/lang/String;
     invoke-virtual {v1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
     if-eqz v1, :keep_guard
@@ -13024,9 +13024,9 @@
     cmp-long v1, v2, v4
     if-ltz v1, :keep_guard
 
-    invoke-direct {v19}, Lcom/melodix/music/PreviewPlayerController;->now()J
+    invoke-direct {v11}, Lcom/melodix/music/PreviewPlayerController;->now()J
     move-result-wide v4
-    invoke-direct {v19, v4, v5}, Lcom/melodix/music/PreviewPlayerController;->positionUnderlying(J)D
+    invoke-direct {v11, v4, v5}, Lcom/melodix/music/PreviewPlayerController;->positionUnderlying(J)D
     move-result-wide v6
 
     const-string v1, "previewDurationMs"
