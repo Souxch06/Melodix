@@ -3770,6 +3770,8 @@
     const/4 v9, 0x1
 
     :cond_34
+    iget-boolean v9, v0, Lcom/melodix/music/PreviewPlayerMode;->running:Z
+
     invoke-virtual {v0, v9}, Lcom/melodix/music/PreviewPlayerMode;->setEnabled(Z)V
 
     if-eqz v2, :cond_36

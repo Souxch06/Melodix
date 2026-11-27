@@ -36,7 +36,7 @@ stubs={
  public static void main(String[] z) throws Exception {
  PreviewPlayerMode.melodixOwned=false; // page-job path below; the Melodix-owned path is checked at the end
  for(String kind:new String[]{"like","shuffle","repeat"}){
-  Activity a=page();PreviewPlayerMode m=boot(a,kind);ok(kind.equals("like")?m.enabled:!m.enabled);ok(m.description.startsWith("Chargement :"));
+  Activity a=page();PreviewPlayerMode m=boot(a,kind);ok(m.enabled); /* user report: a disabled shuffle/repeat swallowed taps */ok(m.description.startsWith("Chargement :"));
   // Control not recognised in the narrow bar: the button stays usable but neutral, never a fake state.
   Handler.step();a.G.reply(data("unknown")+";reason=control");Handler.advance(2500);ok(m.enabled);ok(m.description.startsWith("État inconnu"));
   // Known state: one tap starts one page job with the shown state and native title; second tap blocked.
@@ -58,9 +58,9 @@ stubs={
  Activity mismatch=page();PreviewPlayerMode ident=boot(mismatch,"like");Handler.step();mismatch.G.reply("state=true;track=;title=Titre;reason=observed");Handler.advance(2500);ok(!ident.description.startsWith("Titre aimé"));ident.onDetachedFromWindow();
  mismatch=page();ident=boot(mismatch,"like");Handler.step();mismatch.G.reply("state=true;track=track:abc;title=Different;reason=observed");Handler.advance(2500);ok(!ident.description.startsWith("Titre aimé"));ident.onDetachedFromWindow();
  // Nothing playing: disabled reason, the tap sends nothing.
- Activity t=page();PreviewPlayerMode sh=boot(t,"shuffle");Handler.step();t.G.reply("state=unknown;reason=bar");Handler.advance(2500);int before=t.G.calls;ok(!sh.enabled);ok(sh.description.contains("barre du lecteur Spotify absente"));sh.performClick();ok(t.G.calls==before);sh.onDetachedFromWindow();
+ Activity t=page();PreviewPlayerMode sh=boot(t,"shuffle");Handler.step();t.G.reply("state=unknown;reason=bar");Handler.advance(2500);int before=t.G.calls;ok(sh.enabled);ok(sh.description.contains("barre du lecteur Spotify absente"));sh.performClick();ok(t.G.calls==before);sh.onDetachedFromWindow();
  // Restricted shuffle stays disabled with its reason.
- t=page();sh=boot(t,"shuffle");Handler.step();t.G.reply("state=unknown;reason=restriction");Handler.advance(2500);ok(!sh.enabled);ok(sh.description.contains("pas disponible"));sh.onDetachedFromWindow();
+ t=page();sh=boot(t,"shuffle");Handler.step();t.G.reply("state=unknown;reason=restriction");Handler.advance(2500);ok(sh.enabled);ok(sh.description.contains("pas disponible"));sh.onDetachedFromWindow();
  // Like read-only outcome updates the state without claiming an action.
  t=page();PreviewPlayerMode like=boot(t,"like");Handler.step();t.G.reply(data("unknown")+";reason=control");Handler.advance(2500);like.performClick();ok(t.G.js.contains("\\"unknown\\""));t.G.reply("status=started");Handler.advance(250);t.G.reply("status=done;outcome=read;state=true;method=now-playing-view");ok(like.description.startsWith("Titre aimé"));ok(Toast.message==null||!Toast.message.contains("Déjà"));like.onDetachedFromWindow();
  // No such control anywhere in the page (reason=absent): never a fake state.

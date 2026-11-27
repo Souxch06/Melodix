@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Back from the Library returns to Home; only Home leaves the app (last patch, no pinned hash).
 
+Uses the Home tab action: onNativeBackClick restores the saved return screen, which on device was still Library.
+
 The followup patch sends a Library Back straight to moveTaskToBack, so Back looks like an exit.
 Spotify goes Library -> Home first. Only the Library check changes: Home and Search still background.
 """
@@ -10,7 +12,7 @@ SOURCE = 'smali/com/melodix/music/MainActivity.smali'
 OLD = ('    if-eqz v2, :not_handled\n    :background\n    const/4 v0, 0x1\n'
        '    invoke-virtual {p0, v0}, Landroid/app/Activity;->moveTaskToBack(Z)Z\n    const/4 v0, 0x1\n    return v0\n    :handle')
 NEW = ('    if-nez v2, :lib_home\n    goto :not_handled\n    :lib_home\n'
-       '    const/4 v0, 0x0\n    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->onNativeBackClick(Landroid/view/View;)V\n'
+       '    const/4 v0, 0x0\n    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->onNativeHomeClick(Landroid/view/View;)V\n'
        '    const/4 v0, 0x1\n    return v0\n'
        '    :background\n    const/4 v0, 0x1\n'
        '    invoke-virtual {p0, v0}, Landroid/app/Activity;->moveTaskToBack(Z)Z\n    const/4 v0, 0x1\n    return v0\n    :handle')

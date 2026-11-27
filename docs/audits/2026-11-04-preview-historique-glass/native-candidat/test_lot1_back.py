@@ -68,6 +68,7 @@ def execute(src,name,state,args=None):
             elif '->lot1PopBack' in target:execute(src,'lot1PopBack',state)
             elif '->lot1ClearBack' in target:execute(src,'lot1ClearBack',state)
             elif '->onNativeBackClick' in target:execute(src,'onNativeBackClick',state)
+            elif '->onNativeHomeClick' in target:state['nativeCurrentScreen']='home';state['renders'].append(('Accueil','home'))
             elif '->setNativeScreen' in target:state['nativeCurrentScreen']=values[1]
             elif '->renderNativeRows' in target:state['renders'].append(tuple(values[1:]))
             else:raise AssertionError('unsupported '+target)

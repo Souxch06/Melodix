@@ -326,7 +326,7 @@ public final class PreviewPlayerMode extends ImageButton {
         if(locked){active=true;desc=LOCKED;if(drawable("shuffle")!=0)setImageResource(drawable("shuffle"));}
         setColorFilter(active?0xffffffff:0xffa1a1aa);setContentDescription(pending?desc+", en attente":desc);
         if(locked||looping||loopOff){setEnabled(true);setAlpha(1f);invalidate();return;}
-        setEnabled(known||tap||(kind.equals("like")&&running)); setAlpha(tap?(shuffleMissing()?0.5f:0.8f):kind.equals("like")?(pending?0.65f:known?1f:0.35f):!known?(loading?0.65f:0.35f):pending?0.65f:1.0f);invalidate();
+        setEnabled(running); /* a disabled button swallowed taps silently; invoke() guards and explains each refusal */ setAlpha(tap?(shuffleMissing()?0.5f:0.8f):kind.equals("like")?(pending?0.65f:known?1f:0.35f):!known?(loading?0.65f:0.35f):pending?0.65f:1.0f);invalidate();
     }
     private void sync() {
         boolean visible=isAttachedToWindow() && isShown() && getWindowVisibility()==View.VISIBLE;
