@@ -339,12 +339,21 @@ def prepare(root):
         var playing = playbackSnapshot().playing;
         var at = window.performance && typeof window.performance.now === 'function' ? window.performance.now() : Date.now();
         var valid = info.previewDurationMs > 0 && info.previewPositionMs >= 0 && info.previewPositionMs <= info.previewDurationMs;
+        // Spotify's page clock can restart at 0 after the app returns (same track, still playing).
+        // Keep the last good position until the clock passes it again; the native bar keeps its own timer.
+        // Not near the end of a track, where a restart is a real repeat.
+        // shortcut: a manual drag back to the start is held until the page passes the old position, upgrade: detect user drags.
+        var clockReset = valid && playing && !!info.previewTrackUri && info.previewTrackUri === previewLastTrack && previewLastPosition > 10000 &&
+            previewLastPosition < info.previewDurationMs - 3000 && info.previewPositionMs < previewLastPosition - 2000;
+        if (clockReset) valid = false;
         var advancing = valid && playing && !!info.previewTrackUri && info.previewTrackUri === previewLastTrack && info.previewProgressSource === previewLastSource &&
             previewLastPosition >= 0 && info.previewPositionMs > previewLastPosition &&
             at >= previewLastObservation && at - previewLastObservation <= 5000;
-        previewLastTrack = valid ? info.previewTrackUri : '';
-        previewLastSource = valid ? info.previewProgressSource : 'none';
-        previewLastPosition = valid ? info.previewPositionMs : -1;
+        if (!clockReset) {
+            previewLastTrack = valid ? info.previewTrackUri : '';
+            previewLastSource = valid ? info.previewProgressSource : 'none';
+            previewLastPosition = valid ? info.previewPositionMs : -1;
+        }
         previewLastObservation = at;
         return {''')
     s = replace(s, '''            playing: playbackSnapshot().playing,
