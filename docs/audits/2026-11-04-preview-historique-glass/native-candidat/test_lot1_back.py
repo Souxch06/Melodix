@@ -150,8 +150,10 @@ class Tests(unittest.TestCase):
                 s={'shown':shown,'renders':[],'nativeCurrentScreen':screen}
                 expected = int(followup and shown and screen in ('home','search','library'))
                 self.assertEqual(execute(self.activity,'tryLot1NativeBack',s),expected)
-                self.assertEqual(s.get('backgrounded',False),bool(expected))
-                self.assertEqual(s['nativeCurrentScreen'],screen);self.assertEqual(s['renders'],[])
+                # Library goes back to Home (renders Home rows); only Home and Search leave the app.
+                self.assertEqual(s.get('backgrounded',False),bool(expected and screen!='library'))
+                self.assertEqual(s['nativeCurrentScreen'],'home' if (followup and shown and screen=='library') else screen)
+                if screen!='library': self.assertEqual(s['renders'],[])
 
 
 if __name__=='__main__':unittest.main(verbosity=2)
