@@ -1007,6 +1007,8 @@ jobs:
           python3 "$audit/native-candidat/apply_honest_login_ua.py" "$work"
           phase="Library Back returns to Home (only Home leaves the app)"
           python3 "$audit/native-candidat/apply_library_back_home.py" "$work"
+          phase="Notification Repeat toggles the app loop"
+          python3 "$audit/native-candidat/apply_notif_repeat_loop.py" "$work"
           phase="build unsigned APK"
           java -jar "$RUNNER_TEMP/apktool.jar" b "$work" -p "$RUNNER_TEMP/framework" -o "$RUNNER_TEMP/unsigned.apk" --force-all
           # Check the actual compiled dex (decoded back to Smali), not just source.
