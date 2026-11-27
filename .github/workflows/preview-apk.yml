@@ -1332,6 +1332,16 @@ jobs:
               assert r['sha256_9016'] == ASSET_SHA256[r['file']]
               assert r['sha256_candidate'] == r['sha256_9016'] and r['identical'] == 'yes'
           PYCODE
+      - name: Name the APK after its versionCode
+        run: |
+          set -euo pipefail
+          code="$(sed -n "s/^package:.*versionCode='\([0-9]*\)'.*/\1/p" "$RUNNER_TEMP/badging.txt")"
+          test -n "$code"
+          cd preview-output
+          mv Melodix-Preview-historique-glass.apk "Melodix-Preview-$code.apk"
+          if [[ -f Melodix-Preview-historique-glass.apk.idsig ]]; then mv Melodix-Preview-historique-glass.apk.idsig "Melodix-Preview-$code.apk.idsig"; fi
+          sha256sum "Melodix-Preview-$code.apk" > "Melodix-Preview-$code.apk.sha256"
+          rm -f Melodix-Preview-historique-glass.apk.sha256
       - name: Upload Preview artifact only (no release)
         uses: actions/upload-artifact@v4
         with:
