@@ -3223,6 +3223,8 @@
     move-result-object p1
     invoke-virtual {p1}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
     .line 39
+    invoke-static {p1}, Lcom/melodix/music/PreviewPlayerController;->artistFor(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object p1
     sput-object p1, Lcom/melodix/music/WebService;->u:Ljava/lang/String;
     .line 42
     const-string p1, "position"

@@ -347,6 +347,14 @@ public class ControllerTest {
      { PreviewPlayerController qc=new PreviewPlayerController(new Activity());yes(PreviewPlayerControllerQueue.start(q,"spotify:track:A"));qc.queueTick("spotify:track:Z",1000,200000);yes(!PreviewPlayerControllerQueue.isEmpty());yes("spotify:track:A".equals(PreviewPlayerControllerQueue.current())); }
      yes(PreviewPlayerControllerQueue.snapshot()!=null);PreviewPlayerControllerQueue.clear();yes(PreviewPlayerControllerQueue.snapshot()==null);
      PreviewPlayerControllerQueue.clear(); }
+  // Artist regression (notification showed "No Artist" while the app showed the artist):
+  // a missing artist takes the page's real artist for the same title only, never a previous track's.
+  yes(PreviewPlayerController.artistFor("No Artist","Everyday").equals("No Artist"));
+  yes(PreviewPlayerController.artistFor("","Everyday").isEmpty());
+  yes(PreviewPlayerController.artistFor("Jon Lajoie","Everyday").equals("Jon Lajoie"));
+  PreviewPlayerController.knownTitle="Everyday"; PreviewPlayerController.knownArtist="Jon Lajoie";
+  yes(PreviewPlayerController.artistFor("No Artist","Everyday").equals("Jon Lajoie"));
+  yes(PreviewPlayerController.artistFor("No Artist","Teeth").equals("No Artist"));
   System.out.println("Preview controller JVM simulation passed");
  }
 }''',

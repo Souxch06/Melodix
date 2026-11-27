@@ -15,6 +15,8 @@
 .field private static final CORRECTION_MS:J = 0xfa0L
 
 .field private static final COVER_STORE:Ljava/lang/String; = "preview_cover"
+.field public static knownTitle:Ljava/lang/String;
+.field public static knownArtist:Ljava/lang/String;
 
 .field private static final DURATION:I = 0x7f09024b
 
@@ -12984,6 +12986,34 @@
     return-void
 .end method
 
+.method public static artistFor(Ljava/lang/String;)Ljava/lang/String;
+    .locals 2
+    .param p0, "artist"
+
+    const-string v0, "No Artist"
+    invoke-virtual {v0, p0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-nez v0, :missing
+    invoke-virtual {p0}, Ljava/lang/String;->isEmpty()Z
+    move-result v0
+    if-eqz v0, :keep
+
+    :missing
+    sget-object v0, Lcom/melodix/music/WebService;->v:Ljava/lang/String;
+    if-eqz v0, :keep
+    sget-object v1, Lcom/melodix/music/PreviewPlayerController;->knownTitle:Ljava/lang/String;
+    if-eqz v1, :keep
+    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-eqz v0, :keep
+    sget-object v0, Lcom/melodix/music/PreviewPlayerController;->knownArtist:Ljava/lang/String;
+    if-eqz v0, :keep
+    return-object v0
+
+    :keep
+    return-object p0
+.end method
+
 .method private guardPageClockReset(Ljava/lang/String;)Ljava/lang/String;
     .locals 16
     .param p1, "json"
@@ -12994,6 +13024,25 @@
     :try_start_guard
     new-instance v0, Lorg/json/JSONObject;
     invoke-direct {v0, v10}, Lorg/json/JSONObject;-><init>(Ljava/lang/String;)V
+
+    const-string v1, "track"
+    const-string v2, ""
+    invoke-virtual {v0, v1, v2}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v1
+    const-string v2, "artist"
+    const-string v3, ""
+    invoke-virtual {v0, v2, v3}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v2
+    const-string v3, "No Artist"
+    invoke-virtual {v3, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v3
+    if-nez v3, :skip_known
+    invoke-virtual {v2}, Ljava/lang/String;->isEmpty()Z
+    move-result v3
+    if-nez v3, :skip_known
+    sput-object v1, Lcom/melodix/music/PreviewPlayerController;->knownTitle:Ljava/lang/String;
+    sput-object v2, Lcom/melodix/music/PreviewPlayerController;->knownArtist:Ljava/lang/String;
+    :skip_known
 
     iget-boolean v1, v11, Lcom/melodix/music/PreviewPlayerController;->seekPending:Z
     if-nez v1, :keep_guard

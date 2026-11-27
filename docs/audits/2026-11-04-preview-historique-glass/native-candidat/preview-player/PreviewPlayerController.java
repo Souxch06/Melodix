@@ -982,9 +982,17 @@ public final class PreviewPlayerController implements Choreographer.FrameCallbac
     }
     // Spotify's page clock can restart at 0 after the app returns (same track, still playing).
     // shortcut: a manual drag back to the start is held until the page passes the old position, upgrade: detect user drags.
+    static String knownTitle, knownArtist;
+    // Same track only: a missing artist shows the page's real artist, never the previous track's.
+    public static String artistFor(String artist, String title) {
+        if (!"No Artist".equals(artist) && !artist.isEmpty()) return artist;
+        return title != null && title.equals(knownTitle) && knownArtist != null ? knownArtist : artist;
+    }
     private String guardPageClockReset(String json) {
         try {
             JSONObject o = new JSONObject(json);
+            String kt = o.optString("track", ""), ka = o.optString("artist", "");
+            if (!ka.isEmpty() && !"No Artist".equals(ka)) { knownTitle = kt; knownArtist = ka; }
             if (seekPending || !"playing".equals(o.optString("previewPlaybackState", "")) || !o.optString("track", "").equals(identityTitle)) return json;
             long pos = o.optLong("previewPositionMs", -1), dur = o.optLong("previewDurationMs", -1);
             if (pos < 0) return json;
